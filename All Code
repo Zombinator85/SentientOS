@@ -583,11 +583,14 @@ memory_manager.py — Persistent Memory Core for SentientOS
 import os, json, hashlib, datetime
 from pathlib import Path
 from typing import List, Dict
+from sentence_transformers import SentenceTransformer
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "C:/SentientOS/logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
+EMBED_MODEL = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
+EMBEDDER = SentenceTransformer(EMBED_MODEL)
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
@@ -616,13 +619,16 @@ def _update_vector_index(entry: Dict):
         f.write(json.dumps(record) + "\n")
     print(f"[VECTOR] Index updated for {entry['id']}")
 
-def _bag_of_words(text: str) -> Dict[str, int]:
-    return {w: text.lower().split().count(w) for w in set(text.lower().split())}
+def _bag_of_words(text: str) -> List[float]:
+    """Return sentence embedding for the given text."""
+    return EMBEDDER.encode(text).tolist()
 
-def _cosine(a: Dict[str, int], b: Dict[str, int]) -> float:
-    dot = sum(a.get(t, 0) * b.get(t, 0) for t in a)
-    mag = (sum(v*v for v in a.values())**0.5) * (sum(v*v for v in b.values())**0.5)
-    return dot / mag if mag else 0.0
+def _cosine(a: List[float], b: List[float]) -> float:
+    """Cosine similarity between two embedding vectors."""
+    dot = sum(x*y for x, y in zip(a, b))
+    mag_a = sum(x*x for x in a) ** 0.5
+    mag_b = sum(x*x for x in b) ** 0.5
+    return dot / (mag_a * mag_b) if mag_a and mag_b else 0.0
 
 def _load_index() -> List[Dict]:
     lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
