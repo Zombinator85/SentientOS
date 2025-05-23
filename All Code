@@ -8,6 +8,17 @@ load_dotenv()
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
+def post_with_retry(url, max_attempts=3, backoff=1, **kwargs):
+    """Send a POST request with retries and exponential backoff."""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return requests.post(url, **kwargs)
+        except Exception as e:
+            logging.error(f"[POST RETRY] {url} attempt {attempt} failed: {e}")
+            if attempt < max_attempts:
+                time.sleep(backoff * (2 ** (attempt - 1)))
+    return None
+
 BOT_TOKEN     = os.getenv("BOT_TOKEN_GPT4O")
 RELAY_URL     = os.getenv("RELAY_URL")
 RELAY_SECRET  = os.getenv("RELAY_SECRET")
@@ -17,43 +28,53 @@ CHUNK         = 4096
 SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 def send_typing(chat_id):
-    try:
-        requests.post(SEND_API.replace("/sendMessage", "/sendChatAction"),
-                      json={"chat_id": chat_id, "action": "typing"},
-                      timeout=8)
-    except Exception:
-        pass
+    res = post_with_retry(
+        SEND_API.replace("/sendMessage", "/sendChatAction"),
+        json={"chat_id": chat_id, "action": "typing"},
+        timeout=8,
+    )
+    if not res:
+        logging.error(f"[send_typing] Failed to send typing action for {chat_id}")
 
 def send_message(chat_id, text):
     for chunk in chunk_message(text, CHUNK):
         time.sleep(1.2)
-        try:
-            res = requests.post(SEND_API, json={"chat_id": chat_id, "text": chunk}, timeout=20)
+        res = post_with_retry(
+            SEND_API,
+            json={"chat_id": chat_id, "text": chunk},
+            timeout=20,
+        )
+        if res:
             logging.info(f"[SEND] GPT‑4o → {res.status_code}")
-        except Exception as e:
-            logging.exception("[ERROR] Telegram send failed")
+        else:
+            logging.error(f"[SEND] GPT‑4o message failed for chat {chat_id}")
 
 def handle_message_async(chat_id, txt):
     logging.info(f"[THREAD] GPT‑4o handling → {txt[:60]}")
     logging.info(f"[GPT‑4o BRIDGE] Using model slug: {MODEL_SLUG}")
     write_mem(txt, tags=["telegram", "gpt4o"], source="telegram:gpt4o")
     send_typing(chat_id)
-    try:
-        res = requests.post(
-            RELAY_URL,
-            json={"message": txt.strip(), "model": MODEL_SLUG},
-            headers={"X-Relay-Secret": RELAY_SECRET},
-            timeout=60
-        )
-        reply_chunks = res.json().get("reply_chunks", [])
+    res = post_with_retry(
+        RELAY_URL,
+        json={"message": txt.strip(), "model": MODEL_SLUG},
+        headers={"X-Relay-Secret": RELAY_SECRET},
+        timeout=60,
+    )
+    if not res:
+        logging.error("[RELAY ERROR] Failed to reach relay")
+        reply_chunks = ["[Relay Error] Could not reach relay."]
+    else:
+        try:
+            reply_chunks = res.json().get("reply_chunks", [])
+        except Exception as e:
+            logging.error(f"[RELAY ERROR] Invalid JSON: {e}")
+            reply_chunks = []
         if not reply_chunks:
             reply_chunks = ["[GPT‑4o Error] No reply received."]
-        print(f"[BRIDGE] Relay responded with {len(reply_chunks)} chunks.")
-        for chunk in reply_chunks:
-            write_mem(chunk, tags=["telegram", "gpt4o"], source="telegram:gpt4o")
-            send_message(chat_id, chunk)
-    except Exception as e:
-        logging.error(f"[RELAY ERROR] {e}")
+    print(f"[BRIDGE] Relay responded with {len(reply_chunks)} chunks.")
+    for chunk in reply_chunks:
+        write_mem(chunk, tags=["telegram", "gpt4o"], source="telegram:gpt4o")
+        send_message(chat_id, chunk)
 
 def bridge():
     m = (request.get_json(silent=True) or {}).get("message", {})
@@ -94,43 +115,53 @@ CHUNK         = 4096
 SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 def send_typing(chat_id):
-    try:
-        requests.post(SEND_API.replace("/sendMessage", "/sendChatAction"),
-                      json={"chat_id": chat_id, "action": "typing"},
-                      timeout=8)
-    except Exception:
-        pass
+    res = post_with_retry(
+        SEND_API.replace("/sendMessage", "/sendChatAction"),
+        json={"chat_id": chat_id, "action": "typing"},
+        timeout=8,
+    )
+    if not res:
+        logging.error(f"[send_typing] Failed to send typing action for {chat_id}")
 
 def send_message(chat_id, text):
     for chunk in chunk_message(text, CHUNK):
         time.sleep(1.2)
-        try:
-            res = requests.post(SEND_API, json={"chat_id": chat_id, "text": chunk}, timeout=20)
+        res = post_with_retry(
+            SEND_API,
+            json={"chat_id": chat_id, "text": chunk},
+            timeout=20,
+        )
+        if res:
             logging.info(f"[SEND] Mixtral → {res.status_code}")
-        except Exception as e:
-            logging.exception("[ERROR] Telegram send failed")
+        else:
+            logging.error(f"[SEND] Mixtral message failed for chat {chat_id}")
 
 def handle_message_async(chat_id, txt):
     logging.info(f"[THREAD] Mixtral handling → {txt[:60]}")
     logging.info(f"[MIXTRAL BRIDGE] Using model slug: {MODEL_SLUG}")
     write_mem(txt, tags=["telegram", "mixtral"], source="telegram:mixtral")
     send_typing(chat_id)
-    try:
-        res = requests.post(
-            RELAY_URL,
-            json={"message": txt.strip(), "model": MODEL_SLUG},
-            headers={"X-Relay-Secret": RELAY_SECRET},
-            timeout=60
-        )
-        reply_chunks = res.json().get("reply_chunks", [])
+    res = post_with_retry(
+        RELAY_URL,
+        json={"message": txt.strip(), "model": MODEL_SLUG},
+        headers={"X-Relay-Secret": RELAY_SECRET},
+        timeout=60,
+    )
+    if not res:
+        logging.error("[RELAY ERROR] Failed to reach relay")
+        reply_chunks = ["[Relay Error] Could not reach relay."]
+    else:
+        try:
+            reply_chunks = res.json().get("reply_chunks", [])
+        except Exception as e:
+            logging.error(f"[RELAY ERROR] Invalid JSON: {e}")
+            reply_chunks = []
         if not reply_chunks:
             reply_chunks = ["[Mixtral Error] No reply received."]
-        print(f"[BRIDGE] Relay responded with {len(reply_chunks)} chunks.")
-        for chunk in reply_chunks:
-            write_mem(chunk, tags=["telegram", "mixtral"], source="telegram:mixtral")
-            send_message(chat_id, chunk)
-    except Exception as e:
-        logging.error(f"[RELAY ERROR] {e}")
+    print(f"[BRIDGE] Relay responded with {len(reply_chunks)} chunks.")
+    for chunk in reply_chunks:
+        write_mem(chunk, tags=["telegram", "mixtral"], source="telegram:mixtral")
+        send_message(chat_id, chunk)
 
 def bridge():
     m = (request.get_json(silent=True) or {}).get("message", {})
@@ -171,43 +202,53 @@ CHUNK         = 4096
 SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 def send_typing(chat_id):
-    try:
-        requests.post(SEND_API.replace("/sendMessage", "/sendChatAction"),
-                      json={"chat_id": chat_id, "action": "typing"},
-                      timeout=8)
-    except Exception:
-        pass
+    res = post_with_retry(
+        SEND_API.replace("/sendMessage", "/sendChatAction"),
+        json={"chat_id": chat_id, "action": "typing"},
+        timeout=8,
+    )
+    if not res:
+        logging.error(f"[send_typing] Failed to send typing action for {chat_id}")
 
 def send_message(chat_id, text):
     for chunk in chunk_message(text, CHUNK):
         time.sleep(1.2)
-        try:
-            res = requests.post(SEND_API, json={"chat_id": chat_id, "text": chunk}, timeout=20)
+        res = post_with_retry(
+            SEND_API,
+            json={"chat_id": chat_id, "text": chunk},
+            timeout=20,
+        )
+        if res:
             logging.info(f"[SEND] DeepSeek → {res.status_code}")
-        except Exception as e:
-            logging.exception("[ERROR] Telegram send failed")
+        else:
+            logging.error(f"[SEND] DeepSeek message failed for chat {chat_id}")
 
 def handle_message_async(chat_id, txt):
     logging.info(f"[THREAD] DeepSeek handling → {txt[:60]}")
     logging.info(f"[DEEPSEEK BRIDGE] Using model slug: {MODEL_SLUG}")
     write_mem(txt, tags=["telegram", "deepseek"], source="telegram:deepseek")
     send_typing(chat_id)
-    try:
-        res = requests.post(
-            RELAY_URL,
-            json={"message": txt.strip(), "model": MODEL_SLUG},
-            headers={"X-Relay-Secret": RELAY_SECRET},
-            timeout=90
-        )
-        reply_chunks = res.json().get("reply_chunks", [])
+    res = post_with_retry(
+        RELAY_URL,
+        json={"message": txt.strip(), "model": MODEL_SLUG},
+        headers={"X-Relay-Secret": RELAY_SECRET},
+        timeout=90,
+    )
+    if not res:
+        logging.error("[RELAY ERROR] Failed to reach relay")
+        reply_chunks = ["[Relay Error] Could not reach relay."]
+    else:
+        try:
+            reply_chunks = res.json().get("reply_chunks", [])
+        except Exception as e:
+            logging.error(f"[RELAY ERROR] Invalid JSON: {e}")
+            reply_chunks = []
         if not reply_chunks:
             reply_chunks = ["[DeepSeek Error] No reply received."]
-        print(f"[BRIDGE] Relay responded with {len(reply_chunks)} chunks.")
-        for chunk in reply_chunks:
-            write_mem(chunk, tags=["telegram", "deepseek"], source="telegram:deepseek")
-            send_message(chat_id, chunk)
-    except Exception as e:
-        logging.error(f"[RELAY ERROR] {e}")
+    print(f"[BRIDGE] Relay responded with {len(reply_chunks)} chunks.")
+    for chunk in reply_chunks:
+        write_mem(chunk, tags=["telegram", "deepseek"], source="telegram:deepseek")
+        send_message(chat_id, chunk)
 
 def bridge():
     m = (request.get_json(silent=True) or {}).get("message", {})
@@ -325,15 +366,14 @@ def bind_webhook(bot_name, url):
         "url": webhook_url,
         "secret_token": TG_SECRET
     }
-    try:
-        res = requests.post(endpoint, json=payload, timeout=10)
-        if res.ok:
-            print(f"[✅] Bound {bot_name} to {webhook_url}")
-        else:
-            print(f"[❌] Failed {bot_name}: {res.status_code}")
-            print(res.text)
-    except Exception as e:
-        print(f"[{bot_name}] 💥 {e}")
+    res = post_with_retry(endpoint, json=payload, timeout=10)
+    if res and res.ok:
+        print(f"[✅] Bound {bot_name} to {webhook_url}")
+    elif res:
+        print(f"[❌] Failed {bot_name}: {res.status_code}")
+        print(res.text)
+    else:
+        print(f"[{bot_name}] 💥 Failed to bind webhook")
 
 if __name__ == "__main__":
     print("[🔄] Rebinding all Telegram webhooks...")
@@ -405,7 +445,7 @@ def relay():
 
     try:
         if model == GPT4_MODEL:
-            response = requests.post(
+            response = post_with_retry(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -426,7 +466,7 @@ def relay():
             reply = response.json()["choices"][0]["message"]["content"]
 
         elif model == MIXTRAL_MODEL:
-            response = requests.post(
+            response = post_with_retry(
                 f"{OLLAMA_URL}/api/chat",
                 json={
                     "model": MIXTRAL_MODEL,
@@ -447,7 +487,7 @@ def relay():
                 reply = f"[Relay Error] Unexpected Ollama response: {str(e)}"
 
         elif model == DEEPSEEK_MODEL:
-            response = requests.post(
+            response = post_with_retry(
                 "https://api.together.xyz/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {TOGETHER_API_KEY}",
@@ -691,14 +731,16 @@ def heartbeat():
             "message": f"__heartbeat__ {datetime.now(UTC).isoformat()}",
             "model": MODEL
         }
-        try:
-            r = requests.post(RELAY_URL,
-                              headers={"X-Relay-Secret": SECRET,
-                                       "Content-Type": "application/json"},
-                              json=payload, timeout=10)
+        r = post_with_retry(
+            RELAY_URL,
+            headers={"X-Relay-Secret": SECRET, "Content-Type": "application/json"},
+            json=payload,
+            timeout=10,
+        )
+        if r:
             print(f"[GPT-4o] ✅ {r.status_code} {r.json()}")
-        except Exception as e:
-            print(f"[GPT-4o] ❌ {e}")
+        else:
+            print("[GPT-4o] ❌ Failed to send heartbeat")
         time.sleep(INTERVAL)
 
 if __name__ == "__main__":
@@ -719,14 +761,16 @@ def heartbeat():
             "message": f"__heartbeat__ {datetime.now(UTC).isoformat()}",
             "model": MODEL
         }
-        try:
-            r = requests.post(RELAY_URL,
-                              headers={"X-Relay-Secret": SECRET,
-                                       "Content-Type": "application/json"},
-                              json=payload, timeout=10)
+        r = post_with_retry(
+            RELAY_URL,
+            headers={"X-Relay-Secret": SECRET, "Content-Type": "application/json"},
+            json=payload,
+            timeout=10,
+        )
+        if r:
             print(f"[Mixtral] ✅ {r.status_code} {r.json()}")
-        except Exception as e:
-            print(f"[Mixtral] ❌ {e}")
+        else:
+            print("[Mixtral] ❌ Failed to send heartbeat")
         time.sleep(INTERVAL)
 
 if __name__ == "__main__":
@@ -747,14 +791,16 @@ def heartbeat():
             "message": f"__heartbeat__ {datetime.now(UTC).isoformat()}",
             "model": MODEL
         }
-        try:
-            r = requests.post(RELAY_URL,
-                              headers={"X-Relay-Secret": SECRET,
-                                       "Content-Type": "application/json"},
-                              json=payload, timeout=10)
+        r = post_with_retry(
+            RELAY_URL,
+            headers={"X-Relay-Secret": SECRET, "Content-Type": "application/json"},
+            json=payload,
+            timeout=10,
+        )
+        if r:
             print(f"[DeepSeek] ✅ {r.status_code} {r.json()}")
-        except Exception as e:
-            print(f"[DeepSeek] ❌ {e}")
+        else:
+            print("[DeepSeek] ❌ Failed to send heartbeat")
         time.sleep(INTERVAL)
 
 if __name__ == "__main__":
@@ -836,8 +882,14 @@ def send_summon(agent, last_heartbeat):
     }
     headers = {"X-Relay-Secret": RELAY_SECRET}
 
+    res = post_with_retry(RELAY_URL, json=payload, headers=headers, timeout=180)
+    if not res:
+        err = f"[{now}] {agent['name']} ERROR: relay unreachable"
+        print(err)
+        with open(LOG_FILE, "a", encoding="utf-8") as logf:
+            logf.write(err + "\n")
+        return ""
     try:
-        res = requests.post(RELAY_URL, json=payload, headers=headers, timeout=180)
         res.raise_for_status()
         reply_chunks = res.json().get("reply_chunks", [])
         full_reply = "\n".join(reply_chunks)
