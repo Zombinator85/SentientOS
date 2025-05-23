@@ -1,0 +1,13 @@
+authtoken: 2vdlxkh0VK1aMBsoF4fysQkVM2x_41hQmGR8GFBhums3YaEpP
+version: 2
+web_addr: localhost:4041
+tunnels:
+  deepseek:
+    addr: 9966
+    proto: http
+  ds-relay:
+    addr: 9965
+    proto: http
+  dashboard:
+    addr: 9989
+    proto: http
