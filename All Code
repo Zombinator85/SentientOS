@@ -18,11 +18,13 @@ SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 def send_typing(chat_id):
     try:
-        requests.post(SEND_API.replace("/sendMessage", "/sendChatAction"),
-                      json={"chat_id": chat_id, "action": "typing"},
-                      timeout=8)
-    except Exception:
-        pass
+        requests.post(
+            SEND_API.replace("/sendMessage", "/sendChatAction"),
+            json={"chat_id": chat_id, "action": "typing"},
+            timeout=8,
+        )
+    except Exception as e:
+        logging.exception("[ERROR] Failed to send typing action")
 
 def send_message(chat_id, text):
     for chunk in chunk_message(text, CHUNK):
@@ -54,6 +56,7 @@ def handle_message_async(chat_id, txt):
             send_message(chat_id, chunk)
     except Exception as e:
         logging.error(f"[RELAY ERROR] {e}")
+        send_message(chat_id, f"[Relay Error] {e}")
 
 def bridge():
     m = (request.get_json(silent=True) or {}).get("message", {})
@@ -95,11 +98,13 @@ SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 def send_typing(chat_id):
     try:
-        requests.post(SEND_API.replace("/sendMessage", "/sendChatAction"),
-                      json={"chat_id": chat_id, "action": "typing"},
-                      timeout=8)
-    except Exception:
-        pass
+        requests.post(
+            SEND_API.replace("/sendMessage", "/sendChatAction"),
+            json={"chat_id": chat_id, "action": "typing"},
+            timeout=8,
+        )
+    except Exception as e:
+        logging.exception("[ERROR] Failed to send typing action")
 
 def send_message(chat_id, text):
     for chunk in chunk_message(text, CHUNK):
@@ -131,7 +136,7 @@ def handle_message_async(chat_id, txt):
             send_message(chat_id, chunk)
     except Exception as e:
         logging.error(f"[RELAY ERROR] {e}")
-
+        send_message(chat_id, f"[Relay Error] {e}")
 def bridge():
     m = (request.get_json(silent=True) or {}).get("message", {})
     cid = m.get("chat", {}).get("id")
@@ -172,11 +177,13 @@ SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 def send_typing(chat_id):
     try:
-        requests.post(SEND_API.replace("/sendMessage", "/sendChatAction"),
-                      json={"chat_id": chat_id, "action": "typing"},
-                      timeout=8)
-    except Exception:
-        pass
+        requests.post(
+            SEND_API.replace("/sendMessage", "/sendChatAction"),
+            json={"chat_id": chat_id, "action": "typing"},
+            timeout=8,
+        )
+    except Exception as e:
+        logging.exception("[ERROR] Failed to send typing action")
 
 def send_message(chat_id, text):
     for chunk in chunk_message(text, CHUNK):
@@ -208,7 +215,7 @@ def handle_message_async(chat_id, txt):
             send_message(chat_id, chunk)
     except Exception as e:
         logging.error(f"[RELAY ERROR] {e}")
-
+        send_message(chat_id, f"[Relay Error] {e}")
 def bridge():
     m = (request.get_json(silent=True) or {}).get("message", {})
     cid = m.get("chat", {}).get("id")
