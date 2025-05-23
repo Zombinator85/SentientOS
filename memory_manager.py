@@ -3,13 +3,15 @@ import json
 import hashlib
 import datetime
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "./memory"))
+MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
+DAY_PATH = MEMORY_DIR / "distilled"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
+DAY_PATH.mkdir(parents=True, exist_ok=True)
 
 
 def _hash(text: str) -> str:
@@ -25,11 +27,11 @@ def append_memory(text: str, tags: List[str] | None = None, source: str = "unkno
         "source": source,
         "text": text.strip(),
     }
-    RAW_PATH.mkdir(parents=True, exist_ok=True)
     (RAW_PATH / f"{fragment_id}.json").write_text(
         json.dumps(entry, ensure_ascii=False), encoding="utf-8"
     )
     _update_vector_index(entry)
+    print(f"[MEMORY] Appended fragment → {fragment_id} | tags={tags} | source={source}")
     return fragment_id
 
 
@@ -38,6 +40,7 @@ def _update_vector_index(entry: Dict):
     record = {"id": entry["id"], "vector": vec, "snippet": entry["text"][:400]}
     with open(VECTOR_INDEX_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
+    print(f"[VECTOR] Index updated for {entry['id']}")
 
 
 def _bag_of_words(text: str) -> Dict[str, int]:
@@ -55,14 +58,14 @@ def _load_index() -> List[Dict]:
     if not VECTOR_INDEX_PATH.exists():
         return []
     lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
-    out = []
+    out: List[Dict] = []
     for i, line in enumerate(lines):
         if not line.strip():
             continue
         try:
             out.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
+        except json.JSONDecodeError as e:
+            print(f"[VECTOR INDEX WARNING] Skipped malformed line at #{i}: {e}")
     return out
 
 
@@ -107,6 +110,59 @@ def get_context(query: str, k: int = 6) -> List[str]:
     return [s for _, s in scored[:k]]
 
 
-# Compatibility alias
-def write_mem(text: str, tags: List[str] | None = None, source: str = "unknown") -> str:
-    return append_memory(text, tags, source)
+# Compatibility alias for legacy bridges
+write_mem = append_memory
+
+
+def purge_memory(max_age_days: Optional[int] = None, max_files: Optional[int] = None) -> None:
+    """Delete old fragments by age or limit total count."""
+    files = list(RAW_PATH.glob("*.json"))
+    entries = []
+    for f in files:
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+            ts = datetime.datetime.fromisoformat(data.get("timestamp"))
+            entries.append((ts, f))
+        except Exception:
+            continue
+    entries.sort(key=lambda x: x[0])
+
+    now = datetime.datetime.utcnow()
+    removed = 0
+    if max_age_days is not None:
+        cutoff = now - datetime.timedelta(days=max_age_days)
+        for ts, fp in entries:
+            if ts < cutoff:
+                fp.unlink(missing_ok=True)
+                removed += 1
+    if max_files is not None and len(entries) - removed > max_files:
+        remaining = [e for e in entries if e[1].exists()]
+        excess = len(remaining) - max_files
+        for ts, fp in remaining[:excess]:
+            fp.unlink(missing_ok=True)
+            removed += 1
+    if removed:
+        print(f"[PURGE] Removed {removed} old memory fragments")
+
+
+def summarize_memory() -> None:
+    """Concatenate daily fragments into summary files."""
+    summaries: Dict[str, List[str]] = {}
+    for fp in RAW_PATH.glob("*.json"):
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        ts = data.get("timestamp")
+        if not ts:
+            continue
+        day = ts.split("T")[0]
+        snippet = data.get("text", "").strip().replace("\n", " ")
+        summaries.setdefault(day, []).append(f"[{ts}] {snippet}")
+
+    for day, lines in summaries.items():
+        out = DAY_PATH / f"{day}.txt"
+        with open(out, "a", encoding="utf-8") as f:
+            for line in lines:
+                f.write(line + "\n")
+        print(f"[SUMMARY] Updated {out}")
