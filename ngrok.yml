@@ -1,4 +1,4 @@
-authtoken: 2vdlxkh0VK1aMBsoF4fysQkVM2x_41hQmGR8GFBhums3YaEpP
+authtoken: YOUR_NGROK_TOKEN
 version: 2
 web_addr: localhost:4041
 tunnels:

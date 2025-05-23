@@ -1,10 +1,11 @@
+import os
 import time
 import requests
 from datetime import datetime, UTC
 
-RELAY_URL = "http://localhost:5000/relay"
-SECRET = "lumos_april_bridge_secure"
-MODEL = "openai/gpt-4o"
+RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
+RELAY_SECRET = os.getenv("RELAY_SECRET", "lumos_april_bridge_secure")
+MODEL = os.getenv("GPT4_MODEL", "openai/gpt-4o")
 INTERVAL = 300  # every 5 minutes
 
 
@@ -18,7 +19,7 @@ def heartbeat():
         try:
             r = requests.post(
                 RELAY_URL,
-                headers={"X-Relay-Secret": SECRET, "Content-Type": "application/json"},
+                headers={"X-Relay-Secret": RELAY_SECRET, "Content-Type": "application/json"},
                 json=payload,
                 timeout=10,
             )
