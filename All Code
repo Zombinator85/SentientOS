@@ -24,6 +24,8 @@ RELAY_URL     = os.getenv("RELAY_URL")
 RELAY_SECRET  = os.getenv("RELAY_SECRET")
 MODEL_SLUG    = os.getenv("GPT4_MODEL", "openai/gpt-4o").strip().lower()
 TG_SECRET     = os.getenv("TG_SECRET")
+if not TG_SECRET:
+    raise RuntimeError("TG_SECRET environment variable is required")
 CHUNK         = 4096
 SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -88,8 +90,11 @@ def bridge():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != TG_SECRET:
-        return "forbidden", 403
+    token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if not token:
+        return "missing secret token", 403
+    if token != TG_SECRET:
+        return "invalid secret token", 403
     return bridge()
 
 if __name__ == "__main__":
@@ -111,6 +116,8 @@ RELAY_URL     = os.getenv("RELAY_URL")
 RELAY_SECRET  = os.getenv("RELAY_SECRET")
 MODEL_SLUG    = os.getenv("MIXTRAL_MODEL", "mixtral").strip().lower()
 TG_SECRET     = os.getenv("TG_SECRET")
+if not TG_SECRET:
+    raise RuntimeError("TG_SECRET environment variable is required")
 CHUNK         = 4096
 SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -175,8 +182,11 @@ def bridge():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != TG_SECRET:
-        return "forbidden", 403
+    token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if not token:
+        return "missing secret token", 403
+    if token != TG_SECRET:
+        return "invalid secret token", 403
     return bridge()
 
 if __name__ == "__main__":
@@ -198,6 +208,8 @@ RELAY_URL     = os.getenv("RELAY_URL")
 RELAY_SECRET  = os.getenv("RELAY_SECRET")
 MODEL_SLUG    = os.getenv("DEEPSEEK_MODEL", "deepseek-ai/deepseek-r1-distill-llama-70b-free").strip().lower()
 TG_SECRET     = os.getenv("TG_SECRET")
+if not TG_SECRET:
+    raise RuntimeError("TG_SECRET environment variable is required")
 CHUNK         = 4096
 SEND_API      = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -262,8 +274,11 @@ def bridge():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    if request.headers.get("X-Telegram-Bot-Api-Secret-Token") != TG_SECRET:
-        return "forbidden", 403
+    token = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+    if not token:
+        return "missing secret token", 403
+    if token != TG_SECRET:
+        return "invalid secret token", 403
     return bridge()
 
 if __name__ == "__main__":
