@@ -1,0 +1,13 @@
+version: "2"
+authtoken: 2vxLrCM5iz2XGnESGQmRALW9eiN_3mAG4zYSvP9aJBJ8nyEdu
+tunnels:
+  gpt4o:
+    addr: 127.0.0.1:9977
+    proto: http
+  mixtral:
+    addr: 127.0.0.1:9988
+    proto: http
+  relay:
+    addr: 127.0.0.1:5000
+    proto: http
+
