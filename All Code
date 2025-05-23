@@ -677,11 +677,11 @@ def write_mem(text: str, tags: List[str] = None, source: str = "unknown") -> str
 
 
 
-import time, requests
+import os, time, requests
 from datetime import datetime, UTC
 
 RELAY_URL = "http://localhost:5000/relay"
-SECRET    = "lumos_april_bridge_secure"
+RELAY_SECRET = os.getenv("RELAY_SECRET", "lumos_april_bridge_secure")
 MODEL     = "openai/gpt-4o"
 INTERVAL  = 300  # every 5 minutes
 
@@ -693,7 +693,7 @@ def heartbeat():
         }
         try:
             r = requests.post(RELAY_URL,
-                              headers={"X-Relay-Secret": SECRET,
+                              headers={"X-Relay-Secret": RELAY_SECRET,
                                        "Content-Type": "application/json"},
                               json=payload, timeout=10)
             print(f"[GPT-4o] ✅ {r.status_code} {r.json()}")
@@ -705,11 +705,11 @@ if __name__ == "__main__":
     heartbeat()
 
 
-import time, requests
+import os, time, requests
 from datetime import datetime, UTC
 
 RELAY_URL = "http://localhost:9988/relay"
-SECRET    = "lumos_april_bridge_secure"
+RELAY_SECRET = os.getenv("RELAY_SECRET", "lumos_april_bridge_secure")
 MODEL     = "mixtral"
 INTERVAL  = 300  # every 5 minutes
 
@@ -721,7 +721,7 @@ def heartbeat():
         }
         try:
             r = requests.post(RELAY_URL,
-                              headers={"X-Relay-Secret": SECRET,
+                              headers={"X-Relay-Secret": RELAY_SECRET,
                                        "Content-Type": "application/json"},
                               json=payload, timeout=10)
             print(f"[Mixtral] ✅ {r.status_code} {r.json()}")
@@ -733,11 +733,11 @@ if __name__ == "__main__":
     heartbeat()
 
 
-import time, requests
+import os, time, requests
 from datetime import datetime, UTC
 
 RELAY_URL = "http://localhost:9965/relay"
-SECRET    = "lumos_april_bridge_secure"
+RELAY_SECRET = os.getenv("RELAY_SECRET", "lumos_april_bridge_secure")
 MODEL     = "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free"
 INTERVAL  = 300  # every 5 minutes
 
@@ -749,7 +749,7 @@ def heartbeat():
         }
         try:
             r = requests.post(RELAY_URL,
-                              headers={"X-Relay-Secret": SECRET,
+                              headers={"X-Relay-Secret": RELAY_SECRET,
                                        "Content-Type": "application/json"},
                               json=payload, timeout=10)
             print(f"[DeepSeek] ✅ {r.status_code} {r.json()}")
