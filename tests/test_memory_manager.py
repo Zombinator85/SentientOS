@@ -68,3 +68,43 @@ def test_summarize_memory_creates_summary(tmp_path, monkeypatch):
     summary = tmp_path / "distilled" / f"{day}.txt"
     assert summary.exists()
     assert "summary test" in summary.read_text()
+
+
+def test_purge_memory_respects_max_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    id1 = mm.append_memory("frag one")
+    id2 = mm.append_memory("frag two")
+    id3 = mm.append_memory("frag three")
+
+    path1 = tmp_path / "raw" / f"{id1}.json"
+    data = json.loads(path1.read_text())
+    data["timestamp"] = (datetime.datetime.utcnow() - datetime.timedelta(days=1)).isoformat()
+    path1.write_text(json.dumps(data))
+
+    mm.purge_memory(max_files=2)
+
+    assert not path1.exists()
+    assert (tmp_path / "raw" / f"{id2}.json").exists()
+    assert (tmp_path / "raw" / f"{id3}.json").exists()
+
+
+def test_summarize_memory_includes_multiple_snippets(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    mm.append_memory("first snippet")
+    mm.append_memory("second snippet")
+    mm.summarize_memory()
+
+    day = datetime.datetime.utcnow().date().isoformat()
+    summary = tmp_path / "distilled" / f"{day}.txt"
+    assert summary.exists()
+    text = summary.read_text()
+    assert "first snippet" in text
+    assert "second snippet" in text
