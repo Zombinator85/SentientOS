@@ -33,6 +33,7 @@ python memory_cli.py summarize            # build/update daily summaries
 
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
+
 This project contains various utilities for running local agents and logging their memory fragments.
 
 ## Memory management
@@ -53,6 +54,15 @@ python memory_cli.py summarize            # build/update daily summaries
 ```
 
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
+
+## Log tailing
+Use `memory_tail.py` to stream new entries from `logs/memory.jsonl`.
+
+```bash
+python memory_tail.py
+```
+Pass `--file` to tail a different log.
+
 
 Install dependencies using:
 
