@@ -22,6 +22,8 @@ cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple mode
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
+emotions.py – Canonical list of 64 emotion labels for the EPU.
+
 ngrok.yml – Example ngrok configuration.
 
 Environment variables
