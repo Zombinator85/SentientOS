@@ -123,3 +123,17 @@ def test_summarize_memory_includes_multiple_snippets(tmp_path, monkeypatch):
     text = summary.read_text()
     assert "first snippet" in text
     assert "second snippet" in text
+
+
+def test_embedding_retrieval(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    monkeypatch.setenv("USE_EMBEDDINGS", "1")
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    mm.append_memory("dogs and cats")
+    mm.append_memory("i like dogs")
+
+    ctx = mm.get_context("dogs", k=1)
+    assert ctx
