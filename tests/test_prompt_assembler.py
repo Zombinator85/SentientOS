@@ -1,0 +1,24 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+import prompt_assembler as pa
+import user_profile as up
+import memory_manager as mm
+
+
+def test_assemble_prompt_includes_profile_and_memory(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    # reload modules with new env
+    from importlib import reload
+    reload(up)
+    reload(mm)
+    reload(pa)
+
+    up.update_profile(name="Allen")
+    mm.append_memory("Allen likes cats", tags=["test"], source="unit")
+
+    prompt = pa.assemble_prompt("cats", [])
+    assert "Allen likes cats" in prompt
+    assert "name: Allen" in prompt
