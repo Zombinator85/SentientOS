@@ -61,6 +61,13 @@ purge_memory(max_age_days=None, max_files=None) removes old fragments by age or 
 
 summarize_memory() concatenates raw fragments into daily summary files under logs/memory/distilled.
 
+User profile and prompt assembly
+--------------------------------
+The ``user_profile`` module stores persistent key-value data about the user in
+``profile.json`` inside ``MEMORY_DIR``. ``prompt_assembler`` combines this
+profile information with relevant memory snippets (retrieved via
+``memory_manager.get_context``) to build a rich prompt for the models.
+
 Command-line usage via memory_cli.py:
 
 bash
