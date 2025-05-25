@@ -4,6 +4,7 @@ import hashlib
 import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
+from emotions import empty_emotion_vector
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
@@ -18,7 +19,12 @@ def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
 
-def append_memory(text: str, tags: List[str] | None = None, source: str = "unknown") -> str:
+def append_memory(
+    text: str,
+    tags: List[str] | None = None,
+    source: str = "unknown",
+    emotions: Dict[str, float] | None = None,
+) -> str:
     fragment_id = _hash(text + datetime.datetime.utcnow().isoformat())
     entry = {
         "id": fragment_id,
@@ -26,6 +32,7 @@ def append_memory(text: str, tags: List[str] | None = None, source: str = "unkno
         "tags": tags or [],
         "source": source,
         "text": text.strip(),
+        "emotions": emotions or empty_emotion_vector(),
     }
     (RAW_PATH / f"{fragment_id}.json").write_text(
         json.dumps(entry, ensure_ascii=False), encoding="utf-8"
