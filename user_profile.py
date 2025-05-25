@@ -30,8 +30,36 @@ def update_profile(**updates) -> dict:
     return profile
 
 
+def forget_keys(keys: list[str]) -> dict:
+    profile = load_profile()
+    for k in keys:
+        profile.pop(k, None)
+    save_profile(profile)
+    return profile
+
+
 def format_profile() -> str:
     """Return profile as formatted lines for prompt injection."""
     profile = load_profile()
     lines = [f"- {k}: {v}" for k, v in profile.items()]
     return "\n".join(lines)
+
+
+def auto_update_profile(text: str) -> None:
+    """Very naive fact extraction from ``text`` and update profile."""
+    text_low = text.lower()
+    updates = {}
+    if "my name is" in text_low:
+        parts = text_low.split("my name is", 1)[1].strip().split()
+        if parts:
+            updates["name"] = parts[0].strip(".,!")
+    if "favorite animal is" in text_low:
+        parts = text_low.split("favorite animal is", 1)[1].strip().split()
+        if parts:
+            updates["favorite_animal"] = parts[0].strip(".,!")
+    if "my hobby is" in text_low:
+        parts = text_low.split("my hobby is", 1)[1].strip().split()
+        if parts:
+            updates["hobby"] = parts[0].strip(".,!")
+    if updates:
+        update_profile(**updates)
