@@ -19,6 +19,21 @@ def test_append_memory_creates_file(tmp_path, monkeypatch):
     assert data["text"] == "hello world"
     assert data["tags"] == ["test"]
     assert data["source"] == "unit"
+    assert isinstance(data.get("emotions"), dict)
+
+
+def test_append_memory_custom_emotions(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    custom = {e: 0.0 for e in mm.empty_emotion_vector().keys()}
+    custom["Joy"] = 0.5
+    fid = mm.append_memory("hi", emotions=custom)
+    file_path = tmp_path / "raw" / f"{fid}.json"
+    data = json.loads(file_path.read_text())
+    assert data["emotions"]["Joy"] == 0.5
 
 
 def test_get_context_returns_relevant_snippet(tmp_path, monkeypatch):

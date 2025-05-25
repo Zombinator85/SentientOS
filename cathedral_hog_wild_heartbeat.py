@@ -3,6 +3,7 @@ import requests
 import time
 from datetime import datetime
 from dotenv import load_dotenv
+from emotions import empty_emotion_vector
 
 load_dotenv()
 
@@ -69,7 +70,8 @@ def send_summon(agent, last_heartbeat):
 
     payload = {
         "message": prompt,
-        "model": agent["model"]
+        "model": agent["model"],
+        "emotions": empty_emotion_vector(),
     }
     headers = {"X-Relay-Secret": RELAY_SECRET}
 

@@ -1,6 +1,7 @@
 import time
 import requests
 from datetime import datetime, UTC
+from emotions import empty_emotion_vector
 
 RELAY_URL = "http://localhost:5000/relay"
 SECRET = "lumos_april_bridge_secure"
@@ -14,6 +15,7 @@ def heartbeat():
         payload = {
             "message": f"__heartbeat__ {datetime.now(UTC).isoformat()}",
             "model": MODEL,
+            "emotions": empty_emotion_vector(),
         }
         try:
             r = requests.post(
