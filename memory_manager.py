@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from emotions import empty_emotion_vector
 
+# Optional upgrade: use simple embedding vectors instead of bag-of-words
+USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
+
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
@@ -25,6 +28,9 @@ def append_memory(
     source: str = "unknown",
     emotions: Dict[str, float] | None = None,
 ) -> str:
+    if os.getenv("INCOGNITO") == "1":
+        print("[MEMORY] Incognito mode enabled – skipping persistence")
+        return "incognito"
     fragment_id = _hash(text + datetime.datetime.utcnow().isoformat())
     entry = {
         "id": fragment_id,
@@ -43,8 +49,12 @@ def append_memory(
 
 
 def _update_vector_index(entry: Dict):
-    vec = _bag_of_words(entry["text"])
-    record = {"id": entry["id"], "vector": vec, "snippet": entry["text"][:400]}
+    vec = _vectorize(entry["text"])
+    record = {
+        "id": entry["id"],
+        "vector": vec,
+        "snippet": entry["text"][:400],
+    }
     with open(VECTOR_INDEX_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
     print(f"[VECTOR] Index updated for {entry['id']}")
@@ -55,9 +65,29 @@ def _bag_of_words(text: str) -> Dict[str, int]:
     return {w: words.count(w) for w in set(words)}
 
 
-def _cosine(a: Dict[str, int], b: Dict[str, int]) -> float:
-    dot = sum(a.get(t, 0) * b.get(t, 0) for t in a)
-    mag = (sum(v * v for v in a.values()) ** 0.5) * (sum(v * v for v in b.values()) ** 0.5)
+def _embedding(text: str) -> List[float]:
+    """Return a deterministic pseudo-embedding for ``text``."""
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
+    return [b / 255.0 for b in digest[:64]]
+
+
+def _vectorize(text: str):
+    return _embedding(text) if USE_EMBEDDINGS else _bag_of_words(text)
+
+
+def _cosine(a, b) -> float:
+    """Cosine similarity for dict or list vectors."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        dot = sum(a.get(t, 0) * b.get(t, 0) for t in a)
+        mag = (sum(v * v for v in a.values()) ** 0.5) * (
+            sum(v * v for v in b.values()) ** 0.5
+        )
+        return dot / mag if mag else 0.0
+    # assume numeric vectors
+    if len(a) != len(b):
+        return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
+    mag = (sum(x * x for x in a) ** 0.5) * (sum(y * y for y in b) ** 0.5)
     return dot / mag if mag else 0.0
 
 
@@ -106,7 +136,7 @@ def is_reflection_loop(snippet: str) -> bool:
 
 def get_context(query: str, k: int = 6) -> List[str]:
     index = _load_index()
-    q_vec = _bag_of_words(query)
+    q_vec = _vectorize(query)
     scored: List[tuple[float, str]] = []
     for row in index:
         if is_reflection_loop(row.get("snippet", "")):
