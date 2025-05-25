@@ -8,9 +8,9 @@ Copy .env.example to .env and provide your own credentials for proper operation.
 Scripts / Utilities
 Telegram bridges – Three Flask apps that forward Telegram messages to the relay. Each bridge talks to a different model (GPT‑4o, Mixtral, or DeepSeek) and logs all fragments through memory_manager.
 
-relay_app.py – Minimal relay for local development and testing. It verifies a shared secret, echoes incoming text, and records it in memory.
+relay_app.py – Minimal relay for local development and testing. It verifies a shared secret, echoes incoming text, and records it (with emotion vectors) in memory.
 
-memory_manager.py – Persistent storage for message fragments. New snippets are written under logs/memory/raw and indexed for retrieval.
+memory_manager.py – Persistent storage for message fragments. Each entry stores a 64‑dimensional emotion vector along with the text and is indexed for retrieval.
 
 memory_cli.py – Command-line interface exposing cleanup and summarization helpers.
 
@@ -21,6 +21,8 @@ heartbeat.py – Simple client that periodically sends heartbeat pings to the re
 cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple models via the relay.
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
+
+emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 ngrok.yml – Example ngrok configuration.
 
@@ -51,7 +53,7 @@ Copy
 Edit
 pip install -r requirements.txt
 Memory management
-memory_manager.py provides persistent storage of memory snippets. New entries are written to logs/memory/raw and indexed for simple vector search.
+memory_manager.py provides persistent storage of memory snippets. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
 
 The module includes optional cleanup and summarization helpers:
 
