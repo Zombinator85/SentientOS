@@ -4,3 +4,8 @@ requests
 pytest
 colorama
 PyYAML
+pyttsx3
+SpeechRecognition
+sounddevice
+pydub
+vosk
