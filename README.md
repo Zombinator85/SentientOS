@@ -20,6 +20,12 @@ heartbeat.py – Simple client that periodically sends heartbeat pings to the re
 
 cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple models via the relay.
 
+mic_bridge.py – Captures microphone audio and converts speech to text.
+
+tts_bridge.py – Speaks model replies aloud using a local TTS engine.
+
+voice_loop.py – Links the mic and TTS bridges for hands-free conversation.
+
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
 emotions.py – Canonical list of 64 emotion labels for the EPU.
@@ -52,6 +58,12 @@ bash
 Copy
 Edit
 pip install -r requirements.txt
+
+Voice interaction
+-----------------
+After installing dependencies, run ``python voice_loop.py`` to start a simple
+hands-free conversation using your microphone and speakers.
+
 Memory management
 memory_manager.py provides persistent storage of memory snippets. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
 
