@@ -30,10 +30,11 @@ def test_append_memory_custom_emotions(tmp_path, monkeypatch):
 
     custom = {e: 0.0 for e in mm.empty_emotion_vector().keys()}
     custom["Joy"] = 0.5
-    fid = mm.append_memory("hi", emotions=custom)
+    fid = mm.append_memory("hi", emotions=custom, emotion_features={"valence": 0.5})
     file_path = tmp_path / "raw" / f"{fid}.json"
     data = json.loads(file_path.read_text())
     assert data["emotions"]["Joy"] == 0.5
+    assert data["emotion_features"]["valence"] == 0.5
 
 
 def test_get_context_returns_relevant_snippet(tmp_path, monkeypatch):

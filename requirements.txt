@@ -9,3 +9,7 @@ SpeechRecognition
 sounddevice
 pydub
 vosk
+TTS
+librosa
+gradio
+torch

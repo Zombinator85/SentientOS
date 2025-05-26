@@ -3,6 +3,11 @@ import json
 import time
 from pathlib import Path
 from typing import Dict, Optional
+import audioop
+import tempfile
+
+from emotions import empty_emotion_vector
+from emotion_utils import vad_and_features
 
 try:
     import speech_recognition as sr
@@ -13,6 +18,12 @@ from memory_manager import append_memory
 
 AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def detect_emotions_from_audio(path: str) -> Dict[str, float]:
+    """Infer emotions from an audio file using a small neural net."""
+    vec, _ = vad_and_features(path)
+    return vec
 
 
 def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
@@ -26,12 +37,15 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
         print("[MIC] Listening...")
         audio = recognizer.listen(source)
 
+    emotions = empty_emotion_vector()
+    emotion_features = {}
     audio_path = None
     if save_audio:
         ts = time.strftime("%Y%m%d-%H%M%S")
         audio_path = AUDIO_DIR / f"mic_{ts}.wav"
         with open(audio_path, "wb") as f:
             f.write(audio.get_wav_data())
+        emotions, emotion_features = vad_and_features(str(audio_path))
 
     text = None
     if hasattr(recognizer, "recognize_whisper"):
@@ -57,12 +71,50 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
             text = None
 
     if text:
-        append_memory(text, tags=["voice", "input"], source="mic")
+        append_memory(
+            text,
+            tags=["voice", "input"],
+            source="mic",
+            emotions=emotions,
+            emotion_features=emotion_features,
+        )
 
     return {
         "message": text,
         "source": "mic",
         "audio_file": str(audio_path) if audio_path else None,
+        "emotions": emotions,
+    }
+
+
+def recognize_from_file(path: str) -> Dict[str, Optional[str]]:
+    """Transcribe an audio file and return emotion data."""
+    if sr is None:
+        return {"message": None, "source": "file", "audio_file": path}
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(path) as source:
+        audio = recognizer.record(source)
+    try:
+        text = recognizer.recognize_whisper(audio)
+    except Exception:
+        try:
+            text = recognizer.recognize_google(audio)
+        except Exception:
+            text = None
+    emotions, features = vad_and_features(path)
+    if text:
+        append_memory(
+            text,
+            tags=["voice", "input"],
+            source="file",
+            emotions=emotions,
+            emotion_features=features,
+        )
+    return {
+        "message": text,
+        "source": "file",
+        "audio_file": path,
+        "emotions": emotions,
     }
 
 
