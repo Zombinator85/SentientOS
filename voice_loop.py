@@ -14,12 +14,13 @@ def run_loop():  # pragma: no cover - runs indefinitely
     while True:
         result = recognize_from_mic()
         text = result.get("message")
+        emotions = result.get("emotions") or empty_emotion_vector()
         if not text:
             continue
         payload = {
             "message": text,
             "model": VOICE_MODEL,
-            "emotions": empty_emotion_vector(),
+            "emotions": emotions,
         }
         try:
             resp = requests.post(
@@ -33,7 +34,7 @@ def run_loop():  # pragma: no cover - runs indefinitely
             reply = " ".join(reply_chunks)
         except Exception as e:
             reply = f"Error contacting relay: {e}"
-        speak(reply)
+        speak(reply, emotions=emotions)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual utility
