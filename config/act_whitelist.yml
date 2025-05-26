@@ -1,0 +1,3 @@
+shell: ["ls", "df", "curl", "ping", "python"]
+http: ["http://", "https://"]
+timeout: 30
