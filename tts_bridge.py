@@ -67,6 +67,14 @@ def set_voice_persona(name: str) -> None:
     global CURRENT_PERSONA
     CURRENT_PERSONA = name
 
+def adapt_persona(trend_vec: Dict[str, float]) -> None:
+    """Adjust persona according to emotion trend."""
+    global CURRENT_PERSONA
+    if trend_vec.get("Sadness", 0) > 0.2 and ALT_VOICE:
+        set_voice_persona(ALT_VOICE)
+    elif trend_vec.get("Joy", 0) > 0.2 and DEFAULT_VOICE:
+        set_voice_persona(DEFAULT_VOICE)
+
 def speak(
     text: str,
     voice: Optional[str] = None,

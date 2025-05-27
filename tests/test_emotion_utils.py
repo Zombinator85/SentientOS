@@ -30,3 +30,11 @@ def test_neural_detection_toggle(tmp_path, monkeypatch):
     vec, feats = eu.detect(str(wav))
     assert isinstance(vec, dict)
     assert isinstance(feats, dict)
+
+
+def test_fuse_multimodal():
+    audio = {'Joy': 0.5}
+    text = {'Sadness': 0.2}
+    vis = {'Joy': 1.0}
+    fused = eu.fuse(audio, text, vis, {'audio':1,'text':1,'vision':2})
+    assert fused['Joy'] > 0.5

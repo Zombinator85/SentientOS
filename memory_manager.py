@@ -29,6 +29,7 @@ def append_memory(
     source: str = "unknown",
     emotions: Dict[str, float] | None = None,
     emotion_features: Dict[str, float] | None = None,
+    emotion_breakdown: Dict[str, Dict[str, float]] | None = None,
 ) -> str:
     if os.getenv("INCOGNITO") == "1":
         print("[MEMORY] Incognito mode enabled – skipping persistence")
@@ -42,6 +43,7 @@ def append_memory(
         "text": text.strip(),
         "emotions": emotions or empty_emotion_vector(),
         "emotion_features": emotion_features or {},
+        "emotion_breakdown": emotion_breakdown or {},
     }
     em.add_emotion(entry["emotions"])
     (RAW_PATH / f"{fragment_id}.json").write_text(

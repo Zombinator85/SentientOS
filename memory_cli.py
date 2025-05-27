@@ -3,7 +3,6 @@ import json
 from pathlib import Path
 import memory_manager as mm
 
-
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
     path = mm.RAW_PATH
@@ -22,9 +21,8 @@ def show_timeline(last: int) -> None:
             val = 0
         print(f"{data.get('timestamp','?')} {label}:{val:.2f}")
 
-
 def playback(last: int) -> None:
-    """Print recent entries with emotion labels."""
+    """Print recent entries with emotion labels and source breakdown if present."""
     path = mm.RAW_PATH
     files = sorted(path.glob("*.json"))[-last:]
     for fp in files:
@@ -33,11 +31,16 @@ def playback(last: int) -> None:
         except Exception:
             continue
         emo = data.get("emotions", {})
+        breakdown = data.get("emotion_breakdown", {})
         label = max(emo, key=emo.get) if emo else "none"
         val = emo.get(label, 0)
         txt = (data.get("text", "").strip())[:60]
-        print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} -> {txt}")
-
+        if breakdown:
+            # breakdown: {"audio": {"Joy": 0.8, ...}, "text": {...}, ...}
+            parts = ", ".join(f"{s}:{max(v.get(label,0),0):.2f}" for s,v in breakdown.items())
+            print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} ({parts}) -> {txt}")
+        else:
+            print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} -> {txt}")
 
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
@@ -48,7 +51,6 @@ def main():
     purge.add_argument("--max", type=int, help="Keep only the newest N fragments")
 
     sub.add_parser("summarize", help="Create/update daily summary files")
-
     sub.add_parser("inspect", help="Print the user profile")
     plot = sub.add_parser("timeline", help="Show recent emotion timeline")
     plot.add_argument("--last", type=int, default=10, help="Show last N entries")
@@ -75,7 +77,6 @@ def main():
         playback(args.last)
     else:
         parser.print_help()
-
 
 if __name__ == "__main__":
     main()

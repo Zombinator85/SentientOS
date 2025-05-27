@@ -4,6 +4,7 @@ import tempfile
 from mic_bridge import recognize_from_file
 from tts_bridge import speak, set_voice_persona
 from emotions import empty_emotion_vector
+import emotion_utils as eu
 
 app = Flask(__name__)
 
@@ -17,6 +18,7 @@ def index():
       <option value="default">Default</option>
       <option value="alt">Alt</option>
     </select>
+    <button onclick="upload()">Analyze Only</button>
     <pre id="out"></pre>
     <script>
     async function send(){
@@ -28,6 +30,15 @@ def index():
         const j=await res.json();
         document.getElementById('out').textContent=JSON.stringify(j.emotions);
         const audio=new Audio('data:audio/mp3;base64,'+j.audio);audio.play();
+    }
+    async function upload(){
+        const file=document.getElementById('f').files[0];
+        if(!file)return;
+        const fd=new FormData();
+        fd.append('audio',file);
+        const res=await fetch('/api/upload',{method:'POST',body:fd});
+        const j=await res.json();
+        document.getElementById('out').textContent=JSON.stringify(j.emotions);
     }
     async function setPersona(){
         const p=document.getElementById('persona').value;
@@ -50,6 +61,15 @@ def voice_api():
         b64 = base64.b64encode(f.read()).decode('ascii')
     return jsonify({'audio': b64, 'text': text, 'emotions': emotions})
 
+@app.route('/api/upload', methods=['POST'])
+def upload_api():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'no audio'}), 400
+    f = request.files['audio']
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.wav')
+    f.save(tmp.name)
+    result = recognize_from_file(tmp.name)
+    return jsonify({'text': result.get('message'), 'emotions': result.get('emotions')})
 
 @app.route('/api/persona', methods=['POST'])
 def persona_api():

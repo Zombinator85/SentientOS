@@ -4,7 +4,6 @@ from emotions import empty_emotion_vector
 MAX_HISTORY = 5
 _history: List[Dict[str, float]] = []
 
-
 def add_emotion(vec: Dict[str, float]) -> None:
     """Add an emotion vector to rolling history."""
     if not vec:
@@ -12,7 +11,6 @@ def add_emotion(vec: Dict[str, float]) -> None:
     _history.append(vec)
     if len(_history) > MAX_HISTORY:
         del _history[:-MAX_HISTORY]
-
 
 def average_emotion() -> Dict[str, float]:
     """Return the average emotion vector."""
@@ -26,6 +24,29 @@ def average_emotion() -> Dict[str, float]:
         avg[k] /= len(_history)
     return avg
 
-
 def clear() -> None:
     _history.clear()
+
+def trend() -> Dict[str, float]:
+    """Return change in average emotion over time."""
+    if len(_history) < 2:
+        return empty_emotion_vector()
+    mid = len(_history) // 2
+    first = _history[:mid]
+    second = _history[mid:]
+
+    def _avg(vecs: List[Dict[str, float]]) -> Dict[str, float]:
+        out = empty_emotion_vector()
+        for v in vecs:
+            for k, val in v.items():
+                out[k] = out.get(k, 0.0) + val
+        for k in out:
+            out[k] /= len(vecs)
+        return out
+
+    a1 = _avg(first)
+    a2 = _avg(second)
+    delta = empty_emotion_vector()
+    for k in delta:
+        delta[k] = a2.get(k, 0.0) - a1.get(k, 0.0)
+    return delta
