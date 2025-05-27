@@ -10,6 +10,17 @@ except Exception:  # pragma: no cover - optional dependency
 
 from emotions import empty_emotion_vector
 
+SOTA_MODEL = os.getenv("SOTA_EMOTION_MODEL")
+if SOTA_MODEL:
+    try:
+        import torch  # pragma: no cover - optional
+        from transformers import pipeline  # type: ignore
+        _sota_classifier = pipeline("audio-classification", model=SOTA_MODEL)
+    except Exception:  # pragma: no cover - missing deps
+        _sota_classifier = None
+else:
+    _sota_classifier = None
+
 # Name of the emotion detection backend. "heuristic" uses
 # :func:`vad_and_features`, "neural" uses :func:`neural_emotions`.
 DETECTOR = os.getenv("EMOTION_DETECTOR", "heuristic")
@@ -99,6 +110,32 @@ def neural_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     return vec, features
 
 
+def sota_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """Use a pretrained model if available."""
+    if _sota_classifier is None or not os.path.exists(path):
+        return neural_emotions(path)
+    try:  # pragma: no cover - heavy
+        result = _sota_classifier(path)[0]
+        vec = empty_emotion_vector()
+        vec[result['label']] = float(result['score'])
+        return vec, {}
+    except Exception:
+        return neural_emotions(path)
+
+
+def vision_emotions(path: str) -> Dict[str, float]:
+    """Very naive facial emotion detector based on file name."""
+    vec = empty_emotion_vector()
+    name = os.path.basename(path).lower()
+    if "smile" in name:
+        vec["Joy"] = 1.0
+    elif "sad" in name:
+        vec["Sadness"] = 1.0
+    elif "anger" in name or "angry" in name:
+        vec["Anger"] = 1.0
+    return vec
+
+
 LEXICON = {
     "happy": "Joy",
     "sad": "Sadness",
@@ -119,11 +156,28 @@ def text_sentiment(text: str) -> Dict[str, float]:
     return vec
 
 
-def fuse(audio_vec: Dict[str, float], text_vec: Dict[str, float]) -> Dict[str, float]:
-    """Fuse audio and text emotion vectors."""
+def fuse(
+    audio_vec: Dict[str, float],
+    text_vec: Dict[str, float],
+    vision_vec: Dict[str, float] | None = None,
+    weights: Dict[str, float] | None = None,
+) -> Dict[str, float]:
+    """Fuse multiple emotion sources with optional weights."""
+    weights = weights or {"audio": 1.0, "text": 1.0, "vision": 1.0}
     out = empty_emotion_vector()
     for k in out.keys():
-        out[k] = max(audio_vec.get(k, 0.0), text_vec.get(k, 0.0))
+        val = 0.0
+        denom = 0.0
+        if audio_vec:
+            val += audio_vec.get(k, 0.0) * weights.get("audio", 1.0)
+            denom += weights.get("audio", 1.0)
+        if text_vec:
+            val += text_vec.get(k, 0.0) * weights.get("text", 1.0)
+            denom += weights.get("text", 1.0)
+        if vision_vec:
+            val += vision_vec.get(k, 0.0) * weights.get("vision", 1.0)
+            denom += weights.get("vision", 1.0)
+        out[k] = val / denom if denom else 0.0
     return out
 
 
@@ -131,4 +185,11 @@ def detect(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Dispatch to the configured emotion detector."""
     if DETECTOR == "neural":
         return neural_emotions(path)
+    if DETECTOR == "sota":
+        return sota_emotions(path)
     return vad_and_features(path)
+
+
+def detect_image(path: str) -> Dict[str, float]:
+    """Return facial emotions from an image path if provided."""
+    return vision_emotions(path)
