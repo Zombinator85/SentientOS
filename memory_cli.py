@@ -111,6 +111,25 @@ def main():
         choices=["open", "failed", "completed", "stuck", "all"],
         help="Filter by status",
     )
+    add_goal = sub.add_parser("add_goal", help="Add a new goal")
+    add_goal.add_argument("text")
+    add_goal.add_argument("--intent")
+    add_goal.add_argument("--priority", type=int, default=1)
+    add_goal.add_argument("--deadline")
+    add_goal.add_argument("--schedule")
+
+    complete = sub.add_parser("complete_goal", help="Mark goal completed")
+    complete.add_argument("id")
+
+    delete = sub.add_parser("delete_goal", help="Delete a goal")
+    delete.add_argument("id")
+
+    es = sub.add_parser("escalations", help="Show recent escalations")
+    es.add_argument("--last", type=int, default=5)
+
+    run = sub.add_parser("run", help="Run agent cycles")
+    run.add_argument("--cycles", type=int, default=1)
+
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -136,6 +155,33 @@ def main():
         show_reflections(args.last, args.plugin, args.user, args.failures, args.json)
     elif args.cmd == "goals":
         show_goals(args.status)
+    elif args.cmd == "add_goal":
+        intent = json.loads(args.intent or "{}") if args.intent else {}
+        g = mm.add_goal(
+            args.text,
+            intent=intent,
+            priority=args.priority,
+            deadline=args.deadline,
+            schedule_at=args.schedule,
+        )
+        print(f"Added goal {g['id']}")
+    elif args.cmd == "complete_goal":
+        g = mm.get_goal(args.id)
+        if g:
+            g["status"] = "completed"
+            mm.save_goal(g)
+            print(f"Completed {args.id}")
+        else:
+            print("Goal not found")
+    elif args.cmd == "delete_goal":
+        mm.delete_goal(args.id)
+        print(f"Deleted {args.id}")
+    elif args.cmd == "escalations":
+        for line in mm.recent_escalations(args.last):
+            print(line)
+    elif args.cmd == "run":
+        import autonomous_reflector as ar
+        ar.run_loop(iterations=args.cycles, interval=0.01)
     else:
         parser.print_help()
 

@@ -18,7 +18,7 @@ memory_tail.py – Colorized log viewer for logs/memory.jsonl.
 
 heartbeat.py – Simple client that periodically sends heartbeat pings to the relay.
 
-autonomous_reflector.py – Background micro-agent that cycles through plan–act–reflect loops. It executes open goals via the actuator, stores critiques, and escalates repeated failures.
+autonomous_reflector.py – Background micro-agent that cycles through plan–act–reflect loops. It now manages multiple goals in parallel with prioritization and scheduling. Reflections generate self-improvement notes and failed goals trigger escalation plugins.
 
 cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple models via the relay.
 
@@ -122,6 +122,10 @@ python memory_cli.py timeline             # view the emotion timeline/mood trend
 python memory_cli.py actions --last 5     # show recent actuator events
 python memory_cli.py actions --last 5 --reflect  # include reflections
 python memory_cli.py goals --status open  # list open goals
+python memory_cli.py add_goal "check disk" --intent '{"type":"shell","cmd":"df"}'
+python memory_cli.py complete_goal <id>
+python memory_cli.py delete_goal <id>
+python memory_cli.py run --cycles 3  # run agent cycles
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Actuator CLI
@@ -166,6 +170,8 @@ python api/actuator.py plugins --reload # reload from disk without restart
 The `/act` endpoint can run actions asynchronously when `{"async": true}` is
 sent. Poll `/act/status/<id>` or connect to `/act/stream/<id>` for live status
 updates.
+Additional endpoints support goal management and manual agent runs:
+`/goals/add`, `/goals/list`, `/goals/complete`, `/goals/delete`, and `/agent/run`.
 
 Log tailing
 Use memory_tail.py to stream new entries from logs/memory.jsonl:

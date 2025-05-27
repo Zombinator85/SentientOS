@@ -285,6 +285,40 @@ def recent_reflections(
     return out
 
 
+def recent_patches(limit: int = 5) -> list[str]:
+    """Return recent self-improvement patch notes."""
+    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    out: list[str] = []
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if "self_patch" not in data.get("tags", []):
+            continue
+        out.append(data.get("text", ""))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def recent_escalations(limit: int = 5) -> list[str]:
+    """Return recent escalation log snippets."""
+    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    out: list[str] = []
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if "escalation" not in data.get("tags", []):
+            continue
+        out.append(data.get("text", ""))
+        if len(out) >= limit:
+            break
+    return out
+
+
 # --- Goal management -------------------------------------------------------
 
 def _load_goals() -> list[dict]:
@@ -301,7 +335,17 @@ def _save_goals(goals: list[dict]) -> None:
     GOALS_PATH.write_text(json.dumps(goals, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def add_goal(text: str, *, intent: dict | None = None, user: str = "") -> dict:
+def add_goal(
+    text: str,
+    *,
+    intent: dict | None = None,
+    user: str = "",
+    priority: int = 1,
+    deadline: str | None = None,
+    schedule_at: str | None = None,
+) -> dict:
+    """Create and persist a new goal entry."""
+
     goal_id = _hash(text + datetime.datetime.utcnow().isoformat())
     goal = {
         "id": goal_id,
@@ -310,6 +354,9 @@ def add_goal(text: str, *, intent: dict | None = None, user: str = "") -> dict:
         "created": datetime.datetime.utcnow().isoformat(),
         "status": "open",
         "user": user,
+        "priority": priority,
+        "deadline": deadline,
+        "schedule_at": schedule_at,
     }
     goals = _load_goals()
     goals.append(goal)
@@ -328,9 +375,52 @@ def save_goal(goal: dict) -> None:
     _save_goals(goals)
 
 
+def delete_goal(goal_id: str) -> None:
+    """Remove a goal by id."""
+    goals = [g for g in _load_goals() if g.get("id") != goal_id]
+    _save_goals(goals)
+
+
+def get_goal(goal_id: str) -> dict | None:
+    for g in _load_goals():
+        if g.get("id") == goal_id:
+            return g
+    return None
+
+
+def next_goal() -> dict | None:
+    """Return the next due goal by priority and schedule."""
+    goals = get_goals(open_only=False)
+    now = datetime.datetime.utcnow()
+    due: list[dict] = []
+    for g in goals:
+        if g.get("status") in {"completed", "stuck"}:
+            continue
+        at = g.get("schedule_at")
+        if at:
+            try:
+                if datetime.datetime.fromisoformat(at) > now:
+                    continue
+            except Exception:
+                pass
+        due.append(g)
+    due.sort(
+        key=lambda x: (
+            -int(x.get("priority", 1)),
+            x.get("deadline") or x.get("created"),
+        )
+    )
+    return due[0] if due else None
+
+
 def get_goals(*, open_only: bool = False) -> list[dict]:
     goals = _load_goals()
     if open_only:
         goals = [g for g in goals if g.get("status") == "open"]
-    goals.sort(key=lambda x: x.get("created", ""))
+    goals.sort(
+        key=lambda x: (
+            -int(x.get("priority", 1)),
+            x.get("created", ""),
+        )
+    )
     return goals
