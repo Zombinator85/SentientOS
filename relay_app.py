@@ -38,42 +38,16 @@ def act():
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
 
-    intent = request.get_json() or {}
-    try:
-        result = actuator.dispatch(intent)
-    except Exception as e:
-        result = {"error": str(e)}
-
-    write_mem(
-        f"[ACT] Intent: {json.dumps(intent)}\nResult: {json.dumps(result)}",
-        tags=["act"],
-        source="relay",
+    payload = request.get_json() or {}
+    explanation = payload.pop("why", None)
+    user = request.headers.get("X-User", "relay")
+    call_id = write_mem(
+        f"[ACT REQUEST] {json.dumps(payload)}",
+        tags=["act", "request"],
+        source=user,
     )
-
-    try:
-        with app.test_request_context(
-            "/relay",
-            method="POST",
-            json={
-                "message": f"Why was action {intent} chosen?",
-                "model": intent.get("model", "default"),
-            },
-            headers={"X-Relay-Secret": RELAY_SECRET},
-        ):
-            exp_resp = relay()
-            explanation = exp_resp.get_json()["reply_chunks"][0]
-            write_mem(
-                f"[ACT EXPLAIN] {explanation}",
-                tags=["act", "explain"],
-                source="relay",
-            )
-    except Exception as e:  # pragma: no cover - best-effort
-        write_mem(
-            f"[ACT EXPLAIN ERROR] {e}",
-            tags=["act", "explain"],
-            source="relay",
-        )
-
+    result = actuator.act(payload, explanation=explanation)
+    result["request_log_id"] = call_id
     return jsonify(result)
 
 
