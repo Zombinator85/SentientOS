@@ -14,6 +14,7 @@ MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
+GOALS_PATH = MEMORY_DIR / "goals.json"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
@@ -282,3 +283,54 @@ def recent_reflections(
         if len(out) >= limit:
             break
     return out
+
+
+# --- Goal management -------------------------------------------------------
+
+def _load_goals() -> list[dict]:
+    if GOALS_PATH.exists():
+        try:
+            return json.loads(GOALS_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+    return []
+
+
+def _save_goals(goals: list[dict]) -> None:
+    GOALS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    GOALS_PATH.write_text(json.dumps(goals, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def add_goal(text: str, *, intent: dict | None = None, user: str = "") -> dict:
+    goal_id = _hash(text + datetime.datetime.utcnow().isoformat())
+    goal = {
+        "id": goal_id,
+        "text": text,
+        "intent": intent or {},
+        "created": datetime.datetime.utcnow().isoformat(),
+        "status": "open",
+        "user": user,
+    }
+    goals = _load_goals()
+    goals.append(goal)
+    _save_goals(goals)
+    return goal
+
+
+def save_goal(goal: dict) -> None:
+    goals = _load_goals()
+    for i, g in enumerate(goals):
+        if g.get("id") == goal.get("id"):
+            goals[i] = goal
+            break
+    else:
+        goals.append(goal)
+    _save_goals(goals)
+
+
+def get_goals(*, open_only: bool = False) -> list[dict]:
+    goals = _load_goals()
+    if open_only:
+        goals = [g for g in goals if g.get("status") == "open"]
+    goals.sort(key=lambda x: x.get("created", ""))
+    return goals
