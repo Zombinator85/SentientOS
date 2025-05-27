@@ -67,6 +67,19 @@ def show_reflections(last: int, plugin: str | None, user: str | None, failures: 
         line = f"{r.get('timestamp','?')} {r.get('plugin')} {r.get('reason','') or r.get('next','')}"
         print(line)
 
+
+def show_goals(status: str) -> None:
+    goals = mm.get_goals(open_only=False)
+    for g in goals:
+        if status != "all" and g.get("status") != status:
+            continue
+        line = f"{g.get('status')} {g.get('text','')}"
+        if g.get('failure_count'):
+            line += f" ({g['failure_count']})"
+        if g.get('critique'):
+            line += f" | {g['critique']}"
+        print(line)
+
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
     sub = parser.add_subparsers(dest="cmd")
@@ -90,6 +103,14 @@ def main():
     refl.add_argument("--user")
     refl.add_argument("--failures", action="store_true", help="Only failed actions")
     refl.add_argument("--json", action="store_true", help="Export as JSON")
+
+    goals = sub.add_parser("goals", help="List goals")
+    goals.add_argument(
+        "--status",
+        default="open",
+        choices=["open", "failed", "completed", "stuck", "all"],
+        help="Filter by status",
+    )
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -113,6 +134,8 @@ def main():
         show_actions(args.last, reflect=args.reflect)
     elif args.cmd == "reflections":
         show_reflections(args.last, args.plugin, args.user, args.failures, args.json)
+    elif args.cmd == "goals":
+        show_goals(args.status)
     else:
         parser.print_help()
 

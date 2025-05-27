@@ -353,15 +353,28 @@ def _rate_limit(intent: Dict[str, Any], user: str | None) -> None:
     LAST_EXECUTION[key] = now
 
 
-def _auto_critique(intent: Dict[str, Any], error: Exception) -> str:
-    """Generate a simple critique message for a failed action."""
-    return (
-        f"Action {intent.get('type')} failed with {error}. "
-        "Consider adjusting the parameters and try again."
-    )
+CRITIQUE_STEPS = [
+    lambda i, e: f"Action {i.get('type')} failed with {e}. Try again with adjusted parameters.",
+    lambda i, e: f"Repeated failure for {i.get('type')}. Verify permissions or inputs before retrying.",
+    lambda i, e: f"Escalation: manual intervention required for {i.get('type')}" ,
+]
 
 
-def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None = None, dry_run: bool | None = None) -> Dict[str, Any]:
+def _auto_critique(intent: Dict[str, Any], error: Exception, step: int = 0) -> tuple[str, int]:
+    """Return critique text and next step index."""
+    idx = min(step, len(CRITIQUE_STEPS) - 1)
+    critique = CRITIQUE_STEPS[idx](intent, error)
+    next_step = idx + 1 if idx + 1 < len(CRITIQUE_STEPS) else idx
+    return critique, next_step
+
+
+def act(
+    intent: Dict[str, Any],
+    explanation: str | None = None,
+    user: str | None = None,
+    dry_run: bool | None = None,
+    critique_step: int | None = None,
+) -> Dict[str, Any]:
     """Execute an intent and persist a log entry.
 
     Parameters
@@ -404,7 +417,8 @@ def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None
         return result
     except Exception as e:  # pragma: no cover - defensive
         reflection_text = f"Action {intent.get('type')} failed: {e}"
-        critique = _auto_critique(intent, e)
+        step = critique_step if critique_step is not None else intent.pop("_critique_step", 0)
+        critique, next_step = _auto_critique(intent, e, step)
         err_entry = {
             "intent": intent,
             "error": str(e),
@@ -423,7 +437,15 @@ def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None
             user=user or "",
             plugin=intent.get("type", ""),
         )
-        return {"error": str(e), "log_id": log_id, "status": "failed", "reflection": reflection_text, "critique": critique, "reflection_id": reflection_id}
+        return {
+            "error": str(e),
+            "log_id": log_id,
+            "status": "failed",
+            "reflection": reflection_text,
+            "critique": critique,
+            "critique_step": next_step,
+            "reflection_id": reflection_id,
+        }
 
 
 def recent_logs(last: int = 10, reflect: bool = False) -> list[dict]:
