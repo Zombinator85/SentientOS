@@ -32,6 +32,8 @@ rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by n
 
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
+api/actuator.py – Executes whitelisted shell commands, HTTP requests, and file writes with persistent logging. Also provides a CLI and powers the /act relay endpoint.
+
 ngrok.yml – Example ngrok configuration.
 
 Environment Variables
@@ -59,6 +61,8 @@ ELEVEN_VOICE	Voice ID for ElevenLabs
 BARK_SPEAKER	Speaker preset for Bark
 AUDIO_LOG_DIR	Directory for recorded audio files
 EMOTION_DETECTOR	"heuristic" (default) or "neural"
+ACT_WHITELIST	Path to YAML whitelist for actuator actions (default config/act_whitelist.yml)
+ACT_SANDBOX	Directory for actuator file writes (default sandbox)
 
 Usage
 Install dependencies
@@ -108,6 +112,13 @@ python memory_cli.py summarize            # build/update daily summaries
 python memory_cli.py playback --last 5    # show recent fragments with emotion labels and sources
 python memory_cli.py timeline             # view the emotion timeline/mood trend
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
+
+Actuator CLI
+```bash
+python api/actuator.py shell "ls -l"
+python api/actuator.py http --url https://example.com
+python api/actuator.py write --file out.txt --text "hello"
+```
 
 Log tailing
 Use memory_tail.py to stream new entries from logs/memory.jsonl:

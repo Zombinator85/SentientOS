@@ -24,12 +24,35 @@ def test_run_shell_allowed(tmp_path, monkeypatch):
     assert "hello" in res["stdout"]
 
 
+def test_file_write(tmp_path, monkeypatch):
+    reload(actuator)
+    actuator.SANDBOX_DIR = tmp_path / "sandbox"
+    actuator.WHITELIST = {"shell": [], "http": [], "timeout": 5}
+    res = actuator.file_write("out.txt", "data")
+    written = tmp_path / "sandbox" / "out.txt"
+    assert written.exists()
+    assert res == {"written": str(written)}
+
+
 def test_run_shell_blocked():
     reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
     import pytest
     with pytest.raises(Exception):
         actuator.run_shell("rm -rf /")
+
+
+def test_act_logging(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    result = actuator.act({"type": "shell", "cmd": "echo log"})
+    assert "log_id" in result
+    log_path = tmp_path / "raw" / f"{result['log_id']}.json"
+    assert log_path.exists()
 
 
 def test_http_fetch(monkeypatch):
@@ -68,6 +91,7 @@ def test_act_route_respects_whitelist(tmp_path, monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert "hi" in data.get("stdout", "")
+    assert "log_id" in data and "request_log_id" in data
 
     resp = client.post(
         "/act",
