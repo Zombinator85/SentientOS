@@ -25,7 +25,6 @@ else:
 # :func:`vad_and_features`, "neural" uses :func:`neural_emotions`.
 DETECTOR = os.getenv("EMOTION_DETECTOR", "heuristic")
 
-
 def vad_and_features(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Return emotion vector and raw features for an audio file.
 
@@ -61,7 +60,6 @@ def vad_and_features(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
         pass
     return vec, features
 
-
 def _map_vad_to_epu(valence: float, arousal: float, dominance: float) -> Dict[str, float]:
     """Map valence, arousal, dominance to the canonical emotion vector."""
     vec = empty_emotion_vector()
@@ -76,7 +74,6 @@ def _map_vad_to_epu(valence: float, arousal: float, dominance: float) -> Dict[st
     if dominance > 0.7:
         vec["Confident"] = dominance
     return vec
-
 
 def neural_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Lightweight neural-ish emotion classifier.
@@ -109,7 +106,6 @@ def neural_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
 
     return vec, features
 
-
 def sota_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Use a pretrained model if available."""
     if _sota_classifier is None or not os.path.exists(path):
@@ -121,7 +117,6 @@ def sota_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
         return vec, {}
     except Exception:
         return neural_emotions(path)
-
 
 def vision_emotions(path: str) -> Dict[str, float]:
     """Very naive facial emotion detector based on file name."""
@@ -135,7 +130,6 @@ def vision_emotions(path: str) -> Dict[str, float]:
         vec["Anger"] = 1.0
     return vec
 
-
 LEXICON = {
     "happy": "Joy",
     "sad": "Sadness",
@@ -143,7 +137,6 @@ LEXICON = {
     "love": "Love",
     "fear": "Fear",
 }
-
 
 def text_sentiment(text: str) -> Dict[str, float]:
     """Very small lexicon-based sentiment lookup."""
@@ -154,7 +147,6 @@ def text_sentiment(text: str) -> Dict[str, float]:
         if label:
             vec[label] = max(vec.get(label, 0.0), 0.8)
     return vec
-
 
 def fuse(
     audio_vec: Dict[str, float],
@@ -180,7 +172,6 @@ def fuse(
         out[k] = val / denom if denom else 0.0
     return out
 
-
 def detect(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Dispatch to the configured emotion detector."""
     if DETECTOR == "neural":
@@ -188,7 +179,6 @@ def detect(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     if DETECTOR == "sota":
         return sota_emotions(path)
     return vad_and_features(path)
-
 
 def detect_image(path: str) -> Dict[str, float]:
     """Return facial emotions from an image path if provided."""

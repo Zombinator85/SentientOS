@@ -41,8 +41,8 @@ class MicListener:
         except queue.Empty:
             return None
 
-
 def empathy_phrase(vec: Dict[str, float]) -> str | None:
+    """Insert an empathy utterance based on detected emotion."""
     if vec.get("Sadness", 0) > 0.5:
         return "I'm sorry to hear that."
     if vec.get("Anger", 0) > 0.5:
@@ -50,7 +50,6 @@ def empathy_phrase(vec: Dict[str, float]) -> str | None:
     if vec.get("Joy", 0) > 0.7:
         return "That's great to hear!"
     return None
-
 
 def run_loop():  # pragma: no cover - runs indefinitely
     print("[VOICE LOOP] Starting full duplex. Press Ctrl+C to exit.")

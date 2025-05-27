@@ -1,6 +1,5 @@
 import emotion_memory as em
 
-
 def test_average_emotion():
     em.clear()
     em.add_emotion({'Joy': 1.0})
@@ -8,7 +7,6 @@ def test_average_emotion():
     avg = em.average_emotion()
     assert avg['Joy'] > 0
     assert avg['Anger'] > 0
-
 
 def test_trend():
     em.clear()
