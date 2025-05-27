@@ -19,7 +19,43 @@ try:
 except Exception:  # pragma: no cover - fallback when PyYAML isn't installed
     yaml = None
 import ast
-from typing import Any, Dict
+from typing import Any, Dict, Callable
+
+# --- Pluggable actuator registry -------------------------------------------
+
+class BaseActuator:
+    """Interface for pluggable actuator types."""
+
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        raise NotImplementedError
+
+
+ACTUATORS: dict[str, BaseActuator] = {}
+
+
+def register_actuator(name: str, actuator: BaseActuator) -> None:
+    ACTUATORS[name] = actuator
+
+
+def load_plugins() -> None:
+    plugins_dir = Path(os.getenv("ACT_PLUGINS_DIR", "plugins"))
+    if not plugins_dir.exists():
+        return
+    for fp in plugins_dir.glob("*.py"):
+        spec = {}
+        with open(fp, "r", encoding="utf-8") as f:
+            code = f.read()
+        try:
+            exec(compile(code, str(fp), "exec"), spec)
+        except Exception:
+            continue
+        reg = spec.get("register")
+        if callable(reg):
+            try:
+                reg(register_actuator)
+            except Exception:
+                pass
+
 
 from memory_manager import write_mem
 
@@ -55,6 +91,46 @@ else:
 
 SANDBOX_DIR = Path(os.getenv("ACT_SANDBOX", "sandbox"))
 SANDBOX_DIR.mkdir(exist_ok=True)
+
+
+class ShellActuator(BaseActuator):
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        return run_shell(intent.get("cmd", ""), cwd=intent.get("cwd", "."))
+
+
+class HttpActuator(BaseActuator):
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        url = intent.get("url", "")
+        method = intent.get("method", "GET")
+        extras = {k: v for k, v in intent.items() if k not in {"type", "url", "method"}}
+        return http_fetch(url, method=method, **extras)
+
+
+class FileActuator(BaseActuator):
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        return file_write(intent.get("path", ""), intent.get("content", ""))
+
+
+class EmailActuator(BaseActuator):
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        return send_email(intent.get("to", ""), intent.get("subject", ""), intent.get("body", ""))
+
+
+class WebhookActuator(BaseActuator):
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        return trigger_webhook(intent.get("url", ""), intent.get("payload", {}))
+
+
+def register_builtin_actuators() -> None:
+    register_actuator("shell", ShellActuator())
+    register_actuator("http", HttpActuator())
+    register_actuator("file", FileActuator())
+    register_actuator("email", EmailActuator())
+    register_actuator("webhook", WebhookActuator())
+
+
+register_builtin_actuators()
+load_plugins()
 
 
 def _match_patterns(value: str, patterns: list[str]) -> bool:
@@ -235,26 +311,29 @@ def template_placeholders(name: str) -> set[str]:
 
 def dispatch(intent: dict) -> dict:
     itype = intent.get("type")
-    if itype == "shell":
-        return run_shell(intent.get("cmd", ""), cwd=intent.get("cwd", "."))
-    if itype == "http":
-        url = intent.get("url", "")
-        method = intent.get("method", "GET")
-        extras = {k: v for k, v in intent.items() if k not in {"type", "url", "method"}}
-        return http_fetch(url, method=method, **extras)
-    if itype == "file":
-        return file_write(intent.get("path", ""), intent.get("content", ""))
-    if itype == "email":
-        return send_email(intent.get("to", ""), intent.get("subject", ""), intent.get("body", ""))
-    if itype == "webhook":
-        return trigger_webhook(intent.get("url", ""), intent.get("payload", {}))
     if itype == "template":
         expanded = expand_template(intent.get("name", ""), intent.get("params", {}))
         return dispatch(expanded)
-    raise ValueError("Unsupported intent")
+    act = ACTUATORS.get(itype)
+    if not act:
+        raise ValueError("Unsupported intent")
+    return act.execute(intent)
 
 
-def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None = None) -> Dict[str, Any]:
+LAST_EXECUTION: dict[tuple[str, str], float] = {}
+RATE_LIMIT_SECONDS = int(os.getenv("ACT_RATE_LIMIT", "5"))
+
+
+def _rate_limit(intent: Dict[str, Any], user: str | None) -> None:
+    key = (user or "", intent.get("type") + ":" + intent.get("name", ""))
+    now = time.time()
+    last = LAST_EXECUTION.get(key, 0)
+    if now - last < RATE_LIMIT_SECONDS:
+        raise RuntimeError("Rate limit exceeded")
+    LAST_EXECUTION[key] = now
+
+
+def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None = None, dry_run: bool | None = None) -> Dict[str, Any]:
     """Execute an intent and persist a log entry.
 
     Parameters
@@ -262,39 +341,57 @@ def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None
     intent: mapping describing the action. Keys depend on the ``type`` field.
     explanation: optional reason for choosing the action.
     """
+    if dry_run is None:
+        dry_run = intent.pop("dry_run", False)
     try:
-        result = dispatch(intent)
+        _rate_limit(intent, user)
+        if dry_run:
+            result = {"dry_run": True, "intent": intent}
+        else:
+            result = dispatch(intent)
+        reflection = (
+            f"Action {intent.get('type')} {'dry run' if dry_run else 'executed'} successfully"
+        )
         log_entry = {
             "intent": intent,
             "result": result,
             "explanation": explanation or "",
             "user": user or "",
             "status": "finished",
+            "reflection": reflection,
         }
         log_id = write_mem(json.dumps(log_entry), tags=["act", intent.get("type", "")], source="actuator")
+        refl_entry = {"parent": log_id, "text": reflection}
+        refl_id = write_mem(json.dumps(refl_entry), tags=["act", "reflection"], source="actuator")
         result = dict(result)
         result["log_id"] = log_id
+        result["reflection_id"] = refl_id
+        result["reflection"] = reflection
         result["status"] = "finished"
         if explanation:
             result["explanation"] = explanation
         return result
     except Exception as e:  # pragma: no cover - defensive
+        reflection = f"Action {intent.get('type')} failed: {e}"
         err_entry = {
             "intent": intent,
             "error": str(e),
             "explanation": explanation or "",
             "user": user or "",
             "status": "failed",
+            "reflection": reflection,
         }
         log_id = write_mem(json.dumps(err_entry), tags=["act", "error"], source="actuator")
-        return {"error": str(e), "log_id": log_id, "status": "failed"}
+        refl_entry = {"parent": log_id, "text": reflection}
+        refl_id = write_mem(json.dumps(refl_entry), tags=["act", "reflection"], source="actuator")
+        return {"error": str(e), "log_id": log_id, "status": "failed", "reflection": reflection, "reflection_id": refl_id}
 
 
-def recent_logs(last: int = 10) -> list[dict]:
+def recent_logs(last: int = 10, reflect: bool = False) -> list[dict]:
     from memory_manager import RAW_PATH
-    files = sorted(RAW_PATH.glob("*.json"))[-last:]
+    files = sorted(RAW_PATH.glob("*.json"))
     out = []
-    for fp in files:
+    for fp in reversed(files):
         try:
             data = json.loads(fp.read_text(encoding="utf-8"))
         except Exception:
@@ -304,7 +401,28 @@ def recent_logs(last: int = 10) -> list[dict]:
         try:
             entry = json.loads(data.get("text", "{}"))
             entry["timestamp"] = data.get("timestamp")
+            entry["id"] = data.get("id")
+            if "intent" not in entry:
+                continue
+            if reflect:
+                from memory_manager import RAW_PATH as RP
+                for rf in RP.glob("*.json"):
+                    try:
+                        rdata = json.loads(rf.read_text(encoding="utf-8"))
+                    except Exception:
+                        continue
+                    if "act" not in rdata.get("tags", []):
+                        continue
+                    try:
+                        rentry = json.loads(rdata.get("text", "{}"))
+                    except Exception:
+                        continue
+                    if rentry.get("parent") == entry["id"]:
+                        entry["reflection_text"] = rentry.get("text", "")
+                        break
             out.append(entry)
+            if len(out) >= last:
+                break
         except Exception:
             continue
     return out
@@ -323,6 +441,7 @@ def main(argv: list[str] | None = None) -> None:
             "email",
             "webhook",
             "template",
+            "template_help",
             "logs",
             "templates",
         ],
@@ -342,12 +461,18 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--params", dest="params")
     parser.add_argument("--cwd", dest="cwd", default=".")
     parser.add_argument("--why", dest="why")
+    parser.add_argument("--dry", action="store_true", help="Dry run")
+    parser.add_argument("--reflect", action="store_true", help="Include reflections in logs")
     parser.add_argument("--last", dest="last", type=int, default=10)
 
     args = parser.parse_args(argv)
 
     if args.subcommand == "templates":
-        print(json.dumps({"templates": list(TEMPLATES.keys())}, indent=2))
+        names = list(TEMPLATES.keys())
+        if args.cmd:
+            term = args.cmd.lower()
+            names = [n for n in names if term in n.lower()]
+        print(json.dumps({"templates": names}, indent=2))
         return
 
     intent: Dict[str, Any] = {"type": args.subcommand if args.subcommand not in {"write", "logs"} else ("file" if args.subcommand == "write" else "logs")}
@@ -371,12 +496,20 @@ def main(argv: list[str] | None = None) -> None:
         for m in missing:
             params[m] = input(f"{m}: ")
         intent.update({"name": args.name or "", "params": params})
+    elif args.subcommand == "template_help":
+        if args.name:
+            fields = template_placeholders(args.name)
+            example = {k: f"<{k}>" for k in fields}
+            print(json.dumps({"required": sorted(fields), "example": example}, indent=2))
+        else:
+            print("Specify --name")
+        return
     elif args.subcommand == "logs":
-        logs = recent_logs(args.last)
+        logs = recent_logs(args.last, reflect=args.reflect)
         print(json.dumps(logs, indent=2))
         return
 
-    out = act(intent, explanation=args.why)
+    out = act(intent, explanation=args.why, dry_run=args.dry)
     print(json.dumps(out))
 
 

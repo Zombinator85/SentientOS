@@ -44,14 +44,17 @@ def playback(last: int) -> None:
             print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} -> {txt}")
 
 
-def show_actions(last: int) -> None:
+def show_actions(last: int, reflect: bool) -> None:
     """Display recent actuator events with context."""
-    logs = actuator.recent_logs(last)
+    logs = actuator.recent_logs(last, reflect=reflect)
     for entry in logs:
         intent = entry.get("intent", {})
         result = entry.get("result", entry.get("error"))
         desc = json.dumps(intent)
-        print(f"{entry.get('timestamp','?')} {entry.get('status')} {desc} -> {result}")
+        line = f"{entry.get('timestamp','?')} {entry.get('status')} {desc} -> {result}"
+        if reflect and entry.get("reflection_text"):
+            line += f" | {entry['reflection_text']}"
+        print(line)
 
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
@@ -69,6 +72,7 @@ def main():
     pb.add_argument("--last", type=int, default=5, help="Show last N entries")
     acts = sub.add_parser("actions", help="Show recent actuator events")
     acts.add_argument("--last", type=int, default=10, help="Show last N events")
+    acts.add_argument("--reflect", action="store_true", help="Include reflections")
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -89,7 +93,7 @@ def main():
     elif args.cmd == "playback":
         playback(args.last)
     elif args.cmd == "actions":
-        show_actions(args.last)
+        show_actions(args.last, reflect=args.reflect)
     else:
         parser.print_help()
 
