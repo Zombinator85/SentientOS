@@ -3,9 +3,11 @@ import threading
 import queue
 import time
 import requests
+from typing import Dict
 from emotions import empty_emotion_vector
 from mic_bridge import recognize_from_mic
-from tts_bridge import speak_async, stop
+from tts_bridge import speak_async, stop, adapt_persona
+import emotion_memory as em
 
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
@@ -39,6 +41,15 @@ class MicListener:
         except queue.Empty:
             return None
 
+def empathy_phrase(vec: Dict[str, float]) -> str | None:
+    """Insert an empathy utterance based on detected emotion."""
+    if vec.get("Sadness", 0) > 0.5:
+        return "I'm sorry to hear that."
+    if vec.get("Anger", 0) > 0.5:
+        return "I understand your frustration."
+    if vec.get("Joy", 0) > 0.7:
+        return "That's great to hear!"
+    return None
 
 def run_loop():  # pragma: no cover - runs indefinitely
     print("[VOICE LOOP] Starting full duplex. Press Ctrl+C to exit.")
@@ -53,6 +64,12 @@ def run_loop():  # pragma: no cover - runs indefinitely
                 continue
             text = result.get("message")
             emotions = result.get("emotions") or empty_emotion_vector()
+            em.add_emotion(emotions)
+            adapt_persona(em.trend())
+            phrase = empathy_phrase(emotions)
+            if phrase:
+                t_emp = speak_async(phrase, emotions=emotions)
+                t_emp.join()
             if not text:
                 continue
             payload = {

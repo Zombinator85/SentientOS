@@ -73,14 +73,16 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
 
     if text:
         text_vec = eu.text_sentiment(text)
-        emotions = eu.fuse(emotions, text_vec)
+        fused = eu.fuse(emotions, text_vec)
         append_memory(
             text,
             tags=["voice", "input"],
             source="mic",
-            emotions=emotions,
+            emotions=fused,
             emotion_features=features,
+            emotion_breakdown={"audio": emotions, "text": text_vec},
         )
+        emotions = fused
 
     return {
         "message": text,
@@ -109,14 +111,16 @@ def recognize_from_file(path: str) -> Dict[str, Optional[str]]:
 
     if text:
         text_vec = eu.text_sentiment(text)
-        emotions = eu.fuse(emotions, text_vec)
+        fused = eu.fuse(emotions, text_vec)
         append_memory(
             text,
             tags=["voice", "input"],
             source="file",
-            emotions=emotions,
+            emotions=fused,
             emotion_features=features,
+            emotion_breakdown={"audio": emotions, "text": text_vec},
         )
+        emotions = fused
 
     return {
         "message": text,

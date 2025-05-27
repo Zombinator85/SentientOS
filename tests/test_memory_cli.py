@@ -37,3 +37,4 @@ def test_cli_playback(tmp_path, monkeypatch, capsys):
     memory_cli.main()
     out = capsys.readouterr().out
     assert 'hello' in out
+    assert 'Joy' in out
