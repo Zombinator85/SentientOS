@@ -32,7 +32,7 @@ rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by n
 
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
-api/actuator.py – Executes whitelisted shell commands, HTTP requests, and file writes with persistent logging. Also provides a CLI and powers the /act relay endpoint.
+api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
 
 ngrok.yml – Example ngrok configuration.
 
@@ -63,6 +63,12 @@ AUDIO_LOG_DIR	Directory for recorded audio files
 EMOTION_DETECTOR	"heuristic" (default) or "neural"
 ACT_WHITELIST	Path to YAML whitelist for actuator actions (default config/act_whitelist.yml)
 ACT_SANDBOX	Directory for actuator file writes (default sandbox)
+ACT_TEMPLATES	Path to YAML templates for actuator (default config/act_templates.yml)
+SMTP_HOST	SMTP server for email actions
+SMTP_PORT	SMTP port (default 25)
+SMTP_USER	SMTP username
+SMTP_PASS	SMTP password
+SMTP_FROM	Sender address for emails
 
 Usage
 Install dependencies
@@ -118,6 +124,10 @@ Actuator CLI
 python api/actuator.py shell "ls -l"
 python api/actuator.py http --url https://example.com
 python api/actuator.py write --file out.txt --text "hello"
+python api/actuator.py email --to user@example.com --subject hi --body "hello"
+python api/actuator.py webhook --url http://hook --payload '{"ping":1}'
+python api/actuator.py template --name greet --params '{"name":"Ada"}'
+python api/actuator.py logs --last 5
 ```
 
 Log tailing

@@ -6,6 +6,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import relay_app
 from api import actuator
+import pytest
 
 
 def setup(tmp_path, monkeypatch):
@@ -18,8 +19,10 @@ def setup(tmp_path, monkeypatch):
 
 def test_run_shell_allowed(tmp_path, monkeypatch):
     reload(actuator)
+    actuator.SANDBOX_DIR = tmp_path / "sb"
+    actuator.SANDBOX_DIR.mkdir()
     actuator.WHITELIST = {"shell": ["echo"], "http": ["http://"], "timeout": 5}
-    res = actuator.run_shell("echo hello", cwd=tmp_path)
+    res = actuator.run_shell("echo hello")
     assert res["code"] == 0
     assert "hello" in res["stdout"]
 
@@ -101,3 +104,42 @@ def test_act_route_respects_whitelist(tmp_path, monkeypatch):
     assert resp.status_code == 200
     data = resp.get_json()
     assert "error" in data
+
+
+def test_sandbox_escape(tmp_path, monkeypatch):
+    reload(actuator)
+    actuator.SANDBOX_DIR = tmp_path / "sbox"
+    actuator.SANDBOX_DIR.mkdir()
+    with pytest.raises(Exception):
+        actuator.file_write("../bad.txt", "oops")
+
+
+def test_whitelist_pattern(monkeypatch):
+    reload(actuator)
+    actuator.WHITELIST = {"shell": ["ls*"], "http": [], "timeout": 5}
+    res = actuator.run_shell("ls", cwd=".")
+    assert res["code"] == 0
+    with pytest.raises(Exception):
+        actuator.run_shell("rm")
+
+
+def test_template_expansion(monkeypatch):
+    reload(actuator)
+    actuator.TEMPLATES = {"greet": {"type": "shell", "cmd": "echo {name}"}}
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    out = actuator.dispatch({"type": "template", "name": "greet", "params": {"name": "Bob"}})
+    assert "stdout" in out and "Bob" in out["stdout"]
+
+
+def test_recent_logs_cli(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.act({"type": "shell", "cmd": "echo hi"})
+    monkeypatch.setattr(sys, "argv", ["ac", "logs", "--last", "1"])
+    actuator.main()
+    out = capsys.readouterr().out
+    assert "hi" in out
