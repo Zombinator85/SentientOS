@@ -35,3 +35,25 @@ def test_micro_agent_escalation(tmp_path, monkeypatch):
     goal = mm.get_goals(open_only=False)[0]
     assert goal["status"] == "stuck"
     assert goal.get("failure_count", 0) >= 3
+    esc = mm.recent_escalations(limit=1)
+    assert esc
+
+
+def test_multi_goal_priority(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    mm.add_goal("low", intent={"type": "hello", "name": "Low"}, priority=1)
+    mm.add_goal("high", intent={"type": "hello", "name": "High"}, priority=5)
+    ar.run_loop(interval=0.01, iterations=1)
+    goals = mm.get_goals(open_only=False)
+    assert any(g["text"] == "high" and g["status"] == "completed" for g in goals)
+    open_goals = [g for g in goals if g["status"] == "open"]
+    assert open_goals and open_goals[0]["text"] == "low"
+
+
+def test_self_patch_created(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    actuator.WHITELIST = {"shell": [], "http": [], "timeout": 5}
+    mm.add_goal("fail", intent={"type": "shell", "cmd": "rm"})
+    ar.run_loop(interval=0.01, iterations=1)
+    patches = mm.recent_patches(limit=1)
+    assert patches
