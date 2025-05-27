@@ -59,3 +59,18 @@ def test_act_async_status(tmp_path, monkeypatch):
             break
         time.sleep(0.1)
     assert status.get("status") == "finished"
+
+
+def test_goal_api(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    resp = client.post(
+        "/goals/add",
+        json={"text": "demo", "intent": {"type": "hello", "name": "Ada"}},
+        headers={"X-Relay-Secret": "secret123"},
+    )
+    goal = resp.get_json()
+    assert goal.get("text") == "demo"
+    gid = goal["id"]
+    client.post("/agent/run", json={"cycles": 1}, headers={"X-Relay-Secret": "secret123"})
+    resp = client.post("/goals/complete", json={"id": gid}, headers={"X-Relay-Secret": "secret123"})
+    assert resp.status_code == 200

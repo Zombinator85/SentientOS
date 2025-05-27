@@ -7,6 +7,7 @@ from memory_manager import write_mem
 from utils import chunk_message
 from emotions import empty_emotion_vector
 from api import actuator
+import memory_manager as mm
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -82,6 +83,61 @@ def act_stream():
             time.sleep(0.5)
 
     return Response(gen(), mimetype="text/event-stream")
+
+
+@app.route("/goals/list", methods=["POST"])
+def goals_list():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    return jsonify(mm.get_goals(open_only=False))
+
+
+@app.route("/goals/add", methods=["POST"])
+def goals_add():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    data = request.get_json() or {}
+    intent = data.get("intent") or {}
+    goal = mm.add_goal(
+        data.get("text", ""),
+        intent=intent,
+        priority=int(data.get("priority", 1)),
+        deadline=data.get("deadline"),
+        schedule_at=data.get("schedule_at"),
+    )
+    return jsonify(goal)
+
+
+@app.route("/goals/complete", methods=["POST"])
+def goals_complete():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    gid = (request.get_json() or {}).get("id")
+    goal = mm.get_goal(gid)
+    if not goal:
+        return "not found", 404
+    goal["status"] = "completed"
+    mm.save_goal(goal)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/goals/delete", methods=["POST"])
+def goals_delete():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    gid = (request.get_json() or {}).get("id")
+    mm.delete_goal(gid)
+    return jsonify({"status": "deleted"})
+
+
+@app.route("/agent/run", methods=["POST"])
+def agent_run():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    cycles = int((request.get_json() or {}).get("cycles", 1))
+    import autonomous_reflector as ar
+    ar.run_loop(iterations=cycles, interval=0.01)
+    return jsonify({"status": "ran", "cycles": cycles})
 
 
 if __name__ == "__main__":
