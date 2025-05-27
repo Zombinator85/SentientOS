@@ -20,11 +20,12 @@ heartbeat.py – Simple client that periodically sends heartbeat pings to the re
 
 cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple models via the relay.
 
-mic_bridge.py – Captures microphone audio and converts speech to text.
+mic_bridge.py – Captures microphone audio, converts speech to text, and infers valence, arousal, and dominance using ``emotion_utils``.
 
-tts_bridge.py – Speaks model replies aloud using a local TTS engine.
+tts_bridge.py – Speaks model replies aloud using a pluggable TTS engine and adjusts rate/voice based on emotion.
 
-voice_loop.py – Links the mic and TTS bridges for hands-free conversation.
+voice_loop.py – Links the mic and TTS bridges for hands-free conversation with emotion-aware responses and interruption support.
+browser_voice.py – Minimal Flask demo for browser-based voice chat.
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
@@ -50,6 +51,9 @@ MIXTRAL_MODEL	Model slug for Mixtral
 DEEPSEEK_MODEL	Model slug for DeepSeek
 EMBED_MODEL	Embedding model for memory search
 MEMORY_DIR	Directory used for persistent memory
+TTS_ENGINE	"pyttsx3" (default) or "coqui"
+TTS_COQUI_MODEL	Coqui model when TTS_ENGINE=coqui
+AUDIO_LOG_DIR	Directory for recorded audio files
 
 Usage
 Install dependencies:
@@ -62,7 +66,10 @@ pip install -r requirements.txt
 Voice interaction
 -----------------
 After installing dependencies, run ``python voice_loop.py`` to start a simple
-hands-free conversation using your microphone and speakers.
+hands-free conversation using your microphone and speakers. The loop infers
+valence, arousal, and dominance from your voice and modulates speech output
+accordingly. Interruptions are detected while the agent speaks, and a small
+Flask demo (``browser_voice.py``) allows in-browser experimentation.
 
 Memory management
 memory_manager.py provides persistent storage of memory snippets. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
