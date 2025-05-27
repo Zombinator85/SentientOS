@@ -1,18 +1,17 @@
 import os
-import os
 import time
 from pathlib import Path
 from typing import Optional, Dict
 import threading
 
 try:
-    from TTS.api import TTS  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
+    from TTS.api import TTS  # Coqui TTS, optional dependency
+except Exception:
     TTS = None
 
 try:
     import pyttsx3
-except Exception:  # pragma: no cover - dependency missing
+except Exception:
     pyttsx3 = None
 
 from memory_manager import append_memory
@@ -22,6 +21,7 @@ AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
+
 if ENGINE_TYPE == "coqui" and TTS is not None:
     COQUI_MODEL = os.getenv("TTS_COQUI_MODEL", "tts_models/en/vctk/vits")
     ENGINE = TTS(model_name=COQUI_MODEL)
@@ -36,7 +36,6 @@ else:
     ENGINE = None
     DEFAULT_VOICE = None
     ALT_VOICE = None
-
 
 def speak(
     text: str,
@@ -53,7 +52,7 @@ def speak(
     if chosen_voice is None:
         if emotions.get("Sadness", 0) > 0.6:
             chosen_voice = ALT_VOICE
-        elif emotions.get("Anger", 0) > 0.6:
+        elif emotions.get("Anger", 0) > 0.6 or emotions.get("Joy", 0) > 0.5:
             chosen_voice = DEFAULT_VOICE
     if ENGINE_TYPE == "pyttsx3" and chosen_voice:
         try:
@@ -68,27 +67,31 @@ def speak(
         rate = 120
     elif emotions.get("Enthusiasm", 0) > 0.6:
         rate = 170
+
     if ENGINE_TYPE == "pyttsx3":
         ENGINE.setProperty("rate", rate)
+    # Coqui doesn't take rate directly, but we can modulate speed in kwargs below
 
     if save_path is None:
         ts = time.strftime("%Y%m%d-%H%M%S")
         save_path = str(AUDIO_DIR / f"tts_{ts}.mp3")
 
-    if ENGINE_TYPE == "coqui":
+    if ENGINE_TYPE == "coqui" and TTS is not None:
         speed = rate / 150.0
         kwargs = {"file_path": save_path, "speed": speed}
         if voice:
             kwargs["speaker_wav"] = voice
         ENGINE.tts_to_file(text, **kwargs)
-    else:
+    elif ENGINE_TYPE == "pyttsx3":
         ENGINE.save_to_file(text, save_path)
         ENGINE.say(text)
         ENGINE.runAndWait()
+    else:
+        print("[TTS] No usable TTS engine found")
+        return None
 
     append_memory(text, tags=["voice", "output"], source="tts", emotions=emotions)
     return save_path
-
 
 def speak_async(
     text: str,
@@ -101,13 +104,10 @@ def speak_async(
     t.start()
     return t
 
-
 def stop() -> None:
     """Stop current speech playback if supported."""
     if ENGINE_TYPE == "pyttsx3" and ENGINE is not None:
         ENGINE.stop()
 
-
 if __name__ == "__main__":  # pragma: no cover - manual utility
     speak("Hello from SentientOS")
-

@@ -34,12 +34,15 @@ def run_loop():  # pragma: no cover - runs indefinitely
             reply = " ".join(reply_chunks)
         except Exception as e:
             reply = f"Error contacting relay: {e}"
+
+        # Start speaking asynchronously, allow interruption
         t = speak_async(reply, emotions=emotions)
         while t.is_alive():
             intr = recognize_from_mic(save_audio=False)
             if intr.get("message"):
                 stop()
                 t.join()
+                # Interrupt detected, new user input—repeat the loop
                 text = intr["message"]
                 emotions = intr.get("emotions") or empty_emotion_vector()
                 payload = {
@@ -65,4 +68,3 @@ def run_loop():  # pragma: no cover - runs indefinitely
 
 if __name__ == "__main__":  # pragma: no cover - manual utility
     run_loop()
-
