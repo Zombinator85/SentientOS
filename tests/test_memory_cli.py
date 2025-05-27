@@ -72,3 +72,16 @@ def test_cli_reflections(tmp_path, monkeypatch, capsys):
     memory_cli.main()
     out = capsys.readouterr().out
     assert 'demo' in out
+
+def test_cli_goals(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import memory_manager as mm
+    reload(mm)
+    reload(memory_cli)
+    mm.add_goal('demo', intent={'type': 'hello', 'name': 'Ada'})
+    monkeypatch.setattr(sys, 'argv', ['mc', 'goals', '--status', 'open'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'demo' in out

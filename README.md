@@ -18,6 +18,8 @@ memory_tail.py – Colorized log viewer for logs/memory.jsonl.
 
 heartbeat.py – Simple client that periodically sends heartbeat pings to the relay.
 
+autonomous_reflector.py – Background micro-agent that cycles through plan–act–reflect loops. It executes open goals via the actuator, stores critiques, and escalates repeated failures.
+
 cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple models via the relay.
 
 mic_bridge.py – Captures microphone audio, converts speech to text, and infers emotions using a configurable detector (heuristic or neural). Supports fusion with vision input (image file) for multimodal emotion vectors.
@@ -119,6 +121,7 @@ python memory_cli.py playback --last 5    # show recent fragments with emotion l
 python memory_cli.py timeline             # view the emotion timeline/mood trend
 python memory_cli.py actions --last 5     # show recent actuator events
 python memory_cli.py actions --last 5 --reflect  # include reflections
+python memory_cli.py goals --status open  # list open goals
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Actuator CLI
