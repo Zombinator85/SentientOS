@@ -56,6 +56,17 @@ def show_actions(last: int, reflect: bool) -> None:
             line += f" | {entry['reflection_text']}"
         print(line)
 
+
+def show_reflections(last: int, plugin: str | None, user: str | None, failures: bool, as_json: bool) -> None:
+    """Display recent reflection entries."""
+    refls = mm.recent_reflections(limit=last, plugin=plugin, user=user, failures_only=failures)
+    if as_json:
+        print(json.dumps(refls, indent=2))
+        return
+    for r in refls:
+        line = f"{r.get('timestamp','?')} {r.get('plugin')} {r.get('reason','') or r.get('next','')}"
+        print(line)
+
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
     sub = parser.add_subparsers(dest="cmd")
@@ -73,6 +84,12 @@ def main():
     acts = sub.add_parser("actions", help="Show recent actuator events")
     acts.add_argument("--last", type=int, default=10, help="Show last N events")
     acts.add_argument("--reflect", action="store_true", help="Include reflections")
+    refl = sub.add_parser("reflections", help="List recent reflections")
+    refl.add_argument("--last", type=int, default=5)
+    refl.add_argument("--plugin")
+    refl.add_argument("--user")
+    refl.add_argument("--failures", action="store_true", help="Only failed actions")
+    refl.add_argument("--json", action="store_true", help="Export as JSON")
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -94,6 +111,8 @@ def main():
         playback(args.last)
     elif args.cmd == "actions":
         show_actions(args.last, reflect=args.reflect)
+    elif args.cmd == "reflections":
+        show_reflections(args.last, args.plugin, args.user, args.failures, args.json)
     else:
         parser.print_help()
 

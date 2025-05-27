@@ -209,3 +209,76 @@ def summarize_memory() -> None:
             for line in lines:
                 f.write(line + "\n")
         print(f"[SUMMARY] Updated {out}")
+
+
+def save_reflection(
+    *,
+    parent: str,
+    intent: dict,
+    result: dict | None,
+    reason: str,
+    next_step: str | None = None,
+    user: str = "",
+    plugin: str = "",
+) -> str:
+    """Persist a structured reflection entry.
+
+    Parameters
+    ----------
+    parent: id of the action log this reflection relates to
+    intent: the original action intent
+    result: action result if any
+    reason: why the action was attempted or failed
+    next_step: optional proposed follow-up
+    """
+
+    reflection = {
+        "parent": parent,
+        "intent": intent,
+        "result": result,
+        "reason": reason,
+        "next": next_step,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "user": user,
+        "plugin": plugin,
+    }
+    return append_memory(
+        json.dumps(reflection, ensure_ascii=False),
+        tags=["reflection", plugin],
+        source="reflector",
+    )
+
+
+def recent_reflections(
+    limit: int = 10,
+    *,
+    plugin: str | None = None,
+    user: str | None = None,
+    failures_only: bool = False,
+) -> list[dict]:
+    """Return recent reflection entries with optional filters."""
+
+    files = sorted(RAW_PATH.glob("*.json"), reverse=True)
+    out: list[dict] = []
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if "reflection" not in data.get("tags", []):
+            continue
+        try:
+            entry = json.loads(data.get("text", "{}"))
+        except Exception:
+            continue
+        if plugin and entry.get("plugin") != plugin:
+            continue
+        if user and entry.get("user") != user:
+            continue
+        if failures_only and entry.get("result") is not None:
+            continue
+        entry["id"] = data.get("id")
+        out.append(entry)
+        if len(out) >= limit:
+            break
+    return out

@@ -207,3 +207,33 @@ def test_template_help_cli(tmp_path, monkeypatch, capsys):
     actuator.main()
     out = capsys.readouterr().out
     assert "required" in out
+
+
+def test_structured_reflection(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    res = actuator.act({"type": "shell", "cmd": "echo hi"}, explanation="test", user="bob")
+    assert res.get("reflection_id")
+    refls = mm.recent_reflections(limit=1)
+    assert refls and refls[0]["intent"]["cmd"] == "echo hi"
+    assert refls[0]["reason"] == "test"
+
+
+def test_auto_critique_and_plugin_list(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    monkeypatch.setenv("ACT_PLUGINS_DIR", "plugins")
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    res = actuator.act({"type": "shell", "cmd": "rm"})
+    assert res["status"] == "failed" and "critique" in res
+    monkeypatch.setattr(sys, "argv", ["ac", "plugins"]) 
+    actuator.main()
+    out = capsys.readouterr().out
+    assert "hello" in out
