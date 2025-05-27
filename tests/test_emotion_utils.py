@@ -20,3 +20,13 @@ def test_vad_and_features_runs(tmp_path):
     vec, feats = eu.vad_and_features(str(wav))
     assert isinstance(vec, dict)
     assert isinstance(feats, dict)
+
+
+def test_neural_detection_toggle(tmp_path, monkeypatch):
+    wav = tmp_path / 'test.wav'
+    create_silence(str(wav))
+    monkeypatch.setenv('EMOTION_DETECTOR', 'neural')
+    reload(eu)
+    vec, feats = eu.detect(str(wav))
+    assert isinstance(vec, dict)
+    assert isinstance(feats, dict)
