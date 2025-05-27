@@ -46,7 +46,7 @@ def act():
         tags=["act", "request"],
         source=user,
     )
-    result = actuator.act(payload, explanation=explanation)
+    result = actuator.act(payload, explanation=explanation, user=user)
     result["request_log_id"] = call_id
     return jsonify(result)
 
