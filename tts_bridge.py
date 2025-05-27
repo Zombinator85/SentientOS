@@ -10,6 +10,16 @@ except Exception:
     TTS = None
 
 try:
+    import requests  # used for ElevenLabs
+except Exception:
+    requests = None
+
+try:  # Bark TTS optional
+    from bark import generate_audio  # type: ignore
+except Exception:
+    generate_audio = None
+
+try:
     import pyttsx3
 except Exception:
     pyttsx3 = None
@@ -22,11 +32,23 @@ AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
 
+ELEVEN_KEY = os.getenv("ELEVEN_API_KEY")
+ELEVEN_VOICE = os.getenv("ELEVEN_VOICE", "Rachel")
+BARK_SPEAKER = os.getenv("BARK_SPEAKER", "v2/en_speaker_6")
+
 if ENGINE_TYPE == "coqui" and TTS is not None:
     COQUI_MODEL = os.getenv("TTS_COQUI_MODEL", "tts_models/en/vctk/vits")
     ENGINE = TTS(model_name=COQUI_MODEL)
     DEFAULT_VOICE = None
     ALT_VOICE = None
+elif ENGINE_TYPE == "elevenlabs" and requests is not None and ELEVEN_KEY:
+    ENGINE = "elevenlabs"
+    DEFAULT_VOICE = ELEVEN_VOICE
+    ALT_VOICE = ELEVEN_VOICE
+elif ENGINE_TYPE == "bark" and generate_audio is not None:
+    ENGINE = "bark"
+    DEFAULT_VOICE = BARK_SPEAKER
+    ALT_VOICE = BARK_SPEAKER
 elif pyttsx3 is not None:
     ENGINE = pyttsx3.init()
     VOICES = ENGINE.getProperty("voices")
@@ -82,6 +104,23 @@ def speak(
         if voice:
             kwargs["speaker_wav"] = voice
         ENGINE.tts_to_file(text, **kwargs)
+    elif ENGINE_TYPE == "elevenlabs" and requests is not None and ELEVEN_KEY:
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE}"
+        headers = {"xi-api-key": ELEVEN_KEY}
+        resp = requests.post(url, json={"text": text}, headers=headers, timeout=30)
+        if resp.status_code == 200:
+            with open(save_path, "wb") as f:
+                f.write(resp.content)
+        else:
+            print("[TTS] ElevenLabs request failed")
+            return None
+    elif ENGINE_TYPE == "bark" and generate_audio is not None:
+        audio_arr = generate_audio(text, history_prompt=BARK_SPEAKER)
+        if hasattr(audio_arr, "save"):
+            audio_arr.save(save_path)
+        else:
+            from scipy.io.wavfile import write as wavwrite  # type: ignore
+            wavwrite(save_path, 22050, audio_arr)
     elif ENGINE_TYPE == "pyttsx3":
         ENGINE.save_to_file(text, save_path)
         ENGINE.say(text)
@@ -90,7 +129,13 @@ def speak(
         print("[TTS] No usable TTS engine found")
         return None
 
-    append_memory(text, tags=["voice", "output"], source="tts", emotions=emotions)
+    append_memory(
+        text,
+        tags=["voice", "output"],
+        source="tts",
+        emotions=emotions,
+        emotion_features={},
+    )
     return save_path
 
 def speak_async(
