@@ -24,3 +24,16 @@ def test_cli_inspect_and_forget(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["mc", "forget", "color"])
     memory_cli.main()
     assert "color" not in up.load_profile()
+
+def test_cli_playback(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import memory_manager as mm
+    reload(mm)
+    reload(memory_cli)
+    mm.append_memory('hello', emotions={'Joy':0.9})
+    monkeypatch.setattr(sys, 'argv', ['mc', 'playback', '--last', '1'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'hello' in out

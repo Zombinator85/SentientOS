@@ -5,6 +5,7 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 from emotions import empty_emotion_vector
+import emotion_memory as em
 
 # Optional upgrade: use simple embedding vectors instead of bag-of-words
 USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
@@ -42,6 +43,7 @@ def append_memory(
         "emotions": emotions or empty_emotion_vector(),
         "emotion_features": emotion_features or {},
     }
+    em.add_emotion(entry["emotions"])
     (RAW_PATH / f"{fragment_id}.json").write_text(
         json.dumps(entry, ensure_ascii=False), encoding="utf-8"
     )

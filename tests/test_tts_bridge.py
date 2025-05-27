@@ -17,3 +17,8 @@ def test_elevenlabs_fallback(monkeypatch):
     import tts_bridge as tb
     reload(tb)
     assert tb.speak('hi') is None
+
+def test_persona_switch():
+    import tts_bridge as tb
+    tb.set_voice_persona('test-voice')
+    assert tb.CURRENT_PERSONA == 'test-voice'
