@@ -59,6 +59,22 @@ else:
     DEFAULT_VOICE = None
     ALT_VOICE = None
 
+# Current persona/voice style used when "voice" argument is omitted
+CURRENT_PERSONA = DEFAULT_VOICE
+
+def set_voice_persona(name: str) -> None:
+    """Change the default voice/persona used for speech."""
+    global CURRENT_PERSONA
+    CURRENT_PERSONA = name
+
+
+def adapt_persona(trend_vec: Dict[str, float]) -> None:
+    """Adjust persona according to emotion trend."""
+    if trend_vec.get("Sadness", 0) > 0.2 and ALT_VOICE:
+        set_voice_persona(ALT_VOICE)
+    elif trend_vec.get("Joy", 0) > 0.2 and DEFAULT_VOICE:
+        set_voice_persona(DEFAULT_VOICE)
+
 def speak(
     text: str,
     voice: Optional[str] = None,
@@ -70,7 +86,7 @@ def speak(
         print("[TTS] no TTS engine available")
         return None
     emotions = emotions or empty_emotion_vector()
-    chosen_voice = voice
+    chosen_voice = voice or CURRENT_PERSONA
     if chosen_voice is None:
         if emotions.get("Sadness", 0) > 0.6:
             chosen_voice = ALT_VOICE

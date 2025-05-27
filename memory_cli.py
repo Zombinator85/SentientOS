@@ -23,6 +23,27 @@ def show_timeline(last: int) -> None:
         print(f"{data.get('timestamp','?')} {label}:{val:.2f}")
 
 
+def playback(last: int) -> None:
+    """Print recent entries with emotion labels."""
+    path = mm.RAW_PATH
+    files = sorted(path.glob("*.json"))[-last:]
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        emo = data.get("emotions", {})
+        breakdown = data.get("emotion_breakdown", {})
+        label = max(emo, key=emo.get) if emo else "none"
+        val = emo.get(label, 0)
+        txt = (data.get("text", "").strip())[:60]
+        if breakdown:
+            parts = ", ".join(f"{s}:{max(v.get(label,0),0):.2f}" for s,v in breakdown.items())
+            print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} ({parts}) -> {txt}")
+        else:
+            print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} -> {txt}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
     sub = parser.add_subparsers(dest="cmd")
@@ -36,6 +57,8 @@ def main():
     sub.add_parser("inspect", help="Print the user profile")
     plot = sub.add_parser("timeline", help="Show recent emotion timeline")
     plot.add_argument("--last", type=int, default=10, help="Show last N entries")
+    pb = sub.add_parser("playback", help="Print recent fragments with emotions")
+    pb.add_argument("--last", type=int, default=5, help="Show last N entries")
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -53,6 +76,8 @@ def main():
         print("Removed keys: " + ", ".join(args.keys))
     elif args.cmd == "timeline":
         show_timeline(args.last)
+    elif args.cmd == "playback":
+        playback(args.last)
     else:
         parser.print_help()
 
