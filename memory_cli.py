@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 import memory_manager as mm
+from api import actuator
 
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
@@ -42,6 +43,16 @@ def playback(last: int) -> None:
         else:
             print(f"[{data.get('timestamp','?')}] {label}:{val:.2f} -> {txt}")
 
+
+def show_actions(last: int) -> None:
+    """Display recent actuator events with context."""
+    logs = actuator.recent_logs(last)
+    for entry in logs:
+        intent = entry.get("intent", {})
+        result = entry.get("result", entry.get("error"))
+        desc = json.dumps(intent)
+        print(f"{entry.get('timestamp','?')} {entry.get('status')} {desc} -> {result}")
+
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
     sub = parser.add_subparsers(dest="cmd")
@@ -56,6 +67,8 @@ def main():
     plot.add_argument("--last", type=int, default=10, help="Show last N entries")
     pb = sub.add_parser("playback", help="Print recent fragments with emotions")
     pb.add_argument("--last", type=int, default=5, help="Show last N entries")
+    acts = sub.add_parser("actions", help="Show recent actuator events")
+    acts.add_argument("--last", type=int, default=10, help="Show last N events")
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -75,6 +88,8 @@ def main():
         show_timeline(args.last)
     elif args.cmd == "playback":
         playback(args.last)
+    elif args.cmd == "actions":
+        show_actions(args.last)
     else:
         parser.print_help()
 

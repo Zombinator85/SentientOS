@@ -143,3 +143,19 @@ def test_recent_logs_cli(tmp_path, monkeypatch, capsys):
     actuator.main()
     out = capsys.readouterr().out
     assert "hi" in out
+
+
+def test_template_prompting(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.TEMPLATES = {"note": {"type": "shell", "cmd": "echo {text}"}}
+
+    monkeypatch.setattr(sys, "argv", ["ac", "template", "--name", "note"])
+    monkeypatch.setattr("builtins.input", lambda prompt: "test note")
+    actuator.main()
+    out = capsys.readouterr().out
+    assert "log_id" in out

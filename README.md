@@ -117,6 +117,7 @@ python memory_cli.py purge --max 1000     # keep only the most recent 1000 fragm
 python memory_cli.py summarize            # build/update daily summaries
 python memory_cli.py playback --last 5    # show recent fragments with emotion labels and sources
 python memory_cli.py timeline             # view the emotion timeline/mood trend
+python memory_cli.py actions --last 5     # show recent actuator events
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Actuator CLI
@@ -128,7 +129,12 @@ python api/actuator.py email --to user@example.com --subject hi --body "hello"
 python api/actuator.py webhook --url http://hook --payload '{"ping":1}'
 python api/actuator.py template --name greet --params '{"name":"Ada"}'
 python api/actuator.py logs --last 5
+python api/actuator.py templates           # list template names
 ```
+
+The `/act` endpoint can run actions asynchronously when `{"async": true}` is
+sent. Poll `/act/status/<id>` or connect to `/act/stream/<id>` for live status
+updates.
 
 Log tailing
 Use memory_tail.py to stream new entries from logs/memory.jsonl:
