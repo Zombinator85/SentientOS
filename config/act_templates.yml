@@ -1,0 +1,9 @@
+# Example templates
+# name: action mapping
+# e.g., restart service
+restart_service:
+  type: shell
+  cmd: "systemctl restart {service}"
+list_files:
+  type: shell
+  cmd: "ls {path}"
