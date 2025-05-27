@@ -9,3 +9,5 @@ SpeechRecognition
 sounddevice
 pydub
 vosk
+TTS
+librosa
