@@ -1,6 +1,7 @@
 from typing import List
 
 import context_window as cw
+from api import actuator
 
 import memory_manager as mm
 import user_profile as up
@@ -15,6 +16,7 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     memories = mm.get_context(user_input, k=k)
     emotion_ctx = em.average_emotion()
     msgs, summary = cw.get_context()
+    reflections = [r.get("reflection_text", r.get("text")) for r in actuator.recent_logs(3, reflect=True)]
 
     sections = [f"SYSTEM:\n{SYSTEM_PROMPT}"]
     if profile:
@@ -29,6 +31,9 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     if recent_messages:
         ctx = "\n".join(recent_messages)
         sections.append(f"RECENT DIALOGUE:\n{ctx}")
+    if reflections:
+        rtxt = "\n".join(f"- {r}" for r in reflections if r)
+        sections.append(f"RECENT ACTION FEEDBACK:\n{rtxt}")
     if summary:
         sections.append(f"SUMMARY:\n{summary}")
     sections.append(f"USER:\n{user_input}")

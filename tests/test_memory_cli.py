@@ -49,8 +49,8 @@ def test_cli_actions(tmp_path, monkeypatch, capsys):
     reload(mm)
     reload(memory_cli)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
-    actuator.act({"type": "shell", "cmd": "echo hi"})
-    monkeypatch.setattr(sys, 'argv', ['mc', 'actions', '--last', '1'])
+    res = actuator.act({"type": "shell", "cmd": "echo hi"})
+    monkeypatch.setattr(sys, 'argv', ['mc', 'actions', '--last', '1', '--reflect'])
     memory_cli.main()
     out = capsys.readouterr().out
-    assert 'echo hi' in out
+    assert 'echo hi' in out and res['reflection'] in out

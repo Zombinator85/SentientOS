@@ -118,6 +118,7 @@ python memory_cli.py summarize            # build/update daily summaries
 python memory_cli.py playback --last 5    # show recent fragments with emotion labels and sources
 python memory_cli.py timeline             # view the emotion timeline/mood trend
 python memory_cli.py actions --last 5     # show recent actuator events
+python memory_cli.py actions --last 5 --reflect  # include reflections
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Actuator CLI
@@ -130,6 +131,9 @@ python api/actuator.py webhook --url http://hook --payload '{"ping":1}'
 python api/actuator.py template --name greet --params '{"name":"Ada"}'
 python api/actuator.py logs --last 5
 python api/actuator.py templates           # list template names
+python api/actuator.py hello --name Bob    # example plugin actuator
+python api/actuator.py template_help --name greet  # show parameter help
+python api/actuator.py shell "ls" --dry    # simulate without side effects
 ```
 
 The `/act` endpoint can run actions asynchronously when `{"async": true}` is

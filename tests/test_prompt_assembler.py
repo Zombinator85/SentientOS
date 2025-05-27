@@ -22,3 +22,16 @@ def test_assemble_prompt_includes_profile_and_memory(tmp_path, monkeypatch):
     prompt = pa.assemble_prompt("cats", [])
     assert "Allen likes cats" in prompt
     assert "name: Allen" in prompt
+
+
+def test_prompt_includes_reflection(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    reload(up)
+    reload(mm)
+    reload(pa)
+    from api import actuator
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.act({"type": "shell", "cmd": "echo hi"})
+    prompt = pa.assemble_prompt("hi", [])
+    assert "ACTION FEEDBACK" in prompt
