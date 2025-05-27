@@ -136,6 +136,30 @@ python api/actuator.py template_help --name greet  # show parameter help
 python api/actuator.py shell "ls" --dry    # simulate without side effects
 ```
 
+### Reflections and Critique
+Each action logged by the actuator generates a structured *reflection* entry. A
+reflection links back to the original action log via the `parent` field and
+stores the action intent, result (when available), the reason for attempting the
+action, and an optional proposed next step. When an action fails the actuator
+automatically generates a short critique which is stored in the reflection and
+returned to the caller.
+
+List reflections via the CLI:
+
+```bash
+python memory_cli.py reflections --last 3
+python memory_cli.py reflections --failures --json  # show recent failures with critique
+```
+
+### Plugin discovery and reload
+Actuator plugins placed in the `plugins/` directory are automatically loaded at
+startup. Use the CLI to inspect or reload them at runtime:
+
+```bash
+python api/actuator.py plugins          # list plugin names and docs
+python api/actuator.py plugins --reload # reload from disk without restart
+```
+
 The `/act` endpoint can run actions asynchronously when `{"async": true}` is
 sent. Poll `/act/status/<id>` or connect to `/act/stream/<id>` for live status
 updates.
