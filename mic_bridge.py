@@ -3,6 +3,10 @@ import json
 import time
 from pathlib import Path
 from typing import Dict, Optional
+import tempfile
+
+from emotions import empty_emotion_vector
+from emotion_utils import vad_and_features
 
 try:
     import speech_recognition as sr
@@ -13,6 +17,11 @@ from memory_manager import append_memory
 
 AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def detect_emotions_from_audio(path: str) -> tuple[Dict[str, float], Dict[str, float]]:
+    """Infer emotions and raw features from an audio file."""
+    return vad_and_features(path)
 
 
 def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
@@ -32,6 +41,13 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
         audio_path = AUDIO_DIR / f"mic_{ts}.wav"
         with open(audio_path, "wb") as f:
             f.write(audio.get_wav_data())
+    else:
+        temp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        temp.write(audio.get_wav_data())
+        temp.close()
+        audio_path = Path(temp.name)
+
+    emotions, emotion_features = detect_emotions_from_audio(str(audio_path))
 
     text = None
     if hasattr(recognizer, "recognize_whisper"):
@@ -57,12 +73,20 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
             text = None
 
     if text:
-        append_memory(text, tags=["voice", "input"], source="mic")
+        append_memory(
+            text,
+            tags=["voice", "input"],
+            source="mic",
+            emotions=emotions,
+            emotion_features=emotion_features,
+        )
 
     return {
         "message": text,
         "source": "mic",
         "audio_file": str(audio_path) if audio_path else None,
+        "emotions": emotions,
+        "emotion_features": emotion_features,
     }
 
 
