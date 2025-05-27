@@ -3,6 +3,9 @@ import json
 import re
 import subprocess
 import smtplib
+import threading
+import time
+import queue
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -162,6 +165,40 @@ if TEMPLATES_PATH.exists():
     TEMPLATES = _load_yaml(TEMPLATES_PATH.read_text()) or {}
 
 
+# --- Async handling ---------------------------------------------------------
+TASK_QUEUE: "queue.Queue[tuple[str, Dict[str, Any], str | None, str | None]]" = queue.Queue()
+ACTION_STATUS: dict[str, dict] = {}
+_worker_started = False
+
+
+def _worker() -> None:
+    while True:
+        action_id, intent, explanation, user = TASK_QUEUE.get()
+        ACTION_STATUS[action_id] = {"status": "running"}
+        try:
+            result = act(intent, explanation=explanation, user=user)
+            ACTION_STATUS[action_id] = {"status": "finished", "result": result}
+        except Exception as e:  # pragma: no cover - defensive
+            ACTION_STATUS[action_id] = {"status": "failed", "error": str(e)}
+        TASK_QUEUE.task_done()
+
+
+def start_async(intent: Dict[str, Any], explanation: str | None = None, user: str | None = None) -> str:
+    """Queue an action for background execution and return its id."""
+    global _worker_started
+    action_id = f"a{int(time.time()*1000)}"
+    ACTION_STATUS[action_id] = {"status": "queued"}
+    TASK_QUEUE.put((action_id, intent, explanation, user))
+    if not _worker_started:
+        threading.Thread(target=_worker, daemon=True).start()
+        _worker_started = True
+    return action_id
+
+
+def get_status(action_id: str) -> dict:
+    return ACTION_STATUS.get(action_id, {"status": "unknown"})
+
+
 def expand_template(name: str, params: dict) -> dict:
     tpl = TEMPLATES.get(name)
     if not tpl:
@@ -174,6 +211,27 @@ def expand_template(name: str, params: dict) -> dict:
         if isinstance(v, str):
             out[k] = v.format(**params)
     return out
+
+
+def template_placeholders(name: str) -> set[str]:
+    """Return placeholder fields required by a template."""
+    tpl = TEMPLATES.get(name)
+    if not tpl:
+        raise ValueError("Unknown template")
+    import string
+
+    def collect(obj) -> set[str]:
+        keys: set[str] = set()
+        if isinstance(obj, str):
+            for _, field, _, _ in string.Formatter().parse(obj):
+                if field:
+                    keys.add(field)
+        elif isinstance(obj, dict):
+            for v in obj.values():
+                keys.update(collect(v))
+        return keys
+
+    return collect(tpl)
 
 def dispatch(intent: dict) -> dict:
     itype = intent.get("type")
@@ -258,7 +316,16 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="SentientOS actuator CLI")
     parser.add_argument(
         "subcommand",
-        choices=["shell", "http", "write", "email", "webhook", "template", "logs"],
+        choices=[
+            "shell",
+            "http",
+            "write",
+            "email",
+            "webhook",
+            "template",
+            "logs",
+            "templates",
+        ],
         help="Action type",
     )
     parser.add_argument("cmd", nargs="?", help="Shell command when subcommand=shell")
@@ -279,6 +346,10 @@ def main(argv: list[str] | None = None) -> None:
 
     args = parser.parse_args(argv)
 
+    if args.subcommand == "templates":
+        print(json.dumps({"templates": list(TEMPLATES.keys())}, indent=2))
+        return
+
     intent: Dict[str, Any] = {"type": args.subcommand if args.subcommand not in {"write", "logs"} else ("file" if args.subcommand == "write" else "logs")}
     if args.subcommand == "shell" and args.cmd:
         intent["cmd"] = args.cmd
@@ -296,6 +367,9 @@ def main(argv: list[str] | None = None) -> None:
         intent.update({"url": args.url or "", "payload": payload})
     elif args.subcommand == "template":
         params = json.loads(args.params or "{}") if args.params else {}
+        missing = [p for p in template_placeholders(args.name or "") if p not in params]
+        for m in missing:
+            params[m] = input(f"{m}: ")
         intent.update({"name": args.name or "", "params": params})
     elif args.subcommand == "logs":
         logs = recent_logs(args.last)
