@@ -159,3 +159,51 @@ def test_template_prompting(tmp_path, monkeypatch, capsys):
     actuator.main()
     out = capsys.readouterr().out
     assert "log_id" in out
+
+
+def test_reflection_and_rate_limit(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    res1 = actuator.act({"type": "shell", "cmd": "echo hi"})
+    assert "reflection" in res1
+    res2 = actuator.act({"type": "shell", "cmd": "echo hi"})
+    assert "error" in res2 and "Rate limit" in res2["error"]
+
+
+def test_dry_run(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    import importlib
+    import memory_manager as mm
+    importlib.reload(mm)
+    importlib.reload(actuator)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    out = actuator.act({"type": "shell", "cmd": "echo hi", "dry_run": True})
+    assert out.get("dry_run")
+
+
+def test_plugin_hello(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    monkeypatch.setenv("ACT_PLUGINS_DIR", "plugins")
+    from importlib import reload as _reload
+    import memory_manager as mm
+    _reload(mm)
+    _reload(actuator)
+    out = actuator.dispatch({"type": "hello", "name": "Ada"})
+    assert out == {"hello": "Ada"}
+
+
+def test_template_help_cli(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    import importlib
+    import memory_manager as mm
+    importlib.reload(mm)
+    importlib.reload(actuator)
+    actuator.TEMPLATES = {"greet": {"type": "shell", "cmd": "echo {name}"}}
+    monkeypatch.setattr(sys, "argv", ["ac", "template_help", "--name", "greet"])
+    actuator.main()
+    out = capsys.readouterr().out
+    assert "required" in out
