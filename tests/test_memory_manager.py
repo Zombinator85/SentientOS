@@ -36,6 +36,19 @@ def test_append_memory_custom_emotions(tmp_path, monkeypatch):
     assert data["emotions"]["Joy"] == 0.5
 
 
+def test_append_memory_with_features(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    features = {"rms": 0.1, "zcr": 0.05}
+    fid = mm.append_memory("hi", emotion_features=features)
+    file_path = tmp_path / "raw" / f"{fid}.json"
+    data = json.loads(file_path.read_text())
+    assert data["emotion_features"] == features
+
+
 def test_get_context_returns_relevant_snippet(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
