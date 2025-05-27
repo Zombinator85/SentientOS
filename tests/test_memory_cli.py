@@ -48,9 +48,27 @@ def test_cli_actions(tmp_path, monkeypatch, capsys):
     from api import actuator
     reload(mm)
     reload(memory_cli)
+    reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
     res = actuator.act({"type": "shell", "cmd": "echo hi"})
     monkeypatch.setattr(sys, 'argv', ['mc', 'actions', '--last', '1', '--reflect'])
     memory_cli.main()
     out = capsys.readouterr().out
     assert 'echo hi' in out and res['reflection'] in out
+
+
+def test_cli_reflections(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import memory_manager as mm
+    from api import actuator
+    reload(mm)
+    reload(memory_cli)
+    reload(actuator)
+    actuator.WHITELIST = {'shell': ['echo'], 'http': [], 'timeout': 5}
+    actuator.act({'type': 'shell', 'cmd': 'echo hi'}, explanation='demo')
+    monkeypatch.setattr(sys, 'argv', ['mc', 'reflections', '--last', '1'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'demo' in out
