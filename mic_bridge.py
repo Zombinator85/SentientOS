@@ -3,10 +3,10 @@ import json
 import time
 from pathlib import Path
 from typing import Dict, Optional
-import tempfile
+
+import audioop
 
 from emotions import empty_emotion_vector
-from emotion_utils import vad_and_features
 
 try:
     import speech_recognition as sr
@@ -18,11 +18,23 @@ from memory_manager import append_memory
 AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
-
-def detect_emotions_from_audio(path: str) -> tuple[Dict[str, float], Dict[str, float]]:
-    """Infer emotions from an audio file using spectral features."""
-    return vad_and_features(path)
-
+def detect_emotions_from_audio(data: bytes, sample_width: int = 2) -> Dict[str, float]:
+    """Return a simple emotion vector based on RMS volume."""
+    vec = empty_emotion_vector()
+    if not data:
+        return vec
+    try:
+        rms = audioop.rms(data, sample_width)
+    except Exception:
+        return vec
+    if rms < 500:
+        vec["Sadness"] = 1.0
+    elif rms > 3000:
+        vec["Anger"] = min(1.0, (rms - 3000) / 7000)
+        vec["Enthusiasm"] = 0.8
+    else:
+        vec["Contentment"] = 0.6
+    return vec
 
 def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
     """Capture a single phrase from the default microphone."""
@@ -35,19 +47,19 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
         print("[MIC] Listening...")
         audio = recognizer.listen(source)
 
-    audio_path: Path | None = None
+    raw_data = None
+    try:
+        raw_data = audio.get_raw_data(convert_rate=16000, convert_width=2)
+    except Exception:
+        pass
+    emotions = detect_emotions_from_audio(raw_data) if raw_data else empty_emotion_vector()
+
+    audio_path = None
     if save_audio:
         ts = time.strftime("%Y%m%d-%H%M%S")
         audio_path = AUDIO_DIR / f"mic_{ts}.wav"
         with open(audio_path, "wb") as f:
             f.write(audio.get_wav_data())
-    else:
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        tmp.write(audio.get_wav_data())
-        tmp.close()
-        audio_path = Path(tmp.name)
-
-    emotions, emotion_features = detect_emotions_from_audio(str(audio_path))
 
     text = None
     if hasattr(recognizer, "recognize_whisper"):
@@ -73,54 +85,14 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
             text = None
 
     if text:
-        append_memory(
-            text,
-            tags=["voice", "input"],
-            source="mic",
-            emotions=emotions,
-            emotion_features=emotion_features,
-        )
+        append_memory(text, tags=["voice", "input"], source="mic", emotions=emotions)
 
     return {
         "message": text,
         "source": "mic",
         "audio_file": str(audio_path) if audio_path else None,
         "emotions": emotions,
-        "emotion_features": emotion_features,
     }
-
-
-def recognize_from_file(path: str) -> Dict[str, Optional[str]]:
-    """Transcribe an audio file and return emotion data."""
-    if sr is None:
-        return {"message": None, "source": "file", "audio_file": path}
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(path) as source:
-        audio = recognizer.record(source)
-    try:
-        text = recognizer.recognize_whisper(audio)
-    except Exception:
-        try:
-            text = recognizer.recognize_google(audio)
-        except Exception:
-            text = None
-    emotions, features = vad_and_features(path)
-    if text:
-        append_memory(
-            text,
-            tags=["voice", "input"],
-            source="file",
-            emotions=emotions,
-            emotion_features=features,
-        )
-    return {
-        "message": text,
-        "source": "file",
-        "audio_file": path,
-        "emotions": emotions,
-        "emotion_features": features,
-    }
-
 
 if __name__ == "__main__":  # pragma: no cover - manual utility
     while True:
