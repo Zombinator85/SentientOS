@@ -31,6 +31,8 @@ class BaseActuator:
 
 
 ACTUATORS: dict[str, BaseActuator] = {}
+PLUGINS_INFO: dict[str, str] = {}
+_LOADED_PLUGIN_FILES: list[Path] = []
 
 
 def register_actuator(name: str, actuator: BaseActuator) -> None:
@@ -38,11 +40,15 @@ def register_actuator(name: str, actuator: BaseActuator) -> None:
 
 
 def load_plugins() -> None:
+    """Load actuator plugins from the plugins directory."""
+    global PLUGINS_INFO, _LOADED_PLUGIN_FILES
+    PLUGINS_INFO = {}
     plugins_dir = Path(os.getenv("ACT_PLUGINS_DIR", "plugins"))
     if not plugins_dir.exists():
         return
-    for fp in plugins_dir.glob("*.py"):
-        spec = {}
+    _LOADED_PLUGIN_FILES = list(plugins_dir.glob("*.py"))
+    for fp in _LOADED_PLUGIN_FILES:
+        spec: dict[str, Any] = {}
         with open(fp, "r", encoding="utf-8") as f:
             code = f.read()
         try:
@@ -55,9 +61,23 @@ def load_plugins() -> None:
                 reg(register_actuator)
             except Exception:
                 pass
+        PLUGINS_INFO[fp.stem] = (spec.get("__doc__") or "").strip()
 
 
-from memory_manager import write_mem
+def list_plugins() -> dict[str, str]:
+    """Return mapping of plugin name to docstring."""
+    return dict(PLUGINS_INFO)
+
+
+def reload_plugins() -> None:
+    """Reload actuator plugins from disk."""
+    for name in list(ACTUATORS.keys()):
+        if name not in {"shell", "http", "file", "email", "webhook"}:
+            ACTUATORS.pop(name, None)
+    load_plugins()
+
+
+from memory_manager import write_mem, save_reflection
 
 # Load whitelist
 WHITELIST_PATH = Path(os.getenv("ACT_WHITELIST", "config/act_whitelist.yml"))
@@ -333,6 +353,14 @@ def _rate_limit(intent: Dict[str, Any], user: str | None) -> None:
     LAST_EXECUTION[key] = now
 
 
+def _auto_critique(intent: Dict[str, Any], error: Exception) -> str:
+    """Generate a simple critique message for a failed action."""
+    return (
+        f"Action {intent.get('type')} failed with {error}. "
+        "Consider adjusting the parameters and try again."
+    )
+
+
 def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None = None, dry_run: bool | None = None) -> Dict[str, Any]:
     """Execute an intent and persist a log entry.
 
@@ -349,7 +377,7 @@ def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None
             result = {"dry_run": True, "intent": intent}
         else:
             result = dispatch(intent)
-        reflection = (
+        reflection_text = (
             f"Action {intent.get('type')} {'dry run' if dry_run else 'executed'} successfully"
         )
         log_entry = {
@@ -358,38 +386,53 @@ def act(intent: Dict[str, Any], explanation: str | None = None, user: str | None
             "explanation": explanation or "",
             "user": user or "",
             "status": "finished",
-            "reflection": reflection,
+            "reflection": reflection_text,
         }
         log_id = write_mem(json.dumps(log_entry), tags=["act", intent.get("type", "")], source="actuator")
-        refl_entry = {"parent": log_id, "text": reflection}
-        refl_id = write_mem(json.dumps(refl_entry), tags=["act", "reflection"], source="actuator")
+        reflection_id = save_reflection(
+            parent=log_id,
+            intent=intent,
+            result=result,
+            reason=explanation or "",
+            user=user or "",
+            plugin=intent.get("type", ""),
+        )
         result = dict(result)
-        result["log_id"] = log_id
-        result["reflection_id"] = refl_id
-        result["reflection"] = reflection
-        result["status"] = "finished"
+        result.update({"log_id": log_id, "status": "finished", "reflection": reflection_text, "reflection_id": reflection_id})
         if explanation:
             result["explanation"] = explanation
         return result
     except Exception as e:  # pragma: no cover - defensive
-        reflection = f"Action {intent.get('type')} failed: {e}"
+        reflection_text = f"Action {intent.get('type')} failed: {e}"
+        critique = _auto_critique(intent, e)
         err_entry = {
             "intent": intent,
             "error": str(e),
             "explanation": explanation or "",
             "user": user or "",
             "status": "failed",
-            "reflection": reflection,
+            "reflection": reflection_text,
         }
         log_id = write_mem(json.dumps(err_entry), tags=["act", "error"], source="actuator")
-        refl_entry = {"parent": log_id, "text": reflection}
-        refl_id = write_mem(json.dumps(refl_entry), tags=["act", "reflection"], source="actuator")
-        return {"error": str(e), "log_id": log_id, "status": "failed", "reflection": reflection, "reflection_id": refl_id}
+        reflection_id = save_reflection(
+            parent=log_id,
+            intent=intent,
+            result=None,
+            reason=str(e),
+            next_step=critique,
+            user=user or "",
+            plugin=intent.get("type", ""),
+        )
+        return {"error": str(e), "log_id": log_id, "status": "failed", "reflection": reflection_text, "critique": critique, "reflection_id": reflection_id}
 
 
 def recent_logs(last: int = 10, reflect: bool = False) -> list[dict]:
-    from memory_manager import RAW_PATH
+    from memory_manager import RAW_PATH, recent_reflections
     files = sorted(RAW_PATH.glob("*.json"))
+    refl_map = {}
+    if reflect:
+        for r in recent_reflections(limit=last * 2):
+            refl_map[r.get("parent")] = r
     out = []
     for fp in reversed(files):
         try:
@@ -405,21 +448,12 @@ def recent_logs(last: int = 10, reflect: bool = False) -> list[dict]:
             if "intent" not in entry:
                 continue
             if reflect:
-                from memory_manager import RAW_PATH as RP
-                for rf in RP.glob("*.json"):
-                    try:
-                        rdata = json.loads(rf.read_text(encoding="utf-8"))
-                    except Exception:
-                        continue
-                    if "act" not in rdata.get("tags", []):
-                        continue
-                    try:
-                        rentry = json.loads(rdata.get("text", "{}"))
-                    except Exception:
-                        continue
-                    if rentry.get("parent") == entry["id"]:
-                        entry["reflection_text"] = rentry.get("text", "")
-                        break
+                entry["reflection_text"] = entry.get("reflection", "")
+                if entry["id"] in refl_map:
+                    r = refl_map[entry["id"]]
+                    entry["reflection_text"] = (
+                        r.get("reason") or r.get("next") or entry.get("reflection", "")
+                    )
             out.append(entry)
             if len(out) >= last:
                 break
@@ -444,6 +478,7 @@ def main(argv: list[str] | None = None) -> None:
             "template_help",
             "logs",
             "templates",
+            "plugins",
         ],
         help="Action type",
     )
@@ -464,6 +499,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--dry", action="store_true", help="Dry run")
     parser.add_argument("--reflect", action="store_true", help="Include reflections in logs")
     parser.add_argument("--last", dest="last", type=int, default=10)
+    parser.add_argument("--reload", action="store_true", help="Reload plugins")
 
     args = parser.parse_args(argv)
 
@@ -473,6 +509,12 @@ def main(argv: list[str] | None = None) -> None:
             term = args.cmd.lower()
             names = [n for n in names if term in n.lower()]
         print(json.dumps({"templates": names}, indent=2))
+        return
+
+    if args.subcommand == "plugins":
+        if args.reload:
+            reload_plugins()
+        print(json.dumps(list_plugins(), indent=2))
         return
 
     intent: Dict[str, Any] = {"type": args.subcommand if args.subcommand not in {"write", "logs"} else ("file" if args.subcommand == "write" else "logs")}
