@@ -3,6 +3,7 @@ import json
 import time
 from pathlib import Path
 from typing import Dict, Optional
+
 import audioop
 
 from emotions import empty_emotion_vector
@@ -16,7 +17,6 @@ from memory_manager import append_memory
 
 AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-
 
 def detect_emotions_from_audio(data: bytes, sample_width: int = 2) -> Dict[str, float]:
     """Return a simple emotion vector based on RMS volume."""
@@ -35,7 +35,6 @@ def detect_emotions_from_audio(data: bytes, sample_width: int = 2) -> Dict[str, 
     else:
         vec["Contentment"] = 0.6
     return vec
-
 
 def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
     """Capture a single phrase from the default microphone."""
@@ -95,10 +94,8 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
         "emotions": emotions,
     }
 
-
 if __name__ == "__main__":  # pragma: no cover - manual utility
     while True:
         result = recognize_from_mic()
         if result.get("message"):
             print(json.dumps(result, ensure_ascii=False))
-
