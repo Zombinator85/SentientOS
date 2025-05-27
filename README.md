@@ -69,8 +69,10 @@ pip install -r requirements.txt
 Voice interaction
 After installing dependencies, run
 python voice_loop.py
-to start a simple hands-free conversation using your microphone and speakers.
-The loop infers emotions from your voice (heuristic or neural) and modulates speech output accordingly. Interruptions are detected while the agent speaks, and a small Flask demo (browser_voice.py) shows a live emotion graph.
+to start a continuous, full-duplex conversation using your microphone and speakers.
+SentientOS now listens while speaking so you can interrupt at any time. Replies
+stream chunk by chunk and are influenced by recent emotional context.
+Use browser_voice.py for a simple demo that also lets you switch personas in real time.
 
 Memory management
 memory_manager.py provides persistent storage of memory snippets. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
@@ -93,6 +95,7 @@ Edit
 python memory_cli.py purge --age 30       # delete fragments older than 30 days
 python memory_cli.py purge --max 1000     # keep only the most recent 1000 fragments
 python memory_cli.py summarize            # build/update daily summaries
+python memory_cli.py playback --last 5   # show recent fragments with emotion labels
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Log tailing
