@@ -38,3 +38,19 @@ def test_cli_playback(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert 'hello' in out
     assert 'Joy' in out
+
+
+def test_cli_actions(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import memory_manager as mm
+    from api import actuator
+    reload(mm)
+    reload(memory_cli)
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+    actuator.act({"type": "shell", "cmd": "echo hi"})
+    monkeypatch.setattr(sys, 'argv', ['mc', 'actions', '--last', '1'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'echo hi' in out

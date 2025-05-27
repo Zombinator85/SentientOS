@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-from flask import Flask, request, jsonify
+import time
+from flask import Flask, request, jsonify, Response
 from memory_manager import write_mem
 from utils import chunk_message
 from emotions import empty_emotion_vector
@@ -46,9 +47,41 @@ def act():
         tags=["act", "request"],
         source=user,
     )
+    if payload.pop("async", False):
+        action_id = actuator.start_async(payload, explanation=explanation, user=user)
+        return jsonify({"status": "queued", "action_id": action_id, "request_log_id": call_id})
+
     result = actuator.act(payload, explanation=explanation, user=user)
     result["request_log_id"] = call_id
     return jsonify(result)
+
+
+@app.route("/act_status", methods=["POST"])
+def act_status():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    aid = (request.get_json() or {}).get("id", "")
+    return jsonify(actuator.get_status(aid))
+
+
+@app.route("/act_stream", methods=["POST"])
+def act_stream():
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return "Forbidden", 403
+    aid = (request.get_json() or {}).get("id", "")
+
+    def gen():
+        last = None
+        while True:
+            status = actuator.get_status(aid)
+            if status != last:
+                yield f"data: {json.dumps(status)}\n\n"
+                last = status
+            if status.get("status") in {"finished", "failed", "unknown"}:
+                break
+            time.sleep(0.5)
+
+    return Response(gen(), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":

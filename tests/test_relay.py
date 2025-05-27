@@ -5,6 +5,7 @@ from importlib import reload
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import relay_app
+import time
 
 
 def setup_app(tmp_path, monkeypatch):
@@ -34,3 +35,27 @@ def test_relay_forbidden(tmp_path, monkeypatch):
         headers={"X-Relay-Secret": "wrong"},
     )
     assert resp.status_code == 403
+
+
+def test_act_async_status(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    from api import actuator
+    actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
+
+    resp = client.post(
+        "/act",
+        json={"type": "shell", "cmd": "echo hi", "async": True},
+        headers={"X-Relay-Secret": "secret123"},
+    )
+    data = resp.get_json()
+    assert data["status"] == "queued"
+    aid = data["action_id"]
+
+    # poll status
+    for _ in range(5):
+        resp2 = client.post("/act_status", json={"id": aid}, headers={"X-Relay-Secret": "secret123"})
+        status = resp2.get_json()
+        if status.get("status") == "finished":
+            break
+        time.sleep(0.1)
+    assert status.get("status") == "finished"
