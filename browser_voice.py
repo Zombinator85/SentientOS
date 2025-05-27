@@ -61,7 +61,6 @@ def voice_api():
         b64 = base64.b64encode(f.read()).decode('ascii')
     return jsonify({'audio': b64, 'text': text, 'emotions': emotions})
 
-
 @app.route('/api/upload', methods=['POST'])
 def upload_api():
     if 'audio' not in request.files:
@@ -71,7 +70,6 @@ def upload_api():
     f.save(tmp.name)
     result = recognize_from_file(tmp.name)
     return jsonify({'text': result.get('message'), 'emotions': result.get('emotions')})
-
 
 @app.route('/api/persona', methods=['POST'])
 def persona_api():

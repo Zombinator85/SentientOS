@@ -23,11 +23,10 @@ def test_persona_switch():
     tb.set_voice_persona('test-voice')
     assert tb.CURRENT_PERSONA == 'test-voice'
 
-
 def test_adapt_persona():
     import tts_bridge as tb
     tb.set_voice_persona('base')
     tb.ALT_VOICE = 'alt'
     tb.DEFAULT_VOICE = 'def'
-    tb.adapt_persona({'Sadness':0.5})
+    tb.adapt_persona({'Sadness': 0.5})
     assert tb.CURRENT_PERSONA == 'alt'
