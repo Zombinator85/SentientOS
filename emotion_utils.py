@@ -10,6 +10,17 @@ except Exception:  # pragma: no cover - optional dependency
 
 from emotions import empty_emotion_vector
 
+SOTA_MODEL = os.getenv("SOTA_EMOTION_MODEL")
+if SOTA_MODEL:
+    try:
+        import torch  # pragma: no cover - optional
+        from transformers import pipeline  # type: ignore
+        _sota_classifier = pipeline("audio-classification", model=SOTA_MODEL)
+    except Exception:  # pragma: no cover - missing deps
+        _sota_classifier = None
+else:
+    _sota_classifier = None
+
 # Name of the emotion detection backend. "heuristic" uses
 # :func:`vad_and_features`, "neural" uses :func:`neural_emotions`.
 DETECTOR = os.getenv("EMOTION_DETECTOR", "heuristic")
@@ -99,6 +110,19 @@ def neural_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     return vec, features
 
 
+def sota_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """Use a pretrained model if available."""
+    if _sota_classifier is None or not os.path.exists(path):
+        return neural_emotions(path)
+    try:  # pragma: no cover - heavy
+        result = _sota_classifier(path)[0]
+        vec = empty_emotion_vector()
+        vec[result['label']] = float(result['score'])
+        return vec, {}
+    except Exception:
+        return neural_emotions(path)
+
+
 LEXICON = {
     "happy": "Joy",
     "sad": "Sadness",
@@ -131,4 +155,6 @@ def detect(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Dispatch to the configured emotion detector."""
     if DETECTOR == "neural":
         return neural_emotions(path)
+    if DETECTOR == "sota":
+        return sota_emotions(path)
     return vad_and_features(path)
