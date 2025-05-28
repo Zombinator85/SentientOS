@@ -51,6 +51,7 @@ def rollback_patch(pid: str) -> bool:
             p["rolled_back"] = True
             _save(patches)
             mm.append_memory(f"Patch {pid} rolled back", tags=["self_patch"], source="rollback")
+            notify("patch_rolled_back", {"id": pid})
             return True
     return False
 
