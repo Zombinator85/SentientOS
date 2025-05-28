@@ -4,6 +4,7 @@ from importlib import reload
 def test_tracker_process_frame(tmp_path, monkeypatch):
     log = tmp_path / "vision.jsonl"
     monkeypatch.setenv("VISION_LOG", str(log))
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import vision_tracker as vt
     reload(vt)
 
@@ -29,6 +30,7 @@ def test_tracker_process_frame(tmp_path, monkeypatch):
 def test_update_voice_sentiment(tmp_path, monkeypatch):
     log = tmp_path / "vision.jsonl"
     monkeypatch.setenv("VISION_LOG", str(log))
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import vision_tracker as vt
     reload(vt)
 
