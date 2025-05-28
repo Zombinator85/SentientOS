@@ -1,6 +1,8 @@
 import time
 from api import actuator
 import memory_manager as mm
+from notification import send as notify
+from self_patcher import apply_patch
 
 INTERVAL = 60
 
@@ -22,13 +24,15 @@ def _self_patch(goal: dict, result: dict) -> None:
         note = f"Goal {goal['id']} succeeded"
     else:
         note = f"Goal {goal['id']} failed {goal.get('failure_count',0)} times"
-    mm.append_memory(note, tags=["self_patch"], source="agent")
+    apply_patch(note, auto=True)
+    notify("self_patch", {"goal": goal["id"], "note": note})
 
 
 def _reflect(goal: dict, result: dict) -> None:
     goal["last_result"] = result
     if result.get("status") == "finished":
         goal["status"] = "completed"
+        notify("goal_completed", {"id": goal["id"], "text": goal.get("text", "")})
     else:
         goal["status"] = "failed"
         goal["failure_count"] = goal.get("failure_count", 0) + 1
@@ -37,6 +41,8 @@ def _reflect(goal: dict, result: dict) -> None:
         if goal["failure_count"] >= 3:
             goal["status"] = "stuck"
             actuator.act({"type": "escalate", "goal": goal["id"], "text": goal.get("text", "")})
+            notify("escalation", {"id": goal["id"], "text": goal.get("text", "")})
+            notify("goal_stuck", {"id": goal["id"], "text": goal.get("text", "")})
     mm.save_goal(goal)
     _self_patch(goal, result)
 
