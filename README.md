@@ -134,6 +134,17 @@ python memory_cli.py approve_patch <id>
 python memory_cli.py reject_patch <id>
 python memory_cli.py rollback_patch <id>
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
+### Patch management
+Patches are stored in `patches.json` inside `MEMORY_DIR`. Use the CLI to manage them and review events:
+```bash
+python memory_cli.py patches             # list patch proposals
+python memory_cli.py apply_patch "fix bug"  # record a manual patch note
+python memory_cli.py approve_patch <id>     # mark patch approved
+python memory_cli.py reject_patch <id>      # mark patch rejected
+python memory_cli.py rollback_patch <id>    # mark patch rolled back
+python memory_cli.py events --last 5        # view patch events
+```
+
 
 Actuator CLI
 ```bash

@@ -137,3 +137,43 @@ def test_cli_reject_patch(tmp_path, monkeypatch, capsys):
     assert any(x['id'] == p['id'] and x.get('rejected') for x in patches)
     events = notification.list_events(2)
     assert any(e['event'] == 'patch_rejected' for e in events)
+
+
+def test_cli_approve_patch(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import self_patcher
+    import notification
+    reload(notification)
+    reload(self_patcher)
+    reload(memory_cli)
+    p = self_patcher.apply_patch('note', auto=False)
+    monkeypatch.setattr(sys, 'argv', ['mc', 'approve_patch', p['id']])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'Approved' in out
+    patches = self_patcher.list_patches()
+    assert any(x['id'] == p['id'] and x.get('approved') for x in patches)
+    events = notification.list_events(2)
+    assert any(e['event'] == 'patch_approved' for e in events)
+
+
+def test_cli_rollback_patch(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import self_patcher
+    import notification
+    reload(notification)
+    reload(self_patcher)
+    reload(memory_cli)
+    p = self_patcher.apply_patch('note', auto=False)
+    monkeypatch.setattr(sys, 'argv', ['mc', 'rollback_patch', p['id']])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'Rolled back' in out
+    patches = self_patcher.list_patches()
+    assert any(x['id'] == p['id'] and x.get('rolled_back') for x in patches)
+    events = notification.list_events(2)
+    assert any(e['event'] == 'patch_rolled_back' for e in events)
