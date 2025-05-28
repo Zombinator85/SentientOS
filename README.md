@@ -215,6 +215,14 @@ All notification events are logged to `events.jsonl` and can be viewed with `mem
 Additional endpoints support goal management and manual agent runs:
 `/goals/add`, `/goals/list`, `/goals/complete`, `/goals/delete`, and `/agent/run`.
 
+
+Dashboard
+Run emotion_dashboard.py via Streamlit to view per-person emotion timelines.
+
+```bash
+streamlit run emotion_dashboard.py --server.port 8501
+```
+Use the sidebar to select a user, set refresh rate, and export or query past states.
 Log tailing
 Use memory_tail.py to stream new entries from logs/memory.jsonl:
 
