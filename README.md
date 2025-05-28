@@ -33,13 +33,15 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
 vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
-emotion_dashboard.py – Live dashboard for per-person emotion timelines.
 
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
 
 ngrok.yml – Example ngrok configuration.
+
+### Multimodal tracking
+`multimodal_tracker.py` combines webcam facial emotions with microphone sentiment analysis. Use MediaPipe or InsightFace for detection, `fer` or `DeepFace` for emotion recognition, and libraries like `openSMILE` or `pyAudioAnalysis` for audio. Swap components by subclassing `MultiModalEmotionTracker` or passing alternative backends. New modalities (text, gesture) can extend `process` and update `timelines`.
 
 Environment Variables
 Create a .env file based on .env.example and set the following variables:
@@ -99,6 +101,17 @@ Persona adaptation: Persona and speaking style adapt automatically based on dete
 Multimodal fusion: Emotion detection combines audio tone, text sentiment, and (optionally) vision input, logging each source’s weight.
 
 Browser demo: Use browser_voice.py for a simple demo that lets you switch personas in real time, upload audio for emotion analysis, and view live emotion fusion.
+
+### Multimodal emotion tracker
+`multimodal_tracker.py` fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone. Each detected face is given a persistent ID and has a JSONL log written to `logs/multimodal`. The tracker works even when webcam or microphone libraries are missing.
+
+Best free options:
+- MediaPipe or InsightFace for vision
+- FER or DeepFace for facial emotions
+- pyAudioAnalysis or openSMILE for voice sentiment
+- HuggingFace transformers (`audio-classification` pipeline) for advanced models
+
+To integrate a new model simply replace `FaceEmotionTracker.emotion` or provide a custom `mic_bridge.recognize_from_mic` that returns an emotion vector.
 
 Memory management
 memory_manager.py provides persistent storage of message fragments. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
