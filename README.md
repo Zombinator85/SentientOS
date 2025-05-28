@@ -32,6 +32,10 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
+vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
+
+self_reflection.py – Monitors events and action logs, generating critiques and automatic self-healing patches.
+
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
@@ -151,6 +155,10 @@ Patch event mapping:
 - `reject_patch` → `patch_rejected`
 - `rollback_patch` → `patch_rolled_back`
 
+Run the reflection manager periodically to critique recent events and apply automatic fixes:
+```bash
+python memory_cli.py self_reflect
+```
 
 Actuator CLI
 ```bash
