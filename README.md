@@ -15,6 +15,7 @@ memory_manager.py – Persistent storage for message fragments. Each entry store
 memory_cli.py – Command-line interface exposing cleanup, summarization, playback, and emotion timeline helpers.
 
 memory_tail.py – Colorized log viewer for logs/memory.jsonl.
+presence_analytics.py – Computes presence trends and suggests optimizations.
 
 heartbeat.py – Simple client that periodically sends heartbeat pings to the relay.
 
@@ -31,6 +32,8 @@ voice_loop.py – Links the mic and TTS bridges for hands-free, full-duplex conv
 browser_voice.py – Minimal Flask demo for browser-based voice chat with live emotion readout, persona switching, and audio upload for emotion analysis.
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
+
+vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
 
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
@@ -133,6 +136,9 @@ python memory_cli.py apply_patch "fix bug"     # record a manual patch note
 python memory_cli.py approve_patch <id>
 python memory_cli.py reject_patch <id>
 python memory_cli.py rollback_patch <id>
+python memory_cli.py analytics            # show presence analytics
+python memory_cli.py trends               # emotion trends by day
+python memory_cli.py suggest              # proposed optimizations
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 ### Patch management
 Patches are stored in `patches.json` inside `MEMORY_DIR`. Use the CLI to manage them and review events:
