@@ -33,7 +33,6 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
 vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
-multimodal_tracker.py – Tracks faces and voice sentiment together and logs per-person emotional timelines.
 
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
