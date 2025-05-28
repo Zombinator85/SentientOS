@@ -32,6 +32,9 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
+vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
+emotion_dashboard.py – Live dashboard for per-person emotion timelines.
+
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
@@ -199,6 +202,14 @@ All notification events are logged to `events.jsonl` and can be viewed with `mem
 Additional endpoints support goal management and manual agent runs:
 `/goals/add`, `/goals/list`, `/goals/complete`, `/goals/delete`, and `/agent/run`.
 
+
+Dashboard
+Run emotion_dashboard.py via Streamlit to view per-person emotion timelines.
+
+```bash
+streamlit run emotion_dashboard.py --server.port 8501
+```
+Use the sidebar to select a user, set refresh rate, and export or query past states.
 Log tailing
 Use memory_tail.py to stream new entries from logs/memory.jsonl:
 
