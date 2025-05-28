@@ -138,13 +138,18 @@ These commands can be invoked manually or scheduled via cron/Task Scheduler.
 Patches are stored in `patches.json` inside `MEMORY_DIR`. Use the CLI to manage them and review events:
 ```bash
 python memory_cli.py patches             # list patch proposals
-python memory_cli.py apply_patch "fix bug"  # record a manual patch note
-python memory_cli.py approve_patch <id>     # mark patch approved
-python memory_cli.py reject_patch <id>      # mark patch rejected
-python memory_cli.py rollback_patch <id>    # mark patch rolled back
+python memory_cli.py apply_patch "fix bug"  # record a manual patch note (self_patch event)
+python memory_cli.py approve_patch <id>     # mark patch approved (patch_approved event)
+python memory_cli.py reject_patch <id>      # mark patch rejected (patch_rejected event)
+python memory_cli.py rollback_patch <id>    # mark patch rolled back (patch_rolled_back event)
 python memory_cli.py events --last 5        # view patch events
 ```
-Patch actions generate `self_patch`, `patch_approved`, `patch_rejected`, and `patch_rolled_back` events.
+Patch event mapping:
+
+- `apply_patch` → `self_patch`
+- `approve_patch` → `patch_approved`
+- `reject_patch` → `patch_rejected`
+- `rollback_patch` → `patch_rolled_back`
 
 
 Actuator CLI
