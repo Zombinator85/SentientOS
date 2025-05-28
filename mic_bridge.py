@@ -7,10 +7,14 @@ from typing import Dict, Optional
 
 from emotions import empty_emotion_vector
 import emotion_utils as eu
+from utils import is_headless
 
 try:
     import speech_recognition as sr
 except Exception as e:  # pragma: no cover - dependency missing
+    sr = None
+
+if is_headless():
     sr = None
 
 from memory_manager import append_memory
@@ -22,7 +26,10 @@ AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
     """Capture a single phrase from the default microphone."""
     if sr is None:
-        print("[MIC] speech_recognition not available")
+        if is_headless():
+            print("[MIC] Headless mode - skipping mic capture")
+        else:
+            print("[MIC] speech_recognition not available")
         return {"message": None, "source": "mic", "audio_file": None}
 
     recognizer = sr.Recognizer()
