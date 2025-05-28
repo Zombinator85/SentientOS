@@ -6,6 +6,7 @@ def test_multimodal_vision_only(tmp_path, monkeypatch):
     """Test vision-only mode: logs correct structure and no faces/audio by default."""
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
     monkeypatch.setenv("MULTIMODAL_LOG", str(tmp_path / "multi.jsonl"))
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import multimodal_tracker as mt
     reload(mt)
     tracker = mt.MultiModalEmotionTracker(enable_voice=False, camera_index=None, output_dir=str(tmp_path))
@@ -69,6 +70,7 @@ def test_multimodal_headless(tmp_path, monkeypatch):
     """Test when neither vision nor mic is available (headless mode)."""
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
     monkeypatch.setitem(sys.modules, "mic_bridge", None)
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import multimodal_tracker as mt
     reload(mt)
     tracker = mt.MultiModalEmotionTracker(enable_vision=False, enable_voice=False, camera_index=None, output_dir=str(tmp_path))
