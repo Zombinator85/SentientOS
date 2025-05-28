@@ -11,3 +11,5 @@ pydub
 vosk
 TTS
 librosa
+pandas
+streamlit
