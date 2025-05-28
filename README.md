@@ -19,7 +19,7 @@ memory_tail.py – Colorized log viewer for logs/memory.jsonl.
 heartbeat.py – Simple client that periodically sends heartbeat pings to the relay.
 
 autonomous_reflector.py – Background micro-agent that cycles through plan–act–reflect loops. It now manages multiple goals in parallel with prioritization and scheduling. Reflections generate self-improvement notes and failed goals trigger escalation plugins.
-
+ The agent emits notifications on goal events and self patches via the new notification module.
 cathedral_hog_wild_heartbeat.py – Demo that periodically summons multiple models via the relay.
 
 mic_bridge.py – Captures microphone audio, converts speech to text, and infers emotions using a configurable detector (heuristic or neural). Supports fusion with vision input (image file) for multimodal emotion vectors.
@@ -170,6 +170,7 @@ python api/actuator.py plugins --reload # reload from disk without restart
 The `/act` endpoint can run actions asynchronously when `{"async": true}` is
 sent. Poll `/act/status/<id>` or connect to `/act/stream/<id>` for live status
 updates.
+The orchestrator module can schedule agent cycles and ensures state persistence between runs. Use memory_cli schedule to invoke it. Notifications support email, webhook, or console output; subscribe via memory_cli subscribe.
 Additional endpoints support goal management and manual agent runs:
 `/goals/add`, `/goals/list`, `/goals/complete`, `/goals/delete`, and `/agent/run`.
 

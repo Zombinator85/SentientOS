@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 import memory_manager as mm
 from api import actuator
+import notification
+import self_patcher
 
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
@@ -130,6 +132,22 @@ def main():
     run = sub.add_parser("run", help="Run agent cycles")
     run.add_argument("--cycles", type=int, default=1)
 
+    subs = sub.add_parser("subscriptions", help="List event subscriptions")
+    sub_add = sub.add_parser("subscribe", help="Add subscription")
+    sub_add.add_argument("event")
+    sub_add.add_argument("--method", choices=["email","webhook","console"], default="console")
+    sub_add.add_argument("--target")
+    sub_del = sub.add_parser("unsubscribe", help="Remove subscription")
+    sub_del.add_argument("event")
+    sub_del.add_argument("--method", choices=["email","webhook","console"], default="console")
+    sub_del.add_argument("--target")
+    p_list = sub.add_parser("patches", help="List patches")
+    p_apply = sub.add_parser("apply_patch", help="Record a manual patch")
+    p_apply.add_argument("note")
+    p_rb = sub.add_parser("rollback_patch", help="Rollback a patch")
+    p_rb.add_argument("id")
+    sched = sub.add_parser("schedule", help="Run orchestrator cycle")
+    sched.add_argument("--cycles", type=int, default=1)
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -173,6 +191,29 @@ def main():
             print(f"Completed {args.id}")
         else:
             print("Goal not found")
+    elif args.cmd == "subscriptions":
+        print(json.dumps(notification.list_subscriptions(), indent=2))
+    elif args.cmd == "subscribe":
+        notification.add_subscription(args.event, args.method, args.target)
+        print("Subscribed")
+    elif args.cmd == "unsubscribe":
+        notification.remove_subscription(args.event, args.method, args.target)
+        print("Unsubscribed")
+    elif args.cmd == "patches":
+        print(json.dumps(self_patcher.list_patches(), indent=2))
+    elif args.cmd == "apply_patch":
+        self_patcher.apply_patch(args.note, auto=False)
+        print("Patch recorded")
+    elif args.cmd == "rollback_patch":
+        if self_patcher.rollback_patch(args.id):
+            print("Rolled back")
+        else:
+            print("Patch not found")
+    elif args.cmd == "schedule":
+        import orchestrator
+        o = orchestrator.Orchestrator(interval=0.01)
+        for _ in range(args.cycles):
+            o.run_cycle()
     elif args.cmd == "delete_goal":
         mm.delete_goal(args.id)
         print(f"Deleted {args.id}")
