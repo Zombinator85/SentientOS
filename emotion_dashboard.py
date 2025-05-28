@@ -1,62 +1,111 @@
+import os
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from feedback import FeedbackManager, FeedbackRule, print_action
+# FeedbackManager and rules are optional – only import/use if you want to trigger feedback in the dashboard!
+try:
+    from feedback import FeedbackManager, FeedbackRule, print_action
+except ImportError:
+    FeedbackManager = None
 
 try:
-    import pandas as pd  # type: ignore
-    import streamlit as st  # type: ignore
+    import pandas as pd
 except Exception:  # pragma: no cover - optional
     pd = None
+
+try:
+    import streamlit as st
+except Exception:  # pragma: no cover - optional
     st = None
 
+DEFAULT_LOG = Path(os.getenv("TRACKER_LOG", "logs/vision/vision.jsonl"))
 
-def load_log(path: str, limit: int = 1000) -> List[Dict[str, any]]:
-    p = Path(path)
-    if not p.exists():
-        return []
-    lines = p.read_text(encoding="utf-8").splitlines()[-limit:]
-    out = []
+def load_logs(log_path: str | Path = DEFAULT_LOG, limit: int = 1000) -> Dict[int, List[Dict[str, Any]]]:
+    """Parse the vision/audio log into per-user timelines."""
+    path = Path(log_path)
+    timelines: Dict[int, List[Dict[str, Any]]] = {}
+    if not path.exists():
+        return timelines
+    lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
     for line in lines:
         try:
-            out.append(json.loads(line))
+            entry = json.loads(line)
         except Exception:
             continue
-    return out
+        ts = entry.get("timestamp")
+        for face in entry.get("faces", []):
+            fid = face.get("id")
+            if fid is None:
+                continue
+            record = {"timestamp": ts, "dominant": face.get("dominant")}
+            for k, v in (face.get("emotions") or {}).items():
+                record[k] = v
+            timelines.setdefault(int(fid), []).append(record)
+    return timelines
 
+def query_state(timelines: Dict[int, List[Dict[str, Any]]], user_id: int, timestamp: float) -> Optional[Dict[str, Any]]:
+    """Return the emotion record closest to ``timestamp`` for ``user_id``."""
+    history = timelines.get(user_id, [])
+    if not history:
+        return None
+    return min(history, key=lambda r: abs(r.get("timestamp", 0) - timestamp))
 
-def run_dashboard(log_path: str = "logs/vision/vision.jsonl", rules: Optional[str] = None) -> None:
-    if st is None:
-        print("[DASH] Streamlit not available")
+def run_dashboard(
+    log_path: str | Path = DEFAULT_LOG,
+    feedback_rules: Optional[str] = None,
+) -> None:
+    """Launch the SentientOS Streamlit dashboard, with optional feedback layer."""
+    if st is None or pd is None:
+        print("Streamlit or pandas not available. Install dependencies to run dashboard.")
         return
 
-    fm = FeedbackManager()
-    fm.register_action("print", print_action)
-    if rules:
-        fm.load_rules(rules)
+    st.set_page_config(page_title="SentientOS Dashboard", layout="wide")
+    st.title("SentientOS Emotion Dashboard")
 
-    st.title("Emotion Dashboard")
-    hist_box = st.sidebar.empty()
-    data_box = st.empty()
+    # Optional FeedbackManager integration
+    fm = None
+    if FeedbackManager is not None:
+        fm = FeedbackManager()
+        if hasattr(fm, "register_action"):
+            fm.register_action("print", print_action)
+        if feedback_rules:
+            fm.load_rules(feedback_rules)
+        hist_box = st.sidebar.empty()
 
-    last_len = 0
+    refresh = st.sidebar.number_input("Refresh interval (sec)", min_value=1, max_value=60, value=2)
+
     while True:
-        data = load_log(log_path)
-        if len(data) != last_len:
-            last_len = len(data)
-            rows = []
-            if data:
-                for face in data[-1].get("faces", []):
-                    fm.process(face["id"], face.get("emotions", {}))
-                    row = {"id": face["id"], "dominant": face.get("dominant")}
-                    row.update(face.get("emotions", {}))
-                    rows.append(row)
-            if pd:
-                df = pd.DataFrame(rows)
-                data_box.dataframe(df)
-            else:
-                data_box.write(rows)
-            hist_box.write(fm.get_history())
-        time.sleep(0.5)
+        timelines = load_logs(log_path)
+        ids = sorted(timelines.keys())
+        if not ids:
+            st.write("No data found.")
+            time.sleep(refresh)
+            st.experimental_rerun()
+            return
+
+        selected = st.sidebar.selectbox("Tracked ID", ids)
+        history = timelines.get(selected, [])
+        if not history:
+            st.write("No history for selected ID")
+        else:
+            df = pd.DataFrame(history)
+            df = df.sort_values("timestamp")
+            emotion_cols = [c for c in df.columns if c not in ("timestamp", "dominant")]
+            if emotion_cols:
+                st.line_chart(df.set_index("timestamp")[emotion_cols])
+            st.dataframe(df.tail(10))
+
+            # Feedback: trigger for new entries
+            if fm is not None and history:
+                latest = history[-1]
+                fm.process(selected, {k: v for k, v in latest.items() if k not in ("timestamp", "dominant")})
+                if hasattr(hist_box, "write"):
+                    hist_box.write(fm.get_history())
+
+        time.sleep(refresh)
+        st.experimental_rerun()
+
+if __name__ == "__main__":
+    run_dashboard()

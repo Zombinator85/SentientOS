@@ -17,6 +17,9 @@ except Exception:  # pragma: no cover - optional dependencies
     FER = None
     np = None
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:  # pragma: no cover - type hint only
+    from feedback import FeedbackManager
 
 def _iou(box_a: List[int], box_b: List[int]) -> float:
     """Return intersection-over-union of two boxes."""
@@ -30,15 +33,8 @@ def _iou(box_a: List[int], box_b: List[int]) -> float:
     union = float(area_a + area_b - inter)
     return inter / union if union else 0.0
 
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:  # pragma: no cover - type hint only
-    from feedback import FeedbackManager
-
-
 class FaceEmotionTracker:
-    """Detect, identify, and track faces with emotion analysis."""
+    """Detect, identify, and track faces with emotion analysis and optional feedback."""
 
     def __init__(
         self,
@@ -108,7 +104,7 @@ class FaceEmotionTracker:
                 h = int(bb.height * frame.shape[0])
                 x2 = x1 + w
                 y2 = y1 + h
-                crop = frame[max(0, y1) : max(0, y2), max(0, x1) : max(0, x2)]
+                crop = frame[max(0, y1):max(0, y2), max(0, x1):max(0, x2)]
                 fid = self._assign_id([x1, y1, x2, y2])
                 emotions = self._analyze_emotion(crop)
                 if emotions:
@@ -130,7 +126,7 @@ class FaceEmotionTracker:
             f.write(json.dumps(data) + "\n")
 
     def update_voice_sentiment(self, face_id: int, sentiment: Dict[str, float]) -> None:
-        """Placeholder for future voice sentiment fusion."""
+        """Optionally update emotional history and feedback from voice sentiment."""
         self.histories.setdefault(face_id, []).append(sentiment)
         if self.feedback:
             self.feedback.process(face_id, sentiment)
