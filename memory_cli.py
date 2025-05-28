@@ -154,6 +154,7 @@ def main():
     sched.add_argument("--cycles", type=int, default=1)
     events = sub.add_parser("events", help="List recent events")
     events.add_argument("--last", type=int, default=5)
+    self_reflect = sub.add_parser("self_reflect", help="Run self-reflection cycle")
     orch = sub.add_parser("orchestrator", help="Control orchestrator")
     orch.add_argument("action", choices=["start", "stop", "status"])
     orch.add_argument("--cycles", type=int)
@@ -236,6 +237,11 @@ def main():
     elif args.cmd == "events":
         for ev in notification.list_events(args.last):
             print(json.dumps(ev))
+    elif args.cmd == "self_reflect":
+        import self_reflection
+        mgr = self_reflection.SelfHealingManager()
+        mgr.run_cycle()
+        print("Reflection cycle completed")
     elif args.cmd == "orchestrator":
         import orchestrator
         o = orchestrator.Orchestrator(interval=0.01)
