@@ -32,11 +32,17 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
+vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
+multimodal_tracker.py – Fuses webcam emotions and microphone sentiment into per-person timelines. Models for vision and voice can be swapped via config and the tracker runs even when hardware is missing.
+
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
 
 ngrok.yml – Example ngrok configuration.
+
+### Multimodal tracking
+`multimodal_tracker.py` combines webcam facial emotions with microphone sentiment analysis. Use MediaPipe or InsightFace for detection, `fer` or `DeepFace` for emotion recognition, and libraries like `openSMILE` or `pyAudioAnalysis` for audio. Swap components by subclassing `MultiModalEmotionTracker` or passing alternative backends. New modalities (text, gesture) can extend `process` and update `timelines`.
 
 Environment Variables
 Create a .env file based on .env.example and set the following variables:
