@@ -22,3 +22,17 @@ def test_apply_and_rollback(tmp_path, monkeypatch):
     assert self_patcher.approve_patch(p["id"])
     patches = self_patcher.list_patches()
     assert any(x["id"] == p["id"] and x.get("approved") for x in patches)
+
+
+def test_reject_patch(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import notification
+    reload(notification)
+    reload(self_patcher)
+    p = self_patcher.apply_patch("note", auto=False)
+    assert self_patcher.reject_patch(p["id"])
+    patches = self_patcher.list_patches()
+    assert any(x["id"] == p["id"] and x.get("rejected") for x in patches)
+    events = notification.list_events(2)
+    assert any(e["event"] == "patch_rejected" for e in events)
