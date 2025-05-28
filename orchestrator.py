@@ -34,6 +34,34 @@ class Orchestrator:
         _save_state(self.state)
 
     def run_forever(self) -> None:
-        while True:
+        self.state["running"] = True
+        _save_state(self.state)
+        iterations = 0
+        cycles = self.state.get("cycles")
+        while self.state.get("running"):
             self.run_cycle()
+            iterations += 1
+            if cycles is not None and iterations >= cycles:
+                break
             time.sleep(self.interval)
+            self.state = _load_state()
+        self.state["running"] = False
+        _save_state(self.state)
+
+    # New public helpers
+    def start(self, cycles: int | None = None) -> None:
+        self.state["cycles"] = cycles
+        self.state["running"] = True
+        _save_state(self.state)
+        self.run_forever()
+
+    def stop(self) -> None:
+        self.state["running"] = False
+        _save_state(self.state)
+
+    def status(self) -> dict:
+        self.state = _load_state()
+        return {
+            "running": self.state.get("running", False),
+            "last_run": self.state.get("last_run"),
+        }

@@ -99,3 +99,21 @@ def test_cli_add_goal(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     goals = mm.get_goals(open_only=False)
     assert goals and goals[0]['text'] == 'demo'
+
+
+def test_cli_events_and_orchestrator(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import notification
+    reload(notification)
+    reload(memory_cli)
+    notification.send('goal_created', {'id': 'g'})
+    monkeypatch.setattr(sys, 'argv', ['mc', 'events', '--last', '1'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'goal_created' in out
+    monkeypatch.setattr(sys, 'argv', ['mc', 'orchestrator', 'status'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'running' in out

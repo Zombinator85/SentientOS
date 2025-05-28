@@ -2,11 +2,14 @@ import os
 import json
 from pathlib import Path
 from typing import Any, Dict, List
+import datetime
 from api import actuator
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 SUB_PATH = MEMORY_DIR / "subscriptions.json"
+EVENT_PATH = MEMORY_DIR / "events.jsonl"
 SUB_PATH.parent.mkdir(parents=True, exist_ok=True)
+EVENT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _load() -> Dict[str, List[Dict[str, Any]]]:
@@ -39,7 +42,31 @@ def list_subscriptions() -> Dict[str, List[Dict[str, Any]]]:
     return _load()
 
 
+def _log_event(event: str, payload: Dict[str, Any]) -> None:
+    entry = {
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "event": event,
+        "payload": payload,
+    }
+    with open(EVENT_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def list_events(limit: int = 10) -> List[Dict[str, Any]]:
+    if not EVENT_PATH.exists():
+        return []
+    lines = EVENT_PATH.read_text(encoding="utf-8").splitlines()
+    out: List[Dict[str, Any]] = []
+    for line in lines[-limit:]:
+        try:
+            out.append(json.loads(line))
+        except Exception:
+            continue
+    return out
+
+
 def send(event: str, payload: Dict[str, Any]) -> None:
+    _log_event(event, payload)
     subs = _load().get(event, [])
     for s in subs:
         method = s.get("method")
