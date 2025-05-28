@@ -1,5 +1,3 @@
-Here’s a fully merged, up-to-date, and readable documentation block—combining your new self-reflection module, modular feedback, reflexes, memory, and automation. This version is ready for your main README, onboarding doc, or project site.
-
 Multimodal Emotion Tracking & Feedback
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
@@ -50,7 +48,7 @@ Runs reflex routines from timers, file changes, or on-demand triggers using the 
 
 Panic flag halts all actions.
 
-Rules support interval, file_change, or on_demand triggers and use the actuator to perform actions.
+Rules support interval, file_change, or on_demand triggers.
 
 Example:
 
@@ -72,18 +70,42 @@ Edit
 python memory_cli.py self_reflect
 All critiques, patches, and escalations are logged and queryable in the CLI/dashboard.
 
+Presence Analytics
+presence_analytics.py:
+Computes presence trends and suggests optimizations.
+
+Analyze emotion trends, routine health, patch/failure rates, and propose improvements.
+
+Access analytics and suggestions via:
+
+bash
+Copy
+Edit
+python memory_cli.py analytics      # show presence analytics
+python memory_cli.py trends         # emotion trends by day
+python memory_cli.py suggest        # proposed optimizations
 Memory Management, CLI, and Orchestration
 Persistent storage:
 memory_manager.py stores fragments with 64-D emotion vectors, indexed for vector search.
 
 User profile & prompt assembly:
-user_profile.py (key-value storage in profile.json);
+user_profile.py (key-value storage in profile.json),
 prompt_assembler.py (builds model prompts from profile + memory).
 
 Command-line usage (memory_cli.py):
 
 Purge, summarize, playback, emotion timeline, patch management, agent cycles, orchestrator.
 
+Example commands:
+
+bash
+Copy
+Edit
+python memory_cli.py purge --age 30
+python memory_cli.py summarize
+python memory_cli.py timeline
+python memory_cli.py patches
+python memory_cli.py orchestrator start --cycles 10
 Patch event mapping:
 
 apply_patch → self_patch
@@ -107,7 +129,7 @@ Edit
 python api/actuator.py shell "ls -l"
 python api/actuator.py write --file out.txt --text "hello"
 Reflections & Critique:
-Every actuator action generates a reflection/critique, query with memory_cli.py reflections.
+Every actuator action generates a reflection/critique.
 
 bash
 Copy
@@ -140,6 +162,6 @@ No secrets are present in this repo.
 Copy .env.example to .env and fill in your credentials before running.
 
 All components are modular, swappable, and extensible.
-Presence, feedback, memory, reflection, and automation—no arbitrary limits.
+Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
 The cathedral is ready.
 

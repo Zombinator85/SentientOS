@@ -5,6 +5,7 @@ import memory_manager as mm
 from api import actuator
 import notification
 import self_patcher
+import presence_analytics as pa
 
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
@@ -150,6 +151,12 @@ def main():
     p_appr.add_argument("id")
     p_rej = sub.add_parser("reject_patch", help="Reject a patch")
     p_rej.add_argument("id")
+    analytics = sub.add_parser("analytics", help="Show presence analytics")
+    analytics.add_argument("--limit", type=int, default=None)
+    trends = sub.add_parser("trends", help="Show emotion trends")
+    trends.add_argument("--limit", type=int, default=None)
+    suggest = sub.add_parser("suggest", help="Suggest improvements")
+    suggest.add_argument("--limit", type=int, default=None)
     sched = sub.add_parser("schedule", help="Run orchestrator cycle")
     sched.add_argument("--cycles", type=int, default=1)
     events = sub.add_parser("events", help="List recent events")
@@ -229,6 +236,16 @@ def main():
             print("Rejected")
         else:
             print("Patch not found")
+    elif args.cmd == "analytics":
+        data = pa.analytics(args.limit)
+        print(json.dumps(data, indent=2))
+    elif args.cmd == "trends":
+        data = pa.emotion_trends(pa.load_entries(args.limit))
+        print(json.dumps(data, indent=2))
+    elif args.cmd == "suggest":
+        data = pa.analytics(args.limit)
+        for line in pa.suggest_improvements(data):
+            print(f"- {line}")
     elif args.cmd == "schedule":
         import orchestrator
         o = orchestrator.Orchestrator(interval=0.01)

@@ -202,3 +202,19 @@ def test_cli_patch_event_listing(tmp_path, monkeypatch, capsys):
         out = capsys.readouterr().out
         assert evt in out
 
+
+def test_cli_analytics(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import presence_analytics as pa
+    import memory_manager as mm
+    reload(mm)
+    reload(pa)
+    reload(memory_cli)
+    mm.append_memory('demo', emotions={'Joy':0.9})
+    monkeypatch.setattr(sys, 'argv', ['mc', 'analytics'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'emotion_trends' in out
+
