@@ -1,0 +1,7 @@
+# Example trust policy configuration
+log_dir: logs/trust
+policies:
+  suppress_anger: true
+  max_volume: 0.8
+locked_rules:
+  - suppress_anger

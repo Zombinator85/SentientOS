@@ -101,7 +101,12 @@ class MultiModalEmotionTracker:
     def process_once(self, frame) -> Dict[str, Any]:
         ts = time.time()
         voice_vec = self.analyze_voice()
-        data = self.vision.process_frame(frame) if self.vision and frame is not None else {"faces": []}
+        data = (
+            self.vision.process_frame(frame)
+            if self.vision and frame is not None
+            else {"faces": []}
+        )
+        data["timestamp"] = ts
         for face in data.get("faces", []):
             fid = face["id"]
             self.memory.add(fid, "vision", face.get("emotions", empty_emotion_vector()), ts)
