@@ -11,3 +11,7 @@ pydub
 vosk
 TTS
 librosa
+pandas
+streamlit
+playsound
+python-osc

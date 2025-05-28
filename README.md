@@ -32,6 +32,12 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
+vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
+
+emotion_dashboard.py – Streamlit dashboard that visualizes vision logs and triggers feedback events using feedback.py.
+
+feedback.py – Defines FeedbackRule and FeedbackManager for custom emotional feedback and embodiment hooks.
+
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
@@ -96,6 +102,16 @@ Persona adaptation: Persona and speaking style adapt automatically based on dete
 Multimodal fusion: Emotion detection combines audio tone, text sentiment, and (optionally) vision input, logging each source’s weight.
 
 Browser demo: Use browser_voice.py for a simple demo that lets you switch personas in real time, upload audio for emotion analysis, and view live emotion fusion.
+
+Emotional feedback: The Streamlit dashboard (emotion_dashboard.py) displays live emotion data and triggers feedback rules defined in feedback.py. Create a JSON file like feedback_rules.json:
+
+```json
+[
+  {"emotion": "Anger", "threshold": 0.7, "action": "print"}
+]
+```
+
+Run `python emotion_dashboard.py` to start the GUI. When any face exceeds the threshold, the associated action is executed. Register new actions or embodiment targets via FeedbackManager.
 
 Memory management
 memory_manager.py provides persistent storage of message fragments. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
