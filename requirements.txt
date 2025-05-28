@@ -12,3 +12,5 @@ vosk
 TTS
 librosa
 watchdog
+pandas
+streamlit

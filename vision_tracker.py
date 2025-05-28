@@ -17,6 +17,9 @@ except Exception:  # pragma: no cover - optional dependencies
     FER = None
     np = None
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:  # pragma: no cover - type hint only
+    from feedback import FeedbackManager
 
 def _iou(box_a: List[int], box_b: List[int]) -> float:
     """Return intersection-over-union of two boxes."""
@@ -30,11 +33,15 @@ def _iou(box_a: List[int], box_b: List[int]) -> float:
     union = float(area_a + area_b - inter)
     return inter / union if union else 0.0
 
-
 class FaceEmotionTracker:
-    """Detect, identify, and track faces with emotion analysis."""
+    """Detect, identify, and track faces with emotion analysis and optional feedback."""
 
-    def __init__(self, camera_index: Optional[int] = 0, output_file: str | None = None) -> None:
+    def __init__(
+        self,
+        camera_index: Optional[int] = 0,
+        output_file: str | None = None,
+        feedback: "FeedbackManager | None" = None,
+    ) -> None:
         self.log_path = Path(output_file or os.getenv("VISION_LOG", "logs/vision/vision.jsonl"))
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.cap = cv2.VideoCapture(camera_index) if camera_index is not None and cv2 else None
@@ -54,6 +61,7 @@ class FaceEmotionTracker:
         self.emotion = FER(mtcnn=False) if FER else None
         self.tracked: Dict[int, Dict[str, Any]] = {}
         self.histories: Dict[int, List[Dict[str, float]]] = {}
+        self.feedback = feedback
         self.next_id = 0
 
     def _assign_id(self, bbox: List[int]) -> int:
@@ -96,11 +104,13 @@ class FaceEmotionTracker:
                 h = int(bb.height * frame.shape[0])
                 x2 = x1 + w
                 y2 = y1 + h
-                crop = frame[max(0, y1) : max(0, y2), max(0, x1) : max(0, x2)]
+                crop = frame[max(0, y1):max(0, y2), max(0, x1):max(0, x2)]
                 fid = self._assign_id([x1, y1, x2, y2])
                 emotions = self._analyze_emotion(crop)
                 if emotions:
                     self.histories.setdefault(fid, []).append(emotions)
+                    if self.feedback:
+                        self.feedback.process(fid, emotions)
                 faces.append(
                     {
                         "id": fid,
@@ -116,8 +126,10 @@ class FaceEmotionTracker:
             f.write(json.dumps(data) + "\n")
 
     def update_voice_sentiment(self, face_id: int, sentiment: Dict[str, float]) -> None:
-        """Placeholder for future voice sentiment fusion."""
+        """Optionally update emotional history and feedback from voice sentiment."""
         self.histories.setdefault(face_id, []).append(sentiment)
+        if self.feedback:
+            self.feedback.process(face_id, sentiment)
 
     def run(self, max_frames: int | None = None) -> None:
         if self.cap is None:
