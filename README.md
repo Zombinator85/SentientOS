@@ -128,7 +128,11 @@ python memory_cli.py delete_goal <id>
 python memory_cli.py run --cycles 3  # run agent cycles
 python memory_cli.py events --last 5        # list notification events
 python memory_cli.py orchestrator start --cycles 10
+python memory_cli.py patches                 # list patch proposals
+python memory_cli.py apply_patch "fix bug"     # record a manual patch note
 python memory_cli.py approve_patch <id>
+python memory_cli.py reject_patch <id>
+python memory_cli.py rollback_patch <id>
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Actuator CLI
