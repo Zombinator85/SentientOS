@@ -7,7 +7,7 @@ def test_tracker_process_frame(tmp_path, monkeypatch):
     import vision_tracker as vt
     reload(vt)
 
-    # Optional: check if feedback is available and use it if so
+    # Try to attach FeedbackManager if available
     try:
         from feedback import FeedbackManager, FeedbackRule
         fm = FeedbackManager()
@@ -44,6 +44,5 @@ def test_update_voice_sentiment(tmp_path, monkeypatch):
 
     tracker.update_voice_sentiment(1, {"happy": 1.0})
     assert tracker.histories[1]
-    # If feedback, ensure history updated
     if 'fm' in locals():
         assert fm.get_history() == [] or isinstance(fm.get_history(), list)
