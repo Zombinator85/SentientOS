@@ -40,6 +40,9 @@ api/actuator.py – Executes whitelisted shell commands, HTTP requests, file wri
 
 ngrok.yml – Example ngrok configuration.
 
+### Multimodal tracking
+`multimodal_tracker.py` combines webcam facial emotions with microphone sentiment analysis. Use MediaPipe or InsightFace for detection, `fer` or `DeepFace` for emotion recognition, and libraries like `openSMILE` or `pyAudioAnalysis` for audio. Swap components by subclassing `MultiModalEmotionTracker` or passing alternative backends. New modalities (text, gesture) can extend `process` and update `timelines`.
+
 Environment Variables
 Create a .env file based on .env.example and set the following variables:
 
