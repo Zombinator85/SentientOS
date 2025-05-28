@@ -1,53 +1,50 @@
-import json
 import os
+import json
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+# --- Optional Voice Backends ---
 try:
-    import speech_recognition as sr  # type: ignore
-except Exception:  # pragma: no cover - optional
+    import speech_recognition as sr  # for default, simple use
+except Exception:
     sr = None
 
-from emotion_utils import detect, empty_emotion_vector
+try:
+    import mic_bridge  # for advanced/plug-in use
+except Exception:
+    mic_bridge = None
+
 from vision_tracker import FaceEmotionTracker
 
+def empty_emotion_vector() -> Dict[str, float]:
+    # You may already have this, but for safety:
+    return {e: 0.0 for e in ["happy", "sad", "angry", "disgust", "fear", "surprise", "neutral"]}
 
-class VoiceSentiment:
-    """Lightweight wrapper around speech_recognition and emotion_utils."""
+class PersonaMemory:
+    """Per-person emotion timeline for multiple modalities."""
+    def __init__(self):
+        self.timelines: Dict[int, List[Dict[str, Any]]] = {}
 
-    def __init__(self, device_index: Optional[int] = None) -> None:
-        self.device_index = device_index
-        if sr is not None:
-            try:
-                self.recognizer = sr.Recognizer()
-                self.mic = sr.Microphone(device_index=device_index)
-            except Exception:  # pragma: no cover - mic missing
-                self.recognizer = None
-                self.mic = None
-        else:  # pragma: no cover - dependency missing
-            self.recognizer = None
-            self.mic = None
+    def add(self, person_id: int, source: str, emotions: Dict[str, float], ts: float) -> None:
+        if not emotions:
+            return
+        self.timelines.setdefault(person_id, []).append(
+            {"timestamp": ts, "source": source, "emotions": emotions}
+        )
 
-    def listen(self) -> Dict[str, float]:
-        if not self.recognizer or not self.mic:
-            return {}
-        try:
-            with self.mic as source:
-                audio = self.recognizer.listen(source, phrase_time_limit=3)
-            data = audio.get_wav_data()
-        except Exception:  # pragma: no cover - capture failure
-            return {}
-        path = Path("/tmp") / f"voice_{int(time.time()*1000)}.wav"
-        try:
-            with open(path, "wb") as f:
-                f.write(data)
-            vec, _ = detect(str(path))
-        finally:
-            if path.exists():
-                path.unlink()
-        return vec
-
+    def average(self, person_id: int, source: Optional[str] = None, window: int = 5) -> Dict[str, float]:
+        hist = [h["emotions"] for h in self.timelines.get(person_id, []) if source is None or h["source"] == source]
+        hist = hist[-window:]
+        avg = empty_emotion_vector()
+        if not hist:
+            return avg
+        for h in hist:
+            for k, v in h.items():
+                avg[k] = avg.get(k, 0.0) + v
+        for k in avg:
+            avg[k] /= len(hist)
+        return avg
 
 class MultiModalEmotionTracker:
     """Fuse vision and voice sentiment into per-person timelines."""
@@ -58,58 +55,75 @@ class MultiModalEmotionTracker:
         enable_voice: bool = False,
         camera_index: Optional[int] = 0,
         voice_device: Optional[int] = None,
-        output_file: Optional[str] = None,
+        output_dir: Optional[str] = None,
     ) -> None:
-        self.log_path = Path(
-            output_file or os.getenv("MULTIMODAL_LOG", "logs/multimodal/multi.jsonl")
-        )
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self.vision = (
-            FaceEmotionTracker(camera_index=camera_index, output_file=None)
-            if enable_vision
-            else None
-        )
-        self.voice = VoiceSentiment(voice_device) if enable_voice else None
-        self.timelines: Dict[int, List[Dict[str, Any]]] = {}
+        self.log_dir = Path(output_dir or os.getenv("MULTI_LOG_DIR", "logs/multimodal"))
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.vision = FaceEmotionTracker(camera_index=camera_index, output_file=None) if enable_vision else None
+        # Decide which voice backend to use
+        self.voice_backend = None
+        if enable_voice:
+            if mic_bridge is not None:
+                self.voice_backend = "mic_bridge"
+            elif sr is not None:
+                self.voice_backend = "speech_recognition"
+            else:
+                self.voice_backend = None
+        self.memory = PersonaMemory()
 
-    def _log(self, data: Dict[str, Any]) -> None:
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(data) + "\n")
+    def _log(self, person_id: int, entry: Dict[str, Any]) -> None:
+        path = self.log_dir / f"{person_id}.jsonl"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
 
-    def process(self, frame=None) -> Dict[str, Any]:
+    def analyze_voice(self, device_index: Optional[int] = None) -> Dict[str, float]:
+        if not self.voice_backend:
+            return {}
+        if self.voice_backend == "mic_bridge":
+            try:
+                res = mic_bridge.recognize_from_mic(save_audio=False)
+                return res.get("emotions") or {}
+            except Exception:
+                return {}
+        elif self.voice_backend == "speech_recognition":
+            try:
+                recognizer = sr.Recognizer()
+                mic = sr.Microphone(device_index=device_index)
+                with mic as source:
+                    audio = recognizer.listen(source, phrase_time_limit=3)
+                # Optional: save to temp file, pass to emotion utils if desired
+                # Placeholder: return empty for now, extend with emotion model later
+                return {}
+            except Exception:
+                return {}
+        return {}
+
+    def process_once(self, frame) -> Dict[str, Any]:
         ts = time.time()
-        entry: Dict[str, Any] = {"timestamp": ts, "faces": []}
-        if self.vision and frame is not None:
-            vis = self.vision.process_frame(frame)
-            entry["faces"] = vis.get("faces", [])
-            for face in entry["faces"]:
-                fid = face["id"]
-                self.timelines.setdefault(fid, []).append({
-                    "timestamp": ts,
-                    "vision": face.get("emotions", empty_emotion_vector()),
-                })
-        if self.voice:
-            vec = self.voice.listen()
-            if vec:
-                entry["audio"] = vec
-                self.timelines.setdefault(0, []).append({
-                    "timestamp": ts,
-                    "audio": vec,
-                })
-        self._log(entry)
-        return entry
+        voice_vec = self.analyze_voice()
+        data = self.vision.process_frame(frame) if self.vision and frame is not None else {"faces": []}
+        for face in data.get("faces", []):
+            fid = face["id"]
+            self.memory.add(fid, "vision", face.get("emotions", empty_emotion_vector()), ts)
+            if voice_vec:
+                self.memory.add(fid, "voice", voice_vec, ts)
+            self._log(fid, {"timestamp": ts, "vision": face.get("emotions", {}) or empty_emotion_vector(), "voice": voice_vec})
+        return data
 
-    def run(self, max_frames: Optional[int] = None) -> None:  # pragma: no cover - loop
+    def update_text_sentiment(self, person_id: int, sentiment: Dict[str, float]) -> None:
+        self.memory.add(person_id, "text", sentiment, time.time())
+
+    def run(self, max_frames: Optional[int] = None) -> None:
+        if not self.vision or not getattr(self.vision, "cap", None):
+            print("[MULTIMODAL] Camera not available")
+            return
         frames = 0
         while True:
-            frame = None
-            if self.vision and self.vision.cap:
-                ret, frame = self.vision.cap.read()
-                if not ret:
-                    break
-            self.process(frame)
+            ret, frame = self.vision.cap.read()
+            if not ret:
+                break
+            self.process_once(frame)
             frames += 1
             if max_frames is not None and frames >= max_frames:
                 break
-        if self.vision and self.vision.cap:
-            self.vision.cap.release()
+        self.vision.cap.release()
