@@ -18,3 +18,7 @@ def test_apply_and_rollback(tmp_path, monkeypatch):
     for patch in patches:
         if patch["id"] == p["id"]:
             assert patch["rolled_back"]
+
+    assert self_patcher.approve_patch(p["id"])
+    patches = self_patcher.list_patches()
+    assert any(x["id"] == p["id"] and x.get("approved") for x in patches)
