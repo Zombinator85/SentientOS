@@ -177,3 +177,28 @@ def test_cli_rollback_patch(tmp_path, monkeypatch, capsys):
     assert any(x['id'] == p['id'] and x.get('rolled_back') for x in patches)
     events = notification.list_events(2)
     assert any(e['event'] == 'patch_rolled_back' for e in events)
+
+def test_cli_patch_event_listing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import self_patcher
+    import notification
+    reload(notification)
+    reload(self_patcher)
+    reload(memory_cli)
+    actions = [
+        ('approve_patch', 'patch_approved'),
+        ('reject_patch', 'patch_rejected'),
+        ('rollback_patch', 'patch_rolled_back'),
+    ]
+    for cmd, evt in actions:
+        p = self_patcher.apply_patch(cmd, auto=False)
+        monkeypatch.setattr(sys, 'argv', ['mc', cmd, p['id']])
+        memory_cli.main()
+        capsys.readouterr()
+        monkeypatch.setattr(sys, 'argv', ['mc', 'events', '--last', '2'])
+        memory_cli.main()
+        out = capsys.readouterr().out
+        assert evt in out
+
