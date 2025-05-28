@@ -3,8 +3,10 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils import is_headless
 
 # --- Optional Voice Backends ---
+HEADLESS = is_headless()
 try:
     import speech_recognition as sr
 except Exception:
@@ -13,6 +15,10 @@ except Exception:
 try:
     import mic_bridge
 except Exception:
+    mic_bridge = None
+
+if HEADLESS:
+    sr = None
     mic_bridge = None
 
 from vision_tracker import FaceEmotionTracker
@@ -55,6 +61,9 @@ class MultiModalEmotionTracker:
         voice_device: Optional[int] = None,
         output_dir: Optional[str] = None,
     ) -> None:
+        if HEADLESS:
+            enable_vision = False
+            enable_voice = False
         self.log_dir = Path(output_dir or os.getenv("MULTI_LOG_DIR", "logs/multimodal"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
         if enable_vision:
@@ -81,7 +90,7 @@ class MultiModalEmotionTracker:
             f.write(json.dumps(entry) + "\n")
 
     def analyze_voice(self, device_index: Optional[int] = None) -> Dict[str, float]:
-        if not self.voice_backend:
+        if HEADLESS or not self.voice_backend:
             return {}
         if self.voice_backend == "mic_bridge":
             try:
@@ -126,7 +135,10 @@ class MultiModalEmotionTracker:
 
     def run(self, max_frames: Optional[int] = None) -> None:
         if not self.vision or not getattr(self.vision, "cap", None):
-            print("[MULTIMODAL] Camera not available")
+            if HEADLESS:
+                print("[MULTIMODAL] Headless mode - skipping capture")
+            else:
+                print("[MULTIMODAL] Camera not available")
             return
         frames = 0
         while True:

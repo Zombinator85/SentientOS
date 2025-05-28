@@ -3,6 +3,9 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils import is_headless
+
+HEADLESS = is_headless()
 
 try:
     import cv2  # type: ignore
@@ -11,6 +14,13 @@ try:
     from fer import FER  # type: ignore
     import numpy as np  # type: ignore
 except Exception:  # pragma: no cover - optional dependencies
+    cv2 = None
+    mp = None
+    FaceAnalysis = None
+    FER = None
+    np = None
+
+if HEADLESS:
     cv2 = None
     mp = None
     FaceAnalysis = None
@@ -44,21 +54,29 @@ class FaceEmotionTracker:
     ) -> None:
         self.log_path = Path(output_file or os.getenv("VISION_LOG", "logs/vision/vision.jsonl"))
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        self.cap = cv2.VideoCapture(camera_index) if camera_index is not None and cv2 else None
-        self.detector = (
-            mp.solutions.face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.5)
-            if mp
-            else None
-        )
-        if FaceAnalysis:
-            self.recognizer = FaceAnalysis(name="buffalo_l")
-            try:
-                self.recognizer.prepare(ctx_id=0, det_size=(640, 640))
-            except Exception:  # pragma: no cover - setup failure
-                self.recognizer = None
+        if HEADLESS:
+            self.cap = None
         else:
+            self.cap = cv2.VideoCapture(camera_index) if camera_index is not None and cv2 else None
+        if HEADLESS:
+            self.detector = None
             self.recognizer = None
-        self.emotion = FER(mtcnn=False) if FER else None
+            self.emotion = None
+        else:
+            self.detector = (
+                mp.solutions.face_detection.FaceDetection(model_selection=0, min_detection_confidence=0.5)
+                if mp
+                else None
+            )
+            if FaceAnalysis:
+                self.recognizer = FaceAnalysis(name="buffalo_l")
+                try:
+                    self.recognizer.prepare(ctx_id=0, det_size=(640, 640))
+                except Exception:  # pragma: no cover - setup failure
+                    self.recognizer = None
+            else:
+                self.recognizer = None
+            self.emotion = FER(mtcnn=False) if FER else None
         self.tracked: Dict[int, Dict[str, Any]] = {}
         self.histories: Dict[int, List[Dict[str, float]]] = {}
         self.feedback = feedback
@@ -133,7 +151,10 @@ class FaceEmotionTracker:
 
     def run(self, max_frames: int | None = None) -> None:
         if self.cap is None:
-            print("[VISION] OpenCV or camera not available")
+            if HEADLESS:
+                print("[VISION] Headless mode - skipping vision capture")
+            else:
+                print("[VISION] OpenCV or camera not available")
             return
         frames = 0
         while True:
