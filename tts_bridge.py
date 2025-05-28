@@ -26,11 +26,13 @@ except Exception:
 
 from memory_manager import append_memory
 from emotions import empty_emotion_vector
+from utils import is_headless
 
 AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
+HEADLESS = is_headless()
 
 ELEVEN_KEY = os.getenv("ELEVEN_API_KEY")
 ELEVEN_VOICE = os.getenv("ELEVEN_VOICE", "Rachel")
@@ -41,15 +43,15 @@ if ENGINE_TYPE == "coqui" and TTS is not None:
     ENGINE = TTS(model_name=COQUI_MODEL)
     DEFAULT_VOICE = None
     ALT_VOICE = None
-elif ENGINE_TYPE == "elevenlabs" and requests is not None and ELEVEN_KEY:
+elif ENGINE_TYPE == "elevenlabs" and requests is not None and ELEVEN_KEY and not HEADLESS:
     ENGINE = "elevenlabs"
     DEFAULT_VOICE = ELEVEN_VOICE
     ALT_VOICE = ELEVEN_VOICE
-elif ENGINE_TYPE == "bark" and generate_audio is not None:
+elif ENGINE_TYPE == "bark" and generate_audio is not None and not HEADLESS:
     ENGINE = "bark"
     DEFAULT_VOICE = BARK_SPEAKER
     ALT_VOICE = BARK_SPEAKER
-elif pyttsx3 is not None:
+elif pyttsx3 is not None and not HEADLESS:
     ENGINE = pyttsx3.init()
     VOICES = ENGINE.getProperty("voices")
     DEFAULT_VOICE = VOICES[0].id if VOICES else None
@@ -82,6 +84,9 @@ def speak(
     emotions: Optional[Dict[str, float]] = None,
 ) -> Optional[str]:
     """Synthesize text to speech and optionally save to a file."""
+    if HEADLESS:
+        print("[TTS] Headless mode - skipping synthesis")
+        return None
     if ENGINE is None:
         print("[TTS] no TTS engine available")
         return None

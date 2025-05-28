@@ -159,6 +159,20 @@ Copy
 Edit
 pytest
 
+Headless / Test Mode
+--------------------
+Set ``SENTIENTOS_HEADLESS=1`` to disable webcam, microphone, and network
+dependencies. All modules will fall back to mocks and still log timestamped
+events. This is useful for CI or development on machines without audio/vision
+hardware.
+
+Example:
+
+```bash
+export SENTIENTOS_HEADLESS=1
+pytest
+```
+
 Policy, Gesture & Persona Engine
 --------------------------------
 `policy_engine.py` loads YAML or JSON policies at runtime to drive gestures and persona swaps. Policies define conditions on emotion vectors or tags and map them to actions. Use `python policy_engine.py policy show` to inspect active rules. Policies can be diffed, applied, or rolled back without restarting, and every action is audited.
