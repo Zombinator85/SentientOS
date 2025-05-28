@@ -77,8 +77,9 @@ class SelfHealingManager:
             self._handle_event(ev)
 
     def run_cycle(self) -> None:
-        self.process_logs()
+        # Process events first so log-based reflections remain the most recent
         self.process_events()
+        self.process_logs()
         self.state["last_event_ts"] = self.last_event_ts
         self.state["last_log_id"] = self.last_log_id
         _save_state(self.state)
