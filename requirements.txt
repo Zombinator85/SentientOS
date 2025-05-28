@@ -11,3 +11,4 @@ pydub
 vosk
 TTS
 librosa
+watchdog

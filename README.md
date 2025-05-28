@@ -32,6 +32,9 @@ browser_voice.py – Minimal Flask demo for browser-based voice chat with live e
 
 rebind.rs – Rust helper that binds Telegram webhooks to the URLs reported by ngrok.
 
+vision_tracker.py – Processes webcam video in real time using MediaPipe for face detection, InsightFace for recognition, and logs per-face emotions.
+reflex_manager.py – Runs reflex routines from timers, file changes, or on-demand triggers using the actuator. Panic flag halts all actions.
+
 emotions.py – Canonical list of 64 emotion labels for the EPU.
 
 api/actuator.py – Executes whitelisted shell commands, HTTP requests, file writes, emails, and webhooks with persistent logging. Patterns control what commands/URLs are allowed and all file operations are sandboxed. Also provides a CLI and powers the /act relay endpoint.
@@ -166,6 +169,13 @@ python api/actuator.py hello --name Bob    # example plugin actuator
 python api/actuator.py template_help --name greet  # show parameter help
 python api/actuator.py shell "ls" --dry    # simulate without side effects
 ```
+
+Reflex manager
+```bash
+python reflex_manager.py reflex.yml
+```
+Rules support interval, file_change, or on_demand triggers and use the actuator to perform actions. Ctrl+C stops all rules.
+
 
 ### Reflections and Critique
 Each action logged by the actuator generates a structured *reflection* entry. A
