@@ -6,23 +6,21 @@ from typing import Any, Dict, List, Optional
 
 # --- Optional Voice Backends ---
 try:
-    import speech_recognition as sr  # for default, simple use
+    import speech_recognition as sr
 except Exception:
     sr = None
 
 try:
-    import mic_bridge  # for advanced/plug-in use
+    import mic_bridge
 except Exception:
     mic_bridge = None
 
 from vision_tracker import FaceEmotionTracker
 
 def empty_emotion_vector() -> Dict[str, float]:
-    # You may already have this, but for safety:
     return {e: 0.0 for e in ["happy", "sad", "angry", "disgust", "fear", "surprise", "neutral"]}
 
 class PersonaMemory:
-    """Per-person emotion timeline for multiple modalities."""
     def __init__(self):
         self.timelines: Dict[int, List[Dict[str, Any]]] = {}
 
@@ -47,7 +45,7 @@ class PersonaMemory:
         return avg
 
 class MultiModalEmotionTracker:
-    """Fuse vision and voice sentiment into per-person timelines."""
+    """Fuse vision and voice sentiment into per-person timelines, always logging a timestamp."""
 
     def __init__(
         self,
@@ -62,7 +60,7 @@ class MultiModalEmotionTracker:
         if enable_vision:
             try:
                 self.vision = FaceEmotionTracker(camera_index=camera_index, output_file=None)
-            except TypeError:  # pragma: no cover - for simple stubs
+            except TypeError:
                 self.vision = FaceEmotionTracker()
         else:
             self.vision = None
@@ -97,8 +95,7 @@ class MultiModalEmotionTracker:
                 mic = sr.Microphone(device_index=device_index)
                 with mic as source:
                     audio = recognizer.listen(source, phrase_time_limit=3)
-                # Optional: save to temp file, pass to emotion utils if desired
-                # Placeholder: return empty for now, extend with emotion model later
+                # Placeholder for emotion extraction
                 return {}
             except Exception:
                 return {}
@@ -107,19 +104,21 @@ class MultiModalEmotionTracker:
     def process_once(self, frame) -> Dict[str, Any]:
         ts = time.time()
         voice_vec = self.analyze_voice()
+        # --- Always produce a timestamped log, even if no vision or voice
         data = self.vision.process_frame(frame) if self.vision and frame is not None else {"faces": []}
         data["timestamp"] = ts
-        if not data.get("faces") and voice_vec:
-            self.memory.add(0, "voice", voice_vec, ts)
-            self._log(0, {"timestamp": ts, "vision": {}, "voice": voice_vec})
-        elif not data.get("faces"):
-            self._log(0, {"timestamp": ts, "vision": {}, "voice": {}})
+        if not data.get("faces"):
+            # Log the voice vector (if any), or at minimum an empty/neutral event
+            entry = {"timestamp": ts, "vision": {}, "voice": voice_vec or {}}
+            self.memory.add(0, "voice", voice_vec, ts) if voice_vec else None
+            self._log(0, entry)
         for face in data.get("faces", []):
             fid = face["id"]
-            self.memory.add(fid, "vision", face.get("emotions", empty_emotion_vector()), ts)
+            emotions = face.get("emotions", empty_emotion_vector())
+            self.memory.add(fid, "vision", emotions, ts)
             if voice_vec:
                 self.memory.add(fid, "voice", voice_vec, ts)
-            self._log(fid, {"timestamp": ts, "vision": face.get("emotions", {}) or empty_emotion_vector(), "voice": voice_vec})
+            self._log(fid, {"timestamp": ts, "vision": emotions, "voice": voice_vec})
         return data
 
     def update_text_sentiment(self, person_id: int, sentiment: Dict[str, float]) -> None:
