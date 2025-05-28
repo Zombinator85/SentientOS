@@ -1,3 +1,5 @@
+Here’s a fully merged, up-to-date, and readable documentation block—combining your new self-reflection module, modular feedback, reflexes, memory, and automation. This version is ready for your main README, onboarding doc, or project site.
+
 Multimodal Emotion Tracking & Feedback
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
@@ -19,7 +21,7 @@ Advanced audio: HuggingFace transformers (audio-classification pipeline)
 To integrate a new model, replace FaceEmotionTracker.emotion or provide a custom mic_bridge.recognize_from_mic that returns an emotion vector. Swap components by subclassing MultiModalEmotionTracker or passing alternative backends. New modalities (text, gesture) can extend process and update timelines.
 
 Emotional Feedback & Dashboard
-Emotional feedback
+Emotional feedback:
 The Streamlit dashboard (emotion_dashboard.py) displays live, per-person emotion data and can trigger feedback rules defined in feedback.py.
 
 Create a JSON file (e.g. feedback_rules.json):
@@ -44,7 +46,6 @@ Register new actions or embodiment targets via FeedbackManager.
 
 Reflex Manager
 reflex_manager.py:
-
 Runs reflex routines from timers, file changes, or on-demand triggers using the actuator.
 
 Panic flag halts all actions.
@@ -59,28 +60,30 @@ Edit
 python reflex_manager.py reflex.yml
 Ctrl+C stops all rules.
 
-Memory Management, CLI, and Orchestration
-Persistent storage:
-memory_manager.py stores fragments with 64-D emotion vectors, indexed for vector search.
+Self-Reflection & Healing
+self_reflection.py:
+Monitors events and action logs, generating critiques and automatic self-healing patches.
 
-User profile and prompt assembly:
-user_profile.py (stores persistent key-values in profile.json);
-prompt_assembler.py (combines profile and memory for rich model prompts).
-
-Command-line usage via memory_cli.py:
-
-Purge, summarize, playback, emotion timeline, patch management, agent cycles, orchestrator.
-
-Full CLI:
+Run the reflection manager periodically to critique and heal:
 
 bash
 Copy
 Edit
-python memory_cli.py purge --age 30       # delete old fragments
-python memory_cli.py summarize            # build daily summaries
-python memory_cli.py timeline             # view emotion timeline
-python memory_cli.py patches              # manage patch proposals
-python memory_cli.py orchestrator start   # run orchestrator cycles
+python memory_cli.py self_reflect
+All critiques, patches, and escalations are logged and queryable in the CLI/dashboard.
+
+Memory Management, CLI, and Orchestration
+Persistent storage:
+memory_manager.py stores fragments with 64-D emotion vectors, indexed for vector search.
+
+User profile & prompt assembly:
+user_profile.py (key-value storage in profile.json);
+prompt_assembler.py (builds model prompts from profile + memory).
+
+Command-line usage (memory_cli.py):
+
+Purge, summarize, playback, emotion timeline, patch management, agent cycles, orchestrator.
+
 Patch event mapping:
 
 apply_patch → self_patch
@@ -104,10 +107,7 @@ Edit
 python api/actuator.py shell "ls -l"
 python api/actuator.py write --file out.txt --text "hello"
 Reflections & Critique:
-
 Every actuator action generates a reflection/critique, query with memory_cli.py reflections.
-
-Example:
 
 bash
 Copy
@@ -115,7 +115,6 @@ Edit
 python memory_cli.py reflections --last 3
 python memory_cli.py reflections --failures --json
 Plugin discovery/reload:
-
 Drop plugins in plugins/; reload live via CLI:
 
 bash
@@ -141,6 +140,6 @@ No secrets are present in this repo.
 Copy .env.example to .env and fill in your credentials before running.
 
 All components are modular, swappable, and extensible.
-Presence, feedback, memory, and automation—no arbitrary limits.
-Cathedral is ready.
+Presence, feedback, memory, reflection, and automation—no arbitrary limits.
+The cathedral is ready.
 
