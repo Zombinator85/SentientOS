@@ -99,6 +99,17 @@ Multimodal fusion: Emotion detection combines audio tone, text sentiment, and (o
 
 Browser demo: Use browser_voice.py for a simple demo that lets you switch personas in real time, upload audio for emotion analysis, and view live emotion fusion.
 
+### Multimodal emotion tracker
+`multimodal_tracker.py` fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone. Each detected face is given a persistent ID and has a JSONL log written to `logs/multimodal`. The tracker works even when webcam or microphone libraries are missing.
+
+Best free options:
+- MediaPipe or InsightFace for vision
+- FER or DeepFace for facial emotions
+- pyAudioAnalysis or openSMILE for voice sentiment
+- HuggingFace transformers (`audio-classification` pipeline) for advanced models
+
+To integrate a new model simply replace `FaceEmotionTracker.emotion` or provide a custom `mic_bridge.recognize_from_mic` that returns an emotion vector.
+
 Memory management
 memory_manager.py provides persistent storage of message fragments. Each fragment includes a 64‑dimensional emotion vector and is indexed for simple vector search.
 
