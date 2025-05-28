@@ -1,0 +1,21 @@
+personas:
+  default:
+    voice: neutral
+  comfort:
+    voice: soft
+policies:
+  - id: smile_on_happy
+    conditions:
+      emotions:
+        Joy: 0.6
+    actions:
+      - type: gesture
+        name: smile
+        value: 0.7
+  - id: comfort_on_sad
+    conditions:
+      emotions:
+        Sadness: 0.6
+    actions:
+      - type: persona
+        name: comfort
