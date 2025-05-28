@@ -144,6 +144,7 @@ python memory_cli.py reject_patch <id>      # mark patch rejected
 python memory_cli.py rollback_patch <id>    # mark patch rolled back
 python memory_cli.py events --last 5        # view patch events
 ```
+Patch actions generate `self_patch`, `patch_approved`, `patch_rejected`, and `patch_rolled_back` events.
 
 
 Actuator CLI
