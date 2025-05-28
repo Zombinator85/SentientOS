@@ -59,7 +59,13 @@ class MultiModalEmotionTracker:
     ) -> None:
         self.log_dir = Path(output_dir or os.getenv("MULTI_LOG_DIR", "logs/multimodal"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.vision = FaceEmotionTracker(camera_index=camera_index, output_file=None) if enable_vision else None
+        if enable_vision:
+            try:
+                self.vision = FaceEmotionTracker(camera_index=camera_index, output_file=None)
+            except TypeError:  # pragma: no cover - for simple stubs
+                self.vision = FaceEmotionTracker()
+        else:
+            self.vision = None
         # Decide which voice backend to use
         self.voice_backend = None
         if enable_voice:
@@ -102,6 +108,12 @@ class MultiModalEmotionTracker:
         ts = time.time()
         voice_vec = self.analyze_voice()
         data = self.vision.process_frame(frame) if self.vision and frame is not None else {"faces": []}
+        data["timestamp"] = ts
+        if not data.get("faces") and voice_vec:
+            self.memory.add(0, "voice", voice_vec, ts)
+            self._log(0, {"timestamp": ts, "vision": {}, "voice": voice_vec})
+        elif not data.get("faces"):
+            self._log(0, {"timestamp": ts, "vision": {}, "voice": {}})
         for face in data.get("faces", []):
             fid = face["id"]
             self.memory.add(fid, "vision", face.get("emotions", empty_emotion_vector()), ts)
