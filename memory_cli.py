@@ -146,8 +146,17 @@ def main():
     p_apply.add_argument("note")
     p_rb = sub.add_parser("rollback_patch", help="Rollback a patch")
     p_rb.add_argument("id")
+    p_appr = sub.add_parser("approve_patch", help="Approve a patch")
+    p_appr.add_argument("id")
+    p_rej = sub.add_parser("reject_patch", help="Reject a patch")
+    p_rej.add_argument("id")
     sched = sub.add_parser("schedule", help="Run orchestrator cycle")
     sched.add_argument("--cycles", type=int, default=1)
+    events = sub.add_parser("events", help="List recent events")
+    events.add_argument("--last", type=int, default=5)
+    orch = sub.add_parser("orchestrator", help="Control orchestrator")
+    orch.add_argument("action", choices=["start", "stop", "status"])
+    orch.add_argument("--cycles", type=int)
     forget = sub.add_parser("forget", help="Remove keys from user profile")
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
@@ -209,11 +218,34 @@ def main():
             print("Rolled back")
         else:
             print("Patch not found")
+    elif args.cmd == "approve_patch":
+        if self_patcher.approve_patch(args.id):
+            print("Approved")
+        else:
+            print("Patch not found")
+    elif args.cmd == "reject_patch":
+        if self_patcher.reject_patch(args.id):
+            print("Rejected")
+        else:
+            print("Patch not found")
     elif args.cmd == "schedule":
         import orchestrator
         o = orchestrator.Orchestrator(interval=0.01)
         for _ in range(args.cycles):
             o.run_cycle()
+    elif args.cmd == "events":
+        for ev in notification.list_events(args.last):
+            print(json.dumps(ev))
+    elif args.cmd == "orchestrator":
+        import orchestrator
+        o = orchestrator.Orchestrator(interval=0.01)
+        if args.action == "start":
+            o.start(cycles=args.cycles)
+        elif args.action == "stop":
+            o.stop()
+            print("Stopped")
+        else:
+            print(json.dumps(o.status(), indent=2))
     elif args.cmd == "delete_goal":
         mm.delete_goal(args.id)
         print(f"Deleted {args.id}")

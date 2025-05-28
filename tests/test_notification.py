@@ -28,3 +28,10 @@ def test_email_notification(tmp_path, monkeypatch):
     notification.add_subscription("self_patch", "email", "a@b.com")
     notification.send("self_patch", {"note": "hi"})
     assert calls.get("to") == "a@b.com"
+
+
+def test_event_history(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    notification.send("goal_created", {"id": "g1"})
+    events = notification.list_events(1)
+    assert events and events[0]["event"] == "goal_created"

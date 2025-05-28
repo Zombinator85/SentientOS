@@ -361,6 +361,8 @@ def add_goal(
     goals = _load_goals()
     goals.append(goal)
     _save_goals(goals)
+    from notification import send as notify  # local import to avoid cycle
+    notify("goal_created", {"id": goal_id, "text": text})
     return goal
 
 

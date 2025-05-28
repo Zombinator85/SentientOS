@@ -126,6 +126,9 @@ python memory_cli.py add_goal "check disk" --intent '{"type":"shell","cmd":"df"}
 python memory_cli.py complete_goal <id>
 python memory_cli.py delete_goal <id>
 python memory_cli.py run --cycles 3  # run agent cycles
+python memory_cli.py events --last 5        # list notification events
+python memory_cli.py orchestrator start --cycles 10
+python memory_cli.py approve_patch <id>
 These commands can be invoked manually or scheduled via cron/Task Scheduler.
 
 Actuator CLI
@@ -170,7 +173,8 @@ python api/actuator.py plugins --reload # reload from disk without restart
 The `/act` endpoint can run actions asynchronously when `{"async": true}` is
 sent. Poll `/act/status/<id>` or connect to `/act/stream/<id>` for live status
 updates.
-The orchestrator module can schedule agent cycles and ensures state persistence between runs. Use memory_cli schedule to invoke it. Notifications support email, webhook, or console output; subscribe via memory_cli subscribe.
+The orchestrator module can schedule agent cycles and ensures state persistence between runs. Use `memory_cli orchestrator start` to launch it or `schedule` for one-shot cycles. Notifications support email, webhook, or console output; manage subscriptions via `memory_cli subscribe` and `unsubscribe`.
+All notification events are logged to `events.jsonl` and can be viewed with `memory_cli events`.
 Additional endpoints support goal management and manual agent runs:
 `/goals/add`, `/goals/list`, `/goals/complete`, `/goals/delete`, and `/agent/run`.
 
