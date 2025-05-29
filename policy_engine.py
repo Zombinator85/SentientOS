@@ -80,6 +80,12 @@ class PolicyEngine:
         for k, v in emotions.items():
             if event.get("emotions", {}).get(k, 0) < float(v):
                 return False
+        ev_name = cond.get("event")
+        if ev_name and ev_name != event.get("event"):
+            return False
+        persona = cond.get("persona")
+        if persona and persona != event.get("persona"):
+            return False
         tags = cond.get("tags")
         if tags:
             ev_tags = event.get("tags", [])
