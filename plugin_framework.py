@@ -37,6 +37,8 @@ class BasePlugin:
 PLUGINS: dict[str, BasePlugin] = {}
 PLUGINS_INFO: dict[str, str] = {}
 PLUGIN_STATE: dict[str, bool] = {}
+PLUGIN_HEALTH: dict[str, Dict[str, Any]] = {}
+PROPOSALS: dict[str, Dict[str, Any]] = {}
 _LOADED_FILES: list[Path] = []
 
 
@@ -70,16 +72,65 @@ def load_plugins() -> None:
         PLUGINS_INFO[fp.stem] = (spec.get("__doc__") or "").strip()
         # Preserve enabled/disabled state across reloads
         PLUGIN_STATE.setdefault(fp.stem, True)
+        PLUGIN_HEALTH.setdefault(fp.stem, {"status": "ok"})
 
     # Remove state entries for missing plugins
     for name in list(PLUGIN_STATE.keys()):
         if name not in PLUGINS_INFO:
             PLUGIN_STATE.pop(name, None)
+            PLUGIN_HEALTH.pop(name, None)
 
 
 def list_plugins() -> dict[str, str]:
     """Return available plug-ins and their descriptions."""
     return dict(PLUGINS_INFO)
+
+
+def list_health() -> Dict[str, Dict[str, Any]]:
+    """Return current health state for plugins."""
+    return {n: dict(v) for n, v in PLUGIN_HEALTH.items()}
+
+
+def list_proposals() -> Dict[str, Dict[str, Any]]:
+    """Return current plugin proposals."""
+    return {n: dict(v) for n, v in PROPOSALS.items()}
+
+
+def propose_plugin(name: str, url: str, *, user: str = "model") -> None:
+    """Record a model suggestion for a new or updated plugin."""
+    PROPOSALS[name] = {"url": url, "status": "pending"}
+    te.log_event("plugin_proposal", "proposed", f"{name} -> {url}", user)
+
+
+def approve_proposal(name: str, *, user: str = "user") -> bool:
+    prop = PROPOSALS.get(name)
+    if not prop or prop.get("status") != "pending":
+        return False
+    try:
+        src = Path(prop["url"])
+        dest_dir = Path(os.getenv("GP_PLUGINS_DIR", "gp_plugins"))
+        dest_dir.mkdir(exist_ok=True)
+        dest = dest_dir / f"{name}.py"
+        dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        prop["status"] = "installed"
+        load_plugins()
+        PLUGIN_STATE[name] = True
+        PLUGIN_HEALTH[name] = {"status": "ok"}
+        te.log_event("plugin_installed", "approval", f"Installed {name}", user)
+        return True
+    except Exception as e:  # pragma: no cover - install failures
+        prop["status"] = "failed"
+        te.log_event("plugin_install_failed", "approval", str(e), user)
+        return False
+
+
+def deny_proposal(name: str, *, user: str = "user") -> bool:
+    prop = PROPOSALS.get(name)
+    if not prop:
+        return False
+    prop["status"] = "denied"
+    te.log_event("plugin_denied", "user", f"Denied {name}", user)
+    return True
 
 
 def available_plugins(plugin_type: str | None = None) -> list[str]:
@@ -99,6 +150,7 @@ def enable_plugin(name: str, *, user: str = "system", reason: str = "enable") ->
     if name not in PLUGINS_INFO:
         raise ValueError("Unknown plugin")
     PLUGIN_STATE[name] = True
+    PLUGIN_HEALTH[name] = {"status": "ok"}
     te.log_event("plugin_enable", reason, f"Enabled {name}", user)
 
 
@@ -106,6 +158,7 @@ def disable_plugin(name: str, *, user: str = "system", reason: str = "disable") 
     if name not in PLUGINS_INFO:
         raise ValueError("Unknown plugin")
     PLUGIN_STATE[name] = False
+    PLUGIN_HEALTH[name] = {"status": "disabled"}
     te.log_event("plugin_disable", reason, f"Disabled {name}", user)
 
 
@@ -134,10 +187,26 @@ def run_plugin(name: str, event: Dict[str, Any] | None = None, *, cause: str = "
     if not PLUGIN_STATE.get(name, True):
         raise ValueError("Plugin disabled")
     evt = event or {}
-    result = plug.run(evt)
-    explanation = result.get("explanation", f"{name} executed")
-    te.log_event(plug.plugin_type, cause, explanation, name, {"event": evt, "result": result, "headless": is_headless()})
-    return result
+    try:
+        result = plug.run(evt)
+        PLUGIN_HEALTH[name] = {"status": "ok"}
+        explanation = result.get("explanation", f"{name} executed")
+        te.log_event(plug.plugin_type, cause, explanation, name, {"event": evt, "result": result, "headless": is_headless()})
+        return result
+    except Exception as e:  # pragma: no cover - rare
+        err = str(e)
+        PLUGIN_HEALTH[name] = {"status": "error", "error": err}
+        te.log_event("plugin_error", "run_exception", err, name)
+        try:
+            load_plugins()
+            PLUGIN_HEALTH[name] = {"status": "reloaded"}
+            te.log_event("plugin_auto_reload", "auto", f"Reloaded {name}", name)
+        except Exception as e2:  # pragma: no cover - reload issues
+            PLUGIN_HEALTH[name] = {"status": "failed_reload", "error": str(e2)}
+            te.log_event("plugin_reload_failed", "auto", str(e2), name)
+        PLUGIN_STATE[name] = False
+        te.log_event("plugin_auto_disable", "auto", f"Disabled {name}", name)
+        return {"error": err}
 
 
 def test_plugin(name: str) -> Dict[str, Any]:
