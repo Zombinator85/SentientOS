@@ -2,12 +2,18 @@ import argparse
 from pathlib import Path
 
 from story_studio import load_storyboard, save_storyboard
+import user_profile as up
+import notification
+import re
 
 
 def annotate(path: Path, chapter: int, text: str) -> None:
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch.setdefault("annotations", []).append(text)
+    mentions = re.findall(r"@(\w+)", text)
+    if mentions:
+        notification.send("mention", {"chapter": chapter, "targets": mentions, "text": text})
     save_storyboard(data, path)
 
 
@@ -26,6 +32,12 @@ def resolve_comment(path: Path, chapter: int, index: int) -> None:
         ann.pop(index)
     save_storyboard(data, path)
 
+def set_status(path: Path, chapter: int, status: str) -> None:
+    data = load_storyboard(path)
+    ch = data.get("chapters", [])[chapter - 1]
+    ch["status"] = status
+    save_storyboard(data, path)
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -34,15 +46,33 @@ def main() -> None:
     parser.add_argument("--suggest-edit")
     parser.add_argument("--resolve-comment", nargs=2)
     parser.add_argument("--chapter", type=int, default=1)
+    parser.add_argument("--set-status")
+    parser.add_argument("--mention")
+    parser.add_argument("--whoami", action="store_true")
+    parser.add_argument("--switch-persona")
     args = parser.parse_args()
+
+    if args.whoami:
+        prof = up.load_profile()
+        print(f"User: {prof.get('user','')} Persona: {prof.get('persona','')}")
+        return
+    if args.switch_persona:
+        up.update_profile(persona=args.switch_persona)
+        print(f"Persona switched to {args.switch_persona}")
+        return
 
     path = Path(args.storyboard)
     if args.annotate:
-        annotate(path, args.chapter, args.annotate)
+        text = args.annotate
+        if args.mention:
+            text = f"@{args.mention} {text}"
+        annotate(path, args.chapter, text)
     if args.suggest_edit:
         suggest_edit(path, args.chapter, args.suggest_edit)
     if args.resolve_comment:
         resolve_comment(path, args.chapter, int(args.resolve_comment[1]))
+    if args.set_status:
+        set_status(path, args.chapter, args.set_status)
 
 
 if __name__ == "__main__":
