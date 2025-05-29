@@ -263,13 +263,44 @@ def write_sync_metadata(chapters: List[Chapter], path: Path) -> None:
     path.write_text(json.dumps(data, indent=2), encoding='utf-8')
 
 
-def generate_scene_image(prompt: str, out_path: Path, dry_run: bool = False) -> None:
+def generate_scene_image(
+    prompt: str,
+    out_path: Path,
+    dry_run: bool = False,
+    image_cmd: Optional[str] = None,
+    image_api: Optional[str] = None,
+) -> None:
+    """Generate a scene illustration using a command, API, or placeholder."""
+    if image_cmd:
+        cmd = image_cmd.format(prompt=prompt, out=str(out_path))
+        if dry_run:
+            print("[Storymaker] DRY RUN image cmd:", cmd)
+            out_path.write_text("image")
+            return
+        try:
+            subprocess.run(cmd, shell=True, check=False)
+            return
+        except Exception:
+            pass
+    if image_api:
+        if dry_run:
+            print("[Storymaker] DRY RUN image api:", image_api, prompt)
+            out_path.write_text("image")
+            return
+        try:
+            import requests  # type: ignore
+            resp = requests.post(image_api, json={"prompt": prompt}, timeout=30)
+            if resp.status_code == 200:
+                out_path.write_bytes(resp.content)
+                return
+        except Exception:
+            pass
     if dry_run:
-        out_path.write_text('image')
+        out_path.write_text("image")
         return
     try:
         from PIL import Image, ImageDraw
-        img = Image.new('RGB', (320, 240), color='black')
+        img = Image.new("RGB", (320, 240), color="black")
         d = ImageDraw.Draw(img)
         d.text((10, 10), prompt[:40], fill=(255, 255, 255))
         img.save(out_path)
@@ -286,10 +317,23 @@ def compute_relative_times(chapters: List[Chapter]) -> None:
         t0 += duration
 
 
-def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Optional[str] = None, dry_run: bool = False,
-                 chapters: bool = False, subtitle: Optional[str] = None, transcript: Optional[str] = None,
-                 storyboard: Optional[str] = None, emotion_data: Optional[str] = None,
-                 sync_metadata: Optional[str] = None, scene_images: bool = False) -> Tuple[str, Optional[str], Optional[str]]:
+def run_pipeline(
+    start: str,
+    end: str,
+    output: str,
+    log_dir: Path,
+    voice: Optional[str] = None,
+    dry_run: bool = False,
+    chapters: bool = False,
+    subtitle: Optional[str] = None,
+    transcript: Optional[str] = None,
+    storyboard: Optional[str] = None,
+    emotion_data: Optional[str] = None,
+    sync_metadata: Optional[str] = None,
+    scene_images: bool = False,
+    image_cmd: Optional[str] = None,
+    image_api: Optional[str] = None,
+) -> Tuple[str, Optional[str], Optional[str]]:
     start_dt = parse_time(start)
     end_dt = parse_time(end)
     mem, refl, emo = load_logs(start_dt, end_dt, log_dir)
@@ -315,7 +359,13 @@ def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Option
                 ch.video = str(base)
             if scene_images:
                 img_path = base.with_name(f"chapter_{idx}.png")
-                generate_scene_image(f"{ch.mood} {ch.memory[0].get('text','') if ch.memory else ''}", img_path, dry_run=dry_run)
+                generate_scene_image(
+                    f"{ch.mood} {ch.memory[0].get('text','') if ch.memory else ''}",
+                    img_path,
+                    dry_run=dry_run,
+                    image_cmd=image_cmd,
+                    image_api=image_api,
+                )
                 ch.image = str(img_path)
         compute_relative_times(ch_list)
         if subtitle:
@@ -390,6 +440,8 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--emotion-data')
     parser.add_argument('--sync-metadata')
     parser.add_argument('--scene-images', action='store_true', help='Generate experimental scene images')
+    parser.add_argument('--image-cmd')
+    parser.add_argument('--image-api')
     args = parser.parse_args(argv)
     run_pipeline(
         args.start,
@@ -405,6 +457,8 @@ def main(argv: List[str] | None = None) -> None:
         emotion_data=args.emotion_data,
         sync_metadata=args.sync_metadata,
         scene_images=args.scene_images,
+        image_cmd=args.image_cmd,
+        image_api=args.image_api,
     )
 
 

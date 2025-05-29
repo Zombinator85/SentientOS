@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import subprocess
 import datetime as dt
 from pathlib import Path
 
@@ -111,6 +112,18 @@ def test_scene_image_generation(tmp_path, monkeypatch):
     storymaker.run_pipeline(
         "2024-01-01 00:00", "2024-01-01 23:59", str(tmp_path / "demo.mp4"), log_dir,
         dry_run=True, chapters=True, scene_images=True
+    )
+    assert (tmp_path / "chapter_1.png").exists()
+
+
+def test_image_cmd_option(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    storymaker.run_pipeline(
+        "2024-01-01 00:00", "2024-01-01 23:59", str(tmp_path / "demo.mp4"), log_dir,
+        dry_run=True, chapters=True, scene_images=True, image_cmd="touch {out}"
     )
     assert (tmp_path / "chapter_1.png").exists()
 
