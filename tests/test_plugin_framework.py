@@ -1,4 +1,8 @@
+import os
+import sys
 import importlib
+import pytest
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def setup_env(tmp_path, monkeypatch, headless=True):
@@ -31,3 +35,19 @@ def test_wave_hand_real(tmp_path, monkeypatch):
     assert not res.get("simulated")
     events = te.list_events(limit=1)
     assert events and not events[0]["data"]["headless"]
+
+
+def test_enable_disable_reload(tmp_path, monkeypatch):
+    pf, te = setup_env(tmp_path, monkeypatch)
+    assert pf.plugin_status()["wave_hand"]
+    pf.disable_plugin("wave_hand", user="test")
+    assert not pf.plugin_status()["wave_hand"]
+    with pytest.raises(ValueError):
+        pf.run_plugin("wave_hand")
+    pf.enable_plugin("wave_hand", user="test")
+    pf.reload_plugins(user="test")
+    res = pf.test_plugin("wave_hand")
+    assert res.get("simulated")
+    logs = te.list_events(limit=5)
+    types = [e["type"] for e in logs]
+    assert "plugin_enable" in types and "plugin_disable" in types and "plugin_reload" in types
