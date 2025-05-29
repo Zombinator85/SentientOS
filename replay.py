@@ -5,6 +5,42 @@ import subprocess
 from pathlib import Path
 import zipfile
 import tempfile
+from typing import Any
+from flask import Flask, jsonify, request
+
+
+def run_dashboard(storyboard: str) -> Flask:
+    """Return a Flask dashboard app for the storyboard."""
+    data = json.loads(Path(storyboard).read_text())
+    chapters = data.get("chapters", [])
+    state = {"chapters": chapters, "index": 0, "bookmarks": []}
+    app = Flask(__name__)
+
+    @app.route("/chapters")
+    def _chapters() -> Any:
+        return jsonify(state["chapters"])
+
+    @app.route("/current")
+    def _current() -> Any:
+        idx = state["index"]
+        if 0 <= idx < len(state["chapters"]):
+            return jsonify(state["chapters"][idx])
+        return jsonify({})
+
+    @app.route("/jump", methods=["POST"])
+    def _jump() -> Any:
+        idx = int(request.json.get("index", 0))
+        if 0 <= idx < len(state["chapters"]):
+            state["index"] = idx
+        return jsonify({"ok": True})
+
+    @app.route("/bookmark", methods=["POST"])
+    def _bookmark() -> Any:
+        state["bookmarks"].append(state["index"])
+        return jsonify({"ok": True})
+
+    return app
+from flask import Flask, jsonify, request
 
 
 def _fmt_time(seconds: float) -> str:
@@ -60,6 +96,9 @@ def playback(
     enable_sfx: bool = False,
     enable_env: bool = False,
     interpolate_voices: bool = False,
+    feedback_enabled: bool = False,
+    feedback_file: str | None = None,
+    dashboard_state: dict | None = None,
 ) -> None:
     data = json.loads(Path(storyboard).read_text())
     chapters = data.get("chapters", [])
@@ -93,6 +132,8 @@ def playback(
             print(f"[IMAGE] {ch['image']}")
         start = time.time()
         prev_persona = persona
+        if dashboard_state is not None:
+            dashboard_state["index"] = num - 1
         while True:
             elapsed = time.time() - start
             pct = min(elapsed / duration, 1.0)
@@ -107,6 +148,12 @@ def playback(
             time.sleep(0.1)
         if headless:
             print()
+        if feedback_enabled:
+            fb = input("Feedback> ").strip()
+            if fb:
+                path = Path(feedback_file or storyboard).with_suffix(".feedback.jsonl")
+                with open(path, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"chapter": num, "feedback": fb}) + "\n")
 
 
 def main(argv=None):
@@ -123,6 +170,8 @@ def main(argv=None):
     parser.add_argument('--enable-sfx', action='store_true')
     parser.add_argument('--enable-env', action='store_true')
     parser.add_argument('--interpolate-voices', action='store_true')
+    parser.add_argument('--dashboard', action='store_true')
+    parser.add_argument('--feedback-enabled', action='store_true')
     args = parser.parse_args(argv)
     sb_path = args.storyboard
     if args.import_demo:
@@ -132,6 +181,15 @@ def main(argv=None):
         sb_path = str(Path(tmp) / 'storyboard.json')
     if not sb_path:
         parser.error('Storyboard required')
+    dashboard_state = None
+    if args.dashboard:
+        app = run_dashboard(sb_path)
+        dashboard_state = {"index": 0}
+        app.config['dashboard_state'] = dashboard_state
+        app.testing = False
+        # run in background thread for simplicity
+        import threading
+        threading.Thread(target=lambda: app.run(port=5001), daemon=True).start()
     playback(
         sb_path,
         headless=args.headless,
@@ -144,6 +202,8 @@ def main(argv=None):
         enable_sfx=args.enable_sfx,
         enable_env=args.enable_env,
         interpolate_voices=args.interpolate_voices,
+        feedback_enabled=args.feedback_enabled,
+        dashboard_state=dashboard_state,
     )
 
 

@@ -5,6 +5,8 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+import time
+import csv
 import zipfile
 
 from dataclasses import dataclass
@@ -455,6 +457,97 @@ def export_demo_pack(storyboard_path: str, zip_path: str) -> None:
                 zf.write(p, arcname=name)
 
 
+def run_live(
+    output: str,
+    log_dir: Path,
+    voice: Optional[str] = None,
+    dry_run: bool = False,
+    limit: int = 1,
+    poll: float = 0.5,
+    scene_images: bool = False,
+    image_cmd: Optional[str] = None,
+    image_api: Optional[str] = None,
+    image_prompt_field: Optional[str] = None,
+) -> None:
+    """Continuously capture new log events and append chapters."""
+    sb = Path(output)
+    chapters: List[Chapter] = []
+    start = dt.datetime.min
+    mem: List[Dict[str, Any]] = []
+    refl: List[Dict[str, Any]] = []
+    emo: List[Dict[str, Any]] = []
+    while len(chapters) < limit:
+        mem.extend(_load_entries(log_dir / "memory.jsonl", start, dt.datetime.utcnow()))
+        refl.extend(_load_entries(log_dir / "reflection.jsonl", start, dt.datetime.utcnow()))
+        emo.extend(_load_entries(log_dir / "emotions.jsonl", start, dt.datetime.utcnow()))
+        if mem or refl or emo:
+            ch = Chapter(start, dt.datetime.utcnow(), mem, refl, emo)
+            generate_chapter_narrative(ch, dry_run=dry_run)
+            ch.audio = synthesize(
+                ch.text,
+                ch.mood,
+                sb.with_suffix(f".{len(chapters)+1}.mp3"),
+                voice,
+                dry_run=dry_run,
+            )
+            ch.voice = voice or (getattr(tts_bridge, "CURRENT_PERSONA", None) if tts_bridge else None)
+            if scene_images:
+                prompt = ""
+                if ch.memory:
+                    prompt = ch.memory[0].get(image_prompt_field or "text", "")
+                img_path = sb.with_suffix(f".{len(chapters)+1}.png")
+                generate_scene_image(prompt, img_path, dry_run=dry_run, image_cmd=image_cmd, image_api=image_api)
+                ch.image = str(img_path)
+            compute_relative_times([ch])
+            chapters.append(ch)
+            data = {
+                "chapters": [
+                    {
+                        "chapter": i + 1,
+                        "title": (c.memory[0].get("text", "") if c.memory else "")[:30],
+                        "start": c.start.isoformat(),
+                        "end": c.end.isoformat(),
+                        "text": c.text,
+                        "mood": c.mood,
+                        "audio": c.audio,
+                        "image": c.image,
+                        "voice": c.voice,
+                        "t_start": c.t_start,
+                        "t_end": c.t_end,
+                    }
+                    for i, c in enumerate(chapters)
+                ]
+            }
+            sb.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            mem = []
+            refl = []
+            emo = []
+            start = dt.datetime.utcnow()
+        time.sleep(poll)
+
+
+def export_analytics(start: str, end: str, log_dir: Path, output: str) -> None:
+    """Export emotion/persona analytics to a CSV file."""
+    start_dt = parse_time(start)
+    end_dt = parse_time(end)
+    mem, refl, emo = load_logs(start_dt, end_dt, log_dir)
+    chapters = segment_chapters(mem, refl, emo)
+    compute_relative_times(chapters)
+    with open(output, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["chapter", "start", "end", "duration", "mood", "voice"])
+        for i, ch in enumerate(chapters, 1):
+            mood, _, _ = dominant_emotion(ch.emotions)
+            writer.writerow([
+                i,
+                ch.start.isoformat(),
+                ch.end.isoformat(),
+                round(ch.t_end - ch.t_start, 2),
+                mood,
+                ch.voice or "",
+            ])
+
+
 def main(argv: List[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description='Generate storybook demo from logs')
     parser.add_argument('--from', dest='start', required=True, help="Start time 'YYYY-MM-DD HH:MM'")
@@ -472,27 +565,48 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--scene-images', action='store_true', help='Generate experimental scene images')
     parser.add_argument('--image-cmd')
     parser.add_argument('--image-api')
+    parser.add_argument('--image-prompt-field')
     parser.add_argument('--export-demo')
+    parser.add_argument('--live', action='store_true', help='Capture logs in real time')
+    parser.add_argument('--analytics', action='store_true', help='Export analytics CSV')
+    parser.add_argument('--limit', type=int, default=1, help='Live mode chapter limit')
     args = parser.parse_args(argv)
-    narrative, audio, video = run_pipeline(
-        args.start,
-        args.end,
-        args.output,
-        Path(args.log_dir),
-        voice=args.voice,
-        dry_run=args.dry_run,
-        chapters=args.chapters,
-        subtitle=args.subtitle,
-        transcript=args.transcript,
-        storyboard=args.storyboard,
-        emotion_data=args.emotion_data,
-        sync_metadata=args.sync_metadata,
-        scene_images=args.scene_images,
-        image_cmd=args.image_cmd,
-        image_api=args.image_api,
-    )
-    if args.export_demo and args.storyboard:
-        export_demo_pack(args.storyboard, args.export_demo)
+    if args.analytics:
+        export_analytics(args.start, args.end, Path(args.log_dir), args.output)
+        return
+
+    if args.live:
+        run_live(
+            args.output,
+            Path(args.log_dir),
+            voice=args.voice,
+            dry_run=args.dry_run,
+            limit=args.limit,
+            scene_images=args.scene_images,
+            image_cmd=args.image_cmd,
+            image_api=args.image_api,
+            image_prompt_field=args.image_prompt_field,
+        )
+    else:
+        run_pipeline(
+            args.start,
+            args.end,
+            args.output,
+            Path(args.log_dir),
+            voice=args.voice,
+            dry_run=args.dry_run,
+            chapters=args.chapters,
+            subtitle=args.subtitle,
+            transcript=args.transcript,
+            storyboard=args.storyboard,
+            emotion_data=args.emotion_data,
+            sync_metadata=args.sync_metadata,
+            scene_images=args.scene_images,
+            image_cmd=args.image_cmd,
+            image_api=args.image_api,
+        )
+        if args.export_demo and args.storyboard:
+            export_demo_pack(args.storyboard, args.export_demo)
 
 
 if __name__ == '__main__':
