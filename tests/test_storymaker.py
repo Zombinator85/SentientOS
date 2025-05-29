@@ -3,12 +3,14 @@ import sys
 import json
 import subprocess
 import datetime as dt
+import time
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import storymaker
 import tts_bridge
+import replay
 
 
 def test_storymaker_dry_run(tmp_path, monkeypatch):
@@ -126,4 +128,23 @@ def test_image_cmd_option(tmp_path, monkeypatch):
         dry_run=True, chapters=True, scene_images=True, image_cmd="touch {out}"
     )
     assert (tmp_path / "chapter_1.png").exists()
+
+
+def test_demo_pack_export_import(tmp_path, monkeypatch, capsys):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    sb = tmp_path / "sb.json"
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    storymaker.run_pipeline(
+        "2024-01-01 00:00", "2024-01-01 23:59", str(tmp_path / "demo.mp4"), log_dir,
+        dry_run=True, chapters=True, storyboard=str(sb)
+    )
+    zip_path = tmp_path / "demo.zip"
+    storymaker.export_demo_pack(str(sb), str(zip_path))
+    assert zip_path.exists()
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    replay.main(["--import-demo", str(zip_path), "--headless"])
+    out = capsys.readouterr().out
+    assert "Chapter" in out
 

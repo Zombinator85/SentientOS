@@ -289,7 +289,20 @@ Additional options:
   --scene-images    generate experimental scene illustrations
   --image-cmd CMD   use CMD to generate images (e.g. "gen.sh {prompt} {out}")
   --image-api URL   POST prompt to URL for scene images
+  --export-demo ZIP  package media and metadata into demo ZIP
 ```
+
+Chapter metadata may include optional reaction hooks:
+
+```json
+{
+  "sfx": "ding.wav",
+  "gesture": "wave_hand",
+  "env": "lights_blue"
+}
+```
+
+``replay.py`` can trigger these reactions when enabled.
 
 Use `replay.py` to play back a storyboard with audio and optional images. New
 flags support avatar callbacks, subtitles, progress display, and bookmarking:
@@ -297,7 +310,12 @@ flags support avatar callbacks, subtitles, progress display, and bookmarking:
 ```bash
 python replay.py --storyboard sb.json --headless \
   --avatar-callback "./avatar.sh" --show-subtitles --chapter 2
+  --enable-sfx --enable-gestures --enable-env --interpolate-voices
+python replay.py --import-demo demo.zip
 ```
+
+During playback an emotion meter overlay shows the dominant mood for each chapter.
+In headless mode an ASCII indicator is printed.
 
 The emotion and sync JSON files can be used by visualization dashboards to show
 mood or persona changes over time.
