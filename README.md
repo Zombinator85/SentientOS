@@ -396,3 +396,18 @@ All components are modular, swappable, and extensible.
 Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
 The cathedral is ready.
 
+
+### System Control Layer
+
+`input_controller.py` and `ui_controller.py` provide modular abstractions for controlling the keyboard and GUI. Backends such as `pyautogui`, `keyboard`, `pywinauto`, or `uiautomation` can be selected at runtime. Every action is written to `logs/memory/events.jsonl` with persona and backend information.
+
+Example:
+
+```bash
+python input_controller.py --type "Hello world" --persona Alice
+python ui_controller.py --click "OK" --persona Bob
+```
+
+Use `--panic` with either CLI to instantly halt further actions. The panic state is recorded to the event log and can be cleared with `input_controller.reset_panic()` or `ui_controller.reset_panic()`.
+
+To add a new backend, implement the backend class with `type_text` or `click_button` and register it in the `BACKENDS` dictionary. Presence or collaboration systems can attach `@mentions` via the `mentions` parameter when invoking controller methods.
