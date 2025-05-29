@@ -143,6 +143,20 @@ bash
 Copy
 Edit
 python api/actuator.py plugins --reload
+
+Gesture/persona plug-ins can be enabled or disabled at runtime. Use the CLI or web dashboard:
+
+```bash
+python plugins_cli.py status
+python plugins_cli.py disable wave_hand
+python plugins_cli.py enable wave_hand
+```
+
+Launch the minimal dashboard to view and control plug-ins:
+
+```bash
+python plugin_dashboard.py  # http://localhost:5001
+```
 Log Tailing and Tests
 Tail logs:
 
@@ -205,6 +219,10 @@ List or test plug-ins:
 ```bash
 python plugins_cli.py list
 python plugins_cli.py test wave_hand
+python plugins_cli.py status       # show enabled/disabled state
+python plugins_cli.py disable wave_hand
+python plugins_cli.py enable wave_hand
+python plugins_cli.py reload       # live reload
 ```
 In headless mode plug-ins simulate actions but still log to the trust engine.
 No secrets are present in this repo.
