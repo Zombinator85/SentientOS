@@ -8,6 +8,7 @@ from typing import Any, Dict
 
 from utils import is_headless
 import trust_engine as te
+import reflection_stream as rs
 
 
 class BasePlugin:
@@ -192,20 +193,25 @@ def run_plugin(name: str, event: Dict[str, Any] | None = None, *, cause: str = "
         PLUGIN_HEALTH[name] = {"status": "ok"}
         explanation = result.get("explanation", f"{name} executed")
         te.log_event(plug.plugin_type, cause, explanation, name, {"event": evt, "result": result, "headless": is_headless()})
+        rs.log_event(name, "action", cause, "executed", explanation)
         return result
     except Exception as e:  # pragma: no cover - rare
         err = str(e)
         PLUGIN_HEALTH[name] = {"status": "error", "error": err}
         te.log_event("plugin_error", "run_exception", err, name)
+        rs.log_event(name, "failure", "run_exception", "error", err)
         try:
             load_plugins()
             PLUGIN_HEALTH[name] = {"status": "reloaded"}
             te.log_event("plugin_auto_reload", "auto", f"Reloaded {name}", name)
+            rs.log_event(name, "recovery", "auto_reload", "reloaded", "auto reload")
         except Exception as e2:  # pragma: no cover - reload issues
             PLUGIN_HEALTH[name] = {"status": "failed_reload", "error": str(e2)}
             te.log_event("plugin_reload_failed", "auto", str(e2), name)
+            rs.log_event(name, "failure", "reload_failed", "disable", str(e2))
         PLUGIN_STATE[name] = False
         te.log_event("plugin_auto_disable", "auto", f"Disabled {name}", name)
+        rs.log_event(name, "escalation", "auto_disable", "disabled", err)
         return {"error": err}
 
 

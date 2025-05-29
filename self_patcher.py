@@ -3,6 +3,7 @@ import datetime
 from pathlib import Path
 import memory_manager as mm
 from notification import send as notify
+import reflection_stream as rs
 
 PATCH_PATH = mm.MEMORY_DIR / "patches.json"
 PATCH_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -36,6 +37,7 @@ def apply_patch(note: str, *, auto: bool = False) -> dict:
     patches.append(patch)
     _save(patches)
     mm.append_memory(note, tags=["self_patch"], source="auto_patch" if auto else "manual_patch")
+    rs.log_event("self_patch", "recovery", "apply_patch", "patched", note)
     notify("self_patch", {"id": pid, "note": note})
     return patch
 
