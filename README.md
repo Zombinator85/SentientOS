@@ -167,6 +167,18 @@ stream. The model can also propose new plug-ins or updates via
 `propose_plugin(name, url)`. Proposals are listed on the dashboard and must be
 approved or denied by the user before installation. Every healing and
 installation step is trust-logged.
+
+### Reflection stream
+
+All modules log failures, recoveries, and escalations in a system-wide
+reflection stream. Each entry records the timestamp, source, event type,
+cause, action taken, and an explanation.
+
+```bash
+python reflect_cli.py log --last 3
+python reflect_cli.py explain <id>
+python reflect_cli.py stats
+```
 Log Tailing and Tests
 Tail logs:
 
