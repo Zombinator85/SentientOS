@@ -300,7 +300,17 @@ Additional options:
   --live            capture events in real time
   --analytics       export emotion/persona analytics CSV
   --image-prompt-field FIELD  use FIELD from memory for scene image prompts
+  --user NAME      tag output with user name
+  --persona NAME   tag output with persona
+  --fork ID        create a branch from chapter ID
+  --branch DESC    description for forked branch
+  --highlight ID   mark chapter ID as a highlight (repeatable)
+  --diary          compile a cathedral diary markdown
+  --auto-storyboard  generate storyboard from a log file
+  --log FILE       log file for auto-storyboard
 ```
+
+Use `--diary` to merge multiple sessions into a long-form "cathedral diary" Markdown file capturing emotion arcs over time.
 
 Chapter metadata may include optional reaction hooks:
 
@@ -321,7 +331,7 @@ flags support avatar callbacks, subtitles, progress display, and bookmarking:
 python replay.py --storyboard sb.json --headless \
   --avatar-callback "./avatar.sh" --show-subtitles --chapter 2
   --enable-sfx --enable-gestures --enable-env --interpolate-voices
-  --feedback-enabled --dashboard
+  --feedback-enabled --dashboard --highlights-only --branch 1
 python replay.py --import-demo demo.zip
 ```
 
