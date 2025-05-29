@@ -42,14 +42,16 @@ def reorder_chapters(chapters: List[Dict[str, Any]], order: List[int]) -> List[D
 class CollabClient:
     """Very small HTTP long-polling client for collaboration."""
 
-    def __init__(self, url: str):
+    def __init__(self, url: str, persona: str = "Author"):
         import uuid
         self.url = url.rstrip('/')
         self.client_id = uuid.uuid4().hex
         self.updates: List[Dict[str, Any]] = []
         self.online: List[str] = []
+        self.users: List[Dict[str, Any]] = []
+        self.persona = persona
         try:
-            data = parse.urlencode({"id": self.client_id}).encode()
+            data = parse.urlencode({"id": self.client_id, "persona": persona}).encode()
             request.urlopen(f"{self.url}/connect", data=data, timeout=0.1)
         except Exception:
             pass
@@ -61,15 +63,32 @@ class CollabClient:
                 self.updates.extend(data)
             data = parse.urlencode({"id": self.client_id}).encode()
             with request.urlopen(f"{self.url}/connect", data=data, timeout=0.1) as resp:
-                self.online = json.loads(resp.read().decode()).get("online", [])
+                info = json.loads(resp.read().decode())
+                self.online = info.get("online", [])
+                self.users = info.get("users", [])
         except Exception:
             pass
 
     def send_edit(self, chapter: int, text: str) -> None:
         try:
-            data = json.dumps({"chapter": chapter, "text": text}).encode()
+            data = json.dumps({"id": self.client_id, "chapter": chapter, "text": text}).encode()
             req = request.Request(
                 f"{self.url}/edit", data=data, headers={"Content-Type": "application/json"}
+            )
+            request.urlopen(req, timeout=0.1)
+        except Exception:
+            pass
+
+    def send_update(self, chapter: int | None = None, persona: str | None = None) -> None:
+        payload = {"id": self.client_id}
+        if chapter is not None:
+            payload["chapter"] = chapter
+        if persona is not None:
+            self.persona = persona
+            payload["persona"] = persona
+        try:
+            req = request.Request(
+                f"{self.url}/update", data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
             )
             request.urlopen(req, timeout=0.1)
         except Exception:
@@ -99,15 +118,22 @@ def run_editor(storyboard_path: str, server: Optional[str] = None) -> None:
 
     collab: Optional[CollabClient] = None
     if server:
+        if "persona" not in st.session_state:
+            st.session_state.persona = "Author"
         if "collab" not in st.session_state:
             try:
-                st.session_state.collab = CollabClient(server)
+                st.session_state.collab = CollabClient(server, st.session_state.persona)
             except Exception as e:  # pragma: no cover - network
                 st.warning(f"Collaboration disabled: {e}")
         collab = st.session_state.get("collab")
         if collab:
             collab.poll()
             st.sidebar.write(f"Online users: {len(collab.online)}")
+            st.sidebar.table(collab.users)
+            persona = st.sidebar.text_input("Persona", value=st.session_state.persona)
+            if persona != st.session_state.persona:
+                st.session_state.persona = persona
+                collab.send_update(persona=persona)
             while collab.updates:
                 upd = collab.updates.pop(0)
                 idx = upd.get("chapter", 0) - 1
@@ -126,6 +152,7 @@ def run_editor(storyboard_path: str, server: Optional[str] = None) -> None:
             ch["comment"] = comment
             if collab:
                 collab.send_edit(i + 1, text)
+                collab.send_update(chapter=i + 1)
         with cols[1]:
             if st.button("↑", key=f"up_{i}") and i > 0:
                 chapters[i-1], chapters[i] = chapters[i], chapters[i-1]

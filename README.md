@@ -372,7 +372,9 @@ Start the collaboration server in a separate process:
 python collab_server.py
 ```
 
-Connected editors see each other's changes and a live user count.
+Connected editors see each other's changes and a live list of users.
+Use the sidebar persona box to instantly switch personas.
+The server tracks which chapter each editor is viewing.
 
 Edited stories can then be exported:
 
@@ -384,7 +386,11 @@ Annotations can be managed from the command line:
 
 ```bash
 python review_cli.py storyboard.json --annotate "Needs more tension" --chapter 2
+python review_cli.py storyboard.json --set-status approved --chapter 2
+python review_cli.py storyboard.json --whoami
+python review_cli.py storyboard.json --switch-persona Lumos
 ```
+Use `--mention NAME` with `--annotate` to notify collaborators.
 
 All components are modular, swappable, and extensible.
 Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
