@@ -157,6 +157,16 @@ Launch the minimal dashboard to view and control plug-ins:
 ```bash
 python plugin_dashboard.py  # http://localhost:5001
 ```
+
+### Self-healing and model proposals
+
+Plug-ins report health status automatically. When a plug-in throws an
+exception it is logged, auto-reloaded, and disabled if the problem persists.
+Suggested actions appear in the dashboard health panel along with a live log
+stream. The model can also propose new plug-ins or updates via
+`propose_plugin(name, url)`. Proposals are listed on the dashboard and must be
+approved or denied by the user before installation. Every healing and
+installation step is trust-logged.
 Log Tailing and Tests
 Tail logs:
 
