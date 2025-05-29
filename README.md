@@ -297,6 +297,10 @@ Additional options:
   --image-cmd CMD   use CMD to generate images (e.g. "gen.sh {prompt} {out}")
   --image-api URL   POST prompt to URL for scene images
   --export-demo ZIP  package media and metadata into demo ZIP
+  --export-md PATH   export storyboard as Markdown
+  --export-html PATH export storyboard as HTML
+  --export-web PATH  export single-file web story
+  --publish          copy exported web story to ./public
   --live            capture events in real time
   --analytics       export emotion/persona analytics CSV
   --image-prompt-field FIELD  use FIELD from memory for scene image prompts
@@ -337,6 +341,18 @@ python replay.py --import-demo demo.zip
 
 During playback an emotion meter overlay shows the dominant mood for each chapter.
 In headless mode an ASCII indicator is printed.
+
+Live story mode streams new events in real time:
+
+```bash
+python replay.py --storyboard sb.json --live --avatar-callback ./avatar.sh
+```
+
+After generating a storyboard you can export and share it:
+
+```bash
+python storymaker.py ... --storyboard sb.json --export-web story.html --publish
+```
 
 The emotion and sync JSON files can be used by visualization dashboards to show
 mood or persona changes over time.

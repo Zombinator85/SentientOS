@@ -3,6 +3,8 @@ import datetime as dt
 import json
 import os
 import subprocess
+import base64
+import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 import time
@@ -492,6 +494,72 @@ def export_demo_pack(storyboard_path: str, zip_path: str) -> None:
                 zf.write(p, arcname=name)
 
 
+def export_markdown(storyboard_path: str, out_path: str) -> None:
+    """Export storyboard chapters to a Markdown file."""
+    data = json.loads(Path(storyboard_path).read_text())
+    lines = ["# Story"]
+    for ch in data.get("chapters", []):
+        title = ch.get("title", "")
+        lines.append(f"\n## {title}\n")
+        if ch.get("image"):
+            lines.append(f"![image]({ch['image']})")
+        if ch.get("text"):
+            lines.append(ch["text"])
+    Path(out_path).write_text("\n".join(lines), encoding="utf-8")
+
+
+def export_html(storyboard_path: str, out_path: str) -> None:
+    """Export storyboard chapters to an HTML file."""
+    data = json.loads(Path(storyboard_path).read_text())
+    html: List[str] = ["<html><body>"]
+    for ch in data.get("chapters", []):
+        title = ch.get("title", "")
+        html.append(f"<h2>{title}</h2>")
+        if ch.get("image"):
+            html.append(f"<img src='{ch['image']}' />")
+        if ch.get("audio"):
+            html.append(f"<audio controls src='{ch['audio']}'></audio>")
+        if ch.get("text"):
+            html.append(f"<p>{ch['text']}</p>")
+    html.append("</body></html>")
+    Path(out_path).write_text("\n".join(html), encoding="utf-8")
+
+
+def export_web(storyboard_path: str, out_path: str) -> None:
+    """Export a self-contained HTML story with embedded media."""
+    data = json.loads(Path(storyboard_path).read_text())
+    base = Path(storyboard_path).parent
+    html: List[str] = ["<html><body>"]
+    for ch in data.get("chapters", []):
+        html.append(f"<h2>{ch.get('title','')}</h2>")
+        img = ch.get("image")
+        if img:
+            path = base / img
+            if path.exists():
+                b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+                html.append(f"<img src='data:image/png;base64,{b64}' />")
+        aud = ch.get("audio")
+        if aud:
+            path = base / aud
+            if path.exists():
+                b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+                html.append(f"<audio controls src='data:audio/mpeg;base64,{b64}'></audio>")
+        if ch.get("text"):
+            html.append(f"<p>{ch['text']}</p>")
+    html.append("</body></html>")
+    Path(out_path).write_text("\n".join(html), encoding="utf-8")
+
+
+def publish_story(path: str, dest_dir: str = "public") -> str:
+    """Copy exported story to a public folder and return path."""
+    d = Path(dest_dir)
+    d.mkdir(exist_ok=True)
+    dest = d / Path(path).name
+    shutil.copy(path, dest)
+    print(f"[Publish] {dest}")
+    return str(dest)
+
+
 def compile_diary(start: str, end: str, log_dir: Path, output: str) -> None:
     """Compile a long-form diary from multiple chapters."""
     start_dt = parse_time(start)
@@ -644,6 +712,10 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--image-api')
     parser.add_argument('--image-prompt-field')
     parser.add_argument('--export-demo')
+    parser.add_argument('--export-md')
+    parser.add_argument('--export-html')
+    parser.add_argument('--export-web')
+    parser.add_argument('--publish', action='store_true')
     parser.add_argument('--live', action='store_true', help='Capture logs in real time')
     parser.add_argument('--analytics', action='store_true', help='Export analytics CSV')
     parser.add_argument('--limit', type=int, default=1, help='Live mode chapter limit')
@@ -707,6 +779,14 @@ def main(argv: List[str] | None = None) -> None:
         )
         if args.export_demo and args.storyboard:
             export_demo_pack(args.storyboard, args.export_demo)
+        if args.export_md and args.storyboard:
+            export_markdown(args.storyboard, args.export_md)
+        if args.export_html and args.storyboard:
+            export_html(args.storyboard, args.export_html)
+        if args.export_web and args.storyboard:
+            export_web(args.storyboard, args.export_web)
+            if args.publish:
+                publish_story(args.export_web)
 
 
 if __name__ == '__main__':
