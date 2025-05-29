@@ -179,6 +179,24 @@ python reflect_cli.py log --last 3
 python reflect_cli.py explain <id>
 python reflect_cli.py stats
 ```
+
+### Event & Reflection Dashboard
+
+`reflection_dashboard.py` combines the reflection stream and trust engine logs
+into a single timeline. When `streamlit` is installed it launches a small web
+UI. Without Streamlit it prints a table in the terminal.
+
+```bash
+# GUI (if Streamlit is available)
+python reflection_dashboard.py
+
+# CLI examples
+python reflection_dashboard.py --type heal --since 60      # show healing attempts in the last hour
+python reflection_dashboard.py --component plugin --type failure --search error
+```
+
+Each row includes a quick command to view the full explanation or diff for that
+event.
 Log Tailing and Tests
 Tail logs:
 
