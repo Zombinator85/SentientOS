@@ -59,13 +59,17 @@ class SelfHealingManager:
     def _handle_event(self, event: Dict[str, Any]) -> None:
         name = event.get("event")
         payload = event.get("payload", {})
-        parent = payload.get("id", name)
+        parent = payload.get("id") or event.get("id") or name
         if name.startswith("patch_") or name == "self_patch":
             reason = f"Patch event {name}"
             self._record(parent, reason)
         elif name.endswith("_error"):
             reason = f"Event error: {name}"
             self._record(parent, reason, next_step="investigate")
+        elif name.startswith("input.") or name.startswith("ui."):
+            if event.get("status") != "ok":
+                reason = f"System control failure: {event.get('error', '')}"
+                self._record(parent, reason, next_step="undo")
 
     def process_events(self) -> None:
         events = notification.list_events(20)
