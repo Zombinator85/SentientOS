@@ -116,6 +116,13 @@ reject_patch → patch_rejected
 
 rollback_patch → patch_rolled_back
 
+During replay you can provide user feedback or patch suggestions:
+
+```bash
+python replay.py --storyboard sb.json --feedback-enabled
+```
+Feedback lines are logged to `storyboard.feedback.jsonl` and may be applied as patches later.
+
 Actuator, Reflections, and Plugins
 Actuator CLI (api/actuator.py):
 
@@ -290,6 +297,9 @@ Additional options:
   --image-cmd CMD   use CMD to generate images (e.g. "gen.sh {prompt} {out}")
   --image-api URL   POST prompt to URL for scene images
   --export-demo ZIP  package media and metadata into demo ZIP
+  --live            capture events in real time
+  --analytics       export emotion/persona analytics CSV
+  --image-prompt-field FIELD  use FIELD from memory for scene image prompts
 ```
 
 Chapter metadata may include optional reaction hooks:
@@ -311,6 +321,7 @@ flags support avatar callbacks, subtitles, progress display, and bookmarking:
 python replay.py --storyboard sb.json --headless \
   --avatar-callback "./avatar.sh" --show-subtitles --chapter 2
   --enable-sfx --enable-gestures --enable-env --interpolate-voices
+  --feedback-enabled --dashboard
 python replay.py --import-demo demo.zip
 ```
 
