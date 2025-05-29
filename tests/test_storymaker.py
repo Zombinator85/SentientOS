@@ -86,3 +86,31 @@ def test_storyboard_flag(tmp_path, monkeypatch):
     data = json.loads(sb.read_text())
     assert data["chapters"]
 
+
+def test_emotion_and_sync_metadata(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    (log_dir / "emotions.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:30:00", "emotions": {"Joy": 0.9}, "features": {"valence": 0.8, "arousal": 0.6}}) + "\n")
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    emo_path = tmp_path / "emo.json"
+    sync_path = tmp_path / "sync.json"
+    storymaker.run_pipeline(
+        "2024-01-01 00:00", "2024-01-01 23:59", str(tmp_path / "demo.mp4"), log_dir,
+        dry_run=True, chapters=True, emotion_data=str(emo_path), sync_metadata=str(sync_path)
+    )
+    assert json.loads(emo_path.read_text())["chapters"]
+    assert json.loads(sync_path.read_text())[0]["start"] == 0
+
+
+def test_scene_image_generation(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    storymaker.run_pipeline(
+        "2024-01-01 00:00", "2024-01-01 23:59", str(tmp_path / "demo.mp4"), log_dir,
+        dry_run=True, chapters=True, scene_images=True
+    )
+    assert (tmp_path / "chapter_1.png").exists()
+
