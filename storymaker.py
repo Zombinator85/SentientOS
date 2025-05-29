@@ -5,6 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
+import zipfile
 
 from dataclasses import dataclass
 
@@ -32,6 +33,9 @@ class Chapter:
     video: Optional[str] = None
     voice: Optional[str] = None
     image: Optional[str] = None
+    sfx: Optional[str] = None
+    gesture: Optional[str] = None
+    env: Optional[str] = None
     t_start: float = 0.0  # relative start time in seconds
     t_end: float = 0.0    # relative end time in seconds
 
@@ -384,6 +388,9 @@ def run_pipeline(
                 't_start': ch.t_start,
                 't_end': ch.t_end,
                 'image': ch.image,
+                'sfx': ch.sfx,
+                'gesture': ch.gesture,
+                'env': ch.env,
             } for i, ch in enumerate(ch_list)]
             Path(storyboard).write_text(json.dumps({'chapters': data}, indent=2), encoding='utf-8')
         if emotion_data:
@@ -425,6 +432,29 @@ def run_pipeline(
     return narrative, audio_path, output
 
 
+def export_demo_pack(storyboard_path: str, zip_path: str) -> None:
+    """Package storyboard media and metadata into a demo ZIP."""
+    sb = Path(storyboard_path)
+    if not sb.exists():
+        raise FileNotFoundError(storyboard_path)
+    data = json.loads(sb.read_text())
+    base = sb.parent
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.write(sb, arcname="storyboard.json")
+        for ch in data.get("chapters", []):
+            for key in ("audio", "video", "image"):
+                fp = ch.get(key)
+                if not fp:
+                    continue
+                path = base / fp if not os.path.isabs(fp) else Path(fp)
+                if path.exists():
+                    zf.write(path, arcname=path.name)
+        for name in ("transcript.txt", "subtitle.srt"):
+            p = base / name
+            if p.exists():
+                zf.write(p, arcname=name)
+
+
 def main(argv: List[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description='Generate storybook demo from logs')
     parser.add_argument('--from', dest='start', required=True, help="Start time 'YYYY-MM-DD HH:MM'")
@@ -442,8 +472,9 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--scene-images', action='store_true', help='Generate experimental scene images')
     parser.add_argument('--image-cmd')
     parser.add_argument('--image-api')
+    parser.add_argument('--export-demo')
     args = parser.parse_args(argv)
-    run_pipeline(
+    narrative, audio, video = run_pipeline(
         args.start,
         args.end,
         args.output,
@@ -460,6 +491,8 @@ def main(argv: List[str] | None = None) -> None:
         image_cmd=args.image_cmd,
         image_api=args.image_api,
     )
+    if args.export_demo and args.storyboard:
+        export_demo_pack(args.storyboard, args.export_demo)
 
 
 if __name__ == '__main__':

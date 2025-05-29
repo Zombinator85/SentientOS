@@ -50,3 +50,35 @@ def test_image_display(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "[IMAGE]" in out
 
+
+def test_reaction_hooks(tmp_path, monkeypatch):
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({
+        "chapters": [{
+            "chapter": 1,
+            "title": "A",
+            "text": "hi",
+            "sfx": "ding.wav",
+            "gesture": "wave",
+            "env": "flash",
+            "t_start": 0,
+            "t_end": 0.1
+        }]
+    }))
+    calls = []
+    monkeypatch.setattr(replay, "_trigger_sfx", lambda s: calls.append(("sfx", s)))
+    monkeypatch.setattr(replay, "_trigger_gesture", lambda g: calls.append(("gesture", g)))
+    monkeypatch.setattr(replay, "_trigger_env", lambda e: calls.append(("env", e)))
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    replay.playback(str(sb), headless=True, enable_gestures=True, enable_sfx=True, enable_env=True)
+    assert ("sfx", "ding.wav") in calls and ("gesture", "wave") in calls and ("env", "flash") in calls
+
+
+def test_emotion_overlay(tmp_path, capsys, monkeypatch):
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "mood": "joy", "t_start": 0, "t_end": 0.1}]}))
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    replay.playback(str(sb), headless=True)
+    out = capsys.readouterr().out
+    assert "Emotion: joy" in out
+

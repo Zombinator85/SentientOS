@@ -3,6 +3,8 @@ import json
 import time
 import subprocess
 from pathlib import Path
+import zipfile
+import tempfile
 
 
 def _fmt_time(seconds: float) -> str:
@@ -21,6 +23,31 @@ def _trigger_avatar(emotion: str, persona: str, ts: float, cmd: str | None) -> N
         print(f"[Avatar] set_avatar(preset='{emotion}', persona='{persona}')")
 
 
+def _trigger_sfx(sfx: str | None) -> None:
+    if not sfx:
+        return
+    print(f"[SFX] {sfx}")
+
+
+def _trigger_gesture(gesture: str | None) -> None:
+    if not gesture:
+        return
+    print(f"[GESTURE] {gesture}")
+
+
+def _trigger_env(env: str | None) -> None:
+    if not env:
+        return
+    print(f"[ENV] {env}")
+
+
+def _show_emotion(emotion: str, headless: bool) -> None:
+    if headless:
+        print(f"Emotion: {emotion}")
+    else:
+        print(f"[EMOTION] {emotion}")
+
+
 def playback(
     storyboard: str,
     headless: bool = False,
@@ -29,17 +56,31 @@ def playback(
     avatar_callback: str | None = None,
     show_subtitles: bool = False,
     start_chapter: int = 1,
+    enable_gestures: bool = False,
+    enable_sfx: bool = False,
+    enable_env: bool = False,
+    interpolate_voices: bool = False,
 ) -> None:
     data = json.loads(Path(storyboard).read_text())
     chapters = data.get("chapters", [])
     total = len(chapters)
+    prev_persona = ""
     for ch in chapters[start_chapter - 1 :]:
         num = ch.get("chapter") or chapters.index(ch) + 1
         title = ch.get("title", "")
         emotion = ch.get("mood") or ch.get("emotion", "neutral")
         persona = ch.get("voice") or ch.get("persona", "")
         ts = ch.get("t_start", 0)
+        if interpolate_voices and prev_persona and prev_persona != persona:
+            print(f"[INTERPOLATE] {prev_persona} -> {persona}")
         _trigger_avatar(emotion, persona, ts, avatar_callback)
+        if enable_sfx:
+            _trigger_sfx(ch.get("sfx"))
+        if enable_gestures:
+            _trigger_gesture(ch.get("gesture"))
+        if enable_env:
+            _trigger_env(ch.get("env"))
+        _show_emotion(emotion, headless)
         print(f"Chapter {num}/{total}: {title}")
         duration = max(0.1, ch.get("t_end", 0) - ch.get("t_start", 0))
         if show_subtitles:
@@ -51,6 +92,7 @@ def playback(
         if not headless and gui and ch.get("image"):
             print(f"[IMAGE] {ch['image']}")
         start = time.time()
+        prev_persona = persona
         while True:
             elapsed = time.time() - start
             pct = min(elapsed / duration, 1.0)
@@ -69,22 +111,39 @@ def playback(
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Replay storyboard')
-    parser.add_argument('--storyboard', required=True)
+    parser.add_argument('--storyboard')
+    parser.add_argument('--import-demo')
     parser.add_argument('--headless', action='store_true')
     parser.add_argument('--gui', action='store_true')
     parser.add_argument('--audio-only', action='store_true')
     parser.add_argument('--avatar-callback')
     parser.add_argument('--show-subtitles', action='store_true')
     parser.add_argument('--chapter', type=int, default=1)
+    parser.add_argument('--enable-gestures', action='store_true')
+    parser.add_argument('--enable-sfx', action='store_true')
+    parser.add_argument('--enable-env', action='store_true')
+    parser.add_argument('--interpolate-voices', action='store_true')
     args = parser.parse_args(argv)
+    sb_path = args.storyboard
+    if args.import_demo:
+        tmp = tempfile.mkdtemp()
+        with zipfile.ZipFile(args.import_demo) as zf:
+            zf.extractall(tmp)
+        sb_path = str(Path(tmp) / 'storyboard.json')
+    if not sb_path:
+        parser.error('Storyboard required')
     playback(
-        args.storyboard,
+        sb_path,
         headless=args.headless,
         gui=args.gui,
         audio_only=args.audio_only,
         avatar_callback=args.avatar_callback,
         show_subtitles=args.show_subtitles,
         start_chapter=args.chapter,
+        enable_gestures=args.enable_gestures,
+        enable_sfx=args.enable_sfx,
+        enable_env=args.enable_env,
+        interpolate_voices=args.interpolate_voices,
     )
 
 
