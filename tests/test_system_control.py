@@ -38,3 +38,27 @@ def test_panic(tmp_path, monkeypatch):
         controller = ic.InputController()
         controller.type_text("fail")
     ic.reset_panic()
+
+
+def test_undo_last(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    controller = ic.InputController()
+    controller.type_text("abc", persona="Alice")
+    assert controller.undo_last(persona="Alice")
+    lines = (tmp_path / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    assert any("input.undo" in l for l in lines)
+
+
+def test_policy_denied(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    pol = tmp_path / "pol.yml"
+    pol.write_text('{"policies":[{"conditions":{"event":"input.type_text"},"actions":[{"type":"deny"}]}]}')
+    import importlib
+    import policy_engine as pe
+    importlib.reload(pe)
+    engine = pe.PolicyEngine(str(pol))
+    controller = ic.InputController(policy_engine=engine)
+    with pytest.raises(PermissionError):
+        controller.type_text("hi")
+    log = (tmp_path / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    assert any("policy_denied" in l for l in log)

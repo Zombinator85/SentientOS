@@ -411,3 +411,7 @@ python ui_controller.py --click "OK" --persona Bob
 Use `--panic` with either CLI to instantly halt further actions. The panic state is recorded to the event log and can be cleared with `input_controller.reset_panic()` or `ui_controller.reset_panic()`.
 
 To add a new backend, implement the backend class with `type_text` or `click_button` and register it in the `BACKENDS` dictionary. Presence or collaboration systems can attach `@mentions` via the `mentions` parameter when invoking controller methods.
+
+Each controller action records an `undo_id` and stores an in-memory lambda so that the last step can be reverted. Use `python input_controller.py --undo-last --persona Alice` (or the UI equivalent) to roll back the most recent action for a persona.
+
+When a `policy_engine.PolicyEngine` instance is supplied to a controller, every action is checked against the active policy file. Policies can deny actions based on persona, tags, or time of day. Denied actions are logged with `status="failed"` and are surfaced by the reflection manager which proposes an `undo` step.
