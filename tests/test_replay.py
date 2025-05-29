@@ -94,3 +94,13 @@ def test_highlight_only(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "Chapter 1" not in out and "Chapter 2" in out
 
+
+def test_live_playback(tmp_path, monkeypatch):
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({"chapters": []}))
+    calls = []
+    monkeypatch.setattr(replay, "playback", lambda p, **k: calls.append(json.loads(Path(p).read_text())["chapters"]))
+    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "t_start": 0, "t_end": 0.1}]}))
+    replay.live_playback(str(sb), headless=True, poll=0, max_chapters=1)
+    assert calls and calls[0][0]["title"] == "A"
+
