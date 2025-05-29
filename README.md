@@ -287,12 +287,16 @@ Additional options:
   --emotion-data PATH  save emotion/persona info as JSON
   --sync-metadata PATH  save chapter timing info for AV sync
   --scene-images    generate experimental scene illustrations
+  --image-cmd CMD   use CMD to generate images (e.g. "gen.sh {prompt} {out}")
+  --image-api URL   POST prompt to URL for scene images
 ```
 
-Use `replay.py` to play back a storyboard with audio and optional images:
+Use `replay.py` to play back a storyboard with audio and optional images. New
+flags support avatar callbacks, subtitles, progress display, and bookmarking:
 
 ```bash
-python replay.py --storyboard sb.json --headless
+python replay.py --storyboard sb.json --headless \
+  --avatar-callback "./avatar.sh" --show-subtitles --chapter 2
 ```
 
 The emotion and sync JSON files can be used by visualization dashboards to show
