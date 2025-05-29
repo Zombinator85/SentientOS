@@ -176,6 +176,37 @@ pytest
 Policy, Gesture & Persona Engine
 --------------------------------
 `policy_engine.py` loads YAML or JSON policies at runtime to drive gestures and persona swaps. Policies define conditions on emotion vectors or tags and map them to actions. Use `python policy_engine.py policy show` to inspect active rules. Policies can be diffed, applied, or rolled back without restarting, and every action is audited.
+
+Extensible Gesture & Persona Plug-ins
+------------------------------------
+Drop Python plug-ins in ``gp_plugins/`` to add new gestures or persona modules.
+Each plug-in defines a ``register`` function that registers a ``BasePlugin``
+subclass. Example plug-in:
+
+```python
+from plugin_framework import BasePlugin
+
+class WaveHandPlugin(BasePlugin):
+    plugin_type = "gesture"
+    schema = {"speed": "float"}
+
+    def execute(self, event):
+        return {"gesture": "wave", "speed": event.get("speed", 1)}
+
+    def simulate(self, event):
+        return {"gesture": "wave", "speed": event.get("speed", 1), "explanation": "Simulated"}
+
+def register(reg):
+    reg("wave_hand", WaveHandPlugin())
+```
+
+List or test plug-ins:
+
+```bash
+python plugins_cli.py list
+python plugins_cli.py test wave_hand
+```
+In headless mode plug-ins simulate actions but still log to the trust engine.
 No secrets are present in this repo.
 Copy .env.example to .env and fill in your credentials before running.
 
