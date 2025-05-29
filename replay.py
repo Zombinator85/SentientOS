@@ -18,7 +18,19 @@ def run_dashboard(storyboard: str) -> Flask:
 
     @app.route("/chapters")
     def _chapters() -> Any:
-        return jsonify(state["chapters"])
+        user = request.args.get("user")
+        persona = request.args.get("persona")
+        filtered = state["chapters"]
+        if user:
+            filtered = [c for c in filtered if c.get("user") == user]
+        if persona:
+            filtered = [c for c in filtered if c.get("persona") == persona]
+        return jsonify(filtered)
+
+    @app.route("/personas")
+    def _personas() -> Any:
+        pers = sorted({c.get("persona", "") for c in state["chapters"]})
+        return jsonify(pers)
 
     @app.route("/current")
     def _current() -> Any:
@@ -99,9 +111,15 @@ def playback(
     feedback_enabled: bool = False,
     feedback_file: str | None = None,
     dashboard_state: dict | None = None,
+    highlights_only: bool = False,
+    branch: int | None = None,
 ) -> None:
     data = json.loads(Path(storyboard).read_text())
     chapters = data.get("chapters", [])
+    if branch is not None:
+        chapters = [c for c in chapters if c.get("chapter") == branch or c.get("fork_of") == branch]
+    if highlights_only:
+        chapters = [c for c in chapters if c.get("highlight")]
     total = len(chapters)
     prev_persona = ""
     for ch in chapters[start_chapter - 1 :]:
@@ -172,6 +190,8 @@ def main(argv=None):
     parser.add_argument('--interpolate-voices', action='store_true')
     parser.add_argument('--dashboard', action='store_true')
     parser.add_argument('--feedback-enabled', action='store_true')
+    parser.add_argument('--highlights-only', action='store_true')
+    parser.add_argument('--branch', type=int)
     args = parser.parse_args(argv)
     sb_path = args.storyboard
     if args.import_demo:
@@ -204,6 +224,8 @@ def main(argv=None):
         interpolate_voices=args.interpolate_voices,
         feedback_enabled=args.feedback_enabled,
         dashboard_state=dashboard_state,
+        highlights_only=args.highlights_only,
+        branch=args.branch,
     )
 
 

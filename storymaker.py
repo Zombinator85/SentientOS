@@ -40,6 +40,11 @@ class Chapter:
     env: Optional[str] = None
     t_start: float = 0.0  # relative start time in seconds
     t_end: float = 0.0    # relative end time in seconds
+    user: Optional[str] = None
+    persona: Optional[str] = None
+    fork_of: Optional[int] = None
+    branch: Optional[str] = None
+    highlight: bool = False
 
 
 def _load_entries(path: Path, start: dt.datetime, end: dt.datetime) -> List[Dict[str, Any]]:
@@ -339,6 +344,11 @@ def run_pipeline(
     scene_images: bool = False,
     image_cmd: Optional[str] = None,
     image_api: Optional[str] = None,
+    user: Optional[str] = None,
+    persona: Optional[str] = None,
+    fork: Optional[int] = None,
+    branch: Optional[str] = None,
+    highlight: Optional[List[int]] = None,
 ) -> Tuple[str, Optional[str], Optional[str]]:
     start_dt = parse_time(start)
     end_dt = parse_time(end)
@@ -352,6 +362,10 @@ def run_pipeline(
             base = Path(output).with_name(f"{Path(output).stem}_ch{idx}{Path(output).suffix}")
             ch.audio = synthesize(ch.text, ch.mood, base.with_suffix('.mp3'), voice, dry_run=dry_run)
             ch.voice = voice or (getattr(tts_bridge, 'CURRENT_PERSONA', None) if tts_bridge else None)
+            ch.user = user
+            ch.persona = persona
+            if highlight and idx in highlight:
+                ch.highlight = True
             if dry_run:
                 print(ch.text)
                 ch.video = None
@@ -373,6 +387,15 @@ def run_pipeline(
                     image_api=image_api,
                 )
                 ch.image = str(img_path)
+        if fork is not None:
+            fb = Chapter(start_dt, end_dt, [], [], [], text=branch or "", mood="neutral")
+            fb.user = user
+            fb.persona = persona
+            fb.fork_of = fork
+            fb.branch = branch
+            if highlight and len(ch_list) + 1 in highlight:
+                fb.highlight = True
+            ch_list.append(fb)
         compute_relative_times(ch_list)
         if subtitle:
             write_srt(ch_list, Path(subtitle))
@@ -393,6 +416,11 @@ def run_pipeline(
                 'sfx': ch.sfx,
                 'gesture': ch.gesture,
                 'env': ch.env,
+                'user': ch.user,
+                'persona': ch.persona,
+                'highlight': ch.highlight,
+                'fork_of': ch.fork_of,
+                'branch': ch.branch,
             } for i, ch in enumerate(ch_list)]
             Path(storyboard).write_text(json.dumps({'chapters': data}, indent=2), encoding='utf-8')
         if emotion_data:
@@ -405,6 +433,13 @@ def run_pipeline(
     audio_path = synthesize(narrative, mood, Path(output).with_suffix('.mp3'), voice, dry_run=dry_run)
     voice_used = voice or (getattr(tts_bridge, 'CURRENT_PERSONA', None) if tts_bridge else None)
     ch_single = Chapter(start_dt, end_dt, mem, refl, emo, text=narrative, mood=mood, audio=audio_path, voice=voice_used)
+    ch_single.user = user
+    ch_single.persona = persona
+    if highlight and 1 in highlight:
+        ch_single.highlight = True
+    if fork is not None:
+        ch_single.fork_of = fork
+        ch_single.branch = branch
     compute_relative_times([ch_single])
     if dry_run:
         print(narrative)
@@ -457,6 +492,39 @@ def export_demo_pack(storyboard_path: str, zip_path: str) -> None:
                 zf.write(p, arcname=name)
 
 
+def compile_diary(start: str, end: str, log_dir: Path, output: str) -> None:
+    """Compile a long-form diary from multiple chapters."""
+    start_dt = parse_time(start)
+    end_dt = parse_time(end)
+    mem, refl, emo = load_logs(start_dt, end_dt, log_dir)
+    chapters = segment_chapters(mem, refl, emo)
+    lines = ["# Cathedral Diary"]
+    for i, ch in enumerate(chapters, 1):
+        generate_chapter_narrative(ch, dry_run=True)
+        lines.append(f"\n## Chapter {i} ({ch.start.date()} - {ch.end.date()})\n")
+        lines.append(ch.text)
+    Path(output).write_text("\n".join(lines), encoding="utf-8")
+
+
+def auto_storyboard(log_file: str, output: str) -> None:
+    """Generate a simple storyboard from a raw log."""
+    chapters = []
+    with open(log_file, "r", encoding="utf-8") as f:
+        for i, line in enumerate(f, 1):
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            chapters.append({
+                "chapter": i,
+                "title": str(obj.get("text", ""))[:30],
+                "start": obj.get("timestamp"),
+                "end": obj.get("timestamp"),
+                "text": obj.get("text", ""),
+            })
+    Path(output).write_text(json.dumps({"chapters": chapters}, indent=2), encoding="utf-8")
+
+
 def run_live(
     output: str,
     log_dir: Path,
@@ -468,6 +536,8 @@ def run_live(
     image_cmd: Optional[str] = None,
     image_api: Optional[str] = None,
     image_prompt_field: Optional[str] = None,
+    user: Optional[str] = None,
+    persona: Optional[str] = None,
 ) -> None:
     """Continuously capture new log events and append chapters."""
     sb = Path(output)
@@ -491,6 +561,8 @@ def run_live(
                 dry_run=dry_run,
             )
             ch.voice = voice or (getattr(tts_bridge, "CURRENT_PERSONA", None) if tts_bridge else None)
+            ch.user = user
+            ch.persona = persona
             if scene_images:
                 prompt = ""
                 if ch.memory:
@@ -512,6 +584,11 @@ def run_live(
                         "audio": c.audio,
                         "image": c.image,
                         "voice": c.voice,
+                        "user": c.user,
+                        "persona": c.persona,
+                        "highlight": c.highlight,
+                        "fork_of": c.fork_of,
+                        "branch": c.branch,
                         "t_start": c.t_start,
                         "t_end": c.t_end,
                     }
@@ -570,9 +647,25 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--live', action='store_true', help='Capture logs in real time')
     parser.add_argument('--analytics', action='store_true', help='Export analytics CSV')
     parser.add_argument('--limit', type=int, default=1, help='Live mode chapter limit')
+    parser.add_argument('--user')
+    parser.add_argument('--persona')
+    parser.add_argument('--fork', type=int)
+    parser.add_argument('--branch')
+    parser.add_argument('--highlight', type=int, action='append')
+    parser.add_argument('--diary', action='store_true')
+    parser.add_argument('--auto-storyboard', action='store_true')
+    parser.add_argument('--log')
     args = parser.parse_args(argv)
     if args.analytics:
         export_analytics(args.start, args.end, Path(args.log_dir), args.output)
+        return
+
+    if args.diary:
+        compile_diary(args.start, args.end, Path(args.log_dir), args.output)
+        return
+
+    if args.auto_storyboard and args.log:
+        auto_storyboard(args.log, args.output)
         return
 
     if args.live:
@@ -586,6 +679,8 @@ def main(argv: List[str] | None = None) -> None:
             image_cmd=args.image_cmd,
             image_api=args.image_api,
             image_prompt_field=args.image_prompt_field,
+            user=args.user,
+            persona=args.persona,
         )
     else:
         run_pipeline(
@@ -604,6 +699,11 @@ def main(argv: List[str] | None = None) -> None:
             scene_images=args.scene_images,
             image_cmd=args.image_cmd,
             image_api=args.image_api,
+            user=args.user,
+            persona=args.persona,
+            fork=args.fork,
+            branch=args.branch,
+            highlight=args.highlight,
         )
         if args.export_demo and args.storyboard:
             export_demo_pack(args.storyboard, args.export_demo)

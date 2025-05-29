@@ -82,3 +82,15 @@ def test_emotion_overlay(tmp_path, capsys, monkeypatch):
     out = capsys.readouterr().out
     assert "Emotion: joy" in out
 
+
+def test_highlight_only(tmp_path, capsys, monkeypatch):
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({"chapters": [
+        {"chapter": 1, "title": "A", "text": "one", "highlight": False, "t_start": 0, "t_end": 0.1},
+        {"chapter": 2, "title": "B", "text": "two", "highlight": True, "t_start": 0.1, "t_end": 0.2}
+    ]}))
+    monkeypatch.setattr(time, "sleep", lambda x: None)
+    replay.playback(str(sb), headless=True, highlights_only=True)
+    out = capsys.readouterr().out
+    assert "Chapter 1" not in out and "Chapter 2" in out
+
