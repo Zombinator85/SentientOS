@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 import zipfile
 import tempfile
-from typing import Any
+from typing import Any, List
 from flask import Flask, jsonify, request
 
 
@@ -95,6 +95,19 @@ def _show_emotion(emotion: str, headless: bool) -> None:
         print(f"Emotion: {emotion}")
     else:
         print(f"[EMOTION] {emotion}")
+
+
+def print_timeline(storyboard: str) -> None:
+    """Print a simple emotion/persona timeline."""
+    data = json.loads(Path(storyboard).read_text())
+    chapters = data.get("chapters", [])
+    for ch in chapters:
+        num = ch.get("chapter") or chapters.index(ch) + 1
+        mood = ch.get("mood", "neutral")
+        persona = ch.get("voice") or ch.get("persona", "")
+        ts = _fmt_time(ch.get("t_start", 0))
+        mark = "*" if ch.get("highlight") else ""
+        print(f"{num:>3} {ts} {mood:<8} {persona} {mark}")
 
 
 def playback(
@@ -226,6 +239,7 @@ def main(argv=None):
     parser.add_argument('--enable-env', action='store_true')
     parser.add_argument('--interpolate-voices', action='store_true')
     parser.add_argument('--dashboard', action='store_true')
+    parser.add_argument('--timeline', action='store_true', help='Print chapter timeline')
     parser.add_argument('--feedback-enabled', action='store_true')
     parser.add_argument('--highlights-only', action='store_true')
     parser.add_argument('--branch', type=int)
@@ -265,6 +279,9 @@ def main(argv=None):
         highlights_only=args.highlights_only,
         branch=args.branch,
     )
+    if args.timeline:
+        print_timeline(sb_path)
+        return
     if args.live:
         live_playback(sb_path, poll=args.poll, **play_kwargs)
     else:

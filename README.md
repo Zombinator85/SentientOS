@@ -357,6 +357,21 @@ python storymaker.py ... --storyboard sb.json --export-web story.html --publish
 The emotion and sync JSON files can be used by visualization dashboards to show
 mood or persona changes over time.
 
+### Story Studio Web Editor
+
+Launch the interactive editor to tweak chapters, reorder scenes, and add
+comments:
+
+```bash
+python story_studio.py storyboard.json
+```
+
+Edited stories can then be exported:
+
+```bash
+python replay.py --storyboard storyboard.json --timeline
+```
+
 All components are modular, swappable, and extensible.
 Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
 The cathedral is ready.
