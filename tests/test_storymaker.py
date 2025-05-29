@@ -209,3 +209,19 @@ def test_auto_storyboard(tmp_path):
     data = json.loads(out.read_text())
     assert data["chapters"][0]["title"]
 
+
+def test_story_exports(tmp_path):
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "text": "hi"}]}))
+    md = tmp_path / "out.md"
+    html = tmp_path / "out.html"
+    web = tmp_path / "web.html"
+    storymaker.export_markdown(str(sb), str(md))
+    storymaker.export_html(str(sb), str(html))
+    storymaker.export_web(str(sb), str(web))
+    pub_dir = tmp_path / "pub"
+    storymaker.publish_story(str(web), str(pub_dir))
+    assert md.exists() and html.exists() and web.exists()
+    assert "<html>" in html.read_text()
+    assert (pub_dir / "web.html").exists()
+
