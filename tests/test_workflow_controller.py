@@ -1,0 +1,82 @@
+import os
+import sys
+import importlib
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+wc = None
+
+
+def setup(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    import memory_manager as mm
+    importlib.reload(mm)
+    global wc
+    if wc is None:
+        import workflow_controller as _wc
+        wc = _wc
+    importlib.reload(wc)
+
+
+def test_workflow_success(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    steps = [
+        {"name": "step1", "action": lambda: (tmp_path / "a.txt").write_text("x"), "undo": lambda: os.remove(tmp_path / "a.txt")},
+        {"name": "step2", "action": lambda: None, "undo": lambda: None},
+    ]
+    wc.register_workflow("demo", steps)
+    assert wc.run_workflow("demo")
+    lines = (tmp_path / "events.jsonl").read_text().splitlines()
+    assert any("workflow.end" in l and '"status": "ok"' in l for l in lines)
+
+
+def test_workflow_failure_rollback(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    marker = {"undone": False}
+
+    def fail():
+        raise RuntimeError("oops")
+
+    def undo():
+        marker["undone"] = True
+
+    steps = [
+        {"name": "s1", "action": lambda: None, "undo": undo},
+        {"name": "s2", "action": fail, "undo": lambda: None},
+    ]
+    wc.register_workflow("demo", steps)
+    assert not wc.run_workflow("demo")
+    assert marker["undone"]
+    lines = (tmp_path / "events.jsonl").read_text().splitlines()
+    assert any("workflow.undo" in l for l in lines)
+
+
+def test_workflow_policy_denied(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    pol = tmp_path / "pol.yml"
+    pol.write_text('{"policies":[{"conditions":{"event":"workflow.demo.step2"},"actions":[{"type":"deny"}]}]}')
+    import policy_engine as pe
+    importlib.reload(pe)
+    engine = pe.PolicyEngine(str(pol))
+    steps = [
+        {"name": "step1", "action": lambda: None, "undo": lambda: None, "policy_event": "workflow.demo.step1"},
+        {"name": "step2", "action": lambda: None, "undo": lambda: None, "policy_event": "workflow.demo.step2"},
+    ]
+    wc.register_workflow("demo", steps)
+    assert not wc.run_workflow("demo", policy_engine=engine)
+    lines = (tmp_path / "events.jsonl").read_text().splitlines()
+    assert any('"status": "denied"' in l for l in lines)
+
+
+def test_review_logs_creates_reflection(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    steps = [
+        {"name": "s1", "action": lambda: (_ for _ in ()).throw(RuntimeError("x")), "undo": lambda: None},
+    ]
+    wc.register_workflow("demo", steps)
+    wc.run_workflow("demo")
+    wc.review_workflow_logs(threshold=1)
+    raw = tmp_path / "raw"
+    files = list(raw.glob("*.json"))
+    assert files, "reflection saved"
+

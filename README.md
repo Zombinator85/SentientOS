@@ -415,3 +415,34 @@ To add a new backend, implement the backend class with `type_text` or `click_but
 Each controller action records an `undo_id` and stores an in-memory lambda so that the last step can be reverted. Use `python input_controller.py --undo-last --persona Alice` (or the UI equivalent) to roll back the most recent action for a persona.
 
 When a `policy_engine.PolicyEngine` instance is supplied to a controller, every action is checked against the active policy file. Policies can deny actions based on persona, tags, or time of day. Denied actions are logged with `status="failed"` and are surfaced by the reflection manager which proposes an `undo` step.
+
+### Workflow Controller
+
+`workflow_controller.py` lets you define named workflows composed of multiple system actions. Each step supplies an `action` callable and an `undo` lambda. Before executing, steps are checked against the active `policy_engine`. Denied or failing steps trigger an automatic rollback of previous steps.
+
+Run a workflow from the CLI:
+
+```bash
+python workflow_controller.py --run demo_report
+```
+
+Undo the last executed steps:
+
+```bash
+python workflow_controller.py --undo 2
+```
+
+The `review_workflow_logs()` helper inspects recent workflow events. If the same step fails repeatedly, a reflection entry is stored suggesting an optimisation.
+
+To author a workflow, register it in code:
+
+```python
+import workflow_controller as wc
+
+wc.register_workflow("demo_report", [
+    {"name": "open_app", "action": open_app, "undo": close_app},
+    {"name": "type_text", "action": type_text, "undo": undo_typing},
+])
+```
+
+Workflows integrate with policy and reflection just like individual controller actions.
