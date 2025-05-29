@@ -277,6 +277,14 @@ python storymaker.py --from "YYYY-MM-DD 00:00" --to "YYYY-MM-DD 23:59" --output 
 ```
 
 Use `--dry-run` to generate only the text summary and TTS audio without video capture.
+Additional options:
+
+```
+  --chapters       segment output into chapters and produce files per chapter
+  --subtitle PATH  save a .srt subtitle file
+  --transcript PATH  save a transcript with timestamps
+  --storyboard PATH  output a JSON storyboard script
+```
 
 All components are modular, swappable, and extensible.
 Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
