@@ -148,3 +148,64 @@ def test_demo_pack_export_import(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "Chapter" in out
 
+
+def test_multi_user_persona(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    sb = tmp_path / "sb.json"
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    storymaker.run_pipeline(
+        "2024-01-01 00:00",
+        "2024-01-01 23:59",
+        str(tmp_path / "demo.mp4"),
+        log_dir,
+        dry_run=True,
+        chapters=True,
+        storyboard=str(sb),
+        user="alice",
+        persona="Lumos",
+    )
+    data = json.loads(sb.read_text())
+    assert data["chapters"][0]["user"] == "alice"
+    assert data["chapters"][0]["persona"] == "Lumos"
+
+
+def test_branch_creation(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    sb = tmp_path / "sb.json"
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    storymaker.run_pipeline(
+        "2024-01-01 00:00",
+        "2024-01-01 23:59",
+        str(tmp_path / "demo.mp4"),
+        log_dir,
+        dry_run=True,
+        chapters=True,
+        storyboard=str(sb),
+        fork=1,
+        branch="alt",
+    )
+    data = json.loads(sb.read_text())
+    assert any(ch.get("fork_of") == 1 for ch in data["chapters"])
+
+
+def test_diary_generation(tmp_path):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    out = tmp_path / "diary.md"
+    storymaker.compile_diary("2024-01-01 00:00", "2024-01-01 23:59", log_dir, str(out))
+    assert out.exists() and "Chapter 1" in out.read_text()
+
+
+def test_auto_storyboard(tmp_path):
+    log = tmp_path / "log.jsonl"
+    log.write_text(json.dumps({"timestamp": "2024-01-01T12:00:00", "text": "event"}) + "\n")
+    out = tmp_path / "auto.json"
+    storymaker.auto_storyboard(str(log), str(out))
+    data = json.loads(out.read_text())
+    assert data["chapters"][0]["title"]
+
