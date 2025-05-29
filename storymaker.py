@@ -30,6 +30,10 @@ class Chapter:
     mood: str = ""
     audio: Optional[str] = None
     video: Optional[str] = None
+    voice: Optional[str] = None
+    image: Optional[str] = None
+    t_start: float = 0.0  # relative start time in seconds
+    t_end: float = 0.0    # relative end time in seconds
 
 
 def _load_entries(path: Path, start: dt.datetime, end: dt.datetime) -> List[Dict[str, Any]]:
@@ -174,31 +178,27 @@ def mux_audio_video(audio_path: str, video_path: str, output_path: str, dry_run:
 
 
 def write_srt(chapters: List[Chapter], path: Path) -> None:
+    compute_relative_times(chapters)
     lines: List[str] = []
-    t0 = dt.timedelta()
     idx = 1
     for ch in chapters:
-        duration = dt.timedelta(seconds=len(ch.text.split()) / 2.0)
-        start = t0
-        end = t0 + duration
+        start = dt.timedelta(seconds=ch.t_start)
+        end = dt.timedelta(seconds=ch.t_end)
         lines.append(str(idx))
         lines.append(f"{_fmt_ts(start)} --> {_fmt_ts(end)}")
         lines.append(ch.text)
         lines.append("")
-        t0 = end
         idx += 1
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def write_transcript(chapters: List[Chapter], path: Path) -> None:
+    compute_relative_times(chapters)
     lines = []
-    t0 = dt.timedelta()
     for ch in chapters:
-        duration = dt.timedelta(seconds=len(ch.text.split()) / 2.0)
-        start = t0
-        end = t0 + duration
+        start = dt.timedelta(seconds=ch.t_start)
+        end = dt.timedelta(seconds=ch.t_end)
         lines.append(f"[{_fmt_ts(start)} - {_fmt_ts(end)}] {ch.text}")
-        t0 = end
     path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -210,12 +210,90 @@ def _fmt_ts(td: dt.timedelta) -> str:
     return f"{hours:02}:{minutes:02}:{seconds:02},{ms:03}"
 
 
+def dominant_emotion(entries: List[Dict[str, Any]]) -> Tuple[str, Optional[float], Optional[float]]:
+    scores: Dict[str, float] = {}
+    vals: List[float] = []
+    ars: List[float] = []
+    for e in entries:
+        emo = e.get('emotions', {})
+        if isinstance(emo, dict) and emo:
+            lab = max(emo, key=emo.get)
+            scores[lab] = scores.get(lab, 0.0) + float(emo[lab])
+        feat = e.get('features') or e.get('emotion_features') or {}
+        if isinstance(feat, dict):
+            v = feat.get('valence')
+            a = feat.get('arousal')
+            if isinstance(v, (int, float)):
+                vals.append(float(v))
+            if isinstance(a, (int, float)):
+                ars.append(float(a))
+    mood = max(scores, key=scores.get).lower() if scores else 'neutral'
+    valence = sum(vals) / len(vals) if vals else None
+    arousal = sum(ars) / len(ars) if ars else None
+    return mood, arousal, valence
+
+
+def write_emotion_data(chapters: List[Chapter], overall_mood: str, voice: Optional[str], path: Path) -> None:
+    data = {
+        'overall': {
+            'mood': overall_mood,
+            'voice': voice or (getattr(tts_bridge, 'CURRENT_PERSONA', None) if tts_bridge else None),
+        },
+        'chapters': []
+    }
+    for i, ch in enumerate(chapters, 1):
+        mood, arousal, valence = dominant_emotion(ch.emotions)
+        data['chapters'].append({
+            'chapter': i,
+            'start': ch.start.isoformat(),
+            'end': ch.end.isoformat(),
+            'voice': ch.voice,
+            'mood': mood,
+            'arousal': arousal,
+            'valence': valence,
+        })
+    path.write_text(json.dumps(data, indent=2), encoding='utf-8')
+
+
+def write_sync_metadata(chapters: List[Chapter], path: Path) -> None:
+    data = [
+        {'chapter': i + 1, 'start': ch.t_start, 'end': ch.t_end}
+        for i, ch in enumerate(chapters)
+    ]
+    path.write_text(json.dumps(data, indent=2), encoding='utf-8')
+
+
+def generate_scene_image(prompt: str, out_path: Path, dry_run: bool = False) -> None:
+    if dry_run:
+        out_path.write_text('image')
+        return
+    try:
+        from PIL import Image, ImageDraw
+        img = Image.new('RGB', (320, 240), color='black')
+        d = ImageDraw.Draw(img)
+        d.text((10, 10), prompt[:40], fill=(255, 255, 255))
+        img.save(out_path)
+    except Exception:
+        out_path.touch()
+
+
+def compute_relative_times(chapters: List[Chapter]) -> None:
+    t0 = dt.timedelta()
+    for ch in chapters:
+        duration = dt.timedelta(seconds=len(ch.text.split()) / 2.0)
+        ch.t_start = t0.total_seconds()
+        ch.t_end = (t0 + duration).total_seconds()
+        t0 += duration
+
+
 def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Optional[str] = None, dry_run: bool = False,
                  chapters: bool = False, subtitle: Optional[str] = None, transcript: Optional[str] = None,
-                 storyboard: Optional[str] = None) -> Tuple[str, Optional[str], Optional[str]]:
+                 storyboard: Optional[str] = None, emotion_data: Optional[str] = None,
+                 sync_metadata: Optional[str] = None, scene_images: bool = False) -> Tuple[str, Optional[str], Optional[str]]:
     start_dt = parse_time(start)
     end_dt = parse_time(end)
     mem, refl, emo = load_logs(start_dt, end_dt, log_dir)
+    overall_mood = narrator.infer_mood(mem + emo)
 
     if chapters:
         ch_list = [generate_chapter_narrative(ch, dry_run=dry_run) for ch in segment_chapters(mem, refl, emo)]
@@ -223,6 +301,7 @@ def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Option
         for idx, ch in enumerate(ch_list, 1):
             base = Path(output).with_name(f"{Path(output).stem}_ch{idx}{Path(output).suffix}")
             ch.audio = synthesize(ch.text, ch.mood, base.with_suffix('.mp3'), voice, dry_run=dry_run)
+            ch.voice = voice or (getattr(tts_bridge, 'CURRENT_PERSONA', None) if tts_bridge else None)
             if dry_run:
                 print(ch.text)
                 ch.video = None
@@ -234,6 +313,11 @@ def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Option
                 else:
                     os.rename(tmp_vid, base)
                 ch.video = str(base)
+            if scene_images:
+                img_path = base.with_name(f"chapter_{idx}.png")
+                generate_scene_image(f"{ch.mood} {ch.memory[0].get('text','') if ch.memory else ''}", img_path, dry_run=dry_run)
+                ch.image = str(img_path)
+        compute_relative_times(ch_list)
         if subtitle:
             write_srt(ch_list, Path(subtitle))
         if transcript:
@@ -247,18 +331,32 @@ def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Option
                 'audio': ch.audio,
                 'video': ch.video,
                 'mood': ch.mood,
+                't_start': ch.t_start,
+                't_end': ch.t_end,
+                'image': ch.image,
             } for i, ch in enumerate(ch_list)]
             Path(storyboard).write_text(json.dumps({'chapters': data}, indent=2), encoding='utf-8')
+        if emotion_data:
+            write_emotion_data(ch_list, overall_mood, voice, Path(emotion_data))
+        if sync_metadata:
+            write_sync_metadata(ch_list, Path(sync_metadata))
         return combined, None, None if dry_run else output
 
     narrative, mood = generate_narrative(start_dt, end_dt, mem, refl, emo, dry_run=dry_run)
     audio_path = synthesize(narrative, mood, Path(output).with_suffix('.mp3'), voice, dry_run=dry_run)
+    voice_used = voice or (getattr(tts_bridge, 'CURRENT_PERSONA', None) if tts_bridge else None)
+    ch_single = Chapter(start_dt, end_dt, mem, refl, emo, text=narrative, mood=mood, audio=audio_path, voice=voice_used)
+    compute_relative_times([ch_single])
     if dry_run:
         print(narrative)
         if subtitle:
-            write_srt([Chapter(start_dt, end_dt, mem, refl, emo, text=narrative)], Path(subtitle))
+            write_srt([ch_single], Path(subtitle))
         if transcript:
-            write_transcript([Chapter(start_dt, end_dt, mem, refl, emo, text=narrative)], Path(transcript))
+            write_transcript([ch_single], Path(transcript))
+        if emotion_data:
+            write_emotion_data([ch_single], mood, voice, Path(emotion_data))
+        if sync_metadata:
+            write_sync_metadata([ch_single], Path(sync_metadata))
         return narrative, audio_path, None
     video_tmp = str(Path(output).with_suffix('.video.mp4'))
     record_screen(int(os.getenv('STORY_DURATION', '5')), video_tmp, dry_run=dry_run)
@@ -267,9 +365,13 @@ def run_pipeline(start: str, end: str, output: str, log_dir: Path, voice: Option
     else:
         os.rename(video_tmp, output)
     if subtitle:
-        write_srt([Chapter(start_dt, end_dt, mem, refl, emo, text=narrative)], Path(subtitle))
+        write_srt([ch_single], Path(subtitle))
     if transcript:
-        write_transcript([Chapter(start_dt, end_dt, mem, refl, emo, text=narrative)], Path(transcript))
+        write_transcript([ch_single], Path(transcript))
+    if emotion_data:
+        write_emotion_data([ch_single], mood, voice, Path(emotion_data))
+    if sync_metadata:
+        write_sync_metadata([ch_single], Path(sync_metadata))
     return narrative, audio_path, output
 
 
@@ -285,6 +387,9 @@ def main(argv: List[str] | None = None) -> None:
     parser.add_argument('--subtitle')
     parser.add_argument('--transcript')
     parser.add_argument('--storyboard')
+    parser.add_argument('--emotion-data')
+    parser.add_argument('--sync-metadata')
+    parser.add_argument('--scene-images', action='store_true', help='Generate experimental scene images')
     args = parser.parse_args(argv)
     run_pipeline(
         args.start,
@@ -297,6 +402,9 @@ def main(argv: List[str] | None = None) -> None:
         subtitle=args.subtitle,
         transcript=args.transcript,
         storyboard=args.storyboard,
+        emotion_data=args.emotion_data,
+        sync_metadata=args.sync_metadata,
+        scene_images=args.scene_images,
     )
 
 
