@@ -18,8 +18,9 @@ def run_dashboard(storyboard: str) -> Flask:
 
     @app.route("/chapters")
     def _chapters() -> Any:
-        user = request.args.get("user")
-        persona = request.args.get("persona")
+        args_obj = getattr(request, "args", None)
+        user = args_obj.get("user") if args_obj else None
+        persona = args_obj.get("persona") if args_obj else None
         filtered = state["chapters"]
         if user:
             filtered = [c for c in filtered if c.get("user") == user]
@@ -174,6 +175,42 @@ def playback(
                     f.write(json.dumps({"chapter": num, "feedback": fb}) + "\n")
 
 
+def live_playback(
+    storyboard: str,
+    headless: bool = False,
+    gui: bool = False,
+    avatar_callback: str | None = None,
+    poll: float = 0.5,
+    max_chapters: int | None = None,
+    **kwargs: Any,
+) -> None:
+    """Continuously watch a storyboard file and play new chapters."""
+    seen = 0
+    while True:
+        try:
+            data = json.loads(Path(storyboard).read_text())
+        except Exception:
+            time.sleep(poll)
+            continue
+        chapters = data.get("chapters", [])
+        if seen < len(chapters):
+            new = {"chapters": chapters[seen:]}
+            tmp = Path(storyboard).with_suffix(".live.tmp")
+            tmp.write_text(json.dumps(new), encoding="utf-8")
+            playback(
+                str(tmp),
+                headless=headless,
+                gui=gui,
+                avatar_callback=avatar_callback,
+                start_chapter=1,
+                **kwargs,
+            )
+            seen = len(chapters)
+            if max_chapters and seen >= max_chapters:
+                break
+        time.sleep(poll)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Replay storyboard')
     parser.add_argument('--storyboard')
@@ -192,6 +229,8 @@ def main(argv=None):
     parser.add_argument('--feedback-enabled', action='store_true')
     parser.add_argument('--highlights-only', action='store_true')
     parser.add_argument('--branch', type=int)
+    parser.add_argument('--live', action='store_true', help='Watch storyboard for new chapters')
+    parser.add_argument('--poll', type=float, default=0.5)
     args = parser.parse_args(argv)
     sb_path = args.storyboard
     if args.import_demo:
@@ -210,8 +249,7 @@ def main(argv=None):
         # run in background thread for simplicity
         import threading
         threading.Thread(target=lambda: app.run(port=5001), daemon=True).start()
-    playback(
-        sb_path,
+    play_kwargs = dict(
         headless=args.headless,
         gui=args.gui,
         audio_only=args.audio_only,
@@ -227,6 +265,10 @@ def main(argv=None):
         highlights_only=args.highlights_only,
         branch=args.branch,
     )
+    if args.live:
+        live_playback(sb_path, poll=args.poll, **play_kwargs)
+    else:
+        playback(sb_path, **play_kwargs)
 
 
 if __name__ == '__main__':
