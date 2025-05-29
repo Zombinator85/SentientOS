@@ -284,7 +284,19 @@ Additional options:
   --subtitle PATH  save a .srt subtitle file
   --transcript PATH  save a transcript with timestamps
   --storyboard PATH  output a JSON storyboard script
+  --emotion-data PATH  save emotion/persona info as JSON
+  --sync-metadata PATH  save chapter timing info for AV sync
+  --scene-images    generate experimental scene illustrations
 ```
+
+Use `replay.py` to play back a storyboard with audio and optional images:
+
+```bash
+python replay.py --storyboard sb.json --headless
+```
+
+The emotion and sync JSON files can be used by visualization dashboards to show
+mood or persona changes over time.
 
 All components are modular, swappable, and extensible.
 Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
