@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import datetime as dt
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -46,3 +47,42 @@ def test_storymaker_cli(tmp_path, monkeypatch, capsys):
     storymaker.main()
     out = capsys.readouterr().out
     assert "start" in out
+
+
+def test_chapter_segmentation(tmp_path):
+    mem = [
+        {"timestamp": "2024-01-01T10:00:00", "text": "A"},
+        {"timestamp": "2024-01-01T12:30:00", "text": "B"},
+    ]
+    chapters = storymaker.segment_chapters(mem, [], [])
+    assert len(chapters) == 2
+
+
+def test_subtitle_generation(tmp_path):
+    ch = storymaker.Chapter(
+        start=dt.datetime(2024, 1, 1, 10, 0),
+        end=dt.datetime(2024, 1, 1, 10, 5),
+        memory=[],
+        reflection=[],
+        emotions=[],
+        text="hello world",
+    )
+    path = tmp_path / "out.srt"
+    storymaker.write_srt([ch], path)
+    data = path.read_text()
+    assert "1" in data and "-->" in data and "hello world" in data
+
+
+def test_storyboard_flag(tmp_path, monkeypatch):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp": "2024-01-01T08:00:00", "text": "start"}) + "\n")
+    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path / "a.mp3"))
+    sb = tmp_path / "sb.json"
+    storymaker.run_pipeline(
+        "2024-01-01 00:00", "2024-01-01 23:59", str(tmp_path / "demo.mp4"), log_dir,
+        dry_run=True, chapters=True, storyboard=str(sb)
+    )
+    data = json.loads(sb.read_text())
+    assert data["chapters"]
+
