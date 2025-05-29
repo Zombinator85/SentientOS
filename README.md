@@ -363,13 +363,27 @@ Launch the interactive editor to tweak chapters, reorder scenes, and add
 comments:
 
 ```bash
-python story_studio.py storyboard.json
+python story_studio.py storyboard.json --server http://localhost:5001
 ```
+
+Start the collaboration server in a separate process:
+
+```bash
+python collab_server.py
+```
+
+Connected editors see each other's changes and a live user count.
 
 Edited stories can then be exported:
 
 ```bash
 python replay.py --storyboard storyboard.json --timeline
+```
+
+Annotations can be managed from the command line:
+
+```bash
+python review_cli.py storyboard.json --annotate "Needs more tension" --chapter 2
 ```
 
 All components are modular, swappable, and extensible.
