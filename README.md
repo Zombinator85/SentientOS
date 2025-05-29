@@ -268,6 +268,16 @@ In headless mode plug-ins simulate actions but still log to the trust engine.
 No secrets are present in this repo.
 Copy .env.example to .env and fill in your credentials before running.
 
+Storybook Demo Generator
+-----------------------
+`storymaker.py` produces a narrated video recap of any time window.
+
+```bash
+python storymaker.py --from "YYYY-MM-DD 00:00" --to "YYYY-MM-DD 23:59" --output demo.mp4
+```
+
+Use `--dry-run` to generate only the text summary and TTS audio without video capture.
+
 All components are modular, swappable, and extensible.
 Presence, feedback, memory, reflection, analytics, and automation—no arbitrary limits.
 The cathedral is ready.
