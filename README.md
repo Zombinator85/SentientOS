@@ -621,3 +621,21 @@ Use `--filter-agent`, `--filter-persona`, `--filter-policy`, or `--filter-action
 with `--audit` to quickly locate decisions. Dashboard views surface the same
 information so collaborative reviews show who is currently online and what
 policy actions occurred.
+
+### Proactive Review Requests & Policy Suggestions
+
+Repeated workflow failures or conflicting persona actions automatically create review requests logged to `logs/review_requests.jsonl`. Use the dashboard or CLI to list them:
+
+```bash
+python workflow_dashboard.py --review-requests
+```
+
+Entries include the target workflow or reflex, suggested policy, rationale, and pending status. Voting on a review file automatically closes it once the required approvals are met. CLI example:
+
+```bash
+python workflow_recommendation.py --review-requests
+python workflow_review.vote_review demo alice
+python workflow_review.vote_review demo bob
+```
+
+Audit logs note who approved or dismissed each request so the collaborative decision trail is preserved.

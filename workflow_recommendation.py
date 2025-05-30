@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 import workflow_library as wl
 import workflow_analytics as wa
 import reflection_stream as rs
+import review_requests as rr
 
 
 def recommend_workflows(analytics_data: Dict[str, Any]) -> List[str]:
@@ -44,14 +45,31 @@ def recommend_workflows(analytics_data: Dict[str, Any]) -> List[str]:
     return suggestions
 
 
+def generate_review_requests(data: Dict[str, Any]) -> List[str]:
+    """Create proactive review requests for failing workflows."""
+    flagged: List[str] = []
+    usage = data.get("usage", {})
+    for wf, info in usage.items():
+        if info.get("failures", 0) >= 3:
+            reason = f"{info.get('failures')} failures"
+            rr.log_request("workflow", wf, reason)
+            flagged.append(wf)
+    return flagged
+
+
 def main() -> None:  # pragma: no cover - CLI
     import argparse
     parser = argparse.ArgumentParser(description="Workflow recommendations")
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--review-requests", action="store_true")
     args = parser.parse_args()
     data = wa.analytics(args.limit)
-    for rec in recommend_workflows(data):
-        print(f"- {rec}")
+    if args.review_requests:
+        for wf in generate_review_requests(data):
+            print(f"flagged {wf}")
+    else:
+        for rec in recommend_workflows(data):
+            print(f"- {rec}")
 
 
 if __name__ == "__main__":
