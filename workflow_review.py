@@ -11,9 +11,9 @@ REVIEW_DIR.mkdir(parents=True, exist_ok=True)
 REVIEW_LOG = REVIEW_DIR / "review_log.jsonl"
 
 
-def flag_for_review(name: str, before: str, after: str) -> Path:
+def flag_for_review(name: str, before: str, after: str, required_votes: int = 2) -> Path:
     """Store before/after versions for manual review."""
-    data = {"name": name, "before": before, "after": after}
+    data = {"name": name, "before": before, "after": after, "required_votes": required_votes, "votes": {}}
     path = REVIEW_DIR / f"{name}.json"
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -81,5 +81,9 @@ def vote_review(name: str, user: str, upvote: bool = True) -> None:
     info = load_review(name) or {"name": name}
     votes = info.setdefault("votes", {})
     votes[user] = 1 if upvote else -1
+    required = info.get("required_votes", 2)
     (REVIEW_DIR / f"{name}.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
     _log_action(name, user, "upvote" if upvote else "downvote")
+    if sum(1 for v in votes.values() if v > 0) >= required:
+        accept_review(name)
+        _log_action(name, "system", "auto_accept")

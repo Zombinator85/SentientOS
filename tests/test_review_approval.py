@@ -1,0 +1,19 @@
+import importlib
+import json
+import workflow_review as wr
+
+
+def setup_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("WORKFLOW_REVIEW_DIR", str(tmp_path))
+    importlib.reload(wr)
+
+
+def test_vote_auto_accept(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    wr.flag_for_review("demo", "a", "b", required_votes=2)
+    wr.vote_review("demo", "alice", True)
+    assert "demo" in wr.list_pending()
+    wr.vote_review("demo", "bob", True)
+    assert "demo" not in wr.list_pending()
+    log = (tmp_path / "review_log.jsonl").read_text().splitlines()
+    assert any(json.loads(l).get("action") == "auto_accept" for l in log)
