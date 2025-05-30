@@ -5,7 +5,8 @@ import json
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
+import datetime
 
 try:
     from watchdog.observers import Observer  # type: ignore
@@ -147,6 +148,7 @@ class ReflexManager:
 
     EXPERIMENTS_FILE = Path(os.getenv("REFLEX_EXPERIMENTS", "logs/reflections/experiments.json"))
     TRIAL_LOG = Path(os.getenv("REFLEX_TRIAL_LOG", "logs/reflections/reflex_trials.jsonl"))
+    AUDIT_LOG = Path(os.getenv("REFLEX_AUDIT_LOG", "logs/reflections/reflex_audit.jsonl"))
 
     def __init__(self, autopromote_trials: int = 5) -> None:
         self.rules: List[ReflexRule] = []
@@ -154,6 +156,40 @@ class ReflexManager:
         self.history: List[Dict[str, Any]] = []
         self.autopromote_trials = autopromote_trials
         self.TRIAL_LOG.parent.mkdir(parents=True, exist_ok=True)
+        self.AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        self.audit: List[Dict[str, Any]] = []
+
+    # ------------------------------------------------------------------
+    def _audit(
+        self,
+        action: str,
+        rule: str,
+        *,
+        by: str = "system",
+        persona: Optional[str] = None,
+        experiment: Optional[str] = None,
+        comment: str = "",
+        tags: Optional[List[str]] = None,
+        prev: Optional[str] = None,
+        current: Optional[str] = None,
+    ) -> None:
+        entry = {
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "action": action,
+            "rule": rule,
+            "by": by,
+            "persona": persona,
+            "experiment": experiment,
+            "comment": comment,
+            "tags": tags or [],
+        }
+        if prev is not None:
+            entry["prev"] = prev
+        if current is not None:
+            entry["current"] = current
+        self.audit.append(entry)
+        with self.AUDIT_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
 
     # ------------------------------------------------------------------
     def load_experiments(self) -> None:
@@ -183,6 +219,27 @@ class ReflexManager:
                     tags=["reflex", "analytics"],
                     source="reflex",
                 )
+
+    def annotate(
+        self,
+        rule: str,
+        comment: str,
+        *,
+        tags: Optional[List[str]] = None,
+        by: str = "user",
+        persona: Optional[str] = None,
+        experiment: Optional[str] = None,
+    ) -> None:
+        """Add an annotation/comment to a reflex experiment."""
+        self._audit(
+            "annotate",
+            rule,
+            by=by,
+            persona=persona,
+            experiment=experiment,
+            comment=comment,
+            tags=tags,
+        )
 
     def add_rule(self, rule: ReflexRule) -> None:
         rule.manager = self
@@ -314,6 +371,15 @@ class ReflexManager:
         self.history.append({"action": "promote", "rule": name, "by": by, "prev": prev})
         rs.log_reflex_learn({"promotion": name, "by": by, "experiment": experiment})
         rs.log_event("reflex", "promotion", by, name)
+        self._audit(
+            "promote",
+            name,
+            by=by,
+            experiment=experiment,
+            tags=None,
+            prev=prev,
+            current="preferred",
+        )
         self.save_experiments()
 
     def demote_rule(self, name: str, by: str = "system", experiment: str | None = None) -> None:
@@ -326,6 +392,15 @@ class ReflexManager:
         self.history.append({"action": "demote", "rule": name, "by": by, "prev": prev})
         rs.log_reflex_learn({"demotion": name, "by": by, "experiment": experiment})
         rs.log_event("reflex", "demotion", by, name)
+        self._audit(
+            "demote",
+            name,
+            by=by,
+            experiment=experiment,
+            tags=None,
+            prev=prev,
+            current="inactive",
+        )
         self.save_experiments()
 
     def revert_last(self) -> None:
@@ -334,11 +409,35 @@ class ReflexManager:
         last = self.history.pop()
         rule = next((r for r in self.rules if r.name == last.get("rule")), None)
         if rule:
-            rule.status = last.get("prev", "candidate")
+            prev = last.get("prev", "candidate")
+            current = rule.status
+            rule.status = prev
             rule.preferred = rule.status == "preferred"
             rs.log_reflex_learn({"revert": rule.name, "by": "system"})
             rs.log_event("reflex", "revert", "system", rule.name)
+            self._audit("revert", rule.name, by="system", prev=current, current=prev)
         self.save_experiments()
+
+    def revert_rule(self, name: str) -> None:
+        """Revert a rule to its previous status based on audit log."""
+        entries = list(reversed(self.get_audit(name)))
+        for entry in entries:
+            if entry.get("action") in {"promote", "demote"}:
+                prev = entry.get("prev", "candidate")
+                current = entry.get("current", "candidate")
+                rule = next((r for r in self.rules if r.name == name), None)
+                if rule:
+                    rule.status = prev
+                    rule.preferred = prev == "preferred"
+                    self._audit(
+                        "manual_revert",
+                        name,
+                        by="system",
+                        prev=current,
+                        current=prev,
+                    )
+                    self.save_experiments()
+                break
 
     def get_history(self, experiment: str | None = None) -> List[Dict[str, Any]]:
         """Return trial history across experiments or for one experiment."""
@@ -348,6 +447,22 @@ class ReflexManager:
         for info in self.experiments.values():
             hist.extend(info.get("history", []))
         return hist
+
+    def get_audit(self, target: str | None = None) -> List[Dict[str, Any]]:
+        """Return audit trail entries, optionally filtered by rule/experiment."""
+        if not self.AUDIT_LOG.exists():
+            return []
+        lines = self.AUDIT_LOG.read_text(encoding="utf-8").splitlines()
+        out: List[Dict[str, Any]] = []
+        for ln in lines:
+            try:
+                entry = json.loads(ln)
+            except Exception:
+                continue
+            out.append(entry)
+        if target:
+            out = [e for e in out if e.get("rule") == target or e.get("experiment") == target]
+        return out
 
     def stop(self) -> None:
         panic_event.set()

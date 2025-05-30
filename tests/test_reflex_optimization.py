@@ -110,6 +110,46 @@ def test_cli_demote(tmp_path, monkeypatch, capsys):
     assert called.get("name") == "exp"
 
 
+def test_annotation_and_audit(tmp_path, monkeypatch):
+    monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
+    monkeypatch.setenv("REFLEX_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+    importlib.reload(rm)
+
+    rule = rm.ReflexRule(rm.OnDemandTrigger(), [], name="ann")
+    mgr = rm.ReflexManager()
+    mgr.add_rule(rule)
+    mgr.annotate("ann", "check", tags=["needs review"], by="bob")
+    audit = mgr.get_audit("ann")
+    assert audit and audit[-1]["action"] == "annotate"
+    mgr.promote_rule("ann", by="bob")
+    mgr.revert_rule("ann")
+    trail = mgr.get_audit("ann")
+    assert any(e["action"] == "manual_revert" for e in trail)
+
+
+def test_workflow_reflex_audit_link(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
+    monkeypatch.setenv("REFLEX_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+    import workflow_controller as wc
+    importlib.reload(wc)
+    importlib.reload(rm)
+    from api import actuator
+    import importlib as il
+    il.reload(actuator)
+
+    mgr = rm.ReflexManager(autopromote_trials=1)
+    rm.set_default_manager(mgr)
+    rule = rm.ReflexRule(rm.OnDemandTrigger(), [{"type": "shell"}], name="link")
+    mgr.add_rule(rule)
+    monkeypatch.setattr(actuator, "act", lambda *a, **k: None)
+    steps = [{"name": "trial", "action": "run:reflex", "params": {"rule": "link"}}]
+    wc.register_workflow("wfl", steps)
+    assert wc.run_workflow("wfl")
+    events = (tmp_path / "events.jsonl").read_text().splitlines()
+    assert any('"workflow.reflex"' in ev and '"review"' in ev for ev in events)
+
+
 def test_workflow_triggered_trials(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     monkeypatch.setenv("REFLECTION_DIR", str(tmp_path / "logs"))
