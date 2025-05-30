@@ -47,11 +47,8 @@ def run_cli(args: argparse.Namespace) -> None:
             print(json.dumps(l))
 
     if args.history:
-        data = load_experiments()
-        info = data.get(args.history)
-        if info:
-            for entry in info.get("history", [])[-10:]:
-                print(json.dumps(entry))
+        for entry in mgr.get_history(args.history)[-10:]:
+            print(json.dumps(entry))
 
 
 def run_dashboard() -> None:
@@ -69,7 +66,9 @@ def run_dashboard() -> None:
 
     st.set_page_config(page_title="Reflex Dashboard")
     st.title("Reflex Experiments")
-    data = load_experiments()
+    mgr = rm.ReflexManager()
+    mgr.load_experiments()
+    data = mgr.experiments
     for name, info in data.items():
         st.subheader(name)
         st.write(info.get("status", "running"))
@@ -78,7 +77,7 @@ def run_dashboard() -> None:
             rate = stats.get("success", 0) / max(1, stats.get("trials", 1))
             cols[idx].metric(r, f"{rate:.2f}", f"{stats.get('trials',0)} trials")
         with st.expander("History"):
-            for entry in info.get("history", [])[-10:]:
+            for entry in mgr.get_history(name)[-10:]:
                 st.json(entry)
 
     st.header("Recent Learning Events")

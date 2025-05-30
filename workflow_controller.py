@@ -130,9 +130,7 @@ def load_workflow_file(path: str) -> None:
             def _reflex_action(step=step, rule=rule):
                 import reflex_manager as rm
 
-                mgr = rm.get_default_manager()
-                if not mgr:
-                    raise RuntimeError("no reflex manager")
+                mgr = rm.default_manager()
                 success = mgr.execute_rule(rule)
                 r = next((rr for rr in mgr.rules if rr.name == rule), None)
                 step["reflex_status"] = r.status if r else None
@@ -238,13 +236,11 @@ def run_workflow(
                 rule = step.get("params", {}).get("rule", step.get("rule", step.get("name")))
                 step["reflex_rule"] = rule
 
-                def _reflex_action(step=step, rule=rule):
+                def _reflex_action(step=step, rule=rule, agent=agent, persona=persona):
                     import reflex_manager as rm
 
-                    mgr = rm.get_default_manager()
-                    if not mgr:
-                        raise RuntimeError("no reflex manager")
-                    success = mgr.execute_rule(rule)
+                    mgr = rm.default_manager()
+                    success = mgr.execute_rule(rule, agent=agent, persona=persona)
                     r = next((rr for rr in mgr.rules if rr.name == rule), None)
                     step["reflex_status"] = r.status if r else None
                     return success
