@@ -54,3 +54,19 @@ def test_apply_analytics(tmp_path, monkeypatch):
     mgr = rm.ReflexManager()
     mgr.apply_analytics(data)
     assert any(r.name == "retry_bad" for r in mgr.rules)
+
+
+def test_audit_attribution_and_policy(tmp_path, monkeypatch):
+    monkeypatch.setenv("REFLEX_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
+    import reflex_manager as rm
+    import importlib
+
+    importlib.reload(rm)
+    rule = rm.ReflexRule(rm.OnDemandTrigger(), [], name="multi")
+    mgr = rm.ReflexManager()
+    mgr.add_rule(rule)
+    mgr.promote_rule("multi", by="alice", persona="P", policy="pol1", reviewer="bob")
+    entries = mgr.get_audit("multi", agent="alice")
+    assert entries and entries[-1]["persona"] == "P"
+    assert entries[-1]["policy"] == "pol1"
+    assert entries[-1]["reviewer"] == "bob"

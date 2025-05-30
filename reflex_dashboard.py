@@ -27,9 +27,21 @@ def run_cli(args: argparse.Namespace) -> None:
     mgr.load_experiments()
 
     if args.promote:
-        mgr.promote_rule(args.promote, by="cli")
+        mgr.promote_rule(
+            args.promote,
+            by=args.agent or "cli",
+            persona=args.persona,
+            policy=args.policy,
+            reviewer=args.reviewer,
+        )
     if args.demote:
-        mgr.demote_rule(args.demote, by="cli")
+        mgr.demote_rule(
+            args.demote,
+            by=args.agent or "cli",
+            persona=args.persona,
+            policy=args.policy,
+            reviewer=args.reviewer,
+        )
     if args.revert:
         mgr.revert_last()
     if args.revert_rule:
@@ -37,7 +49,15 @@ def run_cli(args: argparse.Namespace) -> None:
     if args.annotate:
         rule, comment = args.annotate
         tags = [args.tag] if args.tag else None
-        mgr.annotate(rule, comment, tags=tags, by="cli")
+        mgr.annotate(
+            rule,
+            comment,
+            tags=tags,
+            by=args.agent or "cli",
+            persona=args.persona,
+            policy=args.policy,
+            reviewer=args.reviewer,
+        )
 
     if args.list_experiments:
         data = load_experiments()
@@ -56,7 +76,16 @@ def run_cli(args: argparse.Namespace) -> None:
         for entry in mgr.get_history(args.history)[-10:]:
             print(json.dumps(entry))
     if args.audit:
-        for entry in mgr.get_audit(args.audit):
+        entries = mgr.get_audit(args.audit)
+        if args.filter_agent:
+            entries = [e for e in entries if e.get("by") == args.filter_agent]
+        if args.filter_persona:
+            entries = [e for e in entries if e.get("persona") == args.filter_persona]
+        if args.filter_policy:
+            entries = [e for e in entries if e.get("policy") == args.filter_policy]
+        if args.filter_action:
+            entries = [e for e in entries if e.get("action") == args.filter_action]
+        for entry in entries:
             print(json.dumps(entry))
 
 
@@ -73,6 +102,14 @@ def run_dashboard() -> None:
         ap.add_argument("--annotate", nargs=2, metavar=("RULE", "COMMENT"))
         ap.add_argument("--tag")
         ap.add_argument("--audit")
+        ap.add_argument("--agent")
+        ap.add_argument("--persona")
+        ap.add_argument("--policy")
+        ap.add_argument("--reviewer")
+        ap.add_argument("--filter-agent")
+        ap.add_argument("--filter-persona")
+        ap.add_argument("--filter-policy")
+        ap.add_argument("--filter-action")
         args = ap.parse_args()
         run_cli(args)
         return
