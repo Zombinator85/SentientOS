@@ -1,5 +1,6 @@
 import argparse
 import sys
+import json
 import review_requests as rr
 
 
@@ -28,6 +29,12 @@ def main() -> None:
     a.add_argument("--agent")
     a.add_argument("--persona")
 
+    ch = sub.add_parser("chain")
+    ch.add_argument("id")
+
+    pr = sub.add_parser("provenance")
+    pr.add_argument("id")
+
     sub.add_parser("accept").add_argument("id")
     sub.add_parser("dismiss").add_argument("id")
 
@@ -51,6 +58,12 @@ def main() -> None:
         rr.implement_request(args.id)
     elif args.cmd == "dismiss":
         rr.dismiss_request(args.id)
+    elif args.cmd == "chain":
+        for item in rr.get_chain(args.id):
+            print(f"{item['id']} {item.get('status')} {item.get('suggestion')}")
+    elif args.cmd == "provenance":
+        for entry in rr.get_provenance(args.id):
+            print(json.dumps(entry))
     else:
         parser.print_help()
 

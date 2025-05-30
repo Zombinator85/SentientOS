@@ -649,3 +649,21 @@ python suggestion_cli.py accept <id>
 ```
 
 Audit logs note who approved or dismissed each request so the collaborative decision trail is preserved.
+
+### Suggestion Chain
+
+Every suggestion forms part of a traceable chain. When a suggestion is implemented or dismissed and further issues arise, a follow-up suggestion is automatically created linking back to the previous one. View the full chain:
+
+```bash
+python suggestion_cli.py chain <id>
+```
+
+Rationales evolve as agents vote and comment. Each refinement appends a summary and is marked `Refined`.
+
+Show the entire provenance log for a suggestion including creation, votes, rationale updates, and the final decision:
+
+```bash
+python suggestion_cli.py provenance <id>
+```
+
+Dashboard and CLI views allow you to trace exactly how a policy changed over time.
