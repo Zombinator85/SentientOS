@@ -57,7 +57,7 @@ def test_dashboard_cli(tmp_path, monkeypatch, capsys):
     assert "exp" in out
 
 
-def test_trial_autopromotion_and_demote(tmp_path, monkeypatch):
+def test_trial_autopromotion_and_demote(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     monkeypatch.setenv("REFLECTION_DIR", str(tmp_path / "logs"))
     import reflex_manager as rm
@@ -81,6 +81,14 @@ def test_trial_autopromotion_and_demote(tmp_path, monkeypatch):
     monkeypatch.setattr(actuator, "act", fail)
     rule.execute()
     assert rule.status == "inactive"
+
+    import reflex_dashboard as rd
+    importlib.reload(rd)
+    rd.st = None
+    monkeypatch.setattr(sys, "argv", ["rd", "--history", "T"])
+    rd.run_dashboard()
+    hist_out = capsys.readouterr().out
+    assert "\"rule\": \"T\"" in hist_out
 
 
 def test_cli_demote(tmp_path, monkeypatch, capsys):
@@ -139,4 +147,13 @@ def test_workflow_triggered_trials(tmp_path, monkeypatch, capsys):
     rd.run_dashboard()
     out = capsys.readouterr().out
     assert "wtest" in out
+
+    # experiment history should be recorded and viewable via CLI
+    monkeypatch.setattr(sys, "argv", ["rd", "--history", "wtest"])
+    rd.run_dashboard()
+    hist_out = capsys.readouterr().out
+    assert "\"rule\": \"wtest\"" in hist_out
+
+    exp = json.loads((tmp_path / "exp.json").read_text())
+    assert exp.get("wtest", {}).get("history")
 
