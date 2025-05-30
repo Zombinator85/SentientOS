@@ -120,6 +120,23 @@ class ReflexManager:
     def __init__(self) -> None:
         self.rules: List[ReflexRule] = []
 
+    def apply_analytics(self, analytics_data: Dict[str, Any]) -> None:
+        """Create reflex rules based on workflow analytics."""
+        usage = analytics_data.get("usage", {})
+        for wf, info in usage.items():
+            if info.get("failures", 0) >= 3:
+                rule = ReflexRule(
+                    OnDemandTrigger(),
+                    [{"type": "workflow", "name": wf}],
+                    name=f"retry_{wf}",
+                )
+                self.add_rule(rule)
+                mm.append_memory(
+                    json.dumps({"analysis": wf, "action": "retry"}),
+                    tags=["reflex", "analytics"],
+                    source="reflex",
+                )
+
     def add_rule(self, rule: ReflexRule) -> None:
         self.rules.append(rule)
 
