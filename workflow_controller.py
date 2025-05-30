@@ -52,6 +52,7 @@ def _log(event: str, payload: Dict[str, Any]) -> None:
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "event": event,
         "payload": payload,
+        "tag": "run:workflow" if event.startswith("workflow") else event,
     }
     with open(EVENT_PATH, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
