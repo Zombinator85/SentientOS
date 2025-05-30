@@ -53,6 +53,15 @@ def generate_review_requests(data: Dict[str, Any]) -> List[str]:
         if info.get("failures", 0) >= 3:
             reason = f"{info.get('failures')} failures"
             rr.log_request("workflow", wf, reason)
+            suggestion = f"Increase timeout for '{wf}'"
+            rationale = f"{info.get('failures')} failures out of {info.get('runs',1)} runs"
+            rr.log_policy_suggestion(
+                "workflow",
+                wf,
+                suggestion,
+                rationale,
+                policy="auto_timeout",
+            )
             flagged.append(wf)
     return flagged
 

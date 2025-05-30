@@ -638,4 +638,14 @@ python workflow_review.vote_review demo alice
 python workflow_review.vote_review demo bob
 ```
 
+New `suggestion_cli.py` manages collaborative policy suggestions:
+
+```bash
+python suggestion_cli.py list
+python suggestion_cli.py vote <id> --user alice
+python suggestion_cli.py comment <id> "needs more context" --user bob
+python suggestion_cli.py explain <id>
+python suggestion_cli.py accept <id>
+```
+
 Audit logs note who approved or dismissed each request so the collaborative decision trail is preserved.
