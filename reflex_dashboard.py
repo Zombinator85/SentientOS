@@ -46,6 +46,13 @@ def run_cli(args: argparse.Namespace) -> None:
         for l in logs:
             print(json.dumps(l))
 
+    if args.history:
+        data = load_experiments()
+        info = data.get(args.history)
+        if info:
+            for entry in info.get("history", [])[-10:]:
+                print(json.dumps(entry))
+
 
 def run_dashboard() -> None:
     if st is None:
@@ -55,6 +62,7 @@ def run_dashboard() -> None:
         ap.add_argument("--promote")
         ap.add_argument("--demote")
         ap.add_argument("--revert", action="store_true")
+        ap.add_argument("--history")
         args = ap.parse_args()
         run_cli(args)
         return
@@ -69,6 +77,9 @@ def run_dashboard() -> None:
         for idx, (r, stats) in enumerate(info.get("rules", {}).items()):
             rate = stats.get("success", 0) / max(1, stats.get("trials", 1))
             cols[idx].metric(r, f"{rate:.2f}", f"{stats.get('trials',0)} trials")
+        with st.expander("History"):
+            for entry in info.get("history", [])[-10:]:
+                st.json(entry)
 
     st.header("Recent Learning Events")
     logs = rs.recent_reflex_learn(20)

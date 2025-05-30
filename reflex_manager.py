@@ -18,6 +18,15 @@ from api import actuator
 import memory_manager as mm
 import reflection_stream as rs
 
+DEFAULT_MANAGER: "ReflexManager | None" = None
+
+def set_default_manager(manager: "ReflexManager") -> None:
+    global DEFAULT_MANAGER
+    DEFAULT_MANAGER = manager
+
+def get_default_manager() -> "ReflexManager | None":
+    return DEFAULT_MANAGER
+
 
 panic_event = threading.Event()
 
@@ -106,7 +115,7 @@ class ReflexRule:
     def stop(self) -> None:
         self.trigger.stop()
 
-    def execute(self, agent: str | None = None, persona: str | None = None) -> None:
+    def execute(self, agent: str | None = None, persona: str | None = None) -> bool:
         if panic_event.is_set():
             return
         success = True
@@ -124,7 +133,7 @@ class ReflexRule:
         duration = time.time() - start
         if self.manager:
             self.manager.record_trial(self, success, duration, agent=agent, persona=persona)
-
+        return success
 
 class ReflexManager:
     """Manage a collection of reflex rules."""
@@ -169,6 +178,19 @@ class ReflexManager:
     def add_rule(self, rule: ReflexRule) -> None:
         rule.manager = self
         self.rules.append(rule)
+
+    def execute_rule(
+        self,
+        name: str,
+        *,
+        agent: str | None = None,
+        persona: str | None = None,
+    ) -> bool:
+        """Execute a rule by name and record a trial."""
+        rule = next((r for r in self.rules if r.name == name), None)
+        if not rule:
+            raise ValueError(name)
+        return rule.execute(agent=agent, persona=persona)
 
     def start(self) -> None:
         self.load_experiments()
@@ -260,9 +282,8 @@ class ReflexManager:
         for rule in (rule_a, rule_b):
             start = time.time()
             try:
-                rule.execute()
-                results[rule.name] = "ok"
-                success = True
+                success = rule.execute()
+                results[rule.name] = "ok" if success else "fail"
             except Exception as e:  # pragma: no cover - defensive
                 results[rule.name] = str(e)
                 success = False
@@ -352,6 +373,7 @@ if __name__ == "__main__":  # pragma: no cover - CLI usage
     args = parser.parse_args()
 
     mgr = ReflexManager()
+    set_default_manager(mgr)
     for r in load_rules(args.config):
         mgr.add_rule(r)
     print(f"Loaded {len(mgr.rules)} rules")
