@@ -46,3 +46,26 @@ def test_cli_explain(tmp_path, monkeypatch, capsys):
     sc.main()
     out = capsys.readouterr().out
     assert "why" in out
+
+
+def test_chained_and_provenance(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    sid = rr.log_policy_suggestion("workflow", "demo", "x", "why", agent="alice")
+    rr.implement_request(sid)
+    rr.comment_request(sid, "bob", "fail again")
+    chain = rr.get_chain(sid)
+    assert len(chain) == 2
+    prov = rr.get_provenance(sid)
+    acts = [p["action"] for p in prov]
+    assert "create" in acts and "implement" in acts
+
+
+def test_rationale_refinement(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    sid = rr.log_policy_suggestion("workflow", "demo", "x", "why")
+    rr.vote_request(sid, "alice", True)
+    rr.vote_request(sid, "bob", False)
+    rr.comment_request(sid, "carol", "needs more work")
+    info = rr.get_request(sid)
+    assert info["refined"]
+    assert info["rationale_log"]
