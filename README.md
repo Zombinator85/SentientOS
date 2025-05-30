@@ -463,3 +463,17 @@ steps:
 Use `--load` to read scripts, `--list-workflows` to see them, `--run-workflow <name>` to execute, and `--edit-workflow <name>` to open the file in `$EDITOR`.
 
 Workflows integrate with policy and reflection just like individual controller actions.
+
+### Workflow Library & Auto-Healing
+
+`workflow_library.py` manages a folder of reusable workflow templates. Use the CLI to explore and load templates:
+
+```bash
+python workflow_library.py list
+python workflow_library.py preview greet_user
+python workflow_library.py load greet_user --params '{"username":"Ada","file":"/tmp/out.txt"}'
+```
+
+Templates can include placeholders like `{username}` that are filled when loading. The optional `workflow_editor.py` provides a simple menu-driven editor with validation for modifying templates in place.
+
+The `SelfHealingManager` now monitors workflow failures. If a step fails three times in a row an auto-heal patch marks the step as `skip: true` and a reflection entry is saved. You can review these suggestions in the memory CLI or dashboard.
