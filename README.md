@@ -477,3 +477,22 @@ python workflow_library.py load greet_user --params '{"username":"Ada","file":"/
 Templates can include placeholders like `{username}` that are filled when loading. The optional `workflow_editor.py` provides a simple menu-driven editor with validation for modifying templates in place.
 
 The `SelfHealingManager` now monitors workflow failures. If a step fails three times in a row an auto-heal patch marks the step as `skip: true` and a reflection entry is saved. You can review these suggestions in the memory CLI or dashboard.
+
+### Workflow Dashboard & Suggestions
+
+`workflow_dashboard.py` offers a visual overview of all workflow templates. Launch
+the full UI with Streamlit or fall back to the CLI mode:
+
+```bash
+streamlit run workflow_dashboard.py
+# or without Streamlit
+python workflow_dashboard.py --list
+```
+
+You can browse and filter templates, view step diagrams, and inspect execution
+metrics. Auto-healed templates appear in a pending review list where you can
+accept or revert the changes after comparing the diff.
+
+The helper `workflow_library.suggest_workflow(goal)` generates a starting
+template for common goals like *reset workspace* or *archive logs*. Edit the
+suggested steps in the dashboard or with `workflow_editor.py` before saving.

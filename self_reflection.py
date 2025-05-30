@@ -115,6 +115,11 @@ class SelfHealingManager:
             else:
                 new_text = json.dumps(data, indent=2)
             path.write_text(new_text, encoding="utf-8")
+            try:
+                import workflow_review as wr
+                wr.flag_for_review(wf, text, new_text)
+            except Exception:
+                pass
         except Exception:
             pass
 
