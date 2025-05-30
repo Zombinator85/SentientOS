@@ -13,6 +13,8 @@ except Exception:  # pragma: no cover - optional
 import workflow_library as wl
 import workflow_controller as wc
 import workflow_review as wr
+import workflow_analytics as wa
+import workflow_recommendation as rec
 
 try:  # optional deps
     import streamlit as st  # type: ignore
@@ -84,6 +86,14 @@ def run_cli(args: argparse.Namespace) -> None:
         for n in wr.list_pending():
             print("pending:", n)
         return
+    if args.analytics:
+        print(json.dumps(wa.analytics(), indent=2))
+        return
+    if args.recommend:
+        data = wa.analytics()
+        for line in rec.recommend_workflows(data):
+            print("-", line)
+        return
 
 
 def run_dashboard() -> None:
@@ -92,6 +102,8 @@ def run_dashboard() -> None:
         ap.add_argument("--list", action="store_true")
         ap.add_argument("--metrics", action="store_true")
         ap.add_argument("--review", action="store_true")
+        ap.add_argument("--analytics", action="store_true")
+        ap.add_argument("--recommend", action="store_true")
         args = ap.parse_args()
         run_cli(args)
         return
@@ -105,38 +117,50 @@ def run_dashboard() -> None:
         names = [n for n in names if search.lower() in n.lower()]
     selected = st.sidebar.selectbox("Workflow", names) if names else None
 
-    if selected:
-        fp = wl.get_template_path(selected)
-        if fp:
-            text = fp.read_text(encoding="utf-8")
-            if fp.suffix in {".yml", ".yaml"}:
-                data = yaml.safe_load(text) if yaml else wc._load_yaml(text)
-            else:
-                data = json.loads(text)
-            steps = data.get("steps", [])
-            st.subheader("Steps")
-            if graphviz is not None:
-                src = visualize_steps(steps)
-                st.graphviz_chart(src)
-            st.json(steps)
-            metrics = load_metrics(selected)
-            st.subheader("Metrics")
-            st.write(metrics)
-            if selected in wr.list_pending():
-                info = wr.load_review(selected)
-                if info:
-                    st.subheader("Review auto-heal")
-                    st.text_area("Before", info.get("before", ""), height=150)
-                    st.text_area("After", info.get("after", ""), height=150)
-                    col1, col2 = st.columns(2)
-                    if col1.button("Accept"):
-                        wr.accept_review(selected)
-                        st.experimental_rerun()
-                    if col2.button("Revert"):
-                        wr.revert_review(selected)
-                        st.experimental_rerun()
-    else:
-        st.write("No workflows found")
+    tabs = st.tabs(["Details", "Analytics", "Recommendations"])
+    with tabs[0]:
+        if selected:
+            fp = wl.get_template_path(selected)
+            if fp:
+                text = fp.read_text(encoding="utf-8")
+                if fp.suffix in {".yml", ".yaml"}:
+                    data = yaml.safe_load(text) if yaml else wc._load_yaml(text)
+                else:
+                    data = json.loads(text)
+                steps = data.get("steps", [])
+                st.subheader("Steps")
+                if graphviz is not None:
+                    src = visualize_steps(steps)
+                    st.graphviz_chart(src)
+                st.json(steps)
+                metrics = load_metrics(selected)
+                st.subheader("Metrics")
+                st.write(metrics)
+                if selected in wr.list_pending():
+                    info = wr.load_review(selected)
+                    if info:
+                        st.subheader("Review auto-heal")
+                        st.text_area("Before", info.get("before", ""), height=150)
+                        st.text_area("After", info.get("after", ""), height=150)
+                        col1, col2 = st.columns(2)
+                        if col1.button("Accept"):
+                            wr.accept_review(selected)
+                            st.experimental_rerun()
+                        if col2.button("Revert"):
+                            wr.revert_review(selected)
+                            st.experimental_rerun()
+        else:
+            st.write("No workflows found")
+
+    with tabs[1]:
+        st.subheader("Usage Analytics")
+        st.json(wa.analytics())
+
+    with tabs[2]:
+        st.subheader("Recommendations")
+        data = wa.analytics()
+        for line in rec.recommend_workflows(data):
+            st.write("-", line)
 
     st.sidebar.markdown("## Pending Reviews")
     for wf in wr.list_pending():
