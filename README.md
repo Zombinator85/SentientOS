@@ -496,3 +496,36 @@ accept or revert the changes after comparing the diff.
 The helper `workflow_library.suggest_workflow(goal)` generates a starting
 template for common goals like *reset workspace* or *archive logs*. Edit the
 suggested steps in the dashboard or with `workflow_editor.py` before saving.
+
+### Workflow Analytics & Recommendations
+
+`workflow_analytics.py` parses the workflow event log to compute run counts,
+average durations, failure rates, and policy denials. View the data via the
+dashboard or from the CLI:
+
+```bash
+python workflow_dashboard.py --analytics
+```
+
+The recommendation engine (`workflow_recommendation.py`) surfaces neglected or
+failing workflows and proposes optimizations:
+
+```bash
+python workflow_dashboard.py --recommend
+```
+
+When Streamlit is installed these features appear as extra tabs within the
+workflow dashboard, showing JSON statistics and a list of suggestions.
+
+![analytics screenshot](docs/workflow_analytics.png)
+
+### AI-Assisted Editing
+
+The interactive `workflow_editor.py` now includes an **AI edit** option. The
+model reviews the current steps and proposes reordered or renamed versions. You
+can accept or dismiss the changes; every edit is logged to
+`logs/workflow_audit.jsonl` with a timestamp.
+
+```bash
+python workflow_editor.py workflows/demo.json
+```
