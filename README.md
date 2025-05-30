@@ -550,3 +550,19 @@ python workflow_controller.py --run-workflow demo --agent diagnostic_bot
 Review proposals with `workflow_review.comment_review()` and vote on them from
 the CLI or dashboard. Use analytics to route a failing workflow from one persona
 to another.
+
+### Reflex Optimization Loops & Review Dashboard
+
+`reflex_manager.py` now keeps metrics for every A/B experiment. After a
+configurable number of trials the manager automatically promotes the winning
+reflex and demotes the rest. Promotions, demotions, and reversions are logged to
+`logs/reflections/reflex_learn.jsonl` and surfaced in the new
+`reflex_dashboard.py`.
+
+```bash
+python reflex_dashboard.py --log 5
+```
+
+The dashboard lists active experiments with success rates and provides buttons
+to promote, reject, or revert a rule. Every action records an audit trail so
+changes can be rolled back at any time.
