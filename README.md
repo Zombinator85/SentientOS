@@ -566,3 +566,12 @@ python reflex_dashboard.py --log 5
 The dashboard lists active experiments with success rates and provides buttons
 to promote, reject, or revert a rule. Every action records an audit trail so
 changes can be rolled back at any time.
+
+CLI examples:
+
+```bash
+python reflex_dashboard.py --list-experiments
+python reflex_dashboard.py --promote my_rule
+python reflex_dashboard.py --demote my_rule
+python reflex_dashboard.py --revert
+```
