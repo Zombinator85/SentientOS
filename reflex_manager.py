@@ -169,6 +169,8 @@ class ReflexManager:
         persona: Optional[str] = None,
         experiment: Optional[str] = None,
         comment: str = "",
+        policy: Optional[str] = None,
+        reviewer: Optional[str] = None,
         tags: Optional[List[str]] = None,
         prev: Optional[str] = None,
         current: Optional[str] = None,
@@ -181,6 +183,8 @@ class ReflexManager:
             "persona": persona,
             "experiment": experiment,
             "comment": comment,
+            "policy": policy,
+            "reviewer": reviewer,
             "tags": tags or [],
         }
         if prev is not None:
@@ -229,6 +233,8 @@ class ReflexManager:
         by: str = "user",
         persona: Optional[str] = None,
         experiment: Optional[str] = None,
+        policy: Optional[str] = None,
+        reviewer: Optional[str] = None,
     ) -> None:
         """Add an annotation/comment to a reflex experiment."""
         self._audit(
@@ -238,6 +244,8 @@ class ReflexManager:
             persona=persona,
             experiment=experiment,
             comment=comment,
+            policy=policy,
+            reviewer=reviewer,
             tags=tags,
         )
 
@@ -361,7 +369,16 @@ class ReflexManager:
         rs.log_reflex_learn({"ab_test": [rule_a.name, rule_b.name], "results": results})
         return rule_a if results.get(rule_a.name) == "ok" else rule_b
 
-    def promote_rule(self, name: str, by: str = "system", experiment: str | None = None) -> None:
+    def promote_rule(
+        self,
+        name: str,
+        *,
+        by: str = "system",
+        persona: Optional[str] = None,
+        experiment: str | None = None,
+        policy: Optional[str] = None,
+        reviewer: Optional[str] = None,
+    ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
             return
@@ -375,14 +392,26 @@ class ReflexManager:
             "promote",
             name,
             by=by,
+            persona=persona,
             experiment=experiment,
+            policy=policy,
+            reviewer=reviewer,
             tags=None,
             prev=prev,
             current="preferred",
         )
         self.save_experiments()
 
-    def demote_rule(self, name: str, by: str = "system", experiment: str | None = None) -> None:
+    def demote_rule(
+        self,
+        name: str,
+        *,
+        by: str = "system",
+        persona: Optional[str] = None,
+        experiment: str | None = None,
+        policy: Optional[str] = None,
+        reviewer: Optional[str] = None,
+    ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
             return
@@ -396,7 +425,10 @@ class ReflexManager:
             "demote",
             name,
             by=by,
+            persona=persona,
             experiment=experiment,
+            policy=policy,
+            reviewer=reviewer,
             tags=None,
             prev=prev,
             current="inactive",
@@ -448,8 +480,16 @@ class ReflexManager:
             hist.extend(info.get("history", []))
         return hist
 
-    def get_audit(self, target: str | None = None) -> List[Dict[str, Any]]:
-        """Return audit trail entries, optionally filtered by rule/experiment."""
+    def get_audit(
+        self,
+        target: str | None = None,
+        *,
+        agent: Optional[str] = None,
+        persona: Optional[str] = None,
+        policy: Optional[str] = None,
+        action: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Return audit trail entries with optional filters."""
         if not self.AUDIT_LOG.exists():
             return []
         lines = self.AUDIT_LOG.read_text(encoding="utf-8").splitlines()
@@ -462,6 +502,14 @@ class ReflexManager:
             out.append(entry)
         if target:
             out = [e for e in out if e.get("rule") == target or e.get("experiment") == target]
+        if agent:
+            out = [e for e in out if e.get("by") == agent]
+        if persona:
+            out = [e for e in out if e.get("persona") == persona]
+        if policy:
+            out = [e for e in out if e.get("policy") == policy]
+        if action:
+            out = [e for e in out if e.get("action") == action]
         return out
 
     def stop(self) -> None:

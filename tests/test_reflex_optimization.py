@@ -101,7 +101,7 @@ def test_cli_demote(tmp_path, monkeypatch, capsys):
     rd.st = None
     called = {}
 
-    def fake_demote(self, name, by="system", experiment=None):
+    def fake_demote(self, name, *, by="system", persona=None, experiment=None, policy=None, reviewer=None):
         called["name"] = name
 
     monkeypatch.setattr(rm.ReflexManager, "demote_rule", fake_demote)
