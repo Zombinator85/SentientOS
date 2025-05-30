@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import json
 import threading
@@ -56,9 +58,9 @@ class OnDemandTrigger(BaseTrigger):
     def start(self, callback: Callable[[], None]) -> None:
         self._callback = callback
 
-    def fire(self) -> None:
+    def fire(self, agent: str | None = None, persona: str | None = None) -> None:
         if hasattr(self, "_callback") and not panic_event.is_set():
-            self._callback()
+            self._callback(agent=agent, persona=persona)
 
 
 class FileChangeTrigger(BaseTrigger):
@@ -96,6 +98,7 @@ class ReflexRule:
         self.name = name
         self.preferred = preferred
         self.status = "preferred" if preferred else "candidate"
+        self.manager: "ReflexManager | None" = None
 
     def start(self) -> None:
         self.trigger.start(self.execute)
@@ -103,18 +106,24 @@ class ReflexRule:
     def stop(self) -> None:
         self.trigger.stop()
 
-    def execute(self) -> None:
+    def execute(self, agent: str | None = None, persona: str | None = None) -> None:
         if panic_event.is_set():
             return
+        success = True
+        start = time.time()
         for action in self.actions:
             try:
                 actuator.act(action)
             except Exception as e:  # pragma: no cover - defensive
+                success = False
                 mm.append_memory(
                     json.dumps({"error": str(e), "intent": action}),
                     tags=["reflex", "error"],
                     source="reflex",
                 )
+        duration = time.time() - start
+        if self.manager:
+            self.manager.record_trial(self, success, duration, agent=agent, persona=persona)
 
 
 class ReflexManager:
@@ -158,6 +167,7 @@ class ReflexManager:
                 )
 
     def add_rule(self, rule: ReflexRule) -> None:
+        rule.manager = self
         self.rules.append(rule)
 
     def start(self) -> None:
@@ -174,20 +184,57 @@ class ReflexManager:
                 rs.log_reflex_learn({"proposal": proposal})
 
     # ------------------------------------------------------------------
-    def _record_result(self, exp: str, rule: ReflexRule, success: bool, duration: float) -> None:
-        data = self.experiments.setdefault(exp, {"rules": {}, "history": []})
-        rdata = data["rules"].setdefault(rule.name, {"trials": 0, "success": 0, "fail": 0, "durations": []})
+    def record_trial(
+        self,
+        rule: ReflexRule,
+        success: bool,
+        duration: float,
+        *,
+        experiment: str | None = None,
+        agent: str | None = None,
+        persona: str | None = None,
+    ) -> None:
+        """Record a single rule execution."""
+        exp = experiment or rule.name
+        data = self.experiments.setdefault(exp, {"rules": {}, "history": [], "status": "running"})
+        rdata = data["rules"].setdefault(
+            rule.name,
+            {"trials": 0, "success": 0, "fail": 0, "durations": [], "agents": {}, "personas": {}},
+        )
         rdata["trials"] += 1
         rdata["durations"].append(duration)
         if success:
             rdata["success"] += 1
         else:
             rdata["fail"] += 1
-        data["history"].append({"rule": rule.name, "success": success, "duration": duration})
+        if agent:
+            rdata["agents"][agent] = rdata["agents"].get(agent, 0) + 1
+        if persona:
+            rdata["personas"][persona] = rdata["personas"].get(persona, 0) + 1
+        entry = {
+            "rule": rule.name,
+            "success": success,
+            "duration": duration,
+            "agent": agent,
+            "persona": persona,
+        }
+        data["history"].append(entry)
+        self.save_experiments()
+        rs.log_reflex_learn({"trial": entry, "experiment": exp})
+
+        if not rule.preferred and rdata["success"] >= self.autopromote_trials:
+            self.promote_rule(rule.name, by="system", experiment=exp)
+            data["status"] = "promoted"
+        if rule.preferred and rdata["fail"] >= self.autopromote_trials:
+            self.demote_rule(rule.name, by="system", experiment=exp)
+            data["status"] = "demoted"
         self.save_experiments()
 
-        # auto promote if threshold reached
-        if all(info.get("trials", 0) >= self.autopromote_trials for info in data["rules"].values()):
+    # ------------------------------------------------------------------
+    def _record_result(self, exp: str, rule: ReflexRule, success: bool, duration: float) -> None:
+        self.record_trial(rule, success, duration, experiment=exp)
+        data = self.experiments.get(exp)
+        if data and all(info.get("trials", 0) >= self.autopromote_trials for info in data["rules"].values()):
             self._auto_promote(exp)
 
     def _auto_promote(self, exp: str) -> None:
