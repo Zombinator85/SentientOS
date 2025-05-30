@@ -59,6 +59,7 @@ def log_policy_suggestion(
     persona: Optional[str] = None,
     policy: Optional[str] = None,
     assign: Optional[str] = None,
+    previous: Optional[str] = None,
 ) -> str:
     """Create a policy/reflex suggestion with rationale."""
     entry_id = uuid.uuid4().hex[:8]
@@ -73,6 +74,9 @@ def log_policy_suggestion(
         "persona": persona,
         "policy": policy,
         "assigned": assign,
+        "previous": previous,
+        "rationale_log": [],
+        "refined": False,
         "status": "pending",
         "votes": {},
         "comments": [],
@@ -110,6 +114,21 @@ def _rewrite(entries: List[Dict[str, Any]]) -> None:
     REQUESTS_FILE.write_text("\n".join(json.dumps(e, ensure_ascii=False) for e in entries) + "\n", encoding="utf-8")
 
 
+def _refine_rationale(entry: Dict[str, Any]) -> bool:
+    """Update rationale summary based on votes/comments."""
+    up = sum(1 for v in entry.get("votes", {}).values() if v > 0)
+    down = sum(1 for v in entry.get("votes", {}).values() if v < 0)
+    com = len(entry.get("comments", []))
+    summary = f"{up} upvotes, {down} downvotes, {com} comments"
+    log = entry.setdefault("rationale_log", [])
+    if log and log[-1].get("summary") == summary:
+        return False
+    log.append({"summary": summary, "timestamp": datetime.datetime.utcnow().isoformat()})
+    entry["rationale"] = entry.get("rationale", "") + f"\nRefined: {summary}"
+    entry["refined"] = True
+    return True
+
+
 def comment_request(request_id: str, user: str, text: str) -> bool:
     entries = list_requests()
     changed = False
@@ -122,6 +141,20 @@ def comment_request(request_id: str, user: str, text: str) -> bool:
             })
             changed = True
             _audit("comment", request_id, by=user)
+            if _refine_rationale(e):
+                _audit("rationale_refine", request_id)
+            if e.get("status") in {"implemented", "dismissed"} and any(k in text.lower() for k in ["fail", "issue", "again"]):
+                new_id = chain_suggestion(
+                    request_id,
+                    f"Follow-up to {request_id}",
+                    text,
+                    agent=e.get("agent"),
+                    persona=e.get("persona"),
+                    policy=e.get("policy"),
+                )
+                new_entry = get_request(new_id)
+                if new_entry:
+                    entries.append(new_entry)
     if changed:
         _rewrite(entries)
     return changed
@@ -140,6 +173,8 @@ def vote_request(request_id: str, user: str, upvote: bool = True, threshold: int
                 _audit("auto_approve", request_id)
             changed = True
             _audit("vote", request_id, by=user, value=1 if upvote else -1)
+            if _refine_rationale(e):
+                _audit("rationale_refine", request_id)
     if changed:
         _rewrite(entries)
     return changed
@@ -195,3 +230,46 @@ def dismiss_request(request_id: str) -> bool:
         _audit("dismiss", request_id)
         return True
     return False
+
+
+def chain_suggestion(
+    previous_id: str,
+    suggestion: str,
+    rationale: str,
+    *,
+    agent: Optional[str] = None,
+    persona: Optional[str] = None,
+    policy: Optional[str] = None,
+) -> str:
+    prev = get_request(previous_id)
+    target = prev.get("target") if prev else ""
+    sid = log_policy_suggestion(
+        prev.get("kind", "workflow") if prev else "workflow",
+        target,
+        suggestion,
+        rationale,
+        agent=agent,
+        persona=persona,
+        policy=policy,
+        previous=previous_id,
+    )
+    _audit("chain", sid, previous=previous_id)
+    return sid
+
+
+def get_chain(start_id: str) -> List[Dict[str, Any]]:
+    chain: List[Dict[str, Any]] = []
+    lookup = {e["id"]: e for e in list_requests()}
+    cur = lookup.get(start_id)
+    while cur:
+        chain.append(cur)
+        nxt = next((v for v in lookup.values() if v.get("previous") == cur["id"]), None)
+        cur = nxt
+    return chain
+
+
+def get_provenance(request_id: str) -> List[Dict[str, Any]]:
+    if not AUDIT_FILE.exists():
+        return []
+    lines = AUDIT_FILE.read_text(encoding="utf-8").splitlines()
+    return [json.loads(l) for l in lines if json.loads(l).get("request") == request_id]
