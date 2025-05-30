@@ -4,10 +4,16 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict
 
+try:
+    import yaml  # type: ignore
+except Exception:  # pragma: no cover - optional
+    yaml = None
+
 import memory_manager as mm
 import notification
 import self_patcher
 from api import actuator
+import workflow_controller
 
 STATE_PATH = mm.MEMORY_DIR / "self_reflection_state.json"
 STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -33,6 +39,7 @@ class SelfHealingManager:
         self.state = _load_state()
         self.last_event_ts = self.state.get("last_event_ts")
         self.last_log_id = self.state.get("last_log_id")
+        self.failure_counts = self.state.get("wf_failures", {})
 
     def _record(self, parent: str, reason: str, next_step: str | None = None) -> None:
         mm.save_reflection(parent=parent, intent={}, result=None, reason=reason, next_step=next_step, plugin="self_heal")
@@ -70,6 +77,16 @@ class SelfHealingManager:
             if event.get("status") != "ok":
                 reason = f"System control failure: {event.get('error', '')}"
                 self._record(parent, reason, next_step="undo")
+        elif name == "workflow.step" and payload.get("status") == "failed":
+            wf = payload.get("workflow")
+            step = payload.get("step")
+            key = f"{wf}:{step}"
+            count = self.failure_counts.get(key, 0) + 1
+            self.failure_counts[key] = count
+            if count >= 3:
+                self._record(parent, f"Auto-heal {key}", next_step="auto_heal")
+                self._auto_heal_workflow(wf, step)
+                self.failure_counts[key] = 0
 
     def process_events(self) -> None:
         events = notification.list_events(20)
@@ -80,10 +97,32 @@ class SelfHealingManager:
             self.last_event_ts = ts
             self._handle_event(ev)
 
+    def _auto_heal_workflow(self, wf: str, step: str) -> None:
+        path = workflow_controller.WORKFLOW_FILES.get(wf)
+        if not path:
+            return
+        try:
+            text = path.read_text(encoding="utf-8")
+            if path.suffix in {".yml", ".yaml"}:
+                data = yaml.safe_load(text) if yaml else workflow_controller._load_yaml(text)
+            else:
+                data = json.loads(text)
+            for st in data.get("steps", []):
+                if st.get("name") == step:
+                    st["skip"] = True
+            if path.suffix in {".yml", ".yaml"} and yaml:
+                new_text = yaml.safe_dump(data)
+            else:
+                new_text = json.dumps(data, indent=2)
+            path.write_text(new_text, encoding="utf-8")
+        except Exception:
+            pass
+
     def run_cycle(self) -> None:
         # Process events first so log-based reflections remain the most recent
         self.process_events()
         self.process_logs()
         self.state["last_event_ts"] = self.last_event_ts
         self.state["last_log_id"] = self.last_log_id
+        self.state["wf_failures"] = self.failure_counts
         _save_state(self.state)
