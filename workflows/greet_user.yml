@@ -1,0 +1,11 @@
+name: greet_user
+steps:
+  - name: save
+    action: api.actuator.file_write
+    params:
+      path: "{file}"
+      content: "hello {username}"
+    undo: api.actuator.file_write
+    undo_params:
+      path: "{file}"
+      content: ""
