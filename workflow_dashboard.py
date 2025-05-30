@@ -15,6 +15,7 @@ import workflow_controller as wc
 import workflow_review as wr
 import workflow_analytics as wa
 import workflow_recommendation as rec
+import review_requests as rr
 import notification
 
 try:  # optional deps
@@ -100,6 +101,13 @@ def run_cli(args: argparse.Namespace) -> None:
         for line in rec.recommend_workflows(data):
             print("-", line)
         return
+    if args.review_requests:
+        data = wa.analytics()
+        for wf in rec.generate_review_requests(data):
+            print("flagged", wf)
+        for r in rr.list_requests("pending"):
+            print(json.dumps(r))
+        return
     if args.feedback:
         record_feedback(args.feedback, not args.negative)
         print("feedback recorded")
@@ -114,6 +122,7 @@ def run_dashboard() -> None:
         ap.add_argument("--review", action="store_true")
         ap.add_argument("--analytics", action="store_true")
         ap.add_argument("--recommend", action="store_true")
+        ap.add_argument("--review-requests", action="store_true")
         ap.add_argument("--feedback")
         ap.add_argument("--negative", action="store_true")
         args = ap.parse_args()
@@ -181,6 +190,9 @@ def run_dashboard() -> None:
     st.sidebar.markdown("## Pending Reviews")
     for wf in wr.list_pending():
         st.sidebar.write(wf)
+    st.sidebar.markdown("## Review Requests")
+    for req in rr.list_requests("pending"):
+        st.sidebar.write(f"{req['kind']}: {req['target']}")
     st.sidebar.write("Reload to refresh")
 
 
