@@ -47,7 +47,17 @@ def _load_yaml(text: str) -> Dict[str, Any]:
     return data
 
 
-def _log(event: str, payload: Dict[str, Any]) -> None:
+def _log(
+    event: str,
+    payload: Dict[str, Any],
+    *,
+    agent: Optional[str] = None,
+    persona: Optional[str] = None,
+) -> None:
+    if agent:
+        payload["agent"] = agent
+    if persona:
+        payload["persona"] = persona
     entry = {
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "event": event,
@@ -138,17 +148,31 @@ def load_workflows(path: str) -> None:
         load_workflow_file(str(p))
 
 
-def _undo_steps(steps: List[Step], wf: str) -> None:
+def _undo_steps(
+    steps: List[Step], wf: str, *, agent: Optional[str] = None, persona: Optional[str] = None
+) -> None:
     for step in steps:
         undo = step.get("undo")
         if callable(undo):
             try:
                 undo()
-                _log("workflow.undo", {"workflow": wf, "step": step.get("name"), "status": "ok"})
+                _log(
+                    "workflow.undo",
+                    {"workflow": wf, "step": step.get("name"), "status": "ok"},
+                    agent=agent,
+                    persona=persona,
+                )
             except Exception as e:  # pragma: no cover - defensive
                 _log(
                     "workflow.undo",
-                    {"workflow": wf, "step": step.get("name"), "status": "failed", "error": str(e)},
+                    {
+                        "workflow": wf,
+                        "step": step.get("name"),
+                        "status": "failed",
+                        "error": str(e),
+                    },
+                    agent=agent,
+                    persona=persona,
                 )
         try:
             _HISTORY.remove((wf, step))
@@ -161,10 +185,12 @@ def run_workflow(
     *,
     policy_engine: Optional["PolicyEngine"] = None,
     auto_undo: bool = True,
+    agent: Optional[str] = None,
+    persona: Optional[str] = None,
 ) -> bool:
     steps = WORKFLOWS.get(name, [])
     executed: List[Step] = []
-    _log("workflow.start", {"workflow": name})
+    _log("workflow.start", {"workflow": name}, agent=agent, persona=persona)
     for step in steps:
         ev_name = step.get("policy_event") or f"workflow.{name}.{step.get('name', '')}"
         if policy_engine:
@@ -173,6 +199,8 @@ def run_workflow(
                 _log(
                     "workflow.step",
                     {"workflow": name, "step": step.get("name"), "status": "denied"},
+                    agent=agent,
+                    persona=persona,
                 )
                 for fn in step.get("on_fail", []):
                     try:
@@ -180,19 +208,36 @@ def run_workflow(
                     except Exception:
                         pass
                 if auto_undo:
-                    _undo_steps(list(reversed(executed)), name)
-                _log("workflow.end", {"workflow": name, "status": "denied"})
+                    _undo_steps(list(reversed(executed)), name, agent=agent, persona=persona)
+                _log(
+                    "workflow.end",
+                    {"workflow": name, "status": "denied"},
+                    agent=agent,
+                    persona=persona,
+                )
                 return False
         try:
             fn: Callable[[], Any] = step.get("action", lambda: None)
             fn()
             executed.append(step)
             _HISTORY.append((name, step))
-            _log("workflow.step", {"workflow": name, "step": step.get("name"), "status": "ok"})
+            _log(
+                "workflow.step",
+                {"workflow": name, "step": step.get("name"), "status": "ok"},
+                agent=agent,
+                persona=persona,
+            )
         except Exception as e:
             _log(
                 "workflow.step",
-                {"workflow": name, "step": step.get("name"), "status": "failed", "error": str(e)},
+                {
+                    "workflow": name,
+                    "step": step.get("name"),
+                    "status": "failed",
+                    "error": str(e),
+                },
+                agent=agent,
+                persona=persona,
             )
             for fn in step.get("on_fail", []):
                 try:
@@ -200,10 +245,15 @@ def run_workflow(
                 except Exception:
                     pass
             if auto_undo:
-                _undo_steps(list(reversed(executed)), name)
-            _log("workflow.end", {"workflow": name, "status": "failed"})
+                _undo_steps(list(reversed(executed)), name, agent=agent, persona=persona)
+            _log(
+                "workflow.end",
+                {"workflow": name, "status": "failed"},
+                agent=agent,
+                persona=persona,
+            )
             return False
-    _log("workflow.end", {"workflow": name, "status": "ok"})
+    _log("workflow.end", {"workflow": name, "status": "ok"}, agent=agent, persona=persona)
     return True
 
 
@@ -267,6 +317,8 @@ if __name__ == "__main__":  # pragma: no cover - CLI
     parser.add_argument("--undo", type=int, default=0)
     parser.add_argument("--review", action="store_true")
     parser.add_argument("--policy")
+    parser.add_argument("--agent")
+    parser.add_argument("--persona")
     args = parser.parse_args()
 
     engine = PolicyEngine(args.policy) if args.policy and PolicyEngine else None
@@ -278,7 +330,12 @@ if __name__ == "__main__":  # pragma: no cover - CLI
             src = WORKFLOW_FILES.get(wf)
             print(f"{wf} -> {src}")
     if args.run_workflow:
-        if run_workflow(args.run_workflow, policy_engine=engine):
+        if run_workflow(
+            args.run_workflow,
+            policy_engine=engine,
+            agent=args.agent,
+            persona=args.persona,
+        ):
             print("workflow finished")
         else:
             print("workflow failed")
@@ -295,7 +352,7 @@ if __name__ == "__main__":  # pragma: no cover - CLI
     if args.undo:
         undo_last(args.undo)
     if args.run:
-        if run_workflow(args.run, policy_engine=engine):
+        if run_workflow(args.run, policy_engine=engine, agent=args.agent, persona=args.persona):
             print("workflow finished")
         else:
             print("workflow failed")
