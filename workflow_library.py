@@ -66,6 +66,33 @@ def clone_template(name: str, dest: str) -> Path:
     return dest_path
 
 
+def suggest_workflow(goal: str) -> Dict[str, Any]:
+    """Return a very simple workflow suggestion based on ``goal``."""
+    goal_l = goal.lower()
+    for name in list_templates():
+        if name.replace("_", " ") in goal_l:
+            fp = get_template_path(name)
+            if fp:
+                try:
+                    text = fp.read_text(encoding="utf-8")
+                    if fp.suffix in {".yml", ".yaml"}:
+                        return yaml.safe_load(text) if yaml else wc._load_yaml(text)
+                    if fp.suffix == ".json":
+                        return json.loads(text)
+                except Exception:
+                    pass
+    return {
+        "name": goal_l.replace(" ", "_")[:20],
+        "steps": [
+            {
+                "name": "note",
+                "action": "builtins.print",  # placeholder
+                "params": {"text": goal},
+            }
+        ],
+    }
+
+
 def save_template(src: str, name: Optional[str] = None) -> Path:
     src_path = Path(src)
     if not src_path.exists():
