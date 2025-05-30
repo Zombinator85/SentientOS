@@ -432,17 +432,34 @@ Undo the last executed steps:
 python workflow_controller.py --undo 2
 ```
 
-The `review_workflow_logs()` helper inspects recent workflow events. If the same step fails repeatedly, a reflection entry is stored suggesting an optimisation.
+The `review_workflow_logs()` helper inspects recent workflow events. If the same
+step fails repeatedly a reflection entry is stored suggesting a new fallback.
+Policy denials also create a reflection recommending edits to the workflow.
 
-To author a workflow, register it in code:
+Workflows can be loaded from YAML/JSON/Python files using the built-in DSL:
 
-```python
-import workflow_controller as wc
-
-wc.register_workflow("demo_report", [
-    {"name": "open_app", "action": open_app, "undo": close_app},
-    {"name": "type_text", "action": type_text, "undo": undo_typing},
-])
+```yaml
+name: Send Report
+steps:
+  - name: open_app
+    action: tools.open_excel
+    on_fail: [notify_admin]
+  - name: type
+    action: utils.type_text
+    params:
+      text: "Quarterly Report"
+    undo: utils.delete_line
+  - name: save_file
+    action: utils.save_file
+    params:
+      path: "C:\\Reports\\Q2.xlsx"
+  - name: email_file
+    action: utils.email_file
+    params:
+      to: "boss@example.com"
+    on_fail: [utils.log_and_abort]
 ```
+
+Use `--load` to read scripts, `--list-workflows` to see them, `--run-workflow <name>` to execute, and `--edit-workflow <name>` to open the file in `$EDITOR`.
 
 Workflows integrate with policy and reflection just like individual controller actions.

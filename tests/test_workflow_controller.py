@@ -80,3 +80,51 @@ def test_review_logs_creates_reflection(tmp_path, monkeypatch):
     files = list(raw.glob("*.json"))
     assert files, "reflection saved"
 
+
+def test_load_workflow_file(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    actions = tmp_path / "actions.py"
+    actions.write_text(
+        """
+def act(path):
+    with open(path, 'w') as f:
+        f.write('hi')
+
+def undo(path):
+    pass
+""",
+        encoding="utf-8",
+    )
+    sys.path.insert(0, str(tmp_path))
+    wf = tmp_path / "wf.json"
+    wf.write_text(
+        (
+            '{"name":"demo_file","steps":[{"name":"s1","action":"actions.act","params":{"path":"'
+            + str(tmp_path / "out.txt")
+            + '"},"undo":"actions.undo"}]}'
+        ),
+        encoding="utf-8",
+    )
+    wc.load_workflow_file(str(wf))
+    assert "demo_file" in wc.WORKFLOWS
+    assert wc.run_workflow("demo_file")
+    assert (tmp_path / "out.txt").exists()
+
+
+def test_on_fail_hook(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    flag = {"called": False}
+
+    def fail():
+        raise RuntimeError("boom")
+
+    def handle():
+        flag["called"] = True
+
+    steps = [
+        {"name": "s1", "action": fail, "undo": lambda: None, "on_fail": [handle]},
+    ]
+    wc.register_workflow("demo_fail", steps)
+    assert not wc.run_workflow("demo_fail")
+    assert flag["called"]
+
