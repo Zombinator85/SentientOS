@@ -11,6 +11,7 @@ Multimodal Emotion Tracking & Feedback
 Built with 🤖 OpenAI ChatGPT (4o, 4.1, o3, Codex)
 No traditional coding background—AI-first from day one.
 Now featuring workflow-driven reflex experiments—workflows can directly trigger, optimize, and evaluate reflexes as part of their execution. Reflex trials and optimizations are fully logged and explainable.
+Every reflex promotion or demotion is logged with user, timestamp, and context for full transparency.
 
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
@@ -595,4 +596,10 @@ python reflex_dashboard.py --promote my_rule
 python reflex_dashboard.py --demote my_rule
 python reflex_dashboard.py --revert
 python reflex_dashboard.py --history my_rule
+python reflex_dashboard.py --annotate my_rule "needs review" --tag dangerous
+python reflex_dashboard.py --audit my_rule
 ```
+
+Every promotion or demotion is logged with the user, timestamp, and context so
+the entire reflex lifecycle is explainable. Use `--audit` to inspect these
+events and `--revert-rule` to roll back a specific change.

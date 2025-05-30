@@ -32,6 +32,12 @@ def run_cli(args: argparse.Namespace) -> None:
         mgr.demote_rule(args.demote, by="cli")
     if args.revert:
         mgr.revert_last()
+    if args.revert_rule:
+        mgr.revert_rule(args.revert_rule)
+    if args.annotate:
+        rule, comment = args.annotate
+        tags = [args.tag] if args.tag else None
+        mgr.annotate(rule, comment, tags=tags, by="cli")
 
     if args.list_experiments:
         data = load_experiments()
@@ -49,6 +55,9 @@ def run_cli(args: argparse.Namespace) -> None:
     if args.history:
         for entry in mgr.get_history(args.history)[-10:]:
             print(json.dumps(entry))
+    if args.audit:
+        for entry in mgr.get_audit(args.audit):
+            print(json.dumps(entry))
 
 
 def run_dashboard() -> None:
@@ -59,7 +68,11 @@ def run_dashboard() -> None:
         ap.add_argument("--promote")
         ap.add_argument("--demote")
         ap.add_argument("--revert", action="store_true")
+        ap.add_argument("--revert-rule")
         ap.add_argument("--history")
+        ap.add_argument("--annotate", nargs=2, metavar=("RULE", "COMMENT"))
+        ap.add_argument("--tag")
+        ap.add_argument("--audit")
         args = ap.parse_args()
         run_cli(args)
         return
@@ -84,6 +97,10 @@ def run_dashboard() -> None:
     logs = rs.recent_reflex_learn(20)
     for item in logs:
         st.json(item)
+
+    st.header("Audit Log")
+    for entry in mgr.get_audit()[-20:]:
+        st.json(entry)
 
 
 if __name__ == "__main__":
