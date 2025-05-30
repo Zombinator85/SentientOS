@@ -1,4 +1,16 @@
 Multimodal Emotion Tracking & Feedback
+
+## ✨ How This Was Made
+
+> **Every line of code, every doc, every workflow—written *exclusively* with OpenAI’s ChatGPT models: GPT-4o, GPT-4.1, GPT-o3, and Codex.
+>  
+> I (Allen Murphy) have no prior coding experience.
+>  
+> If you’re reading this, you’re witnessing what’s possible when a non-programmer and state-of-the-art AI work together with total trust.**
+
+Built with 🤖 OpenAI ChatGPT (4o, 4.1, o3, Codex)
+No traditional coding background—AI-first from day one.
+
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
 
