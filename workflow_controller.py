@@ -236,13 +236,24 @@ def run_workflow(
                 rule = step.get("params", {}).get("rule", step.get("rule", step.get("name")))
                 step["reflex_rule"] = rule
 
-                def _reflex_action(step=step, rule=rule, agent=agent, persona=persona):
+                def _reflex_action(step=step, rule=rule, agent=agent, persona=persona, wf=name):
                     import reflex_manager as rm
 
                     mgr = rm.default_manager()
                     success = mgr.execute_rule(rule, agent=agent, persona=persona)
                     r = next((rr for rr in mgr.rules if rr.name == rule), None)
                     step["reflex_status"] = r.status if r else None
+                    _log(
+                        "workflow.reflex",
+                        {
+                            "workflow": wf,
+                            "rule": rule,
+                            "status": step.get("reflex_status"),
+                            "review": str(rm.ReflexManager.AUDIT_LOG),
+                        },
+                        agent=agent,
+                        persona=persona,
+                    )
                     return success
 
                 fn = _reflex_action
