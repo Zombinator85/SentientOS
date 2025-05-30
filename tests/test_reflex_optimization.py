@@ -51,8 +51,53 @@ def test_dashboard_cli(tmp_path, monkeypatch, capsys):
     importlib.reload(rm)
     importlib.reload(rd)
     rd.st = None
-    monkeypatch.setattr(sys, "argv", ["rd", "--log", "0"])
+    monkeypatch.setattr(sys, "argv", ["rd", "--log", "0", "--list-experiments"])
     rd.run_dashboard()
     out = capsys.readouterr().out
     assert "exp" in out
+
+
+def test_trial_autopromotion_and_demote(tmp_path, monkeypatch):
+    monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
+    monkeypatch.setenv("REFLECTION_DIR", str(tmp_path / "logs"))
+    import reflex_manager as rm
+    import reflection_stream as rs
+    from api import actuator
+    import importlib
+    importlib.reload(rs)
+    importlib.reload(rm)
+    importlib.reload(actuator)
+
+    monkeypatch.setattr(actuator, "act", lambda *a, **k: None)
+    rule = rm.ReflexRule(rm.OnDemandTrigger(), [{"type": "shell"}], name="T")
+    mgr = rm.ReflexManager(autopromote_trials=1)
+    mgr.add_rule(rule)
+    rule.execute()
+    assert rule.status == "preferred"
+
+    def fail(*a, **k):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(actuator, "act", fail)
+    rule.execute()
+    assert rule.status == "inactive"
+
+
+def test_cli_demote(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
+    (tmp_path / "exp.json").write_text(json.dumps({"exp": {"rules": {}}}))
+    import reflex_dashboard as rd
+    import reflex_manager as rm
+    importlib.reload(rm)
+    importlib.reload(rd)
+    rd.st = None
+    called = {}
+
+    def fake_demote(self, name, by="system", experiment=None):
+        called["name"] = name
+
+    monkeypatch.setattr(rm.ReflexManager, "demote_rule", fake_demote)
+    monkeypatch.setattr(sys, "argv", ["rd", "--demote", "exp"])
+    rd.run_dashboard()
+    assert called.get("name") == "exp"
 
