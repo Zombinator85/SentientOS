@@ -28,6 +28,7 @@ def test_workflow_success(tmp_path, monkeypatch):
     assert wc.run_workflow("demo")
     lines = (tmp_path / "events.jsonl").read_text().splitlines()
     assert any("workflow.end" in l and '"status": "ok"' in l for l in lines)
+    assert any('"tag": "run:workflow"' in l for l in lines)
 
 
 def test_workflow_failure_rollback(tmp_path, monkeypatch):

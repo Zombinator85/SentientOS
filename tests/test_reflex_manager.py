@@ -32,3 +32,25 @@ def test_load_rules(tmp_path):
     import reflex_manager as rm
     rules = rm.load_rules(str(cfg))
     assert rules and isinstance(rules[0].trigger, rm.OnDemandTrigger)
+
+
+def test_apply_analytics(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    import reflex_manager as rm
+    import workflow_controller as wc
+    import workflow_analytics as wa
+    importlib.reload(rm)
+    importlib.reload(wc)
+    importlib.reload(wa)
+
+    steps = [{"name": "s1", "action": lambda: (_ for _ in ()).throw(RuntimeError("x"))}]
+    wc.register_workflow("bad", steps)
+    for _ in range(3):
+        try:
+            wc.run_workflow("bad")
+        except Exception:
+            pass
+    data = wa.analytics()
+    mgr = rm.ReflexManager()
+    mgr.apply_analytics(data)
+    assert any(r.name == "retry_bad" for r in mgr.rules)
