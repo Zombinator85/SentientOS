@@ -603,3 +603,21 @@ python reflex_dashboard.py --audit my_rule
 Every promotion or demotion is logged with the user, timestamp, and context so
 the entire reflex lifecycle is explainable. Use `--audit` to inspect these
 events and `--revert-rule` to roll back a specific change.
+
+### Multi-Agent and Policy Attribution
+
+System events, workflow steps, and reflex experiments now track exactly **who**
+performed every action and **why**. The audit trail records the agent or
+persona, any policy that triggered review, and the reviewer who approved or
+denied the change.
+
+```bash
+python reflex_dashboard.py --promote retry_step --agent bob --persona Lumos --policy escalation_rule
+python reflex_dashboard.py --audit retry_step --filter-agent bob
+python workflow_controller.py --run-workflow demo --agent helper_bot --persona Observer
+```
+
+Use `--filter-agent`, `--filter-persona`, `--filter-policy`, or `--filter-action`
+with `--audit` to quickly locate decisions. Dashboard views surface the same
+information so collaborative reviews show who is currently online and what
+policy actions occurred.

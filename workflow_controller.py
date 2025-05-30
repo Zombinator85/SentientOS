@@ -53,11 +53,17 @@ def _log(
     *,
     agent: Optional[str] = None,
     persona: Optional[str] = None,
+    policy: Optional[str] = None,
+    reviewer: Optional[str] = None,
 ) -> None:
     if agent:
         payload["agent"] = agent
     if persona:
         payload["persona"] = persona
+    if policy:
+        payload["policy"] = policy
+    if reviewer:
+        payload["reviewer"] = reviewer
     entry = {
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "event": event,
@@ -209,12 +215,21 @@ def run_workflow(
         ev_name = step.get("policy_event") or f"workflow.{name}.{step.get('name', '')}"
         if policy_engine:
             actions = policy_engine.evaluate({"event": ev_name})
+            if actions:
+                _log(
+                    "workflow.policy",
+                    {"workflow": name, "step": step.get("name"), "actions": actions},
+                    agent=agent,
+                    persona=persona,
+                    policy=ev_name,
+                )
             if any(a.get("type") == "deny" for a in actions):
                 _log(
                     "workflow.step",
                     {"workflow": name, "step": step.get("name"), "status": "denied"},
                     agent=agent,
                     persona=persona,
+                    policy=ev_name,
                 )
                 for fn in step.get("on_fail", []):
                     try:
@@ -228,6 +243,7 @@ def run_workflow(
                     {"workflow": name, "status": "denied"},
                     agent=agent,
                     persona=persona,
+                    policy=ev_name,
                 )
                 return False
         try:
