@@ -141,12 +141,26 @@ class WebhookActuator(BaseActuator):
         return trigger_webhook(intent.get("url", ""), intent.get("payload", {}))
 
 
+class WorkflowActuator(BaseActuator):
+    """Execute a registered workflow via ``workflow_controller``."""
+
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        name = intent.get("name")
+        if not name:
+            raise ValueError("workflow name required")
+        import workflow_controller as wc
+
+        ok = wc.run_workflow(name)
+        return {"ok": ok}
+
+
 def register_builtin_actuators() -> None:
     register_actuator("shell", ShellActuator())
     register_actuator("http", HttpActuator())
     register_actuator("file", FileActuator())
     register_actuator("email", EmailActuator())
     register_actuator("webhook", WebhookActuator())
+    register_actuator("workflow", WorkflowActuator())
 
 
 register_builtin_actuators()

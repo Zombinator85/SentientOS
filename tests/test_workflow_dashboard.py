@@ -17,6 +17,8 @@ def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("WORKFLOW_LIBRARY", str(tmp_path / "lib"))
     for mod in (wl, wc, wr, sr):
         importlib.reload(mod)
+    import notification
+    importlib.reload(notification)
     wl.LIB_DIR.mkdir(exist_ok=True)
     wr.REVIEW_DIR.mkdir(exist_ok=True)
     sys.path.insert(0, str(wl.LIB_DIR))
@@ -64,4 +66,13 @@ def undo():
     assert info and "before" in info
     assert wr.revert_review("fail")
     assert "fail" not in wr.list_pending()
+
+
+def test_record_feedback(tmp_path, monkeypatch):
+    setup_env(tmp_path, monkeypatch)
+    import workflow_dashboard as wd
+    importlib.reload(wd)
+    wd.record_feedback("demo", True)
+    log = (tmp_path / "mem" / "events.jsonl").read_text()
+    assert "workflow.feedback" in log
 

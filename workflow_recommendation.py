@@ -3,6 +3,7 @@ from typing import Any, Dict, List
 
 import workflow_library as wl
 import workflow_analytics as wa
+import reflection_stream as rs
 
 
 def recommend_workflows(analytics_data: Dict[str, Any]) -> List[str]:
@@ -35,6 +36,11 @@ def recommend_workflows(analytics_data: Dict[str, Any]) -> List[str]:
             if steps > 8:
                 suggestions.append(f"Split long workflow '{wf}' into smaller parts")
                 break
+    for rec in suggestions:
+        try:
+            rs.log_event("workflow", "recommend", "analytics", "suggest", {"text": rec})
+        except Exception:
+            pass
     return suggestions
 
 

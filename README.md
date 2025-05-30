@@ -204,6 +204,9 @@ python reflection_dashboard.py --component plugin --type failure --search error
 
 Each row includes a quick command to view the full explanation or diff for that
 event.
+Workflow events include tags such as `run:workflow` and `recommend:optimize`
+to indicate analytics triggers. Storymaker and replay modes use these tags to
+overlay persona or emotion changes when a workflow struggles or improves.
 Log Tailing and Tests
 Tail logs:
 
@@ -516,6 +519,9 @@ python workflow_dashboard.py --recommend
 
 When Streamlit is installed these features appear as extra tabs within the
 workflow dashboard, showing JSON statistics and a list of suggestions.
+Reflex manager hooks can trigger retry or healing workflows based on these
+analytics. Feedback events are logged with the tag `recommend:optimize` so the
+dashboard and replay system visualize the improvement cycle.
 
 ![analytics screenshot](docs/workflow_analytics.png)
 

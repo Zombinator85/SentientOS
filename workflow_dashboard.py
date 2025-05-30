@@ -15,6 +15,7 @@ import workflow_controller as wc
 import workflow_review as wr
 import workflow_analytics as wa
 import workflow_recommendation as rec
+import notification
 
 try:  # optional deps
     import streamlit as st  # type: ignore
@@ -23,9 +24,14 @@ try:  # optional deps
 except Exception:  # pragma: no cover - optional
     st = None
     pd = None
-    graphviz = None
+graphviz = None
 
 EVENTS = wc.EVENT_PATH
+
+
+def record_feedback(workflow: str, helpful: bool) -> None:
+    """Log user feedback about a workflow run."""
+    notification.send("workflow.feedback", {"workflow": workflow, "helpful": helpful})
 
 
 def load_metrics(name: str, last: int = 200) -> Dict[str, Any]:
@@ -94,6 +100,10 @@ def run_cli(args: argparse.Namespace) -> None:
         for line in rec.recommend_workflows(data):
             print("-", line)
         return
+    if args.feedback:
+        record_feedback(args.feedback, not args.negative)
+        print("feedback recorded")
+        return
 
 
 def run_dashboard() -> None:
@@ -104,6 +114,8 @@ def run_dashboard() -> None:
         ap.add_argument("--review", action="store_true")
         ap.add_argument("--analytics", action="store_true")
         ap.add_argument("--recommend", action="store_true")
+        ap.add_argument("--feedback")
+        ap.add_argument("--negative", action="store_true")
         args = ap.parse_args()
         run_cli(args)
         return
@@ -136,6 +148,10 @@ def run_dashboard() -> None:
                 metrics = load_metrics(selected)
                 st.subheader("Metrics")
                 st.write(metrics)
+                if st.button("👍 Was this workflow helpful?"):
+                    record_feedback(selected, True)
+                if st.button("👎 Not helpful"):
+                    record_feedback(selected, False)
                 if selected in wr.list_pending():
                     info = wr.load_review(selected)
                     if info:
