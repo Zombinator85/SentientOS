@@ -10,6 +10,7 @@ Multimodal Emotion Tracking & Feedback
 
 Built with 🤖 OpenAI ChatGPT (4o, 4.1, o3, Codex)
 No traditional coding background—AI-first from day one.
+Now featuring workflow-driven reflex experiments for continuous optimization.
 
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
@@ -478,6 +479,11 @@ steps:
 Use `--load` to read scripts, `--list-workflows` to see them, `--run-workflow <name>` to execute, and `--edit-workflow <name>` to open the file in `$EDITOR`.
 
 Workflows integrate with policy and reflection just like individual controller actions.
+Workflow steps may trigger reflex trials using `action: run:reflex` with a `rule` parameter. Each run records a trial in the reflex manager and updates the step's `reflex_status` field.
+
+```bash
+python workflow_controller.py --run-workflow demo_reflex
+```
 
 ### Workflow Library & Auto-Healing
 
@@ -578,6 +584,7 @@ python reflex_dashboard.py --log 5
 The dashboard lists active experiments with success rates and provides buttons
 to promote, reject, or revert a rule. Every action records an audit trail so
 changes can be rolled back at any time.
+Workflow-triggered trials appear here automatically when a step uses `run:reflex`.
 
 CLI examples:
 
@@ -586,4 +593,5 @@ python reflex_dashboard.py --list-experiments
 python reflex_dashboard.py --promote my_rule
 python reflex_dashboard.py --demote my_rule
 python reflex_dashboard.py --revert
+python reflex_dashboard.py --history my_rule
 ```
