@@ -101,3 +101,42 @@ def test_cli_demote(tmp_path, monkeypatch, capsys):
     rd.run_dashboard()
     assert called.get("name") == "exp"
 
+
+def test_workflow_triggered_trials(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
+    monkeypatch.setenv("REFLECTION_DIR", str(tmp_path / "logs"))
+    import reflex_manager as rm
+    import workflow_controller as wc
+    from api import actuator
+    import importlib
+
+    importlib.reload(rm)
+    importlib.reload(wc)
+    importlib.reload(actuator)
+
+    mgr = rm.ReflexManager(autopromote_trials=1)
+    rm.set_default_manager(mgr)
+    rule = rm.ReflexRule(rm.OnDemandTrigger(), [{"type": "shell"}], name="wtest")
+    mgr.add_rule(rule)
+
+    monkeypatch.setattr(actuator, "act", lambda *a, **k: None)
+    steps = [{"name": "trial", "action": "run:reflex", "params": {"rule": "wtest"}}]
+    wc.register_workflow("demo_reflex", steps)
+    assert wc.run_workflow("demo_reflex")
+    assert steps[0].get("reflex_status") == "preferred"
+
+    def fail(*a, **k):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(actuator, "act", fail)
+    wc.run_workflow("demo_reflex")
+    assert steps[0].get("reflex_status") == "inactive"
+
+    import reflex_dashboard as rd
+    importlib.reload(rd)
+    rd.st = None
+    monkeypatch.setattr(sys, "argv", ["rd", "--list-experiments"])
+    rd.run_dashboard()
+    out = capsys.readouterr().out
+    assert "wtest" in out
+
