@@ -3,10 +3,11 @@ import json
 import datetime
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 STREAM_DIR = Path(os.getenv("REFLECTION_DIR", "logs/reflections"))
 STREAM_FILE = STREAM_DIR / "stream.jsonl"
+REFLEX_LEARN_FILE = STREAM_DIR / "reflex_learn.jsonl"
 STREAM_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -33,11 +34,37 @@ def log_event(source: str, event_type: str, cause: str, action: str,
     return entry_id
 
 
+def log_reflex_learn(data: Dict[str, Any]) -> str:
+    """Log autonomous reflex learning events."""
+    entry_id = uuid.uuid4().hex[:8]
+    entry = {
+        "id": entry_id,
+        "timestamp": _now(),
+        "data": data,
+    }
+    with REFLEX_LEARN_FILE.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return entry_id
+
+
 def recent(limit: int = 10) -> List[Dict[str, any]]:
     if not STREAM_FILE.exists():
         return []
     lines = STREAM_FILE.read_text(encoding="utf-8").splitlines()
     out: List[Dict[str, any]] = []
+    for line in lines[-limit:]:
+        try:
+            out.append(json.loads(line))
+        except Exception:
+            continue
+    return out
+
+
+def recent_reflex_learn(limit: int = 10) -> List[Dict[str, Any]]:
+    if not REFLEX_LEARN_FILE.exists():
+        return []
+    lines = REFLEX_LEARN_FILE.read_text(encoding="utf-8").splitlines()
+    out: List[Dict[str, Any]] = []
     for line in lines[-limit:]:
         try:
             out.append(json.loads(line))
