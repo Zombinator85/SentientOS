@@ -535,3 +535,18 @@ can accept or dismiss the changes; every edit is logged to
 ```bash
 python workflow_editor.py workflows/demo.json
 ```
+
+### Reflex Learning & Multi-Agent Collaboration
+
+Reflex manager can now log improvement proposals and test alternative reflexes.
+Logs are stored in `logs/reflections/reflex_learn.jsonl` and visualized in the
+dashboard. Workflows accept `--agent` and `--persona` so runs can be attributed
+to specific bots or personas.
+
+```bash
+python workflow_controller.py --run-workflow demo --agent diagnostic_bot
+```
+
+Review proposals with `workflow_review.comment_review()` and vote on them from
+the CLI or dashboard. Use analytics to route a failing workflow from one persona
+to another.
