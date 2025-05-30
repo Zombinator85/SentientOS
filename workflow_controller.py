@@ -123,7 +123,23 @@ def load_workflow_file(path: str) -> None:
     for st in data.get("steps", []):
         step = dict(st)
         act = step.get("action")
-        if isinstance(act, str):
+        if isinstance(act, str) and act == "run:reflex":
+            rule = step.get("params", {}).get("rule", step.get("rule", step.get("name")))
+            step["reflex_rule"] = rule
+
+            def _reflex_action(step=step, rule=rule):
+                import reflex_manager as rm
+
+                mgr = rm.get_default_manager()
+                if not mgr:
+                    raise RuntimeError("no reflex manager")
+                success = mgr.execute_rule(rule)
+                r = next((rr for rr in mgr.rules if rr.name == rule), None)
+                step["reflex_status"] = r.status if r else None
+                return success
+
+            step["action"] = _reflex_action
+        elif isinstance(act, str):
             step["action"] = _wrap_action(act, step.get("params"))
         undo = step.get("undo")
         if isinstance(undo, str):
@@ -217,7 +233,28 @@ def run_workflow(
                 )
                 return False
         try:
-            fn: Callable[[], Any] = step.get("action", lambda: None)
+            fn: Callable[[], Any] | str = step.get("action", lambda: None)
+            if isinstance(fn, str) and fn == "run:reflex":
+                rule = step.get("params", {}).get("rule", step.get("rule", step.get("name")))
+                step["reflex_rule"] = rule
+
+                def _reflex_action(step=step, rule=rule):
+                    import reflex_manager as rm
+
+                    mgr = rm.get_default_manager()
+                    if not mgr:
+                        raise RuntimeError("no reflex manager")
+                    success = mgr.execute_rule(rule)
+                    r = next((rr for rr in mgr.rules if rr.name == rule), None)
+                    step["reflex_status"] = r.status if r else None
+                    return success
+
+                fn = _reflex_action
+                step["action"] = fn
+            elif isinstance(fn, str):
+                fn = _wrap_action(fn, step.get("params"))
+                step["action"] = fn
+
             fn()
             executed.append(step)
             _HISTORY.append((name, step))
