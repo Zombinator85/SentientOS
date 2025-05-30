@@ -27,6 +27,13 @@ def set_default_manager(manager: "ReflexManager") -> None:
 def get_default_manager() -> "ReflexManager | None":
     return DEFAULT_MANAGER
 
+def default_manager() -> "ReflexManager":
+    mgr = get_default_manager()
+    if mgr is None:
+        mgr = ReflexManager()
+        set_default_manager(mgr)
+    return mgr
+
 
 panic_event = threading.Event()
 
@@ -139,12 +146,14 @@ class ReflexManager:
     """Manage a collection of reflex rules."""
 
     EXPERIMENTS_FILE = Path(os.getenv("REFLEX_EXPERIMENTS", "logs/reflections/experiments.json"))
+    TRIAL_LOG = Path(os.getenv("REFLEX_TRIAL_LOG", "logs/reflections/reflex_trials.jsonl"))
 
     def __init__(self, autopromote_trials: int = 5) -> None:
         self.rules: List[ReflexRule] = []
         self.experiments: Dict[str, Any] = {}
         self.history: List[Dict[str, Any]] = []
         self.autopromote_trials = autopromote_trials
+        self.TRIAL_LOG.parent.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
     def load_experiments(self) -> None:
@@ -241,6 +250,9 @@ class ReflexManager:
             "persona": persona,
         }
         data["history"].append(entry)
+        with self.TRIAL_LOG.open("a", encoding="utf-8") as f:
+            f.write(json.dumps({"experiment": exp, **entry}) + "\n")
+        self.history.append({"action": "trial", **entry, "experiment": exp})
         self.save_experiments()
         rs.log_reflex_learn({"trial": entry, "experiment": exp})
 
@@ -327,6 +339,15 @@ class ReflexManager:
             rs.log_reflex_learn({"revert": rule.name, "by": "system"})
             rs.log_event("reflex", "revert", "system", rule.name)
         self.save_experiments()
+
+    def get_history(self, experiment: str | None = None) -> List[Dict[str, Any]]:
+        """Return trial history across experiments or for one experiment."""
+        if experiment:
+            return self.experiments.get(experiment, {}).get("history", [])
+        hist: List[Dict[str, Any]] = []
+        for info in self.experiments.values():
+            hist.extend(info.get("history", []))
+        return hist
 
     def stop(self) -> None:
         panic_event.set()
