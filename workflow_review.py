@@ -1,12 +1,14 @@
 import os
 import json
+import datetime
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 import workflow_library as wl
 
 REVIEW_DIR = Path(os.getenv("WORKFLOW_REVIEW_DIR", "workflows/review"))
 REVIEW_DIR.mkdir(parents=True, exist_ok=True)
+REVIEW_LOG = REVIEW_DIR / "review_log.jsonl"
 
 
 def flag_for_review(name: str, before: str, after: str) -> Path:
@@ -49,3 +51,35 @@ def revert_review(name: str) -> bool:
     tpl.write_text(info.get("before", ""), encoding="utf-8")
     accept_review(name)
     return True
+
+
+def _log_action(name: str, user: str, action: str, comment: str = "") -> None:
+    entry = {
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "name": name,
+        "user": user,
+        "action": action,
+        "comment": comment,
+    }
+    with REVIEW_LOG.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def comment_review(name: str, user: str, text: str) -> None:
+    info = load_review(name) or {"name": name}
+    comments = info.setdefault("comments", [])
+    comments.append({
+        "user": user,
+        "text": text,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+    })
+    (REVIEW_DIR / f"{name}.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+    _log_action(name, user, "comment", text)
+
+
+def vote_review(name: str, user: str, upvote: bool = True) -> None:
+    info = load_review(name) or {"name": name}
+    votes = info.setdefault("votes", {})
+    votes[user] = 1 if upvote else -1
+    (REVIEW_DIR / f"{name}.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
+    _log_action(name, user, "upvote" if upvote else "downvote")

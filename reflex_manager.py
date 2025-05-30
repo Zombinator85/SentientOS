@@ -14,6 +14,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 from api import actuator
 import memory_manager as mm
+import reflection_stream as rs
 
 
 panic_event = threading.Event()
@@ -143,6 +144,26 @@ class ReflexManager:
     def start(self) -> None:
         for r in self.rules:
             r.start()
+
+    def propose_improvements(self, analytics_data: Dict[str, Any]) -> None:
+        """Log reflex improvement proposals based on analytics."""
+        usage = analytics_data.get("usage", {})
+        for wf, info in usage.items():
+            if info.get("fail_rate", 0) > 0.5:
+                proposal = {"workflow": wf, "action": "retry"}
+                rs.log_reflex_learn({"proposal": proposal})
+
+    def ab_test(self, rule_a: ReflexRule, rule_b: ReflexRule) -> ReflexRule:
+        """Execute two rules and log which succeeded."""
+        results: Dict[str, str] = {}
+        for rule in (rule_a, rule_b):
+            try:
+                rule.execute()
+                results[rule.name] = "ok"
+            except Exception as e:  # pragma: no cover - defensive
+                results[rule.name] = str(e)
+        rs.log_reflex_learn({"ab_test": [rule_a.name, rule_b.name], "results": results})
+        return rule_a if results.get(rule_a.name) == "ok" else rule_b
 
     def stop(self) -> None:
         panic_event.set()
