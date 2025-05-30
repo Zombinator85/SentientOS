@@ -1,6 +1,7 @@
 import os
 import sys
 import importlib
+import json
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -67,6 +68,24 @@ def test_workflow_policy_denied(tmp_path, monkeypatch):
     assert not wc.run_workflow("demo", policy_engine=engine)
     lines = (tmp_path / "events.jsonl").read_text().splitlines()
     assert any('"status": "denied"' in l for l in lines)
+
+
+def test_workflow_policy_logging(tmp_path, monkeypatch):
+    setup(tmp_path, monkeypatch)
+    pol = tmp_path / "pol.yml"
+    pol.write_text('{"policies":[{"conditions":{"event":"workflow.demo.step1"},"actions":[{"type":"deny"}]}]}')
+    import policy_engine as pe
+    importlib.reload(pe)
+    engine = pe.PolicyEngine(str(pol))
+    steps = [
+        {"name": "step1", "action": lambda: None, "undo": lambda: None, "policy_event": "workflow.demo.step1"},
+    ]
+    wc.register_workflow("demo", steps)
+    assert not wc.run_workflow("demo", policy_engine=engine, agent="agent1", persona="Lumos")
+    lines = (tmp_path / "events.jsonl").read_text().splitlines()
+    events = [json.loads(l) for l in lines]
+    assert any(e["event"] == "workflow.policy" for e in events)
+    assert any(e["payload"].get("persona") == "Lumos" for e in events)
 
 
 def test_review_logs_creates_reflection(tmp_path, monkeypatch):
