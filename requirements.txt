@@ -16,3 +16,6 @@ pandas
 streamlit
 Flask-SocketIO
 python-socketio
+mne
+brainflow
+pyserial
