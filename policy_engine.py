@@ -7,6 +7,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
+import final_approval
+
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover - optional dependency
@@ -50,6 +52,8 @@ class PolicyEngine:
 
     def apply_policy(self, path: str) -> None:
         """Replace active policy set with ``path`` contents."""
+        if not final_approval.request_approval(f"policy {path}"):
+            return
         new_data = _load_config(Path(path))
         self.history.append({"timestamp": time.time(), "data": new_data})
         self.personas = new_data.get("personas", {})

@@ -4,6 +4,8 @@ import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+import final_approval
+
 import workflow_library as wl
 
 REVIEW_DIR = Path(os.getenv("WORKFLOW_REVIEW_DIR", "workflows/review"))
@@ -34,6 +36,11 @@ def load_review(name: str) -> Optional[Dict[str, str]]:
 
 
 def accept_review(name: str) -> bool:
+    info = load_review(name)
+    desc = f"workflow {name}" if info else name
+    if not final_approval.request_approval(desc):
+        _log_action(name, final_approval.REQUIRED_APPROVER, "blocked")
+        return False
     fp = REVIEW_DIR / f"{name}.json"
     if fp.exists():
         fp.unlink()

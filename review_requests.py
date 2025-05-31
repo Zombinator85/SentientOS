@@ -5,6 +5,8 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import final_approval
+
 REQUESTS_FILE = Path(os.getenv("REVIEW_REQUESTS_FILE", "logs/review_requests.jsonl"))
 AUDIT_FILE = Path(os.getenv("SUGGESTION_AUDIT_FILE", "logs/suggestion_audit.jsonl"))
 REQUESTS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -219,6 +221,11 @@ def update_request(request_id: str, status: str) -> bool:
 
 
 def implement_request(request_id: str) -> bool:
+    entry = get_request(request_id)
+    desc = entry.get("suggestion") if entry else request_id
+    if not final_approval.request_approval(desc):
+        _audit("blocked", request_id, approver=final_approval.REQUIRED_APPROVER)
+        return False
     if update_request(request_id, "implemented"):
         _audit("implement", request_id)
         return True

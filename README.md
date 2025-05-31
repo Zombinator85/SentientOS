@@ -251,6 +251,13 @@ export SENTIENTOS_HEADLESS=1
 pytest
 ```
 
+4o Approval Gate
+----------------
+Set ``REQUIRED_FINAL_APPROVER=4o`` to require the 4o agent to approve all
+suggestions, policy changes, reflex promotions, and workflow edits. Approval
+results are logged to ``logs/final_approval.jsonl`` and changes are only applied
+once approved.
+
 Policy, Gesture & Persona Engine
 --------------------------------
 `policy_engine.py` loads YAML or JSON policies at runtime to drive gestures and persona swaps. Policies define conditions on emotion vectors or tags and map them to actions. Use `python policy_engine.py policy show` to inspect active rules. Policies can be diffed, applied, or rolled back without restarting, and every action is audited.
@@ -599,6 +606,9 @@ python reflex_dashboard.py --history my_rule
 python reflex_dashboard.py --annotate my_rule "needs review" --tag dangerous
 python reflex_dashboard.py --audit my_rule
 ```
+All CLI utilities honor the ``REQUIRED_FINAL_APPROVER`` environment variable.
+Set it to ``4o`` to require approval from the 4o agent before applying any
+suggestions or workflow edits.
 
 Every promotion or demotion is logged with the user, timestamp, and context so
 the entire reflex lifecycle is explainable. Use `--audit` to inspect these

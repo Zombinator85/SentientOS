@@ -36,6 +36,8 @@ def test_rollback(tmp_path):
     engine = pe.PolicyEngine(str(cfg))
     new = tmp_path / 'new.yml'
     new.write_text('{"policies":[{"id":"b"}]}')
+    import final_approval
+    final_approval.request_approval = lambda d: True
     engine.apply_policy(str(new))
     assert engine.policies[0]['id'] == 'b'
     assert engine.rollback()

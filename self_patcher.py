@@ -4,6 +4,7 @@ from pathlib import Path
 import memory_manager as mm
 from notification import send as notify
 import reflection_stream as rs
+import final_approval
 
 PATCH_PATH = mm.MEMORY_DIR / "patches.json"
 PATCH_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +63,8 @@ def approve_patch(pid: str) -> bool:
     patches = _load()
     for p in patches:
         if p.get("id") == pid:
+            if not final_approval.request_approval(f"patch {pid}"):
+                return False
             p["approved"] = True
             p["rejected"] = False
             _save(patches)
