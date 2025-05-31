@@ -224,7 +224,7 @@ def implement_request(request_id: str) -> bool:
     entry = get_request(request_id)
     desc = entry.get("suggestion") if entry else request_id
     if not final_approval.request_approval(desc):
-        _audit("blocked", request_id, approver=final_approval.REQUIRED_APPROVER)
+        _audit("blocked", request_id, approver=final_approval.last_approver())
         return False
     if update_request(request_id, "implemented"):
         _audit("implement", request_id)

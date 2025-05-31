@@ -6,6 +6,7 @@ import memory_manager as mm
 from api import actuator
 import notification
 import self_patcher
+import final_approval
 import presence_analytics as pa
 
 def show_timeline(last: int) -> None:
@@ -87,9 +88,9 @@ def show_goals(status: str) -> None:
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
     parser.add_argument(
-        "--required-final-approver",
+        "--final-approvers",
         default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
-        help="Final approver for changes",
+        help="Comma separated list or config file of required approvers",
     )
     sub = parser.add_subparsers(dest="cmd")
 
@@ -175,6 +176,15 @@ def main():
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
     args = parser.parse_args()
+    if args.final_approvers:
+        fp = Path(args.final_approvers)
+        if fp.exists():
+            final_approval.APPROVER_FILE = fp
+            final_approval.set_approvers(json.loads(fp.read_text()))
+        else:
+            final_approval.set_approvers(
+                [a.strip() for a in args.final_approvers.split(",") if a.strip()]
+            )
     if args.cmd == "purge":
         mm.purge_memory(max_age_days=args.age, max_files=args.max)
     elif args.cmd == "summarize":
