@@ -13,6 +13,8 @@ import ast
 
 import notification
 from memory_manager import save_reflection
+import autonomous_audit as aa
+from ritual import check_master_files
 
 try:
     from policy_engine import PolicyEngine
@@ -208,6 +210,17 @@ def run_workflow(
     agent: Optional[str] = None,
     persona: Optional[str] = None,
 ) -> bool:
+    ok, missing = check_master_files()
+    if not ok:
+        aa.log_entry(
+            action="refusal",
+            rationale="sanctity violation",
+            source={"missing": missing},
+            expected="abort",
+            why_chain=[f"Workflow '{name}' refused due to missing master files"],
+            agent=agent or "auto",
+        )
+        return False
     steps = WORKFLOWS.get(name, [])
     executed: List[Step] = []
     _log("workflow.start", {"workflow": name}, agent=agent, persona=persona)
