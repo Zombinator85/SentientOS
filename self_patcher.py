@@ -1,6 +1,7 @@
 import json
 import datetime
 from pathlib import Path
+from typing import Optional
 import memory_manager as mm
 from notification import send as notify
 import reflection_stream as rs
@@ -59,11 +60,12 @@ def rollback_patch(pid: str) -> bool:
     return False
 
 
-def approve_patch(pid: str) -> bool:
+def approve_patch(pid: str, approvers: Optional[list[str]] = None) -> bool:
     patches = _load()
     for p in patches:
         if p.get("id") == pid:
-            if not final_approval.request_approval(f"patch {pid}"):
+            kwargs = {"approvers": approvers} if approvers is not None else {}
+            if not final_approval.request_approval(f"patch {pid}", **kwargs):
                 return False
             p["approved"] = True
             p["rejected"] = False

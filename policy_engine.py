@@ -50,9 +50,10 @@ class PolicyEngine:
     def reload(self) -> None:
         self.load()
 
-    def apply_policy(self, path: str) -> None:
+    def apply_policy(self, path: str, approvers: Optional[List[str]] = None) -> None:
         """Replace active policy set with ``path`` contents."""
-        if not final_approval.request_approval(f"policy {path}"):
+        kwargs = {"approvers": approvers} if approvers is not None else {}
+        if not final_approval.request_approval(f"policy {path}", **kwargs):
             return
         new_data = _load_config(Path(path))
         self.history.append({"timestamp": time.time(), "data": new_data})
@@ -118,6 +119,12 @@ def main() -> None:  # pragma: no cover - CLI usage
     import argparse
 
     parser = argparse.ArgumentParser(description="Policy/Persona manager")
+    parser.add_argument(
+        "--final-approvers",
+        default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
+        help="Comma separated list of required approvers",
+    )
+    parser.add_argument("--final-approver-file", help="JSON file of approvers")
     parser.add_argument("--config", default="config/policies.yml")
     sub = parser.add_subparsers(dest="cmd")
 
@@ -137,6 +144,20 @@ def main() -> None:  # pragma: no cover - CLI usage
     gesture.add_argument("name")
 
     args = parser.parse_args()
+    if args.final_approver_file:
+        fp = Path(args.final_approver_file)
+        if fp.exists():
+            final_approval.override_approvers(json.loads(fp.read_text()))
+        else:
+            final_approval.override_approvers([])
+    elif args.final_approvers:
+        fp = Path(args.final_approvers)
+        if fp.exists():
+            final_approval.override_approvers(json.loads(fp.read_text()))
+        else:
+            final_approval.override_approvers(
+                [a.strip() for a in args.final_approvers.split(",") if a.strip()]
+            )
     engine = PolicyEngine(args.config)
 
     if args.cmd == "policy":
@@ -146,7 +167,7 @@ def main() -> None:  # pragma: no cover - CLI usage
             other_text = Path(args.file).read_text(encoding="utf-8")
             print(_diff({"personas": engine.personas, "policies": engine.policies}, other_text))
         elif args.action == "apply":
-            engine.apply_policy(args.file)
+            engine.apply_policy(args.file, approvers=final_approval.load_approvers())
             print("applied")
         elif args.action == "rollback":
             if engine.rollback():

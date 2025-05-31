@@ -220,10 +220,11 @@ def update_request(request_id: str, status: str) -> bool:
     return changed
 
 
-def implement_request(request_id: str) -> bool:
+def implement_request(request_id: str, approvers: Optional[list[str]] = None) -> bool:
     entry = get_request(request_id)
     desc = entry.get("suggestion") if entry else request_id
-    if not final_approval.request_approval(desc):
+    kwargs = {"approvers": approvers} if approvers is not None else {}
+    if not final_approval.request_approval(desc, **kwargs):
         _audit("blocked", request_id, approver=final_approval.last_approver())
         return False
     if update_request(request_id, "implemented"):
