@@ -2,15 +2,17 @@ import argparse
 import os
 import sys
 import json
+from pathlib import Path
 import review_requests as rr
+import final_approval
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Policy/reflex suggestions")
     parser.add_argument(
-        "--required-final-approver",
+        "--final-approvers",
         default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
-        help="Final approver for changes",
+        help="Comma separated list or config file of required approvers",
     )
     sub = parser.add_subparsers(dest="cmd")
 
@@ -45,6 +47,15 @@ def main() -> None:
     sub.add_parser("dismiss").add_argument("id")
 
     args = parser.parse_args()
+    if args.final_approvers:
+        fp = Path(args.final_approvers)
+        if fp.exists():
+            final_approval.APPROVER_FILE = fp
+            final_approval.set_approvers(json.loads(fp.read_text()))
+        else:
+            final_approval.set_approvers(
+                [a.strip() for a in args.final_approvers.split(",") if a.strip()]
+            )
 
     if args.cmd == "list":
         for s in rr.list_requests(args.status):
