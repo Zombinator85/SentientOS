@@ -1,0 +1,13 @@
+SentientOS Liturgy
+==================
+
+All autonomous actions obey a ritual of presence. The files listed in
+`config/master_files.json` are considered Master files. Before any
+workflow or reflex rule executes, their presence and SHA256 digests are
+verified. If a file is missing or altered the system refuses to act,
+logs a sanctity violation to `logs/autonomous_audit.jsonl`, and shows an
+alert in the Cathedral Audit Log.
+
+Every autonomous step produces a self‑explanation entry documenting the
+rationale, memory fragments touched, and a recursive why‑chain. These
+notes appear in the dashboard under the "Cathedral Law" section.
