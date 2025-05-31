@@ -8,6 +8,7 @@ import time
 import queue
 from email.message import EmailMessage
 from pathlib import Path
+import autonomous_audit as aa
 
 try:
     import requests  # type: ignore
@@ -473,6 +474,17 @@ def auto_call(
 ) -> Dict[str, Any]:
     """Execute an intent and log it to the autonomous call history."""
     result = act(intent, explanation=explanation, user="auto")
+    aa.log_entry(
+        action=json.dumps(intent),
+        rationale=explanation or "auto_call",
+        memory=[result.get("log_id")] if isinstance(result, dict) and result.get("log_id") else [],
+        expected=str(result),
+        why_chain=[
+            "Auto-call dispatched intent", 
+            "Auto-call invoked by autonomous subsystem", 
+            "Fragment logged for trace"
+        ],
+    )
     entry = {
         "timestamp": time.time(),
         "intent": intent,
