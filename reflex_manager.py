@@ -19,6 +19,8 @@ from api import actuator
 import memory_manager as mm
 import reflection_stream as rs
 import final_approval
+import autonomous_audit as aa
+from ritual import check_master_files
 
 DEFAULT_MANAGER: "ReflexManager | None" = None
 
@@ -148,12 +150,38 @@ class ReflexRule:
 
     def execute(self, agent: str | None = None, persona: str | None = None) -> bool:
         if panic_event.is_set():
-            return
+            return False
+        ok, missing = check_master_files()
+        if not ok:
+            aa.log_entry(
+                action="refusal",
+                rationale="sanctity violation",
+                source={"missing": missing},
+                expected="abort",
+                why_chain=[f"Rule '{self.name}' refused due to missing master files"],
+                agent=agent or "auto",
+            )
+            return False
         success = True
         start = time.time()
         for action in self.actions:
             try:
-                actuator.act(action)
+                result = actuator.act(action)
+                mem = []
+                if isinstance(result, dict) and result.get("log_id"):
+                    mem.append(result["log_id"])
+                aa.log_entry(
+                    action=json.dumps(action),
+                    rationale=f"rule {self.name}",
+                    memory=mem,
+                    expected=str(result),
+                    why_chain=[
+                        f"Action triggered because rule '{self.name}' fired",
+                        f"Rule '{self.name}' present for automation",
+                        "Fragment relevant because event triggered rule",
+                    ],
+                    agent=agent or "auto",
+                )
             except Exception as e:  # pragma: no cover - defensive
                 success = False
                 mm.append_memory(
