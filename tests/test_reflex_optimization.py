@@ -37,6 +37,8 @@ def test_manual_promotion(tmp_path, monkeypatch):
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [], name="X")
     mgr = rm.ReflexManager()
     mgr.add_rule(rule)
+    import final_approval
+    monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     mgr.promote_rule("X", by="alice")
     assert rule.status == "preferred"
     logs = rs.recent_reflex_learn(1)
@@ -121,6 +123,8 @@ def test_annotation_and_audit(tmp_path, monkeypatch):
     mgr.annotate("ann", "check", tags=["needs review"], by="bob")
     audit = mgr.get_audit("ann")
     assert audit and audit[-1]["action"] == "annotate"
+    import final_approval
+    monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     mgr.promote_rule("ann", by="bob")
     mgr.revert_rule("ann")
     trail = mgr.get_audit("ann")

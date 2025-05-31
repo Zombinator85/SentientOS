@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import json
 import review_requests as rr
@@ -6,6 +7,11 @@ import review_requests as rr
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Policy/reflex suggestions")
+    parser.add_argument(
+        "--required-final-approver",
+        default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
+        help="Final approver for changes",
+    )
     sub = parser.add_subparsers(dest="cmd")
 
     l = sub.add_parser("list")
