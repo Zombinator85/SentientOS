@@ -1,4 +1,5 @@
 import argparse
+import os
 import json
 from pathlib import Path
 import memory_manager as mm
@@ -85,6 +86,11 @@ def show_goals(status: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description="Manage memory fragments")
+    parser.add_argument(
+        "--required-final-approver",
+        default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
+        help="Final approver for changes",
+    )
     sub = parser.add_subparsers(dest="cmd")
 
     purge = sub.add_parser("purge", help="Delete old fragments")

@@ -65,6 +65,8 @@ def test_audit_attribution_and_policy(tmp_path, monkeypatch):
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [], name="multi")
     mgr = rm.ReflexManager()
     mgr.add_rule(rule)
+    import final_approval
+    monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     mgr.promote_rule("multi", by="alice", persona="P", policy="pol1", reviewer="bob")
     entries = mgr.get_audit("multi", agent="alice")
     assert entries and entries[-1]["persona"] == "P"
