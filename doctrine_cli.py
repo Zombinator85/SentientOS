@@ -1,9 +1,11 @@
 import argparse
 import json
 import os
+import datetime
 import ritual
 import doctrine
 import relationship_log as rl
+import presence_ledger as pl
 
 
 def cmd_show(args) -> None:
@@ -24,11 +26,29 @@ def cmd_history(args) -> None:
 
 def cmd_recap(args) -> None:
     user = os.getenv("USER", "anon")
-    print(rl.recap(user))
+    if args.auto:
+        print(rl.generate_recap(user))
+    else:
+        print(rl.recap(user))
 
 
 def cmd_feed(args) -> None:
-    for entry in doctrine.public_feed(args.last):
+    feed = doctrine.public_feed(args.last)
+    if args.event:
+        feed = [e for e in feed if e.get("event") == args.event]
+    if args.date:
+        feed = [
+            e
+            for e in feed
+            if datetime.datetime.utcfromtimestamp(e.get("time", 0)).strftime("%Y-%m-%d")
+            == args.date
+        ]
+    for entry in feed:
+        print(json.dumps(entry))
+
+def cmd_presence(args) -> None:
+    user = args.user or os.getenv("USER", "anon")
+    for entry in pl.history(user, limit=args.last):
         print(json.dumps(entry))
 
 
@@ -47,11 +67,19 @@ def main() -> None:
     hist.set_defaults(func=cmd_history)
 
     rec = sub.add_parser("recap", help="Show relationship recap")
+    rec.add_argument("--auto", action="store_true", help="Generate and log a recap")
     rec.set_defaults(func=cmd_recap)
 
     feed = sub.add_parser("feed", help="Show public ritual feed")
     feed.add_argument("--last", type=int, default=5)
+    feed.add_argument("--event")
+    feed.add_argument("--date")
     feed.set_defaults(func=cmd_feed)
+
+    pres = sub.add_parser("presence", help="Show cathedral presence")
+    pres.add_argument("--user")
+    pres.add_argument("--last", type=int, default=5)
+    pres.set_defaults(func=cmd_presence)
 
     args = ap.parse_args()
     if hasattr(args, "func"):

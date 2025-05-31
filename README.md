@@ -334,14 +334,17 @@ See `docs/lived_liturgy.md` for how these rituals appear in daily use.
 python doctrine_cli.py show         # display the liturgy
 python doctrine_cli.py affirm --user alice
 python doctrine_cli.py recap        # short relationship recap
+python doctrine_cli.py recap --auto # generate and log recap
 python doctrine_cli.py report       # integrity status
 python doctrine_cli.py amend "add rule" --user bob
 python doctrine_cli.py history --last 5
 python doctrine_cli.py feed --last 3
+python doctrine_cli.py presence --user alice
 ```
 
 Reports are appended to ``logs/doctrine_status.jsonl`` and public events to
-``logs/public_rituals.jsonl`` for transparency.
+``logs/public_rituals.jsonl`` for transparency. View the log with
+``python public_feed_dashboard.py`` or ``doctrine_cli.py feed``.
 
 Policy, Gesture & Persona Engine
 --------------------------------

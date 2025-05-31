@@ -1,2 +1,3 @@
 {"time": 1720000000.0, "event": "affirm", "user": "alice"}
 {"time": 1720003600.0, "event": "status", "ok": true}
+{"time": 1720007200.0, "event": "recap", "user": "alice", "summary": "Since the beginning, 3 memories, 1 affirmations and 0 amendments were recorded."}
