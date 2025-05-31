@@ -107,16 +107,38 @@ class FileChangeTrigger(BaseTrigger):
             self.observer.join()
 
 
+class ConditionalTrigger(BaseTrigger):
+    """Trigger when a custom check function returns True."""
+
+    def __init__(self, check: Callable[[], bool], interval: float = 1.0) -> None:
+        self.check = check
+        self.interval = interval
+        self._stop = threading.Event()
+
+    def start(self, callback: Callable[[], None]) -> None:
+        def loop() -> None:
+            while not self._stop.is_set() and not panic_event.is_set():
+                if self.check() and not panic_event.is_set():
+                    callback()
+                time.sleep(self.interval)
+
+        threading.Thread(target=loop, daemon=True).start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+
 class ReflexRule:
     """Couples a trigger with one or more actuator intents."""
 
-    def __init__(self, trigger: BaseTrigger, actions: List[Dict[str, Any]], name: str = "", preferred: bool = False) -> None:
+    def __init__(self, trigger: BaseTrigger, actions: List[Dict[str, Any]], name: str = "", preferred: bool = False, frozen: bool = False) -> None:
         self.trigger = trigger
         self.actions = actions
         self.name = name
         self.preferred = preferred
         self.status = "preferred" if preferred else "candidate"
         self.manager: "ReflexManager | None" = None
+        self.frozen = frozen
 
     def start(self) -> None:
         self.trigger.start(self.execute)
@@ -382,7 +404,7 @@ class ReflexManager:
         approvers: Optional[List[str]] = None,
     ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
-        if not rule:
+        if not rule or rule.frozen:
             return
         kwargs = {"approvers": approvers} if approvers is not None else {}
         if not final_approval.request_approval(f"promote {name}", **kwargs):
@@ -419,7 +441,7 @@ class ReflexManager:
         approvers: Optional[List[str]] = None,
     ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
-        if not rule:
+        if not rule or rule.frozen:
             return
         kwargs = {"approvers": approvers} if approvers is not None else {}
         if not final_approval.request_approval(f"demote {name}", **kwargs):
@@ -458,6 +480,31 @@ class ReflexManager:
             rs.log_event("reflex", "revert", "system", rule.name)
             self._audit("revert", rule.name, by="system", prev=current, current=prev)
         self.save_experiments()
+
+    def freeze_rule(self, name: str) -> None:
+        rule = next((r for r in self.rules if r.name == name), None)
+        if not rule:
+            return
+        rule.frozen = True
+        self._audit("freeze", name, by="system")
+
+    def unfreeze_rule(self, name: str) -> None:
+        rule = next((r for r in self.rules if r.name == name), None)
+        if not rule:
+            return
+        rule.frozen = False
+        self._audit("unfreeze", name, by="system")
+
+    def edit_rule(self, name: str, **params: Any) -> None:
+        rule = next((r for r in self.rules if r.name == name), None)
+        if not rule or rule.frozen:
+            return
+        before = {k: getattr(rule, k) for k in params.keys() if hasattr(rule, k)}
+        for k, v in params.items():
+            if hasattr(rule, k):
+                setattr(rule, k, v)
+        after = {k: getattr(rule, k) for k in before.keys()}
+        self._audit("edit", name, by="system", prev=json.dumps(before), current=json.dumps(after))
 
     def revert_rule(self, name: str) -> None:
         """Revert a rule to its previous status based on audit log."""
@@ -551,6 +598,14 @@ def load_rules(path: str) -> List[ReflexRule]:
             trig = FileChangeTrigger(item.get("path", "."))
         elif trig_type == "on_demand":
             trig = OnDemandTrigger()
+        elif trig_type == "conditional":
+            func = item.get("check_func")
+            if func:
+                mod, fname = func.split(":", 1)
+                check = getattr(__import__(mod, fromlist=[fname]), fname)
+            else:
+                check = lambda: False
+            trig = ConditionalTrigger(check, float(item.get("interval", 1.0)))
         else:
             continue
         actions = item.get("actions", [])

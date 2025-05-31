@@ -1,0 +1,23 @@
+[
+  {
+    "name": "stress_warning",
+    "trigger": "conditional",
+    "check_func": "reflex_examples:stress_warning_check",
+    "interval": 2,
+    "actions": [{"type": "notify", "channel": "stress"}]
+  },
+  {
+    "name": "fatigue_alert",
+    "trigger": "conditional",
+    "check_func": "reflex_examples:fatigue_alert_check",
+    "interval": 2,
+    "actions": [{"type": "notify", "channel": "fatigue"}]
+  },
+  {
+    "name": "focus_prompt",
+    "trigger": "conditional",
+    "check_func": "reflex_examples:focus_prompt_check",
+    "interval": 2,
+    "actions": [{"type": "notify", "channel": "focus"}]
+  }
+]

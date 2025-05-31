@@ -61,6 +61,30 @@ When any face exceeds a threshold, the associated feedback action is executed (p
 
 Register new actions or embodiment targets via FeedbackManager.
 
+### Reflex Learning & User Feedback
+
+Feedback rules can now self-tune when `FeedbackManager.learning` is enabled.
+Every action receives a short user rating (yes/no or comment). Responses are
+written to `logs/reflex_user_feedback.jsonl` and aggregated per rule.
+After five ratings, thresholds and cooldowns automatically adjust based on
+success rate. Each tuning event is logged to `logs/reflex_tuning.jsonl` with the
+before/after values and rationale.
+
+Example feedback log entry:
+
+```json
+{"time": 1720000000.0, "action_id": "abcd1234", "rule": "calming_routine", "rating": 1}
+```
+
+Example tuning log entry:
+
+```json
+{"time": 1720000050.0, "rule": "calming_routine", "before": {"threshold": 0.6}, "after": {"threshold": 0.55}, "rationale": "success rate 0.80 - lowering threshold"}
+```
+See `docs/sample_user_feedback.jsonl` for a sample feedback log.
+See `config/multimodal_reflex_examples.json` for templates that trigger when
+multiple signals agree (emotion, EEG, and haptics).
+
 Reflex Manager
 reflex_manager.py:
 Runs reflex routines from timers, file changes, or on-demand triggers using the actuator.
@@ -68,6 +92,9 @@ Runs reflex routines from timers, file changes, or on-demand triggers using the 
 Panic flag halts all actions.
 
 Rules support interval, file_change, or on_demand triggers.
+Conditional triggers can also poll arbitrary signals via a check function. See
+`config/multimodal_reflex_examples.json` for reference definitions combining
+emotion, EEG, and haptics.
 
 Default rules are loaded from `config/reflex_rules.json` and include:
 * `bridge_stability_monitor` - watches `logs/bridge_watchdog.jsonl` and escalates if restarts exceed three in 10 minutes.
