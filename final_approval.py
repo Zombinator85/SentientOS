@@ -11,6 +11,7 @@ APPROVER_FILE = Path(os.getenv("FINAL_APPROVER_FILE", "config/final_approvers.js
 APPROVER_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 _LAST_APPROVER = ""
+_OVERRIDE: Optional[List[str]] = None
 
 
 def _env_decision(name: str) -> bool:
@@ -20,6 +21,8 @@ def _env_decision(name: str) -> bool:
 
 
 def load_approvers() -> List[str]:
+    if _OVERRIDE is not None:
+        return list(_OVERRIDE)
     env_val = os.getenv("REQUIRED_FINAL_APPROVER", "4o")
     approvers = [a.strip() for a in env_val.split(",") if a.strip()]
     if APPROVER_FILE.exists():
@@ -33,7 +36,16 @@ def load_approvers() -> List[str]:
 
 
 def set_approvers(approvers: List[str]) -> None:
+    """Persist approver chain and set as override."""
+    global _OVERRIDE
     APPROVER_FILE.write_text(json.dumps(approvers, ensure_ascii=False, indent=2), encoding="utf-8")
+    _OVERRIDE = list(approvers)
+
+
+def override_approvers(approvers: List[str]) -> None:
+    """Temporarily override approver chain without writing to disk."""
+    global _OVERRIDE
+    _OVERRIDE = list(approvers)
 
 
 def last_approver() -> str:

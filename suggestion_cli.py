@@ -14,6 +14,10 @@ def main() -> None:
         default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
         help="Comma separated list or config file of required approvers",
     )
+    parser.add_argument(
+        "--final-approver-file",
+        help="JSON file listing approvers to require at runtime",
+    )
     sub = parser.add_subparsers(dest="cmd")
 
     l = sub.add_parser("list")
@@ -47,13 +51,18 @@ def main() -> None:
     sub.add_parser("dismiss").add_argument("id")
 
     args = parser.parse_args()
-    if args.final_approvers:
+    if args.final_approver_file:
+        fp = Path(args.final_approver_file)
+        if fp.exists():
+            final_approval.override_approvers(json.loads(fp.read_text()))
+        else:
+            final_approval.override_approvers([])
+    elif args.final_approvers:
         fp = Path(args.final_approvers)
         if fp.exists():
-            final_approval.APPROVER_FILE = fp
-            final_approval.set_approvers(json.loads(fp.read_text()))
+            final_approval.override_approvers(json.loads(fp.read_text()))
         else:
-            final_approval.set_approvers(
+            final_approval.override_approvers(
                 [a.strip() for a in args.final_approvers.split(",") if a.strip()]
             )
 

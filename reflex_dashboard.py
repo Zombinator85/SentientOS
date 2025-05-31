@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 import reflex_manager as rm
 import reflection_stream as rs
+import final_approval
 
 try:
     import streamlit as st  # type: ignore
@@ -106,11 +107,27 @@ def run_dashboard() -> None:
         ap.add_argument("--persona")
         ap.add_argument("--policy")
         ap.add_argument("--reviewer")
+        ap.add_argument("--final-approvers", help="Comma separated approvers")
+        ap.add_argument("--final-approver-file", help="JSON file of approvers")
         ap.add_argument("--filter-agent")
         ap.add_argument("--filter-persona")
         ap.add_argument("--filter-policy")
         ap.add_argument("--filter-action")
         args = ap.parse_args()
+        if args.final_approver_file:
+            fp = Path(args.final_approver_file)
+            if fp.exists():
+                final_approval.override_approvers(json.loads(fp.read_text()))
+            else:
+                final_approval.override_approvers([])
+        elif args.final_approvers:
+            fp = Path(args.final_approvers)
+            if fp.exists():
+                final_approval.override_approvers(json.loads(fp.read_text()))
+            else:
+                final_approval.override_approvers(
+                    [a.strip() for a in args.final_approvers.split(",") if a.strip()]
+                )
         run_cli(args)
         return
 

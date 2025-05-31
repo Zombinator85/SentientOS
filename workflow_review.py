@@ -35,10 +35,11 @@ def load_review(name: str) -> Optional[Dict[str, str]]:
     return None
 
 
-def accept_review(name: str) -> bool:
+def accept_review(name: str, approvers: Optional[list[str]] = None) -> bool:
     info = load_review(name)
     desc = f"workflow {name}" if info else name
-    if not final_approval.request_approval(desc):
+    kwargs = {"approvers": approvers} if approvers is not None else {}
+    if not final_approval.request_approval(desc, **kwargs):
         _log_action(name, final_approval.last_approver(), "blocked")
         return False
     fp = REVIEW_DIR / f"{name}.json"
