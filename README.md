@@ -253,16 +253,16 @@ pytest
 
 Final Approval Chain
 --------------------
-Set ``REQUIRED_FINAL_APPROVER=4o`` or a comma separated list such as
-``REQUIRED_FINAL_APPROVER=4o,alice`` to require approval from each approver in
-sequence. The approver list can also be loaded from a JSON file via
-``FINAL_APPROVER_FILE``. Approval decisions (including rationale) are logged to
-``logs/final_approval.jsonl`` and changes are only applied once **all**
-approvers consent.
+Set ``REQUIRED_FINAL_APPROVER`` to a comma separated list (e.g.
+``REQUIRED_FINAL_APPROVER=4o,alice``) to require approval from each approver in
+sequence. The chain can also be loaded from ``FINAL_APPROVER_FILE``. At runtime a
+CLI can override the chain with ``--final-approvers"`` or ``--final-approver-file``.
+Every approver decision is appended to ``logs/final_approval.jsonl`` and changes
+are only applied once **all** approvers consent.
 
 ```bash
 python memory_cli.py --final-approvers 4o,alice approve_patch <id>
-python suggestion_cli.py --final-approvers approvers.json accept <id>
+python suggestion_cli.py --final-approver-file approvers.json accept <id>
 ```
 
 Policy, Gesture & Persona Engine
