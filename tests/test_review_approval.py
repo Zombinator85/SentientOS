@@ -10,6 +10,8 @@ def setup_env(tmp_path, monkeypatch):
 
 def test_vote_auto_accept(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
+    import final_approval
+    monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     wr.flag_for_review("demo", "a", "b", required_votes=2)
     wr.vote_review("demo", "alice", True)
     assert "demo" in wr.list_pending()

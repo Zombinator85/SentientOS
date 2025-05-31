@@ -18,6 +18,7 @@ except Exception:  # pragma: no cover - optional dependency
 from api import actuator
 import memory_manager as mm
 import reflection_stream as rs
+import final_approval
 
 DEFAULT_MANAGER: "ReflexManager | None" = None
 
@@ -382,6 +383,8 @@ class ReflexManager:
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
             return
+        if not final_approval.request_approval(f"promote {name}"):
+            return
         prev = rule.status
         rule.status = "preferred"
         rule.preferred = True
@@ -414,6 +417,8 @@ class ReflexManager:
     ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
+            return
+        if not final_approval.request_approval(f"demote {name}"):
             return
         prev = rule.status
         rule.status = "inactive"
