@@ -6,3 +6,5 @@ workflow writes a self-explanation with a why-chain to
 Master file listed in `config/master_files.json` is missing or
 modified. Such violations are logged and surfaced in the "Cathedral
 Law" dashboard tab along with `SENTIENTOS_LITURGY.txt`.
+
+The system now includes a Treasury of Love for community-enshrined love logs.
