@@ -1,0 +1,30 @@
+import os
+from pathlib import Path
+import streamlit as st
+
+ENV_FILE = Path(__file__).resolve().parent / '.env'
+
+
+def load_env() -> dict:
+    env = {}
+    if ENV_FILE.exists():
+        with open(ENV_FILE) as f:
+            for line in f:
+                if '=' in line and not line.strip().startswith('#'):
+                    k, v = line.strip().split('=', 1)
+                    env[k] = v
+    return env
+
+
+def launch():
+    env = load_env()
+    st.title('SentientOS Onboarding')
+    st.write('Active models:')
+    st.json({k: v for k, v in env.items() if k.endswith('_MODEL')})
+    handle = env.get('USER_HANDLE', 'anonymous')
+    st.write(f'User handle: {handle}')
+    st.write('You can edit the .env file to configure additional options.')
+
+
+if __name__ == '__main__':
+    launch()
