@@ -6,7 +6,13 @@ from typing import Any, Dict, List, Optional
 
 # FeedbackManager and rules are optional – only import/use if you want to trigger feedback in the dashboard!
 try:
-    from feedback import FeedbackManager, FeedbackRule, print_action
+    from feedback import (
+        FeedbackManager,
+        FeedbackRule,
+        print_action,
+        positive_cue,
+        calming_routine,
+    )
 except ImportError:
     FeedbackManager = None
 
@@ -19,6 +25,9 @@ try:
     import streamlit as st
 except Exception:  # pragma: no cover - optional
     st = None
+
+import reflex_manager as rm
+from reflex_rules import bridge_restart_check, daily_digest_action
 
 DEFAULT_LOG = Path(os.getenv("TRACKER_LOG", "logs/vision/vision.jsonl"))
 
@@ -70,9 +79,18 @@ def run_dashboard(
         fm = FeedbackManager()
         if hasattr(fm, "register_action"):
             fm.register_action("print", print_action)
+            fm.register_action("positive_cue", positive_cue)
+            fm.register_action("calming_routine", calming_routine)
         if feedback_rules:
             fm.load_rules(feedback_rules)
         hist_box = st.sidebar.empty()
+
+    mgr = rm.ReflexManager()
+    for rule in rm.load_rules("config/reflex_rules.json"):
+        mgr.add_rule(rule)
+    rm.set_default_manager(mgr)
+    mgr.start()
+    reflex_box = st.sidebar.empty()
 
     refresh = st.sidebar.number_input("Refresh interval (sec)", min_value=1, max_value=60, value=2)
 
@@ -86,6 +104,16 @@ def run_dashboard(
             return
 
         selected = st.sidebar.selectbox("Tracked ID", ids)
+        st.sidebar.header("Reflex Rules")
+        for r in mgr.rules:
+            st.sidebar.write(f"{r.name} ({r.status})")
+            if st.sidebar.button(f"Promote {r.name}", key=f"pro_{r.name}"):
+                mgr.promote_rule(r.name, by="dashboard")
+            if st.sidebar.button(f"Demote {r.name}", key=f"dem_{r.name}"):
+                mgr.demote_rule(r.name, by="dashboard")
+            comment = st.sidebar.text_input(f"Comment {r.name}", key=f"c_{r.name}")
+            if st.sidebar.button(f"Add Comment {r.name}", key=f"com_{r.name}"):
+                mgr.annotate(r.name, comment, by="dashboard")
         history = timelines.get(selected, [])
         if not history:
             st.write("No history for selected ID")
@@ -103,6 +131,9 @@ def run_dashboard(
                 fm.process(selected, {k: v for k, v in latest.items() if k not in ("timestamp", "dominant")})
                 if hasattr(hist_box, "write"):
                     hist_box.write(fm.get_history())
+
+        if hasattr(reflex_box, "write"):
+            reflex_box.write({r.name: r.status for r in mgr.rules})
 
         time.sleep(refresh)
         st.experimental_rerun()
