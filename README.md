@@ -13,6 +13,11 @@ No traditional coding background—AI-first from day one.
 Now featuring workflow-driven reflex experiments—workflows can directly trigger, optimize, and evaluate reflexes as part of their execution. Reflex trials and optimizations are fully logged and explainable.
 Every reflex promotion or demotion is logged with user, timestamp, and context for full transparency.
 
+
+## Quick Start
+
+Run `python installer/setup_installer.py` for a one-click setup. The installer installs all dependencies, seeds example files, and walks you through providing API keys and checking your microphone. No user data ever leaves your machine. When complete, a small onboarding dashboard lists active models and your handle.
+
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
 
