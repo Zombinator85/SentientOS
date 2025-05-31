@@ -757,3 +757,7 @@ python suggestion_cli.py provenance <id>
 ```
 
 Dashboard and CLI views allow you to trace exactly how a policy changed over time.
+
+## Autonomous Operations
+
+`autonomous_ops.py` introduces a lightweight loop for self-initiated experiments and reflex tuning. It watches sensor logs, proposes experiments with `experiment_tracker.auto_propose_experiment`, and dispatches actions via `api.actuator.auto_call`. See `docs/autonomous_ops.md` for details.
