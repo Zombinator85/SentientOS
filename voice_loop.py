@@ -6,12 +6,13 @@ import requests
 from typing import Dict
 from emotions import empty_emotion_vector
 from mic_bridge import recognize_from_mic
-from tts_bridge import speak_async, stop, adapt_persona
+from tts_bridge import speak_async, stop, adapt_persona, backchannel
 import emotion_memory as em
 
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 VOICE_MODEL = os.getenv("VOICE_MODEL", "openai/gpt-4o")
+BACKCHANNEL_DELAY = float(os.getenv("BACKCHANNEL_DELAY", "5"))
 
 
 class MicListener:
@@ -56,10 +57,14 @@ def run_loop():  # pragma: no cover - runs indefinitely
     listener = MicListener()
     listener.start()
     t: threading.Thread | None = None
+    last_input = time.time()
     try:
         while True:
             result = listener.get()
             if result is None:
+                if time.time() - last_input > BACKCHANNEL_DELAY:
+                    backchannel()
+                    last_input = time.time()
                 time.sleep(0.1)
                 continue
             text = result.get("message")
@@ -71,6 +76,7 @@ def run_loop():  # pragma: no cover - runs indefinitely
                 t_emp = speak_async(phrase, emotions=emotions)
                 t_emp.join()
             if not text:
+                last_input = time.time()
                 continue
             payload = {
                 "message": text,
