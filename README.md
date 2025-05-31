@@ -256,6 +256,20 @@ export SENTIENTOS_HEADLESS=1
 pytest
 ```
 
+EEG, Haptics & Biosignals
+-------------------------
+``eeg_bridge.py`` streams raw EEG samples and band power analysis to
+``logs/eeg_events.jsonl``. ``eeg_features.py`` derives cognitive states such as
+focus or drowsiness and logs to ``logs/eeg_features.jsonl``. ``haptics_bridge.py``
+and ``bio_bridge.py`` log tactile feedback and biosensor metrics to
+``logs/haptics_events.jsonl`` and ``logs/bio_events.jsonl`` respectively. These
+modalities are fused by the :class:`epu.EmotionProcessingUnit` and visualised in
+``memory_map.py`` when the relevant logs exist.
+
+Synthetic streams for CI are available via ``eeg_emulator.py``. Hardware
+dependencies (``mne``, ``brainflow``, ``pyserial``) are optional and skipped in
+headless mode.
+
 Final Approval Chain
 --------------------
 Set ``REQUIRED_FINAL_APPROVER`` to a comma separated list (e.g.

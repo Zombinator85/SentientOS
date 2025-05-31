@@ -13,6 +13,10 @@ except Exception:  # pragma: no cover - optional
 import memory_manager as mm
 
 MEMORY_DIR = mm.RAW_PATH
+EEG_LOG = Path(os.getenv("EEG_LOG", "logs/eeg_events.jsonl"))
+HAPTIC_LOG = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
+BIO_LOG = Path(os.getenv("BIO_LOG", "logs/bio_events.jsonl"))
+MOOD_LOG = Path(os.getenv("EPU_MOOD_LOG", "logs/epu_mood.jsonl"))
 
 
 def load_entries(limit: int = 200) -> List[Dict[str, Any]]:
@@ -34,6 +38,35 @@ def load_entries(limit: int = 200) -> List[Dict[str, Any]]:
     return out
 
 
+def _load_jsonl(path: Path, limit: int = 200) -> List[Dict[str, Any]]:
+    if not path.exists():
+        return []
+    lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
+    out = []
+    for line in lines:
+        try:
+            out.append(json.loads(line))
+        except Exception:
+            continue
+    return out
+
+
+def load_eeg(limit: int = 200) -> List[Dict[str, Any]]:
+    return _load_jsonl(EEG_LOG, limit)
+
+
+def load_haptics(limit: int = 200) -> List[Dict[str, Any]]:
+    return _load_jsonl(HAPTIC_LOG, limit)
+
+
+def load_bio(limit: int = 200) -> List[Dict[str, Any]]:
+    return _load_jsonl(BIO_LOG, limit)
+
+
+def load_mood(limit: int = 200) -> List[Dict[str, Any]]:
+    return _load_jsonl(MOOD_LOG, limit)
+
+
 def run_dashboard() -> None:
     if st is None or pd is None:
         for e in load_entries():
@@ -52,6 +85,48 @@ def run_dashboard() -> None:
     emo_cols = [c for c in df.columns if c not in {"timestamp", "text", "persona"}]
     st.line_chart(df.set_index("timestamp")[emo_cols])
     st.dataframe(df.tail(20))
+
+    mood = load_mood(limit=int(limit))
+    if mood:
+        rows = []
+        for m in mood:
+            row = {"timestamp": m.get("timestamp")}
+            for k, v in (m.get("mood") or {}).items():
+                row[k] = v
+            rows.append(row)
+        md = pd.DataFrame(rows)
+        md["timestamp"] = pd.to_datetime(md["timestamp"])
+        st.subheader("Mood Timeline")
+        emo_cols2 = [c for c in md.columns if c != "timestamp"]
+        st.line_chart(md.set_index("timestamp")[emo_cols2])
+
+    eeg = load_eeg(limit=int(limit))
+    if eeg:
+        rows = []
+        for e in eeg:
+            row = {"timestamp": e.get("timestamp")}
+            for k, v in (e.get("band_power") or {}).items():
+                row[k] = v
+            rows.append(row)
+        ed = pd.DataFrame(rows)
+        ed["timestamp"] = pd.to_datetime(ed["timestamp"])
+        st.subheader("EEG Band Power")
+        bcols = [c for c in ed.columns if c != "timestamp"]
+        st.line_chart(ed.set_index("timestamp")[bcols])
+
+    haptic = load_haptics(limit=int(limit))
+    if haptic:
+        hd = pd.DataFrame(haptic)
+        hd["timestamp"] = pd.to_datetime(hd["timestamp"])
+        st.subheader("Haptic Events")
+        st.line_chart(hd.set_index("timestamp")[["value"]])
+
+    bio = load_bio(limit=int(limit))
+    if bio:
+        bd = pd.DataFrame(bio)
+        bd["timestamp"] = pd.to_datetime(bd["timestamp"])
+        st.subheader("Biosignals")
+        st.line_chart(bd.set_index("timestamp")[["heart_rate", "gsr", "temperature"]])
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI fallback

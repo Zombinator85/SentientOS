@@ -1,0 +1,65 @@
+"""Haptic device bridge.
+
+This module provides a thin abstraction over vendor APIs or serial
+connections for ingesting tactile feedback. Events are timestamped and
+logged to ``logs/haptics_events.jsonl``.
+
+The default implementation uses ``pyserial`` if available and otherwise falls
+back to a simple mock that generates random feedback values.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import random
+import time
+from pathlib import Path
+from typing import Dict, Optional
+
+from utils import is_headless
+
+try:  # optional
+    import serial  # type: ignore
+except Exception:  # pragma: no cover - optional
+    serial = None
+
+LOG_FILE = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+class HapticsBridge:
+    """Interface to haptic devices via serial or mock."""
+
+    def __init__(self, port: Optional[str] = None) -> None:
+        self.headless = is_headless() or serial is None
+        if not self.headless and port:
+            try:
+                self.ser = serial.Serial(port)
+            except Exception:  # pragma: no cover - connection failure
+                self.ser = None
+                self.headless = True
+        else:
+            self.ser = None
+
+    def read_event(self) -> Dict[str, object]:
+        """Return the latest haptic event."""
+        if self.ser is not None:
+            try:
+                line = self.ser.readline().decode("utf-8").strip()
+                value = float(line)
+            except Exception:  # pragma: no cover - read failure
+                value = random.random()
+        else:
+            value = random.random()
+        entry = {"timestamp": time.time(), "device": "haptic", "value": value}
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+        return entry
+
+
+if __name__ == "__main__":  # pragma: no cover - manual
+    bridge = HapticsBridge()
+    for _ in range(5):
+        print(bridge.read_event())
+        time.sleep(0.5)
