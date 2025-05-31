@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 from typing import Optional, Dict
 import threading
+import random
 
 try:
     from TTS.api import TTS  # Coqui TTS, optional dependency
@@ -169,6 +170,17 @@ def speak_async(
     t = threading.Thread(target=speak, args=(text,), kwargs={"voice": voice, "save_path": save_path, "emotions": emotions})
     t.start()
     return t
+
+
+PARALINGUISTIC = ["mm-hmm", "uh-huh", "*sigh*", "*breath*"]
+
+
+def backchannel(emotions: Optional[Dict[str, float]] = None) -> Optional[threading.Thread]:
+    """Inject a short non-verbal utterance asynchronously."""
+    if HEADLESS or ENGINE is None:
+        return None
+    cue = random.choice(PARALINGUISTIC)
+    return speak_async(cue, emotions=emotions)
 
 def stop() -> None:
     """Stop current speech playback if supported."""

@@ -3,6 +3,8 @@ import json
 import logging
 import time
 from flask import Flask, request, jsonify, Response
+from pathlib import Path
+import epu
 from memory_manager import write_mem
 from utils import chunk_message
 from emotions import empty_emotion_vector
@@ -138,6 +140,45 @@ def agent_run():
     import autonomous_reflector as ar
     ar.run_loop(iterations=cycles, interval=0.01)
     return jsonify({"status": "ran", "cycles": cycles})
+
+
+def _read_last(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        line = path.read_text(encoding="utf-8").strip().splitlines()[-1]
+        return json.loads(line)
+    except Exception:
+        return {}
+
+
+@app.route("/mood")
+def mood() -> Response:
+    data = _read_last(epu.MOOD_LOG)
+    return jsonify(data.get("mood", {}))
+
+
+@app.route("/current_emotion")
+def current_emotion() -> Response:
+    return mood()
+
+
+@app.route("/eeg")
+def eeg_state() -> Response:
+    path = Path(os.getenv("EEG_LOG", "logs/eeg_events.jsonl"))
+    return jsonify(_read_last(path))
+
+
+@app.route("/haptics")
+def haptics_state() -> Response:
+    path = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
+    return jsonify(_read_last(path))
+
+
+@app.route("/bio")
+def bio_state() -> Response:
+    path = Path(os.getenv("BIO_LOG", "logs/bio_events.jsonl"))
+    return jsonify(_read_last(path))
 
 
 if __name__ == "__main__":
