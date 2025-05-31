@@ -41,14 +41,14 @@ Emotional Feedback & Dashboard
 Emotional feedback:
 The Streamlit dashboard (emotion_dashboard.py) displays live, per-person emotion data and can trigger feedback rules defined in feedback.py.
 
-Create a JSON file (e.g. feedback_rules.json):
+Example feedback rules (`config/feedback_rules.json`):
 
-json
-Copy
-Edit
+```json
 [
-  {"emotion": "Anger", "threshold": 0.7, "action": "print"}
+  {"emotion": "Confident", "threshold": 0.85, "action": "positive_cue", "duration": 30},
+  {"emotion": "Fear", "threshold": 0.6, "action": "calming_routine", "check_func": "feedback_rules:stress_confirmed"}
 ]
+```
 Run the dashboard:
 
 bash
@@ -68,6 +68,10 @@ Runs reflex routines from timers, file changes, or on-demand triggers using the 
 Panic flag halts all actions.
 
 Rules support interval, file_change, or on_demand triggers.
+
+Default rules are loaded from `config/reflex_rules.json` and include:
+* `bridge_stability_monitor` - watches `logs/bridge_watchdog.jsonl` and escalates if restarts exceed three in 10 minutes.
+* `daily_digest` - every 24 hours summarizes logs and notifies the dashboard.
 
 Example:
 
@@ -629,6 +633,8 @@ python reflex_dashboard.py --log 5
 The dashboard lists active experiments with success rates and provides buttons
 to promote, reject, or revert a rule. Every action records an audit trail so
 changes can be rolled back at any time.
+`emotion_dashboard.py` also displays rule status and lets administrators promote,
+demote or comment on any rule while viewing live feedback triggers.
 Workflow-triggered trials appear here automatically when a step uses `run:reflex`.
 
 CLI examples:
