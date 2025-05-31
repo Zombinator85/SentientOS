@@ -1,6 +1,10 @@
 import os
 import json
 from pathlib import Path
+import getpass
+
+import ritual
+import relationship_log as rl
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 PROFILE_PATH = MEMORY_DIR / "profile.json"
@@ -24,7 +28,11 @@ def save_profile(profile: dict) -> None:
 
 def update_profile(**updates) -> dict:
     """Update profile values and save."""
+    profile_exists = PROFILE_PATH.exists()
     profile = load_profile()
+    if not profile_exists:
+        ritual.require_liturgy_acceptance()
+        rl.log_event("profile_created", getpass.getuser())
     profile.update({k: v for k, v in updates.items() if v is not None})
     save_profile(profile)
     return profile
