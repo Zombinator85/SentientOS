@@ -39,7 +39,7 @@ def accept_review(name: str) -> bool:
     info = load_review(name)
     desc = f"workflow {name}" if info else name
     if not final_approval.request_approval(desc):
-        _log_action(name, final_approval.REQUIRED_APPROVER, "blocked")
+        _log_action(name, final_approval.last_approver(), "blocked")
         return False
     fp = REVIEW_DIR / f"{name}.json"
     if fp.exists():
