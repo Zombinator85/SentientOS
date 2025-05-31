@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import json
+import re
 from pathlib import Path
 import review_requests as rr
 import final_approval
@@ -12,11 +13,11 @@ def main() -> None:
     parser.add_argument(
         "--final-approvers",
         default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
-        help="Comma separated list or config file of required approvers",
+        help="Comma or space separated list or config file of required approvers",
     )
     parser.add_argument(
         "--final-approver-file",
-        help="JSON file listing approvers to require at runtime",
+        help="File with approver names (JSON list or newline separated) to require at runtime",
     )
     sub = parser.add_subparsers(dest="cmd")
 
@@ -53,18 +54,16 @@ def main() -> None:
     args = parser.parse_args()
     if args.final_approver_file:
         fp = Path(args.final_approver_file)
-        if fp.exists():
-            final_approval.override_approvers(json.loads(fp.read_text()))
-        else:
-            final_approval.override_approvers([])
+        chain = final_approval.load_file_approvers(fp) if fp.exists() else []
+        final_approval.override_approvers(chain, source="file")
     elif args.final_approvers:
         fp = Path(args.final_approvers)
         if fp.exists():
-            final_approval.override_approvers(json.loads(fp.read_text()))
+            chain = final_approval.load_file_approvers(fp)
         else:
-            final_approval.override_approvers(
-                [a.strip() for a in args.final_approvers.split(",") if a.strip()]
-            )
+            parts = re.split(r"[,\s]+", args.final_approvers)
+            chain = [a.strip() for a in parts if a.strip()]
+        final_approval.override_approvers(chain, source="cli")
 
     if args.cmd == "list":
         for s in rr.list_requests(args.status):
