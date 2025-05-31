@@ -9,6 +9,7 @@ import notification
 import self_patcher
 import final_approval
 import presence_analytics as pa
+import ritual
 
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
@@ -194,6 +195,7 @@ def main():
             chain = [a.strip() for a in parts if a.strip()]
         final_approval.override_approvers(chain, source="cli")
     if args.cmd == "purge":
+        ritual.confirm_disruptive("purge", "Old fragments will be permanently removed")
         mm.purge_memory(max_age_days=args.age, max_files=args.max)
     elif args.cmd == "summarize":
         mm.summarize_memory()
@@ -201,6 +203,7 @@ def main():
         import user_profile as up
         print(up.format_profile())
     elif args.cmd == "forget":
+        ritual.confirm_disruptive("forget", "Selected profile keys will be lost")
         import user_profile as up
         up.forget_keys(args.keys)
         print("Removed keys: " + ", ".join(args.keys))
@@ -246,6 +249,7 @@ def main():
         self_patcher.apply_patch(args.note, auto=False)
         print("Patch recorded")
     elif args.cmd == "rollback_patch":
+        ritual.confirm_disruptive("rollback_patch", "Patch state will change")
         if self_patcher.rollback_patch(args.id):
             print("Rolled back")
         else:
@@ -294,6 +298,7 @@ def main():
         else:
             print(json.dumps(o.status(), indent=2))
     elif args.cmd == "delete_goal":
+        ritual.confirm_disruptive("delete_goal", "Goal will be removed")
         mm.delete_goal(args.id)
         print(f"Deleted {args.id}")
     elif args.cmd == "escalations":
