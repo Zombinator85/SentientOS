@@ -28,6 +28,13 @@ SentientOS 4.1 introduces "lived liturgy" rituals that weave the doctrine into e
 - Each user has an append-only ledger `logs/user_presence.jsonl` of affirmations, recaps and ritual actions.
 - `doctrine_cli.py presence --user alice` displays the ledger for that user.
 
+## Ritual Attestation & Peer Review
+- Every ritual entry records who was present, who witnessed, and optional co-signers.
+- Peers can digitally attest to an event using `ritual_cli.py attest <event-id>`.
+- Attestations include comments or quoted memories and are stored in `logs/ritual_attestations.jsonl`.
+- Use `ritual_cli.py timeline --user alice` to view an annotated history.
+- `ritual_cli.py export` outputs a complete signed ledger for archival or audit.
+
 ## Headless/Test Mode Logging
 - When `SENTIENTOS_HEADLESS` is set, skipped rituals and confirmations are logged to `logs/headless_actions.jsonl`.
 - The next interactive session will display any pending notices for review.
