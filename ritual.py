@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import List, Tuple
+import doctrine
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json")).resolve()
@@ -30,4 +31,8 @@ def check_master_files() -> Tuple[bool, List[str]]:
             fp = (ROOT / fp).resolve()
         if not fp.exists() or _sha256(fp) != digest:
             missing.append(p)
+
+    # Write extended doctrine integrity report
+    doctrine.integrity_report()
+
     return not missing, missing

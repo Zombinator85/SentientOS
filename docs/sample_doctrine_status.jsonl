@@ -1,0 +1,2 @@
+{"time": 1720000000.0, "ok": true, "items": [{"file": "README.md", "permissions": "0o644", "status": "ok"}]}
+{"time": 1720003600.0, "ok": false, "items": [{"file": "README.md", "permissions": "0o600", "status": "hash_mismatch"}]}
