@@ -34,6 +34,9 @@ ACTUATORS: dict[str, BaseActuator] = {}
 PLUGINS_INFO: dict[str, str] = {}
 _LOADED_PLUGIN_FILES: list[Path] = []
 
+AUTONOMOUS_LOG = Path(os.getenv("AUTONOMOUS_CALLS_LOG", "logs/autonomous_calls.jsonl"))
+AUTONOMOUS_LOG.parent.mkdir(parents=True, exist_ok=True)
+
 
 def register_actuator(name: str, actuator: BaseActuator) -> None:
     ACTUATORS[name] = actuator
@@ -460,6 +463,25 @@ def act(
             "critique_step": next_step,
             "reflection_id": reflection_id,
         }
+
+
+def auto_call(
+    intent: Dict[str, Any],
+    explanation: str | None = None,
+    *,
+    trace: str | None = None,
+) -> Dict[str, Any]:
+    """Execute an intent and log it to the autonomous call history."""
+    result = act(intent, explanation=explanation, user="auto")
+    entry = {
+        "timestamp": time.time(),
+        "intent": intent,
+        "result": result,
+        "trace": trace,
+    }
+    with open(AUTONOMOUS_LOG, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+    return result
 
 
 def recent_logs(last: int = 10, reflect: bool = False) -> list[dict]:

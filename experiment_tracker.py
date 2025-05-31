@@ -34,6 +34,30 @@ def _audit(action: str, exp_id: str, **meta: Any) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
+def auto_propose_experiment(
+    description: str,
+    conditions: str,
+    expected: str,
+    *,
+    signals: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Programmatically create and immediately activate an experiment."""
+    exp_id = propose_experiment(
+        description,
+        conditions,
+        expected,
+        proposer="auto",
+    )
+    update_status(exp_id, "active")
+    _audit("auto_propose", exp_id, signals=signals)
+    return exp_id
+
+
+def log_trigger(exp_id: str, signals: Optional[Dict[str, Any]] = None) -> None:
+    """Record that an experiment was triggered by autonomous logic."""
+    _audit("trigger", exp_id, signals=signals)
+
+
 def propose_experiment(
     description: str,
     conditions: str,
