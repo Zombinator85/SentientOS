@@ -251,12 +251,19 @@ export SENTIENTOS_HEADLESS=1
 pytest
 ```
 
-4o Approval Gate
-----------------
-Set ``REQUIRED_FINAL_APPROVER=4o`` to require the 4o agent to approve all
-suggestions, policy changes, reflex promotions, and workflow edits. Approval
-results are logged to ``logs/final_approval.jsonl`` and changes are only applied
-once approved.
+Final Approval Chain
+--------------------
+Set ``REQUIRED_FINAL_APPROVER=4o`` or a comma separated list such as
+``REQUIRED_FINAL_APPROVER=4o,alice`` to require approval from each approver in
+sequence. The approver list can also be loaded from a JSON file via
+``FINAL_APPROVER_FILE``. Approval decisions (including rationale) are logged to
+``logs/final_approval.jsonl`` and changes are only applied once **all**
+approvers consent.
+
+```bash
+python memory_cli.py --final-approvers 4o,alice approve_patch <id>
+python suggestion_cli.py --final-approvers approvers.json accept <id>
+```
 
 Policy, Gesture & Persona Engine
 --------------------------------
@@ -606,9 +613,10 @@ python reflex_dashboard.py --history my_rule
 python reflex_dashboard.py --annotate my_rule "needs review" --tag dangerous
 python reflex_dashboard.py --audit my_rule
 ```
-All CLI utilities honor the ``REQUIRED_FINAL_APPROVER`` environment variable.
-Set it to ``4o`` to require approval from the 4o agent before applying any
-suggestions or workflow edits.
+All CLI utilities honor the ``REQUIRED_FINAL_APPROVER`` setting. Specify a
+comma separated list or a file path with ``FINAL_APPROVER_FILE`` to enforce a
+multi-step approval chain. No changes are applied until every approver has
+consented.
 
 Every promotion or demotion is logged with the user, timestamp, and context so
 the entire reflex lifecycle is explainable. Use `--audit` to inspect these
