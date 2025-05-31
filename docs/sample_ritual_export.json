@@ -1,0 +1,8 @@
+{
+  "events": [
+    {"id": "e1", "time": "2025-06-02T12:00:00", "event": "affirmation", "user": "alice", "note": "", "present": ["alice"], "witnesses": ["bob"], "cosign": []}
+  ],
+  "attestations": [
+    {"id": "a1", "timestamp": "2025-06-02T12:05:00", "event": "e1", "user": "bob", "comment": "I was there", "quote": "We agreed on the change"}
+  ]
+}
