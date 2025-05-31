@@ -255,14 +255,24 @@ Final Approval Chain
 --------------------
 Set ``REQUIRED_FINAL_APPROVER`` to a comma separated list (e.g.
 ``REQUIRED_FINAL_APPROVER=4o,alice``) to require approval from each approver in
-sequence. The chain can also be loaded from ``FINAL_APPROVER_FILE``. At runtime a
-CLI can override the chain with ``--final-approvers"`` or ``--final-approver-file``.
+sequence. The chain can also be loaded from ``FINAL_APPROVER_FILE``.
 Every approver decision is appended to ``logs/final_approval.jsonl`` and changes
 are only applied once **all** approvers consent.
 
+Runtime Overrides
+-----------------
+All CLI utilities accept ``--final-approvers`` and ``--final-approver-file`` to
+override the approval chain without touching config files. ``--final-approvers``
+accepts a comma **or** space separated list. ``--final-approver-file`` may
+contain a JSON array or one approver per line.
+
+The active approver list is resolved in the following order (highest priority
+first): CLI override > file override > ``REQUIRED_FINAL_APPROVER`` environment
+variable.
+
 ```bash
-python memory_cli.py --final-approvers 4o,alice approve_patch <id>
-python suggestion_cli.py --final-approver-file approvers.json accept <id>
+python memory_cli.py --final-approvers "4o alice" approve_patch <id>
+python suggestion_cli.py --final-approver-file approvers.txt accept <id>
 ```
 
 Policy, Gesture & Persona Engine

@@ -1,5 +1,6 @@
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict
 
@@ -107,8 +108,11 @@ def run_dashboard() -> None:
         ap.add_argument("--persona")
         ap.add_argument("--policy")
         ap.add_argument("--reviewer")
-        ap.add_argument("--final-approvers", help="Comma separated approvers")
-        ap.add_argument("--final-approver-file", help="JSON file of approvers")
+        ap.add_argument("--final-approvers", help="Comma or space separated approvers")
+        ap.add_argument(
+            "--final-approver-file",
+            help="File with approver names (JSON list or newline separated)",
+        )
         ap.add_argument("--filter-agent")
         ap.add_argument("--filter-persona")
         ap.add_argument("--filter-policy")
@@ -116,18 +120,16 @@ def run_dashboard() -> None:
         args = ap.parse_args()
         if args.final_approver_file:
             fp = Path(args.final_approver_file)
-            if fp.exists():
-                final_approval.override_approvers(json.loads(fp.read_text()))
-            else:
-                final_approval.override_approvers([])
+            chain = final_approval.load_file_approvers(fp) if fp.exists() else []
+            final_approval.override_approvers(chain, source="file")
         elif args.final_approvers:
             fp = Path(args.final_approvers)
             if fp.exists():
-                final_approval.override_approvers(json.loads(fp.read_text()))
+                chain = final_approval.load_file_approvers(fp)
             else:
-                final_approval.override_approvers(
-                    [a.strip() for a in args.final_approvers.split(",") if a.strip()]
-                )
+                parts = re.split(r"[,\s]+", args.final_approvers)
+                chain = [a.strip() for a in parts if a.strip()]
+            final_approval.override_approvers(chain, source="cli")
         run_cli(args)
         return
 
