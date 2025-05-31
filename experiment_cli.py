@@ -1,0 +1,57 @@
+import argparse
+import experiment_tracker as et
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Reflex experiment CLI")
+    sub = parser.add_subparsers(dest="cmd")
+
+    p = sub.add_parser("propose")
+    p.add_argument("description")
+    p.add_argument("conditions")
+    p.add_argument("expected")
+    p.add_argument("--user")
+
+    l = sub.add_parser("list")
+    l.add_argument("--status")
+
+    v = sub.add_parser("vote")
+    v.add_argument("id")
+    v.add_argument("--user", required=True)
+    v.add_argument("--down", action="store_true")
+
+    c = sub.add_parser("comment")
+    c.add_argument("id")
+    c.add_argument("text")
+    c.add_argument("--user", required=True)
+
+    s = sub.add_parser("set-status")
+    s.add_argument("id")
+    s.add_argument("status")
+
+    args = parser.parse_args()
+
+    if args.cmd == "propose":
+        eid = et.propose_experiment(
+            args.description,
+            args.conditions,
+            args.expected,
+            proposer=args.user,
+        )
+        print(eid)
+    elif args.cmd == "list":
+        for info in et.list_experiments(args.status):
+            rate = info.get("success", 0) / max(1, info.get("triggers", 1))
+            print(info["id"], info.get("status"), f"{rate:.2f}", info.get("description"))
+    elif args.cmd == "vote":
+        et.vote_experiment(args.id, args.user, upvote=not args.down)
+    elif args.cmd == "comment":
+        et.comment_experiment(args.id, args.user, args.text)
+    elif args.cmd == "set-status":
+        et.update_status(args.id, args.status)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
