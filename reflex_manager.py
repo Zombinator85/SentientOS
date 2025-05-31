@@ -379,11 +379,13 @@ class ReflexManager:
         experiment: str | None = None,
         policy: Optional[str] = None,
         reviewer: Optional[str] = None,
+        approvers: Optional[List[str]] = None,
     ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
             return
-        if not final_approval.request_approval(f"promote {name}"):
+        kwargs = {"approvers": approvers} if approvers is not None else {}
+        if not final_approval.request_approval(f"promote {name}", **kwargs):
             return
         prev = rule.status
         rule.status = "preferred"
@@ -414,11 +416,13 @@ class ReflexManager:
         experiment: str | None = None,
         policy: Optional[str] = None,
         reviewer: Optional[str] = None,
+        approvers: Optional[List[str]] = None,
     ) -> None:
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
             return
-        if not final_approval.request_approval(f"demote {name}"):
+        kwargs = {"approvers": approvers} if approvers is not None else {}
+        if not final_approval.request_approval(f"demote {name}", **kwargs):
             return
         prev = rule.status
         rule.status = "inactive"
