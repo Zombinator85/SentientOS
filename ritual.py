@@ -9,6 +9,7 @@ from datetime import datetime
 import getpass
 import doctrine  # Assume doctrine.py is importable
 import relationship_log as rl
+import headless_log as hl
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json")).resolve()
@@ -63,7 +64,13 @@ def _log_acceptance(digest: str) -> None:
 
 def require_liturgy_acceptance() -> None:
     if os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+        hl.log_skip("liturgy_prompt", "headless or non-interactive")
         return
+    pending = hl.review_pending()
+    if pending:
+        print("Pending ritual notices:")
+        for p in pending:
+            print(f"- {p['event']}: {p.get('reason','')}")
     digest = _sha256(LITURGY_FILE)
     if LITURGY_LOG.exists() and digest in LITURGY_LOG.read_text():
         return
@@ -117,6 +124,7 @@ def enforce_or_exit() -> None:
 def confirm_disruptive(action: str, summary: str) -> None:
     """Require multi-step confirmation for destructive actions."""
     if os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+        hl.log_skip(action, "headless or non-interactive")
         return
     print(f"Ritual guidance: {summary}")
     ans = input(f"Type 'YES' to proceed with {action}: ")
