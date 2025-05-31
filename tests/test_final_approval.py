@@ -88,3 +88,26 @@ def test_cli_override(tmp_path, monkeypatch, capsys):
     assert "Approved" in out
     log = Path(tmp_path / "fa.jsonl").read_text().splitlines()
     assert json.loads(log[0])["approver"] == "alice"
+
+
+def test_file_runtime_override(tmp_path, monkeypatch):
+    log = reload_with(tmp_path, monkeypatch, env="4o")
+    monkeypatch.setenv("FOUR_O_APPROVE", "false")
+    monkeypatch.setenv("ALICE_APPROVE", "true")
+    cfg = tmp_path / "ap.txt"
+    cfg.write_text("alice\n")
+    fa.override_approvers(fa.load_file_approvers(cfg), source="file")
+    assert fa.request_approval("demo")
+    entry = json.loads(log.read_text().splitlines()[0])
+    assert entry["approver"] == "alice" and entry["source"] == "file"
+
+
+def test_priority_order(tmp_path, monkeypatch):
+    log = reload_with(tmp_path, monkeypatch, env="4o", file_chain=["bob"])
+    monkeypatch.setenv("FOUR_O_APPROVE", "true")
+    monkeypatch.setenv("BOB_APPROVE", "true")
+    fa.override_approvers(["alice"], source="cli")
+    monkeypatch.setenv("ALICE_APPROVE", "true")
+    assert fa.request_approval("demo")
+    data = json.loads(log.read_text().splitlines()[0])
+    assert data["approver"] == "alice" and data["source"] == "cli"
