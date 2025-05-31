@@ -44,6 +44,17 @@ def run_cli(args: argparse.Namespace) -> None:
             policy=args.policy,
             reviewer=args.reviewer,
         )
+    if args.freeze:
+        mgr.freeze_rule(args.freeze)
+    if args.unfreeze:
+        mgr.unfreeze_rule(args.unfreeze)
+    if args.edit:
+        name, key, value = args.edit
+        try:
+            val = json.loads(value)
+        except Exception:
+            val = value
+        mgr.edit_rule(name, **{key: val})
     if args.revert:
         mgr.revert_last()
     if args.revert_rule:
@@ -89,6 +100,17 @@ def run_cli(args: argparse.Namespace) -> None:
             entries = [e for e in entries if e.get("action") == args.filter_action]
         for entry in entries:
             print(json.dumps(entry))
+    if args.list_feedback:
+        path = Path(os.getenv("FEEDBACK_USER_LOG", "logs/reflex_user_feedback.jsonl"))
+        if path.exists():
+            for line in path.read_text().splitlines():
+                print(line)
+    if args.feedback_log:
+        path = Path(os.getenv("FEEDBACK_USER_LOG", "logs/reflex_user_feedback.jsonl"))
+        if path.exists():
+            lines = path.read_text().splitlines()[-args.feedback_log:]
+            for ln in lines:
+                print(ln)
 
 
 def run_dashboard() -> None:
@@ -100,10 +122,15 @@ def run_dashboard() -> None:
         ap.add_argument("--demote")
         ap.add_argument("--revert", action="store_true")
         ap.add_argument("--revert-rule")
+        ap.add_argument("--freeze")
+        ap.add_argument("--unfreeze")
+        ap.add_argument("--edit", nargs=3, metavar=("RULE", "KEY", "VALUE"))
         ap.add_argument("--history")
         ap.add_argument("--annotate", nargs=2, metavar=("RULE", "COMMENT"))
         ap.add_argument("--tag")
         ap.add_argument("--audit")
+        ap.add_argument("--list-feedback", action="store_true")
+        ap.add_argument("--feedback-log", type=int)
         ap.add_argument("--agent")
         ap.add_argument("--persona")
         ap.add_argument("--policy")
