@@ -25,6 +25,7 @@ def setup_env(tmp_path, monkeypatch):
     reload(rm)
     reload(ritual)
     monkeypatch.setenv("MASTER_ENFORCE", "1")
+    monkeypatch.setenv("MASTER_CHECK_IMMUTABLE", "0")
     ritual.CONFIG_PATH = tmp_path / "config" / "master.json"
     ritual.CONFIG_PATH.parent.mkdir()
 
