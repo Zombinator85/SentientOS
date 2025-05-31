@@ -684,6 +684,16 @@ Every promotion or demotion is logged with the user, timestamp, and context so
 the entire reflex lifecycle is explainable. Use `--audit` to inspect these
 events and `--revert-rule` to roll back a specific change.
 
+### Collaborative Experiment Governance
+
+Run `experiment_cli.py propose` to submit new reflex experiments complete with
+description, conditions, and expected outcome. Community members vote and
+comment via the CLI or the `/experiments` API. Votes are tallied in
+`logs/experiments.json` and every action is recorded to
+`logs/experiment_audit.jsonl`. Success rates are displayed with
+`experiment_cli.py list` so promising trials can be promoted to core reflexes or
+rolled back if they fail.
+
 ### Multi-Agent and Policy Attribution
 
 System events, workflow steps, and reflex experiments now track exactly **who**
