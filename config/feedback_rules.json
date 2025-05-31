@@ -1,0 +1,16 @@
+[
+  {
+    "emotion": "Confident",
+    "threshold": 0.85,
+    "action": "positive_cue",
+    "duration": 30,
+    "cooldown": 10
+  },
+  {
+    "emotion": "Fear",
+    "threshold": 0.6,
+    "action": "calming_routine",
+    "check_func": "feedback_rules:stress_confirmed",
+    "cooldown": 10
+  }
+]

@@ -1,0 +1,19 @@
+[
+  {
+    "name": "bridge_stability_monitor",
+    "trigger": "file_change",
+    "path": "logs/bridge_watchdog.jsonl",
+    "actions": [
+      {"type": "pycall", "func": "reflex_rules:bridge_restart_check"}
+    ]
+  },
+  {
+    "name": "daily_digest",
+    "trigger": "interval",
+    "seconds": 86400,
+    "preferred": true,
+    "actions": [
+      {"type": "pycall", "func": "reflex_rules:daily_digest_action"}
+    ]
+  }
+]
