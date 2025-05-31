@@ -325,6 +325,21 @@ python memory_cli.py --final-approvers "4o alice" approve_patch <id>
 python suggestion_cli.py --final-approver-file approvers.txt accept <id>
 ```
 
+Doctrine Governance & Rituals
+-----------------------------
+`doctrine_cli.py` manages ritual affirmations and community amendments.
+
+```
+python doctrine_cli.py show         # display the liturgy
+python doctrine_cli.py affirm --user alice
+python doctrine_cli.py report       # integrity status
+python doctrine_cli.py amend "add rule" --user bob
+python doctrine_cli.py history --last 5
+```
+
+Reports are appended to ``logs/doctrine_status.jsonl`` and public events to
+``logs/public_rituals.jsonl`` for transparency.
+
 Policy, Gesture & Persona Engine
 --------------------------------
 `policy_engine.py` loads YAML or JSON policies at runtime to drive gestures and persona swaps. Policies define conditions on emotion vectors or tags and map them to actions. Use `python policy_engine.py policy show` to inspect active rules. Policies can be diffed, applied, or rolled back without restarting, and every action is audited.
