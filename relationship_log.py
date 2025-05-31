@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -12,12 +13,26 @@ LOG_PATH = Path(os.getenv("RELATIONSHIP_LOG", "logs/relationship_log.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
-def log_event(event: str, user: str, note: str = "") -> None:
+def log_event(
+    event: str,
+    user: str,
+    note: str = "",
+    *,
+    present: Optional[List[str]] = None,
+    witnesses: Optional[List[str]] = None,
+    cosign: Optional[List[str]] = None,
+) -> str:
+    """Record a ritual event and mirror it to the presence ledger."""
+    entry_id = uuid.uuid4().hex[:8]
     entry = {
+        "id": entry_id,
         "time": datetime.utcnow().isoformat(),
         "event": event,
         "user": user,
         "note": note,
+        "present": present or [],
+        "witnesses": witnesses or [],
+        "cosign": cosign or [],
     }
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
@@ -27,6 +42,7 @@ def log_event(event: str, user: str, note: str = "") -> None:
         doctrine.PUBLIC_LOG,
         {"time": time.time(), "event": event, "user": user},
     )
+    return entry_id
 
 
 def history(user: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]:
@@ -43,6 +59,23 @@ def history(user: Optional[str] = None, limit: int = 20) -> List[Dict[str, Any]]
         except Exception:
             continue
     return out
+
+
+def get_event(event_id: str) -> Optional[Dict[str, Any]]:
+    """Return a single event by id."""
+    if not LOG_PATH.exists():
+        return None
+    with LOG_PATH.open("r", encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                entry = json.loads(line)
+            except Exception:
+                continue
+            if entry.get("id") == event_id:
+                return entry
+    return None
 
 def _parse_ts(ts: str) -> datetime:
     try:
