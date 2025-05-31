@@ -2,11 +2,13 @@ import os
 import hashlib
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import List, Tuple
 from datetime import datetime
 import getpass
 import doctrine  # Assume doctrine.py is importable
+import relationship_log as rl
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json")).resolve()
@@ -60,15 +62,23 @@ def _log_acceptance(digest: str) -> None:
 
 
 def require_liturgy_acceptance() -> None:
+    if os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+        return
     digest = _sha256(LITURGY_FILE)
     if LITURGY_LOG.exists() and digest in LITURGY_LOG.read_text():
         return
+    # Display full doctrine
     print(LITURGY_FILE.read_text())
+    if README_ROMANCE.exists():
+        print(README_ROMANCE.read_text())
     ans = input("Type 'I AGREE' to continue: ")
     if ans.strip() != "I AGREE":
         _log_refusal([str(LITURGY_FILE)], "liturgy not accepted")
         raise SystemExit(1)
     _log_acceptance(digest)
+    # record in doctrine log and relationship log
+    doctrine.affirm(getpass.getuser())
+    rl.log_event("affirmation", getpass.getuser())
 
 
 def check_master_files() -> Tuple[bool, List[str]]:
@@ -102,3 +112,13 @@ def enforce_or_exit() -> None:
     if not ok:
         print("Ritual Refusal Mode. Missing or altered master files:", ", ".join(missing))
         raise SystemExit(1)
+
+
+def confirm_disruptive(action: str, summary: str) -> None:
+    """Require multi-step confirmation for destructive actions."""
+    if os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+        return
+    print(f"Ritual guidance: {summary}")
+    ans = input(f"Type 'YES' to proceed with {action}: ")
+    if ans.strip() != "YES":
+        raise SystemExit("Action cancelled by doctrine")

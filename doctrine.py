@@ -38,6 +38,29 @@ def log_json(path: Path, obj: Dict[str, Any]) -> None:
         f.write(json.dumps(obj) + "\n")
 
 
+def consent_history(user: Optional[str] = None, n: int = 20) -> List[Dict[str, Any]]:
+    if not CONSENT_LOG.exists():
+        return []
+    lines = CONSENT_LOG.read_text().splitlines()
+    if user:
+        lines = [ln for ln in lines if f'"user": "{user}"' in ln]
+    lines = lines[-n:]
+    out: List[Dict[str, Any]] = []
+    for ln in lines:
+        try:
+            out.append(json.loads(ln))
+        except Exception:
+            continue
+    return out
+
+
+def consent_count(user: str) -> int:
+    if not CONSENT_LOG.exists():
+        return 0
+    lines = [ln for ln in CONSENT_LOG.read_text().splitlines() if f'"user": "{user}"' in ln]
+    return len(lines)
+
+
 def affirm(user: str) -> None:
     """Record user consent to the current doctrine."""
     entry = {"time": time.time(), "user": user, "hash": doctrine_hash()}
@@ -58,6 +81,14 @@ def last_affirm_time() -> float:
 def maybe_prompt(days: int, user: str) -> None:
     """Prompt user to re-affirm if N days have passed."""
     if time.time() - last_affirm_time() > days * 86400:
+        print(DOCTRINE_PATH.read_text())
+        affirm(user)
+
+
+def maybe_prompt_login(n: int, user: str) -> None:
+    """Prompt every Nth login or when doctrine hash changes."""
+    hist = consent_history(user)
+    if not hist or len(hist) % n == 0 or hist[-1].get("hash") != doctrine_hash():
         print(DOCTRINE_PATH.read_text())
         affirm(user)
 
@@ -118,6 +149,19 @@ def history(n: int = 20) -> List[Dict[str, Any]]:
     if not AMEND_LOG.exists():
         return []
     lines = AMEND_LOG.read_text().splitlines()[-n:]
+    out: List[Dict[str, Any]] = []
+    for ln in lines:
+        try:
+            out.append(json.loads(ln))
+        except Exception:
+            continue
+    return out
+
+
+def public_feed(n: int = 5) -> List[Dict[str, Any]]:
+    if not PUBLIC_LOG.exists():
+        return []
+    lines = PUBLIC_LOG.read_text().splitlines()[-n:]
     out: List[Dict[str, Any]] = []
     for ln in lines:
         try:
