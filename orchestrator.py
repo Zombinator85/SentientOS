@@ -4,6 +4,7 @@ import time
 import datetime
 from pathlib import Path
 import autonomous_reflector as ar
+import doctrine
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 STATE_PATH = MEMORY_DIR / "orchestrator_state.json"
@@ -30,6 +31,7 @@ class Orchestrator:
 
     def run_cycle(self) -> None:
         ar.run_once()
+        doctrine.maybe_prompt(7, os.getenv("USER", "admin"))
         self.state["last_run"] = datetime.datetime.utcnow().isoformat()
         _save_state(self.state)
 
