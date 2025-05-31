@@ -272,6 +272,33 @@ class ReflexManager:
             tags=tags,
         )
 
+    # ------------------------------------------------------------------
+    def auto_generate_rule(
+        self,
+        trigger: BaseTrigger,
+        actions: List[Dict[str, Any]],
+        name: str,
+        *,
+        signals: Optional[Dict[str, Any]] = None,
+    ) -> ReflexRule:
+        """Create and start a rule from autonomous analysis."""
+        rule = ReflexRule(trigger, actions, name=name)
+        self.add_rule(rule)
+        rule.start()
+        self._audit("auto_rule", name, by="auto", comment=json.dumps(signals or {}))
+        return rule
+
+    def auto_prune(self, min_success: float = 0.2, min_trials: int = 5) -> None:
+        """Demote rules that consistently fail."""
+        for exp, info in list(self.experiments.items()):
+            for rname, rinfo in list(info.get("rules", {}).items()):
+                trials = rinfo.get("trials", 0)
+                if trials < min_trials:
+                    continue
+                success = rinfo.get("success", 0) / max(1, trials)
+                if success < min_success:
+                    self.demote_rule(rname, by="auto", experiment=exp)
+
     def add_rule(self, rule: ReflexRule) -> None:
         rule.manager = self
         self.rules.append(rule)
