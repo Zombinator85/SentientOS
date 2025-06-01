@@ -34,6 +34,12 @@ def cmd_invite(args: argparse.Namespace) -> None:
     print("Example to share:\nYou are invited to join SentientOS: No one is turned away.")
 
 
+def cmd_playlist(args: argparse.Namespace) -> None:
+    entries = ledger.playlist_by_mood(args.mood, args.limit)
+    log = ledger.playlist_log(entries, args.mood, args.user, "local")
+    print(json.dumps(log, indent=2))
+
+
 def main() -> None:
     require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
@@ -58,6 +64,12 @@ def main() -> None:
     inv.add_argument("--name")
     inv.add_argument("--affirm", action="store_true", help="Pre-log a welcome affirmation")
     inv.set_defaults(func=cmd_invite)
+
+    plst = sub.add_parser("playlist", help="Get playlist by mood")
+    plst.add_argument("mood")
+    plst.add_argument("--limit", type=int, default=10)
+    plst.add_argument("--user", default="anon")
+    plst.set_defaults(func=cmd_playlist)
 
     args = ap.parse_args()
     reset_ritual_state()

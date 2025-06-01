@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import ledger
+import doctrine
 import music_cli
 import jukebox_integration
 import presence_ledger as pl
@@ -98,6 +99,54 @@ def test_music_cli_play(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "ok" in out
     assert calls["snap"] >= 2 and calls["recap"] == 1
+
+
+def test_playlist_and_blessing(monkeypatch, tmp_path):
+    log = tmp_path / "music_log.jsonl"
+    pub = tmp_path / "public.jsonl"
+    entries = [
+        json.dumps({
+            "timestamp": "t1",
+            "event": "shared",
+            "file": "a.mp3",
+            "emotion": {"reported": {"Joy": 1.0}},
+            "user": "Ada",
+            "peer": "ally",
+        })
+    ]
+    log.write_text("\n".join(entries), encoding="utf-8")
+
+    orig_exists = Path.exists
+    orig_read = Path.read_text
+
+    def fake_exists(self):
+        if str(self) == "logs/music_log.jsonl":
+            return True
+        if str(self) == str(pub):
+            return True
+        return orig_exists(self)
+
+    def fake_read(self, encoding="utf-8"):
+        if str(self) == "logs/music_log.jsonl":
+            return log.read_text(encoding=encoding)
+        return orig_read(self, encoding=encoding)
+
+    rec = []
+
+    def fake_append(path: Path, entry: dict):
+        rec.append(entry)
+        return entry
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+    monkeypatch.setattr(Path, "read_text", fake_read)
+    monkeypatch.setattr(ledger, "_append", fake_append)
+    monkeypatch.setattr(doctrine, "PUBLIC_LOG", pub)
+    monkeypatch.setattr(doctrine, "log_json", lambda p, obj: pub.open("a").write(json.dumps(obj)+"\n"))
+
+    plist = ledger.playlist_by_mood("Joy")
+    assert plist and plist[0]["file"] == "a.mp3"
+    entry = ledger.log_music_share("a.mp3", peer="ally", user="Ada", emotion={"Joy":1.0})
+    assert any(e.get("event") == "mood_blessing" for e in rec)
 
 
 def test_music_cli_share(monkeypatch, tmp_path, capsys):

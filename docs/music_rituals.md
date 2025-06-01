@@ -9,6 +9,14 @@ Sharing a song with `music_cli.py play --share PEER` records the feeling you sen
 and logs a federation note for that peer. The receiving cathedral may respond
 with its own emotion which is stored under `received`.
 
+Request playlists from peers with `federation_cli.py playlist Joy`. The response
+is a signed log of tracks tagged with that mood. Every share writes a mood
+blessing entry such as `"Ada sent this in hope"` to `logs/music_log.jsonl` and
+the public ritual feed.
+
+`music_cli.py playlist Joy` generates the same playlist locally, ranking tracks
+by resonance—tracks shared or felt strongly float to the top.
+
 Run `music_cli.py recap --emotion` to review the moods of your recent sessions.
 The dashboard visualizes your top emotions, which tracks resonated the most and
 how your mood travelled over time.
