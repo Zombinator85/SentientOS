@@ -28,14 +28,18 @@ def get_presence(url: str) -> List[Dict[str, str]]:
 def run_cli(server: str, once: bool = False) -> None:
     """CLI mode showing presence and ledger summary."""
     print_banner()
+    ledger.print_snapshot_banner()
     ledger.print_summary()
-    while True:
-        pres = get_presence(server)
-        print(json.dumps(pres, indent=2))
-        if once:
-            break
-        time.sleep(1)
-    print_closing()
+    recap_shown = False
+    try:
+        while True:
+            pres = get_presence(server)
+            print(json.dumps(pres, indent=2))
+            if once:
+                break
+            time.sleep(1)
+    finally:
+        print_closing(show_recap=not recap_shown)
 
 
 def run_dashboard(server: str) -> None:
@@ -64,6 +68,7 @@ def main():
     args = parser.parse_args()
     if args.ledger:
         print_banner()
+        ledger.print_snapshot_banner()
         ledger.print_summary()
         print_closing()
         return

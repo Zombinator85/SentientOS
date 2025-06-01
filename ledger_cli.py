@@ -54,27 +54,29 @@ def main() -> None:
     print_banner()
     ledger.print_snapshot_banner()
 
-    if args.support:
-        name = args.name or input("Name: ")
-        message = args.message or input("Message: ")
-        amount = args.amount or input("Amount (optional): ")
-        entry = ledger.log_support(name, message, amount)
-        print(json.dumps(entry, indent=2))
-        ledger.print_recap(limit=2)
-        if not args.cmd and not args.summary:
-            print_closing()
+    recap_shown = False
+    try:
+        if args.support:
+            name = args.name or input("Name: ")
+            message = args.message or input("Message: ")
+            amount = args.amount or input("Amount (optional): ")
+            entry = ledger.log_support(name, message, amount)
+            print(json.dumps(entry, indent=2))
+            ledger.print_recap(limit=2)
+            recap_shown = True
+            if not args.cmd and not args.summary:
+                return
+
+        if args.summary and not args.cmd:
+            cmd_summary(args)
             return
 
-    if args.summary and not args.cmd:
-        cmd_summary(args)
-        print_closing()
-        return
-
-    if hasattr(args, "func"):
-        args.func(args)
-    else:
-        ap.print_help()
-    print_closing()
+        if hasattr(args, "func"):
+            args.func(args)
+        else:
+            ap.print_help()
+    finally:
+        print_closing(show_recap=not recap_shown)
 
 
 if __name__ == '__main__':

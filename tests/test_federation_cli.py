@@ -49,3 +49,15 @@ def test_cli_invite(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "peer1" in out and "hi" in out and "hello" in out
     assert calls["snap"] >= 2 and calls["recap"] == 1
+
+
+def test_cli_ledger_summary(monkeypatch):
+    calls = {"snap": 0, "recap": 0}
+
+    monkeypatch.setattr(ledger, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
+    monkeypatch.setattr(ledger, "print_recap", lambda limit=3: calls.__setitem__("recap", calls["recap"] + 1))
+    monkeypatch.setattr(sys, "argv", ["fed", "--ledger-summary"])
+    import federation_cli
+    importlib.reload(federation_cli)
+    federation_cli.main()
+    assert calls["snap"] >= 2 and calls["recap"] == 1

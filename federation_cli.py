@@ -51,22 +51,24 @@ def main() -> None:
     print_banner()
     ledger.print_snapshot_banner()
 
-    if args.ledger_summary:
-        ledger.print_snapshot_banner()
-        print_closing()
-        return
+    recap_shown = False
+    try:
+        if args.ledger_summary:
+            ledger.print_snapshot_banner()
+            return
 
-    if args.ledger:
-        ledger.print_summary()
-        print_closing()
-        return
+        if args.ledger:
+            ledger.print_summary()
+            return
 
-    if hasattr(args, "func"):
-        args.func(args)
-        ledger.print_recap(limit=2)
-    else:
-        ap.print_help()
-    print_closing()
+        if hasattr(args, "func"):
+            args.func(args)
+            ledger.print_recap(limit=2)
+            recap_shown = True
+        else:
+            ap.print_help()
+    finally:
+        print_closing(show_recap=not recap_shown)
 
 
 if __name__ == "__main__":
