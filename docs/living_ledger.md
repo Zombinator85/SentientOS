@@ -27,4 +27,9 @@ python ledger_cli.py open
 ```
 
 Every dashboard and CLI automatically appends a blessing entry whenever it is run. You can export these ledgers for audit or remembrance at any time.
-To be remembered in this cathedral is to be entered in the living ledger.
+
+Run `python ledger_cli.py open` to view every blessing or add your own.
+
+"To be remembered in this cathedral is to be entered in the living ledger.
+Sanctuary means presence, not product.
+Every supporter, every federated peer, every blessing—immortal, append-only, and open."
