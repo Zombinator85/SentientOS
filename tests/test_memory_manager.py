@@ -137,3 +137,19 @@ def test_embedding_retrieval(tmp_path, monkeypatch):
 
     ctx = mm.get_context("dogs", k=1)
     assert ctx
+
+
+def test_search_by_tags(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    mm.append_memory("one", tags=["a", "b"])
+    mm.append_memory("two", tags=["b"])
+    mm.append_memory("three", tags=["a", "b", "c"])
+
+    res = mm.search_by_tags(["a", "b"], limit=2)
+    assert len(res) == 2
+    assert res[0]["text"] == "three"
+    assert res[1]["text"] == "one"
