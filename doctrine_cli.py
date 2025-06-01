@@ -7,6 +7,7 @@ import doctrine
 import relationship_log as rl
 import presence_ledger as pl
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+from admin_utils import require_admin
 
 
 def cmd_show(args) -> None:
@@ -54,6 +55,7 @@ def cmd_presence(args) -> None:
 
 
 def main() -> None:
+    require_admin()
     ap = argparse.ArgumentParser(prog="doctrine", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
