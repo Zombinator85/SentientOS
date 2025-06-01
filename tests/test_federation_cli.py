@@ -48,4 +48,4 @@ def test_cli_invite(monkeypatch, capsys):
     federation_cli.main()
     out = capsys.readouterr().out
     assert "peer1" in out and "hi" in out and "hello" in out
-    assert calls["snap"] >= 1 and calls["recap"] == 1
+    assert calls["snap"] >= 2 and calls["recap"] == 1
