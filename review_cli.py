@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from sentient_banner import print_banner, print_closing
 
 from story_studio import load_storyboard, save_storyboard
 import user_profile as up
@@ -51,6 +52,7 @@ def main() -> None:
     parser.add_argument("--whoami", action="store_true")
     parser.add_argument("--switch-persona")
     args = parser.parse_args()
+    print_banner()
 
     if args.whoami:
         prof = up.load_profile()
@@ -73,6 +75,7 @@ def main() -> None:
         resolve_comment(path, args.chapter, int(args.resolve_comment[1]))
     if args.set_status:
         set_status(path, args.chapter, args.set_status)
+    print_closing()
 
 
 if __name__ == "__main__":

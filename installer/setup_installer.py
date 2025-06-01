@@ -3,6 +3,7 @@ import sys
 import shutil
 import subprocess
 from pathlib import Path
+from sentient_banner import print_banner, print_closing
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -82,6 +83,7 @@ def main() -> None:
         print('Please run this script as Administrator.')
         return
 
+    print_banner()
     print('SentientOS setup starting...')
     install_dependencies()
     copy_samples()
@@ -93,6 +95,7 @@ def main() -> None:
         onboarding_dashboard.launch()
     except Exception:
         print('onboarding_dashboard not available. Setup finished.')
+    print_closing()
 
 
 if __name__ == '__main__':
