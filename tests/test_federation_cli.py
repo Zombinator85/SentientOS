@@ -4,16 +4,48 @@ import importlib
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import treasury_federation as tf
+import ledger
 
 
 def test_cli_invite(monkeypatch, capsys):
-    def fake_invite(peer, email="", message="federation invite", **kw):
-        return {"peer": peer, "email": email, "message": message}
+    def fake_invite(peer, email="", message="federation invite", blessing="", supporter="", affirm=False):
+        return {
+            "peer": peer,
+            "email": email,
+            "message": message,
+            "blessing": blessing,
+            "supporter": supporter,
+            "affirm": affirm,
+        }
+
+    calls = {"snap": 0, "recap": 0}
+
+    def fake_snap():
+        calls["snap"] += 1
+
+    def fake_recap(limit: int = 3):
+        calls["recap"] += 1
 
     monkeypatch.setattr(tf, "invite", fake_invite)
-    monkeypatch.setattr(sys, "argv", ["fed", "invite", "peer1", "--email", "a@example.com", "--message", "hi"])
+    monkeypatch.setattr(ledger, "print_snapshot_banner", fake_snap)
+    monkeypatch.setattr(ledger, "print_recap", fake_recap)
+    monkeypatch.setattr(sys, "argv", [
+        "fed",
+        "invite",
+        "peer1",
+        "--email",
+        "a@example.com",
+        "--message",
+        "hi",
+        "--blessing",
+        "hello",
+        "--name",
+        "Ada",
+        "--affirm",
+    ])
     import federation_cli
     importlib.reload(federation_cli)
     federation_cli.main()
     out = capsys.readouterr().out
-    assert "peer1" in out and "hi" in out
+    assert "peer1" in out and "hi" in out and "hello" in out
+    assert calls["snap"] >= 1 and calls["recap"] == 1

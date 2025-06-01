@@ -6,6 +6,7 @@ from typing import List, Dict
 
 import doctrine
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
+import ledger
 
 try:
     import streamlit as st  # type: ignore
@@ -54,6 +55,7 @@ def run_dashboard() -> None:
 
     st.title("Public Ritual Feed")
     streamlit_banner(st)
+    ledger.streamlit_widget(st.sidebar if hasattr(st, "sidebar") else st)
     event = st.sidebar.text_input("Event filter")
     date = st.sidebar.text_input("Date (YYYY-MM-DD)")
     last = st.sidebar.number_input("Last N", 1, 1000, 20)

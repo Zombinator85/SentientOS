@@ -52,6 +52,7 @@ def main() -> None:
     sm.set_defaults(func=cmd_summary)
     args = ap.parse_args()
     print_banner()
+    ledger.print_snapshot_banner()
 
     if args.support:
         name = args.name or input("Name: ")
@@ -59,6 +60,7 @@ def main() -> None:
         amount = args.amount or input("Amount (optional): ")
         entry = ledger.log_support(name, message, amount)
         print(json.dumps(entry, indent=2))
+        ledger.print_recap(limit=2)
         if not args.cmd and not args.summary:
             return
 
