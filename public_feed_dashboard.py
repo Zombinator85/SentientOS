@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Dict
 
 import doctrine
-from sentient_banner import streamlit_banner, ENTRY_BANNER
+from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 
 try:
     import streamlit as st  # type: ignore
@@ -36,6 +36,7 @@ def load_feed(last: int = 50, event: str | None = None, date: str | None = None)
 
 
 def run_cli(args: argparse.Namespace) -> None:
+    print_banner()
     feed = load_feed(args.last, args.event, args.date)
     for entry in feed:
         print(json.dumps(entry))
@@ -53,7 +54,6 @@ def run_dashboard() -> None:
 
     st.title("Public Ritual Feed")
     streamlit_banner(st)
-    st.markdown(ENTRY_BANNER)
     event = st.sidebar.text_input("Event filter")
     date = st.sidebar.text_input("Date (YYYY-MM-DD)")
     last = st.sidebar.number_input("Last N", 1, 1000, 20)
@@ -70,6 +70,7 @@ def run_dashboard() -> None:
             break
         time.sleep(refresh)
         st.experimental_rerun()
+    streamlit_closing(st)
 
 
 if __name__ == "__main__":
