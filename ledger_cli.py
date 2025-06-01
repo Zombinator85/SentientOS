@@ -62,10 +62,12 @@ def main() -> None:
         print(json.dumps(entry, indent=2))
         ledger.print_recap(limit=2)
         if not args.cmd and not args.summary:
+            print_closing()
             return
 
     if args.summary and not args.cmd:
         cmd_summary(args)
+        print_closing()
         return
 
     if hasattr(args, "func"):
