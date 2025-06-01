@@ -6,6 +6,7 @@ import datetime
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 try:
     import yaml  # type: ignore
@@ -111,11 +112,13 @@ def edit_loop(path: Path, policy: str | None = None) -> None:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    ap = argparse.ArgumentParser(description="Workflow editor")
+    ap = argparse.ArgumentParser(description=ENTRY_BANNER)
     ap.add_argument("path")
     ap.add_argument("--policy")
     args = ap.parse_args()
+    print_banner()
     edit_loop(Path(args.path), policy=args.policy)
+    print_closing()
 
 
 if __name__ == "__main__":

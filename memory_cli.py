@@ -8,6 +8,7 @@ from api import actuator
 import notification
 import self_patcher
 import final_approval
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 import presence_analytics as pa
 import ritual
 
@@ -88,7 +89,7 @@ def show_goals(status: str) -> None:
         print(line)
 
 def main():
-    parser = argparse.ArgumentParser(description="Manage memory fragments")
+    parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     parser.add_argument(
         "--final-approvers",
         default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
@@ -182,6 +183,7 @@ def main():
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
     args = parser.parse_args()
+    print_banner()
     if args.final_approver_file:
         fp = Path(args.final_approver_file)
         chain = final_approval.load_file_approvers(fp) if fp.exists() else []
@@ -309,6 +311,7 @@ def main():
         ar.run_loop(iterations=args.cycles, interval=0.01)
     else:
         parser.print_help()
+    print_closing()
 
 if __name__ == "__main__":
     main()

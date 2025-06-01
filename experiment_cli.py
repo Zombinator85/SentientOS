@@ -1,9 +1,10 @@
 import argparse
 import experiment_tracker as et
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Reflex experiment CLI")
+    parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     sub = parser.add_subparsers(dest="cmd")
 
     p = sub.add_parser("propose")
@@ -30,6 +31,7 @@ def main() -> None:
     s.add_argument("status")
 
     args = parser.parse_args()
+    print_banner()
 
     if args.cmd == "propose":
         eid = et.propose_experiment(
@@ -51,6 +53,7 @@ def main() -> None:
         et.update_status(args.id, args.status)
     else:
         parser.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":
