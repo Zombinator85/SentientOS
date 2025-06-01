@@ -25,12 +25,12 @@ def test_require_admin_failure(monkeypatch):
     logs = []
     monkeypatch.setattr(admin_utils, "is_admin", lambda: False)
     monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append((u, p, t, s)))
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit), pytest.warns(DeprecationWarning):
         admin_utils.require_admin()
     assert logs and logs[0][3] == "failed"
 
 
 def test_require_admin_wrapper(monkeypatch):
     monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: (_ for _ in ()).throw(SystemExit))
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit), pytest.warns(DeprecationWarning):
         admin_utils.require_admin()

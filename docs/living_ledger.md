@@ -42,6 +42,10 @@ Sample privilege check entry:
 {"timestamp": "2025-06-01T02:00:00", "event": "admin_privilege_check", "status": "failed", "user": "april", "platform": "Windows", "tool": "support_cli"}
 ```
 
+```json
+{"timestamp": "2025-06-01T02:00:05", "event": "admin_privilege_check", "status": "success", "user": "april", "platform": "Windows", "tool": "support_cli"}
+```
+
 After each blessing or invite a recap is printed showing the most recent entries:
 
 ```
