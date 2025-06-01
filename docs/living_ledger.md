@@ -27,6 +27,19 @@ Sample support entry:
 {"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
 ```
 
+After each blessing or invite a recap is printed showing the most recent entries:
+
+```
+{
+  "support_recent": [
+    {"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
+  ],
+  "federation_recent": [
+    {"timestamp": "2025-06-01T01:00:00", "peer": "https://ally.example", "email": "friend@example.com", "message": "sync completed", "ritual": "Federation blessing recorded."}
+  ]
+}
+```
+
 To review your presence during onboarding run:
 
 ```bash
