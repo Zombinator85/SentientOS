@@ -382,6 +382,11 @@ python video_cli.py share demo.mp4 --peer Allen --emotion Joy=1.0 --user Ada
 python video_cli.py recap --limit 5
 ```
 
+Video memories appear in the dashboards and presence ledger just like music.
+Run `streamlit run video_dashboard.py` to see your top moods, blessings, and
+recent shares. Every share or recap logs to `logs/user_presence.jsonl` and
+`logs/video_log.jsonl` so that the living ledger and dashboard stay in sync.
+
 See `docs/video_ritual_guide.md` for a walkthrough.
 
 Actuator, Reflections, and Plugins
