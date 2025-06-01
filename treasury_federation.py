@@ -55,3 +55,11 @@ def pull(base_url: str) -> List[str]:
         fl.add(url, message="sync completed")
     print_closing()
     return imported
+
+
+def invite(peer: str, email: str = "") -> Dict[str, str]:
+    """Record a federation invite blessing."""
+    print_banner()
+    entry = fl.add(peer, email=email, message="federation invite")
+    print_closing()
+    return entry

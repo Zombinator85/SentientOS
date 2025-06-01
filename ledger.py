@@ -69,3 +69,16 @@ def streamlit_widget(st_module) -> None:
     if last_sup or last_fed:
         st_module.write("Recent entries:")
         st_module.json({"support": last_sup, "federation": last_fed})
+
+
+def print_summary() -> None:
+    """Print a ledger summary to stdout."""
+    sup = summarize_log(Path("logs/support_log.jsonl"))
+    fed = summarize_log(Path("logs/federation_log.jsonl"))
+    data = {
+        "support_count": sup["count"],
+        "federation_count": fed["count"],
+        "support_recent": sup["recent"],
+        "federation_recent": fed["recent"],
+    }
+    print(json.dumps(data, indent=2))
