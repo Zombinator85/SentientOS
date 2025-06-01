@@ -117,6 +117,14 @@ def main():
     purge = sub.add_parser("purge", help="Delete old fragments")
     purge.add_argument("--age", type=int, help="Remove fragments older than N days")
     purge.add_argument("--max", type=int, help="Keep only the newest N fragments")
+    purge.add_argument("--reason")
+    purge.add_argument("--requestor")
+
+    tomb = sub.add_parser("tomb", help="Visit the memory tomb")
+    tomb.add_argument("--tag")
+    tomb.add_argument("--reason")
+    tomb.add_argument("--date")
+    tomb.add_argument("--json", action="store_true")
 
     sub.add_parser("summarize", help="Create/update daily summary files")
     sub.add_parser("inspect", help="Print the user profile")
@@ -219,7 +227,21 @@ def main():
         final_approval.override_approvers(chain, source="cli")
     if args.cmd == "purge":
         ritual.confirm_disruptive("purge", "Old fragments will be permanently removed")
-        mm.purge_memory(max_age_days=args.age, max_files=args.max)
+        mm.purge_memory(
+            max_age_days=args.age,
+            max_files=args.max,
+            requestor=args.requestor or os.getenv("USER", "cli"),
+            reason=args.reason or "",
+        )
+    elif args.cmd == "tomb":
+        entries = mm.list_tomb(tag=args.tag, reason=args.reason, date=args.date)
+        for e in entries:
+            if args.json:
+                print(json.dumps(e))
+            else:
+                frag = e.get("fragment", {})
+                summary = frag.get("text", "")[:60].replace("\n", " ")
+                print(f"[{e.get('time','?')}] {summary} | reason={e.get('reason','')}")
     elif args.cmd == "summarize":
         mm.summarize_memory()
     elif args.cmd == "inspect":
