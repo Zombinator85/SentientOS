@@ -103,3 +103,30 @@ def print_summary(limit: int = 3) -> None:
         "unique_witnesses": _unique_values(att_path, "user"),
     }
     print(json.dumps(data, indent=2))
+
+
+def snapshot_counts() -> Dict[str, int]:
+    """Return counts and unique totals for the main ledgers."""
+    sup_path = Path("logs/support_log.jsonl")
+    fed_path = Path("logs/federation_log.jsonl")
+    att_path = Path("logs/ritual_attestations.jsonl")
+
+    return {
+        "support": summarize_log(sup_path)["count"],
+        "federation": summarize_log(fed_path)["count"],
+        "witness": summarize_log(att_path)["count"],
+        "unique_support": _unique_values(sup_path, "supporter"),
+        "unique_peers": _unique_values(fed_path, "peer"),
+        "unique_witness": _unique_values(att_path, "user"),
+    }
+
+
+def print_snapshot_banner() -> None:
+    """Print a short ledger snapshot banner."""
+    c = snapshot_counts()
+    print(
+        "Ledger snapshot • "
+        f"Support: {c['support']} ({c['unique_support']} unique) • "
+        f"Federation: {c['federation']} ({c['unique_peers']} unique) • "
+        f"Witness: {c['witness']} ({c['unique_witness']} unique)"
+    )

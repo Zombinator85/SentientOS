@@ -19,6 +19,7 @@ def test_invite(tmp_path, monkeypatch):
     monkeypatch.setattr(ledger, '_append', fake_append)
     importlib.reload(fl)
     importlib.reload(tf)
-    tf.invite('peer1', email='a@example.com')
-    data = path.read_text()
-    assert 'peer1' in data
+    tf.invite('peer1', email='a@example.com', blessing='hi', supporter='bob', affirm=True)
+    data = path.read_text().splitlines()
+    assert len(data) == 3
+    assert 'peer1' in data[0]

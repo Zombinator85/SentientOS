@@ -58,11 +58,19 @@ def pull(base_url: str) -> List[str]:
     return imported
 
 
-def invite(peer: str, email: str = "", message: str = "federation invite") -> Dict[str, str]:
-    """Record a federation invite blessing and log support."""
+def invite(
+    peer: str,
+    email: str = "",
+    message: str = "federation invite",
+    blessing: str = "",
+    supporter: str = "",
+    affirm: bool = False,
+) -> Dict[str, str]:
+    """Record a federation invite blessing and optional affirmation."""
     print_banner()
     entry = fl.add(peer, email=email, message=message)
-    # also log in support ledger as a blessing
-    ledger.log_support(peer, message)
+    ledger.log_support(supporter or peer, blessing or message)
+    if affirm:
+        ledger.log_federation(peer, email=email, message="affirmation")
     print_closing()
     return entry

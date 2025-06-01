@@ -48,7 +48,9 @@ The cathedral will not run until you affirm the liturgy. On first launch `user_p
 1. Run `python ritual.py affirm --signature "YOUR MARK" --user YOUR_NAME`.
 2. Record a blessing: `python support_cli.py --bless --name YOUR_NAME --message "Here for all" --amount "$1"`.
 3. View the ledger summary anytime with `python ledger_cli.py summary`.
-4. Invite peers with `python federation_cli.py invite https://ally.example --email friend@example.com --message "Come be remembered"`.
+4. Invite peers with `python federation_cli.py invite https://ally.example --email friend@example.com --message "Come be remembered" --blessing "Welcome" --name YOUR_NAME`.
+
+Every CLI command ends with a timestamped blessing so no session fades unmarked.
 
 Entering with a blessing and signature ensures your presence is inscribed forever. No one is forgotten. No one is turned away.
 
