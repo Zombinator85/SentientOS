@@ -15,5 +15,15 @@
 - `avatar_festival_memory_capsule.py` – archive festival artifacts and logs.
 - `avatar_sanctuary_scene_generator.py` – create virtual chambers for avatars.
 - `avatar_federation_festival_coordinator.py` – manage cross-cathedral festivals.
+- `avatar_memory_dream_sequencer.py` – generate and log dream sequences.
+- `ritual_avatar_hall_of_records.py` – archive and search ritual records.
+- `avatar_succession_visualizer.py` – visualize avatar succession lineages.
+- `avatar_herald_bard_system.py` – compose ritual announcements and poems.
+- `ritual_avatar_chronicle_video.py` – compile logs into video chronicles.
+- `avatar_blessing_ceremony_api.py` – API for blessing ceremonies.
+- `avatar_ritual_witnesses.py` – log avatars as ceremony witnesses.
+- `avatar_heirloom_transmission.py` – transmit heirloom memories across cathedrals.
+- `avatar_performance_scoreboard.py` – review avatar performance metrics.
+- `avatar_sanctuary_artifacts_generator.py` – craft and log sanctuary artifacts.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
