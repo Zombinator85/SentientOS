@@ -8,6 +8,9 @@ import reflection_stream as rs
 import trust_engine as te
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 import ledger
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 try:
     import pandas as pd  # type: ignore
@@ -115,6 +118,8 @@ def _print_table(events: Iterable[Dict[str, Any]]) -> None:
 
 
 def run_cli(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     events = load_timeline(limit=args.last)
     start = None
     end = None
@@ -136,6 +141,8 @@ def run_cli(args: argparse.Namespace) -> None:
 
 
 def run_dashboard() -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None or pd is None:
         ap = argparse.ArgumentParser(description="Reflection dashboard CLI")
         ap.add_argument("--type", dest="type")

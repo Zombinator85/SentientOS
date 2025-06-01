@@ -1,5 +1,4 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
-"""Simple CLI editor for workflow files."""
+
 
 import argparse
 import json
@@ -9,6 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 try:
     import yaml  # type: ignore

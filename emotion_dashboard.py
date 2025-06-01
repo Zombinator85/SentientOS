@@ -27,6 +27,9 @@ except Exception:  # pragma: no cover - optional
     st = None
 
 import ledger
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 import reflex_manager as rm
 from reflex_rules import bridge_restart_check, daily_digest_action
@@ -68,6 +71,8 @@ def run_dashboard(
     feedback_rules: Optional[str] = None,
 ) -> None:
     """Launch the SentientOS Streamlit dashboard, with optional feedback layer."""
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None or pd is None:
         print("Streamlit or pandas not available. Install dependencies to run dashboard.")
         return

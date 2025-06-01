@@ -15,6 +15,9 @@ except Exception:  # pragma: no cover - optional
 
 from sentient_banner import streamlit_banner, streamlit_closing
 import ledger
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 
 def load_experiments() -> Dict[str, Any]:
@@ -28,6 +31,8 @@ def load_experiments() -> Dict[str, Any]:
 
 
 def run_cli(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     mgr = rm.ReflexManager()
     mgr.load_experiments()
 
@@ -117,6 +122,8 @@ def run_cli(args: argparse.Namespace) -> None:
 
 
 def run_dashboard() -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None:
         ap = argparse.ArgumentParser(description="Reflex dashboard CLI")
         ap.add_argument("--log", type=int, default=0, help="Show last N learn logs")

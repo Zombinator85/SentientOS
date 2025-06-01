@@ -1,0 +1,2 @@
+#!/bin/sh
+python privilege_lint.py
