@@ -1,4 +1,7 @@
 import sys
+import json
+import datetime
+import os
 from pathlib import Path
 
 DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
@@ -13,6 +16,20 @@ ENTRY_PATTERNS = [
 ]
 
 DOCSTRING_SEARCH_LINES = 60
+
+AUDIT_FILE = Path(os.getenv("PRIVILEGED_AUDIT_FILE", "logs/privileged_audit.jsonl"))
+AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def audit_use(tool: str, command: str) -> None:
+    """Append a privileged command usage entry."""
+    entry = {
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "tool": tool,
+        "command": command,
+    }
+    with AUDIT_FILE.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 def _has_header(path: Path) -> bool:
