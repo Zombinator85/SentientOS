@@ -359,6 +359,11 @@ python music_cli.py generate "calm ocean at dusk" --emotion Joy=0.7 --user Ada
 ```
 The resulting path and hash are printed and stored in the living ledger.
 
+Sharing a track with `music_cli.py play --share PEER` prompts for your mood and
+logs the exchange in `logs/music_log.jsonl` and `logs/federation_log.jsonl`.
+Use `music_cli.py recap --emotion` to see which feelings have been most common
+and how recent sessions flowed.
+
 Actuator, Reflections, and Plugins
 Actuator CLI (api/actuator.py):
 

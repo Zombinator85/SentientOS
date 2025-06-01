@@ -25,6 +25,7 @@ def test_log_music(monkeypatch, tmp_path):
     assert e["prompt"] == "p"
     assert entries[0]["file"] == "f.mp3"
     assert "emotion" in entries[0] and entries[0]["emotion"]["intended"]["Joy"] == 1.0
+    assert "received" in entries[0]["emotion"]
 
     listen = ledger.log_music_listen("f.mp3", user="u", reported={"Calm": 0.5})
     assert listen["event"] == "listened"
@@ -52,6 +53,34 @@ def test_music_cli_generate(monkeypatch, tmp_path, capsys):
     assert calls["snap"] >= 2 and calls["recap"] == 1
 
 
+def test_music_cli_recap(monkeypatch, tmp_path, capsys):
+    log = tmp_path / "music_log.jsonl"
+    entries = [json.dumps({"timestamp": "1", "emotion": {"reported": {"Joy": 0.5}}})]
+    log.write_text("\n".join(entries))
+
+    orig_exists = Path.exists
+    orig_read = Path.read_text
+
+    def fake_exists(self):
+        if str(self) == "logs/music_log.jsonl":
+            return True
+        return orig_exists(self)
+
+    def fake_read_text(self, encoding="utf-8"):
+        if str(self) == "logs/music_log.jsonl":
+            return log.read_text(encoding=encoding)
+        return orig_read(self, encoding=encoding)
+
+    monkeypatch.setattr(Path, "exists", fake_exists)
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(sys, "argv", ["music_cli.py", "recap", "--emotion", "--limit", "1"])
+    importlib.reload(music_cli)
+    music_cli.main()
+    out = capsys.readouterr().out
+    assert "Joy" in out
+
+
 def test_music_cli_play(monkeypatch, tmp_path, capsys):
     track = tmp_path / "song.mp3"
     track.write_bytes(b"data")
@@ -68,4 +97,25 @@ def test_music_cli_play(monkeypatch, tmp_path, capsys):
     music_cli.main()
     out = capsys.readouterr().out
     assert "ok" in out
+    assert calls["snap"] >= 2 and calls["recap"] == 1
+
+
+def test_music_cli_share(monkeypatch, tmp_path, capsys):
+    track = tmp_path / "song.mp3"
+    track.write_bytes(b"data")
+
+    monkeypatch.setattr(ledger, "log_music_listen", lambda *a, **k: {"listen": True})
+    monkeypatch.setattr(ledger, "log_music_share", lambda *a, **k: {"shared": True})
+    monkeypatch.setattr(ledger, "log_federation", lambda *a, **k: {"federated": True})
+    monkeypatch.setattr(pl, "log", lambda *a, **k: None)
+    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
+    monkeypatch.setattr("builtins.input", lambda prompt="": "Joy=1.0")
+    calls = {"snap": 0, "recap": 0}
+    monkeypatch.setattr(sb, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
+    monkeypatch.setattr(sb, "print_closing_recap", lambda: calls.__setitem__("recap", calls["recap"] + 1))
+    monkeypatch.setattr(sys, "argv", ["music_cli.py", "play", str(track), "--share", "ally"])
+    importlib.reload(music_cli)
+    music_cli.main()
+    out = capsys.readouterr().out
+    assert "shared" in out or "listen" in out
     assert calls["snap"] >= 2 and calls["recap"] == 1
