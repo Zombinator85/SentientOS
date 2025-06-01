@@ -1,7 +1,7 @@
 import argparse
 import json
 from pathlib import Path
-from sentient_banner import ENTRY_BANNER
+from sentient_banner import ENTRY_BANNER, print_banner, print_closing
 
 import love_treasury as lt
 import treasury_federation as tf
@@ -109,10 +109,12 @@ def main() -> None:
     attest.set_defaults(func=cmd_attest)
 
     args = ap.parse_args()
+    print_banner()
     if hasattr(args, "func"):
         args.func(args)
     else:
         ap.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":
