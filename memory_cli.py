@@ -191,7 +191,11 @@ def main():
     forget.add_argument("keys", nargs="+", help="Profile keys to remove")
 
     args = parser.parse_args()
+    from sentient_banner import reset_ritual_state, print_snapshot_banner
+
+    reset_ritual_state()
     print_banner()
+    print_snapshot_banner()
     if args.ledger:
         ledger.print_summary()
         print_closing()
