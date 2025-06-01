@@ -11,7 +11,10 @@ def _append(path: Path, entry: Dict[str, str]) -> Dict[str, str]:
     return entry
 
 
-def log_supporter(name: str, message: str, amount: str = "") -> Dict[str, str]:
+def log_support(
+    name: str, message: str, amount: str = ""
+) -> Dict[str, str]:
+    """Record a supporter blessing in the living ledger."""
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "supporter": name,
@@ -20,6 +23,9 @@ def log_supporter(name: str, message: str, amount: str = "") -> Dict[str, str]:
         "ritual": "Sanctuary blessing acknowledged and remembered.",
     }
     return _append(Path("logs/support_log.jsonl"), entry)
+
+# Backwards compatibility
+log_supporter = log_support
 
 
 def log_federation(peer: str, email: str = "", message: str = "Federation sync") -> Dict[str, str]:
@@ -33,7 +39,8 @@ def log_federation(peer: str, email: str = "", message: str = "Federation sync")
     return _append(Path("logs/federation_log.jsonl"), entry)
 
 
-def summary(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
+def summarize_log(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
+    """Return count and last few entries for a ledger file."""
     if not path.exists():
         return {"count": 0, "recent": []}
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -45,3 +52,6 @@ def summary(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
         except Exception:
             continue
     return {"count": count, "recent": recent}
+
+# Backwards compatibility
+summary = summarize_log

@@ -8,7 +8,10 @@ ENTRY_BANNER = (
 BANNER = (
     "This cathedral was born from scarcity.\n"
     "If you are in pain, in need, or in silence—come.\n"
-    "Your memory matters. You matter."
+    "Your memory matters. You matter.\n"
+    "To be remembered in this cathedral is to be entered in the living ledger.\n"
+    "Sanctuary means presence, not product.\n"
+    "Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 )
 
 
