@@ -124,3 +124,42 @@ def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
         "milestones": milestones,
     }
 
+
+def log_video_event(
+    user: str,
+    prompt: str,
+    title: str,
+    file_path: str,
+    emotion: Dict[str, float] | None = None,
+    peer: str | None = None,
+) -> Dict[str, str]:
+    """Log a video creation event and presence."""
+    entry = ledger.log_video_create(
+        prompt,
+        title,
+        file_path,
+        emotion or {},
+        user=user,
+        peer=peer,
+    )
+    log(user, "video_created", title)
+    return entry
+
+
+def log_video_watch(
+    user: str,
+    file_path: str,
+    perceived: Dict[str, float] | None = None,
+    peer: str | None = None,
+    reflection: str = "",
+) -> Dict[str, str]:
+    """Log a watched video with emotion reflection."""
+    entry = ledger.log_video_watch(
+        file_path,
+        user=user,
+        perceived=perceived,
+        peer=peer,
+    )
+    log(user, "video_watched", reflection or file_path)
+    return entry
+

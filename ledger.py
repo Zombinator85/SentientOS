@@ -139,6 +139,79 @@ def log_music_share(
     return entry
 
 
+def log_video_event(
+    event: str,
+    file_path: str,
+    *,
+    prompt: str = "",
+    title: str = "",
+    intended: Dict[str, float] | None = None,
+    perceived: Dict[str, float] | None = None,
+    peer: str | None = None,
+    result_hash: str = "",
+    user: str = "",
+) -> Dict[str, str]:
+    """Record a video creation or watch event in the living ledger."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": event,
+        "prompt": prompt,
+        "title": title,
+        "file": file_path,
+        "hash": result_hash,
+        "user": user,
+        "emotion": {
+            "intended": intended or {},
+            "perceived": perceived or {},
+        },
+        "peer": peer or "",
+        "ritual": "Video remembered.",
+    }
+    return _append(Path("logs/video_log.jsonl"), entry)
+
+
+def log_video_create(
+    prompt: str,
+    title: str,
+    file_path: str,
+    emotion: Dict[str, float] | None = None,
+    *,
+    user: str = "",
+    peer: str | None = None,
+) -> Dict[str, str]:
+    """Log a new created video."""
+    h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
+    return log_video_event(
+        "created",
+        file_path,
+        prompt=prompt,
+        title=title,
+        intended=emotion,
+        result_hash=h,
+        user=user,
+        peer=peer,
+    )
+
+
+def log_video_watch(
+    file_path: str,
+    *,
+    user: str = "",
+    perceived: Dict[str, float] | None = None,
+    peer: str | None = None,
+) -> Dict[str, str]:
+    """Log watching a video with optional emotion."""
+    h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
+    return log_video_event(
+        "watched",
+        file_path,
+        perceived=perceived,
+        result_hash=h,
+        user=user,
+        peer=peer,
+    )
+
+
 def log_mood_blessing(
     sender: str,
     recipient: str,
