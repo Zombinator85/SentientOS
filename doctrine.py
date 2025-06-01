@@ -2,9 +2,10 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 # Paths
 ROOT = Path(__file__).resolve().parent
@@ -14,9 +15,11 @@ STATUS_LOG = Path(os.getenv("DOCTRINE_STATUS_LOG", "logs/doctrine_status.jsonl")
 AMEND_LOG = Path(os.getenv("DOCTRINE_AMEND_LOG", "logs/doctrine_amendments.jsonl"))
 PUBLIC_LOG = Path(os.getenv("PUBLIC_RITUAL_LOG", "logs/public_rituals.jsonl"))
 MASTER_CONFIG = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json"))
+SIGNATURE_LOG = Path(os.getenv("DOCTRINE_SIGNATURE_LOG", "logs/ritual_signatures.jsonl"))
 
-for p in [CONSENT_LOG, STATUS_LOG, AMEND_LOG, PUBLIC_LOG]:
+for p in [CONSENT_LOG, STATUS_LOG, AMEND_LOG, PUBLIC_LOG, SIGNATURE_LOG]:
     p.parent.mkdir(parents=True, exist_ok=True)
+
 
 
 def _sha256(path: Path) -> str:
@@ -25,6 +28,37 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: f.read(4096), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def _is_immutable(path: Path) -> bool:
+    """Best-effort check for immutable attribute."""
+    try:
+        res = subprocess.run(["lsattr", str(path)], capture_output=True, text=True)
+        if res.returncode == 0 and " i" in res.stdout.split()[0]:
+            return True
+    except Exception:
+        pass
+    try:
+        with path.open("a"):
+            pass
+        writable = True
+    except PermissionError:
+        writable = False
+    if not writable:
+        return True
+    try:
+        return (path.stat().st_mode & 0o222) == 0
+    except Exception:
+        return False
+
+
+def verify_file(path: Path, digest: str) -> bool:
+    """Return True if file content matches digest and is immutable."""
+    if not path.exists():
+        return False
+    if _sha256(path) != digest:
+        return False
+    return _is_immutable(path)
 
 
 def doctrine_hash() -> str:
@@ -68,6 +102,16 @@ def affirm(user: str) -> None:
     log_json(PUBLIC_LOG, {"time": entry["time"], "event": "affirm", "user": user})
 
 
+def capture_signature(user: str, signature: str) -> None:
+    """Store ritual signature for user."""
+    entry = {
+        "time": time.time(),
+        "user": user,
+        "signature": signature,
+    }
+    log_json(SIGNATURE_LOG, entry)
+
+
 def last_affirm_time() -> float:
     if not CONSENT_LOG.exists():
         return 0.0
@@ -109,13 +153,16 @@ def _scan_master_files() -> List[Dict[str, Any]]:
         if not fp.exists():
             info["status"] = "missing"
         else:
-            actual = _sha256(fp)
             perm = oct(fp.stat().st_mode & 0o777)
             info["permissions"] = perm
-            if actual != digest:
-                info["status"] = "hash_mismatch"
-            else:
+            if verify_file(fp, digest):
                 info["status"] = "ok"
+            elif _sha256(fp) != digest:
+                info["status"] = "hash_mismatch"
+            elif not _is_immutable(fp):
+                info["status"] = "mutable"
+            else:
+                info["status"] = "unknown"
         results.append(info)
     return results
 
@@ -127,6 +174,41 @@ def integrity_report() -> Dict[str, Any]:
     log_json(STATUS_LOG, report)
     log_json(PUBLIC_LOG, {"time": report["time"], "event": "status", "ok": ok})
     return report
+
+
+def enforce_runtime() -> None:
+    """Exit if master files are modified or missing."""
+    rep = integrity_report()
+    if not rep.get("ok"):
+        raise SystemExit("Doctrine violation detected")
+
+
+try:
+    from watchdog.observers import Observer  # type: ignore
+    from watchdog.events import FileSystemEventHandler  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    Observer = None  # type: ignore
+    FileSystemEventHandler = object  # type: ignore
+
+
+def start_watchdog(callback: Callable[[str], None]) -> Optional[object]:
+    """Watch master files for changes and invoke callback."""
+    if Observer is None:
+        return None
+
+    class Handler(FileSystemEventHandler):
+        def on_any_event(self, event) -> None:  # type: ignore[override]
+            callback(event.src_path)
+
+    obs = Observer()
+    for file in _scan_master_files():
+        fp = Path(file["file"])
+        if not fp.is_absolute():
+            fp = ROOT / fp
+        if fp.exists():
+            obs.schedule(Handler(), str(fp.parent), recursive=False)
+    obs.start()
+    return obs
 
 
 def amend(proposal: str, user: str, vote: Optional[str] = None) -> str:

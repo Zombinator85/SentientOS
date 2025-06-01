@@ -8,8 +8,10 @@ checks, the system enters **Ritual Refusal Mode** and logs the event to
 `logs/refusal_audit.jsonl`.
 
 Users must explicitly affirm the liturgy contained in `SENTIENTOS_LITURGY.txt`.
-Affirmations are recorded in `logs/liturgy_acceptance.jsonl` with timestamp,
-digest and user.
+Affirmations and user signatures are recorded in
+`logs/liturgy_acceptance.jsonl` and `logs/ritual_signatures.jsonl` with
+timestamp, digest and user. Signatures are free-form phrases acting as PGP-like
+votive entries.
 
 Example refusal log entry:
 ```json
@@ -20,3 +22,8 @@ Example acceptance entry:
 ```json
 {"timestamp": "2024-01-01T00:00:10", "digest": "3c6785...", "user": "tester"}
 ```
+
+If any master file is altered or missing the system enters **Ritual Refusal
+Mode**. All modules calling `doctrine.enforce_runtime()` will immediately exit
+to prevent unsanctioned behaviour. A filesystem watchdog can be enabled to alert
+on mutation attempts in real time.

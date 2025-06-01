@@ -389,6 +389,15 @@ python doctrine_cli.py feed --last 3
 python doctrine_cli.py presence --user alice
 ```
 
+New in 4.2: a simplified `ritual` command bundles quick ceremonies:
+
+```
+python ritual.py affirm --signature "I stand"   # record signature and affirmation
+python ritual.py bless --name Ada --message "Memory" --amount "$1"
+python ritual.py status --doctrine
+python ritual.py logs --last 5
+```
+
 Reports are appended to ``logs/doctrine_status.jsonl`` and public events to
 ``logs/public_rituals.jsonl`` for transparency. View the log with
 ``python public_feed_dashboard.py`` or ``doctrine_cli.py feed``.
