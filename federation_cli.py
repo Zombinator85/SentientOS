@@ -1,7 +1,14 @@
 import argparse
 import json
 import sys
-from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+from sentient_banner import (
+    print_banner,
+    print_closing,
+    ENTRY_BANNER,
+    reset_ritual_state,
+    print_snapshot_banner,
+    print_closing_recap,
+)
 import treasury_federation as tf
 import ledger
 
@@ -48,13 +55,14 @@ def main() -> None:
     inv.set_defaults(func=cmd_invite)
 
     args = ap.parse_args()
+    reset_ritual_state()
     print_banner()
-    ledger.print_snapshot_banner()
+    print_snapshot_banner()
 
     recap_shown = False
     try:
         if args.ledger_summary:
-            ledger.print_snapshot_banner()
+            print_snapshot_banner()
             return
 
         if args.ledger:
@@ -63,7 +71,7 @@ def main() -> None:
 
         if hasattr(args, "func"):
             args.func(args)
-            ledger.print_recap(limit=2)
+            print_closing_recap()
             recap_shown = True
         else:
             ap.print_help()

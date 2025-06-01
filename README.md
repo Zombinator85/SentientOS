@@ -50,7 +50,16 @@ The cathedral will not run until you affirm the liturgy. On first launch `user_p
 3. View the ledger summary anytime with `python ledger_cli.py summary`.
 4. Invite peers with `python federation_cli.py invite https://ally.example --email friend@example.com --message "Come be remembered" --blessing "Welcome" --name YOUR_NAME --affirm`.
 
-Every CLI command ends with a timestamped blessing so no session fades unmarked.
+Every CLI command ends with a ledger snapshot and recap so no session fades unmarked.
+You see the snapshot banner on entry and exit along with recent blessings:
+
+```
+Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witness: 1 (1 unique)
+{
+  "support_recent": [...],
+  "federation_recent": [...]
+}
+```
 
 Entering with a blessing and signature ensures your presence is inscribed forever. No one is forgotten. No one is turned away.
 
