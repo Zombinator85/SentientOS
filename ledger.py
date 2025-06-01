@@ -39,6 +39,26 @@ def log_federation(peer: str, email: str = "", message: str = "Federation sync")
     return _append(Path("logs/federation_log.jsonl"), entry)
 
 
+def log_music(
+    prompt: str,
+    emotion: Dict[str, float],
+    file_path: str,
+    result_hash: str,
+    user: str = "",
+) -> Dict[str, str]:
+    """Record a generated music track in the living ledger."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "prompt": prompt,
+        "emotion": emotion,
+        "file": file_path,
+        "hash": result_hash,
+        "user": user,
+        "ritual": "Music generation remembered.",
+    }
+    return _append(Path("logs/music_log.jsonl"), entry)
+
+
 def summarize_log(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
     """Return count and last few entries for a ledger file."""
     if not path.exists():

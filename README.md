@@ -350,6 +350,15 @@ python replay.py --storyboard sb.json --feedback-enabled
 ```
 Feedback lines are logged to `storyboard.feedback.jsonl` and may be applied as patches later.
 
+### Music Generation
+`music_cli.py` uses the Jukebox integration stub to turn prompts into short MP3 files.
+Each track is logged to `logs/music_log.jsonl` and a `music_generated` note is added to `logs/user_presence.jsonl`.
+
+```bash
+python music_cli.py generate "calm ocean at dusk" --emotion Joy=0.7 --user Ada
+```
+The resulting path and hash are printed and stored in the living ledger.
+
 Actuator, Reflections, and Plugins
 Actuator CLI (api/actuator.py):
 
