@@ -94,9 +94,32 @@ def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
     return {"events": events, "emotions": emotions}
 
 
+def video_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
+    """Return basic stats from the video ledger."""
+    video_path = Path("logs/video_log.jsonl")
+    if not video_path.exists():
+        return {"events": {}, "emotions": {}}
+    lines = video_path.read_text(encoding="utf-8").splitlines()[-limit:]
+    events: Dict[str, int] = {}
+    emotions: Dict[str, float] = {}
+    for ln in lines:
+        try:
+            e = json.loads(ln)
+        except Exception:
+            continue
+        evt = e.get("event")
+        if evt:
+            events[evt] = events.get(evt, 0) + 1
+        for k in ("intended", "perceived", "reported", "received"):
+            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+                emotions[emo] = emotions.get(emo, 0.0) + val
+    return {"events": events, "emotions": emotions}
+
+
 def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
     """Return music recap, blessings, and reflection milestones."""
     info = ledger.music_recap(limit)
+    video = ledger.video_recap(limit)
     bless = 0
     reflections = 0
     mood_counts: Dict[str, int] = {}
@@ -119,6 +142,7 @@ def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
             milestones.append(f"You are the 10th listener to log '{m}' this week.")
     return {
         "music": info,
+        "video": video,
         "blessings": bless,
         "reflections": reflections,
         "milestones": milestones,
@@ -161,5 +185,22 @@ def log_video_watch(
         peer=peer,
     )
     log(user, "video_watched", reflection or file_path)
+    return entry
+
+
+def log_video_share(
+    user: str,
+    file_path: str,
+    peer: str,
+    emotion: Dict[str, float] | None = None,
+) -> Dict[str, str]:
+    """Log a shared video and presence."""
+    entry = ledger.log_video_share(
+        file_path,
+        peer=peer,
+        user=user,
+        emotion=emotion,
+    )
+    log(user, "video_shared", file_path)
     return entry
 
