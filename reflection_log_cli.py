@@ -34,16 +34,44 @@ def export_day(day: str, out_file: Path, markdown: bool = False) -> bool:
     return True
 
 
+def search_entries(keyword: str, context: int = 20):
+    """Yield (day, snippet) for entries containing ``keyword``."""
+    key = keyword.lower()
+    for day, line in load_entries():
+        idx = line.lower().find(key)
+        if idx == -1:
+            continue
+        start = max(0, idx - context)
+        end = idx + len(keyword) + context
+        yield day, line[start:end]
+
+
 def main(argv=None) -> None:
     require_admin_banner()
     parser = argparse.ArgumentParser(description="Reflection log viewer")
+    sub = parser.add_subparsers(dest="cmd")
+
+    search = sub.add_parser("search")
+    search.add_argument("keyword")
+    search.add_argument("--context", type=int, default=20)
+    search.add_argument("--limit", type=int, default=0)
+
     parser.add_argument("--date")
     parser.add_argument("--keyword")
     parser.add_argument("--last", type=int, default=5)
     parser.add_argument("--export")
     parser.add_argument("--markdown", action="store_true")
+
     args = parser.parse_args(argv)
 
+    if args.cmd == "search":
+        results = []
+        for day, snippet in search_entries(args.keyword, context=args.context):
+            results.append(f"[{day}] {snippet}")
+            if args.limit and len(results) >= args.limit:
+                break
+        print("\n".join(results))
+        return
     if args.export:
         day = args.date or datetime.date.today().isoformat()
         ok = export_day(day, Path(args.export), markdown=args.markdown)

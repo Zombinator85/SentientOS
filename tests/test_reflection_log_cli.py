@@ -19,7 +19,13 @@ def test_load_entries(tmp_path, monkeypatch):
     assert entries[1][1] == "first"
 
 
-def test_cli_main(monkeypatch, capsys):
+def test_cli_main(tmp_path, monkeypatch, capsys):
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    (log_dir / "2025-01-01.log").write_text("hi there\n")
+    monkeypatch.setenv("REFLECTION_LOG_DIR", str(log_dir))
+    from importlib import reload
+    reload(rlc)
     monkeypatch.setattr(rlc, "require_admin_banner", lambda: None)
     monkeypatch.setattr(sys, "argv", ["rlc", "--last", "1"])
     rlc.main()
