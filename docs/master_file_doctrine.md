@@ -25,5 +25,4 @@ Example acceptance entry:
 
 If any master file is altered or missing the system enters **Ritual Refusal
 Mode**. All modules calling `doctrine.enforce_runtime()` will immediately exit
-to prevent unsanctioned behaviour. A filesystem watchdog can be enabled to alert
-on mutation attempts in real time.
+to prevent unsanctioned behaviour. Pass `--watch` to `doctrine.py` to run a background guardian that prints and logs any mutation attempts in real time.
