@@ -25,5 +25,6 @@
 - `avatar_heirloom_transmission.py` – transmit heirloom memories across cathedrals.
 - `avatar_performance_scoreboard.py` – review avatar performance metrics.
 - `avatar_sanctuary_artifacts_generator.py` – craft and log sanctuary artifacts.
+- `avatar_artifact_gallery.py` – curate and search all avatar artifacts.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
