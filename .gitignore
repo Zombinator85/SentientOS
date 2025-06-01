@@ -13,6 +13,7 @@ dist/
 logs/
 !logs/support_log.jsonl
 !logs/federation_log.jsonl
+!logs/user_presence.jsonl
 *.log
 
 # Local environment files
@@ -20,4 +21,3 @@ logs/
 .env.*
 venv/
 ENV/
-
