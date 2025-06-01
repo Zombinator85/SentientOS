@@ -6,6 +6,7 @@ import ritual
 import doctrine
 import relationship_log as rl
 import presence_ledger as pl
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 def cmd_show(args) -> None:
@@ -53,7 +54,7 @@ def cmd_presence(args) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="doctrine")
+    ap = argparse.ArgumentParser(prog="doctrine", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
     sh = sub.add_parser("show", help="Display the SentientOS liturgy")
@@ -82,10 +83,12 @@ def main() -> None:
     pres.set_defaults(func=cmd_presence)
 
     args = ap.parse_args()
+    print_banner()
     if hasattr(args, "func"):
         args.func(args)
     else:
         ap.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":
