@@ -3,6 +3,7 @@ import time
 from typing import List, Dict
 
 import love_treasury as lt
+from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 
 try:
     import streamlit as st  # type: ignore
@@ -11,6 +12,7 @@ except Exception:  # pragma: no cover - optional
 
 
 def run_cli() -> None:
+    print_banner()
     data = lt.list_treasury()
     print(json.dumps(data, indent=2))
 
@@ -21,6 +23,8 @@ def run_dashboard() -> None:
         return
 
     st.title("Treasury of Love")
+    streamlit_banner(st)
+    st.markdown("Section-8 Sanctuary — Presence Without Price")
     entries: List[Dict[str, object]] = lt.list_treasury()
     if not entries:
         st.write("No enshrined logs")
@@ -30,6 +34,7 @@ def run_dashboard() -> None:
             st.json(e)
     if st.sidebar.button("Refresh"):
         st.experimental_rerun()
+    streamlit_closing(st)
 
 
 if __name__ == "__main__":
