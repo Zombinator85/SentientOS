@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 import reflection_stream as rs
@@ -7,6 +8,7 @@ from admin_utils import require_admin_banner
 
 def main(argv=None):
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     sub = parser.add_subparsers(dest="cmd")
     log = sub.add_parser("log", help="Show recent reflection events")

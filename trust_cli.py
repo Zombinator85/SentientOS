@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 from pprint import pprint
@@ -40,6 +41,7 @@ def cmd_rollback(args) -> None:
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(prog="trust", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 

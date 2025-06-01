@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import os
 import json
 import datetime
@@ -149,6 +150,7 @@ def suggest_improvements(analytics_data: Dict[str, Any]) -> List[str]:
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     import argparse
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     parser.add_argument("cmd", choices=["analytics", "trends", "suggest"])

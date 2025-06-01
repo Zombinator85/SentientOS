@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import os
 from pathlib import Path
 import streamlit as st
@@ -21,6 +22,7 @@ def load_env() -> dict:
 
 def launch():
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     env = load_env()
     st.title('SentientOS Onboarding')
     streamlit_banner(st)

@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import json
 import time
 from urllib import request
@@ -60,6 +61,7 @@ def run_dashboard(server: str) -> None:
 
 def main():
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     import argparse
     parser = argparse.ArgumentParser(description="Presence dashboard")
     parser.add_argument("server")

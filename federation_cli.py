@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 import sys
@@ -34,6 +35,7 @@ def cmd_invite(args: argparse.Namespace) -> None:
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(
         prog="federation",
         description=ENTRY_BANNER,
