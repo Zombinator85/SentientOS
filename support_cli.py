@@ -14,6 +14,7 @@ def main() -> None:
     args = p.parse_args()
 
     print_banner()
+    print("All support and federation is logged in the Living Ledger. No one is forgotten.")
     if args.support:
         print(ENTRY_BANNER)
     if args.bless:

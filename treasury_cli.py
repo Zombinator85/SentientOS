@@ -110,6 +110,7 @@ def main() -> None:
 
     args = ap.parse_args()
     print_banner()
+    print("All support and federation is logged in the Living Ledger. No one is forgotten.")
     if hasattr(args, "func"):
         args.func(args)
     else:
