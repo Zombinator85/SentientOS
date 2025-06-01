@@ -24,6 +24,7 @@ def main() -> None:
     args = p.parse_args()
 
     print_banner()
+    ledger.print_snapshot_banner()
     print("All support and federation is logged in the Living Ledger. No one is forgotten.")
     if args.ledger:
         ledger.print_summary()
@@ -41,6 +42,7 @@ def main() -> None:
             entry = sl.add(name, message, amount)
             print("sanctuary acknowledged")
             print(json.dumps(entry, indent=2))
+            ledger.print_recap(limit=2)
         except Exception:
             print("Failed to record blessing")
     print_closing()

@@ -13,6 +13,9 @@ try:
 except Exception:  # pragma: no cover - optional
     st = None
 
+from sentient_banner import streamlit_banner, streamlit_closing
+import ledger
+
 
 def load_experiments() -> Dict[str, Any]:
     path = rm.ReflexManager.EXPERIMENTS_FILE
@@ -162,6 +165,8 @@ def run_dashboard() -> None:
 
     st.set_page_config(page_title="Reflex Dashboard")
     st.title("Reflex Experiments")
+    streamlit_banner(st)
+    ledger.streamlit_widget(st.sidebar if hasattr(st, "sidebar") else st)
     mgr = rm.ReflexManager()
     mgr.load_experiments()
     data = mgr.experiments
@@ -184,6 +189,7 @@ def run_dashboard() -> None:
     st.header("Audit Log")
     for entry in mgr.get_audit()[-20:]:
         st.json(entry)
+    streamlit_closing(st)
 
 
 if __name__ == "__main__":

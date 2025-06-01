@@ -68,6 +68,7 @@ def invite(
 ) -> Dict[str, str]:
     """Record a federation invite blessing and optional affirmation."""
     print_banner()
+    ledger.print_snapshot_banner()
     entry = fl.add(peer, email=email, message=message)
     ledger.log_support(supporter or peer, blessing or message)
     if affirm:
