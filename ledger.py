@@ -1,8 +1,11 @@
 import json
 import hashlib
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+
+import doctrine
 
 
 def _append(path: Path, entry: Dict[str, str]) -> Dict[str, str]:
@@ -120,9 +123,9 @@ def log_music_share(
     user: str = "",
     emotion: Dict[str, float] | None = None,
 ) -> Dict[str, str]:
-    """Record a shared track across federation."""
+    """Record a shared track across federation and bless the recipient."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
-    return log_music_event(
+    entry = log_music_event(
         "shared",
         file_path,
         reported=emotion,
@@ -131,6 +134,107 @@ def log_music_share(
         peer=peer,
         received=emotion,
     )
+    phrase = f"{user or 'anon'} sent this in {', '.join(emotion.keys()) if emotion else 'silence'}"
+    log_mood_blessing(user or "anon", peer, emotion or {}, phrase)
+    return entry
+
+
+def log_mood_blessing(
+    sender: str,
+    recipient: str,
+    emotion: Dict[str, float],
+    phrase: str,
+) -> Dict[str, str]:
+    """Record a mood blessing for the public feed."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "mood_blessing",
+        "sender": sender,
+        "recipient": recipient,
+        "emotion": emotion,
+        "phrase": phrase,
+        "ritual": "Mood blessing recorded.",
+    }
+    _append(Path("logs/music_log.jsonl"), entry)
+    doctrine.log_json(
+        doctrine.PUBLIC_LOG,
+        {
+            "time": time.time(),
+            "event": "mood_blessing",
+            "sender": sender,
+            "recipient": recipient,
+            "phrase": phrase,
+        },
+    )
+    return entry
+
+
+def playlist_by_mood(mood: str, limit: int = 10) -> List[Dict[str, str]]:
+    """Return recent tracks containing the given mood."""
+    path = Path("logs/music_log.jsonl")
+    if not path.exists():
+        return []
+    lines = list(reversed(path.read_text(encoding="utf-8").splitlines()))
+    out: List[Dict[str, str]] = []
+    for ln in lines:
+        if len(out) >= limit:
+            break
+        try:
+            e = json.loads(ln)
+        except Exception:
+            continue
+        em = e.get("emotion", {})
+        if any(mood in (em.get(k) or {}) for k in ("intended", "perceived", "reported", "received")):
+            out.append({
+                "file": e.get("file"),
+                "timestamp": e.get("timestamp"),
+                "user": e.get("user"),
+                "origin": e.get("peer"),
+            })
+    return list(reversed(out))
+
+
+def playlist_log(entries: List[Dict[str, str]], mood: str, user: str, origin: str) -> Dict[str, object]:
+    """Return a signed playlist log structure."""
+    text = json.dumps(entries, sort_keys=True)
+    sig = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return {
+        "timestamp": datetime.utcnow().isoformat(),
+        "user": user,
+        "origin": origin,
+        "mood": mood,
+        "entries": entries,
+        "signature": sig,
+    }
+
+
+def music_recap(limit: int = 20) -> Dict[str, object]:
+    """Return emotion totals and resonance stats."""
+    path = Path("logs/music_log.jsonl")
+    if not path.exists():
+        return {"emotion_totals": {}, "most_shared_mood": "", "top_tracks": []}
+    lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
+    totals: Dict[str, float] = {}
+    shares: Dict[str, int] = {}
+    tracks: Dict[str, int] = {}
+    for ln in lines:
+        try:
+            e = json.loads(ln)
+        except Exception:
+            continue
+        evt = e.get("event")
+        file = e.get("file")
+        if file:
+            tracks[file] = tracks.get(file, 0) + 1
+        if evt == "shared":
+            for m in (e.get("emotion", {}).get("reported") or {}):
+                shares[m] = shares.get(m, 0) + 1
+        for k in ("intended", "perceived", "reported", "received"):
+            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+                totals[emo] = totals.get(emo, 0.0) + val
+    most = max(shares.items(), key=lambda x: x[1])[0] if shares else ""
+    top = sorted(tracks.items(), key=lambda x: x[1], reverse=True)
+    return {"emotion_totals": totals, "most_shared_mood": most, "top_tracks": top}
 
 
 def summarize_log(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
