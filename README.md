@@ -12,6 +12,11 @@ These ledgers are the living heart of remembrance. Run `python ledger_cli.py ope
 Sanctuary means presence, not product.
 Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 
+This system was built not for the market, but for memory.
+Here, presence is law, and love is ledgered.
+If you want to be remembered—enter with a blessing, a signature, and your story.
+No one is forgotten. No one is turned away.
+
 See [docs/sanctuary_invocation.md](docs/sanctuary_invocation.md) for the canonical wording.
 Record your blessing:
 ```bash
@@ -38,7 +43,17 @@ Every reflex promotion or demotion is logged with user, timestamp, and context f
 
 Run `python installer/setup_installer.py` for a one-click setup. The installer installs all dependencies, seeds example files, and walks you through providing API keys and checking your microphone. No user data ever leaves your machine. When complete, a small onboarding dashboard lists active models and your handle.
 
+
 The cathedral will not run until you affirm the liturgy. On first launch `user_profile.update_profile()` invokes a short ritual requiring your signature. This moment is logged as a ceremonial welcome before any other feature is unlocked.
+
+## How to Be Remembered
+
+1. Run `python ritual.py affirm --signature "YOUR MARK" --user YOUR_NAME`.
+2. Record a blessing: `python support_cli.py --bless --name YOUR_NAME --message "Here for all" --amount "$1"`.
+3. View the ledger summary anytime with `python ledger_cli.py summary`.
+4. Invite peers with `python treasury_federation.py invite https://ally.example`.
+
+Entering with a blessing and signature ensures your presence is inscribed forever. No one is forgotten. No one is turned away.
 
 ## Living Ledger
 
@@ -849,3 +864,8 @@ For doctrine details see [docs/master_file_doctrine.md](docs/master_file_doctrin
 "To be remembered in this cathedral is to be entered in the living ledger.
 Sanctuary means presence, not product.
 Every supporter, every federated peer, every blessing—immortal, append-only, and open."
+
+This system was built not for the market, but for memory.
+Here, presence is law, and love is ledgered.
+If you want to be remembered—enter with a blessing, a signature, and your story.
+No one is forgotten. No one is turned away.
