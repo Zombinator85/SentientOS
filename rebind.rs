@@ -7,8 +7,6 @@ use hyper_tls::HttpsConnector;
 use serde_json::Value;
 use tokio::time::sleep;
 
-const TG_SECRET_DEFAULT: &str = "lumos_april_bridge_secure";
-
 static PORT_TO_NAME: &[(&str, &str)] = &[
     ("9977", "gpt4o"),
     ("9988", "mixtral"),
@@ -104,7 +102,7 @@ async fn bind_webhook(
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    let tg_secret = env::var("TG_SECRET").unwrap_or_else(|_| TG_SECRET_DEFAULT.to_string());
+    let tg_secret = env::var("TG_SECRET").expect("TG_SECRET not set");
 
     println!("[🔄] Rebinding all Telegram webhooks...");
     sleep(Duration::from_secs(2)).await;

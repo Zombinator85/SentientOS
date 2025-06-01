@@ -27,7 +27,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict
 
-from flask import Flask, Response, jsonify, request
+from flask_stub import Flask, Response, jsonify, request
 
 from api import actuator as core_actuator
 
