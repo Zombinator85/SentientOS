@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
 import plugin_framework as pf
 import trust_engine as te
+from admin_utils import require_admin_banner
 
 app = Flask(__name__)
 
@@ -117,4 +118,5 @@ def deny_api():
     return jsonify({'status': 'ok'})
 
 if __name__=='__main__':
+    require_admin_banner()
     app.run(port=5001)

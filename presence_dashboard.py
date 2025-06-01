@@ -8,7 +8,7 @@ from sentient_banner import (
     streamlit_banner,
     streamlit_closing,
 )
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 import ledger
 
 try:
@@ -59,7 +59,7 @@ def run_dashboard(server: str) -> None:
 
 
 def main():
-    require_admin()
+    require_admin_banner()
     import argparse
     parser = argparse.ArgumentParser(description="Presence dashboard")
     parser.add_argument("server")

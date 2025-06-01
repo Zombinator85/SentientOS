@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 from sentient_banner import streamlit_banner, streamlit_closing
 import ledger
+from admin_utils import require_admin_banner
 
 ENV_FILE = Path(__file__).resolve().parent / '.env'
 
@@ -19,6 +20,7 @@ def load_env() -> dict:
 
 
 def launch():
+    require_admin_banner()
     env = load_env()
     st.title('SentientOS Onboarding')
     streamlit_banner(st)

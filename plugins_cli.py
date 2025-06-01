@@ -4,11 +4,11 @@ import argparse
 import json
 import plugin_framework as pf
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 
 
 def main() -> None:
-    require_admin()
+    require_admin_banner()
     pf.load_plugins()
     ap = argparse.ArgumentParser(prog="plugins", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
