@@ -49,19 +49,38 @@ def print_timestamped_closing() -> None:
     print(timestamped_closing())
 
 
-def print_closing() -> None:
-    """Print a ledger snapshot then the closing banner and invocation."""
+def print_closing(show_recap: bool = True) -> None:
+    """Print a closing snapshot banner, optional recap, and invocation."""
     try:
         import ledger
         ledger.print_snapshot_banner()
+        if show_recap:
+            ledger.print_recap(limit=2)
     except Exception:
         pass
     print(BANNER)
     print_timestamped_closing()
 
 
-def streamlit_closing(st_module) -> None:
-    """Display the closing invocation using a Streamlit module."""
+def streamlit_closing(st_module, show_recap: bool = True) -> None:
+    """Display the closing snapshot, optional recap, and invocation."""
     if hasattr(st_module, "markdown"):
+        try:
+            import io
+            import contextlib
+            import ledger
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                ledger.print_snapshot_banner()
+            st_module.markdown(buf.getvalue())
+
+            if show_recap:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    ledger.print_recap(limit=2)
+                st_module.code(buf.getvalue(), language="json")
+        except Exception:
+            pass
         st_module.markdown(BANNER)
         st_module.markdown(timestamped_closing())
