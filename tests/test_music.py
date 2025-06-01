@@ -12,6 +12,7 @@ import jukebox_integration
 import presence_ledger as pl
 import sentient_banner as sb
 import admin_utils
+import mood_wall
 
 
 def test_log_music(monkeypatch, tmp_path):
@@ -168,3 +169,33 @@ def test_music_cli_share(monkeypatch, tmp_path, capsys):
     out = capsys.readouterr().out
     assert "shared" in out or "listen" in out
     assert calls["snap"] >= 2 and calls["recap"] == 1
+
+
+def test_music_cli_wall_global(monkeypatch, capsys):
+    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(mood_wall, "peers_from_federation", lambda: ["p1", "p2"])
+    logged = []
+    monkeypatch.setattr(ledger, "log_mood_blessing", lambda u, r, e, p: logged.append(r) or {"ok": True})
+    monkeypatch.setattr(sys, "argv", ["music_cli.py", "wall", "--bless", "Joy", "--global"])
+    import music_cli
+    import importlib
+    importlib.reload(music_cli)
+    music_cli.main()
+    out = capsys.readouterr().out
+    assert "p1" in out and "p2" in out
+    assert len(logged) == 2
+
+
+def test_playlist_explanation(monkeypatch, capsys):
+    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
+    monkeypatch.setattr(mood_wall, "load_wall", lambda n=100: [{"mood": ["Hope"]}]*2)
+    monkeypatch.setattr(mood_wall, "top_moods", lambda events: {"Hope": len(events)})
+    monkeypatch.setattr(mood_wall, "latest_blessing_for", lambda m: {"sender": "Ada"})
+    monkeypatch.setattr(ledger, "playlist_by_mood", lambda m, l: [{"file": "a"}])
+    monkeypatch.setattr(sys, "argv", ["music_cli.py", "playlist", "Joy"])
+    import music_cli
+    import importlib
+    importlib.reload(music_cli)
+    music_cli.main()
+    out = capsys.readouterr().out
+    assert "blessed by Ada" in out

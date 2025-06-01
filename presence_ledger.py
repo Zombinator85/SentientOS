@@ -94,10 +94,12 @@ def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
     return {"events": events, "emotions": emotions}
 
 
-def recap(limit: int = 20) -> Dict[str, object]:
-    """Return music recap and blessing counts."""
+def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
+    """Return music recap, blessings, and reflection milestones."""
     info = ledger.music_recap(limit)
     bless = 0
+    reflections = 0
+    mood_counts: Dict[str, int] = {}
     music_path = Path("logs/music_log.jsonl")
     if music_path.exists():
         for ln in music_path.read_text(encoding="utf-8").splitlines()[-limit:]:
@@ -107,5 +109,18 @@ def recap(limit: int = 20) -> Dict[str, object]:
                 continue
             if e.get("event") == "mood_blessing":
                 bless += 1
-    return {"music": info, "blessings": bless}
+            if e.get("event") == "reflection":
+                reflections += 1
+                for m in (e.get("emotion", {}).get("reported") or {}):
+                    mood_counts[m] = mood_counts.get(m, 0) + 1
+    milestones = []
+    for m, c in mood_counts.items():
+        if c == 10:
+            milestones.append(f"You are the 10th listener to log '{m}' this week.")
+    return {
+        "music": info,
+        "blessings": bless,
+        "reflections": reflections,
+        "milestones": milestones,
+    }
 

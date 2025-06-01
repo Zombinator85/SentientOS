@@ -1,8 +1,12 @@
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import ledger
+try:
+    import requests  # type: ignore
+except Exception:  # pragma: no cover - optional
+    requests = None  # type: ignore
 
 LOG = Path("logs/music_log.jsonl")
 
@@ -62,3 +66,53 @@ def sync_wall(peer_log: Path) -> int:
                 f.write(json.dumps(e) + "\n")
                 count += 1
     return count
+
+
+def sync_wall_http(url: str) -> int:
+    """Sync mood wall events from a peer HTTP endpoint."""
+    if requests is None:
+        raise RuntimeError("requests module not available")
+    if not LOG.exists():
+        LOG.parent.mkdir(parents=True, exist_ok=True)
+        LOG.touch()
+    r = requests.get(url.rstrip("/") + "/mood_wall", timeout=10)
+    r.raise_for_status()
+    data = r.json()
+    count = 0
+    with LOG.open("a", encoding="utf-8") as f:
+        for e in data:
+            if e.get("event") in ("shared", "mood_blessing"):
+                f.write(json.dumps(e) + "\n")
+                count += 1
+    return count
+
+
+def peers_from_federation() -> List[str]:
+    """Return unique federation peers from the ledger."""
+    path = Path("logs/federation_log.jsonl")
+    if not path.exists():
+        return []
+    peers: List[str] = []
+    for ln in path.read_text(encoding="utf-8").splitlines():
+        try:
+            p = json.loads(ln).get("peer")
+        except Exception:
+            continue
+        if p and p not in peers:
+            peers.append(p)
+    return peers
+
+
+def latest_blessing_for(mood: str) -> Optional[Dict[str, object]]:
+    """Return the most recent mood blessing for a given mood."""
+    if not LOG.exists():
+        return None
+    lines = reversed(LOG.read_text(encoding="utf-8").splitlines())
+    for ln in lines:
+        try:
+            e = json.loads(ln)
+        except Exception:
+            continue
+        if e.get("event") == "mood_blessing" and mood in (e.get("emotion") or {}):
+            return e
+    return None

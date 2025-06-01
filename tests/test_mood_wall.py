@@ -49,3 +49,21 @@ def test_wall_load_and_bless(monkeypatch, tmp_path):
     assert rec and "Ada blesses Joy" in rec[0]
 
 
+def test_sync_wall_http(monkeypatch, tmp_path):
+    data = [{"event": "shared", "file": "a", "timestamp": "t"}]
+    class Resp:
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return data
+    def fake_get(url, timeout=10):
+        return Resp()
+
+    log = tmp_path / "music_log.jsonl"
+    monkeypatch.setattr(mood_wall, "LOG", log)
+    monkeypatch.setattr(mood_wall, "requests", type("obj", (), {"get": fake_get}))
+    count = mood_wall.sync_wall_http("http://peer")
+    assert count == 1
+    assert log.exists() and "a" in log.read_text()
+
+
