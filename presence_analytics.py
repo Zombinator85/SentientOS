@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+import support_log as sl
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
@@ -17,9 +18,12 @@ def load_entries(limit: int | None = None) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for fp in files:
         try:
-            out.append(json.loads(fp.read_text(encoding="utf-8")))
+            data = json.loads(fp.read_text(encoding="utf-8"))
         except Exception:
             continue
+        out.append(data)
+        user = data.get("user", "anon") or "anon"
+        sl.add(user, "analysis blessing: memory record")
     return out
 
 
