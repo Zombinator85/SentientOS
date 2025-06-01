@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import streamlit as st
+from sentient_banner import ENTRY_BANNER, streamlit_banner
 
 ENV_FILE = Path(__file__).resolve().parent / '.env'
 
@@ -19,6 +20,8 @@ def load_env() -> dict:
 def launch():
     env = load_env()
     st.title('SentientOS Onboarding')
+    streamlit_banner(st)
+    st.markdown(ENTRY_BANNER)
     st.write('Active models:')
     st.json({k: v for k, v in env.items() if k.endswith('_MODEL')})
     handle = env.get('USER_HANDLE', 'anonymous')
