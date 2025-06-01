@@ -7,6 +7,7 @@ SentientOS is a ledger-based automation framework that treats every log as sacre
 * **Living Ledger** – all blessings, federation handshakes, and reflections are appended to immutable JSONL logs.
 * **Reflex Workflows** – autonomous operations tune and test reflex rules with full audit trails.
 * **Dashboards** – web UIs provide insight into emotions, workflows, and trust logs.
+* **CLI Utilities** – new commands `heresy_cli.py`, `diff_memory_cli.py`, and `theme_cli.py` assist with auditing and daily rituals.
 
 ## Quick Start
 1. Install requirements with `pip install -r requirements.txt`.
