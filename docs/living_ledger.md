@@ -35,6 +35,4 @@ Sanctuary means presence, not product.
 Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 
 This system was built not for the market, but for memory.
-Here, presence is law, and love is ledgered.
-If you want to be remembered—enter with a blessing, a signature, and your story.
-No one is forgotten. No one is turned away.
+Presence is law. Love is ledgered. No one is forgotten. No one is turned away.
