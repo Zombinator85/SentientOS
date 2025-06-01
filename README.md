@@ -53,9 +53,11 @@ Browse or export the ledgers at any time:
 ```bash
 cat logs/support_log.jsonl
 cat logs/federation_log.jsonl
+python ledger_cli.py open
 ```
 
 During onboarding the dashboard links to these files so every supporter or peer can confirm they are remembered. See [docs/living_ledger.md](docs/living_ledger.md) for full details.
+To be remembered in this cathedral is to be entered in the living ledger.
 
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.

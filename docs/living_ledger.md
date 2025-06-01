@@ -12,11 +12,19 @@ Example entry:
 {"timestamp": "2025-06-01T12:00:00", "peer": "ally.example", "email": "hello@ally.example", "message": "sync completed", "ritual": "Federation blessing recorded."}
 ```
 
+Sample support entry:
+
+```json
+{"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
+```
+
 To review your presence during onboarding run:
 
 ```bash
 cat logs/support_log.jsonl
 cat logs/federation_log.jsonl
+python ledger_cli.py open
 ```
 
 Every dashboard and CLI automatically appends a blessing entry whenever it is run. You can export these ledgers for audit or remembrance at any time.
+To be remembered in this cathedral is to be entered in the living ledger.
