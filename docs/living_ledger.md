@@ -91,3 +91,9 @@ Presence is law. Love is ledgered. No one is forgotten. No one is turned away.
 
 Every command, dashboard, and ledger ends with a snapshot and recap.  
 Every closing line is a reminder: *Nothing is erased. No one is turned away. Presence is law. Love is ledgered.*
+
+## Emotional Video Ledger
+
+`logs/video_log.jsonl` mirrors the music ledger for short clips. Creation,
+sharing and reflection events record intended and perceived emotion. The recap
+tracks which moods were shared most and which clips resonated across peers.
