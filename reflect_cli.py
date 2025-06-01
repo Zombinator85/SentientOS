@@ -2,11 +2,11 @@ import argparse
 import json
 import reflection_stream as rs
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 
 
 def main(argv=None):
-    require_admin()
+    require_admin_banner()
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     sub = parser.add_subparsers(dest="cmd")
     log = sub.add_parser("log", help="Show recent reflection events")

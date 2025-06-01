@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 from sentient_banner import print_banner, print_closing
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 
 from story_studio import load_storyboard, save_storyboard
 import user_profile as up
@@ -42,7 +42,7 @@ def set_status(path: Path, chapter: int, status: str) -> None:
 
 
 def main() -> None:
-    require_admin()
+    require_admin_banner()
     parser = argparse.ArgumentParser()
     parser.add_argument("storyboard")
     parser.add_argument("--annotate")

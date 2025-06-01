@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 
 try:
     import yaml  # type: ignore
@@ -113,7 +113,7 @@ def edit_loop(path: Path, policy: str | None = None) -> None:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin()
+    require_admin_banner()
     ap = argparse.ArgumentParser(description=ENTRY_BANNER)
     ap.add_argument("path")
     ap.add_argument("--policy")

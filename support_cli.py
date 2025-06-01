@@ -3,11 +3,11 @@ import json
 import support_log as sl
 import ledger
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 
 
 def main() -> None:
-    require_admin()
+    require_admin_banner()
     p = argparse.ArgumentParser(
         prog="support",
         description=ENTRY_BANNER,
