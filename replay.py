@@ -7,6 +7,9 @@ import zipfile
 import tempfile
 from typing import Any, List
 from flask import Flask, jsonify, request
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 
 def run_dashboard(storyboard: str) -> Flask:
@@ -225,6 +228,8 @@ def live_playback(
 
 
 def main(argv=None):
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description='Replay storyboard')
     parser.add_argument('--storyboard')
     parser.add_argument('--import-demo')

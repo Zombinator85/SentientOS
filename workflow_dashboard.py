@@ -18,6 +18,9 @@ import workflow_recommendation as rec
 import review_requests as rr
 import notification
 from sentient_banner import streamlit_banner, streamlit_closing
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 import ledger
 
 try:  # optional deps
@@ -82,6 +85,8 @@ def visualize_steps(steps: List[Dict[str, Any]]) -> str:
 
 
 def run_cli(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if args.list:
         for n in wl.list_templates():
             print(n)
@@ -117,6 +122,8 @@ def run_cli(args: argparse.Namespace) -> None:
 
 
 def run_dashboard() -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None or pd is None:
         ap = argparse.ArgumentParser(description="Workflow dashboard CLI")
         ap.add_argument("--list", action="store_true")

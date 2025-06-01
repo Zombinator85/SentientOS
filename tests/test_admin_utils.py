@@ -14,20 +14,24 @@ def test_is_admin_true():
 def test_require_admin_banner(capsys, monkeypatch):
     logs = []
     monkeypatch.setattr(admin_utils, "is_admin", lambda: True)
-    monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append((u, p, t, s)))
+    monkeypatch.setattr(admin_utils, "getpass", type("gp", (), {"getuser": lambda: "tester"}))
+    monkeypatch.setattr(admin_utils.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append({"user": u, "platform": p, "tool": t, "status": s}))
     admin_utils.require_admin_banner()
     out = capsys.readouterr().out
     assert "Sanctuary Privilege Status: [🛡️ Privileged]" in out
-    assert logs and logs[0][3] == "success"
+    assert logs and logs[0] == {"user": "tester", "platform": "Linux", "tool": "pytest", "status": "success"}
 
 
 def test_require_admin_failure(monkeypatch):
     logs = []
     monkeypatch.setattr(admin_utils, "is_admin", lambda: False)
-    monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append((u, p, t, s)))
+    monkeypatch.setattr(admin_utils, "getpass", type("gp", (), {"getuser": lambda: "tester"}))
+    monkeypatch.setattr(admin_utils.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append({"user": u, "platform": p, "tool": t, "status": s}))
     with pytest.raises(SystemExit), pytest.warns(DeprecationWarning):
         admin_utils.require_admin()
-    assert logs and logs[0][3] == "failed"
+    assert logs and logs[0] == {"user": "tester", "platform": "Linux", "tool": "pytest", "status": "failed"}
 
 
 def test_require_admin_wrapper(monkeypatch):

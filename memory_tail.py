@@ -1,4 +1,3 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import os
 import time
 import json
@@ -6,6 +5,8 @@ import argparse
 from colorama import init, Fore, Style
 from sentient_banner import print_banner, print_closing
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 init()
 

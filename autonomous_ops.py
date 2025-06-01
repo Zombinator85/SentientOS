@@ -6,6 +6,9 @@ from typing import Any, Dict, List
 import experiment_tracker as et
 import reflex_manager as rm
 from api import actuator
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 DATA_STREAMS = [
     Path('logs/emotion.jsonl'),
@@ -80,6 +83,8 @@ def analyze_events(events: List[Dict[str, Any]]) -> None:
 
 
 def run_loop(interval: float = 60.0) -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     manager = rm.get_default_manager() or rm.ReflexManager()
     rm.set_default_manager(manager)
     manager.start()
