@@ -4,6 +4,7 @@ from typing import List, Dict
 
 import love_treasury as lt
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
+import ledger
 
 try:
     import streamlit as st  # type: ignore
@@ -25,6 +26,7 @@ def run_dashboard() -> None:
     st.title("Treasury of Love")
     streamlit_banner(st)
     st.markdown("Section-8 Sanctuary — Presence Without Price")
+    ledger.streamlit_widget(st)
     entries: List[Dict[str, object]] = lt.list_treasury()
     if not entries:
         st.write("No enshrined logs")
