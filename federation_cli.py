@@ -9,7 +9,7 @@ from sentient_banner import (
     print_snapshot_banner,
     print_closing_recap,
 )
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
 import treasury_federation as tf
 import ledger
 
@@ -33,7 +33,7 @@ def cmd_invite(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    require_admin()
+    require_admin_banner()
     ap = argparse.ArgumentParser(
         prog="federation",
         description=ENTRY_BANNER,

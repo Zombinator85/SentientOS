@@ -3,7 +3,8 @@ import json
 from pathlib import Path
 import ledger
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin
+from admin_utils import require_admin_banner
+import presence_ledger as pl
 
 
 SUPPORT_LOG = Path('logs/support_log.jsonl')
@@ -22,17 +23,19 @@ def cmd_summary(args: argparse.Namespace) -> None:
     """Print a summary of ledger counts and recent entries."""
     sup = ledger.summarize_log(SUPPORT_LOG)
     fed = ledger.summarize_log(FED_LOG)
+    priv = pl.recent_privilege_attempts()
     data = {
         'support_count': sup['count'],
         'federation_count': fed['count'],
         'support_recent': sup['recent'],
         'federation_recent': fed['recent'],
+        'privilege_recent': priv,
     }
     print(json.dumps(data, indent=2))
 
 
 def main() -> None:
-    require_admin()
+    require_admin_banner()
     ap = argparse.ArgumentParser(
         prog="ledger",
         description=ENTRY_BANNER,

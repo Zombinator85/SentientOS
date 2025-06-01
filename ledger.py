@@ -61,14 +61,16 @@ def streamlit_widget(st_module) -> None:
     """Display ledger summary in a Streamlit dashboard."""
     sup = summarize_log(Path("logs/support_log.jsonl"))
     fed = summarize_log(Path("logs/federation_log.jsonl"))
+    import presence_ledger as pl
+    priv = pl.recent_privilege_attempts()
     st_module.write(
         f"Support blessings: {sup['count']} • Federation blessings: {fed['count']}"
     )
     last_sup = sup["recent"][-1] if sup["recent"] else None
     last_fed = fed["recent"][-1] if fed["recent"] else None
-    if last_sup or last_fed:
+    if last_sup or last_fed or priv:
         st_module.write("Recent entries:")
-        st_module.json({"support": last_sup, "federation": last_fed})
+        st_module.json({"support": last_sup, "federation": last_fed, "privilege": priv})
 
 
 def _unique_values(path: Path, field: str) -> int:
