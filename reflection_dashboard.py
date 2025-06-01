@@ -6,6 +6,8 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import reflection_stream as rs
 import trust_engine as te
+from sentient_banner import streamlit_banner, streamlit_closing, print_banner
+import ledger
 
 try:
     import pandas as pd  # type: ignore
@@ -153,6 +155,8 @@ def run_dashboard() -> None:
 
     st.set_page_config(page_title="Reflection Dashboard", layout="wide")
     st.title("Event & Reflection Dashboard")
+    streamlit_banner(st)
+    ledger.streamlit_widget(st.sidebar if hasattr(st, "sidebar") else st)
 
     last = st.sidebar.number_input("Load last N", 50, 1000, 200)
     event_filter = st.sidebar.text_input("Event type")
@@ -182,6 +186,7 @@ def run_dashboard() -> None:
             break
         time.sleep(refresh)
         st.experimental_rerun()
+    streamlit_closing(st)
 
 
 if __name__ == "__main__":

@@ -50,7 +50,12 @@ def print_timestamped_closing() -> None:
 
 
 def print_closing() -> None:
-    """Print the full closing banner followed by the timestamped invocation."""
+    """Print a ledger snapshot then the closing banner and invocation."""
+    try:
+        import ledger
+        ledger.print_snapshot_banner()
+    except Exception:
+        pass
     print(BANNER)
     print_timestamped_closing()
 

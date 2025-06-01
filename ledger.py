@@ -130,3 +130,14 @@ def print_snapshot_banner() -> None:
         f"Federation: {c['federation']} ({c['unique_peers']} unique) • "
         f"Witness: {c['witness']} ({c['unique_witness']} unique)"
     )
+
+
+def print_recap(limit: int = 3) -> None:
+    """Print a recap of recent support and federation blessings."""
+    sup = summarize_log(Path("logs/support_log.jsonl"), limit=limit)
+    fed = summarize_log(Path("logs/federation_log.jsonl"), limit=limit)
+    data = {
+        "support_recent": sup["recent"],
+        "federation_recent": fed["recent"],
+    }
+    print(json.dumps(data, indent=2))
