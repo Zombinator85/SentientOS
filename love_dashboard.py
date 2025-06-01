@@ -25,7 +25,6 @@ def run_dashboard() -> None:
 
     st.title("Treasury of Love")
     streamlit_banner(st)
-    st.markdown("Section-8 Sanctuary — Presence Without Price")
     ledger.streamlit_widget(st)
     entries: List[Dict[str, object]] = lt.list_treasury()
     if not entries:

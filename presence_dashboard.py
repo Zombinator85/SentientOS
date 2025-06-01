@@ -49,7 +49,6 @@ def run_dashboard(server: str) -> None:
         return
     st.title("Presence Dashboard")
     streamlit_banner(st)
-    st.markdown("Section-8 Sanctuary — Presence Without Price")
     ledger.streamlit_widget(st)
     pres = get_presence(server)
     st.json(pres)
