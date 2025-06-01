@@ -1,0 +1,31 @@
+"""Generate daily reflection summary digest."""
+import datetime
+import os
+from pathlib import Path
+
+DIGEST_FILE = Path(os.getenv("REFLECTION_DIGEST_FILE", "logs/reflection_digest.txt"))
+LOG_DIR = Path(os.getenv("REFLECTION_LOG_DIR", "logs/self_reflections"))
+DIGEST_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def generate_digest(period_hours: int = 24) -> str:
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(hours=period_hours)
+    texts: list[str] = []
+    for fp in sorted(LOG_DIR.glob("*.log")):
+        day = fp.stem
+        try:
+            dt = datetime.date.fromisoformat(day)
+        except Exception:
+            continue
+        if dt < cutoff.date():
+            continue
+        texts.extend(fp.read_text(encoding="utf-8").splitlines())
+    if not texts:
+        return ""
+    summary = f"Reflection Digest {datetime.date.today().isoformat()}\n\n" + "\n".join(texts)
+    DIGEST_FILE.write_text(summary, encoding="utf-8")
+    return str(DIGEST_FILE)
+
+
+if __name__ == "__main__":  # pragma: no cover - manual
+    print(generate_digest())

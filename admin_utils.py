@@ -56,6 +56,11 @@ def require_admin_banner() -> None:
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     print_privilege_banner(tool)
+    try:
+        import privilege_lint as pl_lint
+        pl_lint.audit_use("cli", tool)
+    except Exception:
+        pass
     if is_admin():
         pl.log_privilege(user, platform.system(), tool, "success")
         print(ADMIN_BANNER)
