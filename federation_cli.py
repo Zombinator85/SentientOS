@@ -63,9 +63,9 @@ def main() -> None:
 
     if hasattr(args, "func"):
         args.func(args)
+        ledger.print_recap(limit=2)
     else:
         ap.print_help()
-    ledger.print_snapshot_banner()
     print_closing()
 
 

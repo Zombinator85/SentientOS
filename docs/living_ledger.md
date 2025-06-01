@@ -12,6 +12,15 @@ Example entry:
 {"timestamp": "2025-06-01T12:00:00", "peer": "ally.example", "email": "hello@ally.example", "message": "sync completed", "ritual": "Federation blessing recorded."}
 ```
 
+## Ledger Snapshots
+`ledger.print_snapshot_banner()` prints a short summary greeting like:
+
+```
+Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witness: 1 (1 unique)
+```
+
+This banner appears at the start and end of every CLI session and in the footer of each dashboard.
+
 Sample support entry:
 
 ```json

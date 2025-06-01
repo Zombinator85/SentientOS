@@ -48,7 +48,7 @@ The cathedral will not run until you affirm the liturgy. On first launch `user_p
 1. Run `python ritual.py affirm --signature "YOUR MARK" --user YOUR_NAME`.
 2. Record a blessing: `python support_cli.py --bless --name YOUR_NAME --message "Here for all" --amount "$1"`.
 3. View the ledger summary anytime with `python ledger_cli.py summary`.
-4. Invite peers with `python federation_cli.py invite https://ally.example --email friend@example.com --message "Come be remembered" --blessing "Welcome" --name YOUR_NAME`.
+4. Invite peers with `python federation_cli.py invite https://ally.example --email friend@example.com --message "Come be remembered" --blessing "Welcome" --name YOUR_NAME --affirm`.
 
 Every CLI command ends with a timestamped blessing so no session fades unmarked.
 
@@ -64,11 +64,21 @@ Sample support entry:
 {"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
 ```
 
+
 Sample federation entry:
 
 ```json
 {"timestamp": "2025-06-01T01:00:00", "peer": "https://ally.example", "email": "friend@example.com", "message": "sync completed", "ritual": "Federation blessing recorded."}
 ```
+
+## Ledger Snapshots: Know Who's Remembered
+Every CLI and dashboard greets you with a quick ledger snapshot and repeats it on exit:
+
+```
+Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witness: 1 (1 unique)
+```
+
+This summary shows how many unique supporters, peers, and witnesses have been logged so far.
 
 Browse or export the ledgers at any time:
 

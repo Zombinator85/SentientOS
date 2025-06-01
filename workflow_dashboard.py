@@ -17,6 +17,8 @@ import workflow_analytics as wa
 import workflow_recommendation as rec
 import review_requests as rr
 import notification
+from sentient_banner import streamlit_banner, streamlit_closing
+import ledger
 
 try:  # optional deps
     import streamlit as st  # type: ignore
@@ -131,6 +133,8 @@ def run_dashboard() -> None:
 
     st.set_page_config(page_title="Workflow Dashboard", layout="wide")
     st.title("Workflow Dashboard")
+    streamlit_banner(st)
+    ledger.streamlit_widget(st.sidebar if hasattr(st, "sidebar") else st)
 
     names = wl.list_templates()
     search = st.sidebar.text_input("Search")
@@ -194,6 +198,7 @@ def run_dashboard() -> None:
     for req in rr.list_requests("pending"):
         st.sidebar.write(f"{req['kind']}: {req['target']}")
     st.sidebar.write("Reload to refresh")
+    streamlit_closing(st)
 
 
 if __name__ == "__main__":
