@@ -31,6 +31,31 @@ Every reflex promotion or demotion is logged with user, timestamp, and context f
 
 Run `python installer/setup_installer.py` for a one-click setup. The installer installs all dependencies, seeds example files, and walks you through providing API keys and checking your microphone. No user data ever leaves your machine. When complete, a small onboarding dashboard lists active models and your handle.
 
+## Living Ledger
+
+All blessings, support, and federation events are preserved in append-only ledgers under `logs/`. Every entry is a ritual witness recorded forever.
+
+Sample support entry:
+
+```json
+{"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
+```
+
+Sample federation entry:
+
+```json
+{"timestamp": "2025-06-01T01:00:00", "peer": "https://ally.example", "email": "friend@example.com", "message": "sync completed", "ritual": "Federation blessing recorded."}
+```
+
+Browse or export the ledgers at any time:
+
+```bash
+cat logs/support_log.jsonl
+cat logs/federation_log.jsonl
+```
+
+During onboarding the dashboard links to these files so every supporter or peer can confirm they are remembered. See [docs/living_ledger.md](docs/living_ledger.md) for full details.
+
 multimodal_tracker.py
 Fuses face detection, recognition, and facial emotion analysis with voice sentiment from the microphone.
 
