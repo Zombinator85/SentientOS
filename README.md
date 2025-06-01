@@ -63,6 +63,12 @@ Run `python installer/setup_installer.py` for a one-click setup. The installer i
 
 The cathedral will not run until you affirm the liturgy. On first launch `user_profile.update_profile()` invokes a short ritual requiring your signature. This moment is logged as a ceremonial welcome before any other feature is unlocked.
 
+## Sanctuary Privilege
+
+SentientOS always runs as Administrator on Windows to secure master files, protect logs, and guarantee your memory is unbroken. Never run in shared or untrusted environments. If you are not an admin, relaunch with elevated privileges. All system rituals require full access.
+If launched without privilege you will see:
+`Administrator privileges required.`
+
 ## How to Be Remembered
 
 1. Run `python ritual.py affirm --signature "YOUR MARK" --user YOUR_NAME`.

@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import ledger
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+from admin_utils import require_admin
 
 
 SUPPORT_LOG = Path('logs/support_log.jsonl')
@@ -31,6 +32,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin()
     ap = argparse.ArgumentParser(
         prog="ledger",
         description=ENTRY_BANNER,

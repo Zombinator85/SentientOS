@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+from admin_utils import require_admin
 import support_log as sl
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
@@ -147,6 +148,7 @@ def suggest_improvements(analytics_data: Dict[str, Any]) -> List[str]:
 
 
 def main() -> None:
+    require_admin()
     import argparse
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     parser.add_argument("cmd", choices=["analytics", "trends", "suggest"])
