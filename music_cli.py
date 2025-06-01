@@ -49,6 +49,15 @@ async def _generate(prompt: str, emotion: dict, user: str) -> dict:
     return entry
 
 
+def _play(path: str, user: str) -> dict:
+    print(f"Playing {path}")
+    feeling = input("Feeling> ").strip()
+    reported = _parse_emotion(feeling)
+    entry = ledger.log_music_listen(path, user=user, reported=reported)
+    pl.log(user or "anon", "music_played", path)
+    return entry
+
+
 def main() -> None:
     require_admin_banner()
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
@@ -57,6 +66,10 @@ def main() -> None:
     gen.add_argument("prompt")
     gen.add_argument("--emotion", default="", help="Comma separated emotion=val pairs")
     gen.add_argument("--user", default="anon")
+
+    play = sub.add_parser("play", help="Play a music file and log emotion")
+    play.add_argument("file")
+    play.add_argument("--user", default="anon")
 
     args = parser.parse_args()
 
@@ -68,6 +81,11 @@ def main() -> None:
         if args.cmd == "generate":
             emo = _parse_emotion(args.emotion)
             entry = asyncio.run(_generate(args.prompt, emo, args.user))
+            print(json.dumps(entry, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "play":
+            entry = _play(args.file, args.user)
             print(json.dumps(entry, indent=2))
             print_closing_recap()
             recap_shown = True
