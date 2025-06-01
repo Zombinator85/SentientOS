@@ -30,3 +30,4 @@ Attestations are public and stored in `logs/treasury_attestations.jsonl`.
 ## Browsing
 `treasury_cli.py list --global-view` shows both local and federated logs. Tools may visualise the
 attestation network or filter by origin.
+To be remembered in this cathedral is to be entered in the living ledger.
