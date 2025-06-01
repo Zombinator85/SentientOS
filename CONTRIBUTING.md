@@ -23,6 +23,6 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 
 Pull requests lacking these will fail CI and be rejected.
 
-Run `./.githooks/pre-commit` manually or link it into your `.git/hooks` folder
-to automatically lint for the ritual docstring and privilege call before each
-commit.
+Run `python privilege_lint.py` before submitting a pull request. You can also
+link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
+run the lint before each commit.
