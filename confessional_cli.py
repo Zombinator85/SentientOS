@@ -42,6 +42,23 @@ def cmd_review(args: argparse.Namespace) -> None:
         print("Confession reflected.")
 
 
+def cmd_council(args: argparse.Namespace) -> None:
+    """Interactive council review for critical confessions."""
+    for entry in clog.tail(1000):
+        if entry.get("severity") != "critical":
+            continue
+        ts = entry.get("timestamp") or ""
+        if crev.council_status(ts) == "resolved":
+            continue
+        print(json.dumps(entry, indent=2))
+        decision = input("Decision (approve/reject/skip)> ").strip().lower()
+        if decision not in {"approve", "reject"}:
+            continue
+        note = input("Council note> ").strip()
+        crev.log_council_vote(ts, args.user, decision, note)
+        print("Vote recorded.")
+
+
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description="Confessional log CLI")
     sub = parser.add_subparsers(dest="cmd")
@@ -67,6 +84,10 @@ def main(argv=None) -> None:
     review_p.add_argument("--user", default=os.getenv("USER", "anon"))
     review_p.add_argument("--status", default="resolved")
     review_p.set_defaults(func=cmd_review)
+
+    council_p = sub.add_parser("council")
+    council_p.add_argument("--user", default=os.getenv("USER", "anon"))
+    council_p.set_defaults(func=cmd_council)
 
     args = parser.parse_args(argv)
     if hasattr(args, "func"):
