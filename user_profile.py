@@ -32,7 +32,9 @@ def update_profile(**updates) -> dict:
     profile = load_profile()
     if not profile_exists:
         ritual.require_liturgy_acceptance()
-        rl.log_event("profile_created", getpass.getuser())
+        user = getpass.getuser()
+        rl.log_event("ceremonial_welcome", user)
+        rl.log_event("profile_created", user)
     profile.update({k: v for k, v in updates.items() if v is not None})
     save_profile(profile)
     return profile

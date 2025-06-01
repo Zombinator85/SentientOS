@@ -211,6 +211,26 @@ def start_watchdog(callback: Callable[[str], None]) -> Optional[object]:
     return obs
 
 
+def watch_daemon() -> None:
+    """Run a watchdog daemon printing/logging mutations."""
+    def notify(path: str) -> None:
+        msg = f"master file changed: {path}"
+        print(msg)
+        log_json(PUBLIC_LOG, {"time": time.time(), "event": "watch", "path": path})
+
+    obs = start_watchdog(notify)
+    if obs is None:
+        print("watchdog not available")
+        return
+    print("Watching master files... Press Ctrl+C to stop.")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        obs.stop()
+        obs.join()
+
+
 def amend(proposal: str, user: str, vote: Optional[str] = None) -> str:
     """Record a doctrine amendment proposal or vote."""
     entry: Dict[str, Any] = {
@@ -257,6 +277,7 @@ CLI_DESC = "Doctrine management and ritual utilities"
 
 def main() -> None:
     p = argparse.ArgumentParser(description=CLI_DESC)
+    p.add_argument("--watch", action="store_true", help="Watch master files for changes")
     sub = p.add_subparsers(dest="cmd")
 
     sub.add_parser("show")
@@ -291,6 +312,9 @@ def main() -> None:
             print(json.dumps(entry))
     else:
         p.print_help()
+
+    if args.watch:
+        watch_daemon()
 
 
 if __name__ == "__main__":  # pragma: no cover
