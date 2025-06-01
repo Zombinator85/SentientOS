@@ -1,6 +1,6 @@
 import os
 import sys
-from admin_utils import is_admin, ADMIN_BANNER
+from admin_utils import require_admin_banner
 import shutil
 import subprocess
 from pathlib import Path
@@ -68,23 +68,7 @@ def check_microphone() -> None:
 
 
 def main() -> None:
-    if os.name == 'nt' and not is_admin():
-        import ctypes  # type: ignore
-        rc = ctypes.windll.shell32.ShellExecuteW(
-            None,
-            "runas",
-            sys.executable,
-            " ".join(sys.argv),
-            None,
-            1,
-        )
-        if rc <= 32:
-            print('Administrator privileges required.')
-        else:
-            print(ADMIN_BANNER)
-        return
-
-    print(ADMIN_BANNER)
+    require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
     print_banner()
     print('SentientOS setup starting...')

@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 from flask import Flask, jsonify, request
 import plugin_framework as pf
 import trust_engine as te
@@ -119,4 +120,5 @@ def deny_api():
 
 if __name__=='__main__':
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     app.run(port=5001)

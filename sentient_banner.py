@@ -27,12 +27,20 @@ BANNER = (
 
 import admin_utils
 from datetime import datetime
+import presence_ledger as pl
+import json
 
 
 def print_banner() -> None:
-    """Print the entry banner and sanctuary banner."""
+    """Print the entry banner, privilege status, and recent attempts."""
     print(ENTRY_BANNER)
     print(SANCTUARY_BANNER)
+    status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
+    print(f"Sanctuary Privilege Status: [{status}]")
+    attempts = pl.recent_privilege_attempts(3)
+    if attempts:
+        print("Recent privilege attempts:")
+        print(json.dumps(attempts, indent=2))
 
 
 def streamlit_banner(st_module) -> None:
@@ -42,6 +50,10 @@ def streamlit_banner(st_module) -> None:
         st_module.markdown(SANCTUARY_BANNER)
         status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
         st_module.markdown(f"**Privilege Status:** {status}")
+        attempts = pl.recent_privilege_attempts(3)
+        if attempts:
+            st_module.markdown("Recent privilege attempts:")
+            st_module.json(attempts)
 
 
 

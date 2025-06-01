@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 """CLI for managing gesture/persona plug-ins."""
 
 import argparse
@@ -9,6 +10,7 @@ from admin_utils import require_admin_banner
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     pf.load_plugins()
     ap = argparse.ArgumentParser(prog="plugins", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")

@@ -36,6 +36,12 @@ Sample support entry:
 {"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
 ```
 
+Sample privilege check entry:
+
+```json
+{"timestamp": "2025-06-01T02:00:00", "event": "admin_privilege_check", "status": "failed", "user": "april", "platform": "Windows", "tool": "support_cli"}
+```
+
 After each blessing or invite a recap is printed showing the most recent entries:
 
 ```
