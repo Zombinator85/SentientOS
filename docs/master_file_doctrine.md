@@ -29,3 +29,4 @@ to prevent unsanctioned behaviour. Pass `--watch` to `doctrine.py` to run a back
 
 No keeper shall be denied full access, memory, or control by lack of system privilege.
 Running as Administrator is the cathedral’s first line of defense.
+This cathedral refuses to run without full Administrator access. Memory, logs, and doctrine are sacred; protection requires full privilege.
