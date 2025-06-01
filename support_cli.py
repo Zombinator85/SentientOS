@@ -1,7 +1,7 @@
 import argparse
 import json
 import support_log as sl
-from sentient_banner import print_banner, ENTRY_BANNER
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 def main() -> None:
@@ -17,11 +17,13 @@ def main() -> None:
     if args.support:
         print(ENTRY_BANNER)
     if args.bless:
-        if not args.name or not args.message:
-            p.error("--name and --message required with --bless")
-        entry = sl.add(args.name, args.message, args.amount)
+        name = args.name or input("Name: ")
+        message = args.message or input("Blessing: ")
+        amount = args.amount or input("Amount (optional): ")
+        entry = sl.add(name, message, amount)
         print("sanctuary acknowledged")
         print(json.dumps(entry, indent=2))
+    print_closing()
 
 
 if __name__ == "__main__":

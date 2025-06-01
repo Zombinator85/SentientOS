@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 import review_requests as rr
 import final_approval
+from sentient_banner import print_banner, print_closing
 
 
 def main() -> None:
@@ -52,6 +53,7 @@ def main() -> None:
     sub.add_parser("dismiss").add_argument("id")
 
     args = parser.parse_args()
+    print_banner()
     if args.final_approver_file:
         fp = Path(args.final_approver_file)
         chain = final_approval.load_file_approvers(fp) if fp.exists() else []
@@ -91,6 +93,7 @@ def main() -> None:
             print(json.dumps(entry))
     else:
         parser.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":

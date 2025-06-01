@@ -3,6 +3,7 @@ import time
 import json
 import argparse
 from colorama import init, Fore, Style
+from sentient_banner import print_banner, print_closing
 
 init()
 
@@ -67,7 +68,9 @@ def main() -> None:
     parser.add_argument("--file", default=DEFAULT_FILE, help="Path to JSONL log")
     parser.add_argument("--delay", type=float, default=1.0, help="Polling delay")
     args = parser.parse_args()
+    print_banner()
     tail_memory(args.file, delay=args.delay)
+    print_closing()
 
 
 if __name__ == "__main__":
