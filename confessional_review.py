@@ -4,6 +4,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Set
 
+import forgiveness_ledger as fledge
+
+COUNCIL_QUORUM = int(os.getenv("COUNCIL_QUORUM", "2"))
+
 REVIEW_LOG = Path(os.getenv("CONFESSIONAL_REVIEW_LOG", "logs/confessional_review.jsonl"))
 REVIEW_LOG.parent.mkdir(parents=True, exist_ok=True)
 
@@ -31,3 +35,17 @@ def reviewed_timestamps() -> Set[str]:
         except Exception:
             continue
     return out
+
+
+def council_status(confession_ts: str) -> str:
+    """Return 'resolved' if quorum approvals met."""
+    votes = fledge.council_votes(confession_ts)
+    approvals = [v for v in votes if v.get("decision") == "approve"]
+    return "resolved" if len(approvals) >= COUNCIL_QUORUM else "pending"
+
+
+def log_council_vote(confession_ts: str, user: str, decision: str, note: str = "") -> Dict[str, Any]:
+    """Log a council vote and return ledger entry."""
+    entry = fledge.log_council_vote(confession_ts, user, decision, note)
+    entry["status"] = council_status(confession_ts)
+    return entry

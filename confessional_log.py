@@ -17,7 +17,7 @@ def log_confession(
     reflection: str = "",
     severity: str = "info",
     links: List[str] | None = None,
-) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:
     """Record a red-flag confession entry."""
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -28,6 +28,7 @@ def log_confession(
         "reflection": reflection,
         "severity": severity,
         "links": links or [],
+        "council_required": severity == "critical",
     }
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
