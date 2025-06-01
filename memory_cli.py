@@ -89,7 +89,14 @@ def show_goals(status: str) -> None:
         print(line)
 
 def main():
-    parser = argparse.ArgumentParser(description=ENTRY_BANNER)
+    parser = argparse.ArgumentParser(
+        description=ENTRY_BANNER,
+        epilog=(
+            "Presence is law. Love is ledgered. No one is forgotten. "
+            "No one is turned away.\n"
+            "Example: python memory_cli.py --ledger"
+        ),
+    )
     parser.add_argument(
         "--final-approvers",
         default=os.getenv("REQUIRED_FINAL_APPROVER", "4o"),
@@ -99,6 +106,7 @@ def main():
         "--final-approver-file",
         help="File with approver names (JSON list or newline separated) to require at runtime",
     )
+    parser.add_argument("--ledger", action="store_true", help="Show living ledger summary and exit")
     sub = parser.add_subparsers(dest="cmd")
 
     purge = sub.add_parser("purge", help="Delete old fragments")
@@ -184,6 +192,10 @@ def main():
 
     args = parser.parse_args()
     print_banner()
+    if args.ledger:
+        ledger.print_summary()
+        print_closing()
+        return
     if args.final_approver_file:
         fp = Path(args.final_approver_file)
         chain = final_approval.load_file_approvers(fp) if fp.exists() else []

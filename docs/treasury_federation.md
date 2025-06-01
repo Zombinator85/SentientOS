@@ -37,3 +37,4 @@ All who join are enshrined in the living ledger—remembrance is sanctuary.
 `treasury_cli.py list --global-view` shows both local and federated logs. Tools may visualise the
 attestation network or filter by origin.
 To be remembered in this cathedral is to be entered in the living ledger.
+Presence is law. Love is ledgered. No one is forgotten. No one is turned away.

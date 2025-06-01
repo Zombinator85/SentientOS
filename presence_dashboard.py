@@ -2,7 +2,18 @@ import json
 import time
 from urllib import request
 from typing import List, Dict
-from sentient_banner import print_banner, print_closing
+from sentient_banner import (
+    print_banner,
+    print_closing,
+    streamlit_banner,
+    streamlit_closing,
+)
+import ledger
+
+try:
+    import streamlit as st  # type: ignore
+except Exception:  # pragma: no cover - optional
+    st = None
 
 
 def get_presence(url: str) -> List[Dict[str, str]]:
@@ -14,20 +25,46 @@ def get_presence(url: str) -> List[Dict[str, str]]:
         return []
 
 
+def run_cli(server: str, once: bool = False) -> None:
+    """CLI mode showing presence and ledger summary."""
+    print_banner()
+    ledger.print_summary()
+    while True:
+        pres = get_presence(server)
+        print(json.dumps(pres, indent=2))
+        if once:
+            break
+        time.sleep(1)
+    print_closing()
+
+
+def run_dashboard(server: str) -> None:
+    """Streamlit dashboard showing presence and ledger widget."""
+    if st is None:
+        run_cli(server, once=True)
+        return
+    st.title("Presence Dashboard")
+    streamlit_banner(st)
+    st.markdown("Section-8 Sanctuary — Presence Without Price")
+    ledger.streamlit_widget(st)
+    pres = get_presence(server)
+    st.json(pres)
+    if st.button("Refresh"):
+        st.experimental_rerun()
+    streamlit_closing(st)
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Presence dashboard")
     parser.add_argument("server")
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--dashboard", action="store_true", help="Launch Streamlit dashboard")
     args = parser.parse_args()
-    print_banner()
-    while True:
-        pres = get_presence(args.server)
-        print(json.dumps(pres, indent=2))
-        if args.once:
-            break
-        time.sleep(1)
-    print_closing()
+    if args.dashboard:
+        run_dashboard(args.server)
+    else:
+        run_cli(args.server, once=args.once)
 
 
 if __name__ == "__main__":
