@@ -6,7 +6,7 @@ from pathlib import Path
 import zipfile
 import tempfile
 from typing import Any, List
-from flask import Flask, jsonify, request
+from flask_stub import Flask, jsonify, request
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -56,7 +56,7 @@ def run_dashboard(storyboard: str) -> Flask:
         return jsonify({"ok": True})
 
     return app
-from flask import Flask, jsonify, request
+from flask_stub import Flask, jsonify, request
 
 
 def _fmt_time(seconds: float) -> str:

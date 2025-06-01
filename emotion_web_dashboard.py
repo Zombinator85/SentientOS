@@ -4,7 +4,7 @@ import socket
 import threading
 import time
 from typing import List
-from flask import Flask, jsonify, send_file
+from flask_stub import Flask, jsonify, send_file
 
 app = Flask(__name__)
 
