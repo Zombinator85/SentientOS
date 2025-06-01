@@ -153,3 +153,19 @@ def test_search_by_tags(tmp_path, monkeypatch):
     assert len(res) == 2
     assert res[0]["text"] == "three"
     assert res[1]["text"] == "one"
+
+
+def test_purge_archives_to_tomb(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+    reload(mm)
+
+    fid = mm.append_memory("obsolete", tags=["x"])
+    mm.purge_memory(max_files=0, requestor="tester", reason="cleanup")
+
+    tomb = tmp_path / "memory_tomb.jsonl"
+    assert tomb.exists()
+    lines = [json.loads(l) for l in tomb.read_text().splitlines() if l.strip()]
+    assert lines and lines[0]["fragment"]["id"] == fid
+    assert lines[0]["requestor"] == "tester"
