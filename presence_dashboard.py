@@ -1,4 +1,3 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import json
 import time
 from urllib import request
@@ -11,6 +10,8 @@ from sentient_banner import (
 )
 from admin_utils import require_admin_banner
 import ledger
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 try:
     import streamlit as st  # type: ignore

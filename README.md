@@ -79,6 +79,19 @@ Ritual refusal: You must run with administrator rights to access the cathedral's
 How to fix: Right-click the command and choose 'Run as administrator'.
 ```
 
+Successful elevation produces a similar banner with a success status and is logged in `logs/user_presence.jsonl`:
+
+```
+🛡️ Sanctuary Privilege Status: [🛡️ Privileged]
+Current user: YOUR_NAME
+Platform: Windows
+Sanctuary Privilege • SentientOS runs with full Administrator rights to safeguard memory and doctrine.
+```
+
+```json
+{"timestamp": "2025-06-01T02:00:00", "event": "admin_privilege_check", "status": "success", "user": "YOUR_NAME", "platform": "Windows", "tool": "support_cli"}
+```
+
 Every CLI and dashboard prints a `[🛡️ Privileged]` or `[⚠️ Not Privileged]` badge before any other output. Failed attempts are recorded in `logs/user_presence.jsonl` with the user, platform, tool, and status.
 
 Never run SentientOS in a shared or public environment. If you need to elevate:

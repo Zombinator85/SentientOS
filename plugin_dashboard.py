@@ -1,8 +1,9 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 from flask import Flask, jsonify, request
 import plugin_framework as pf
 import trust_engine as te
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 app = Flask(__name__)
 

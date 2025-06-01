@@ -1,4 +1,3 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 import os
@@ -9,6 +8,8 @@ import relationship_log as rl
 import presence_ledger as pl
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 
 def cmd_show(args) -> None:

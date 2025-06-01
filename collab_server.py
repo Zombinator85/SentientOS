@@ -1,9 +1,10 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 from typing import Dict, Any
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 import notification
 

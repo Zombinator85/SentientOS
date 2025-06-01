@@ -2,6 +2,7 @@ import os
 import sys
 import platform
 import getpass
+import warnings
 from pathlib import Path
 import presence_ledger as pl
 
@@ -83,6 +84,10 @@ def require_admin_banner() -> None:
 
 def require_admin() -> None:
     """Backward compatible wrapper. Deprecated: use ``require_admin_banner``."""
-    # DEPRECATED: This wrapper remains for legacy calls. Use require_admin_banner().
+    # DEPRECATED—see doctrine. Use require_admin_banner() for all new code.
+    warnings.warn(
+        "require_admin is deprecated, use require_admin_banner", DeprecationWarning,
+        stacklevel=2,
+    )
     require_admin_banner()
 
