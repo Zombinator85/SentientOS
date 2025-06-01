@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 """Simple CLI editor for workflow files."""
 
 import argparse
@@ -114,6 +115,7 @@ def edit_loop(path: Path, policy: str | None = None) -> None:
 
 def main() -> None:  # pragma: no cover - CLI
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(description=ENTRY_BANNER)
     ap.add_argument("path")
     ap.add_argument("--policy")

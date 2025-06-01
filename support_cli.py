@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 import support_log as sl
@@ -8,6 +9,7 @@ from admin_utils import require_admin_banner
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     p = argparse.ArgumentParser(
         prog="support",
         description=ENTRY_BANNER,

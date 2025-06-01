@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 from pathlib import Path
@@ -63,6 +64,7 @@ def cmd_attest(args: argparse.Namespace) -> None:
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(
         prog="treasury",
         description=f"SentientOS Treasury CLI\n{ENTRY_BANNER}"
