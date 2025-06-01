@@ -1,4 +1,3 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import os
 import sys

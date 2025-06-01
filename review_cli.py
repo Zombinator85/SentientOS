@@ -1,8 +1,9 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 from pathlib import Path
 from sentient_banner import print_banner, print_closing
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 from story_studio import load_storyboard, save_storyboard
 import user_profile as up
