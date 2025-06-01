@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import List, Tuple
+import argparse
 from datetime import datetime
 import getpass
 import doctrine  # Assume doctrine.py is importable
@@ -130,3 +131,65 @@ def confirm_disruptive(action: str, summary: str) -> None:
     ans = input(f"Type 'YES' to proceed with {action}: ")
     if ans.strip() != "YES":
         raise SystemExit("Action cancelled by doctrine")
+
+
+def _cli_affirm(args: argparse.Namespace) -> None:
+    user = args.user or os.getenv("USER", "anon")
+    doctrine.affirm(user)
+    doctrine.capture_signature(user, args.signature)
+    print("affirmed")
+
+
+def _cli_bless(args: argparse.Namespace) -> None:
+    name = args.name or input("Name: ")
+    message = args.message or input("Blessing: ")
+    amount = args.amount or ""
+    import support_log as sl
+
+    entry = sl.add(name, message, amount)
+    print(json.dumps(entry))
+
+
+def _cli_status(args: argparse.Namespace) -> None:
+    rep = doctrine.integrity_report()
+    print(json.dumps(rep, indent=2))
+
+
+def _cli_logs(args: argparse.Namespace) -> None:
+    feed = doctrine.public_feed(args.last)
+    for entry in feed:
+        print(json.dumps(entry))
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(prog="ritual")
+    sub = ap.add_subparsers(dest="cmd")
+
+    aff = sub.add_parser("affirm")
+    aff.add_argument("--signature", required=True)
+    aff.add_argument("--user")
+    aff.set_defaults(func=_cli_affirm)
+
+    bl = sub.add_parser("bless")
+    bl.add_argument("--name")
+    bl.add_argument("--message")
+    bl.add_argument("--amount", default="")
+    bl.set_defaults(func=_cli_bless)
+
+    st = sub.add_parser("status")
+    st.add_argument("--doctrine", action="store_true")
+    st.set_defaults(func=_cli_status)
+
+    lg = sub.add_parser("logs")
+    lg.add_argument("--last", type=int, default=5)
+    lg.set_defaults(func=_cli_logs)
+
+    args = ap.parse_args()
+    if hasattr(args, "func"):
+        args.func(args)
+    else:
+        ap.print_help()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()
