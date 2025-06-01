@@ -194,7 +194,14 @@ def playlist_by_mood(mood: str, limit: int = 10) -> List[Dict[str, str]]:
     return list(reversed(out))
 
 
-def playlist_log(entries: List[Dict[str, str]], mood: str, user: str, origin: str) -> Dict[str, object]:
+def playlist_log(
+    entries: List[Dict[str, str]],
+    mood: str,
+    user: str,
+    origin: str,
+    *,
+    reason: str = "",
+) -> Dict[str, object]:
     """Return a signed playlist log structure."""
     text = json.dumps(entries, sort_keys=True)
     sig = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -205,6 +212,7 @@ def playlist_log(entries: List[Dict[str, str]], mood: str, user: str, origin: st
         "mood": mood,
         "entries": entries,
         "signature": sig,
+        "reason": reason,
     }
 
 

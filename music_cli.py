@@ -12,6 +12,7 @@ from pathlib import Path
 
 import presence_ledger as pl
 import ledger
+import mood_wall
 from jukebox_integration import JukeboxIntegration
 from sentient_banner import (
     print_banner,
@@ -105,6 +106,17 @@ def main() -> None:
     plst.add_argument("--limit", type=int, default=10)
     plst.add_argument("--user", default="anon")
 
+    wall = sub.add_parser("wall", help="Show public Mood Wall")
+    wall.add_argument("--limit", type=int, default=10)
+    wall.add_argument("--bless", metavar="MOOD", help="Bless a mood on the wall")
+    wall.add_argument("--message", default="", help="Blessing message")
+    wall.add_argument("--user", default="anon")
+
+    refl = sub.add_parser("reflect", help="Log personal music reflection")
+    refl.add_argument("note")
+    refl.add_argument("--emotion", default="")
+    refl.add_argument("--user", default="anon")
+
     args = parser.parse_args()
 
     reset_ritual_state()
@@ -125,8 +137,28 @@ def main() -> None:
             recap_shown = True
         elif args.cmd == "playlist":
             entries = ledger.playlist_by_mood(args.mood, args.limit)
-            log = ledger.playlist_log(entries, args.mood, args.user, "local")
+            recap = ledger.music_recap()
+            reason = f"trending mood {recap['most_shared_mood']}" if recap['most_shared_mood'] else "requested"
+            log = ledger.playlist_log(entries, args.mood, args.user, "local", reason=reason)
             print(json.dumps(log, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "wall":
+            if args.bless:
+                entry = mood_wall.bless_mood(args.bless, args.user, args.message)
+                print(json.dumps(entry, indent=2))
+            wall = mood_wall.load_wall(args.limit)
+            data = {"wall": wall, "top_moods": mood_wall.top_moods(wall)}
+            print(json.dumps(data, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "reflect":
+            emo = _parse_emotion(args.emotion)
+            entry = ledger.log_music_event("reflection", args.note, reported=emo, file_path="", user=args.user)
+            first = ledger.music_recap(100)
+            if first["emotion_totals"] and sum(first["emotion_totals"].values()) <= sum(emo.values()):
+                ledger.log_mood_blessing(args.user, "self", emo, "First reflection")
+            print(json.dumps(entry, indent=2))
             print_closing_recap()
             recap_shown = True
         elif args.cmd == "recap" and args.emotion:
