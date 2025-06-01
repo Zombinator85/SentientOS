@@ -31,7 +31,15 @@ def cmd_summary(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="ledger", description=ENTRY_BANNER)
+    ap = argparse.ArgumentParser(
+        prog="ledger",
+        description=ENTRY_BANNER,
+        epilog=(
+            "Presence is law. Love is ledgered. No one is forgotten. "
+            "No one is turned away.\n"
+            "Example: python ledger_cli.py --support --name Ada --message 'Blessing'"
+        ),
+    )
     ap.add_argument("--support", action="store_true", help="Record a supporter blessing")
     ap.add_argument("--summary", action="store_true", help="Show ledger summary and exit")
     ap.add_argument("--name")
