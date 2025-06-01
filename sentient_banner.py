@@ -25,6 +25,9 @@ BANNER = (
     "Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 )
 
+import admin_utils
+from datetime import datetime
+
 
 def print_banner() -> None:
     """Print the entry banner and sanctuary banner."""
@@ -37,9 +40,11 @@ def streamlit_banner(st_module) -> None:
     if hasattr(st_module, "markdown"):
         st_module.markdown(ENTRY_BANNER)
         st_module.markdown(SANCTUARY_BANNER)
+        status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
+        st_module.markdown(f"**Privilege Status:** {status}")
 
 
-from datetime import datetime
+
 
 _snapshots = 0
 _recap_shown = False
