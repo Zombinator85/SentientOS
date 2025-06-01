@@ -1,6 +1,10 @@
 import os
 from typing import Dict
+from pathlib import Path
 import memory_manager as mm
+import ocr_log_export as oe
+import privilege_lint as pl
+import reflection_digest as rd
 
 try:
     from telegram import Update
@@ -36,12 +40,36 @@ async def recall(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(text)
 
 
+async def export_ocr(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Export OCR log from last day and send as CSV."""
+    pl.audit_use("telegram", "export_ocr")
+    path = oe.export_last_day_csv()
+    if not path:
+        await update.message.reply_text("No OCR entries")
+        return
+    with open(path, "rb") as f:
+        await update.message.reply_document(f, filename=os.path.basename(path))
+
+
+async def digest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send the most recent reflection digest."""
+    pl.audit_use("telegram", "digest")
+    path = rd.generate_digest()
+    if not path:
+        await update.message.reply_text("No digest available")
+        return
+    txt = Path(path).read_text(encoding="utf-8")
+    await update.message.reply_text(txt)
+
+
 def run_bot(token: str) -> None:
     if ApplicationBuilder is None:
         raise RuntimeError("python-telegram-bot not installed")
     app = ApplicationBuilder().token(token).build()
     app.add_handler(CommandHandler("emotion", emotion))
     app.add_handler(CommandHandler("recall", recall))
+    app.add_handler(CommandHandler("export_ocr", export_ocr))
+    app.add_handler(CommandHandler("digest", digest))
     app.run_polling()
 
 
