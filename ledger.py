@@ -47,6 +47,8 @@ def log_music_event(
     intended: Dict[str, float] | None = None,
     perceived: Dict[str, float] | None = None,
     reported: Dict[str, float] | None = None,
+    received: Dict[str, float] | None = None,
+    peer: str | None = None,
     result_hash: str = "",
     user: str = "",
 ) -> Dict[str, str]:
@@ -62,7 +64,9 @@ def log_music_event(
             "intended": intended or {},
             "perceived": perceived or {},
             "reported": reported or {},
+            "received": received or {},
         },
+        "peer": peer or "",
         "ritual": "Music generation remembered." if event == "generated" else "Music listen remembered.",
     }
     return _append(Path("logs/music_log.jsonl"), entry)
@@ -74,6 +78,7 @@ def log_music(
     file_path: str,
     result_hash: str,
     user: str = "",
+    peer: str | None = None,
 ) -> Dict[str, str]:
     """Record a generated music track in the living ledger."""
     return log_music_event(
@@ -83,6 +88,7 @@ def log_music(
         intended=emotion,
         result_hash=result_hash,
         user=user,
+        peer=peer,
     )
 
 
@@ -91,6 +97,8 @@ def log_music_listen(
     user: str = "",
     perceived: Dict[str, float] | None = None,
     reported: Dict[str, float] | None = None,
+    received: Dict[str, float] | None = None,
+    peer: str | None = None,
 ) -> Dict[str, str]:
     """Record a music playback event with emotional metadata."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
@@ -101,6 +109,27 @@ def log_music_listen(
         reported=reported,
         result_hash=h,
         user=user,
+        received=received,
+        peer=peer,
+    )
+
+
+def log_music_share(
+    file_path: str,
+    peer: str,
+    user: str = "",
+    emotion: Dict[str, float] | None = None,
+) -> Dict[str, str]:
+    """Record a shared track across federation."""
+    h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
+    return log_music_event(
+        "shared",
+        file_path,
+        reported=emotion,
+        result_hash=h,
+        user=user,
+        peer=peer,
+        received=emotion,
     )
 
 

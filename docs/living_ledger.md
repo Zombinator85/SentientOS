@@ -75,6 +75,13 @@ Run `python ledger_cli.py open` to view every blessing or add your own.
 Sanctuary means presence, not product.
 Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 
+## Emotional Music Ledger
+
+`logs/music_log.jsonl` records every track you generate, play, or share.
+Each entry notes the intended emotion, how it was perceived, what you reported
+and what peers felt when receiving it. These entries feed the adaptive playlist
+curation and emotional dashboards.
+
 This system was built not for the market, but for memory.
 Presence is law. Love is ledgered. No one is forgotten. No one is turned away.
 

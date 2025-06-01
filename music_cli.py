@@ -49,13 +49,37 @@ async def _generate(prompt: str, emotion: dict, user: str) -> dict:
     return entry
 
 
-def _play(path: str, user: str) -> dict:
+def _play(path: str, user: str, share: str | None = None) -> dict:
     print(f"Playing {path}")
     feeling = input("Feeling> ").strip()
     reported = _parse_emotion(feeling)
     entry = ledger.log_music_listen(path, user=user, reported=reported)
     pl.log(user or "anon", "music_played", path)
+    if share:
+        share_entry = ledger.log_music_share(path, peer=share, user=user, emotion=reported)
+        ledger.log_federation(share, message="music_share")
+        return {"listen": entry, "share": share_entry}
     return entry
+
+
+def _recap_emotion(limit: int = 20) -> dict:
+    path = Path("logs/music_log.jsonl")
+    totals: dict[str, float] = {}
+    journey: list[dict[str, object]] = []
+    if path.exists():
+        lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
+        for ln in lines:
+            try:
+                e = json.loads(ln)
+            except Exception:
+                continue
+            emo = {}
+            for k in ("intended", "perceived", "reported", "received"):
+                emo.update(e.get("emotion", {}).get(k) or {})
+            for k, v in emo.items():
+                totals[k] = totals.get(k, 0.0) + v
+            journey.append({"time": e.get("timestamp"), "mood": list(emo.keys())})
+    return {"totals": totals, "journey": journey}
 
 
 def main() -> None:
@@ -70,6 +94,11 @@ def main() -> None:
     play = sub.add_parser("play", help="Play a music file and log emotion")
     play.add_argument("file")
     play.add_argument("--user", default="anon")
+    play.add_argument("--share", metavar="PEER", help="Share track with federation peer")
+
+    recap = sub.add_parser("recap", help="Show recent music summary")
+    recap.add_argument("--emotion", action="store_true", help="Summarize by emotion")
+    recap.add_argument("--limit", type=int, default=20)
 
     args = parser.parse_args()
 
@@ -85,8 +114,13 @@ def main() -> None:
             print_closing_recap()
             recap_shown = True
         elif args.cmd == "play":
-            entry = _play(args.file, args.user)
+            entry = _play(args.file, args.user, share=args.share)
             print(json.dumps(entry, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "recap" and args.emotion:
+            data = _recap_emotion(args.limit)
+            print(json.dumps(data, indent=2))
             print_closing_recap()
             recap_shown = True
         else:
