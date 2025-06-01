@@ -1,0 +1,28 @@
+import json
+import time
+from pathlib import Path
+
+HERESY_LOG = Path("logs/heresy_log.jsonl")
+WATCH_FILES = [Path("logs/support_log.jsonl"), Path("logs/confessional_log.jsonl")]
+
+
+def watch(period: float = 2.0) -> None:
+    positions = {p: p.stat().st_size if p.exists() else 0 for p in WATCH_FILES}
+    while True:
+        for p in WATCH_FILES:
+            if not p.exists():
+                continue
+            size = p.stat().st_size
+            if size > positions[p]:
+                text = p.read_text(encoding="utf-8")[positions[p] : size]
+                for line in text.splitlines():
+                    if "forbidden" in line or "unritualized" in line:
+                        entry = {"timestamp": time.time(), "file": str(p), "line": line}
+                        with HERESY_LOG.open("a", encoding="utf-8") as f:
+                            f.write(json.dumps(entry) + "\n")
+                positions[p] = size
+        time.sleep(period)
+
+
+if __name__ == "__main__":  # pragma: no cover - daemon
+    watch()
