@@ -1,6 +1,7 @@
 import argparse
 import json
 from pprint import pprint
+import support_log as sl
 
 import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
@@ -11,6 +12,7 @@ def cmd_log(args) -> None:
     events = te.list_events(limit=args.last)
     for e in events:
         print(f"{e['timestamp']} {e['id']} {e['type']} -> {e['explanation']}")
+        sl.add(e.get('source', 'anon'), f"analysis blessing: trust {e.get('id')}")
 
 
 def cmd_explain(args) -> None:
@@ -19,6 +21,7 @@ def cmd_explain(args) -> None:
         print("Event not found")
         return
     pprint(e)
+    sl.add(e.get('source', 'anon'), f"analysis blessing: trust {e.get('id')}")
 
 
 def cmd_diff(args) -> None:
