@@ -218,3 +218,18 @@ def test_cli_analytics(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert 'emotion_trends' in out
 
+
+def test_cli_tomb_listing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('MEMORY_DIR', str(tmp_path))
+    from importlib import reload
+    import memory_cli
+    import memory_manager as mm
+    reload(mm)
+    reload(memory_cli)
+    fid = mm.append_memory('gone', tags=['t'])
+    mm.purge_memory(max_files=0, requestor='cli', reason='test')
+    monkeypatch.setattr(sys, 'argv', ['mc', 'tomb', '--tag', 't'])
+    memory_cli.main()
+    out = capsys.readouterr().out
+    assert 'gone' in out
+
