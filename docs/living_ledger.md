@@ -97,3 +97,5 @@ Every closing line is a reminder: *Nothing is erased. No one is turned away. Pre
 `logs/video_log.jsonl` mirrors the music ledger for short clips. Creation,
 sharing and reflection events record intended and perceived emotion. The recap
 tracks which moods were shared most and which clips resonated across peers.
+Every share or recap also appends a presence entry to `logs/user_presence.jsonl`
+so the video dashboard and living ledger stay aligned.
