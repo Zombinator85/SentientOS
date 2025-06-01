@@ -6,6 +6,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
+FEDERATED_PATH = Path(os.getenv("LOVE_FEDERATED_LOG", "logs/federated_love.jsonl"))
+FEDERATED_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 SUBMISSIONS_PATH = Path(os.getenv("LOVE_SUBMISSIONS_LOG", "logs/love_submissions.jsonl"))
 REVIEW_PATH = Path(os.getenv("LOVE_REVIEW_LOG", "logs/love_review.jsonl"))
 TREASURY_PATH = Path(os.getenv("LOVE_TREASURY_LOG", "logs/love_treasury.jsonl"))
@@ -95,3 +98,39 @@ def export_log(entry_id: str) -> Optional[Dict[str, object]]:
         if entry.get("id") == entry_id:
             return entry
     return None
+
+
+def list_federated() -> List[Dict[str, object]]:
+    """Return logs imported from other cathedrals."""
+    return _load(FEDERATED_PATH)
+
+
+def import_federated(entry: Dict[str, object], origin: str) -> bool:
+    """Import a log from another cathedral if not already present."""
+    existing = _load(FEDERATED_PATH)
+    for e in existing:
+        if e.get("id") == entry.get("id") and e.get("origin") == origin:
+            return False
+    entry = dict(entry)
+    entry["origin"] = origin
+    entry["import_time"] = datetime.utcnow().isoformat()
+    _append(FEDERATED_PATH, entry)
+    return True
+
+
+def federation_metadata() -> List[Dict[str, object]]:
+    """Return lightweight metadata about enshrined logs."""
+    out = []
+    for entry in _load(TREASURY_PATH):
+        out.append({
+            "id": entry.get("id"),
+            "hash": entry.get("hash"),
+            "time": entry.get("time"),
+            "title": entry.get("title"),
+        })
+    return out
+
+
+def list_global() -> List[Dict[str, object]]:
+    """Combine local and federated logs for browsing."""
+    return _load(TREASURY_PATH) + _load(FEDERATED_PATH)
