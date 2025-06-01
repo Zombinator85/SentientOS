@@ -3,17 +3,36 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+import json
+import os
 
 LEDGER_PATH = Path(os.getenv("USER_PRESENCE_LOG", "logs/user_presence.jsonl"))
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def log(user: str, event: str, note: str = "") -> None:
+    """Record a general presence event."""
     entry = {
         "time": datetime.utcnow().isoformat(),
         "user": user,
         "event": event,
         "note": note,
+    }
+    with LEDGER_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def log_privilege(
+    user: str, platform: str, tool: str, status: str
+) -> None:
+    """Record a privilege check attempt."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "admin_privilege_check",
+        "status": status,
+        "user": user,
+        "platform": platform,
+        "tool": tool,
     }
     with LEDGER_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
