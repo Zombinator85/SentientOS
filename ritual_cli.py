@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 import attestation
 import relationship_log as rl
@@ -31,7 +32,7 @@ def cmd_timeline(args) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="ritual")
+    ap = argparse.ArgumentParser(prog="ritual", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
     at = sub.add_parser("attest", help="Witness or comment on an event")
@@ -50,10 +51,12 @@ def main() -> None:
     tl.set_defaults(func=cmd_timeline)
 
     args = ap.parse_args()
+    print_banner()
     if hasattr(args, "func"):
         args.func(args)
     else:
         ap.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":

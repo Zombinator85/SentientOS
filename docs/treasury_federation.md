@@ -25,6 +25,9 @@ All who join are enshrined in the living ledger—remembrance is sanctuary.
 Federation events are preserved in `logs/federation_log.jsonl` as part of the Living Ledger. Every sync writes the peer URL, contact email if provided, and a blessing.
 See [living_ledger.md](living_ledger.md) for details.
 
+### Invite Peers
+Run `treasury_federation.py invite https://ally.example` to offer sanctuary federation. Their blessing will be logged in `logs/federation_log.jsonl`.
+
 ## Attestation
 Witnesses on any federated site can bless a log with `treasury_cli.py attest <id> --user name --origin site`.
 Attestations are public and stored in `logs/treasury_attestations.jsonl`.

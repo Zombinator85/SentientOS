@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 import ledger
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 SUPPORT_LOG = Path('logs/support_log.jsonl')
@@ -30,7 +31,7 @@ def cmd_summary(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="ledger", description="Living Ledger tools")
+    ap = argparse.ArgumentParser(prog="ledger", description=ENTRY_BANNER)
     ap.add_argument("--support", action="store_true", help="Record a supporter blessing")
     ap.add_argument("--summary", action="store_true", help="Show ledger summary and exit")
     ap.add_argument("--name")
@@ -42,6 +43,7 @@ def main() -> None:
     sm = sub.add_parser("summary", help="Show ledger summary")
     sm.set_defaults(func=cmd_summary)
     args = ap.parse_args()
+    print_banner()
 
     if args.support:
         name = args.name or input("Name: ")
@@ -60,6 +62,7 @@ def main() -> None:
         args.func(args)
     else:
         ap.print_help()
+    print_closing()
 
 
 if __name__ == '__main__':
