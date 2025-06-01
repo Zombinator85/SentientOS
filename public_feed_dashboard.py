@@ -7,6 +7,9 @@ from typing import List, Dict
 import doctrine
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 import ledger
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 try:
     import streamlit as st  # type: ignore
@@ -37,6 +40,8 @@ def load_feed(last: int = 50, event: str | None = None, date: str | None = None)
 
 
 def run_cli(args: argparse.Namespace) -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     print_banner()
     feed = load_feed(args.last, args.event, args.date)
     for entry in feed:
@@ -44,6 +49,8 @@ def run_cli(args: argparse.Namespace) -> None:
 
 
 def run_dashboard() -> None:
+    require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None:
         ap = argparse.ArgumentParser(description="Public ritual feed")
         ap.add_argument("--last", type=int, default=20)

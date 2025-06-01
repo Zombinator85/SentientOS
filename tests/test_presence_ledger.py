@@ -23,3 +23,16 @@ def test_recent_privilege_attempts(tmp_path, monkeypatch):
     assert len(recent) == 2
     assert recent[0]["timestamp"] == "t1"
     assert recent[1]["status"] == "failed"
+
+
+def test_log_privilege(tmp_path, monkeypatch):
+    path = tmp_path / "user_presence.jsonl"
+    monkeypatch.setenv("USER_PRESENCE_LOG", str(path))
+    import importlib
+    importlib.reload(pl)
+    pl.log_privilege("tester", "Linux", "tool", "success")
+    data = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
+    assert data["user"] == "tester"
+    assert data["platform"] == "Linux"
+    assert data["tool"] == "tool"
+    assert data["status"] == "success"
