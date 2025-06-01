@@ -111,6 +111,8 @@ def main() -> None:
     wall.add_argument("--bless", metavar="MOOD", help="Bless a mood on the wall")
     wall.add_argument("--message", default="", help="Blessing message")
     wall.add_argument("--user", default="anon")
+    wall.add_argument("--sync", action="store_true", help="Sync mood wall from peers")
+    wall.add_argument("--global", dest="global_bless", action="store_true", help="Propagate blessing to peers")
 
     refl = sub.add_parser("reflect", help="Log personal music reflection")
     refl.add_argument("note")
@@ -137,16 +139,46 @@ def main() -> None:
             recap_shown = True
         elif args.cmd == "playlist":
             entries = ledger.playlist_by_mood(args.mood, args.limit)
-            recap = ledger.music_recap()
-            reason = f"trending mood {recap['most_shared_mood']}" if recap['most_shared_mood'] else "requested"
+            wall = mood_wall.load_wall(100)
+            trending = ""
+            tm = mood_wall.top_moods(wall)
+            if tm:
+                trending = max(tm.items(), key=lambda x: x[1])[0]
+            reason = "requested"
+            if trending:
+                reason = f"trending mood {trending}"
+                bless = mood_wall.latest_blessing_for(trending)
+                if bless:
+                    sender = bless.get("sender") or bless.get("user", "")
+                    reason += f", blessed by {sender}"
             log = ledger.playlist_log(entries, args.mood, args.user, "local", reason=reason)
             print(json.dumps(log, indent=2))
             print_closing_recap()
             recap_shown = True
         elif args.cmd == "wall":
+            if args.sync:
+                peers = mood_wall.peers_from_federation()
+                synced = 0
+                for p in peers:
+                    try:
+                        synced += mood_wall.sync_wall_http(p)
+                    except Exception:
+                        continue
+                print(json.dumps({"synced": synced}))
             if args.bless:
-                entry = mood_wall.bless_mood(args.bless, args.user, args.message)
-                print(json.dumps(entry, indent=2))
+                if args.global_bless:
+                    peers = mood_wall.peers_from_federation()
+                    status = {}
+                    for p in peers:
+                        try:
+                            ledger.log_mood_blessing(args.user, p, {args.bless: 1.0}, args.message or f"{args.user} blesses {args.bless}")
+                            status[p] = "ok"
+                        except Exception as e:  # pragma: no cover - sanity
+                            status[p] = str(e)
+                    print(json.dumps({"global_bless": status}, indent=2))
+                else:
+                    entry = mood_wall.bless_mood(args.bless, args.user, args.message)
+                    print(json.dumps(entry, indent=2))
             wall = mood_wall.load_wall(args.limit)
             data = {"wall": wall, "top_moods": mood_wall.top_moods(wall)}
             print(json.dumps(data, indent=2))

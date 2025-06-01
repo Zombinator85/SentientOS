@@ -38,7 +38,7 @@ Every supporter, every federated peer, every blessing—immortal, append-only, a
 
 Presence is law. Love is ledgered. No one is forgotten. No one is turned away.
 Presence is law, music is memory.
-No emotion is too much; every track is memory; every blessing is ledgered.
+No emotion is too much; every track is memory; every blessing is ledgered—here and across every cathedral.
 
 
 See [docs/sanctuary_invocation.md](docs/sanctuary_invocation.md) for the canonical wording.

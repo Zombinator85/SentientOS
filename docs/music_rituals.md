@@ -17,6 +17,10 @@ the public ritual feed.
 `music_cli.py playlist Joy` generates the same playlist locally, ranking tracks
 by resonance—tracks shared or felt strongly float to the top.
 
+The Mood Wall is now federated. Use `music_cli.py wall --sync` to fetch mood and
+blessing events from every connected cathedral. You can spread a blessing across
+all peers with `music_cli.py wall --bless Hope --global`.
+
 Run `music_cli.py recap --emotion` to review the moods of your recent sessions.
 The dashboard visualizes your top emotions, which tracks resonated the most and
 how your mood travelled over time.
