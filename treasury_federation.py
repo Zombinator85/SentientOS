@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Optional
 from sentient_banner import print_banner, print_closing
-import federation_log as flog
+import federation_log as fl
 
 try:
     import requests  # type: ignore
@@ -10,34 +10,33 @@ except Exception:  # pragma: no cover - optional dependency
 
 import love_treasury as lt
 
-
 def announce_payload() -> List[Dict[str, object]]:
     """Return metadata about local enshrined logs for federation."""
     print_banner()
     data = lt.federation_metadata()
-    flog.add("local", message="announce payload")
+    fl.add("local", message="announce payload")
     print_closing()
     return data
-
 
 def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
     """Import logs from a federation payload."""
     print_banner()
+    fl.add(origin, message="import payload")
     imported: List[str] = []
     for entry in payload:
         if lt.import_federated(entry, origin=origin):
             imported.append(entry.get("id"))
     if imported:
-        flog.add(origin, message="imported logs")
+        fl.add(origin, message="imported logs")
     print_closing()
     return imported
-
 
 def pull(base_url: str) -> List[str]:
     """Pull logs from a remote cathedral via HTTP."""
     if requests is None:
         raise RuntimeError("requests module not available")
     url = base_url.rstrip("/")
+    fl.add(url, message="sync start")
     r = requests.get(f"{url}/federation/announce", timeout=10)
     r.raise_for_status()
     metas = r.json()
@@ -53,6 +52,6 @@ def pull(base_url: str) -> List[str]:
         if lt.import_federated(data, origin=url):
             imported.append(lid)
     if imported:
-        flog.add(url, message="sync")
+        fl.add(url, message="sync completed")
     print_closing()
     return imported

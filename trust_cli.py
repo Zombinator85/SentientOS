@@ -5,6 +5,7 @@ import support_log as sl
 
 import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+import support_log as sl
 
 
 def cmd_log(args) -> None:
@@ -58,6 +59,7 @@ def main() -> None:
 
     args = ap.parse_args()
     print_banner()
+    sl.add("trust", f"trust_cli {args.cmd}")
     if hasattr(args, "func"):
         args.func(args)
     else:

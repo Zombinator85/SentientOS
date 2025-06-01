@@ -153,6 +153,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
     print_banner()
+    sl.add("analytics", f"presence_analytics {args.cmd}")
     entries = load_entries(args.limit)
     if args.cmd == "analytics":
         print(json.dumps(analytics(args.limit), indent=2))
