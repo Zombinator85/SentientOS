@@ -1,10 +1,11 @@
-"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import os
 from pathlib import Path
 import streamlit as st
 from sentient_banner import streamlit_banner, streamlit_closing
 import ledger
 from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 ENV_FILE = Path(__file__).resolve().parent / '.env'
 
