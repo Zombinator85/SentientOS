@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
@@ -89,4 +90,5 @@ def run(port: int = 5001) -> None:
 
 if __name__ == '__main__':
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     run()

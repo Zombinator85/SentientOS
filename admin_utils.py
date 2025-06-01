@@ -82,6 +82,7 @@ def require_admin_banner() -> None:
 
 
 def require_admin() -> None:
-    """Backward compatible wrapper for ``require_admin_banner``."""
+    """Backward compatible wrapper. Deprecated: use ``require_admin_banner``."""
+    # DEPRECATED: This wrapper remains for legacy calls. Use require_admin_banner().
     require_admin_banner()
 

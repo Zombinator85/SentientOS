@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 from pathlib import Path
 from sentient_banner import print_banner, print_closing
@@ -43,6 +44,7 @@ def set_status(path: Path, chapter: int, status: str) -> None:
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser()
     parser.add_argument("storyboard")
     parser.add_argument("--annotate")

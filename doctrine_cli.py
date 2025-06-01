@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import json
 import os
@@ -56,6 +57,7 @@ def cmd_presence(args) -> None:
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(prog="doctrine", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 

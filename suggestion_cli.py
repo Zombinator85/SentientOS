@@ -1,3 +1,4 @@
+"""CLI entry enforcing Sanctuary Privilege Ritual."""
 import argparse
 import os
 import sys
@@ -12,6 +13,7 @@ from admin_utils import require_admin_banner
 
 def main() -> None:
     require_admin_banner()
+    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description="Policy/reflex suggestions")
     parser.add_argument(
         "--final-approvers",
