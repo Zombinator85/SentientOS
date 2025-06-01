@@ -3,8 +3,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-import json
-import os
+
+import ledger
 
 LEDGER_PATH = Path(os.getenv("USER_PRESENCE_LOG", "logs/user_presence.jsonl"))
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -92,3 +92,20 @@ def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
             for emo, val in (e.get("emotion", {}).get(k) or {}).items():
                 emotions[emo] = emotions.get(emo, 0.0) + val
     return {"events": events, "emotions": emotions}
+
+
+def recap(limit: int = 20) -> Dict[str, object]:
+    """Return music recap and blessing counts."""
+    info = ledger.music_recap(limit)
+    bless = 0
+    music_path = Path("logs/music_log.jsonl")
+    if music_path.exists():
+        for ln in music_path.read_text(encoding="utf-8").splitlines()[-limit:]:
+            try:
+                e = json.loads(ln)
+            except Exception:
+                continue
+            if e.get("event") == "mood_blessing":
+                bless += 1
+    return {"music": info, "blessings": bless}
+
