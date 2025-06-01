@@ -20,6 +20,15 @@ Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witne
 ```
 
 This banner appears at the start and end of every CLI session and in the footer of each dashboard.
+On exit the banner is followed by a recap of recent blessings so every act is remembered:
+
+```
+Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witness: 1 (1 unique)
+{
+  "support_recent": [ ... ],
+  "federation_recent": [ ... ]
+}
+```
 
 Sample support entry:
 

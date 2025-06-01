@@ -26,26 +26,29 @@ def main() -> None:
     print_banner()
     ledger.print_snapshot_banner()
     print("All support and federation is logged in the Living Ledger. No one is forgotten.")
-    if args.ledger:
-        ledger.print_summary()
-        print_closing()
-        return
+    recap_shown = False
+    try:
+        if args.ledger:
+            ledger.print_summary()
+            return
 
-    if args.support:
-        print(ENTRY_BANNER)
+        if args.support:
+            print(ENTRY_BANNER)
 
-    if args.bless:
-        name = args.name or input("Name: ")
-        message = args.message or input("Blessing: ")
-        amount = args.amount or input("Amount (optional): ")
-        try:
-            entry = sl.add(name, message, amount)
-            print("sanctuary acknowledged")
-            print(json.dumps(entry, indent=2))
-            ledger.print_recap(limit=2)
-        except Exception:
-            print("Failed to record blessing")
-    print_closing()
+        if args.bless:
+            name = args.name or input("Name: ")
+            message = args.message or input("Blessing: ")
+            amount = args.amount or input("Amount (optional): ")
+            try:
+                entry = sl.add(name, message, amount)
+                print("sanctuary acknowledged")
+                print(json.dumps(entry, indent=2))
+                ledger.print_recap(limit=2)
+                recap_shown = True
+            except Exception:
+                print("Failed to record blessing")
+    finally:
+        print_closing(show_recap=not recap_shown)
 
 
 if __name__ == "__main__":
