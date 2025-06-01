@@ -12,6 +12,7 @@ dist/
 # Logs
 logs/
 !logs/support_log.jsonl
+!logs/federation_log.jsonl
 *.log
 
 # Local environment files

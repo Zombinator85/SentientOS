@@ -1,6 +1,7 @@
 import json
 from typing import List, Dict, Optional
-from sentient_banner import print_banner
+from sentient_banner import print_banner, print_closing
+import federation_log as flog
 
 try:
     import requests  # type: ignore
@@ -13,7 +14,10 @@ import love_treasury as lt
 def announce_payload() -> List[Dict[str, object]]:
     """Return metadata about local enshrined logs for federation."""
     print_banner()
-    return lt.federation_metadata()
+    data = lt.federation_metadata()
+    flog.add("local", message="announce payload")
+    print_closing()
+    return data
 
 
 def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
@@ -23,6 +27,9 @@ def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
     for entry in payload:
         if lt.import_federated(entry, origin=origin):
             imported.append(entry.get("id"))
+    if imported:
+        flog.add(origin, message="imported logs")
+    print_closing()
     return imported
 
 
@@ -45,4 +52,7 @@ def pull(base_url: str) -> List[str]:
         data = r2.json()
         if lt.import_federated(data, origin=url):
             imported.append(lid)
+    if imported:
+        flog.add(url, message="sync")
+    print_closing()
     return imported
