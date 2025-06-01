@@ -19,7 +19,7 @@ def test_support_bless(monkeypatch, capsys):
     support_cli.main()
     out = capsys.readouterr().out
     assert 'sanctuary acknowledged' in out
-    assert calls["snap"] >= 1 and calls["recap"] == 1
+    assert calls["snap"] >= 2 and calls["recap"] == 1
 
 def test_support_bless_fail(monkeypatch, capsys):
     def fake_add(name, message, amount=""):

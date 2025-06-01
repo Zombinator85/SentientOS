@@ -80,6 +80,31 @@ Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witne
 
 This summary shows how many unique supporters, peers, and witnesses have been logged so far.
 
+After every blessing or invite the CLI prints a short recap of the most recent entries:
+
+```
+{
+  "support_recent": [
+    {
+      "timestamp": "2025-06-01T00:00:00",
+      "supporter": "Ada",
+      "message": "For those in need",
+      "amount": "$5",
+      "ritual": "Sanctuary blessing acknowledged and remembered."
+    }
+  ],
+  "federation_recent": [
+    {
+      "timestamp": "2025-06-01T01:00:00",
+      "peer": "https://ally.example",
+      "email": "friend@example.com",
+      "message": "sync completed",
+      "ritual": "Federation blessing recorded."
+    }
+  ]
+}
+```
+
 Browse or export the ledgers at any time:
 
 ```bash
