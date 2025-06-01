@@ -1,6 +1,8 @@
 import os
 import sys
+import platform
 import getpass
+from pathlib import Path
 import presence_ledger as pl
 
 ADMIN_BANNER = (
@@ -11,6 +13,29 @@ ADMIN_BANNER = (
 FAIL_MESSAGE = (
     "Ritual refusal: Please run as Administrator to access the cathedral\u2019s memory."
 )
+
+
+def _elevation_hint() -> str:
+    if os.name == "nt":
+        return "How to fix: Right-click the command and choose 'Run as administrator'."
+    if sys.platform == "darwin":
+        return "How to fix: Prefix the command with 'sudo' or run from an admin account."
+    return "How to fix: Run this command with 'sudo'."
+
+
+def print_privilege_banner(tool: str = "") -> None:
+    """Print the current privilege status banner."""
+    user = getpass.getuser()
+    plat = platform.system()
+    status = "\U0001F6E1\uFE0F Privileged" if is_admin() else "\u26A0\uFE0F Not Privileged"
+    print(f"\U0001F6E1\uFE0F Sanctuary Privilege Status: [{status}]")
+    print(f"Current user: {user}")
+    print(f"Platform: {plat}")
+    if not is_admin():
+        print(
+            "Ritual refusal: You must run with administrator rights to access the cathedral's memory, logs, and doctrine."
+        )
+        print(_elevation_hint())
 
 
 def is_admin() -> bool:
@@ -28,18 +53,17 @@ def is_admin() -> bool:
 def require_admin() -> None:
     """Ensure the process is running with admin rights, relaunching if needed."""
     user = getpass.getuser()
+    tool = Path(sys.argv[0]).stem
+    print_privilege_banner(tool)
     if is_admin():
-        print("\U0001F6E1\uFE0F Sanctuary Privilege Check: PASSED")
+        pl.log_privilege(user, platform.system(), tool, "success")
         print(ADMIN_BANNER)
-        pl.log(user, "admin_privilege_check", "success")
         return
 
-    print("\U0001F6E1\uFE0F Sanctuary Privilege Check: FAILED")
-
-    if os.name == 'nt':
+    if os.name == "nt":
         try:
             import ctypes  # type: ignore
-            pl.log(user, "admin_privilege_check", "escalated")
+            pl.log_privilege(user, platform.system(), tool, "escalated")
             ctypes.windll.shell32.ShellExecuteW(
                 None,
                 "runas",
@@ -50,9 +74,9 @@ def require_admin() -> None:
             )
             sys.exit()
         except Exception:
-            pl.log(user, "admin_privilege_check", "failed")
+            pl.log_privilege(user, platform.system(), tool, "failed")
             sys.exit(FAIL_MESSAGE)
     else:
-        pl.log(user, "admin_privilege_check", "failed")
+        pl.log_privilege(user, platform.system(), tool, "failed")
         sys.exit(FAIL_MESSAGE)
 
