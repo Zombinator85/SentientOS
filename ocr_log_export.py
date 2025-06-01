@@ -50,6 +50,49 @@ def export_last_day_csv(log_file: Path = OCR_LOG) -> str:
     return str(out_path)
 
 
+def export_last_day_json(log_file: Path = OCR_LOG) -> str:
+    """Export deduplicated OCR log from the last 24h as a JSON array."""
+    cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    stats: dict[str, dict[str, object]] = {}
+    if log_file.exists():
+        for line in log_file.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+            except Exception:
+                continue
+            ts = data.get("timestamp")
+            msg = data.get("message")
+            if ts is None or not msg:
+                continue
+            try:
+                dt = (
+                    datetime.datetime.utcfromtimestamp(float(ts))
+                    if isinstance(ts, (int, float))
+                    else datetime.datetime.fromisoformat(str(ts))
+                )
+            except Exception:
+                continue
+            if dt < cutoff:
+                continue
+            entry = stats.setdefault(msg, {"count": 0, "timestamps": []})
+            entry["count"] = int(entry.get("count", 0)) + int(data.get("count", 1))
+            entry["timestamps"].append(dt.isoformat())
+
+    if not stats:
+        return ""
+
+    out = [
+        {"message": m, "count": v["count"], "timestamps": v["timestamps"]}
+        for m, v in stats.items()
+    ]
+    out_name = datetime.datetime.utcnow().strftime("ocr_export_%Y%m%d_%H%M%S.json")
+    out_path = log_file.parent / out_name
+    out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
+    return str(out_path)
+
+
 if __name__ == "__main__":  # pragma: no cover - manual usage
     print(export_last_day_csv())
 

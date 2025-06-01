@@ -1,0 +1,34 @@
+"""Simple Flask view for privileged command audit log."""
+import json
+from pathlib import Path
+from flask import Flask, render_template_string
+import privilege_lint as pl
+
+app = Flask(__name__)
+LOG = pl.AUDIT_FILE
+
+TABLE = """<html><body><h3>Privileged Command Audit</h3>
+<table border='1'><tr><th>Time</th><th>Tool</th><th>Command</th></tr>{rows}</table>
+</body></html>"""
+
+
+@app.route("/")
+def audit_table() -> str:
+    if not LOG.exists():
+        return TABLE.format(rows="")
+    lines = LOG.read_text(encoding="utf-8").splitlines()[-100:]
+    rows = []
+    for ln in lines:
+        try:
+            d = json.loads(ln)
+        except Exception:
+            continue
+        ts = d.get("timestamp", "")
+        tool = str(d.get("tool", ""))
+        cmd = str(d.get("command", ""))
+        rows.append(f"<tr><td>{ts}</td><td>{tool}</td><td>{cmd}</td></tr>")
+    return TABLE.format(rows="\n".join(rows))
+
+
+if __name__ == "__main__":  # pragma: no cover - manual
+    app.run(port=5010)
