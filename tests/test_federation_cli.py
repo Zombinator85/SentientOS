@@ -7,7 +7,7 @@ import treasury_federation as tf
 
 
 def test_cli_invite(monkeypatch, capsys):
-    def fake_invite(peer, email="", message="federation invite"):
+    def fake_invite(peer, email="", message="federation invite", **kw):
         return {"peer": peer, "email": email, "message": message}
 
     monkeypatch.setattr(tf, "invite", fake_invite)
