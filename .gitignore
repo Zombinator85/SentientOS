@@ -11,6 +11,7 @@ dist/
 
 # Logs
 logs/
+!logs/support_log.jsonl
 *.log
 
 # Local environment files

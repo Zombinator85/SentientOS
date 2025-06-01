@@ -3,11 +3,12 @@
 import argparse
 import json
 import plugin_framework as pf
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 def main() -> None:
     pf.load_plugins()
-    ap = argparse.ArgumentParser(prog="plugins")
+    ap = argparse.ArgumentParser(prog="plugins", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
     sub.add_parser("list")
@@ -23,6 +24,7 @@ def main() -> None:
     di.add_argument("plugin_id")
 
     args = ap.parse_args()
+    print_banner()
 
     if args.cmd == "list":
         for name, desc in pf.list_plugins().items():
@@ -48,6 +50,7 @@ def main() -> None:
         print(f"Disabled {args.plugin_id}")
     else:
         ap.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry

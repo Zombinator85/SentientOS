@@ -3,6 +3,7 @@ import json
 import datetime
 from pathlib import Path
 from typing import List, Dict, Any
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
@@ -143,10 +144,11 @@ def suggest_improvements(analytics_data: Dict[str, Any]) -> List[str]:
 
 def main() -> None:
     import argparse
-    parser = argparse.ArgumentParser(description="Presence analytics")
+    parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     parser.add_argument("cmd", choices=["analytics", "trends", "suggest"])
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
+    print_banner()
     entries = load_entries(args.limit)
     if args.cmd == "analytics":
         print(json.dumps(analytics(args.limit), indent=2))
@@ -156,6 +158,7 @@ def main() -> None:
         data = analytics(args.limit)
         for line in suggest_improvements(data):
             print(f"- {line}")
+    print_closing()
 
 
 if __name__ == "__main__":

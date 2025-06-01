@@ -3,6 +3,7 @@ import json
 from pprint import pprint
 
 import trust_engine as te
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 def cmd_log(args) -> None:
@@ -33,7 +34,7 @@ def cmd_rollback(args) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(prog="trust")
+    ap = argparse.ArgumentParser(prog="trust", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
     logp = sub.add_parser("log")
@@ -53,10 +54,12 @@ def main() -> None:
     rb.set_defaults(func=cmd_rollback)
 
     args = ap.parse_args()
+    print_banner()
     if hasattr(args, "func"):
         args.func(args)
     else:
         ap.print_help()
+    print_closing()
 
 
 if __name__ == "__main__":
