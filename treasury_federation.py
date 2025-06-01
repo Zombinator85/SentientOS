@@ -1,6 +1,7 @@
 import json
 from typing import List, Dict, Optional
 from sentient_banner import print_banner
+import federation_log as fl
 
 try:
     import requests  # type: ignore
@@ -19,6 +20,7 @@ def announce_payload() -> List[Dict[str, object]]:
 def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
     """Import logs from a federation payload."""
     print_banner()
+    fl.add(origin, message="import payload")
     imported: List[str] = []
     for entry in payload:
         if lt.import_federated(entry, origin=origin):
@@ -31,6 +33,7 @@ def pull(base_url: str) -> List[str]:
     if requests is None:
         raise RuntimeError("requests module not available")
     url = base_url.rstrip("/")
+    fl.add(url, message="sync start")
     r = requests.get(f"{url}/federation/announce", timeout=10)
     r.raise_for_status()
     metas = r.json()
@@ -45,4 +48,6 @@ def pull(base_url: str) -> List[str]:
         data = r2.json()
         if lt.import_federated(data, origin=url):
             imported.append(lid)
+    if imported:
+        fl.add(url, message="sync completed")
     return imported

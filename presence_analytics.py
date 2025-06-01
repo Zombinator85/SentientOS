@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+import support_log as sl
 
 MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
 RAW_PATH = MEMORY_DIR / "raw"
@@ -149,6 +150,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
     print_banner()
+    sl.add("analytics", f"presence_analytics {args.cmd}")
     entries = load_entries(args.limit)
     if args.cmd == "analytics":
         print(json.dumps(analytics(args.limit), indent=2))
