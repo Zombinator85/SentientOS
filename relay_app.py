@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import time
-from flask import Flask, request, jsonify, Response
+from flask_stub import Flask, request, jsonify, Response
 from pathlib import Path
 import epu
 from memory_manager import write_mem

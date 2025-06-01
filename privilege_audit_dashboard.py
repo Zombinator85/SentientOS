@@ -1,7 +1,7 @@
 """Simple Flask view for privileged command audit log."""
 import json
 from pathlib import Path
-from flask import Flask, render_template_string
+from flask_stub import Flask, render_template_string
 import privilege_lint as pl
 
 app = Flask(__name__)

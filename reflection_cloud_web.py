@@ -1,6 +1,6 @@
 """Serve reflection tag cloud image via Flask."""
 from pathlib import Path
-from flask import Flask, send_file
+from flask_stub import Flask, send_file
 from reflection_tag_cloud import generate_cloud
 
 app = Flask(__name__)

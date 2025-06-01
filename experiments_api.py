@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask_stub import Flask, jsonify, request
 import experiment_tracker as et
 from admin_utils import require_admin_banner
 
