@@ -1,7 +1,6 @@
 import importlib
-import os
-
 import love_treasury as lt
+import treasury_attestation as ta
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -10,15 +9,13 @@ def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("LOVE_TREASURY_LOG", str(tmp_path / "tre.jsonl"))
     monkeypatch.setenv("LOVE_FEDERATED_LOG", str(tmp_path / "fed.jsonl"))
     importlib.reload(lt)
+    importlib.reload(ta)
 
 
-def test_submit_and_affirm(tmp_path, monkeypatch):
+def test_attest(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
-    sid = lt.submit_log("Test", ["alice", "bob"], "2024", "demo", "hello", user="alice")
-    subs = lt.list_submissions()
-    assert subs and subs[0]["id"] == sid
-    ok = lt.review_log(sid, "curator", "affirm")
-    assert ok
-    tres = lt.list_treasury()
-    assert tres and tres[0]["id"] == sid
-
+    lid = lt.submit_log("Test", ["alice"], "2024", "demo", "text")
+    lt.review_log(lid, "cur", "affirm")
+    att = ta.add_attestation(lid, "bob", "remote", note="nice")
+    hist = ta.history(lid)
+    assert hist and hist[0]["id"] == att

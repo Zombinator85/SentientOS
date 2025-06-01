@@ -1,0 +1,45 @@
+import json
+from typing import List, Dict, Optional
+
+try:
+    import requests  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    requests = None  # type: ignore
+
+import love_treasury as lt
+
+
+def announce_payload() -> List[Dict[str, object]]:
+    """Return metadata about local enshrined logs for federation."""
+    return lt.federation_metadata()
+
+
+def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
+    """Import logs from a federation payload."""
+    imported: List[str] = []
+    for entry in payload:
+        if lt.import_federated(entry, origin=origin):
+            imported.append(entry.get("id"))
+    return imported
+
+
+def pull(base_url: str) -> List[str]:
+    """Pull logs from a remote cathedral via HTTP."""
+    if requests is None:
+        raise RuntimeError("requests module not available")
+    url = base_url.rstrip("/")
+    r = requests.get(f"{url}/federation/announce", timeout=10)
+    r.raise_for_status()
+    metas = r.json()
+    imported: List[str] = []
+    for meta in metas:
+        lid = meta.get("id")
+        if not lid:
+            continue
+        r2 = requests.get(f"{url}/federation/export/{lid}", timeout=10)
+        if r2.status_code != 200:
+            continue
+        data = r2.json()
+        if lt.import_federated(data, origin=url):
+            imported.append(lid)
+    return imported
