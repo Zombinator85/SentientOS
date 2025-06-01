@@ -52,3 +52,21 @@ def history(user: str, limit: int = 20) -> List[Dict[str, str]]:
         except Exception:
             continue
     return out
+
+
+def recent_privilege_attempts(limit: int = 5) -> List[Dict[str, str]]:
+    """Return the most recent privilege check entries."""
+    if not LEDGER_PATH.exists():
+        return []
+    lines = reversed(LEDGER_PATH.read_text(encoding="utf-8").splitlines())
+    out: List[Dict[str, str]] = []
+    for ln in lines:
+        try:
+            entry = json.loads(ln)
+        except Exception:
+            continue
+        if entry.get("event") == "admin_privilege_check":
+            out.append(entry)
+            if len(out) == limit:
+                break
+    return list(reversed(out))

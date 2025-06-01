@@ -50,8 +50,8 @@ def is_admin() -> bool:
         return os.geteuid() == 0
 
 
-def require_admin() -> None:
-    """Ensure the process is running with admin rights, relaunching if needed."""
+def require_admin_banner() -> None:
+    """Display the privilege banner and enforce administrator rights."""
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     print_privilege_banner(tool)
@@ -79,4 +79,9 @@ def require_admin() -> None:
     else:
         pl.log_privilege(user, platform.system(), tool, "failed")
         sys.exit(FAIL_MESSAGE)
+
+
+def require_admin() -> None:
+    """Backward compatible wrapper for ``require_admin_banner``."""
+    require_admin_banner()
 
