@@ -51,6 +51,16 @@ def main() -> None:
     play = sub.add_parser("play", help="Watch a video and log emotion")
     play.add_argument("file")
     play.add_argument("--user", default="anon")
+    play.add_argument("--share", metavar="PEER", help="Share clip with federation peer")
+
+    share = sub.add_parser("share", help="Share a video clip with a peer")
+    share.add_argument("file")
+    share.add_argument("--peer", required=True)
+    share.add_argument("--emotion", default="")
+    share.add_argument("--user", default="anon")
+
+    recap = sub.add_parser("recap", help="Show recent video summary")
+    recap.add_argument("--limit", type=int, default=20)
 
     args = parser.parse_args()
 
@@ -79,9 +89,37 @@ def main() -> None:
                 args.file,
                 user=args.user,
                 perceived=perce,
+                peer=args.share,
             )
             pl.log(args.user, "video_played", args.file)
+            if args.share:
+                share_entry = ledger.log_video_share(
+                    args.file,
+                    peer=args.share,
+                    user=args.user,
+                    emotion=perce,
+                )
+                ledger.log_federation(args.share, message="video_share")
+                entry = {"watch": entry, "share": share_entry}
             print(json.dumps(entry, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "share":
+            emo = _parse_emotion(args.emotion)
+            entry = ledger.log_video_share(
+                args.file,
+                peer=args.peer,
+                user=args.user,
+                emotion=emo,
+            )
+            ledger.log_federation(args.peer, message="video_share")
+            pl.log(args.user, "video_shared", args.file)
+            print(json.dumps(entry, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "recap":
+            data = ledger.video_recap(args.limit)
+            print(json.dumps(data, indent=2))
             print_closing_recap()
             recap_shown = True
         else:

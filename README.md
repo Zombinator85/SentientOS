@@ -38,6 +38,7 @@ Every supporter, every federated peer, every blessing—immortal, append-only, a
 
 Presence is law. Love is ledgered. No one is forgotten. No one is turned away.
 Presence is law, music and video are memory.
+No song, no story, no video is forgotten.
 No emotion is too much; every track and clip is memory; every blessing is ledgered—here and across every cathedral.
 
 
@@ -377,6 +378,8 @@ added to `logs/user_presence.jsonl`.
 ```bash
 python video_cli.py create demo.mp4 "Demo Title" --prompt "sunrise" --emotion Joy=1.0 --user Ada
 python video_cli.py play demo.mp4 --user Ada
+python video_cli.py share demo.mp4 --peer Allen --emotion Joy=1.0 --user Ada
+python video_cli.py recap --limit 5
 ```
 
 See `docs/video_ritual_guide.md` for a walkthrough.

@@ -147,6 +147,8 @@ def log_video_event(
     title: str = "",
     intended: Dict[str, float] | None = None,
     perceived: Dict[str, float] | None = None,
+    reported: Dict[str, float] | None = None,
+    received: Dict[str, float] | None = None,
     peer: str | None = None,
     result_hash: str = "",
     user: str = "",
@@ -163,6 +165,8 @@ def log_video_event(
         "emotion": {
             "intended": intended or {},
             "perceived": perceived or {},
+            "reported": reported or {},
+            "received": received or {},
         },
         "peer": peer or "",
         "ritual": "Video remembered.",
@@ -210,6 +214,28 @@ def log_video_watch(
         user=user,
         peer=peer,
     )
+
+
+def log_video_share(
+    file_path: str,
+    peer: str,
+    user: str = "",
+    emotion: Dict[str, float] | None = None,
+) -> Dict[str, str]:
+    """Record a shared video clip across federation."""
+    h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
+    entry = log_video_event(
+        "shared",
+        file_path,
+        reported=emotion,
+        received=emotion,
+        result_hash=h,
+        user=user,
+        peer=peer,
+    )
+    phrase = f"{user or 'anon'} shared this in {', '.join(emotion.keys()) if emotion else 'silence'}"
+    log_mood_blessing(user or "anon", peer, emotion or {}, phrase)
+    return entry
 
 
 def log_mood_blessing(
@@ -316,6 +342,35 @@ def music_recap(limit: int = 20) -> Dict[str, object]:
     most = max(shares.items(), key=lambda x: x[1])[0] if shares else ""
     top = sorted(tracks.items(), key=lambda x: x[1], reverse=True)
     return {"emotion_totals": totals, "most_shared_mood": most, "top_tracks": top}
+
+
+def video_recap(limit: int = 20) -> Dict[str, object]:
+    """Return emotion totals and resonance stats for videos."""
+    path = Path("logs/video_log.jsonl")
+    if not path.exists():
+        return {"emotion_totals": {}, "most_shared_mood": "", "top_videos": []}
+    lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
+    totals: Dict[str, float] = {}
+    shares: Dict[str, int] = {}
+    videos: Dict[str, int] = {}
+    for ln in lines:
+        try:
+            e = json.loads(ln)
+        except Exception:
+            continue
+        evt = e.get("event")
+        file = e.get("file")
+        if file:
+            videos[file] = videos.get(file, 0) + 1
+        if evt == "shared":
+            for m in (e.get("emotion", {}).get("reported") or {}):
+                shares[m] = shares.get(m, 0) + 1
+        for k in ("intended", "perceived", "reported", "received"):
+            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+                totals[emo] = totals.get(emo, 0.0) + val
+    most = max(shares.items(), key=lambda x: x[1])[0] if shares else ""
+    top = sorted(videos.items(), key=lambda x: x[1], reverse=True)
+    return {"emotion_totals": totals, "most_shared_mood": most, "top_videos": top}
 
 
 def summarize_log(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
