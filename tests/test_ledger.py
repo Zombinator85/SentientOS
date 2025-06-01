@@ -57,3 +57,14 @@ def test_print_summary_expansion(tmp_path, monkeypatch, capsys):
     data = json.loads(out)
     assert data["unique_supporters"] == 2
     assert data["unique_witnesses"] == 1
+
+
+def test_snapshot_banner(monkeypatch, capsys):
+    def fake_sum(path: Path, limit: int = 3):
+        return {"count": 1, "recent": []}
+
+    monkeypatch.setattr(ledger, "summarize_log", fake_sum)
+    monkeypatch.setattr(ledger, "_unique_values", lambda p, f: 1)
+    ledger.print_snapshot_banner()
+    out = capsys.readouterr().out
+    assert "Ledger snapshot" in out
