@@ -4,7 +4,7 @@ import importlib
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import treasury_federation as tf
-import ledger
+import sentient_banner as sb
 
 
 def test_cli_invite(monkeypatch, capsys):
@@ -27,8 +27,8 @@ def test_cli_invite(monkeypatch, capsys):
         calls["recap"] += 1
 
     monkeypatch.setattr(tf, "invite", fake_invite)
-    monkeypatch.setattr(ledger, "print_snapshot_banner", fake_snap)
-    monkeypatch.setattr(ledger, "print_recap", fake_recap)
+    monkeypatch.setattr(sb, "print_snapshot_banner", fake_snap)
+    monkeypatch.setattr(sb, "print_closing_recap", fake_recap)
     monkeypatch.setattr(sys, "argv", [
         "fed",
         "invite",
@@ -54,8 +54,8 @@ def test_cli_invite(monkeypatch, capsys):
 def test_cli_ledger_summary(monkeypatch):
     calls = {"snap": 0, "recap": 0}
 
-    monkeypatch.setattr(ledger, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
-    monkeypatch.setattr(ledger, "print_recap", lambda limit=3: calls.__setitem__("recap", calls["recap"] + 1))
+    monkeypatch.setattr(sb, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
+    monkeypatch.setattr(sb, "print_closing_recap", lambda: calls.__setitem__("recap", calls["recap"] + 1))
     monkeypatch.setattr(sys, "argv", ["fed", "--ledger-summary"])
     import federation_cli
     importlib.reload(federation_cli)

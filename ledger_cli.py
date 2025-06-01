@@ -51,8 +51,15 @@ def main() -> None:
     sm = sub.add_parser("summary", help="Show ledger summary")
     sm.set_defaults(func=cmd_summary)
     args = ap.parse_args()
+    from sentient_banner import (
+        reset_ritual_state,
+        print_snapshot_banner,
+        print_closing_recap,
+    )
+
+    reset_ritual_state()
     print_banner()
-    ledger.print_snapshot_banner()
+    print_snapshot_banner()
 
     recap_shown = False
     try:
@@ -62,7 +69,7 @@ def main() -> None:
             amount = args.amount or input("Amount (optional): ")
             entry = ledger.log_support(name, message, amount)
             print(json.dumps(entry, indent=2))
-            ledger.print_recap(limit=2)
+            print_closing_recap()
             recap_shown = True
             if not args.cmd and not args.summary:
                 return
