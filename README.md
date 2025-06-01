@@ -72,15 +72,20 @@ Sample federation entry:
 ```
 
 ## Ledger Snapshots: Know Who's Remembered
-Every CLI and dashboard greets you with a quick ledger snapshot and repeats it on exit:
+Every CLI and dashboard greets you with a quick ledger snapshot and repeats it on exit.
+The closing banner always includes the snapshot and a recap of recent blessings:
 
 ```
 Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witness: 1 (1 unique)
+{
+  "support_recent": [ ... ],
+  "federation_recent": [ ... ]
+}
 ```
 
 This summary shows how many unique supporters, peers, and witnesses have been logged so far.
 
-After every blessing or invite the CLI prints a short recap of the most recent entries:
+After every blessing or invite the CLI prints a short recap of the most recent entries if it hasn't already been shown:
 
 ```
 {
