@@ -39,3 +39,21 @@ def test_cli_open(tmp_path, capsys, monkeypatch):
     ledger_cli.cmd_open(argparse.Namespace())
     out = capsys.readouterr().out
     assert "Bob" in out and "site" in out
+
+
+def test_print_summary_expansion(tmp_path, monkeypatch, capsys):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "logs").mkdir()
+    sup = tmp_path / "logs" / "support_log.jsonl"
+    fed = tmp_path / "logs" / "federation_log.jsonl"
+    att = tmp_path / "logs" / "ritual_attestations.jsonl"
+    sup.write_text(json.dumps({"supporter": "A"}) + "\n", encoding="utf-8")
+    with sup.open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"supporter": "B"}) + "\n")
+    fed.write_text(json.dumps({"peer": "P"}) + "\n", encoding="utf-8")
+    att.write_text(json.dumps({"user": "W"}) + "\n", encoding="utf-8")
+    ledger.print_summary(limit=2)
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data["unique_supporters"] == 2
+    assert data["unique_witnesses"] == 1

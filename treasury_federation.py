@@ -2,6 +2,7 @@ import json
 from typing import List, Dict, Optional
 from sentient_banner import print_banner, print_closing
 import federation_log as fl
+import ledger
 
 try:
     import requests  # type: ignore
@@ -57,9 +58,11 @@ def pull(base_url: str) -> List[str]:
     return imported
 
 
-def invite(peer: str, email: str = "") -> Dict[str, str]:
-    """Record a federation invite blessing."""
+def invite(peer: str, email: str = "", message: str = "federation invite") -> Dict[str, str]:
+    """Record a federation invite blessing and log support."""
     print_banner()
-    entry = fl.add(peer, email=email, message="federation invite")
+    entry = fl.add(peer, email=email, message=message)
+    # also log in support ledger as a blessing
+    ledger.log_support(peer, message)
     print_closing()
     return entry
