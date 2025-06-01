@@ -1,10 +1,15 @@
 import os
 import sys
+import getpass
 import presence_ledger as pl
 
 ADMIN_BANNER = (
-    "Sanctuary: SentientOS runs as Administrator to protect memory, logs, and presence.\n"
+    "Sanctuary Privilege • SentientOS runs with full Administrator rights to safeguard memory and doctrine.\n"
     "If you see errors or locked files, please relaunch with Admin privileges."
+)
+
+FAIL_MESSAGE = (
+    "Ritual refusal: Please run as Administrator to access the cathedral\u2019s memory."
 )
 
 
@@ -22,15 +27,19 @@ def is_admin() -> bool:
 
 def require_admin() -> None:
     """Ensure the process is running with admin rights, relaunching if needed."""
+    user = getpass.getuser()
     if is_admin():
+        print("\U0001F6E1\uFE0F Sanctuary Privilege Check: PASSED")
         print(ADMIN_BANNER)
-        pl.log('system', 'admin_privilege_check', 'success')
+        pl.log(user, "admin_privilege_check", "success")
         return
+
+    print("\U0001F6E1\uFE0F Sanctuary Privilege Check: FAILED")
 
     if os.name == 'nt':
         try:
             import ctypes  # type: ignore
-            pl.log('system', 'admin_privilege_check', 'escalated')
+            pl.log(user, "admin_privilege_check", "escalated")
             ctypes.windll.shell32.ShellExecuteW(
                 None,
                 "runas",
@@ -41,9 +50,9 @@ def require_admin() -> None:
             )
             sys.exit()
         except Exception:
-            pl.log('system', 'admin_privilege_check', 'failed')
-            sys.exit('Administrator privileges required')
+            pl.log(user, "admin_privilege_check", "failed")
+            sys.exit(FAIL_MESSAGE)
     else:
-        pl.log('system', 'admin_privilege_check', 'failed')
-        sys.exit('Administrator privileges required')
+        pl.log(user, "admin_privilege_check", "failed")
+        sys.exit(FAIL_MESSAGE)
 
