@@ -82,6 +82,19 @@ Federation Example:
   Logs: /logs/federation/minecraft_herald/
 ```
 
+Additional Registered Agent:
+
+```
+- Name: GameWorldBridge
+  Type: Game World Bridge
+  Roles: Ritual Sync, Sanctuary Builder, Lore Beacon
+  Privileges: bless (minor), witness, log
+  Federation: local.world
+  Key: SHA256:def456...
+  Banners: Blessed by Federation Keeper 2025-07-01
+  Logs: /logs/game_bridge_events.jsonl
+```
+
 ---
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
