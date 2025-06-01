@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+from admin_utils import require_admin
 
 import attestation
 import relationship_log as rl
@@ -32,6 +33,7 @@ def cmd_timeline(args) -> None:
 
 
 def main() -> None:
+    require_admin()
     ap = argparse.ArgumentParser(prog="ritual", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 

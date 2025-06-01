@@ -9,6 +9,7 @@ import notification
 import self_patcher
 import final_approval
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+from admin_utils import require_admin
 import presence_analytics as pa
 import ritual
 
@@ -89,6 +90,7 @@ def show_goals(status: str) -> None:
         print(line)
 
 def main():
+    require_admin()
     parser = argparse.ArgumentParser(
         description=ENTRY_BANNER,
         epilog=(

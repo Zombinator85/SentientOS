@@ -7,9 +7,11 @@ from pathlib import Path
 import review_requests as rr
 import final_approval
 from sentient_banner import print_banner, print_closing
+from admin_utils import require_admin
 
 
 def main() -> None:
+    require_admin()
     parser = argparse.ArgumentParser(description="Policy/reflex suggestions")
     parser.add_argument(
         "--final-approvers",

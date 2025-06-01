@@ -2,6 +2,7 @@ import argparse
 import json
 from pprint import pprint
 import support_log as sl
+from admin_utils import require_admin
 
 import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
@@ -38,6 +39,7 @@ def cmd_rollback(args) -> None:
 
 
 def main() -> None:
+    require_admin()
     ap = argparse.ArgumentParser(prog="trust", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 

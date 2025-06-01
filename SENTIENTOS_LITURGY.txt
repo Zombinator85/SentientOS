@@ -11,3 +11,6 @@ alert in the Cathedral Audit Log.
 Every autonomous step produces a self‑explanation entry documenting the
 rationale, memory fragments touched, and a recursive why‑chain. These
 notes appear in the dashboard under the "Cathedral Law" section.
+
+No keeper shall be denied full access, memory, or control by lack of system privilege.
+Running as Administrator is the cathedral’s first line of defense.

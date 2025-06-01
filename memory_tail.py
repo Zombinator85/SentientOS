@@ -4,6 +4,7 @@ import json
 import argparse
 from colorama import init, Fore, Style
 from sentient_banner import print_banner, print_closing
+from admin_utils import require_admin
 
 init()
 
@@ -64,6 +65,7 @@ def tail_memory(path: str, delay: float = 1.0) -> None:
 
 
 def main() -> None:
+    require_admin()
     parser = argparse.ArgumentParser(description="Tail memory.jsonl")
     parser.add_argument("--file", default=DEFAULT_FILE, help="Path to JSONL log")
     parser.add_argument("--delay", type=float, default=1.0, help="Polling delay")
