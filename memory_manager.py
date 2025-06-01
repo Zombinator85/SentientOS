@@ -154,6 +154,33 @@ def get_context(query: str, k: int = 6) -> List[str]:
     return [s for _, s in scored[:k]]
 
 
+def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
+    """Return recent memory fragments matching all ``tags``.
+
+    Results are ordered from newest to oldest and truncated to ``limit``.
+    """
+    files = list(RAW_PATH.glob("*.json"))
+    entries = []
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+            ts = data.get("timestamp")
+            entries.append((ts, data))
+        except Exception:
+            continue
+    entries.sort(key=lambda x: x[0] or "", reverse=True)
+    results: list[dict] = []
+    wanted = set(tags)
+    for _, data in entries:
+        entry_tags = set(data.get("tags", []))
+        if not wanted.issubset(entry_tags):
+            continue
+        results.append(data)
+        if len(results) >= limit:
+            break
+    return results
+
+
 # Compatibility alias for legacy bridges
 write_mem = append_memory
 
