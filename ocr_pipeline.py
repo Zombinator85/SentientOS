@@ -3,6 +3,7 @@ import os
 import time
 from pathlib import Path
 from typing import List
+import atexit
 
 import requests
 from ocr_utils import ocr_chat_bubbles
@@ -13,32 +14,72 @@ RELAY_SECRET = os.getenv("RELAY_SECRET", "secret")
 LOG_FILE = Path(os.getenv("OCR_RELAY_LOG", "logs/ocr_relay.jsonl"))
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
+# Deduplication state
+LAST_MSG: str | None = None
+LAST_REPLY: str | None = None
+COUNT = 0
+FIRST_TS = 0.0
+
 
 def process_image(path: Path) -> List[str]:
     bubbles = ocr_chat_bubbles(str(path))
     return [b.get("text", "") for b in bubbles if b.get("text")]
 
 
-def send_messages(messages: List[str]) -> List[str]:
-    replies = []
-    for msg in messages:
-        payload = {"message": msg, "model": "openai/gpt-4o"}
-        try:
-            r = requests.post(
-                RELAY_URL,
-                headers={"X-Relay-Secret": RELAY_SECRET, "Content-Type": "application/json"},
-                json=payload,
-                timeout=30,
-            )
-            r.raise_for_status()
-            rep = "\n".join(r.json().get("reply_chunks", []))
-        except Exception as e:
-            rep = f"error: {e}"
-        LOG_FILE.touch(exist_ok=True)
-        with open(LOG_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"message": msg, "reply": rep}) + "\n")
-        replies.append(rep)
-    return replies
+def _flush_last() -> None:
+    """Write the last seen message to the log."""
+    global LAST_MSG, LAST_REPLY, COUNT, FIRST_TS
+    if LAST_MSG is None:
+        return
+    entry = {
+        "timestamp": FIRST_TS,
+        "message": LAST_MSG,
+        "reply": LAST_REPLY,
+        "count": COUNT,
+    }
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+    LAST_MSG = None
+    LAST_REPLY = None
+    COUNT = 0
+    FIRST_TS = 0.0
+
+
+def _send_message(msg: str) -> str:
+    payload = {"message": msg, "model": "openai/gpt-4o"}
+    try:
+        r = requests.post(
+            RELAY_URL,
+            headers={"X-Relay-Secret": RELAY_SECRET, "Content-Type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+        r.raise_for_status()
+        return "\n".join(r.json().get("reply_chunks", []))
+    except Exception as e:
+        return f"error: {e}"
+
+
+def handle_message(msg: str) -> None:
+    """Deduplicate messages and log with a counter."""
+    global LAST_MSG, LAST_REPLY, COUNT, FIRST_TS
+    if msg == LAST_MSG:
+        COUNT += 1
+        return
+    if LAST_MSG is not None:
+        _flush_last()
+    LAST_MSG = msg
+    LAST_REPLY = _send_message(msg)
+    COUNT = 1
+    FIRST_TS = time.time()
+
+
+def flush() -> None:
+    """Flush any pending message to disk."""
+    _flush_last()
+
+
+atexit.register(flush)
 
 
 def watch_folder():
@@ -49,8 +90,8 @@ def watch_folder():
                 continue
             seen.add(img)
             msgs = process_image(img)
-            if msgs:
-                send_messages(msgs)
+            for m in msgs:
+                handle_message(m)
         time.sleep(2)
 
 
