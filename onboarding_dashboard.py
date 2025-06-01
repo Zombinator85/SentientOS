@@ -22,8 +22,8 @@ def launch():
     env = load_env()
     st.title('SentientOS Onboarding')
     streamlit_banner(st)
-    sup = ledger.summary(Path('logs/support_log.jsonl'))
-    fed = ledger.summary(Path('logs/federation_log.jsonl'))
+    sup = ledger.summarize_log(Path('logs/support_log.jsonl'))
+    fed = ledger.summarize_log(Path('logs/federation_log.jsonl'))
     st.write(f"Support blessings: {sup['count']} • Federation blessings: {fed['count']}")
     if sup['recent'] or fed['recent']:
         st.write('Recent ledger entries:')
