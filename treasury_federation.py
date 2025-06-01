@@ -1,5 +1,6 @@
 import json
 from typing import List, Dict, Optional
+from sentient_banner import print_banner
 
 try:
     import requests  # type: ignore
@@ -11,11 +12,13 @@ import love_treasury as lt
 
 def announce_payload() -> List[Dict[str, object]]:
     """Return metadata about local enshrined logs for federation."""
+    print_banner()
     return lt.federation_metadata()
 
 
 def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
     """Import logs from a federation payload."""
+    print_banner()
     imported: List[str] = []
     for entry in payload:
         if lt.import_federated(entry, origin=origin):
