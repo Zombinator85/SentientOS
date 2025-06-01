@@ -1,6 +1,6 @@
 import json
 from typing import List, Dict, Optional
-from sentient_banner import print_banner
+from sentient_banner import print_banner, print_closing
 import federation_log as fl
 
 try:
@@ -10,12 +10,13 @@ except Exception:  # pragma: no cover - optional dependency
 
 import love_treasury as lt
 
-
 def announce_payload() -> List[Dict[str, object]]:
     """Return metadata about local enshrined logs for federation."""
     print_banner()
-    return lt.federation_metadata()
-
+    data = lt.federation_metadata()
+    fl.add("local", message="announce payload")
+    print_closing()
+    return data
 
 def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
     """Import logs from a federation payload."""
@@ -25,8 +26,10 @@ def import_payload(payload: List[Dict[str, object]], origin: str) -> List[str]:
     for entry in payload:
         if lt.import_federated(entry, origin=origin):
             imported.append(entry.get("id"))
+    if imported:
+        fl.add(origin, message="imported logs")
+    print_closing()
     return imported
-
 
 def pull(base_url: str) -> List[str]:
     """Pull logs from a remote cathedral via HTTP."""
@@ -50,4 +53,5 @@ def pull(base_url: str) -> List[str]:
             imported.append(lid)
     if imported:
         fl.add(url, message="sync completed")
+    print_closing()
     return imported
