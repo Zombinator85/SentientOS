@@ -23,8 +23,15 @@ def main() -> None:
     p.add_argument("--amount", default="")
     args = p.parse_args()
 
+    from sentient_banner import (
+        reset_ritual_state,
+        print_snapshot_banner,
+        print_closing_recap,
+    )
+
+    reset_ritual_state()
     print_banner()
-    ledger.print_snapshot_banner()
+    print_snapshot_banner()
     print("All support and federation is logged in the Living Ledger. No one is forgotten.")
     recap_shown = False
     try:
@@ -43,7 +50,7 @@ def main() -> None:
                 entry = sl.add(name, message, amount)
                 print("sanctuary acknowledged")
                 print(json.dumps(entry, indent=2))
-                ledger.print_recap(limit=2)
+                print_closing_recap()
                 recap_shown = True
             except Exception:
                 print("Failed to record blessing")

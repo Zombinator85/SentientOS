@@ -29,6 +29,9 @@ def streamlit_banner(st_module) -> None:
 
 from datetime import datetime
 
+_snapshots = 0
+_recap_shown = False
+
 
 def closing_invocation() -> str:
     """Return the short closing invocation."""
@@ -49,15 +52,47 @@ def print_timestamped_closing() -> None:
     print(timestamped_closing())
 
 
-def print_closing(show_recap: bool = True) -> None:
-    """Print a closing snapshot banner, optional recap, and invocation."""
+def reset_ritual_state() -> None:
+    """Reset snapshot/recap counters for a new invocation."""
+    global _snapshots, _recap_shown
+    _snapshots = 0
+    _recap_shown = False
+
+
+def print_snapshot_banner() -> None:
+    """Print a ledger snapshot banner and track count."""
+    global _snapshots
     try:
         import ledger
         ledger.print_snapshot_banner()
-        if show_recap:
-            ledger.print_recap(limit=2)
     except Exception:
         pass
+    _snapshots += 1
+
+
+def print_closing_recap() -> None:
+    """Print recap once per invocation."""
+    global _recap_shown
+    if _recap_shown:
+        return
+    try:
+        import ledger
+        ledger.print_recap(limit=2)
+    except Exception:
+        pass
+    _recap_shown = True
+
+
+def snapshot_count() -> int:
+    """Return how many times the snapshot was printed."""
+    return _snapshots
+
+
+def print_closing(show_recap: bool = True) -> None:
+    """Print a closing snapshot banner, optional recap, and invocation."""
+    if show_recap:
+        print_closing_recap()
+    print_snapshot_banner()
     print(BANNER)
     print_timestamped_closing()
 
@@ -68,17 +103,16 @@ def streamlit_closing(st_module, show_recap: bool = True) -> None:
         try:
             import io
             import contextlib
-            import ledger
 
             buf = io.StringIO()
             with contextlib.redirect_stdout(buf):
-                ledger.print_snapshot_banner()
+                print_snapshot_banner()
             st_module.markdown(buf.getvalue())
 
             if show_recap:
                 buf = io.StringIO()
                 with contextlib.redirect_stdout(buf):
-                    ledger.print_recap(limit=2)
+                    print_closing_recap()
                 st_module.code(buf.getvalue(), language="json")
         except Exception:
             pass

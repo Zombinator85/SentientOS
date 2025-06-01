@@ -53,7 +53,11 @@ def main() -> None:
     sub.add_parser("dismiss").add_argument("id")
 
     args = parser.parse_args()
+    from sentient_banner import reset_ritual_state, print_snapshot_banner
+
+    reset_ritual_state()
     print_banner()
+    print_snapshot_banner()
     if args.final_approver_file:
         fp = Path(args.final_approver_file)
         chain = final_approval.load_file_approvers(fp) if fp.exists() else []
