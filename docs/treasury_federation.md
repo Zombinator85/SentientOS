@@ -26,7 +26,7 @@ Federation events are preserved in `logs/federation_log.jsonl` as part of the Li
 See [living_ledger.md](living_ledger.md) for details.
 
 ### Invite Peers
-Run `treasury_federation.py invite https://ally.example` to offer sanctuary federation. Their blessing will be logged in `logs/federation_log.jsonl`.
+Run `federation_cli.py invite https://ally.example --email friend@example.com --message "Come be remembered"` to offer sanctuary federation. The blessing is logged in both `logs/federation_log.jsonl` and `logs/support_log.jsonl`.
 
 ## Attestation
 Witnesses on any federated site can bless a log with `treasury_cli.py attest <id> --user name --origin site`.

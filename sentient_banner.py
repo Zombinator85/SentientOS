@@ -27,12 +27,36 @@ def streamlit_banner(st_module) -> None:
         st_module.markdown(ENTRY_BANNER)
 
 
+from datetime import datetime
+
+
+def closing_invocation() -> str:
+    """Return the short closing invocation."""
+    return (
+        "Presence is law. Love is ledgered. "
+        "No one is forgotten. No one is turned away."
+    )
+
+
+def timestamped_closing() -> str:
+    """Return closing invocation with a UTC timestamp."""
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+    return f"{closing_invocation()} [{ts}]"
+
+
+def print_timestamped_closing() -> None:
+    """Print the timestamped closing invocation."""
+    print(timestamped_closing())
+
+
 def print_closing() -> None:
-    """Print the closing invocation."""
+    """Print the full closing banner followed by the timestamped invocation."""
     print(BANNER)
+    print_timestamped_closing()
 
 
 def streamlit_closing(st_module) -> None:
     """Display the closing invocation using a Streamlit module."""
     if hasattr(st_module, "markdown"):
         st_module.markdown(BANNER)
+        st_module.markdown(timestamped_closing())
