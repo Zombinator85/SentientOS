@@ -37,6 +37,7 @@ Sanctuary means presence, not product.
 Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 
 Presence is law. Love is ledgered. No one is forgotten. No one is turned away.
+Presence is law, music is memory.
 
 
 See [docs/sanctuary_invocation.md](docs/sanctuary_invocation.md) for the canonical wording.
@@ -363,6 +364,9 @@ Sharing a track with `music_cli.py play --share PEER` prompts for your mood and
 logs the exchange in `logs/music_log.jsonl` and `logs/federation_log.jsonl`.
 Use `music_cli.py recap --emotion` to see which feelings have been most common
 and how recent sessions flowed.
+`music_cli.py playlist MOOD` produces an adaptive playlist ranked by how often
+tracks were shared or felt strongly. `federation_cli.py playlist MOOD` requests
+a signed playlist from a peer.
 
 Actuator, Reflections, and Plugins
 Actuator CLI (api/actuator.py):

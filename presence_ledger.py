@@ -70,3 +70,25 @@ def recent_privilege_attempts(limit: int = 5) -> List[Dict[str, str]]:
             if len(out) == limit:
                 break
     return list(reversed(out))
+
+
+def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
+    """Return basic stats from the music ledger."""
+    music_path = Path("logs/music_log.jsonl")
+    if not music_path.exists():
+        return {"events": {}, "emotions": {}}
+    lines = music_path.read_text(encoding="utf-8").splitlines()[-limit:]
+    events: Dict[str, int] = {}
+    emotions: Dict[str, float] = {}
+    for ln in lines:
+        try:
+            e = json.loads(ln)
+        except Exception:
+            continue
+        evt = e.get("event")
+        if evt:
+            events[evt] = events.get(evt, 0) + 1
+        for k in ("intended", "perceived", "reported", "received"):
+            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+                emotions[emo] = emotions.get(emo, 0.0) + val
+    return {"events": events, "emotions": emotions}

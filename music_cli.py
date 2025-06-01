@@ -100,6 +100,11 @@ def main() -> None:
     recap.add_argument("--emotion", action="store_true", help="Summarize by emotion")
     recap.add_argument("--limit", type=int, default=20)
 
+    plst = sub.add_parser("playlist", help="Playlist from mood")
+    plst.add_argument("mood")
+    plst.add_argument("--limit", type=int, default=10)
+    plst.add_argument("--user", default="anon")
+
     args = parser.parse_args()
 
     reset_ritual_state()
@@ -116,6 +121,12 @@ def main() -> None:
         elif args.cmd == "play":
             entry = _play(args.file, args.user, share=args.share)
             print(json.dumps(entry, indent=2))
+            print_closing_recap()
+            recap_shown = True
+        elif args.cmd == "playlist":
+            entries = ledger.playlist_by_mood(args.mood, args.limit)
+            log = ledger.playlist_log(entries, args.mood, args.user, "local")
+            print(json.dumps(log, indent=2))
             print_closing_recap()
             recap_shown = True
         elif args.cmd == "recap" and args.emotion:
