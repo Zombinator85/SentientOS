@@ -1,0 +1,74 @@
+import argparse
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+
+import daily_theme
+
+LITURGY_LOG = Path(os.getenv("CATHEDRAL_LITURGY_LOG", "logs/cathedral_liturgy.jsonl"))
+LITURGY_LOG.parent.mkdir(parents=True, exist_ok=True)
+
+
+def _append(entry: dict) -> None:
+    with LITURGY_LOG.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def boot_command(args: argparse.Namespace) -> None:
+    theme = daily_theme.generate()
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "boot",
+        "theme": theme,
+    }
+    _append(entry)
+    print(f"Cathedral opens • theme: {theme}")
+
+
+def shutdown_command(args: argparse.Namespace) -> None:
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "shutdown",
+    }
+    _append(entry)
+    print("Cathedral closes • see blessing ledger for recap")
+
+
+def history_command(args: argparse.Namespace) -> None:
+    if not LITURGY_LOG.exists():
+        print("[]")
+        return
+    lines = LITURGY_LOG.read_text(encoding="utf-8").splitlines()[-args.limit:]
+    out = []
+    for ln in lines:
+        try:
+            out.append(json.loads(ln))
+        except Exception:
+            continue
+    print(json.dumps(out, indent=2))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Cathedral boot/shutdown liturgy")
+    sub = parser.add_subparsers(dest="cmd")
+
+    b = sub.add_parser("boot")
+    b.set_defaults(func=boot_command)
+
+    s = sub.add_parser("shutdown")
+    s.set_defaults(func=shutdown_command)
+
+    h = sub.add_parser("history")
+    h.add_argument("--limit", type=int, default=10)
+    h.set_defaults(func=history_command)
+
+    args = parser.parse_args()
+    if hasattr(args, "func"):
+        args.func(args)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
