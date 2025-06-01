@@ -161,6 +161,35 @@ def _cli_logs(args: argparse.Namespace) -> None:
         print(json.dumps(entry))
 
 
+def _cli_recap(args: argparse.Namespace) -> None:
+    aff = doctrine.consent_history(n=args.last)
+    sup_entries: List[dict] = []
+    sl_path = Path("logs/support_log.jsonl")
+    if sl_path.exists():
+        for ln in sl_path.read_text(encoding="utf-8").splitlines()[-args.last:]:
+            try:
+                sup_entries.append(json.loads(ln))
+            except Exception:
+                continue
+    lines = ["Affirmations:"]
+    for a in aff:
+        ts = datetime.utcfromtimestamp(a.get("time", 0)).isoformat()
+        lines.append(f"- {ts} {a.get('user')}")
+    lines.append("Blessings:")
+    for b in sup_entries:
+        lines.append(f"- {b.get('timestamp')} {b.get('supporter')}: {b.get('message')}")
+    if args.highlight:
+        aff_users = {a.get("user") for a in aff}
+        bless_users = {b.get("supporter") for b in sup_entries}
+        only_aff = sorted(aff_users - bless_users)
+        only_bless = sorted(bless_users - aff_users)
+        if only_aff:
+            lines.append("Unblessed: " + ", ".join(only_aff))
+        if only_bless:
+            lines.append("Unaffirmed: " + ", ".join(only_bless))
+    print("\n".join(lines))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="ritual")
     sub = ap.add_subparsers(dest="cmd")
@@ -183,6 +212,11 @@ def main() -> None:
     lg = sub.add_parser("logs")
     lg.add_argument("--last", type=int, default=5)
     lg.set_defaults(func=_cli_logs)
+
+    rc = sub.add_parser("recap")
+    rc.add_argument("--last", type=int, default=5)
+    rc.add_argument("--highlight", action="store_true")
+    rc.set_defaults(func=_cli_recap)
 
     args = ap.parse_args()
     if hasattr(args, "func"):

@@ -62,3 +62,12 @@ def test_enforce_runtime_raises(tmp_path, monkeypatch):
     f.write_text("bad")
     with pytest.raises(SystemExit):
         doctrine.enforce_runtime()
+
+
+def test_watch_flag_invokes_daemon(tmp_path, monkeypatch, capsys):
+    doctrine = setup_env(tmp_path, monkeypatch)
+    called = {}
+    monkeypatch.setattr(doctrine, "watch_daemon", lambda: called.setdefault("w", True))
+    monkeypatch.setattr(sys, "argv", ["doc", "--watch", "report"])
+    doctrine.main()
+    assert called.get("w")
