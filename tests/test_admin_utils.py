@@ -38,3 +38,29 @@ def test_require_admin_wrapper(monkeypatch):
     monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: (_ for _ in ()).throw(SystemExit))
     with pytest.raises(SystemExit), pytest.warns(DeprecationWarning):
         admin_utils.require_admin()
+
+
+@pytest.mark.parametrize(
+    "platform_name,is_admin,expected",
+    [
+        ("Linux", True, "success"),
+        ("Linux", False, "failed"),
+        ("Windows", True, "success"),
+        ("Windows", False, "failed"),
+        ("Darwin", True, "success"),
+        ("Darwin", False, "failed"),
+    ],
+)
+def test_privilege_logging(monkeypatch, platform_name, is_admin, expected):
+    logs = []
+    monkeypatch.setattr(admin_utils, "is_admin", lambda: is_admin)
+    monkeypatch.setattr(admin_utils.platform, "system", lambda: platform_name)
+    monkeypatch.setattr(admin_utils, "getpass", type("gp", (), {"getuser": lambda: "tester"}))
+    monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append({"user": u, "platform": p, "tool": t, "status": s}))
+    if is_admin:
+        admin_utils.require_admin_banner()
+    else:
+        with pytest.raises(SystemExit):
+            admin_utils.require_admin_banner()
+    assert logs and logs[0]["status"] == expected
+    assert logs[0]["platform"] == platform_name
