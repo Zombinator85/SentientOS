@@ -15,13 +15,55 @@ RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
 GOALS_PATH = MEMORY_DIR / "goals.json"
+TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
+TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _append_tomb(entry: Dict) -> None:
+    """Append a purge record to the immutable memory tomb."""
+    payload = entry.copy()
+    payload.pop("hash", None)
+    if os.getenv("TOMB_HASH", "1") != "0":
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+        entry["hash"] = digest
+    with open(TOMB_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def list_tomb(
+    *, tag: str | None = None, reason: str | None = None, date: str | None = None
+) -> List[Dict]:
+    """Return tomb entries filtered by tag, reason, or date."""
+    if not TOMB_PATH.exists():
+        return []
+    out: List[Dict] = []
+    lines = TOMB_PATH.read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except Exception:
+            continue
+        frag = entry.get("fragment", {})
+        if tag and tag not in frag.get("tags", []):
+            continue
+        if reason and reason not in entry.get("reason", ""):
+            continue
+        ts = entry.get("time", "") or frag.get("timestamp", "")
+        if date and not ts.startswith(date):
+            continue
+        out.append(entry)
+    return out
 
 
 def append_memory(
@@ -185,15 +227,24 @@ def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
 write_mem = append_memory
 
 
-def purge_memory(max_age_days: Optional[int] = None, max_files: Optional[int] = None) -> None:
-    """Delete old fragments by age or limit total count."""
+def purge_memory(
+    max_age_days: Optional[int] = None,
+    max_files: Optional[int] = None,
+    *,
+    requestor: str = "system",
+    reason: str = "",
+) -> None:
+    """Delete old fragments by age or limit total count.
+
+    Purged fragments are archived in the memory tomb.
+    """
     files = list(RAW_PATH.glob("*.json"))
-    entries = []
+    entries: List[tuple[datetime.datetime, Path, dict]] = []
     for f in files:
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
             ts = datetime.datetime.fromisoformat(data.get("timestamp"))
-            entries.append((ts, f))
+            entries.append((ts, f, data))
         except Exception:
             continue
     entries.sort(key=lambda x: x[0])
@@ -202,14 +253,26 @@ def purge_memory(max_age_days: Optional[int] = None, max_files: Optional[int] = 
     removed = 0
     if max_age_days is not None:
         cutoff = now - datetime.timedelta(days=max_age_days)
-        for ts, fp in entries:
+        for ts, fp, data in entries:
             if ts < cutoff:
+                _append_tomb({
+                    "fragment": data,
+                    "requestor": requestor,
+                    "time": datetime.datetime.utcnow().isoformat(),
+                    "reason": reason,
+                })
                 fp.unlink(missing_ok=True)
                 removed += 1
     if max_files is not None and len(entries) - removed > max_files:
         remaining = [e for e in entries if e[1].exists()]
         excess = len(remaining) - max_files
-        for ts, fp in remaining[:excess]:
+        for ts, fp, data in remaining[:excess]:
+            _append_tomb({
+                "fragment": data,
+                "requestor": requestor,
+                "time": datetime.datetime.utcnow().isoformat(),
+                "reason": reason,
+            })
             fp.unlink(missing_ok=True)
             removed += 1
     if removed:
