@@ -25,3 +25,7 @@ Only participants who have given consent should submit or affirm logs. Private o
 ## Example
 
 A sample submission is provided in `docs/examples/love_log_sample.txt`. After affirming, the dashboard shows the entry along with its witness chain and digest.
+
+## Federation
+
+Multiple cathedrals may share their Treasuries. See `treasury_federation.md` for how to announce and sync logs and record cross-site attestations.

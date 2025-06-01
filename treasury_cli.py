@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 
 import love_treasury as lt
+import treasury_federation as tf
+import treasury_attestation as ta
 
 
 def cmd_submit(args: argparse.Namespace) -> None:
@@ -26,7 +28,9 @@ def cmd_review(args: argparse.Namespace) -> None:
 
 
 def cmd_list(args: argparse.Namespace) -> None:
-    if args.treasury:
+    if args.global_view:
+        entries = lt.list_global()
+    elif args.treasury:
         entries = lt.list_treasury()
     else:
         entries = lt.list_submissions(args.status)
@@ -39,6 +43,20 @@ def cmd_export(args: argparse.Namespace) -> None:
         print(json.dumps(entry, indent=2))
     else:
         print("not found")
+
+
+def cmd_sync(args: argparse.Namespace) -> None:
+    imported = tf.pull(args.url)
+    print(json.dumps(imported))
+
+
+def cmd_announce(args: argparse.Namespace) -> None:
+    print(json.dumps(tf.announce_payload(), indent=2))
+
+
+def cmd_attest(args: argparse.Namespace) -> None:
+    att_id = ta.add_attestation(args.id, args.user, args.origin, note=args.note or "")
+    print(att_id)
 
 
 def main() -> None:
@@ -65,12 +83,26 @@ def main() -> None:
 
     l = sub.add_parser("list", help="List submissions or treasury")
     l.add_argument("--treasury", action="store_true")
+    l.add_argument("--global-view", action="store_true", help="List local and federated logs")
     l.add_argument("--status")
     l.set_defaults(func=cmd_list)
 
     e = sub.add_parser("export", help="Export enshrined log")
     e.add_argument("id")
     e.set_defaults(func=cmd_export)
+
+    sub.add_parser("announce", help="Show federation announcement payload").set_defaults(func=cmd_announce)
+
+    sync = sub.add_parser("sync", help="Sync logs from a remote cathedral")
+    sync.add_argument("url")
+    sync.set_defaults(func=cmd_sync)
+
+    attest = sub.add_parser("attest", help="Attest or bless a log")
+    attest.add_argument("id")
+    attest.add_argument("--user", required=True)
+    attest.add_argument("--origin", default="local")
+    attest.add_argument("--note")
+    attest.set_defaults(func=cmd_attest)
 
     args = ap.parse_args()
     if hasattr(args, "func"):
