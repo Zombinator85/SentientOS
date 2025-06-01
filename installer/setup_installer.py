@@ -1,5 +1,6 @@
 import os
 import sys
+from admin_utils import is_admin, ADMIN_BANNER
 import shutil
 import subprocess
 from pathlib import Path
@@ -11,18 +12,6 @@ REQ_FILE = REPO_ROOT / 'requirements.txt'
 ENV_EXAMPLE = REPO_ROOT / '.env.example'
 ENV_FILE = REPO_ROOT / '.env'
 SAMPLES_DIR = REPO_ROOT / 'installer' / 'example_data'
-
-
-def is_admin() -> bool:
-    if os.name == 'nt':
-        try:
-            import ctypes  # type: ignore
-            return ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception:
-            return False
-    else:
-        return os.geteuid() == 0
-
 
 def install_dependencies() -> None:
     print('Installing Python dependencies...')
@@ -80,8 +69,22 @@ def check_microphone() -> None:
 
 def main() -> None:
     if os.name == 'nt' and not is_admin():
-        print('Please run this script as Administrator.')
+        import ctypes  # type: ignore
+        rc = ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "runas",
+            sys.executable,
+            " ".join(sys.argv),
+            None,
+            1,
+        )
+        if rc <= 32:
+            print('Administrator privileges required.')
+        else:
+            print(ADMIN_BANNER)
         return
+
+    print(ADMIN_BANNER)
 
     print_banner()
     print('SentientOS setup starting...')

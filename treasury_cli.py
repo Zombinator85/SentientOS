@@ -2,6 +2,7 @@ import argparse
 import json
 from pathlib import Path
 from sentient_banner import ENTRY_BANNER, print_banner, print_closing
+from admin_utils import require_admin
 
 import love_treasury as lt
 import treasury_federation as tf
@@ -61,6 +62,7 @@ def cmd_attest(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin()
     ap = argparse.ArgumentParser(
         prog="treasury",
         description=f"SentientOS Treasury CLI\n{ENTRY_BANNER}"
