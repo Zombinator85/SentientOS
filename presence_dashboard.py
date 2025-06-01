@@ -60,7 +60,13 @@ def main():
     parser.add_argument("server")
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--dashboard", action="store_true", help="Launch Streamlit dashboard")
+    parser.add_argument("--ledger", action="store_true", help="Show living ledger summary and exit")
     args = parser.parse_args()
+    if args.ledger:
+        print_banner()
+        ledger.print_summary()
+        print_closing()
+        return
     if args.dashboard:
         run_dashboard(args.server)
     else:

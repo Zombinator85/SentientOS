@@ -71,14 +71,35 @@ def streamlit_widget(st_module) -> None:
         st_module.json({"support": last_sup, "federation": last_fed})
 
 
-def print_summary() -> None:
+def _unique_values(path: Path, field: str) -> int:
+    if not path.exists():
+        return 0
+    seen = set()
+    for ln in path.read_text(encoding="utf-8").splitlines():
+        try:
+            val = json.loads(ln).get(field)
+        except Exception:
+            continue
+        if val:
+            seen.add(val)
+    return len(seen)
+
+
+def print_summary(limit: int = 3) -> None:
     """Print a ledger summary to stdout."""
-    sup = summarize_log(Path("logs/support_log.jsonl"))
-    fed = summarize_log(Path("logs/federation_log.jsonl"))
+    sup_path = Path("logs/support_log.jsonl")
+    fed_path = Path("logs/federation_log.jsonl")
+    att_path = Path("logs/ritual_attestations.jsonl")
+
+    sup = summarize_log(sup_path, limit=limit)
+    fed = summarize_log(fed_path, limit=limit)
+
     data = {
         "support_count": sup["count"],
         "federation_count": fed["count"],
         "support_recent": sup["recent"],
         "federation_recent": fed["recent"],
+        "unique_supporters": _unique_values(sup_path, "supporter"),
+        "unique_witnesses": _unique_values(att_path, "user"),
     }
     print(json.dumps(data, indent=2))
