@@ -9,6 +9,7 @@ from typing import Any, Dict
 from utils import is_headless
 import trust_engine as te
 import reflection_stream as rs
+import importlib.util
 
 
 class BasePlugin:
@@ -49,7 +50,7 @@ def register_plugin(name: str, plugin: BasePlugin) -> None:
 
 
 def load_plugins() -> None:
-    """Load plug-ins from disk."""
+    """Load plug-ins from disk using importlib."""
     global PLUGINS, PLUGINS_INFO, PLUGIN_STATE, _LOADED_FILES
     PLUGINS = {}
     PLUGINS_INFO = {}
@@ -58,20 +59,26 @@ def load_plugins() -> None:
         return
     _LOADED_FILES = list(plugins_dir.glob("*.py"))
     for fp in _LOADED_FILES:
-        spec: dict[str, Any] = {}
         try:
-            code = fp.read_text(encoding="utf-8")
-            exec(compile(code, str(fp), "exec"), spec)
-        except Exception:
+            spec = importlib.util.spec_from_file_location(fp.stem, fp)
+            if not spec or not spec.loader:
+                continue
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        except Exception as e:  # pragma: no cover - load errors
+            te.log_event("plugin_load_error", "load", str(e), fp.stem)
             continue
-        reg = spec.get("register")
+        reg = getattr(module, "register", None)
         if callable(reg):
             try:
                 reg(register_plugin)
-            except Exception:
-                pass
-        PLUGINS_INFO[fp.stem] = (spec.get("__doc__") or "").strip()
-        # Preserve enabled/disabled state across reloads
+            except Exception as e:  # pragma: no cover - plugin init issues
+                te.log_event("plugin_register_error", "load", str(e), fp.stem)
+                continue
+        else:
+            te.log_event("plugin_invalid", "load", "missing register", fp.stem)
+            continue
+        PLUGINS_INFO[fp.stem] = (getattr(module, "__doc__", "") or "").strip()
         PLUGIN_STATE.setdefault(fp.stem, True)
         PLUGIN_HEALTH.setdefault(fp.stem, {"status": "ok"})
 

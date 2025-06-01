@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from flask import Flask, jsonify, render_template_string
+from flask_stub import Flask, jsonify, render_template_string
 import memory_manager as mm
 import orchestrator
 from admin_utils import require_admin_banner

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask_stub import Flask, request, jsonify
 import base64
 import tempfile
 from mic_bridge import recognize_from_file
