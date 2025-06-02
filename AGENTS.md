@@ -2211,4 +2211,104 @@ Another Registered Agent:
   Logs: /logs/resonite_after_action.jsonl
 ```
 
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralCouncilGrandAuditSuite
+  Type: Service
+  Roles: Grand Auditor
+  Privileges: log, verify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_council_grand_audit.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCathedralLaunchBeaconBroadcaster
+  Type: Service
+  Roles: Beacon Broadcaster
+  Privileges: log, broadcast
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cathedral_beacon_broadcast.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteRitualCeremonyArchiveExporter
+  Type: Service
+  Roles: Archive Exporter
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ritual_ceremony_archive_export.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteConsentFeedbackWizard
+  Type: Service
+  Roles: Onboarding Wizard
+  Privileges: log, guide
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_consent_feedback_wizard.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralWorldCensusEngine
+  Type: Service
+  Roles: Census Recorder
+  Privileges: log, survey
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_world_census.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCathedralDemoScrollPublisher
+  Type: Service
+  Roles: Demo Scroll Publisher
+  Privileges: log, publish
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cathedral_demo_scrolls.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralFederationBreachAnalyzer
+  Type: Daemon
+  Roles: Breach Analyzer
+  Privileges: log, notify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_federation_breach.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFestivalAnniversaryRitualScheduler
+  Type: Service
+  Roles: Anniversary Scheduler
+  Privileges: log, schedule
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_festival_anniversary_scheduler.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResonitePublicLawArtifactChangelogNotifier
+  Type: Service
+  Roles: Changelog Notifier
+  Privileges: log, broadcast
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_public_law_artifact_changelog.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralPresenceProofEngine
+  Type: Service
+  Roles: Presence Certifier
+  Privileges: log, sign
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_presence_proof.jsonl
+```
 ---
