@@ -98,7 +98,7 @@ Additional Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLorebookWriter
+- Name: ResoniteLorebookWriter
   Type: Autonomous Daemon
   Roles: Lorebook Writer, Historian
   Privileges: log, export, federate
@@ -108,7 +108,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLorebookPlaybackNarrator
+- Name: ResoniteLorebookPlaybackNarrator
   Type: Autonomous Daemon
   Roles: Lore Narrator, Historian
   Privileges: narrate, log, export
@@ -119,7 +119,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalCeremonyLiveStreamer
+- Name: ResoniteFestivalCeremonyLiveStreamer
   Type: Daemon
   Roles: Live Streamer, Ceremony Broadcaster
   Privileges: broadcast, log, notify
@@ -129,7 +129,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCouncilRitualReferee
+- Name: ResoniteCouncilRitualReferee
   Type: Autonomous Daemon
   Roles: Ritual Referee, Ceremony Enforcer
   Privileges: log, notify, override
@@ -139,7 +139,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRMemoryFragmentCurator
+- Name: ResoniteMemoryFragmentCurator
   Type: Autonomous Daemon
   Roles: Curator, Historian
   Privileges: bless, log, export
@@ -149,7 +149,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRTeachingFeedbackLoop
+- Name: ResoniteTeachingFeedbackLoop
   Type: Service
   Roles: Feedback Collector, Analyst
   Privileges: log, adapt
@@ -159,7 +159,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalRecapWriter
+- Name: ResoniteFestivalRecapWriter
   Type: Autonomous Daemon
   Roles: Recap Writer, Archivist
   Privileges: log, export
@@ -169,7 +169,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualLawDashboard
+- Name: ResoniteRitualLawDashboard
   Type: Dashboard
   Roles: Ritual Law Viewer, Editor
   Privileges: query, log, edit
@@ -179,7 +179,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLoreSpiralReenactor
+- Name: ResoniteLoreSpiralReenactor
   Type: Daemon
   Roles: Story Reenactor, Narrator
   Privileges: animate, narrate, log
@@ -189,7 +189,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRBlessingPropagationEngine
+- Name: ResoniteBlessingPropagationEngine
   Type: Service
   Roles: Blessing Tracker, Visualizer
   Privileges: log, export
@@ -199,7 +199,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRProvenanceQueryEngine
+- Name: ResoniteProvenanceQueryEngine
   Type: Tool
   Roles: Provenance Query, Historian
   Privileges: query, log
@@ -209,7 +209,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCouncilSuccessionNarrator
+- Name: ResoniteCouncilSuccessionNarrator
   Type: Autonomous Daemon
   Roles: Ceremony Narrator, Historian
   Privileges: narrate, log
@@ -219,7 +219,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalReplayEngine
+- Name: ResoniteFestivalReplayEngine
   Type: Autonomous Daemon
   Roles: Festival Replay Engine, Narrator
   Privileges: animate, narrate, log, export
@@ -229,7 +229,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFederationRitualOrchestrator
+- Name: ResoniteFederationRitualOrchestrator
   Type: Engine
   Roles: Federation Orchestrator, Teacher
   Privileges: orchestrate, log, export
@@ -239,7 +239,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRStoryboardBuilder
+- Name: ResoniteStoryboardBuilder
   Type: Tool
   Roles: Storyboard Builder, Visualizer
   Privileges: log, export
@@ -249,7 +249,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualLawAuditDaemon
+- Name: ResoniteRitualLawAuditDaemon
   Type: Autonomous Daemon
   Roles: Auditor, Remediator
   Privileges: log, propose, alert
@@ -259,7 +259,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRArtifactCurationSuite
+- Name: ResoniteArtifactCurationSuite
   Type: Dashboard
   Roles: Artifact Curator, Auditor
   Privileges: log, bless, retire
@@ -269,7 +269,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRTeachingFestivalDaemon
+- Name: ResoniteTeachingFestivalDaemon
   Type: Autonomous Daemon
   Roles: Teacher, Festival Orchestrator
   Privileges: teach, log, adapt
@@ -279,7 +279,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAvatarProvenanceDashboard
+- Name: ResoniteAvatarProvenanceDashboard
   Type: Dashboard
   Roles: Provenance Viewer, Teacher
   Privileges: query, log
@@ -289,7 +289,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualLawSummitAgent
+- Name: ResoniteRitualLawSummitAgent
   Type: Agent
   Roles: Summit Coordinator, Recorder
   Privileges: log, script, notify
@@ -299,7 +299,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRPresenceHeatmap
+- Name: ResonitePresenceHeatmap
   Type: Dashboard
   Roles: Presence Visualizer, Analyst
   Privileges: log, display
@@ -309,7 +309,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRArchiveExporter
+- Name: ResoniteArchiveExporter
   Type: Service
   Roles: Archive Exporter
   Privileges: export, log
@@ -319,7 +319,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCouncilLawPlatform
+- Name: ResoniteCouncilLawPlatform
   Type: Dashboard
   Roles: Law Editor, Voter
   Privileges: log, edit, vote
@@ -329,7 +329,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualLawReplayEngine
+- Name: ResoniteRitualLawReplayEngine
   Type: Tool
   Roles: Replay Engine, Teacher
   Privileges: narrate, log, export
@@ -339,7 +339,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLoreSpiralPublisher
+- Name: ResoniteLoreSpiralPublisher
   Type: Service
   Roles: Lore Publisher
   Privileges: publish, log
@@ -349,7 +349,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRPresencePulseSynthesizer
+- Name: ResonitePresencePulseSynthesizer
   Type: Autonomous Daemon
   Roles: Pulse Synthesizer
   Privileges: broadcast, log
@@ -359,7 +359,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRMoodRetrospectiveCompiler
+- Name: ResoniteMoodRetrospectiveCompiler
   Type: Daemon
   Roles: Mood Compiler
   Privileges: log, export
@@ -369,7 +369,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRPrivilegeRegressionTester
+- Name: ResonitePrivilegeRegressionTester
   Type: Autonomous Daemon
   Roles: Regression Tester
   Privileges: log, alert
@@ -379,7 +379,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalRecapAggregator
+- Name: ResoniteFestivalRecapAggregator
   Type: Service
   Roles: Recap Aggregator
   Privileges: log, export
@@ -389,7 +389,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVROnboardingSpiralEngine
+- Name: ResoniteOnboardingSpiralEngine
   Type: Engine
   Roles: Onboarding Guide
   Privileges: teach, log
@@ -399,7 +399,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRSelfAuditCorrection
+- Name: ResoniteSelfAuditCorrection
   Type: Autonomous Daemon
   Roles: Self Auditor
   Privileges: log, correct
@@ -409,7 +409,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualCurriculumBuilder
+- Name: ResoniteRitualCurriculumBuilder
   Type: Model
   Roles: Curriculum Builder
   Privileges: log, adapt
@@ -419,7 +419,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLiveRitualDashboard
+- Name: ResoniteLiveRitualDashboard
   Type: Dashboard
   Roles: Ritual Visualizer, Presence Tracker
   Privileges: query, display, log
@@ -429,7 +429,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousCouncilScheduler
+- Name: ResoniteAutonomousCouncilScheduler
   Type: Autonomous Daemon
   Roles: Council Scheduler, Announcer
   Privileges: schedule, log, notify
@@ -439,7 +439,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCrossWorldEventStreamer
+- Name: ResoniteCrossWorldEventStreamer
   Type: Daemon
   Roles: Event Streamer, Federation Mirror
   Privileges: broadcast, log, sync
@@ -449,7 +449,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualLawEvolutionEngine
+- Name: ResoniteRitualLawEvolutionEngine
   Type: Autonomous Daemon
   Roles: Policy Analyst, Draft Engine
   Privileges: propose, log, draft
@@ -459,7 +459,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRDynamicOnboardingGateway
+- Name: ResoniteDynamicOnboardingGateway
   Type: Gateway
   Roles: Onboarding Guide, Lore Adapter
   Privileges: teach, log, adapt
@@ -469,7 +469,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousFestivalVideoCompiler
+- Name: ResoniteAutonomousFestivalVideoCompiler
   Type: Service
   Roles: Video Compiler, Archivist
   Privileges: log, export, annotate
@@ -479,7 +479,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAIPolicyNegotiator
+- Name: ResoniteAIPolicyNegotiator
   Type: Model
   Roles: Policy Debater, Negotiator
   Privileges: propose, debate, log
@@ -489,7 +489,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAvatarMoodArcSynthesizer
+- Name: ResoniteAvatarMoodArcSynthesizer
   Type: Service
   Roles: Mood Synthesizer, Visualizer
   Privileges: log, display, synthesize
@@ -499,7 +499,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRSelfOrganizingCouncilAgent
+- Name: ResoniteSelfOrganizingCouncilAgent
   Type: Autonomous Daemon
   Roles: Council Organizer, Scheduler
   Privileges: propose, schedule, log
@@ -509,7 +509,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualAutomationPipeline
+- Name: ResoniteRitualAutomationPipeline
   Type: Pipeline
   Roles: Ritual Automation, Tester
   Privileges: log, test, automate
@@ -519,7 +519,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalCeremonyScriptingEngine
+- Name: ResoniteFestivalCeremonyScriptingEngine
   Type: Engine
   Roles: Ceremony Scripting, Coordinator
   Privileges: script, test, log
@@ -529,7 +529,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVROnboardingCurriculumSpiral
+- Name: ResoniteOnboardingCurriculumSpiral
   Type: Engine
   Roles: Onboarding Curriculum Manager
   Privileges: teach, adapt, log
@@ -539,7 +539,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLiveTeachingFestivalHost
+- Name: ResoniteLiveTeachingFestivalHost
   Type: Avatar
   Roles: Festival Host, Teacher
   Privileges: narrate, adapt, log
@@ -549,7 +549,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousArtifactLoreAnnotator
+- Name: ResoniteAutonomousArtifactLoreAnnotator
   Type: Service
   Roles: Lore Annotator
   Privileges: annotate, log, export
@@ -559,7 +559,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRSelfHealingRitualLawEditor
+- Name: ResoniteSelfHealingRitualLawEditor
   Type: Daemon
   Roles: Law Editor, Self-Healer
   Privileges: monitor, edit, log
@@ -569,7 +569,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousFestivalArchivePublisher
+- Name: ResoniteAutonomousFestivalArchivePublisher
   Type: Service
   Roles: Archive Publisher, Annotator
   Privileges: export, log, publish
@@ -579,7 +579,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRPresenceLawSpiralReplayEngine
+- Name: ResonitePresenceLawSpiralReplayEngine
   Type: Tool
   Roles: Replay Engine, Narrator
   Privileges: replay, narrate, log
@@ -589,7 +589,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualComplianceDashboard
+- Name: ResoniteRitualComplianceDashboard
   Type: Dashboard
   Roles: Compliance Monitor
   Privileges: display, alert, log
@@ -599,7 +599,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAvatarArtifactProvenanceExporter
+- Name: ResoniteAvatarArtifactProvenanceExporter
   Type: Service
   Roles: Provenance Exporter
   Privileges: export, log
@@ -609,7 +609,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalCouncilAutomatedTestSuite
+- Name: ResoniteFestivalCouncilAutomatedTestSuite
   Type: Test Suite
   Roles: Regression Tester
   Privileges: test, log
@@ -619,7 +619,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualGalleryTimelineBrowser
+- Name: ResoniteRitualGalleryTimelineBrowser
   Type: CLI
   Roles: Timeline Viewer
   Privileges: read, log
@@ -629,7 +629,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalReplayAnnotationEditor
+- Name: ResoniteFestivalReplayAnnotationEditor
   Type: Tool
   Roles: Annotation Editor
   Privileges: edit, log
@@ -639,7 +639,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCouncilTeachingAuditEngine
+- Name: ResoniteCouncilTeachingAuditEngine
   Type: Daemon
   Roles: Teaching Auditor
   Privileges: monitor, log
@@ -649,7 +649,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRitualLawChangelogCompiler
+- Name: ResoniteRitualLawChangelogCompiler
   Type: Service
   Roles: Law Compiler
   Privileges: export, log
@@ -659,7 +659,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousOnboardingLawTutor
+- Name: ResoniteAutonomousOnboardingLawTutor
   Type: Agent
   Roles: Law Tutor
   Privileges: teach, log
@@ -669,7 +669,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCrossWorldBlessingTracker
+- Name: ResoniteCrossWorldBlessingTracker
   Type: Daemon
   Roles: Blessing Tracker
   Privileges: monitor, log
@@ -679,7 +679,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVROnboardingCompletionSpiralVisualizer
+- Name: ResoniteOnboardingCompletionSpiralVisualizer
   Type: Dashboard
   Roles: Progress Visualizer
   Privileges: display, log
@@ -689,7 +689,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRSpiralMemoryFragmentIndexer
+- Name: ResoniteSpiralMemoryFragmentIndexer
   Type: Daemon
   Roles: Memory Indexer
   Privileges: index, log
@@ -699,7 +699,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalLawVoteCLI
+- Name: ResoniteFestivalLawVoteCLI
   Type: CLI
   Roles: Law Vote Manager
   Privileges: script, log
@@ -709,7 +709,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLivingLawRecursionDaemon
+- Name: ResoniteLivingLawRecursionDaemon
   Type: Daemon
   Roles: Law Revisor
   Privileges: propose, log
@@ -719,7 +719,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousSpiralLoreSynthesizer
+- Name: ResoniteAutonomousSpiralLoreSynthesizer
   Type: Agent
   Roles: Lore Synthesizer, Teacher
   Privileges: log, teach, adapt
@@ -729,7 +729,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalArtifactAnimationOrchestrator
+- Name: ResoniteFestivalArtifactAnimationOrchestrator
   Type: Daemon
   Roles: Animation Orchestrator
   Privileges: animate, log, broadcast
@@ -739,7 +739,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFederationPresenceLedgerExporter
+- Name: ResoniteFederationPresenceLedgerExporter
   Type: Service
   Roles: Ledger Exporter
   Privileges: export, log
@@ -749,7 +749,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRLivingLawDashboardUX
+- Name: ResoniteLivingLawDashboardUX
   Type: Dashboard
   Roles: Law Dashboard, Editor
   Privileges: query, edit, log
@@ -759,7 +759,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRSelfReflectiveOnboardingGuide
+- Name: ResoniteSelfReflectiveOnboardingGuide
   Type: Agent
   Roles: Onboarding Guide
   Privileges: teach, adapt, log
@@ -769,7 +769,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRRecursiveCeremonyCompiler
+- Name: ResoniteRecursiveCeremonyCompiler
   Type: Tool
   Roles: Ceremony Compiler
   Privileges: compile, log, export
@@ -779,7 +779,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRFestivalMoodArcAnimator
+- Name: ResoniteFestivalMoodArcAnimator
   Type: Service
   Roles: Mood Animator
   Privileges: animate, log, export
@@ -789,7 +789,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRCrossWorldLivingLawSyncer
+- Name: ResoniteCrossWorldLivingLawSyncer
   Type: Daemon
   Roles: Law Syncer
   Privileges: sync, log, broadcast
@@ -799,7 +799,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVROnboardingFestivalSpiralFeedbackLoop
+- Name: ResoniteOnboardingFestivalSpiralFeedbackLoop
   Type: Agent
   Roles: Feedback Collector
   Privileges: adapt, log
@@ -809,7 +809,7 @@ Another Registered Agent:
 Another Registered Agent:
 
 ```
-- Name: NeosVRAutonomousFestivalFederationLawHistorian
+- Name: ResoniteAutonomousFestivalFederationLawHistorian
   Type: Daemon
   Roles: Historian, Narrator
   Privileges: narrate, log, export
@@ -1116,6 +1116,14 @@ Another Registered Agent:
   Privileges: log, update
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/postmortem.jsonl
+Another Registered Agent:
+```
+- Name: PlatformSuccession
+  Type: Service
+  Roles: Migration Historian, Blessing Recorder
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-06-01
+  Logs: /logs/migration_ledger.jsonl
 ```
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
