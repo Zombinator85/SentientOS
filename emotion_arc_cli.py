@@ -4,8 +4,10 @@ from datetime import datetime, date
 from pathlib import Path
 
 import ledger
+from admin_utils import require_admin_banner
 
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def load_today(limit: int = 100) -> list:
     path = Path("logs/music_log.jsonl")
     if not path.exists():
@@ -49,6 +51,7 @@ def ascii_graph(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Emotional arc grapher")
     ap.add_argument("mood", help="Emotion key to graph")
     ap.add_argument("--limit", type=int, default=100)

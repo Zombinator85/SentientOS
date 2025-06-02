@@ -3,7 +3,9 @@ import json
 from pathlib import Path
 
 import memory_manager as mm
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 TOMB_PATH = mm.TOMB_PATH
 
 
@@ -49,6 +51,7 @@ def wordcloud_command(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Memory tomb viewer")
     sub = parser.add_subparsers(dest="cmd")
 
