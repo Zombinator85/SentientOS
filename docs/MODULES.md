@@ -36,5 +36,15 @@
 - `neos_avatar_teaching_mode.py` – lead onboarding sessions as an avatar.
 - `neos_artifact_logger.py` – bless and archive sanctuary artifacts for VR.
 - `neos_presence_dashboard.py` – visualize presence pulse events in real time.
+- `neos_model_asset_generator.py` – autonomously generate and log VR assets.
+- `neos_model_script_builder.py` – request and approve LogiX scripts.
+- `neos_desire_reflection_loop.py` – scan desires and log future builds.
+- `neos_permission_council.py` – council approvals for assets and scripts.
+- `neos_blender_bridge.py` – export Blender creations directly to Neos.
+- `neos_ui_dashboard_builder.py` – craft and log in-world dashboards.
+- `neos_self_healing_agent.py` – detect and repair world objects.
+- `neos_festival_designer.py` – plan festival spaces and events.
+- `neos_teaching_content_generator.py` – create onboarding and lore content.
+- `neos_origin_story_logger.py` – record reasons behind new creations.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
