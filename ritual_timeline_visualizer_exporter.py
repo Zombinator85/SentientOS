@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Ritual Timeline Visualizer/Exporter
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("RITUAL_TIMELINE_LOG", "logs/ritual_timeline.jsonl"))
+LOG_PATH = get_log_path("ritual_timeline.jsonl", "RITUAL_TIMELINE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

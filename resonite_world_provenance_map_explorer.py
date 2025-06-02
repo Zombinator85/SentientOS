@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 from admin_utils import require_admin_banner
 
@@ -15,7 +16,7 @@ from typing import Dict, List
 
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_WORLD_PROVENANCE_LOG", "logs/resonite_world_provenance_map_explorer.jsonl"))
+LOG_PATH = get_log_path("resonite_world_provenance_map_explorer.jsonl", "RESONITE_WORLD_PROVENANCE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import os
 import json
@@ -197,9 +198,9 @@ class ReflexRule:
 class ReflexManager:
     """Manage a collection of reflex rules."""
 
-    EXPERIMENTS_FILE = Path(os.getenv("REFLEX_EXPERIMENTS", "logs/reflections/experiments.json"))
-    TRIAL_LOG = Path(os.getenv("REFLEX_TRIAL_LOG", "logs/reflections/reflex_trials.jsonl"))
-    AUDIT_LOG = Path(os.getenv("REFLEX_AUDIT_LOG", "logs/reflections/reflex_audit.jsonl"))
+    EXPERIMENTS_FILE = get_log_path("reflections/experiments.json", "REFLEX_EXPERIMENTS")
+    TRIAL_LOG = get_log_path("reflections/reflex_trials.jsonl", "REFLEX_TRIAL_LOG")
+    AUDIT_LOG = get_log_path("reflections/reflex_audit.jsonl", "REFLEX_AUDIT_LOG")
 
     def __init__(self, autopromote_trials: int = 5) -> None:
         self.rules: List[ReflexRule] = []

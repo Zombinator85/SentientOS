@@ -7,6 +7,7 @@ specified by the ``GAME_BRIDGE_LOG`` environment variable.
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -15,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("GAME_BRIDGE_LOG", "logs/game_bridge_events.jsonl"))
+LOG_PATH = get_log_path("game_bridge_events.jsonl", "GAME_BRIDGE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

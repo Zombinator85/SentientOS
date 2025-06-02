@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -9,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-EXPORT_LOG = Path(os.getenv("CEREMONY_EXPORT_LOG", "logs/ceremony_exporter.jsonl"))
+EXPORT_LOG = get_log_path("ceremony_exporter.jsonl", "CEREMONY_EXPORT_LOG")
 EXPORT_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

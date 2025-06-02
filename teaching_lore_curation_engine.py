@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Teaching/Lore Curation Engine
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("TEACHING_CURATION_LOG", "logs/teaching_curation.jsonl"))
+LOG_PATH = get_log_path("teaching_curation.jsonl", "TEACHING_CURATION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,7 +1,8 @@
+from logging_config import get_log_path
 import json
 from pathlib import Path
 
-BLESSING_LEDGER = Path("logs/blessing_ledger.jsonl")
+BLESSING_LEDGER = get_log_path("blessing_ledger.jsonl")
 
 
 def check_integrity() -> bool:

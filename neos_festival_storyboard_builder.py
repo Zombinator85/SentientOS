@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Festival Mood/Presence Storyboard Builder."""
 
@@ -11,7 +12,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_STORYBOARD_LOG", "logs/neos_storyboards.jsonl"))
+LOG_PATH = get_log_path("neos_storyboards.jsonl", "NEOS_STORYBOARD_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Autonomous Presence Pulse Synthesizer."""
 
@@ -13,7 +14,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_PULSE_LOG", "logs/neos_presence_pulse.jsonl"))
+LOG_PATH = get_log_path("neos_presence_pulse.jsonl", "NEOS_PULSE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

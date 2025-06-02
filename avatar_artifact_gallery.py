@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Ritual Artifact Gallery.
 
@@ -16,14 +17,14 @@ from typing import Any, Dict, List
 
 # Log locations
 LOG_PATHS = {
-    "dream": Path(os.getenv("AVATAR_DREAM_LOG", "logs/avatar_dreams.jsonl")),
-    "gift": Path(os.getenv("AVATAR_GIFT_LOG", "logs/avatar_gifts.jsonl")),
-    "artifact": Path(os.getenv("AVATAR_ARTIFACT_LOG", "logs/avatar_sanctuary_artifacts.jsonl")),
-    "relic": Path("logs/avatar_relics.jsonl"),
-    "capsule": Path(os.getenv("AVATAR_FESTIVAL_CAPSULE_LOG", "logs/avatar_festival_capsules.jsonl")),
+    "dream": get_log_path("avatar_dreams.jsonl", "AVATAR_DREAM_LOG"),
+    "gift": get_log_path("avatar_gifts.jsonl", "AVATAR_GIFT_LOG"),
+    "artifact": get_log_path("avatar_sanctuary_artifacts.jsonl", "AVATAR_ARTIFACT_LOG"),
+    "relic": get_log_path("avatar_relics.jsonl"),
+    "capsule": get_log_path("avatar_festival_capsules.jsonl", "AVATAR_FESTIVAL_CAPSULE_LOG"),
 }
 
-GALLERY_LOG = Path(os.getenv("ARTIFACT_GALLERY_LOG", "logs/artifact_gallery_log.jsonl"))
+GALLERY_LOG = get_log_path("artifact_gallery_log.jsonl", "ARTIFACT_GALLERY_LOG")
 GALLERY_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

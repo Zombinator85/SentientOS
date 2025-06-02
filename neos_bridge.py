@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -12,7 +13,7 @@ from typing import Dict, List
 
 BRIDGE_DIR = Path(os.getenv("NEOS_BRIDGE_DIR", "C:/SentientOS/neos"))
 BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
-LOG_PATH = Path(os.getenv("NEOS_BRIDGE_LOG", "logs/neos_bridge.jsonl"))
+LOG_PATH = get_log_path("neos_bridge.jsonl", "NEOS_BRIDGE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

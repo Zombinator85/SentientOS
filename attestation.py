@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 import uuid
@@ -5,7 +6,7 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-LOG_PATH = Path(os.getenv("RITUAL_ATTEST_LOG", "logs/ritual_attestations.jsonl"))
+LOG_PATH = get_log_path("ritual_attestations.jsonl", "RITUAL_ATTEST_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

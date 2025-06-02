@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
-LOG_PATH = Path("logs/teaching_log.jsonl")
+LOG_PATH = get_log_path("teaching_log.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -6,6 +6,7 @@ blessing entry is logged. For complex modeling/rigging the code
 includes TODO placeholders.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -13,7 +14,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-LOG_PATH = Path(os.getenv("AVATAR_GENESIS_LOG", "logs/avatar_genesis.jsonl"))
+LOG_PATH = get_log_path("avatar_genesis.jsonl", "AVATAR_GENESIS_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Council Succession/Legacy Daemon.
 
@@ -14,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-LOG_PATH = Path(os.getenv("AVATAR_SUCCESSION_LOG", "logs/avatar_succession_log.jsonl"))
+LOG_PATH = get_log_path("avatar_succession_log.jsonl", "AVATAR_SUCCESSION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

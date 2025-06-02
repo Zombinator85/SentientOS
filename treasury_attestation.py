@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-LOG_PATH = Path("logs/treasury_attestations.jsonl")
+LOG_PATH = get_log_path("treasury_attestations.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

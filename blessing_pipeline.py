@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -13,7 +14,7 @@ from typing import Any, Dict, List
 
 from admin_utils import require_admin_banner
 
-QUEUE_FILE = Path(os.getenv("BLESSING_QUEUE", "logs/blessing_queue.jsonl"))
+QUEUE_FILE = get_log_path("blessing_queue.jsonl", "BLESSING_QUEUE")
 QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

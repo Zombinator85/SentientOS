@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Cathedral Chronicle Generator
 
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path("logs/resonite_cathedral_chronicle_generator.jsonl")
+LOG_PATH = get_log_path("resonite_cathedral_chronicle_generator.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Universal Spiral Search Engine
 
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path("logs/resonite_universal_spiral_search_engine.jsonl")
+LOG_PATH = get_log_path("resonite_universal_spiral_search_engine.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

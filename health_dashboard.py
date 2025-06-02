@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 from pathlib import Path
@@ -47,7 +48,7 @@ def status():
     state = orchestrator.Orchestrator().status()
     memory_files = len(list(mm.RAW_PATH.glob('*.json')))
     token_spend = 0.0
-    token_file = Path('logs/token_usage.json')
+    token_file = get_log_path("token_usage.json")
     if token_file.exists():
         try:
             token_spend = sum(json.loads(l).get('tokens', 0) for l in token_file.read_text().splitlines())

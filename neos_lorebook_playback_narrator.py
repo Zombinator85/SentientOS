@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -10,7 +11,7 @@ from typing import Dict, List
 
 import neos_bridge as nb
 
-LOG_PATH = Path(os.getenv("NEOS_LOREBOOK_NARRATION_LOG", "logs/neos_lorebook_narration.jsonl"))
+LOG_PATH = get_log_path("neos_lorebook_narration.jsonl", "NEOS_LOREBOOK_NARRATION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

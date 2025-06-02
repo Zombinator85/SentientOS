@@ -5,6 +5,7 @@ Currently outputs an ASCII bar to represent animation.
 TODO: real GUI or dashboard integration.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -19,7 +20,7 @@ except Exception:  # pragma: no cover - headless env
 
 from presence_pulse_api import pulse
 
-LOG_PATH = Path("logs/avatar_animation.jsonl")
+LOG_PATH = get_log_path("avatar_animation.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 _GUI_ROOT: Optional[tk.Tk] = None

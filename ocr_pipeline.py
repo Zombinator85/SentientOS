@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 import time
@@ -11,7 +12,7 @@ from ocr_utils import ocr_chat_bubbles
 FOLDER = Path(os.getenv("OCR_WATCH", "screenshots"))
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "secret")
-LOG_FILE = Path(os.getenv("OCR_RELAY_LOG", "logs/ocr_relay.jsonl"))
+LOG_FILE = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # Deduplication state

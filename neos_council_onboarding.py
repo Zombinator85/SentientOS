@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -12,7 +13,7 @@ from pathlib import Path
 import presence_ledger as pl
 import neos_bridge as nb
 
-LOG_PATH = Path(os.getenv("NEOS_COUNCIL_LOG", "logs/neos_council.jsonl"))
+LOG_PATH = get_log_path("neos_council.jsonl", "NEOS_COUNCIL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

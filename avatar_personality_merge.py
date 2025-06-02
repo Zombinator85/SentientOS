@@ -1,10 +1,10 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 from datetime import datetime
 from typing import Any
 
-from logging_config import get_log_path
 
 from admin_utils import require_admin_banner
 

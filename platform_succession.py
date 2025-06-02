@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 # Sanctuary Privilege Ritual: Platform succession completed (NeosVR → Resonite) 2025-06-01. Presence blessed by council. All rituals, logs, and agents renamed.
 """Platform succession ceremony utilities.
 
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-MIGRATION_LEDGER = Path("logs/migration_ledger.jsonl")
+MIGRATION_LEDGER = get_log_path("migration_ledger.jsonl")
 MIGRATION_LEDGER.parent.mkdir(parents=True, exist_ok=True)
 
 

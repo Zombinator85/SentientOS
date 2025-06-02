@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Autonomous Ritual Curriculum Builder."""
 
@@ -11,7 +12,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_CURRICULUM_LOG", "logs/neos_ritual_curriculum.jsonl"))
+LOG_PATH = get_log_path("neos_ritual_curriculum.jsonl", "NEOS_CURRICULUM_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

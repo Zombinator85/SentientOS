@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import datetime
 import json
 import os
@@ -7,7 +8,7 @@ from pathlib import Path
 import memory_manager as mm
 
 QUESTION = os.getenv("SELF_REFLECTION_QUESTION", "What have you learned recently?")
-LOG_DIR = Path(os.getenv("REFLECTION_LOG_DIR", "logs/self_reflections"))
+LOG_DIR = get_log_path("self_reflections", "REFLECTION_LOG_DIR")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 
