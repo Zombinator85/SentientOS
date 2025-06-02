@@ -20,6 +20,9 @@ jobs:
       - name: Run privilege lint
         run: |
           python privilege_lint.py
+      - name: Run mypy
+        run: |
+          mypy --ignore-missing-imports .
       - name: Run tests
         run: |
           pytest
