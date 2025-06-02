@@ -2,7 +2,7 @@
   {
     "name": "bridge_stability_monitor",
     "trigger": "file_change",
-    "path": "logs/bridge_watchdog.jsonl",
+    "path": "${SENTIENTOS_LOG_DIR}/bridge_watchdog.jsonl",
     "actions": [
       {"type": "pycall", "func": "reflex_rules:bridge_restart_check"}
     ]

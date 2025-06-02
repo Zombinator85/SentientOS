@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
@@ -17,8 +19,6 @@ synthesis with Coqui TTS, pyttsx3 or other engines. Set
 ``SENTIENTOS_HEADLESS=1`` to disable audio output in tests or headless
 systems.
 """
-
-from __future__ import annotations
 
 import argparse
 import datetime as _dt
