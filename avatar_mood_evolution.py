@@ -31,12 +31,28 @@ def mood_history(avatar: str) -> List[Dict[str, str]]:
     return out
 
 
+def mood_stats(avatar: str) -> Dict[str, int]:
+    """Aggregate mood occurrences for the avatar."""
+    stats: Dict[str, int] = {}
+    for entry in mood_history(avatar):
+        mood = entry.get("mood")
+        if isinstance(mood, dict):
+            for m in mood.keys():
+                stats[m] = stats.get(m, 0) + 1
+        elif isinstance(mood, str):
+            stats[mood] = stats.get(mood, 0) + 1
+    return stats
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Avatar mood evolution")
     ap.add_argument("avatar")
     args = ap.parse_args()
     for e in mood_history(args.avatar):
         print(e.get("timestamp"), e.get("mood"))
+    stats = mood_stats(args.avatar)
+    if stats:
+        print(json.dumps({"stats": stats}, indent=2))
 
 
 if __name__ == "__main__":
