@@ -49,6 +49,11 @@ LOG_PATH = get_log_path("example_tool.jsonl", "EXAMPLE_LOG")
 
 Hard-coded paths like `"logs/mytool.jsonl"` are discouraged.
 
+## Audit Verification
+Run `python verify_audits.py` to check that the immutable logs listed in
+`config/master_files.json` remain valid. Each path is printed with `valid` or
+`tampered`.
+
 ## Final Cathedral-Polish Steps
 - [ ] `python privilege_lint.py` passes
 - [ ] `pytest` passes
