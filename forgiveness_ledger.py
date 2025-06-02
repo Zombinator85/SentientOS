@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-LEDGER_PATH = Path(os.getenv("FORGIVENESS_LEDGER", "logs/forgiveness_ledger.jsonl"))
+LEDGER_PATH = get_log_path("forgiveness_ledger.jsonl", "FORGIVENESS_LEDGER")
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

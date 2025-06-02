@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import time
@@ -11,7 +12,7 @@ except Exception:  # pragma: no cover - defensive
     recognize_from_mic = None
 
 WAKE_WORDS: List[str] = [w.strip() for w in os.getenv("WAKE_WORDS", "Lumos").split(",") if w.strip()]
-LOG_FILE = Path("logs/presence_events.jsonl")
+LOG_FILE = get_log_path("presence_events.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

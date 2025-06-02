@@ -1,10 +1,11 @@
 """Avatar-side heartbeat monitor."""
+from logging_config import get_log_path
 import socket
 import time
 import subprocess
 from pathlib import Path
 
-LOG_FILE = Path("logs/avatar_restarts.log")
+LOG_FILE = get_log_path("avatar_restarts.log")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 CMD = os.getenv("AVATAR_RECEIVER_CMD")
 process = None

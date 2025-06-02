@@ -1,5 +1,6 @@
 
 
+from logging_config import get_log_path
 import argparse
 import json
 import datetime
@@ -18,7 +19,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 from workflow_controller import _load_yaml
 
-AID_LOG = Path(os.getenv("WORKFLOW_AUDIT", "logs/workflow_audit.jsonl"))
+AID_LOG = get_log_path("workflow_audit.jsonl", "WORKFLOW_AUDIT")
 AID_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

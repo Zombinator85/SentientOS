@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 from pathlib import Path
 from typing import Dict, List
@@ -12,7 +13,7 @@ except Exception:  # pragma: no cover - optional
 
 
 def _load(limit: int = 100) -> List[Dict[str, object]]:
-    path = Path("logs/video_log.jsonl")
+    path = get_log_path("video_log.jsonl")
     if not path.exists():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()[-limit:]

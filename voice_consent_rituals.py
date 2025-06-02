@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import datetime
@@ -11,7 +12,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("VOICE_CONSENT_LOG", "logs/voice_consent.jsonl"))
+LOG_PATH = get_log_path("voice_consent.jsonl", "VOICE_CONSENT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import logging
@@ -165,19 +166,19 @@ def current_emotion() -> Response:
 
 @app.route("/eeg")
 def eeg_state() -> Response:
-    path = Path(os.getenv("EEG_LOG", "logs/eeg_events.jsonl"))
+    path = get_log_path("eeg_events.jsonl", "EEG_LOG")
     return jsonify(_read_last(path))
 
 
 @app.route("/haptics")
 def haptics_state() -> Response:
-    path = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
+    path = get_log_path("haptics_events.jsonl", "HAPTIC_LOG")
     return jsonify(_read_last(path))
 
 
 @app.route("/bio")
 def bio_state() -> Response:
-    path = Path(os.getenv("BIO_LOG", "logs/bio_events.jsonl"))
+    path = get_log_path("bio_events.jsonl", "BIO_LOG")
     return jsonify(_read_last(path))
 
 

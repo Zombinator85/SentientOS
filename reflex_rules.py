@@ -1,5 +1,6 @@
 """Custom reflex actions for bridge monitoring and daily digest."""
 from __future__ import annotations
+from logging_config import get_log_path
 import json
 import datetime
 from pathlib import Path
@@ -10,7 +11,7 @@ import daily_digest
 
 def bridge_restart_check() -> None:
     """Check recent restart events and escalate if too frequent."""
-    log = Path("logs/bridge_watchdog.jsonl")
+    log = get_log_path("bridge_watchdog.jsonl")
     now = datetime.datetime.utcnow()
     cutoff = now - datetime.timedelta(minutes=10)
     count = 0
@@ -29,7 +30,7 @@ def bridge_restart_check() -> None:
             if ts >= cutoff:
                 count += 1
     metrics = {"timestamp": now.isoformat(), "recent_restarts": count}
-    metric_path = Path("logs/bridge_metrics.json")
+    metric_path = get_log_path("bridge_metrics.json")
     metric_path.parent.mkdir(parents=True, exist_ok=True)
     metric_path.write_text(json.dumps(metrics))
     notification.send("bridge.restart", metrics)

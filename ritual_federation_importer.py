@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 from pathlib import Path
@@ -6,11 +7,11 @@ from typing import Dict
 from ledger import _append
 
 LOG_PATHS = {
-    "confession": Path("logs/confessional_log.jsonl"),
-    "blessing": Path("logs/support_log.jsonl"),
-    "federation": Path("logs/federation_log.jsonl"),
-    "forgiveness": Path("logs/forgiveness_ledger.jsonl"),
-    "heresy": Path("logs/heresy_log.jsonl"),
+    "confession": get_log_path("confessional_log.jsonl"),
+    "blessing": get_log_path("support_log.jsonl"),
+    "federation": get_log_path("federation_log.jsonl"),
+    "forgiveness": get_log_path("forgiveness_ledger.jsonl"),
+    "heresy": get_log_path("heresy_log.jsonl"),
 }
 
 

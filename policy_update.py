@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import datetime
 from pathlib import Path
 import review_requests as rr
 
-POLICY_STATE_FILE = Path("logs/policy_state.json")
-AUDIT_FILE = Path("logs/policy_audit.jsonl")
+POLICY_STATE_FILE = get_log_path("policy_state.json")
+AUDIT_FILE = get_log_path("policy_audit.jsonl")
 POLICY_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 

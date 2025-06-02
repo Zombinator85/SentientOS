@@ -1,13 +1,14 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
-CONFESSIONAL_LOG = Path(os.getenv("CONFESSIONAL_LOG", "logs/confessional_log.jsonl"))
-HERESY_LOG = Path(os.getenv("HERESY_LOG", "logs/heresy_log.jsonl"))
-FORGIVENESS_LOG = Path(os.getenv("FORGIVENESS_LEDGER", "logs/forgiveness_ledger.jsonl"))
-SUPPORT_LOG = Path("logs/support_log.jsonl")
+CONFESSIONAL_LOG = get_log_path("confessional_log.jsonl", "CONFESSIONAL_LOG")
+HERESY_LOG = get_log_path("heresy_log.jsonl", "HERESY_LOG")
+FORGIVENESS_LOG = get_log_path("forgiveness_ledger.jsonl", "FORGIVENESS_LEDGER")
+SUPPORT_LOG = get_log_path("support_log.jsonl")
 
 
 def _load(path: Path, kind: str, start: Optional[datetime], end: Optional[datetime]) -> List[Dict[str, str]]:

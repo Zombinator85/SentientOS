@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Festival/Federation Archive Exporter."""
 
@@ -11,7 +12,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_ARCHIVE_EXPORT_LOG", "logs/neos_archive_export.jsonl"))
+LOG_PATH = get_log_path("neos_archive_export.jsonl", "NEOS_ARCHIVE_EXPORT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

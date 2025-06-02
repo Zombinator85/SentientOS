@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import datetime
@@ -9,7 +10,7 @@ import support_log as sl
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
+MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH = MEMORY_DIR / "raw"
 EVENT_PATH = MEMORY_DIR / "events.jsonl"
 

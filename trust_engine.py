@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import uuid
@@ -11,7 +12,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 
-TRUST_DIR = Path(os.getenv("TRUST_DIR", "logs/trust"))
+TRUST_DIR = get_log_path("trust", "TRUST_DIR")
 EVENTS_PATH = TRUST_DIR / "events.jsonl"
 POLICIES_DIR = TRUST_DIR / "policies"
 FEEDBACK_PATH = TRUST_DIR / "feedback.jsonl"
@@ -144,4 +145,3 @@ def unlock_policy(name: str, user: str, reason: str) -> str:
     locks[name] = {"locked": False, "user": user, "reason": reason, "timestamp": _now()}
     _save_locks(locks)
     return log_event("unlock", f"policy:{name}", reason, user)
-

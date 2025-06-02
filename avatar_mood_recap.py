@@ -7,6 +7,7 @@ Example:
     python avatar_mood_recap.py --days 1 --out recap.md
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -15,7 +16,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_MEMORY_LINK_LOG", "logs/avatar_memory_link.jsonl"))
+LOG_PATH = get_log_path("avatar_memory_link.jsonl", "AVATAR_MEMORY_LINK_LOG")
 
 
 def load_entries(days: int = 1) -> List[Dict[str, str]]:

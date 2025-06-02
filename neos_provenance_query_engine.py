@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 from admin_utils import require_admin_banner
 
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("NEOS_PROVENANCE_QUERY_LOG", "logs/neos_provenance_query.jsonl"))
+LOG_PATH = get_log_path("neos_provenance_query.jsonl", "NEOS_PROVENANCE_QUERY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

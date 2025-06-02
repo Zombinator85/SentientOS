@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Council Law Review & Voting Platform."""
 
@@ -11,7 +12,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_COUNCIL_LAW_LOG", "logs/neos_council_law.jsonl"))
+LOG_PATH = get_log_path("neos_council_law.jsonl", "NEOS_COUNCIL_LAW_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

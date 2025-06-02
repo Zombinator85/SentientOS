@@ -8,6 +8,7 @@ Example:
     python avatar_council_blessing.py status avatar1 --quorum 2
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -16,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_COUNCIL_LOG", "logs/avatar_council_log.jsonl"))
+LOG_PATH = get_log_path("avatar_council_log.jsonl", "AVATAR_COUNCIL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

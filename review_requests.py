@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import uuid
@@ -7,8 +8,8 @@ from typing import Any, Dict, List, Optional
 
 import final_approval
 
-REQUESTS_FILE = Path(os.getenv("REVIEW_REQUESTS_FILE", "logs/review_requests.jsonl"))
-AUDIT_FILE = Path(os.getenv("SUGGESTION_AUDIT_FILE", "logs/suggestion_audit.jsonl"))
+REQUESTS_FILE = get_log_path("review_requests.jsonl", "REVIEW_REQUESTS_FILE")
+AUDIT_FILE = get_log_path("suggestion_audit.jsonl", "SUGGESTION_AUDIT_FILE")
 REQUESTS_FILE.parent.mkdir(parents=True, exist_ok=True)
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 

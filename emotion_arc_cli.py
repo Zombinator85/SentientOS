@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 from datetime import datetime, date
@@ -9,7 +10,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def load_today(limit: int = 100) -> list:
-    path = Path("logs/music_log.jsonl")
+    path = get_log_path("music_log.jsonl")
     if not path.exists():
         return []
     today = date.today().isoformat()

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -10,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-SESSIONS_LOG = Path(os.getenv("NEOS_COUNCIL_TEACHING_SESSIONS_LOG", "logs/neos_council_teaching_sessions.jsonl"))
-AUDIT_LOG = Path(os.getenv("NEOS_COUNCIL_TEACHING_AUDIT_LOG", "logs/neos_council_teaching_audit.jsonl"))
+SESSIONS_LOG = get_log_path("neos_council_teaching_sessions.jsonl", "NEOS_COUNCIL_TEACHING_SESSIONS_LOG")
+AUDIT_LOG = get_log_path("neos_council_teaching_audit.jsonl", "NEOS_COUNCIL_TEACHING_AUDIT_LOG")
 AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

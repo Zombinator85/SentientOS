@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 from pathlib import Path
@@ -9,8 +10,8 @@ import presence_ledger as pl
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 
-SUPPORT_LOG = Path('logs/support_log.jsonl')
-FED_LOG = Path('logs/federation_log.jsonl')
+SUPPORT_LOG = get_log_path("support_log.jsonl")
+FED_LOG = get_log_path("federation_log.jsonl")
 
 
 def cmd_open(args: argparse.Namespace) -> None:

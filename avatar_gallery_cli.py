@@ -1,6 +1,7 @@
 """Simple CLI to view avatars and presence pulses."""
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -10,7 +11,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-PRESENCE_LOG = Path(os.getenv("AVATAR_PRESENCE_LOG", "logs/avatar_presence.jsonl"))
+PRESENCE_LOG = get_log_path("avatar_presence.jsonl", "AVATAR_PRESENCE_LOG")
 
 
 def list_invocations(filter_reason: str = "") -> list[dict]:

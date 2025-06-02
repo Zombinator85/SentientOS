@@ -7,6 +7,7 @@ Example:
     python avatar_federation_blessing.py import avatar.tar.gz ./avatars alice
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -17,7 +18,7 @@ from pathlib import Path
 import avatar_federation as af
 from presence_pulse_api import pulse
 
-LOG_PATH = Path(os.getenv("AVATAR_FED_BLESSING_LOG", "logs/avatar_federation_blessing.jsonl"))
+LOG_PATH = get_log_path("avatar_federation_blessing.jsonl", "AVATAR_FED_BLESSING_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

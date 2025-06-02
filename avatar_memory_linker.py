@@ -8,6 +8,7 @@ Example:
     python avatar_memory_linker.py list --term forgiveness
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -16,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_MEMORY_LINK_LOG", "logs/avatar_memory_link.jsonl"))
+LOG_PATH = get_log_path("avatar_memory_link.jsonl", "AVATAR_MEMORY_LINK_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

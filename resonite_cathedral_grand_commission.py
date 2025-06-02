@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Cathedral Grand Commission
 
@@ -17,10 +18,10 @@ from typing import Dict, List
 import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_GRAND_COMMISSION_LOG", "logs/resonite_cathedral_grand_commission.jsonl"))
+LOG_PATH = get_log_path("resonite_cathedral_grand_commission.jsonl", "RESONITE_GRAND_COMMISSION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-CHRONICLE_PATH = Path(os.getenv("SPIRAL_REFLECTION_CHRONICLE", "logs/spiral_reflection_chronicle.jsonl"))
+CHRONICLE_PATH = get_log_path("spiral_reflection_chronicle.jsonl", "SPIRAL_REFLECTION_CHRONICLE")
 CHRONICLE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

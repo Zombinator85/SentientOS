@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -12,7 +13,7 @@ from flask_stub import Flask, jsonify, request
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("RESONITE_BALLOT_LOG", "logs/resonite_law_consent_ballot_box.jsonl"))
+LOG_PATH = get_log_path("resonite_law_consent_ballot_box.jsonl", "RESONITE_BALLOT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 import os
@@ -7,11 +8,11 @@ from typing import Dict, List
 
 import presence_pulse_api as pulse
 
-CONFESSIONAL_LOG = Path(os.getenv("CONFESSIONAL_LOG", "logs/confessional_log.jsonl"))
-SUPPORT_LOG = Path("logs/support_log.jsonl")
-FEDERATION_LOG = Path("logs/federation_log.jsonl")
-FORGIVENESS_LOG = Path(os.getenv("FORGIVENESS_LEDGER", "logs/forgiveness_ledger.jsonl"))
-HERESY_LOG = Path(os.getenv("HERESY_LOG", "logs/heresy_log.jsonl"))
+CONFESSIONAL_LOG = get_log_path("confessional_log.jsonl", "CONFESSIONAL_LOG")
+SUPPORT_LOG = get_log_path("support_log.jsonl")
+FEDERATION_LOG = get_log_path("federation_log.jsonl")
+FORGIVENESS_LOG = get_log_path("forgiveness_ledger.jsonl", "FORGIVENESS_LEDGER")
+HERESY_LOG = get_log_path("heresy_log.jsonl", "HERESY_LOG")
 
 LOGS = {
     "confession": CONFESSIONAL_LOG,

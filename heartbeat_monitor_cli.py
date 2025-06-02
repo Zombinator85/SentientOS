@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import time
 from pathlib import Path
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-LOG_PATH = Path("logs/user_presence.jsonl")
+LOG_PATH = get_log_path("user_presence.jsonl")
 
 
 def monitor(period: float = 5.0, window: int = 60) -> None:

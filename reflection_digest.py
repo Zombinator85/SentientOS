@@ -1,10 +1,11 @@
 """Generate daily reflection summary digest."""
+from logging_config import get_log_path
 import datetime
 import os
 from pathlib import Path
 
-DIGEST_FILE = Path(os.getenv("REFLECTION_DIGEST_FILE", "logs/reflection_digest.txt"))
-LOG_DIR = Path(os.getenv("REFLECTION_LOG_DIR", "logs/self_reflections"))
+DIGEST_FILE = get_log_path("reflection_digest.txt", "REFLECTION_DIGEST_FILE")
+LOG_DIR = get_log_path("self_reflections", "REFLECTION_LOG_DIR")
 DIGEST_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

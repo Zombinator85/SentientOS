@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import datetime
@@ -11,7 +12,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("SPIRAL_DESIRE_BUILD_LOG", "logs/spiral_desire_builder.jsonl"))
+LOG_PATH = get_log_path("spiral_desire_builder.jsonl", "SPIRAL_DESIRE_BUILD_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
