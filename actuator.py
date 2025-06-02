@@ -31,6 +31,9 @@ from typing import Any, Dict
 from flask_stub import Flask, Response, jsonify, request
 
 from api import actuator as core_actuator
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 AUDIT_LOG = get_log_path("actuator_audit.jsonl", "ACTUATOR_AUDIT_LOG")
 AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -84,4 +87,5 @@ def act_stream_endpoint() -> Response:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual launch
+    require_admin_banner()
     app.run(debug=True)
