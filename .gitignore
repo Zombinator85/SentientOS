@@ -14,6 +14,7 @@ logs/
 !logs/support_log.jsonl
 !logs/federation_log.jsonl
 !logs/user_presence.jsonl
+!logs/migration_ledger.jsonl
 *.log
 
 # Local environment files

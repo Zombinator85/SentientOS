@@ -26,7 +26,7 @@
 - `avatar_performance_scoreboard.py` – review avatar performance metrics.
 - `avatar_sanctuary_artifacts_generator.py` – craft and log sanctuary artifacts.
 - `avatar_artifact_gallery.py` – curate and search all avatar artifacts.
-- `neos_bridge.py` – bridge messages to a NeosVR LogiX folder.
+- `neos_bridge.py` – bridge messages to a Resonite LogiX folder.
 - `neos_avatar_emotion_pipeline.py` – map emotion vectors to avatar blendshapes.
 - `neos_avatar_crowning_cli.py` – crown a new VR avatar and log the ritual.
 - `neos_sanctuary_scene_pipeline.py` – generate sanctuary scene configs for Neos.
