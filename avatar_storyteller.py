@@ -6,6 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+try:  # optional speech output
+    import tts_bridge  # type: ignore
+except Exception:  # pragma: no cover - optional
+    tts_bridge = None  # type: ignore
+
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -27,9 +32,13 @@ def log_story(avatar: str, memory: str, mood: str) -> dict[str, Any]:
 
 
 def recite(avatar: str, memory: str) -> dict[str, Any]:
-    """Placeholder avatar narration."""
-    # TODO: TTS and animation hooking into narrator module
-    mood = "neutral"
+    """Speak a memory snippet and log the performance."""
+    mood = "excited" if "!" in memory else "neutral"
+    if tts_bridge is not None:
+        try:
+            tts_bridge.speak(memory, emotions={mood: 1.0})
+        except Exception:  # pragma: no cover - audio errors
+            pass
     return log_story(avatar, memory, mood)
 
 

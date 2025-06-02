@@ -12,6 +12,7 @@ from admin_utils import require_admin_banner
 
 LOG_PATH = get_log_path("avatar_merge.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+MEMORY_PATH = get_log_path("avatar_memory_link.jsonl", "AVATAR_MEMORY_LINK_LOG")
 
 
 def log_merge(new_avatar: str, parents: list[str], info: dict[str, Any]) -> dict[str, Any]:
@@ -27,9 +28,26 @@ def log_merge(new_avatar: str, parents: list[str], info: dict[str, Any]) -> dict
 
 
 def merge(a: str, b: str, name: str) -> dict[str, Any]:
-    """Placeholder avatar merge ritual."""
-    # TODO: merge mood and memory logs
-    info = {"note": "merge placeholder"}
+    """Merge avatar memory links under a new identity."""
+    merged: list[dict[str, Any]] = []
+    if MEMORY_PATH.exists():
+        lines = MEMORY_PATH.read_text(encoding="utf-8").splitlines()
+        for ln in lines:
+            try:
+                entry = json.loads(ln)
+            except Exception:
+                continue
+            if entry.get("avatar") in {a, b}:
+                entry["avatar"] = name
+                merged.append(entry)
+        if merged:
+            need_nl = MEMORY_PATH.read_text(encoding="utf-8").endswith("\n")
+            with MEMORY_PATH.open("a", encoding="utf-8") as f:
+                if not need_nl:
+                    f.write("\n")
+                for entry in merged:
+                    f.write(json.dumps(entry) + "\n")
+    info = {"merged": len(merged)}
     return log_merge(name, [a, b], info)
 
 

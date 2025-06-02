@@ -4,7 +4,7 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 """Avatar Mood Evolution Visualizer
 
 Graph the mood tags of an avatar across its history.
-Currently prints a simple time ordered list. TODO: real graphs.
+This implementation prints a simple time ordered list.
 """
 from __future__ import annotations
 from logging_config import get_log_path

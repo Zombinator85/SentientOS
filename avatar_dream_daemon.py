@@ -3,6 +3,7 @@ from logging_config import get_log_path
 
 from datetime import datetime
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -25,10 +26,18 @@ def log_dream(seed: str, info: dict[str, Any]) -> dict[str, Any]:
     return entry
 
 
+DREAM_DIR = Path(os.getenv("AVATAR_DREAM_DIR", "dreams"))
+DREAM_DIR.mkdir(parents=True, exist_ok=True)
+
+
 def run_once(seed: str) -> dict[str, Any]:
-    """Generate a placeholder dream avatar entry."""
-    # TODO: generate Blender scene or moodboard
-    info = {"note": "dream placeholder"}
+    """Generate a simple text dream and log it."""
+    out = DREAM_DIR / f"{seed}.txt"
+    try:
+        out.write_text(f"Dream: {seed}", encoding="utf-8")
+        info = {"path": str(out)}
+    except Exception as exc:  # pragma: no cover - file errors
+        info = {"error": str(exc)}
     return log_dream(seed, info)
 
 
