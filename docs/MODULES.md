@@ -26,5 +26,15 @@
 - `avatar_performance_scoreboard.py` – review avatar performance metrics.
 - `avatar_sanctuary_artifacts_generator.py` – craft and log sanctuary artifacts.
 - `avatar_artifact_gallery.py` – curate and search all avatar artifacts.
+- `neos_bridge.py` – bridge messages to a NeosVR LogiX folder.
+- `neos_avatar_emotion_pipeline.py` – map emotion vectors to avatar blendshapes.
+- `neos_avatar_crowning_cli.py` – crown a new VR avatar and log the ritual.
+- `neos_sanctuary_scene_pipeline.py` – generate sanctuary scene configs for Neos.
+- `neos_council_onboarding.py` – run council onboarding ceremonies in VR.
+- `neos_memory_playback.py` – replay memory fragments via the bridge.
+- `neos_federation_sync.py` – broadcast cross-world presence pulses.
+- `neos_avatar_teaching_mode.py` – lead onboarding sessions as an avatar.
+- `neos_artifact_logger.py` – bless and archive sanctuary artifacts for VR.
+- `neos_presence_dashboard.py` – visualize presence pulse events in real time.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
