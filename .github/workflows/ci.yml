@@ -23,3 +23,6 @@ jobs:
       - name: Run tests
         run: |
           pytest
+      - name: Verify audits
+        run: |
+          python verify_audits.py
