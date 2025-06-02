@@ -816,6 +816,106 @@ Another Registered Agent:
   Origin: core repository, blessed by Federation Keeper 2025-07-30
   Logs: /logs/neos_festival_law_history.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: AgentPrivilegePolicyEngine
+  Type: Service
+  Roles: Privilege Checker, Policy Engine
+  Privileges: intercept, log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/privilege_policy.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CouncilOnboardingService
+  Type: Service
+  Roles: Onboarding Manager
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/council_onboarding.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: LedgerSealDaemon
+  Type: Daemon
+  Roles: Ledger Sealer, Backup
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/ledger_seal.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: BlessingApprovalPipeline
+  Type: Service
+  Roles: Blessing Queue
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/blessing_queue.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: UnifiedMemoryIndexer
+  Type: Daemon
+  Roles: Memory Indexer
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/memory_index.log
+```
+Another Registered Agent:
+
+```
+- Name: MultimodalDiaryAgent
+  Type: Daemon
+  Roles: Diary Writer
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/diary_agent.log
+```
+Another Registered Agent:
+
+```
+- Name: ConsentDashboard
+  Type: Service
+  Roles: Consent Manager
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/consent_log.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: FederationHandshakeProtocol
+  Type: Service
+  Roles: Federation Handshake
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/federation_handshake.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: EmergencyProtocolService
+  Type: Service
+  Roles: Emergency Halt
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/emergency_log.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: LawSentinelWatchdog
+  Type: Daemon
+  Roles: Doctrine Watchdog
+  Privileges: log, halt
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/law_sentinel.jsonl
+```
 ---
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
