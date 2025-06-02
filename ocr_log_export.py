@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 OCR_LOG = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 
 

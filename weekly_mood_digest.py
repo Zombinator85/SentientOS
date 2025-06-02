@@ -4,6 +4,9 @@ import os
 from datetime import datetime, timedelta, date
 from pathlib import Path
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 LOG_PATH = get_log_path("music_log.jsonl")
 
 

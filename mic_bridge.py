@@ -10,6 +10,9 @@ from emotions import empty_emotion_vector
 import emotion_utils as eu
 from utils import is_headless
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 try:
     import speech_recognition as sr
 except Exception as e:  # pragma: no cover - dependency missing
