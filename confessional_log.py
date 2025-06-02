@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-LOG_PATH = Path(os.getenv("CONFESSIONAL_LOG", "logs/confessional_log.jsonl"))
+LOG_PATH = get_log_path("confessional_log.jsonl", "CONFESSIONAL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

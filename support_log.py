@@ -1,7 +1,8 @@
+from logging_config import get_log_path
 from pathlib import Path
 import ledger
 
-LOG_PATH = Path("logs/support_log.jsonl")
+LOG_PATH = get_log_path("support_log.jsonl")
 
 
 def add(name: str, message: str, amount: str = "") -> dict:

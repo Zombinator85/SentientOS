@@ -7,6 +7,7 @@ Example:
     python avatar_teaching_logger.py list
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -15,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_TEACH_LOG", "logs/avatar_teaching.jsonl"))
+LOG_PATH = get_log_path("avatar_teaching.jsonl", "AVATAR_TEACH_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

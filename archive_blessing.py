@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import datetime
@@ -14,7 +15,7 @@ from log_utils import append_json, read_json
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("ARCHIVE_BLESSING_LOG", "logs/archive_blessing.jsonl"))
+LOG_PATH = get_log_path("archive_blessing.jsonl", "ARCHIVE_BLESSING_LOG")
 ARCHIVE_DIR = Path(os.getenv("ARCHIVE_DIR", "archives"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Emergency Escalation & Recovery Agent
 
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path("logs/resonite_emergency_escalation_recovery_agent.jsonl")
+LOG_PATH = get_log_path("resonite_emergency_escalation_recovery_agent.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

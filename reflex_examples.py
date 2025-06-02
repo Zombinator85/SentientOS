@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import os
 from pathlib import Path
 
-EMOTION_LOG = Path(os.getenv("EMOTION_LOG", "logs/emotions.jsonl"))
-EEG_LOG = Path(os.getenv("EEG_FEATURE_LOG", "logs/eeg_features.jsonl"))
-HAPTIC_LOG = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
+EMOTION_LOG = get_log_path("emotions.jsonl", "EMOTION_LOG")
+EEG_LOG = get_log_path("eeg_features.jsonl", "EEG_FEATURE_LOG")
+HAPTIC_LOG = get_log_path("haptics_events.jsonl", "HAPTIC_LOG")
 
 
 def _last_value(path: Path, field: str) -> float:

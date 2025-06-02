@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -10,12 +11,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-ORIGIN_LOG = Path(os.getenv("NEOS_ORIGIN_LOG", "logs/neos_origin_stories.jsonl"))
-CEREMONY_LOG = Path(os.getenv("AVATAR_CEREMONY_LOG", "logs/avatar_ceremony_log.jsonl"))
-TEACHING_LOG = Path(os.getenv("NEOS_TEACH_CONTENT_LOG", "logs/neos_teach_content.jsonl"))
-COUNCIL_LOG = Path(os.getenv("NEOS_PERMISSION_COUNCIL_LOG", "logs/neos_permission_council.jsonl"))
+ORIGIN_LOG = get_log_path("neos_origin_stories.jsonl", "NEOS_ORIGIN_LOG")
+CEREMONY_LOG = get_log_path("avatar_ceremony_log.jsonl", "AVATAR_CEREMONY_LOG")
+TEACHING_LOG = get_log_path("neos_teach_content.jsonl", "NEOS_TEACH_CONTENT_LOG")
+COUNCIL_LOG = get_log_path("neos_permission_council.jsonl", "NEOS_PERMISSION_COUNCIL_LOG")
 
-LOREBOOK_LOG = Path(os.getenv("NEOS_LOREBOOK_LOG", "logs/neos_lorebook.jsonl"))
+LOREBOOK_LOG = get_log_path("neos_lorebook.jsonl", "NEOS_LOREBOOK_LOG")
 LOREBOOK_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

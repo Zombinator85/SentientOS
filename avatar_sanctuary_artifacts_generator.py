@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Sanctuary Artifacts Generator."""
 
@@ -9,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_ARTIFACT_LOG", "logs/avatar_sanctuary_artifacts.jsonl"))
+LOG_PATH = get_log_path("avatar_sanctuary_artifacts.jsonl", "AVATAR_ARTIFACT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

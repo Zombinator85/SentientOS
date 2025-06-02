@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import time
 from pathlib import Path
@@ -29,7 +30,7 @@ from memory_manager import append_memory
 from emotions import empty_emotion_vector
 from utils import is_headless
 
-AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
+AUDIO_DIR = get_log_path("audio", "AUDIO_LOG_DIR")
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")

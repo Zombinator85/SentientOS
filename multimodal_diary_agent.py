@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -13,7 +14,7 @@ from typing import List
 
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("DIARY_LOG", "logs/diary_agent.log"))
+LOG_PATH = get_log_path("diary_agent.log", "DIARY_LOG")
 DIARY_DIR = Path(os.getenv("DIARY_DIR", "diaries"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 DIARY_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import datetime
@@ -5,7 +6,7 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
-APPROVAL_LOG = Path(os.getenv("FINAL_APPROVAL_LOG", "logs/final_approval.jsonl"))
+APPROVAL_LOG = get_log_path("final_approval.jsonl", "FINAL_APPROVAL_LOG")
 APPROVAL_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 APPROVER_FILE = Path(os.getenv("FINAL_APPROVER_FILE", "config/final_approvers.json"))

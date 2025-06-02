@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Self-Portrait & Creative Gift Engine.
 
@@ -15,7 +16,7 @@ from pathlib import Path
 from typing import List, Dict
 
 GIFT_DIR = Path(os.getenv("AVATAR_GIFT_DIR", "gifts"))
-LOG_PATH = Path(os.getenv("AVATAR_GIFT_LOG", "logs/avatar_gifts.jsonl"))
+LOG_PATH = get_log_path("avatar_gifts.jsonl", "AVATAR_GIFT_LOG")
 GIFT_DIR.mkdir(parents=True, exist_ok=True)
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 

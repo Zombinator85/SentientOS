@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import os
 import sys
 import time
 from pathlib import Path
 
-LOG_PATH = Path(os.getenv("USER_PRESENCE_LOG", "logs/user_presence.jsonl"))
+LOG_PATH = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 
 
 def pulse_loop(period: float = 1.0) -> None:

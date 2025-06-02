@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import hashlib
 import time
@@ -26,7 +27,7 @@ def log_support(
         "amount": amount,
         "ritual": "Sanctuary blessing acknowledged and remembered.",
     }
-    return _append(Path("logs/support_log.jsonl"), entry)
+    return _append(get_log_path("support_log.jsonl"), entry)
 
 # Backwards compatibility
 log_supporter = log_support
@@ -40,7 +41,7 @@ def log_federation(peer: str, email: str = "", message: str = "Federation sync")
         "message": message,
         "ritual": "Federation blessing recorded.",
     }
-    return _append(Path("logs/federation_log.jsonl"), entry)
+    return _append(get_log_path("federation_log.jsonl"), entry)
 
 
 def log_music_event(
@@ -72,7 +73,7 @@ def log_music_event(
         "peer": peer or "",
         "ritual": "Music generation remembered." if event == "generated" else "Music listen remembered.",
     }
-    return _append(Path("logs/music_log.jsonl"), entry)
+    return _append(get_log_path("music_log.jsonl"), entry)
 
 
 def log_music(
@@ -171,7 +172,7 @@ def log_video_event(
         "peer": peer or "",
         "ritual": "Video remembered.",
     }
-    return _append(Path("logs/video_log.jsonl"), entry)
+    return _append(get_log_path("video_log.jsonl"), entry)
 
 
 def log_video_create(
@@ -254,7 +255,7 @@ def log_mood_blessing(
         "phrase": phrase,
         "ritual": "Mood blessing recorded.",
     }
-    _append(Path("logs/music_log.jsonl"), entry)
+    _append(get_log_path("music_log.jsonl"), entry)
     doctrine.log_json(
         doctrine.PUBLIC_LOG,
         {
@@ -270,7 +271,7 @@ def log_mood_blessing(
 
 def playlist_by_mood(mood: str, limit: int = 10) -> List[Dict[str, str]]:
     """Return recent tracks containing the given mood."""
-    path = Path("logs/music_log.jsonl")
+    path = get_log_path("music_log.jsonl")
     if not path.exists():
         return []
     lines = list(reversed(path.read_text(encoding="utf-8").splitlines()))
@@ -317,7 +318,7 @@ def playlist_log(
 
 def music_recap(limit: int = 20) -> Dict[str, object]:
     """Return emotion totals and resonance stats."""
-    path = Path("logs/music_log.jsonl")
+    path = get_log_path("music_log.jsonl")
     if not path.exists():
         return {"emotion_totals": {}, "most_shared_mood": "", "top_tracks": []}
     lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -346,7 +347,7 @@ def music_recap(limit: int = 20) -> Dict[str, object]:
 
 def video_recap(limit: int = 20) -> Dict[str, object]:
     """Return emotion totals and resonance stats for videos."""
-    path = Path("logs/video_log.jsonl")
+    path = get_log_path("video_log.jsonl")
     if not path.exists():
         return {"emotion_totals": {}, "most_shared_mood": "", "top_videos": []}
     lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -393,9 +394,9 @@ summary = summarize_log
 
 def streamlit_widget(st_module) -> None:
     """Display ledger summary in a Streamlit dashboard."""
-    sup = summarize_log(Path("logs/support_log.jsonl"))
-    fed = summarize_log(Path("logs/federation_log.jsonl"))
-    music = summarize_log(Path("logs/music_log.jsonl"))
+    sup = summarize_log(get_log_path("support_log.jsonl"))
+    fed = summarize_log(get_log_path("federation_log.jsonl"))
+    music = summarize_log(get_log_path("music_log.jsonl"))
     import presence_ledger as pl
     priv = pl.recent_privilege_attempts()
     st_module.write(
@@ -431,10 +432,10 @@ def _unique_values(path: Path, field: str) -> int:
 
 def print_summary(limit: int = 3) -> None:
     """Print a ledger summary to stdout."""
-    sup_path = Path("logs/support_log.jsonl")
-    fed_path = Path("logs/federation_log.jsonl")
-    att_path = Path("logs/ritual_attestations.jsonl")
-    music_path = Path("logs/music_log.jsonl")
+    sup_path = get_log_path("support_log.jsonl")
+    fed_path = get_log_path("federation_log.jsonl")
+    att_path = get_log_path("ritual_attestations.jsonl")
+    music_path = get_log_path("music_log.jsonl")
 
     sup = summarize_log(sup_path, limit=limit)
     fed = summarize_log(fed_path, limit=limit)
@@ -455,10 +456,10 @@ def print_summary(limit: int = 3) -> None:
 
 def snapshot_counts() -> Dict[str, int]:
     """Return counts and unique totals for the main ledgers."""
-    sup_path = Path("logs/support_log.jsonl")
-    fed_path = Path("logs/federation_log.jsonl")
-    att_path = Path("logs/ritual_attestations.jsonl")
-    music_path = Path("logs/music_log.jsonl")
+    sup_path = get_log_path("support_log.jsonl")
+    fed_path = get_log_path("federation_log.jsonl")
+    att_path = get_log_path("ritual_attestations.jsonl")
+    music_path = get_log_path("music_log.jsonl")
 
     return {
         "support": summarize_log(sup_path)["count"],
@@ -485,9 +486,9 @@ def print_snapshot_banner() -> None:
 
 def print_recap(limit: int = 3) -> None:
     """Print a recap of recent support, federation, and music events."""
-    sup = summarize_log(Path("logs/support_log.jsonl"), limit=limit)
-    fed = summarize_log(Path("logs/federation_log.jsonl"), limit=limit)
-    music = summarize_log(Path("logs/music_log.jsonl"), limit=limit)
+    sup = summarize_log(get_log_path("support_log.jsonl"), limit=limit)
+    fed = summarize_log(get_log_path("federation_log.jsonl"), limit=limit)
+    music = summarize_log(get_log_path("music_log.jsonl"), limit=limit)
     data = {
         "support_recent": sup["recent"],
         "federation_recent": fed["recent"],

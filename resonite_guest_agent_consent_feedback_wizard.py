@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 import argparse
 import json
 import os
@@ -10,7 +11,7 @@ from admin_utils import require_admin_banner
 import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_CONSENT_LOG", "logs/resonite_consent_feedback_wizard.jsonl"))
+LOG_PATH = get_log_path("resonite_consent_feedback_wizard.jsonl", "RESONITE_CONSENT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

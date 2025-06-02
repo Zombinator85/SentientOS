@@ -1,4 +1,5 @@
 """Generate heatmap image from OCR log data with bbox positions."""
+from logging_config import get_log_path
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ except Exception:  # pragma: no cover - optional
     Image = None
     np = None
 
-LOG = Path(os.getenv("OCR_RELAY_LOG", "logs/ocr_relay.jsonl"))
+LOG = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 
 
 def generate_heatmap(out_path: Path, width: int = 1280, height: int = 720) -> bool:

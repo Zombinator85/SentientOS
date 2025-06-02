@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import random
 import time
@@ -6,7 +7,7 @@ from pathlib import Path
 from emotion_udp_bridge import EmotionUDPBridge
 
 
-LOG_FILE = Path("logs/emotion_vectors.jsonl")
+LOG_FILE = get_log_path("emotion_vectors.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -26,4 +27,3 @@ def run() -> None:
 
 if __name__ == "__main__":  # pragma: no cover - manual
     run()
-

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import sys
 import json
@@ -21,12 +22,12 @@ def test_wall_load_and_bless(monkeypatch, tmp_path):
     orig_read = Path.read_text
 
     def fake_exists(self):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return True
         return orig_exists(self)
 
     def fake_read(self, encoding="utf-8"):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return log.read_text(encoding=encoding)
         return orig_read(self, encoding=encoding)
 
@@ -65,5 +66,3 @@ def test_sync_wall_http(monkeypatch, tmp_path):
     count = mood_wall.sync_wall_http("http://peer")
     assert count == 1
     assert log.exists() and "a" in log.read_text()
-
-

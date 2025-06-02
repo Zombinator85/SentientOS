@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-FEEDBACK_LOG = Path(os.getenv("TEACHING_FEEDBACK_LOG", "logs/teaching_feedback.jsonl"))
+FEEDBACK_LOG = get_log_path("teaching_feedback.jsonl", "TEACHING_FEEDBACK_LOG")
 FEEDBACK_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

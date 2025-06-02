@@ -1,9 +1,9 @@
+from logging_config import get_log_path
 import datetime
 import json
 from pathlib import Path
 from typing import List, Dict
 
-from logging_config import get_log_path
 
 import confessional_log as clog
 

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -64,7 +65,7 @@ def _play(path: str, user: str, share: str | None = None) -> dict:
 
 
 def _recap_emotion(limit: int = 20) -> dict:
-    path = Path("logs/music_log.jsonl")
+    path = get_log_path("music_log.jsonl")
     totals: dict[str, float] = {}
     journey: list[dict[str, object]] = []
     if path.exists():

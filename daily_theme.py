@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import os
 import random
 from datetime import datetime
 from pathlib import Path
 
-THEME_LOG = Path(os.getenv("DAILY_THEME_LOG", "logs/daily_theme.jsonl"))
+THEME_LOG = get_log_path("daily_theme.jsonl", "DAILY_THEME_LOG")
 THEME_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 THEMES = [

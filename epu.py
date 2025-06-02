@@ -8,6 +8,7 @@ Integration Notes: create a single ``EmotionProcessingUnit`` and feed updates fr
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -18,7 +19,7 @@ from typing import Deque, Dict, Optional
 
 from emotion_utils import empty_emotion_vector, fuse
 
-MOOD_LOG = Path(os.getenv("EPU_MOOD_LOG", "logs/epu_mood.jsonl"))
+MOOD_LOG = get_log_path("epu_mood.jsonl", "EPU_MOOD_LOG")
 MOOD_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

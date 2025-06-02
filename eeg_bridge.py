@@ -9,6 +9,7 @@ The bridge falls back to a simple random data generator if ``mne`` or
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -26,7 +27,7 @@ except Exception:  # pragma: no cover - optional
     mne = None
     BoardShim = None
 
-LOG_FILE = Path(os.getenv("EEG_LOG", "logs/eeg_events.jsonl"))
+LOG_FILE = get_log_path("eeg_events.jsonl", "EEG_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

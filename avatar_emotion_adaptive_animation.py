@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Emotion-Adaptive Animation Engine."""
 
@@ -10,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-LOG_PATH = Path(os.getenv("AVATAR_ANIMATION_LOG", "logs/avatar_animation.jsonl"))
+LOG_PATH = get_log_path("avatar_animation.jsonl", "AVATAR_ANIMATION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

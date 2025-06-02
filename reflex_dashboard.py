@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 import re
@@ -109,12 +110,12 @@ def run_cli(args: argparse.Namespace) -> None:
         for entry in entries:
             print(json.dumps(entry))
     if args.list_feedback:
-        path = Path(os.getenv("FEEDBACK_USER_LOG", "logs/reflex_user_feedback.jsonl"))
+        path = get_log_path("reflex_user_feedback.jsonl", "FEEDBACK_USER_LOG")
         if path.exists():
             for line in path.read_text().splitlines():
                 print(line)
     if args.feedback_log:
-        path = Path(os.getenv("FEEDBACK_USER_LOG", "logs/reflex_user_feedback.jsonl"))
+        path = get_log_path("reflex_user_feedback.jsonl", "FEEDBACK_USER_LOG")
         if path.exists():
             lines = path.read_text().splitlines()[-args.feedback_log:]
             for ln in lines:

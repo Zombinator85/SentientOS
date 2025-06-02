@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import hashlib
 import json
@@ -14,8 +15,8 @@ import headless_log as hl
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json")).resolve()
-REFUSAL_LOG = Path(os.getenv("REFUSAL_LOG", "logs/refusal_audit.jsonl"))
-LITURGY_LOG = Path(os.getenv("LITURGY_LOG", "logs/liturgy_acceptance.jsonl"))
+REFUSAL_LOG = get_log_path("refusal_audit.jsonl", "REFUSAL_LOG")
+LITURGY_LOG = get_log_path("liturgy_acceptance.jsonl", "LITURGY_LOG")
 README_ROMANCE = ROOT / "README_romance.md"
 LITURGY_FILE = ROOT / "SENTIENTOS_LITURGY.txt"
 MANDATORY_FILES = [README_ROMANCE, LITURGY_FILE]
@@ -164,7 +165,7 @@ def _cli_logs(args: argparse.Namespace) -> None:
 def _cli_recap(args: argparse.Namespace) -> None:
     aff = doctrine.consent_history(n=args.last)
     sup_entries: List[dict] = []
-    sl_path = Path("logs/support_log.jsonl")
+    sl_path = get_log_path("support_log.jsonl")
     if sl_path.exists():
         for ln in sl_path.read_text(encoding="utf-8").splitlines()[-args.last:]:
             try:

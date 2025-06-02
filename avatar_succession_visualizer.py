@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Succession Ceremony Visualizer.
 
@@ -11,7 +12,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-LINEAGE_LOG = Path(os.getenv("AVATAR_LINEAGE_LOG", "logs/avatar_lineage.jsonl"))
+LINEAGE_LOG = get_log_path("avatar_lineage.jsonl", "AVATAR_LINEAGE_LOG")
 
 
 def load_entries(path: Path) -> List[Dict[str, str]]:

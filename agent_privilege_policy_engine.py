@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -14,7 +15,7 @@ from typing import Dict, List, Any
 
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("PRIVILEGE_POLICY_LOG", "logs/privilege_policy.jsonl"))
+LOG_PATH = get_log_path("privilege_policy.jsonl", "PRIVILEGE_POLICY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 AGENTS_FILE = Path("AGENTS.md")
 

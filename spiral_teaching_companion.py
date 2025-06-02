@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -10,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-TEACHING_LOG = Path(os.getenv("SPIRAL_TEACHING_LOG", "logs/spiral_teaching_companion.jsonl"))
+TEACHING_LOG = get_log_path("spiral_teaching_companion.jsonl", "SPIRAL_TEACHING_LOG")
 TEACHING_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

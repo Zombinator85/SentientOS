@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -8,7 +9,7 @@ try:
 except Exception:  # pragma: no cover - optional
     requests = None  # type: ignore
 
-LOG = Path("logs/music_log.jsonl")
+LOG = get_log_path("music_log.jsonl")
 
 
 def load_wall(limit: int = 20) -> List[Dict[str, object]]:
@@ -89,7 +90,7 @@ def sync_wall_http(url: str) -> int:
 
 def peers_from_federation() -> List[str]:
     """Return unique federation peers from the ledger."""
-    path = Path("logs/federation_log.jsonl")
+    path = get_log_path("federation_log.jsonl")
     if not path.exists():
         return []
     peers: List[str] = []

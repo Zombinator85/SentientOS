@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Autonomous Blessing Proposal Engine."""
 
@@ -9,8 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-PROPOSAL_LOG = Path(os.getenv("AVATAR_BLESSING_PROPOSAL_LOG", "logs/avatar_blessing_proposals.jsonl"))
-APPROVAL_LOG = Path(os.getenv("AVATAR_BLESSING_APPROVAL_LOG", "logs/avatar_blessing_approved.jsonl"))
+PROPOSAL_LOG = get_log_path("avatar_blessing_proposals.jsonl", "AVATAR_BLESSING_PROPOSAL_LOG")
+APPROVAL_LOG = get_log_path("avatar_blessing_approved.jsonl", "AVATAR_BLESSING_APPROVAL_LOG")
 for p in (PROPOSAL_LOG, APPROVAL_LOG):
     p.parent.mkdir(parents=True, exist_ok=True)
 
