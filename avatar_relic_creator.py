@@ -26,9 +26,20 @@ def log_relic(avatar: str, relic: str, info: dict[str, Any]) -> dict[str, Any]:
 
 
 def extract(avatar: str, relic: str) -> dict[str, Any]:
-    """Placeholder for heirloom extraction."""
-    # TODO: export selected memory fragments
-    info = {"note": "relic placeholder"}
+    """Select memory fragments for ``avatar`` and persist them as a relic."""
+
+    fragments = []
+    try:
+        import memory_manager as mm
+
+        fragments = mm.search_by_tags([avatar], limit=5)
+    except Exception:  # pragma: no cover - optional dependency failures
+        fragments = []
+
+    info = {"fragments": [f.get("text", "") for f in fragments]}
+    if not info["fragments"]:
+        info["note"] = "relic placeholder"
+
     return log_relic(avatar, relic, info)
 
 
