@@ -46,5 +46,6 @@
 - `neos_festival_designer.py` – plan festival spaces and events.
 - `neos_teaching_content_generator.py` – create onboarding and lore content.
 - `neos_origin_story_logger.py` – record reasons behind new creations.
+- `neos_lorebook_writer.py` – compile asset origins, ceremonies, teaching logs, and council memory into a unified lorebook.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
