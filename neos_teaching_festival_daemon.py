@@ -1,7 +1,12 @@
 from __future__ import annotations
 from logging_config import get_log_path
+from admin_utils import require_admin_banner
 
-"""NeosVR In-World Autonomous Teaching Festival."""
+"""NeosVR In-World Autonomous Teaching Festival.
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+"""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 import argparse
 import json
@@ -43,6 +48,7 @@ def run_daemon(interval: float) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Teaching Festival Daemon")
     sub = ap.add_subparsers(dest="cmd")
 

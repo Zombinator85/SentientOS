@@ -6,6 +6,9 @@ from typing import Any, Dict, List, Optional
 from urllib import request, parse
 
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 try:
     import streamlit as st
 except Exception:  # pragma: no cover - optional

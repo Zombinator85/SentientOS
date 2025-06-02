@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 import datetime
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 try:
     from watchdog.observers import Observer  # type: ignore
     from watchdog.events import FileSystemEventHandler  # type: ignore
