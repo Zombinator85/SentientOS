@@ -1910,4 +1910,104 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_cathedral_chronicle_generator.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralIntegrityWatchdog
+  Type: Daemon
+  Roles: Integrity Auditor
+  Privileges: log, verify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_integrity_watchdog.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteRitualBreachResponseSystem
+  Type: Service
+  Roles: Breach Response
+  Privileges: log, escalate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ritual_breach_response_system.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFederationHandshakeVerifier
+  Type: Tool
+  Roles: Handshake Verifier
+  Privileges: log, verify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_federation_handshake_verifier.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCeremonyReplayEngine
+  Type: Service
+  Roles: Ceremony Replay
+  Privileges: log, simulate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ceremony_replay_engine.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralArtifactProvenanceMapper
+  Type: Service
+  Roles: Artifact Mapping
+  Privileges: log, map
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_artifact_provenance_mapper.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralRecoverySuite
+  Type: Tool
+  Roles: Recovery Manager
+  Privileges: log, restore
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_recovery_suite.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteWorldHealthMoodDashboard
+  Type: Dashboard
+  Roles: Mood Monitor
+  Privileges: log, notify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_world_health_mood_dashboard.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFederationConsentRenewalEngine
+  Type: Service
+  Roles: Consent Renewal
+  Privileges: log, remind
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_federation_consent_renewal_engine.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralArtifactLicenseAccessController
+  Type: Service
+  Roles: License Enforcement
+  Privileges: log, enforce
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_artifact_license_access_controller.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCouncilDeliberationCeremonyScheduler
+  Type: Service
+  Roles: Council Scheduler
+  Privileges: log, schedule
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_council_deliberation_ceremony_scheduler.jsonl
+```
 ---
