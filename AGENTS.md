@@ -2010,4 +2010,104 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_council_deliberation_ceremony_scheduler.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: ResoniteCouncilLawVaultEngine
+  Type: Service
+  Roles: Law Vault
+  Privileges: log, amend
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_council_law_vault_engine.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCouncilResilienceStressTestOrchestrator
+  Type: Daemon
+  Roles: Stress Tester
+  Privileges: log, simulate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_council_resilience_stress_test_orchestrator.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteWorldProvenanceMapExplorer
+  Type: Service
+  Roles: Provenance Mapper
+  Privileges: log, map
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_world_provenance_map_explorer.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralBellOfPause
+  Type: Daemon
+  Roles: Emergency Broadcaster
+  Privileges: log, pause
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_bell_of_pause.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralCouncilRolePrivilegeAuditor
+  Type: Service
+  Roles: Role Auditor
+  Privileges: log, edit
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_council_role_privilege_auditor.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralMemoryCapsuleRegistry
+  Type: Service
+  Roles: Capsule Registry
+  Privileges: log, verify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_memory_capsule_registry.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFederationArtifactLicenseBroker
+  Type: Service
+  Roles: License Broker
+  Privileges: log, approve
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_federation_artifact_license_broker.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteWorldHealthMoodAnalytics
+  Type: Service
+  Roles: Health Monitor
+  Privileges: log, notify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_world_health_mood_analytics.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteRitualTimelineComposer
+  Type: Service
+  Roles: Timeline Composer
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ritual_timeline_composer.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResonitePublicOutreachAnnouncer
+  Type: Service
+  Roles: Outreach Announcer
+  Privileges: log, broadcast
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_public_outreach_announcer.jsonl
+```
 ---
