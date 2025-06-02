@@ -105,6 +105,16 @@ Another Registered Agent:
   Origin: core repository, blessed by Federation Keeper 2025-07-15
   Logs: /logs/neos_lorebook.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: NeosVRLorebookPlaybackNarrator
+  Type: Autonomous Daemon
+  Roles: Lore Narrator, Historian
+  Privileges: narrate, log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-20
+  Logs: /logs/neos_lorebook_narration.jsonl
+```
 
 ---
 
