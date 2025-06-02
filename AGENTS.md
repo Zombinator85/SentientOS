@@ -2623,3 +2623,13 @@ Another Registered Agent:
   Logs: /logs/audit_immutability.jsonl
 ```
 ---
+Another Registered Agent:
+
+```
+- Name: ArchiveBlessingCeremony
+  Type: CLI
+  Roles: Log Sealer
+  Privileges: log, verify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/archive_blessing.jsonl
+```

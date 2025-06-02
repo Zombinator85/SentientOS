@@ -1,6 +1,9 @@
 import importlib
 import os
+import sys
 from pathlib import Path
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import federation_trust_protocol as ftp
 
@@ -13,12 +16,12 @@ def setup_env(tmp_path, monkeypatch):
 
 def test_handshake_and_excommunicate(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
-    node = ftp.handshake("node1", "key1", "blessed")
+    node = ftp.join("node1", "key1", "blessed")
     assert node.node_id == "node1"
     ftp.heartbeat("node1")
-    ftp.report_anomaly("node1", "rogue")
+    ftp.revoke_trust("node1", "rogue")
     assert not ftp.list_nodes()["node1"].active
-    ftp.excommunicate("node1", ["c1", "c2"])
+    ftp.leave("node1", ["c1", "c2"])
     data = ftp.list_nodes()["node1"]
     assert data.expelled
     log_file = Path(os.environ["FEDERATION_TRUST_LOG"])

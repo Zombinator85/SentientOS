@@ -92,6 +92,18 @@ def report_anomaly(node_id: str, reason: str) -> Node:
     _log("anomaly", node_id, {"reason": reason})
     return nd
 
+def join(node_id: str, key: str, blessing: str) -> Node:
+    """Alias for handshake used by CLI."""
+    return handshake(node_id, key, blessing)
+
+def leave(node_id: str, signatories: List[str]) -> Node:
+    """Alias for excommunicate used by CLI."""
+    return excommunicate(node_id, signatories)
+
+def revoke_trust(node_id: str, reason: str) -> Node:
+    """Alias for report_anomaly used by CLI."""
+    return report_anomaly(node_id, reason)
+
 def excommunicate(node_id: str, signatories: List[str]) -> Node:
     nodes = _load_nodes()
     if len(signatories) < 2:
@@ -138,6 +150,22 @@ def cli() -> None:
     ex.add_argument("node")
     ex.add_argument("signatories", nargs="+")
     ex.set_defaults(func=lambda a: print(json.dumps(asdict(excommunicate(a.node, a.signatories)), indent=2)))
+
+    jn = sub.add_parser("join", help="Join the federation")
+    jn.add_argument("node")
+    jn.add_argument("key")
+    jn.add_argument("blessing")
+    jn.set_defaults(func=lambda a: print(json.dumps(asdict(join(a.node, a.key, a.blessing)), indent=2)))
+
+    lv = sub.add_parser("leave", help="Leave the federation")
+    lv.add_argument("node")
+    lv.add_argument("signatories", nargs="+")
+    lv.set_defaults(func=lambda a: print(json.dumps(asdict(leave(a.node, a.signatories)), indent=2)))
+
+    rv = sub.add_parser("revoke-trust", help="Revoke trust of a node")
+    rv.add_argument("node")
+    rv.add_argument("reason")
+    rv.set_defaults(func=lambda a: print(json.dumps(asdict(revoke_trust(a.node, a.reason)), indent=2)))
 
     ls = sub.add_parser("list")
     ls.set_defaults(func=lambda a: print(json.dumps({k: asdict(v) for k, v in list_nodes().items()}, indent=2)))
