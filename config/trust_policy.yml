@@ -1,5 +1,5 @@
 # Example trust policy configuration
-log_dir: logs/trust
+log_dir: ${SENTIENTOS_LOG_DIR}/trust
 policies:
   suppress_anger: true
   max_volume: 0.8
