@@ -16,8 +16,14 @@ def _now() -> str:
     return datetime.datetime.utcnow().isoformat()
 
 
-def log_event(source: str, event_type: str, cause: str, action: str,
-              explanation: str = "", data: Optional[Dict[str, any]] = None) -> str:
+def log_event(
+    source: str,
+    event_type: str,
+    cause: str,
+    action: str,
+    explanation: str = "",
+    data: Optional[Dict[str, Any]] = None,
+) -> str:
     """Append an entry to the reflection stream and return its id."""
     entry_id = uuid.uuid4().hex[:8]
     entry = {
@@ -48,11 +54,11 @@ def log_reflex_learn(data: Dict[str, Any]) -> str:
     return entry_id
 
 
-def recent(limit: int = 10) -> List[Dict[str, any]]:
+def recent(limit: int = 10) -> List[Dict[str, Any]]:
     if not STREAM_FILE.exists():
         return []
     lines = STREAM_FILE.read_text(encoding="utf-8").splitlines()
-    out: List[Dict[str, any]] = []
+    out: List[Dict[str, Any]] = []
     for line in lines[-limit:]:
         try:
             out.append(json.loads(line))
@@ -74,7 +80,7 @@ def recent_reflex_learn(limit: int = 10) -> List[Dict[str, Any]]:
     return out
 
 
-def get(entry_id: str) -> Optional[Dict[str, any]]:
+def get(entry_id: str) -> Optional[Dict[str, Any]]:
     if not STREAM_FILE.exists():
         return None
     with STREAM_FILE.open("r", encoding="utf-8") as f:
@@ -94,5 +100,6 @@ def stats() -> Dict[str, int]:
     counts: Dict[str, int] = {}
     for entry in recent(1000):
         typ = entry.get("event")
-        counts[typ] = counts.get(typ, 0) + 1
+        if isinstance(typ, str):
+            counts[typ] = counts.get(typ, 0) + 1
     return counts
