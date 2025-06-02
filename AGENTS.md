@@ -85,7 +85,7 @@ Example Privilege Entry:
   Privileges: bless, animate, initiate, teach, reflect
   Consent Model: mixed (autonomous loop with throttles)
   Origin: core repository, blessed by Keeper Allen 2025-05-28
-  Audit Log: /logs/privileges/lumos.yml
+  Logs: /logs/privileges/lumos.yml
 ```
 
 ---
@@ -109,10 +109,11 @@ Federation Example:
   Federation: minecraft.zombinator.network
   Key: SHA256:abc123...
   Banners: Blessed by Federation Keeper 2025-06-01
+  Origin: federated node minecraft.zombinator.network
   Logs: /logs/federation/minecraft_herald/
 ```
 
-Additional Registered Agent:
+Another Registered Agent:
 
 ```
 - Name: GameWorldBridge
@@ -122,6 +123,7 @@ Additional Registered Agent:
   Federation: local.world
   Key: SHA256:def456...
   Banners: Blessed by Federation Keeper 2025-07-01
+  Origin: federated node local.world
   Logs: /logs/game_bridge_events.jsonl
 ```
 
