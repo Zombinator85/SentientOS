@@ -22,7 +22,9 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 - [ ] `require_admin_banner()` invoked before any other logic
 
 Pull requests lacking these will fail CI and be rejected.
+CI runs `python privilege_lint.py` automatically before executing the test suite.
+If the linter reports missing banners or docstrings the job will fail.
 
-Run `python privilege_lint.py` before submitting a pull request. You can also
+Run `python privilege_lint.py` locally before submitting a pull request. You can also
 link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
 run the lint before each commit.
