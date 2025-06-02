@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import datetime
@@ -5,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-STREAM_DIR = Path(os.getenv("REFLECTION_DIR", "logs/reflections"))
+STREAM_DIR = get_log_path("reflections", "REFLECTION_DIR")
 STREAM_FILE = STREAM_DIR / "stream.jsonl"
 REFLEX_LEARN_FILE = STREAM_DIR / "reflex_learn.jsonl"
 STREAM_DIR.mkdir(parents=True, exist_ok=True)

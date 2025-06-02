@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -10,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Set
 
-LOG_PATH = Path(os.getenv("NEOS_BLESSING_RECONCILE_LOG", "logs/neos_blessing_reconcile.jsonl"))
+LOG_PATH = get_log_path("neos_blessing_reconcile.jsonl", "NEOS_BLESSING_RECONCILE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 def reconcile(log_files: List[str]) -> Dict[str, List[str]]:

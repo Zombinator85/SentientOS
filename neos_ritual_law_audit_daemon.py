@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Ritual Law Audit & Remediation Daemon."""
 
@@ -12,7 +13,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_RITUAL_AUDIT_LOG", "logs/neos_ritual_audit.jsonl"))
+LOG_PATH = get_log_path("neos_ritual_audit.jsonl", "NEOS_RITUAL_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

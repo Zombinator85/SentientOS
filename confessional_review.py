@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
@@ -8,7 +9,7 @@ import forgiveness_ledger as fledge
 
 COUNCIL_QUORUM = int(os.getenv("COUNCIL_QUORUM", "2"))
 
-REVIEW_LOG = Path(os.getenv("CONFESSIONAL_REVIEW_LOG", "logs/confessional_review.jsonl"))
+REVIEW_LOG = get_log_path("confessional_review.jsonl", "CONFESSIONAL_REVIEW_LOG")
 REVIEW_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

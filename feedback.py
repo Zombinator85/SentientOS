@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import time
 from dataclasses import dataclass, field
@@ -44,9 +45,9 @@ class FeedbackManager:
     last_trigger: Dict[Tuple[int, str, str], float] = field(default_factory=dict)
     active_since: Dict[Tuple[int, str, str], float] = field(default_factory=dict)
     history: List[Dict[str, Any]] = field(default_factory=list)
-    log_path: Path = Path(os.getenv("FEEDBACK_LOG", "logs/feedback_actions.jsonl"))
-    user_log_path: Path = Path(os.getenv("FEEDBACK_USER_LOG", "logs/reflex_user_feedback.jsonl"))
-    tuning_log_path: Path = Path(os.getenv("REFLEX_TUNING_LOG", "logs/reflex_tuning.jsonl"))
+    log_path: Path = get_log_path("feedback_actions.jsonl", "FEEDBACK_LOG")
+    user_log_path: Path = get_log_path("reflex_user_feedback.jsonl", "FEEDBACK_USER_LOG")
+    tuning_log_path: Path = get_log_path("reflex_tuning.jsonl", "REFLEX_TUNING_LOG")
     learning: bool = False
     rule_stats: Dict[str, Dict[str, int]] = field(default_factory=dict)
     tuning_history: List[Dict[str, Any]] = field(default_factory=list)

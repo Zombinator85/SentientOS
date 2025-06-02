@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-ANIMATION_LOG = Path(os.getenv("LAW_LORE_ANIMATION_LOG", "logs/law_lore_animation.jsonl"))
+ANIMATION_LOG = get_log_path("law_lore_animation.jsonl", "LAW_LORE_ANIMATION_LOG")
 ANIMATION_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

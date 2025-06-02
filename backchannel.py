@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import time
@@ -15,7 +16,7 @@ from mic_bridge import recognize_from_mic
 
 PHRASES: List[str] = ["mm-hmm", "right...", "go on..."]
 GAP_SECONDS = float(os.getenv("BACKCHANNEL_GAP", "6"))
-LOG_FILE = Path("logs/backchannel_audit.jsonl")
+LOG_FILE = get_log_path("backchannel_audit.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

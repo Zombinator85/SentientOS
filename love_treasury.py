@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 import uuid
@@ -6,12 +7,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 
-FEDERATED_PATH = Path(os.getenv("LOVE_FEDERATED_LOG", "logs/federated_love.jsonl"))
+FEDERATED_PATH = get_log_path("federated_love.jsonl", "LOVE_FEDERATED_LOG")
 FEDERATED_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-SUBMISSIONS_PATH = Path(os.getenv("LOVE_SUBMISSIONS_LOG", "logs/love_submissions.jsonl"))
-REVIEW_PATH = Path(os.getenv("LOVE_REVIEW_LOG", "logs/love_review.jsonl"))
-TREASURY_PATH = Path(os.getenv("LOVE_TREASURY_LOG", "logs/love_treasury.jsonl"))
+SUBMISSIONS_PATH = get_log_path("love_submissions.jsonl", "LOVE_SUBMISSIONS_LOG")
+REVIEW_PATH = get_log_path("love_review.jsonl", "LOVE_REVIEW_LOG")
+TREASURY_PATH = get_log_path("love_treasury.jsonl", "LOVE_TREASURY_LOG")
 for p in [SUBMISSIONS_PATH, REVIEW_PATH, TREASURY_PATH]:
     p.parent.mkdir(parents=True, exist_ok=True)
 

@@ -1,5 +1,6 @@
 """Export and import avatars with ritual logs."""
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -8,8 +9,8 @@ import tarfile
 from datetime import datetime
 from pathlib import Path
 
-EXPORT_LOG = Path(os.getenv("AVATAR_EXPORT_LOG", "logs/avatar_export.jsonl"))
-IMPORT_LOG = Path(os.getenv("AVATAR_IMPORT_LOG", "logs/avatar_import.jsonl"))
+EXPORT_LOG = get_log_path("avatar_export.jsonl", "AVATAR_EXPORT_LOG")
+IMPORT_LOG = get_log_path("avatar_import.jsonl", "AVATAR_IMPORT_LOG")
 for p in (EXPORT_LOG, IMPORT_LOG):
     p.parent.mkdir(parents=True, exist_ok=True)
 

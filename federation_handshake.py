@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 import time
@@ -8,7 +9,7 @@ try:
 except Exception:  # pragma: no cover - optional
     requests = None
 
-LEDGER = Path("logs/federation_handshake.jsonl")
+LEDGER = get_log_path("federation_handshake.jsonl")
 LEDGER.parent.mkdir(parents=True, exist_ok=True)
 
 

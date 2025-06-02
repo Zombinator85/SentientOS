@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Blessing Ceremony API."""
 
@@ -10,7 +11,7 @@ from typing import Dict, List
 
 from flask import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("AVATAR_BLESSING_CEREMONY_LOG", "logs/avatar_blessing_ceremony.jsonl"))
+LOG_PATH = get_log_path("avatar_blessing_ceremony.jsonl", "AVATAR_BLESSING_CEREMONY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

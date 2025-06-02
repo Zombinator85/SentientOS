@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import json
 from pathlib import Path
 from typing import List
 
-CONFESSION_FILE = Path("logs/confessional_log.jsonl")
-BLESS_FILE = Path("logs/support_log.jsonl")
+CONFESSION_FILE = get_log_path("confessional_log.jsonl")
+BLESS_FILE = get_log_path("support_log.jsonl")
 
 
 def _load(path: Path) -> List[dict]:

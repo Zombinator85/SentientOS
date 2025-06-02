@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import datetime
@@ -17,7 +18,7 @@ CALL_LINE = (
     "require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine."
 )
 
-LOG_PATH = Path(os.getenv("PRIVILEGE_AUDIT_LOG", "logs/privilege_audit.jsonl"))
+LOG_PATH = get_log_path("privilege_audit.jsonl", "PRIVILEGE_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

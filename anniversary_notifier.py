@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import os
 import json
 import datetime
 from pathlib import Path
 
 ANNIVERSARY = os.getenv("CATHEDRAL_BIRTH", "2023-01-01")
-LOG_FILE = Path("logs/anniversary_log.jsonl")
+LOG_FILE = get_log_path("anniversary_log.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

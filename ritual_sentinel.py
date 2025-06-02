@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import time
 from pathlib import Path
 
-CONFESSION_FILE = Path("logs/confessional_log.jsonl")
-HERESY_FILE = Path("logs/heresy_log.jsonl")
-PAUSE_LOG = Path("logs/moment_of_pause.log")
+CONFESSION_FILE = get_log_path("confessional_log.jsonl")
+HERESY_FILE = get_log_path("heresy_log.jsonl")
+PAUSE_LOG = get_log_path("moment_of_pause.log")
 
 
 def _trigger(event: str, line: str) -> None:

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 from pathlib import Path
@@ -6,7 +7,7 @@ import getpass
 import ritual
 import relationship_log as rl
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
+MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 PROFILE_PATH = MEMORY_DIR / "profile.json"
 
 

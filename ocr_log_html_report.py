@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import datetime
 import json
 import os
 from pathlib import Path
 
-OCR_LOG = Path(os.getenv("OCR_RELAY_LOG", "logs/ocr_relay.jsonl"))
+OCR_LOG = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 
 
 def generate_html_report(log_file: Path = OCR_LOG) -> str:

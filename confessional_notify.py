@@ -1,7 +1,8 @@
+from logging_config import get_log_path
 import time
 from pathlib import Path
 
-LOG_FILE = Path("logs/confessional_log.jsonl")
+LOG_FILE = get_log_path("confessional_log.jsonl")
 
 
 def watch(interval: float = 2.0) -> None:  # pragma: no cover - runtime loop

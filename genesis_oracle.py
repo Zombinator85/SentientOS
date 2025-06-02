@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import datetime
@@ -11,7 +12,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("GENESIS_ORACLE_LOG", "logs/genesis_oracle.jsonl"))
+LOG_PATH = get_log_path("genesis_oracle.jsonl", "GENESIS_ORACLE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 DATA_DIR = Path(os.getenv("GENESIS_ORACLE_DATA", "logs"))
 

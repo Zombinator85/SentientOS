@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import sys
 import importlib
@@ -64,12 +65,12 @@ def test_music_cli_recap(monkeypatch, tmp_path, capsys):
     orig_read = Path.read_text
 
     def fake_exists(self):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return True
         return orig_exists(self)
 
     def fake_read_text(self, encoding="utf-8"):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return log.read_text(encoding=encoding)
         return orig_read(self, encoding=encoding)
 
@@ -121,14 +122,14 @@ def test_playlist_and_blessing(monkeypatch, tmp_path):
     orig_read = Path.read_text
 
     def fake_exists(self):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return True
         if str(self) == str(pub):
             return True
         return orig_exists(self)
 
     def fake_read(self, encoding="utf-8"):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return log.read_text(encoding=encoding)
         return orig_read(self, encoding=encoding)
 

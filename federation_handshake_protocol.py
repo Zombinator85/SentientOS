@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -12,7 +13,7 @@ from pathlib import Path
 
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("FEDERATION_HANDSHAKE_LOG", "logs/federation_handshake.jsonl"))
+LOG_PATH = get_log_path("federation_handshake.jsonl", "FEDERATION_HANDSHAKE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

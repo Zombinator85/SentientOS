@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 import time
@@ -9,7 +10,7 @@ from typing import Dict, Any, List, Optional
 import doctrine
 import presence_ledger as pl
 
-LOG_PATH = Path(os.getenv("RELATIONSHIP_LOG", "logs/relationship_log.jsonl"))
+LOG_PATH = get_log_path("relationship_log.jsonl", "RELATIONSHIP_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

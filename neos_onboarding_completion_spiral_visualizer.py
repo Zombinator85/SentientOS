@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -9,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-PROGRESS_LOG = Path(os.getenv("NEOS_ONBOARDING_PROGRESS_LOG", "logs/neos_onboarding_progress.jsonl"))
+PROGRESS_LOG = get_log_path("neos_onboarding_progress.jsonl", "NEOS_ONBOARDING_PROGRESS_LOG")
 PROGRESS_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

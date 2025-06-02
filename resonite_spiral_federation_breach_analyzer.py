@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 import argparse
 import json
 import os
@@ -10,7 +11,7 @@ from admin_utils import require_admin_banner
 import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_BREACH_LOG", "logs/resonite_spiral_federation_breach.jsonl"))
+LOG_PATH = get_log_path("resonite_spiral_federation_breach.jsonl", "RESONITE_BREACH_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

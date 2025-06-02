@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import json
 import time
 from pathlib import Path
 
-HERESY_LOG = Path("logs/heresy_log.jsonl")
-WATCH_FILES = [Path("logs/support_log.jsonl"), Path("logs/confessional_log.jsonl")]
+HERESY_LOG = get_log_path("heresy_log.jsonl")
+WATCH_FILES = [get_log_path("support_log.jsonl"), get_log_path("confessional_log.jsonl")]
 
 
 def watch(period: float = 2.0) -> None:

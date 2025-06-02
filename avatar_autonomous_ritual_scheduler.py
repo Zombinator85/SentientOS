@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Autonomous Ritual Scheduler.
 
@@ -13,8 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
-REQUEST_LOG = Path(os.getenv("AVATAR_RITUAL_REQUEST_LOG", "logs/avatar_ritual_requests.jsonl"))
-APPROVAL_LOG = Path(os.getenv("AVATAR_RITUAL_APPROVAL_LOG", "logs/avatar_ritual_approved.jsonl"))
+REQUEST_LOG = get_log_path("avatar_ritual_requests.jsonl", "AVATAR_RITUAL_REQUEST_LOG")
+APPROVAL_LOG = get_log_path("avatar_ritual_approved.jsonl", "AVATAR_RITUAL_APPROVAL_LOG")
 REQUEST_LOG.parent.mkdir(parents=True, exist_ok=True)
 APPROVAL_LOG.parent.mkdir(parents=True, exist_ok=True)
 

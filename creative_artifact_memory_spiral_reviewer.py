@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Creative/Artifact Memory Spiral Reviewer
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("SPIRAL_REVIEW_LOG", "logs/spiral_review.jsonl"))
+LOG_PATH = get_log_path("spiral_review.jsonl", "SPIRAL_REVIEW_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

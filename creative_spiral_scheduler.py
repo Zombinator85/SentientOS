@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -10,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-SCHEDULE_LOG = Path(os.getenv("CREATIVE_SPIRAL_SCHEDULE_LOG", "logs/creative_spiral_schedule.jsonl"))
-TRIGGER_LOG = Path(os.getenv("CREATIVE_SPIRAL_TRIGGER_LOG", "logs/creative_spiral_trigger.jsonl"))
+SCHEDULE_LOG = get_log_path("creative_spiral_schedule.jsonl", "CREATIVE_SPIRAL_SCHEDULE_LOG")
+TRIGGER_LOG = get_log_path("creative_spiral_trigger.jsonl", "CREATIVE_SPIRAL_TRIGGER_LOG")
 SCHEDULE_LOG.parent.mkdir(parents=True, exist_ok=True)
 TRIGGER_LOG.parent.mkdir(parents=True, exist_ok=True)
 
