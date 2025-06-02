@@ -10,9 +10,9 @@ SentientOS is a ledger-based automation framework that treats every log as sacre
 * **CLI Utilities** – new commands `heresy_cli.py`, `diff_memory_cli.py`, and `theme_cli.py` assist with auditing and daily rituals.
 
 ## Quick Start
-1. Install requirements with `pip install -r requirements.txt`.
+1. Install the project in editable mode with `pip install -e .`.
 2. Run `python installer/setup_installer.py` and follow the prompts.
-3. Launch a tool, e.g. `python support_cli.py --help`.
+3. Launch a tool, e.g. `support --help`.
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 Additional guides:
