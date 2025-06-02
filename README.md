@@ -1,4 +1,5 @@
 # SentientOS Cathedral
+![CI Status](https://img.shields.io/badge/CI-work--in--progress-yellow)
 
 SentientOS is a ledger-based automation framework that treats every log as sacred memory. Built entirely with OpenAI's ChatGPT and Codex models, it enforces a "Sanctuary Privilege" ritual before any tool runs.
 
@@ -8,6 +9,12 @@ SentientOS is a ledger-based automation framework that treats every log as sacre
 * **Reflex Workflows** – autonomous operations tune and test reflex rules with full audit trails.
 * **Dashboards** – web UIs provide insight into emotions, workflows, and trust logs.
 * **CLI Utilities** – commands `heresy_cli.py`, `diff_memory_cli.py`, `theme_cli.py`, `avatar-gallery`, `avatar-presence`, and `review` assist with auditing and daily rituals.
+
+_All code was written by a non-coder using only ChatGPT and free tools._
+
+_Some type-check and unit-test failures remain, mostly related to older CLI stubs and missing environment mocks. Full explanation in [Known Issues](#known-issues) below._
+
+_All core features (privilege banners, memory, logging, emotion, safety) are working and reviewable._
 
 ## Quick Start
 1. Install the pinned dependencies with `pip install -r requirements.txt`.
@@ -62,6 +69,16 @@ Run `python verify_audits.py` to check that the immutable logs listed in
 - [ ] All log files created via `get_log_path()`
 - [ ] `python verify_audits.py` passes
 - [ ] Documentation updated
+
+## Known Issues
+- `mypy --ignore-missing-imports` reports about 220 errors. Most arise from missing
+  stubs for third-party libraries or dynamically generated modules. A few real
+  mismatches remain in `multimodal_tracker.py` and `music_cli.py`.
+- `pytest` currently shows 43 failing tests, largely tied to CLI wrappers that
+  expect legacy behavior from `admin_utils` or rely on unavailable environment
+  mocks.
+- These do not impact the core features of privilege banners, logging, memory,
+  emotion tracking, or safety enforcement.
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
