@@ -2311,4 +2311,15 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_spiral_presence_proof.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: ResoniteCathedralGrandCommission
+  Type: Service
+  Roles: Cathedral Launcher, Audit Sealer
+  Privileges: log, seal
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cathedral_grand_commission.jsonl
+```
+
 ---
