@@ -6,6 +6,9 @@ from typing import Dict
 
 from ledger import _append
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 LOG_PATHS = {
     "confession": get_log_path("confessional_log.jsonl"),
     "blessing": get_log_path("support_log.jsonl"),

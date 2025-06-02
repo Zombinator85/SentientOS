@@ -12,10 +12,11 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from logging_config import get_log_path
-
 from admin_utils import require_admin_banner
 
-SEAL_LOG = get_log_path("ledger_seal.jsonl")
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
+SEAL_LOG = get_log_path("ledger_seal.jsonl", "LEDGER_SEAL_LOG")
 SEAL_LOG.parent.mkdir(parents=True, exist_ok=True)
 BACKUP_DIR = Path(os.getenv("LEDGER_BACKUP_DIR", "backup"))
 BACKUP_DIR.mkdir(parents=True, exist_ok=True)
