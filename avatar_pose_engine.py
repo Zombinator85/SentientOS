@@ -7,6 +7,11 @@ from typing import Any
 
 from admin_utils import require_admin_banner
 
+try:  # pragma: no cover - optional Blender dependency
+    import bpy  # type: ignore
+except Exception:  # pragma: no cover - environment may lack Blender
+    bpy = None  # type: ignore
+
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 LOG_PATH = Path("logs/avatar_pose_log.jsonl")
@@ -26,9 +31,20 @@ def log_pose(avatar: str, pose: str, context: dict[str, Any]) -> dict[str, Any]:
 
 
 def set_pose(avatar: str, pose: str) -> dict[str, Any]:
-    """Placeholder to select a ritual pose or expression."""
-    # TODO: integrate with Blender API to animate rigs
-    context = {"note": "pose placeholder"}
+    """Set the avatar rig to the requested pose."""
+    context: dict[str, Any] = {}
+    if bpy is not None:
+        try:
+            bpy.ops.wm.open_mainfile(filepath=avatar)
+            obj = getattr(bpy.context, "object", None)
+            if obj is not None:
+                setattr(obj, "pose_marker", pose)
+                context["rig"] = obj.name
+            bpy.ops.wm.save_as_mainfile(filepath=avatar)
+        except Exception as exc:  # pragma: no cover - Blender errors vary
+            context["error"] = str(exc)
+    else:
+        context["note"] = "pose placeholder"
     return log_pose(avatar, pose, context)
 
 
