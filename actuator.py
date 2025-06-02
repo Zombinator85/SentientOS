@@ -1,4 +1,8 @@
-"""Simple actuator REST API.
+from __future__ import annotations
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+Simple actuator REST API.
 
 This module exposes minimal endpoints for executing commands via the
 existing ``api.actuator`` helpers. It is intended as a lightweight
@@ -19,21 +23,15 @@ via ``config/act_whitelist.yml``.
 Integration Notes: mount these endpoints under an existing Flask app or run this module directly. Dashboard clients may poll ``/act_status`` or stream ``/act_stream`` for progress updates.
 """
 
-from __future__ import annotations
 from logging_config import get_log_path
-
 import json
-import os
 import time
-from pathlib import Path
 from typing import Any, Dict
 
 from flask_stub import Flask, Response, jsonify, request
 
 from api import actuator as core_actuator
 from admin_utils import require_admin_banner
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 AUDIT_LOG = get_log_path("actuator_audit.jsonl", "ACTUATOR_AUDIT_LOG")
 AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
