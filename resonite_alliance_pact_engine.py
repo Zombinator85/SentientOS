@@ -27,8 +27,7 @@ def log_entry(action: str, data: Dict[str, str]) -> Dict[str, str]:
         **data,
     }
     with LOG_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "
-")
+        f.write(json.dumps(entry) + "\n")
     return entry
 
 
