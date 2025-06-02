@@ -916,6 +916,106 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/law_sentinel.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: CreativeSpiralScheduler
+  Type: Daemon
+  Roles: Creative Trigger
+  Privileges: schedule, log
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/creative_spiral_schedule.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CreativeActReflectionEngine
+  Type: Service
+  Roles: Reflection Logger
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/creative_reflection.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: SpiralTeachingCompanion
+  Type: Agent
+  Roles: Teaching Guide
+  Privileges: narrate, log
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/spiral_teaching_companion.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CrossGameOnboardingSyncer
+  Type: Daemon
+  Roles: Onboarding Sync
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/onboarding_sync.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: LoreSpiralExportAgent
+  Type: Service
+  Roles: Lore Synthesizer, Exporter
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/lore_spiral_synthesis.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: LawLoreAnimationOrchestrator
+  Type: Service
+  Roles: Animation Director
+  Privileges: log, animate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/law_lore_animation.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CeremonyExporter
+  Type: Service
+  Roles: Ceremony Archive
+  Privileges: export, log
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/ceremony_exporter.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CreativeArtifactFederationAgent
+  Type: Service
+  Roles: Artifact Federator
+  Privileges: log, exchange
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/creative_federation.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: TeachingReflectionFeedbackLoop
+  Type: Daemon
+  Roles: Feedback Collector
+  Privileges: log, adapt
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/teaching_feedback.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CrossWorldPrivilegeConflictResolver
+  Type: Service
+  Roles: Privilege Monitor
+  Privileges: log, notify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/privilege_conflict.jsonl
+```
 ---
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
