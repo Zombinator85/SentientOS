@@ -9,6 +9,8 @@ DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details
 ENTRY_PATTERNS = [
     "*_cli.py",
     "*_dashboard.py",
+    "*_daemon.py",
+    "*_engine.py",
     "collab_server.py",
     "autonomous_ops.py",
     "replay.py",
@@ -64,11 +66,23 @@ def check_file(path: Path) -> list[str]:
     return issues
 
 
+def find_entrypoints(root: Path) -> list[Path]:
+    """Return Python entrypoint files under ``root``."""
+    files: set[Path] = set()
+    for pattern in ENTRY_PATTERNS:
+        files.update(root.glob(pattern))
+    for path in root.glob("*.py"):
+        if path in files:
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "__main__" in text or "argparse" in text:
+            files.add(path)
+    return sorted(files)
+
+
 def main() -> int:
     root = Path(__file__).resolve().parent
-    files = []
-    for pattern in ENTRY_PATTERNS:
-        files.extend(root.glob(pattern))
+    files = find_entrypoints(root)
     issues = []
     for path in files:
         issues.extend(check_file(path))
