@@ -5,11 +5,13 @@ from datetime import datetime
 from typing import Any
 
 import daily_theme
-
+from admin_utils import require_admin_banner
 try:
     import requests  # type: ignore
 except Exception:  # pragma: no cover - optional
     requests = None
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 
 def post_affirmation(url: str, mood: str | None = None) -> dict[str, Any]:
@@ -25,6 +27,7 @@ def post_affirmation(url: str, mood: str | None = None) -> dict[str, Any]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Affirmation webhook")
     ap.add_argument("url")
     ap.add_argument("--mood")

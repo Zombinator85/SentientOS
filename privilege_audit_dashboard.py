@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 from flask_stub import Flask, render_template_string
 import privilege_lint as pl
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 app = Flask(__name__)
 LOG = pl.AUDIT_FILE
@@ -30,5 +33,10 @@ def audit_table() -> str:
     return TABLE.format(rows="\n".join(rows))
 
 
-if __name__ == "__main__":  # pragma: no cover - manual
+def run() -> None:
+    require_admin_banner()
     app.run(port=5010)
+
+
+if __name__ == "__main__":  # pragma: no cover - manual
+    run()

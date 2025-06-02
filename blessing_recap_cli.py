@@ -7,7 +7,9 @@ from pathlib import Path
 import daily_theme
 import ledger
 import heresy_log
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 BLESSING_LEDGER = Path(os.getenv("BLESSING_LEDGER", "logs/blessing_ledger.jsonl"))
 BLESSING_LEDGER.parent.mkdir(parents=True, exist_ok=True)
 HERESY_REVIEW_LOG = Path(os.getenv("HERESY_REVIEW_LOG", "logs/heresy_review.jsonl"))
@@ -106,6 +108,7 @@ def search_command(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Daily blessing recap utility")
     sub = parser.add_subparsers(dest="cmd")
 

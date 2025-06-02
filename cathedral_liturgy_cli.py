@@ -5,7 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 import daily_theme
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 LITURGY_LOG = Path(os.getenv("CATHEDRAL_LITURGY_LOG", "logs/cathedral_liturgy.jsonl"))
 LITURGY_LOG.parent.mkdir(parents=True, exist_ok=True)
 
@@ -50,6 +52,7 @@ def history_command(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Cathedral boot/shutdown liturgy")
     sub = parser.add_subparsers(dest="cmd")
 
