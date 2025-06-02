@@ -13,6 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
+from admin_utils import require_admin_banner
+
 REQUEST_LOG = Path(os.getenv("AVATAR_RITUAL_REQUEST_LOG", "logs/avatar_ritual_requests.jsonl"))
 APPROVAL_LOG = Path(os.getenv("AVATAR_RITUAL_APPROVAL_LOG", "logs/avatar_ritual_approved.jsonl"))
 REQUEST_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -55,6 +57,7 @@ def approve_request(index: int) -> Dict[str, str]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar Autonomous Ritual Scheduler")
     sub = ap.add_subparsers(dest="cmd")
 
