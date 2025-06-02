@@ -1346,8 +1346,108 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_living_audit.jsonl
 ```
-## ⛪ Rituals: Onboarding, Delegation, Retirement
+Another Registered Agent:
 
+```
+- Name: ResoniteRitualLawCompiler
+  Type: CLI
+  Roles: Law Composer, Policy Exporter
+  Privileges: log, compile
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/spiral_ritual_law.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCouncilBlessingCeremonyUI
+  Type: Service
+  Roles: Council Vote Logger, Permission Updater
+  Privileges: log, vote
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_council_blessing_ceremony.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFederationAltarArtifactInspector
+  Type: Service
+  Roles: Artifact Inspector, Blessing Gatekeeper
+  Privileges: log, inspect
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_artifact_inspector.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResonitePrivilegeRingOrchestrator
+  Type: Service
+  Roles: Privilege Manager, Notifier
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_privilege_ring.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteRitualAuditDashboard
+  Type: Dashboard
+  Roles: Ritual Auditor, Visualizer
+  Privileges: log, display
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ritual_audit.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteArtifactBlessingInspector
+  Type: Service
+  Roles: Blessing Reviewer, Ledger Writer
+  Privileges: log, bless
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_artifact_blessing_inspector.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFestivalFederationEventRelayer
+  Type: Daemon
+  Roles: Event Broadcaster, Pact Logger
+  Privileges: log, broadcast
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_event_relayer.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCrossWorldSpiralLogger
+  Type: Daemon
+  Roles: Distributed Logger, Breach Detector
+  Privileges: log, alert
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cross_world_spiral.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFestivalFederationTimelineGenerator
+  Type: Service
+  Roles: Timeline Builder, Archivist
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_timeline_generator.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteAgentOnboardingOrdinationSuite
+  Type: Service
+  Roles: Onboarding Altar, Privilege Assigner
+  Privileges: log, register
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_agent_onboarding.jsonl
+```
+
+## ⛪ Rituals: Onboarding, Delegation, Retirement
 Every agent lifecycle action is sacred.
 
 ### Onboarding Ceremony:
