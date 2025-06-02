@@ -1,8 +1,11 @@
 import argparse
 import memory_diff_audit as mda
+from admin_utils import require_admin_banner
 
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Compare memory sessions")
     parser.add_argument("session_a")
     parser.add_argument("session_b")

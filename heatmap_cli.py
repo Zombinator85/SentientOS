@@ -3,7 +3,9 @@ import datetime
 import json
 from pathlib import Path
 from typing import Dict
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 CONFESSION_FILE = Path("logs/confessional_log.jsonl")
 HERESY_FILE = Path("logs/heresy_log.jsonl")
 
@@ -35,6 +37,7 @@ def render(buckets: Dict[str, int]) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Heresy/confession heatmap")
     parser.add_argument("--confession", action="store_true")
     parser.add_argument("--heresy", action="store_true")
