@@ -21,5 +21,39 @@ Additional guides:
 - [docs/RITUALS.md](docs/RITUALS.md)
 - [docs/MODULES.md](docs/MODULES.md)
 
+## Sanctuary Privilege Ritual
+Every entrypoint must open with the canonical ritual docstring followed by a
+call to `require_admin_banner()`:
+
+```python
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
+require_admin_banner()  # Enforced by doctrine
+```
+
+This ensures tools only run with Administrator or root rights and logs each
+invocation for audit purposes.
+
+## Logging Paths
+Use `logging_config.get_log_path()` to resolve log files. The helper respects
+`SENTIENTOS_LOG_DIR` and optional environment overrides so logs remain portable:
+
+```python
+from logging_config import get_log_path
+
+LOG_PATH = get_log_path("example_tool.jsonl", "EXAMPLE_LOG")
+```
+
+Hard-coded paths like `"logs/mytool.jsonl"` are discouraged.
+
+## Final Cathedral-Polish Steps
+- [ ] `python privilege_lint.py` passes
+- [ ] `pytest` passes
+- [ ] Docstring and `require_admin_banner()` present in new entrypoints
+- [ ] All log files created via `get_log_path()`
+- [ ] Documentation updated
+
 ## License
 This project is licensed under the [MIT License](LICENSE).
