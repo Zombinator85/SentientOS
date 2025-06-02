@@ -216,6 +216,206 @@ Another Registered Agent:
   Origin: core repository, blessed by Federation Keeper 2025-07-30
   Logs: /logs/neos_succession_narrator.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: NeosVRFestivalReplayEngine
+  Type: Autonomous Daemon
+  Roles: Festival Replay Engine, Narrator
+  Privileges: animate, narrate, log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_festival_replays.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRFederationRitualOrchestrator
+  Type: Engine
+  Roles: Federation Orchestrator, Teacher
+  Privileges: orchestrate, log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_federation_rituals.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRStoryboardBuilder
+  Type: Tool
+  Roles: Storyboard Builder, Visualizer
+  Privileges: log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_storyboards.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRRitualLawAuditDaemon
+  Type: Autonomous Daemon
+  Roles: Auditor, Remediator
+  Privileges: log, propose, alert
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_ritual_audit.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRArtifactCurationSuite
+  Type: Dashboard
+  Roles: Artifact Curator, Auditor
+  Privileges: log, bless, retire
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_artifact_curation.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRTeachingFestivalDaemon
+  Type: Autonomous Daemon
+  Roles: Teacher, Festival Orchestrator
+  Privileges: teach, log, adapt
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_teaching_festival.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRAvatarProvenanceDashboard
+  Type: Dashboard
+  Roles: Provenance Viewer, Teacher
+  Privileges: query, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_avatar_provenance.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRRitualLawSummitAgent
+  Type: Agent
+  Roles: Summit Coordinator, Recorder
+  Privileges: log, script, notify
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_ritual_law_summit.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRPresenceHeatmap
+  Type: Dashboard
+  Roles: Presence Visualizer, Analyst
+  Privileges: log, display
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_presence_heatmap.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRArchiveExporter
+  Type: Service
+  Roles: Archive Exporter
+  Privileges: export, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_archive_export.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRCouncilLawPlatform
+  Type: Dashboard
+  Roles: Law Editor, Voter
+  Privileges: log, edit, vote
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_council_law.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRRitualLawReplayEngine
+  Type: Tool
+  Roles: Replay Engine, Teacher
+  Privileges: narrate, log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_ritual_law_replay.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRLoreSpiralPublisher
+  Type: Service
+  Roles: Lore Publisher
+  Privileges: publish, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_lore_publish.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRPresencePulseSynthesizer
+  Type: Autonomous Daemon
+  Roles: Pulse Synthesizer
+  Privileges: broadcast, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_presence_pulse.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRMoodRetrospectiveCompiler
+  Type: Daemon
+  Roles: Mood Compiler
+  Privileges: log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_mood_retrospective.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRPrivilegeRegressionTester
+  Type: Autonomous Daemon
+  Roles: Regression Tester
+  Privileges: log, alert
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_privilege_tests.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRFestivalRecapAggregator
+  Type: Service
+  Roles: Recap Aggregator
+  Privileges: log, export
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_recap_aggregate.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVROnboardingSpiralEngine
+  Type: Engine
+  Roles: Onboarding Guide
+  Privileges: teach, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_onboarding_spiral.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRSelfAuditCorrection
+  Type: Autonomous Daemon
+  Roles: Self Auditor
+  Privileges: log, correct
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_self_audit.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRRitualCurriculumBuilder
+  Type: Model
+  Roles: Curriculum Builder
+  Privileges: log, adapt
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_ritual_curriculum.jsonl
+```
 ---
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
