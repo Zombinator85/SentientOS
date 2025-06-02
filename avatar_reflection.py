@@ -8,6 +8,9 @@ from datetime import datetime
 from pathlib import Path
 
 import emotion_utils as eu
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 LOG_PATH = Path(os.getenv("AVATAR_REFLECTION_LOG", "logs/avatar_reflection.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -42,6 +45,7 @@ def log_reflection(image: str, mood: str, note: str = "") -> dict:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Reflect on rendered avatar image")
     ap.add_argument("image")
     ap.add_argument("--note", default="")
