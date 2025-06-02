@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentientos"
+version = "0.1.0"
+description = "Ledger-based automation framework enforcing sanctuary privilege."
+readme = "README.md"
+authors = [{name = "SentientOS"}]
+license = {text = "MIT"}
+requires-python = ">=3.8"
+
+# Dependencies
+dependencies = [
+    "Flask",
+    "python-dotenv",
+    "requests",
+    "pytest",
+    "colorama",
+    "PyYAML",
+    "pyttsx3",
+    "SpeechRecognition",
+    "sounddevice",
+    "pydub",
+    "vosk",
+    "TTS",
+    "librosa",
+    "watchdog",
+    "pandas",
+    "streamlit",
+    "Flask-SocketIO",
+    "python-socketio",
+    "mne",
+    "brainflow",
+    "pyserial",
+]
+
+[project.scripts]
+support = "support_cli:main"
+ritual = "ritual_cli:main"
+treasury = "treasury_cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sentientos", "api"]
