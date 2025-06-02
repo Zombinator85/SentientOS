@@ -8,12 +8,11 @@ Integration Notes: schedule ``run_digest`` via cron or a task runner. Dashboards
 """
 
 from __future__ import annotations
-from logging_config import get_log_path
-
 import datetime as _dt
 import json
 import os
 from pathlib import Path
+from logging_config import get_log_path
 from typing import Dict, List
 
 DIGEST_LOG = get_log_path("daily_digest.jsonl", "DAILY_DIGEST_LOG")
@@ -47,7 +46,7 @@ def _summarize_file(path: Path, since: _dt.datetime) -> int:
 
 def run_digest(period_hours: int = 24) -> Dict[str, int]:
     cutoff = _dt.datetime.utcnow() - _dt.timedelta(hours=period_hours)
-    logs_dir = Path("logs")
+    logs_dir = get_log_path("")
     summary: Dict[str, int] = {}
     for fp in logs_dir.rglob("*.jsonl"):
         if fp.name == DIGEST_LOG.name:

@@ -22,6 +22,7 @@ import datetime as _dt
 import json
 import os
 from pathlib import Path
+from logging_config import get_log_path
 from typing import Any, Dict, List
 
 try:  # summarisation backend
@@ -34,7 +35,7 @@ try:
 except Exception:  # pragma: no cover - optional
     tts_bridge = None
 
-DEFAULT_LOG_DIR = Path("logs")
+DEFAULT_LOG_DIR = get_log_path("")
 MEMORY_LOG = "memory.jsonl"
 REFLECTION_LOG = "reflection.jsonl"
 EMOTION_LOG = "emotions.jsonl"
