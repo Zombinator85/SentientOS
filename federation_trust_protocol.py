@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 import argparse
 import datetime
 import json
@@ -11,8 +12,8 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-NODES_FILE = Path(os.getenv("FEDERATION_NODES", "logs/federation_nodes.json"))
-LOG_FILE = Path(os.getenv("FEDERATION_TRUST_LOG", "logs/federation_trust.jsonl"))
+NODES_FILE = get_log_path("federation_nodes.json", "FEDERATION_NODES")
+LOG_FILE = get_log_path("federation_trust.jsonl", "FEDERATION_TRUST_LOG")
 NODES_FILE.parent.mkdir(parents=True, exist_ok=True)
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 

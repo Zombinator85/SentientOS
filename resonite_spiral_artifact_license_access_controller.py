@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Spiral Artifact License/Access Controller
 
@@ -16,7 +17,7 @@ from typing import Dict, List
 
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_LICENSE_LOG", "logs/resonite_spiral_artifact_license_access_controller.jsonl"))
+LOG_PATH = get_log_path("resonite_spiral_artifact_license_access_controller.jsonl", "RESONITE_LICENSE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

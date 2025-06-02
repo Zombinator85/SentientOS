@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Cross-World Avatar Provenance Dashboard."""
 
@@ -15,7 +16,7 @@ from admin_utils import require_admin_banner
 from log_utils import append_json, read_json
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("NEOS_AVATAR_PROVENANCE_LOG", "logs/neos_avatar_provenance.jsonl"))
+LOG_PATH = get_log_path("neos_avatar_provenance.jsonl", "NEOS_AVATAR_PROVENANCE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

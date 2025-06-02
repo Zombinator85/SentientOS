@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 import subprocess
@@ -14,7 +15,7 @@ except Exception:  # pragma: no cover - optional
 WATCH_URLS: List[str] = [u.strip() for u in os.getenv("BRIDGE_URLS", "http://localhost:5000/relay").split(",") if u.strip()]
 CHECK_INTERVAL = float(os.getenv("BRIDGE_CHECK_SEC", "5"))
 RESTART_CMD = os.getenv("BRIDGE_RESTART_CMD", "")
-LOG_FILE = Path("logs/bridge_watchdog.jsonl")
+LOG_FILE = get_log_path("bridge_watchdog.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

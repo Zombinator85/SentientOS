@@ -1,4 +1,5 @@
 """Periodic checker for Telegram webhook URLs."""
+from logging_config import get_log_path
 import datetime
 import json
 import os
@@ -12,7 +13,7 @@ except Exception:  # pragma: no cover - optional
 
 WEBHOOKS = [u.strip() for u in os.getenv("TELEGRAM_WEBHOOKS", "").split(",") if u.strip()]
 INTERVAL = int(os.getenv("WEBHOOK_CHECK_SEC", "60"))
-LOG_FILE = Path("logs/webhook_status.jsonl")
+LOG_FILE = get_log_path("webhook_status.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")

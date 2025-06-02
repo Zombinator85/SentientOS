@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Ritual Avatar Hall of Records.
 
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_HALL_RECORDS_LOG", "logs/avatar_hall_of_records.jsonl"))
+LOG_PATH = get_log_path("avatar_hall_of_records.jsonl", "AVATAR_HALL_RECORDS_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

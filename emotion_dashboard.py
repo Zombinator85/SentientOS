@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import time
@@ -34,7 +35,7 @@ from admin_utils import require_admin_banner
 import reflex_manager as rm
 from reflex_rules import bridge_restart_check, daily_digest_action
 
-DEFAULT_LOG = Path(os.getenv("TRACKER_LOG", "logs/vision/vision.jsonl"))
+DEFAULT_LOG = get_log_path("vision/vision.jsonl", "TRACKER_LOG")
 
 def load_logs(log_path: str | Path = DEFAULT_LOG, limit: int = 1000) -> Dict[int, List[Dict[str, Any]]]:
     """Parse the vision/audio log into per-user timelines."""

@@ -1,4 +1,5 @@
 """Generate tag cloud image from last week's reflections."""
+from logging_config import get_log_path
 import datetime
 import os
 from pathlib import Path
@@ -8,7 +9,7 @@ try:
 except Exception:  # pragma: no cover - optional
     WordCloud = None
 
-LOG_DIR = Path(os.getenv("REFLECTION_LOG_DIR", "logs/self_reflections"))
+LOG_DIR = get_log_path("self_reflections", "REFLECTION_LOG_DIR")
 
 
 def generate_cloud(out_path: Path) -> bool:

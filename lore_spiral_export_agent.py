@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LORE_LOG = Path(os.getenv("LORE_SPIRAL_LOG", "logs/lore_spiral_synthesis.jsonl"))
+LORE_LOG = get_log_path("lore_spiral_synthesis.jsonl", "LORE_SPIRAL_LOG")
 LORE_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

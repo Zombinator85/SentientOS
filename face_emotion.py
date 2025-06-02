@@ -11,6 +11,7 @@ Integration Notes: call ``FaceEmotionDetector.webcam_loop`` with a ``MultiModalE
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -25,7 +26,7 @@ except Exception:  # pragma: no cover - optional dependency
     FER = None
     cv2 = None
 
-LOG_PATH = Path(os.getenv("FACE_EMOTION_LOG", "logs/face_emotion.jsonl"))
+LOG_PATH = get_log_path("face_emotion.jsonl", "FACE_EMOTION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

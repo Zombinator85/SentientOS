@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import time
@@ -6,7 +7,7 @@ from pathlib import Path
 import autonomous_reflector as ar
 import doctrine
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
+MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 STATE_PATH = MEMORY_DIR / "orchestrator_state.json"
 STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
 

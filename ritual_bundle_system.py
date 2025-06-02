@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -14,7 +15,7 @@ from typing import Dict, List
 
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("RITUAL_BUNDLE_LOG", "logs/ritual_bundle.jsonl"))
+LOG_PATH = get_log_path("ritual_bundle.jsonl", "RITUAL_BUNDLE_LOG")
 BUNDLE_DIR = Path(os.getenv("RITUAL_BUNDLE_DIR", "bundles"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 BUNDLE_DIR.mkdir(parents=True, exist_ok=True)

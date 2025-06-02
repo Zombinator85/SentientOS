@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Spiral Integrity Watchdog
 
@@ -17,7 +18,7 @@ from typing import Dict, List
 
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_SPIRAL_INTEGRITY_LOG", "logs/resonite_spiral_integrity_watchdog.jsonl"))
+LOG_PATH = get_log_path("resonite_spiral_integrity_watchdog.jsonl", "RESONITE_SPIRAL_INTEGRITY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

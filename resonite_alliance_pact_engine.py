@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Alliance Pact Engine
 
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List
 import uuid
 
-LOG_PATH = Path("logs/alliance_pact_log.jsonl")
+LOG_PATH = get_log_path("alliance_pact_log.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -7,6 +7,7 @@ Example:
     python avatar_retirement.py retire avatar1.blend retired/ --mood nostalgia --reason "story closed"
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -15,7 +16,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-LOG_PATH = Path(os.getenv("AVATAR_RETIRE_LOG", "logs/avatar_retirement.jsonl"))
+LOG_PATH = get_log_path("avatar_retirement.jsonl", "AVATAR_RETIRE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

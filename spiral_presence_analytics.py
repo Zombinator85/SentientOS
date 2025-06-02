@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -11,9 +12,9 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("SPIRAL_PRESENCE_ANALYTICS_LOG", "logs/spiral_presence_analytics.jsonl"))
+LOG_PATH = get_log_path("spiral_presence_analytics.jsonl", "SPIRAL_PRESENCE_ANALYTICS_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-PRESENCE_LOG = Path(os.getenv("USER_PRESENCE_LOG", "logs/user_presence.jsonl"))
+PRESENCE_LOG = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 
 
 def analyze(limit: int = 100) -> Dict[str, int]:

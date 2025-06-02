@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 from datetime import datetime
 import json
@@ -9,7 +10,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path("logs/avatar_dreams.jsonl")
+LOG_PATH = get_log_path("avatar_dreams.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

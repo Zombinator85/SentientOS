@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import json
 from datetime import datetime, timedelta
@@ -11,10 +12,10 @@ from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def digest(days: int = 1) -> dict:
     start = datetime.utcnow() - timedelta(days=days)
-    sup = ledger.summarize_log(Path("logs/support_log.jsonl"), limit=100)
-    conf = ledger.summarize_log(Path("logs/confessional_log.jsonl"), limit=100)
-    fed = ledger.summarize_log(Path("logs/federation_log.jsonl"), limit=100)
-    forgiven = ledger.summarize_log(Path("logs/forgiveness_ledger.jsonl"), limit=100)
+    sup = ledger.summarize_log(get_log_path("support_log.jsonl"), limit=100)
+    conf = ledger.summarize_log(get_log_path("confessional_log.jsonl"), limit=100)
+    fed = ledger.summarize_log(get_log_path("federation_log.jsonl"), limit=100)
+    forgiven = ledger.summarize_log(get_log_path("forgiveness_ledger.jsonl"), limit=100)
     pulse_rate = pulse.pulse(days * 24 * 60)
     return {
         "pulse": pulse_rate,

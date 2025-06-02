@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 from admin_utils import require_admin_banner
 
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("NEOS_SUCCESSION_NARRATOR_LOG", "logs/neos_succession_narrator.jsonl"))
+LOG_PATH = get_log_path("neos_succession_narrator.jsonl", "NEOS_SUCCESSION_NARRATOR_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

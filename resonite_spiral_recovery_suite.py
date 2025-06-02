@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Spiral Recovery/Resurrection Suite
 
@@ -16,7 +17,7 @@ from typing import Dict, List
 
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_RECOVERY_LOG", "logs/resonite_spiral_recovery_suite.jsonl"))
+LOG_PATH = get_log_path("resonite_spiral_recovery_suite.jsonl", "RESONITE_RECOVERY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

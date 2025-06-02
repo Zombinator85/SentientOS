@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import time
 from pathlib import Path
@@ -11,14 +12,14 @@ from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 DATA_STREAMS = [
-    Path('logs/emotion.jsonl'),
-    Path('logs/eeg.jsonl'),
-    Path('logs/haptics.jsonl'),
-    Path('logs/bio.jsonl'),
-    Path('logs/system.log'),
+    get_log_path("emotion.jsonl"),
+    get_log_path("eeg.jsonl"),
+    get_log_path("haptics.jsonl"),
+    get_log_path("bio.jsonl"),
+    get_log_path("system.log"),
 ]
 
-STATE_FILE = Path('logs/autonomous_state.json')
+STATE_FILE = get_log_path("autonomous_state.json")
 
 
 def _load_state() -> Dict[str, Any]:

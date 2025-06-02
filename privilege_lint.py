@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import sys
 import json
 import datetime
@@ -19,7 +20,7 @@ ENTRY_PATTERNS = [
 
 DOCSTRING_SEARCH_LINES = 60
 
-AUDIT_FILE = Path(os.getenv("PRIVILEGED_AUDIT_FILE", "logs/privileged_audit.jsonl"))
+AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

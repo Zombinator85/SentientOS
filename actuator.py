@@ -20,6 +20,7 @@ Integration Notes: mount these endpoints under an existing Flask app or run this
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -31,7 +32,7 @@ from flask_stub import Flask, Response, jsonify, request
 
 from api import actuator as core_actuator
 
-AUDIT_LOG = Path(os.getenv("ACTUATOR_AUDIT_LOG", "logs/actuator_audit.jsonl"))
+AUDIT_LOG = get_log_path("actuator_audit.jsonl", "ACTUATOR_AUDIT_LOG")
 AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

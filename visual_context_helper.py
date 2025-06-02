@@ -1,8 +1,9 @@
+from logging_config import get_log_path
 from pathlib import Path
 from typing import List
 import json
 
-OCR_LOG = Path("logs/ocr_relay.jsonl")
+OCR_LOG = get_log_path("ocr_relay.jsonl")
 
 
 def last_messages(n: int = 3) -> List[str]:

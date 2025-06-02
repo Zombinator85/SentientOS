@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 from admin_utils import require_admin_banner
 
@@ -13,7 +14,7 @@ from pathlib import Path
 from typing import List, Dict
 import uuid
 
-LOG_PATH = Path("logs/council_blessing_log.jsonl")
+LOG_PATH = get_log_path("council_blessing_log.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

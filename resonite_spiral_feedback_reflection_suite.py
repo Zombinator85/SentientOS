@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Spiral Feedback Reflection Suite
 
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List
 import uuid
 
-LOG_PATH = Path("logs/resonite_spiral_feedback_reflection_suite.jsonl")
+LOG_PATH = get_log_path("resonite_spiral_feedback_reflection_suite.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
-LOG_PATH = Path(os.getenv("HEADLESS_LOG", "logs/headless_actions.jsonl"))
+LOG_PATH = get_log_path("headless_actions.jsonl", "HEADLESS_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

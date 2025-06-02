@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Festival/Federation Presence Diff Engine
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -12,7 +13,7 @@ from pathlib import Path
 from typing import Dict, List
 from datetime import datetime
 
-LOG_PATH = Path(os.getenv("PRESENCE_DIFF_LOG", "logs/presence_diff.jsonl"))
+LOG_PATH = get_log_path("presence_diff.jsonl", "PRESENCE_DIFF_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

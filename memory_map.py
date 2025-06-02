@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 from pathlib import Path
@@ -13,10 +14,10 @@ except Exception:  # pragma: no cover - optional
 import memory_manager as mm
 
 MEMORY_DIR = mm.RAW_PATH
-EEG_LOG = Path(os.getenv("EEG_LOG", "logs/eeg_events.jsonl"))
-HAPTIC_LOG = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
-BIO_LOG = Path(os.getenv("BIO_LOG", "logs/bio_events.jsonl"))
-MOOD_LOG = Path(os.getenv("EPU_MOOD_LOG", "logs/epu_mood.jsonl"))
+EEG_LOG = get_log_path("eeg_events.jsonl", "EEG_LOG")
+HAPTIC_LOG = get_log_path("haptics_events.jsonl", "HAPTIC_LOG")
+BIO_LOG = get_log_path("bio_events.jsonl", "BIO_LOG")
+MOOD_LOG = get_log_path("epu_mood.jsonl", "EPU_MOOD_LOG")
 
 
 def load_entries(limit: int = 200) -> List[Dict[str, Any]]:

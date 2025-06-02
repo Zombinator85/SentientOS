@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -12,7 +13,7 @@ from pathlib import Path
 
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("EMERGENCY_LOG", "logs/emergency_log.jsonl"))
+LOG_PATH = get_log_path("emergency_log.jsonl", "EMERGENCY_LOG")
 STATE_FILE = Path(os.getenv("EMERGENCY_STATE", "state/emergency.lock"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 STATE_FILE.parent.mkdir(parents=True, exist_ok=True)

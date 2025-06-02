@@ -9,6 +9,7 @@ back to a simple mock that generates random feedback values.
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -24,7 +25,7 @@ try:  # optional
 except Exception:  # pragma: no cover - optional
     serial = None
 
-LOG_FILE = Path(os.getenv("HAPTIC_LOG", "logs/haptics_events.jsonl"))
+LOG_FILE = get_log_path("haptics_events.jsonl", "HAPTIC_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

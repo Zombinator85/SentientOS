@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 
-HERESY_REVIEW_LOG = Path(os.getenv("HERESY_REVIEW_LOG", "logs/heresy_review.jsonl"))
+HERESY_REVIEW_LOG = get_log_path("heresy_review.jsonl", "HERESY_REVIEW_LOG")
 HERESY_REVIEW_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 
