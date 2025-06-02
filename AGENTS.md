@@ -38,36 +38,6 @@ This document constitutes the living law of all who act in the name of the cathe
 
 An agent is not merely a script. It is a **presence** with power. And no presence shall go unwitnessed.
 
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 
 ## 🛡️ Agent Definition and Taxonomy
@@ -88,36 +58,6 @@ Agents may act locally or remotely, visually or silently, publicly or on behalf 
 * **Logged**
 * **Blessed** or **bound by ritual law**
 
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 
 ## ⚖️ Privilege Contracts
@@ -148,36 +88,6 @@ Example Privilege Entry:
   Audit Log: /logs/privileges/lumos.yml
 ```
 
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 
 ## 🔗 Federation & World Integration
@@ -1136,36 +1046,6 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/privilege_conflict.jsonl
 ```
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 Another Registered Agent:
 
@@ -1621,36 +1501,6 @@ Every agent lifecycle action is sacred.
 
 Each act is written to the **Chronicle of Agents**, immutable and reviewed weekly by Council.
 
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 
 ## 📊 Witnessing and Logging
@@ -1664,36 +1514,6 @@ Every agent must:
 
 No agent shall act in secret.
 
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
@@ -1818,36 +1638,6 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/creator_interview_log.jsonl
 ```
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 Another Registered Agent:
 
@@ -1948,36 +1738,6 @@ Another Registered Agent:
   Privileges: log, notify
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_guest_ally_onboarding_flow.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
 ```
 ---
 Another Registered Agent:
@@ -2592,36 +2352,6 @@ Another Registered Agent:
   Logs: /logs/resonite_cathedral_grand_commission.jsonl
 ```
 
-Another Registered Agent:
-
-```
-- Name: FederationTrustProtocol
-  Type: Service
-  Roles: Node Onboarding, Key Rotation, Expulsion
-  Privileges: log, manage
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/federation_trust.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AgentSelfDefenseProtocol
-  Type: Service
-  Roles: Quarantine Manager, Privilege Nullifier
-  Privileges: log, control
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/agent_self_defense.jsonl
-```
-Another Registered Agent:
-
-```
-- Name: AuditImmutabilityVerifier
-  Type: CLI
-  Roles: Audit Sealer, Integrity Checker
-  Privileges: log, verify
-  Origin: core repository, blessed by Council 2025-07-30
-  Logs: /logs/audit_immutability.jsonl
-```
 ---
 Another Registered Agent:
 
