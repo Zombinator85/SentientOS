@@ -27,9 +27,27 @@ def log_meeting(source: str, target: str, info: dict[str, Any]) -> dict[str, Any
 
 
 def meet(source: str, target: str) -> dict[str, Any]:
-    """Placeholder for cross-presence avatar meeting."""
-    # TODO: bundle export/import and federation handshake
-    info = {"note": "meeting placeholder"}
+    """Exchange an avatar bundle and record a federation handshake."""
+    info: dict[str, Any] = {}
+    try:
+        src = Path(source)
+        dest = Path(target)
+        if src.is_file() and dest.is_dir():
+            import tarfile
+
+            bundle = dest / f"{src.name}.tar.gz"
+            with tarfile.open(bundle, "w:gz") as tar:
+                tar.add(src, arcname=src.name)
+            with tarfile.open(bundle, "r:gz") as tar:
+                tar.extractall(dest)
+            info["bundle"] = str(bundle)
+
+        from federation_trust_protocol import handshake
+
+        handshake(f"{src.stem}_to_{dest.name}", "auto", "blessed")
+        info["handshake"] = True
+    except Exception as exc:  # pragma: no cover - unexpected errors
+        info = {"error": str(exc)}
     return log_meeting(source, target, info)
 
 
