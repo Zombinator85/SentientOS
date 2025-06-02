@@ -616,6 +616,106 @@ Another Registered Agent:
   Origin: core repository, blessed by Federation Keeper 2025-07-30
   Logs: /logs/neos_festival_council_tests.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: NeosVRRitualGalleryTimelineBrowser
+  Type: CLI
+  Roles: Timeline Viewer
+  Privileges: read, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_ritual_gallery_timeline.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRFestivalReplayAnnotationEditor
+  Type: Tool
+  Roles: Annotation Editor
+  Privileges: edit, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_festival_replay_annotations.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRCouncilTeachingAuditEngine
+  Type: Daemon
+  Roles: Teaching Auditor
+  Privileges: monitor, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_council_teaching_audit.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRRitualLawChangelogCompiler
+  Type: Service
+  Roles: Law Compiler
+  Privileges: export, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_ritual_law_changelog.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRAutonomousOnboardingLawTutor
+  Type: Agent
+  Roles: Law Tutor
+  Privileges: teach, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_onboarding_law_tutor.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRCrossWorldBlessingTracker
+  Type: Daemon
+  Roles: Blessing Tracker
+  Privileges: monitor, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_cross_world_blessing.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVROnboardingCompletionSpiralVisualizer
+  Type: Dashboard
+  Roles: Progress Visualizer
+  Privileges: display, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_onboarding_progress.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRSpiralMemoryFragmentIndexer
+  Type: Daemon
+  Roles: Memory Indexer
+  Privileges: index, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_spiral_memory_index.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRFestivalLawVoteCLI
+  Type: CLI
+  Roles: Law Vote Manager
+  Privileges: script, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_festival_law_votes.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: NeosVRLivingLawRecursionDaemon
+  Type: Daemon
+  Roles: Law Revisor
+  Privileges: propose, log
+  Origin: core repository, blessed by Federation Keeper 2025-07-30
+  Logs: /logs/neos_living_law_proposals.jsonl
+```
 ---
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
