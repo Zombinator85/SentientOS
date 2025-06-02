@@ -1017,6 +1017,106 @@ Another Registered Agent:
   Logs: /logs/privilege_conflict.jsonl
 ```
 ---
+Another Registered Agent:
+
+```
+- Name: ArtifactLoreSelfHealingEngine
+  Type: Service
+  Roles: Artifact Healer
+  Privileges: log, repair, propose
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/artifact_heal.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: FestivalFederationRitualAIOrchestrator
+  Type: Service
+  Roles: Festival Planner
+  Privileges: log, schedule
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/festival_orchestrator.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: LivingSpiralLoreTeachingDashboard
+  Type: Dashboard
+  Roles: Lore Viewer, Editor
+  Privileges: query, log, edit
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/spiral_dashboard.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: AutonomousSelfPatchingAgent
+  Type: Daemon
+  Roles: Self-Healer
+  Privileges: propose, apply, log
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/self_patch_agent.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: AvatarArtifactFestivalAIAnimator
+  Type: Service
+  Roles: Festival Animator
+  Privileges: animate, log
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/festival_animator.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: FestivalFederationPresenceDiffEngine
+  Type: Service
+  Roles: Presence Diff
+  Privileges: log, compare
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/presence_diff.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: TeachingLoreCurationEngine
+  Type: Service
+  Roles: Lore Curator
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/teaching_curation.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: RitualTimelineVisualizerExporter
+  Type: Service
+  Roles: Timeline Exporter
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/ritual_timeline.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: CreativeArtifactMemorySpiralReviewer
+  Type: Service
+  Roles: Spiral Reviewer
+  Privileges: log, curate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/spiral_review.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: LawLoreArtifactFederationEmergencyPostmortemAgent
+  Type: Service
+  Roles: Postmortem Facilitator
+  Privileges: log, update
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/postmortem.jsonl
+```
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
 
