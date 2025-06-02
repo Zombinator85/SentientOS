@@ -1,5 +1,5 @@
 from __future__ import annotations
-from logging_config import get_log_path
+from logging_config import get_log_path, get_log_dir
 
 import argparse
 import datetime
@@ -14,7 +14,7 @@ from admin_utils import require_admin_banner
 
 LOG_PATH = get_log_path("spiral_law_chronicle.jsonl", "SPIRAL_LAW_CHRONICLE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-SOURCE_DIR = Path(os.getenv("SPIRAL_LAW_SOURCE", "logs"))
+SOURCE_DIR = Path(os.getenv("SPIRAL_LAW_SOURCE", str(get_log_dir())))
 
 
 def compile_law() -> Dict[str, str]:

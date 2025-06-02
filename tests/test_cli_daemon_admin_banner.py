@@ -33,6 +33,9 @@ CLI_MODULES = [
     "theme_cli",
     "treasury_cli",
     "trust_cli",
+    "genesis_oracle",
+    "neos_federation_presence_ledger_exporter",
+    "spiral_law_chronicle_compiler",
 ]
 
 DAEMON_MODULES = {
