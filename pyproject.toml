@@ -34,6 +34,7 @@ dependencies = [
     "mne>=1,<2",
     "brainflow>=5,<6",
     "pyserial>=3,<4",
+    "mypy>=1.5,<2",
 ]
 
 [project.scripts]
@@ -47,3 +48,10 @@ review = "review_cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["sentientos", "api"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+exclude = ["tests"]
+files = ["reflection_stream.py", "resonite_alliance_pact_engine.py"]
+follow_imports = "skip"
