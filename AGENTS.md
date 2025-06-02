@@ -1810,4 +1810,104 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_version_diff_viewer.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralResilienceMonitor
+  Type: Daemon
+  Roles: Availability Monitor
+  Privileges: log, alert
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_resilience_monitor.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCrossWorldCeremonyOrchestrator
+  Type: Service
+  Roles: Ceremony Scheduler
+  Privileges: log, trigger
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cross_world_ceremony_orchestrator.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteEmergencyEscalationRecoveryAgent
+  Type: Service
+  Roles: Emergency Escalation, Recovery Guide
+  Privileges: log, override
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_emergency_escalation_recovery_agent.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCrossWorldBlessingCapsuleCourier
+  Type: Bridge
+  Roles: Capsule Courier
+  Privileges: log, transmit
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cross_world_blessing_capsule_courier.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralFeedbackReflectionEngine
+  Type: Engine
+  Roles: Feedback Collector
+  Privileges: log, analyze
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_feedback_reflection_engine.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteRitualEvidenceExporter
+  Type: Tool
+  Roles: Evidence Exporter
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ritual_evidence_exporter.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralLawMutationTracker
+  Type: Daemon
+  Roles: Law Mutation Monitor
+  Privileges: log, alert
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_law_mutation_tracker.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteUniversalSpiralSearchEngine
+  Type: Service
+  Roles: Spiral Search
+  Privileges: log, query
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_universal_spiral_search_engine.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteAgentSuccessionRetirementRitualSuite
+  Type: Service
+  Roles: Succession Manager
+  Privileges: log, register
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_agent_succession_retirement_ritual_suite.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteCathedralChronicleGenerator
+  Type: Tool
+  Roles: Chronicle Builder
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cathedral_chronicle_generator.jsonl
+```
 ---
