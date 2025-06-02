@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import datetime
 import json
@@ -6,8 +7,8 @@ from typing import Dict
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-CONFESSION_FILE = Path("logs/confessional_log.jsonl")
-HERESY_FILE = Path("logs/heresy_log.jsonl")
+CONFESSION_FILE = get_log_path("confessional_log.jsonl")
+HERESY_FILE = get_log_path("heresy_log.jsonl")
 
 
 def _load(path: Path) -> list[dict]:

@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-CONFLICT_LOG = Path(os.getenv("PRIVILEGE_CONFLICT_LOG", "logs/privilege_conflict.jsonl"))
+CONFLICT_LOG = get_log_path("privilege_conflict.jsonl", "PRIVILEGE_CONFLICT_LOG")
 CONFLICT_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

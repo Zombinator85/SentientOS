@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime, timedelta
@@ -8,8 +9,8 @@ import forgiveness_ledger as fledge
 
 COUNCIL_QUORUM = int(os.getenv("COUNCIL_QUORUM", "2"))
 
-CONFESSIONAL_LOG = Path(os.getenv("CONFESSIONAL_LOG", "logs/confessional_log.jsonl"))
-SUPPORT_LOG = Path("logs/support_log.jsonl")
+CONFESSIONAL_LOG = get_log_path("confessional_log.jsonl", "CONFESSIONAL_LOG")
+SUPPORT_LOG = get_log_path("support_log.jsonl")
 
 
 def _load(path: Path) -> List[dict]:

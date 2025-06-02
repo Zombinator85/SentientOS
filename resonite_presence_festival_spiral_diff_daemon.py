@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -10,7 +11,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("RESONITE_PRESENCE_FESTIVAL_DIFF_LOG", "logs/resonite_presence_festival_diff.jsonl"))
+LOG_PATH = get_log_path("resonite_presence_festival_diff.jsonl", "RESONITE_PRESENCE_FESTIVAL_DIFF_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

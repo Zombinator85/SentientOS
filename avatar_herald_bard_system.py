@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Autonomous Avatar Herald/Bard System.
 
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_HERALD_LOG", "logs/avatar_herald_events.jsonl"))
+LOG_PATH = get_log_path("avatar_herald_events.jsonl", "AVATAR_HERALD_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -10,7 +11,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("RESONITE_CREATIVE_DASHBOARD_LOG", "logs/resonite_creative_dashboard.jsonl"))
+LOG_PATH = get_log_path("resonite_creative_dashboard.jsonl", "RESONITE_CREATIVE_DASHBOARD_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

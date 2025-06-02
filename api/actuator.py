@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import re
@@ -35,7 +36,7 @@ ACTUATORS: dict[str, BaseActuator] = {}
 PLUGINS_INFO: dict[str, str] = {}
 _LOADED_PLUGIN_FILES: list[Path] = []
 
-AUTONOMOUS_LOG = Path(os.getenv("AUTONOMOUS_CALLS_LOG", "logs/autonomous_calls.jsonl"))
+AUTONOMOUS_LOG = get_log_path("autonomous_calls.jsonl", "AUTONOMOUS_CALLS_LOG")
 AUTONOMOUS_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

@@ -9,6 +9,7 @@ without hardware or heavy dependencies.
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -17,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Dict
 
-LOG_FILE = Path(os.getenv("EEG_FEATURE_LOG", "logs/eeg_features.jsonl"))
+LOG_FILE = get_log_path("eeg_features.jsonl", "EEG_FEATURE_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

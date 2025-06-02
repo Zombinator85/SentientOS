@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Ritual Avatar Conflict Drama Engine."""
 
@@ -9,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("AVATAR_CONFLICT_DRAMA_LOG", "logs/avatar_conflict_drama.jsonl"))
+LOG_PATH = get_log_path("avatar_conflict_drama.jsonl", "AVATAR_CONFLICT_DRAMA_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

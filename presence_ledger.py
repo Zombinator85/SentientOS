@@ -1,9 +1,9 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
 from typing import Dict, List
 
-from logging_config import get_log_path
 
 import ledger
 
@@ -204,4 +204,3 @@ def log_video_share(
     )
     log(user, "video_shared", file_path)
     return entry
-

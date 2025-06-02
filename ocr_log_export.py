@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import csv
 import datetime
 import json
@@ -5,7 +6,7 @@ import os
 from pathlib import Path
 
 
-OCR_LOG = Path(os.getenv("OCR_RELAY_LOG", "logs/ocr_relay.jsonl"))
+OCR_LOG = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 
 
 def export_last_day_csv(log_file: Path = OCR_LOG) -> str:
@@ -95,4 +96,3 @@ def export_last_day_json(log_file: Path = OCR_LOG) -> str:
 
 if __name__ == "__main__":  # pragma: no cover - manual usage
     print(export_last_day_csv())
-

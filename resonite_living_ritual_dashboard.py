@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -14,7 +15,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     st = None
 
-LOG_PATH = Path(os.getenv("RESONITE_RITUAL_DASHBOARD_LOG", "logs/resonite_ritual_dashboard.jsonl"))
+LOG_PATH = get_log_path("resonite_ritual_dashboard.jsonl", "RESONITE_RITUAL_DASHBOARD_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

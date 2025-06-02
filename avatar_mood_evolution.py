@@ -4,6 +4,7 @@ Graph the mood tags of an avatar across its history.
 Currently prints a simple time ordered list. TODO: real graphs.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -12,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
-LOG_PATH = Path(os.getenv("AVATAR_MEMORY_LINK_LOG", "logs/avatar_memory_link.jsonl"))
+LOG_PATH = get_log_path("avatar_memory_link.jsonl", "AVATAR_MEMORY_LINK_LOG")
 
 
 def mood_history(avatar: str) -> List[Dict[str, str]]:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -11,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-LOG_PATH = Path(os.getenv("NEOS_SELF_HEAL_LOG", "logs/neos_self_heal.jsonl"))
+LOG_PATH = get_log_path("neos_self_heal.jsonl", "NEOS_SELF_HEAL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

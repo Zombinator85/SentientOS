@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import datetime
@@ -21,7 +22,7 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     PolicyEngine = None  # type: ignore
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
+MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 EVENT_PATH = MEMORY_DIR / "events.jsonl"
 EVENT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -432,5 +433,3 @@ if __name__ == "__main__":  # pragma: no cover - CLI
     if args.review:
         review_workflow_logs()
         print("review complete")
-
-

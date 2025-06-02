@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite Federation Consent Renewal Engine
 
@@ -16,7 +17,7 @@ from typing import Dict, List
 
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_CONSENT_RENEWAL_LOG", "logs/resonite_federation_consent_renewal_engine.jsonl"))
+LOG_PATH = get_log_path("resonite_federation_consent_renewal_engine.jsonl", "RESONITE_CONSENT_RENEWAL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

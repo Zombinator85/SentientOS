@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Mood-Council Dynamic.
 
@@ -13,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-LOG_PATH = Path(os.getenv("AVATAR_MOOD_COUNCIL_LOG", "logs/avatar_mood_council.jsonl"))
+LOG_PATH = get_log_path("avatar_mood_council.jsonl", "AVATAR_MOOD_COUNCIL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

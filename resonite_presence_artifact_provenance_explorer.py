@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -10,10 +11,10 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_PATH = Path(os.getenv("RESONITE_PROVENANCE_LOG", "logs/resonite_provenance_queries.jsonl"))
+LOG_PATH = get_log_path("resonite_provenance_queries.jsonl", "RESONITE_PROVENANCE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-ARTIFACT_DB = Path(os.getenv("RESONITE_ARTIFACT_DB", "logs/artifacts.jsonl"))
+ARTIFACT_DB = get_log_path("artifacts.jsonl", "RESONITE_ARTIFACT_DB")
 
 
 def query(artifact: str) -> dict | None:

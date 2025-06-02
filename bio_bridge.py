@@ -7,6 +7,7 @@ missing.
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import json
 import os
@@ -17,7 +18,7 @@ from typing import Dict
 
 from utils import is_headless
 
-LOG_FILE = Path(os.getenv("BIO_LOG", "logs/bio_events.jsonl"))
+LOG_FILE = get_log_path("bio_events.jsonl", "BIO_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 

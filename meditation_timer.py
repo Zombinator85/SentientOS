@@ -1,10 +1,11 @@
+from logging_config import get_log_path
 import argparse
 import json
 import time
 from datetime import datetime
 from pathlib import Path
 
-LOG_PATH = Path("logs/meditation_log.jsonl")
+LOG_PATH = get_log_path("meditation_log.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

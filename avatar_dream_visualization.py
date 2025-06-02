@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Avatar Dream/Festival Visualization.
 
@@ -12,8 +13,8 @@ import os
 from pathlib import Path
 from typing import List, Dict
 
-DREAM_LOG = Path(os.getenv("AVATAR_DREAM_LOG", "logs/avatar_dreams.jsonl"))
-CEREMONY_LOG = Path(os.getenv("AVATAR_CEREMONY_LOG", "logs/avatar_ceremony_log.jsonl"))
+DREAM_LOG = get_log_path("avatar_dreams.jsonl", "AVATAR_DREAM_LOG")
+CEREMONY_LOG = get_log_path("avatar_ceremony_log.jsonl", "AVATAR_CEREMONY_LOG")
 
 
 def load_events(path: Path) -> List[Dict[str, str]]:

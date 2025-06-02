@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-FED_LOG = Path(os.getenv("CREATIVE_FED_LOG", "logs/creative_federation.jsonl"))
+FED_LOG = get_log_path("creative_federation.jsonl", "CREATIVE_FED_LOG")
 FED_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

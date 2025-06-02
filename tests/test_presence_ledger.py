@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 import os
 import sys
@@ -51,12 +52,12 @@ def test_music_stats(tmp_path, monkeypatch):
     orig_read = Path.read_text
 
     def fake_exists(self):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return True
         return orig_exists(self)
 
     def fake_read(self, encoding="utf-8"):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return mus.read_text(encoding=encoding)
         return orig_read(self, encoding=encoding)
 

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import hashlib
@@ -10,7 +11,7 @@ import emotion_memory as em
 # Optional upgrade: use simple embedding vectors instead of bag-of-words
 USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
+MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"

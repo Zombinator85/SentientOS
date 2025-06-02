@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 from pathlib import Path
@@ -5,7 +6,7 @@ from typing import Any, Dict, List
 import datetime
 from api import actuator
 
-MEMORY_DIR = Path(os.getenv("MEMORY_DIR", "logs/memory"))
+MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 SUB_PATH = MEMORY_DIR / "subscriptions.json"
 EVENT_PATH = MEMORY_DIR / "events.jsonl"
 SUB_PATH.parent.mkdir(parents=True, exist_ok=True)

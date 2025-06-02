@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import sys
 import json
@@ -20,12 +21,12 @@ def test_presence_recap(monkeypatch, tmp_path):
     orig_read = Path.read_text
 
     def fake_exists(self):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return True
         return orig_exists(self)
 
     def fake_read(self, encoding="utf-8"):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return mus.read_text(encoding=encoding)
         return orig_read(self, encoding=encoding)
 
@@ -50,12 +51,12 @@ def test_recap_milestone(monkeypatch, tmp_path):
     orig_read = Path.read_text
 
     def fake_exists(self):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return True
         return orig_exists(self)
 
     def fake_read(self, encoding="utf-8"):
-        if str(self) == "logs/music_log.jsonl":
+        if str(self) == str(get_log_path("music_log.jsonl")):
             return mus.read_text(encoding=encoding)
         return orig_read(self, encoding=encoding)
 
@@ -66,4 +67,3 @@ def test_recap_milestone(monkeypatch, tmp_path):
     importlib.reload(pl)
     data = pl.recap()
     assert any("Grief" in m for m in data["milestones"])
-

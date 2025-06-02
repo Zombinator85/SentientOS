@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import json
 from pathlib import Path
 
@@ -9,9 +10,9 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def generate_recap(limit: int = 20) -> dict:
-    support = ledger.summarize_log(Path("logs/support_log.jsonl"), limit)
-    federation = ledger.summarize_log(Path("logs/federation_log.jsonl"), limit)
-    heresy = ledger.summarize_log(Path(os.getenv("HERESY_LOG", "logs/heresy_log.jsonl")), limit)
+    support = ledger.summarize_log(get_log_path("support_log.jsonl"), limit)
+    federation = ledger.summarize_log(get_log_path("federation_log.jsonl"), limit)
+    heresy = ledger.summarize_log(get_log_path("heresy_log.jsonl", "HERESY_LOG"), limit)
     theme = daily_theme.latest()
     return {
         "theme": theme,

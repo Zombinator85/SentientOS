@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 import json
 import os
 import datetime
@@ -10,7 +11,7 @@ from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-LOG_FILE = Path(os.getenv("SELF_DEFENSE_LOG", "logs/agent_self_defense.jsonl"))
+LOG_FILE = get_log_path("agent_self_defense.jsonl", "SELF_DEFENSE_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 @dataclass

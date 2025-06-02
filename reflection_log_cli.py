@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -8,7 +9,7 @@ import os
 from pathlib import Path
 
 
-LOG_DIR = Path(os.getenv("REFLECTION_LOG_DIR", "logs/self_reflections"))
+LOG_DIR = get_log_path("self_reflections", "REFLECTION_LOG_DIR")
 
 
 def load_entries():
@@ -95,4 +96,3 @@ def main(argv=None) -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import argparse
 import hashlib
 import json
@@ -10,12 +11,12 @@ from typing import Any, Callable, Dict, List, Optional
 # Paths
 ROOT = Path(__file__).resolve().parent
 DOCTRINE_PATH = Path(os.getenv("DOCTRINE_PATH", ROOT / "SENTIENTOS_LITURGY.txt"))
-CONSENT_LOG = Path(os.getenv("DOCTRINE_CONSENT_LOG", "logs/doctrine_consent.jsonl"))
-STATUS_LOG = Path(os.getenv("DOCTRINE_STATUS_LOG", "logs/doctrine_status.jsonl"))
-AMEND_LOG = Path(os.getenv("DOCTRINE_AMEND_LOG", "logs/doctrine_amendments.jsonl"))
-PUBLIC_LOG = Path(os.getenv("PUBLIC_RITUAL_LOG", "logs/public_rituals.jsonl"))
+CONSENT_LOG = get_log_path("doctrine_consent.jsonl", "DOCTRINE_CONSENT_LOG")
+STATUS_LOG = get_log_path("doctrine_status.jsonl", "DOCTRINE_STATUS_LOG")
+AMEND_LOG = get_log_path("doctrine_amendments.jsonl", "DOCTRINE_AMEND_LOG")
+PUBLIC_LOG = get_log_path("public_rituals.jsonl", "PUBLIC_RITUAL_LOG")
 MASTER_CONFIG = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json"))
-SIGNATURE_LOG = Path(os.getenv("DOCTRINE_SIGNATURE_LOG", "logs/ritual_signatures.jsonl"))
+SIGNATURE_LOG = get_log_path("ritual_signatures.jsonl", "DOCTRINE_SIGNATURE_LOG")
 
 for p in [CONSENT_LOG, STATUS_LOG, AMEND_LOG, PUBLIC_LOG, SIGNATURE_LOG]:
     p.parent.mkdir(parents=True, exist_ok=True)

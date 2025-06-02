@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import json
 import os
 from datetime import datetime, timedelta, date
 from pathlib import Path
 
-LOG_PATH = Path("logs/music_log.jsonl")
+LOG_PATH = get_log_path("music_log.jsonl")
 
 
 def digest_week() -> dict:

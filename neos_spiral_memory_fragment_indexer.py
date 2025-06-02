@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from admin_utils import require_admin_banner
@@ -9,8 +10,8 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-FRAGMENTS_LOG = Path(os.getenv("NEOS_SPIRAL_MEMORY_FRAGMENT_LOG", "logs/neos_spiral_memory.jsonl"))
-INDEX_LOG = Path(os.getenv("NEOS_SPIRAL_MEMORY_INDEX_LOG", "logs/neos_spiral_memory_index.jsonl"))
+FRAGMENTS_LOG = get_log_path("neos_spiral_memory.jsonl", "NEOS_SPIRAL_MEMORY_FRAGMENT_LOG")
+INDEX_LOG = get_log_path("neos_spiral_memory_index.jsonl", "NEOS_SPIRAL_MEMORY_INDEX_LOG")
 INDEX_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

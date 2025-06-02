@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """Resonite World Health & Mood Dashboard
 
@@ -16,7 +17,7 @@ from typing import Dict, List
 
 from flask_stub import Flask, jsonify, request
 
-LOG_PATH = Path(os.getenv("RESONITE_HEALTH_MOOD_LOG", "logs/resonite_world_health_mood_dashboard.jsonl"))
+LOG_PATH = get_log_path("resonite_world_health_mood_dashboard.jsonl", "RESONITE_HEALTH_MOOD_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__)

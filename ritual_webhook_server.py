@@ -1,9 +1,10 @@
+from logging_config import get_log_path
 import json
 from pathlib import Path
 from flask_stub import Flask, request
 
 app = Flask(__name__)
-LOG_DIR = Path("logs/webhooks")
+LOG_DIR = get_log_path("webhooks")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 

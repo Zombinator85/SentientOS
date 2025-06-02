@@ -6,6 +6,7 @@ Example:
     python avatar_chronicle_generator.py --out chronicle.md
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -14,9 +15,9 @@ from pathlib import Path
 from typing import List, Dict
 
 LOGS = [
-    Path("logs/avatar_memory_link.jsonl"),
-    Path("logs/avatar_council_log.jsonl"),
-    Path("logs/avatar_retirement.jsonl"),
+    get_log_path("avatar_memory_link.jsonl"),
+    get_log_path("avatar_council_log.jsonl"),
+    get_log_path("avatar_retirement.jsonl"),
 ]
 
 

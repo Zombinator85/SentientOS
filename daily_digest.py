@@ -8,6 +8,7 @@ Integration Notes: schedule ``run_digest`` via cron or a task runner. Dashboards
 """
 
 from __future__ import annotations
+from logging_config import get_log_path
 
 import datetime as _dt
 import json
@@ -15,7 +16,7 @@ import os
 from pathlib import Path
 from typing import Dict, List
 
-DIGEST_LOG = Path(os.getenv("DAILY_DIGEST_LOG", "logs/daily_digest.jsonl"))
+DIGEST_LOG = get_log_path("daily_digest.jsonl", "DAILY_DIGEST_LOG")
 DIGEST_LOG.parent.mkdir(parents=True, exist_ok=True)
 RETENTION_DAYS = int(os.getenv("DIGEST_KEEP_DAYS", "7"))
 

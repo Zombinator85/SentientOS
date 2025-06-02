@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import uuid
@@ -5,8 +6,8 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-DATA_FILE = Path(os.getenv("EXPERIMENTS_FILE", "logs/experiments.json"))
-AUDIT_FILE = Path(os.getenv("EXPERIMENT_AUDIT_FILE", "logs/experiment_audit.jsonl"))
+DATA_FILE = get_log_path("experiments.json", "EXPERIMENTS_FILE")
+AUDIT_FILE = get_log_path("experiment_audit.jsonl", "EXPERIMENT_AUDIT_FILE")
 DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 

@@ -3,6 +3,7 @@
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import json
@@ -13,8 +14,8 @@ from typing import List, Dict
 
 from admin_utils import require_admin_banner
 
-LOG_PATH = Path(os.getenv("MEMORY_INDEX_LOG", "logs/memory_index.log"))
-INDEX_PATH = Path(os.getenv("MEMORY_INDEX", "logs/memory_index.json"))
+LOG_PATH = get_log_path("memory_index.log", "MEMORY_INDEX_LOG")
+INDEX_PATH = get_log_path("memory_index.json", "MEMORY_INDEX")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

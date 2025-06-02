@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging_config import get_log_path
 
 """NeosVR Artifact Audit & Curation Suite."""
 
@@ -11,7 +12,7 @@ from typing import Dict, List
 
 from log_utils import append_json, read_json
 
-LOG_PATH = Path(os.getenv("NEOS_ARTIFACT_CURATION_LOG", "logs/neos_artifact_curation.jsonl"))
+LOG_PATH = get_log_path("neos_artifact_curation.jsonl", "NEOS_ARTIFACT_CURATION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 

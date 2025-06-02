@@ -1,4 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from logging_config import get_log_path
 from admin_utils import require_admin_banner
 
 import argparse
@@ -8,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-SYNC_LOG = Path(os.getenv("ONBOARDING_SYNC_LOG", "logs/onboarding_sync.jsonl"))
+SYNC_LOG = get_log_path("onboarding_sync.jsonl", "ONBOARDING_SYNC_LOG")
 SYNC_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 

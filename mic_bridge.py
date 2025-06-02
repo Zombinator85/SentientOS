@@ -1,3 +1,4 @@
+from logging_config import get_log_path
 import os
 import json
 import time
@@ -19,7 +20,7 @@ if is_headless():
 
 from memory_manager import append_memory
 
-AUDIO_DIR = Path(os.getenv("AUDIO_LOG_DIR", "logs/audio"))
+AUDIO_DIR = get_log_path("audio", "AUDIO_LOG_DIR")
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
