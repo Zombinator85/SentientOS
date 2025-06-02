@@ -11,6 +11,7 @@ from admin_utils import require_admin_banner
 import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 LOG_PATH = get_log_path("resonite_cathedral_demo_scrolls.jsonl", "RESONITE_DEMO_SCROLL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 

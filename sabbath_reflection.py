@@ -7,6 +7,9 @@ from typing import List, Dict
 
 import confessional_log as clog
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 HERESY_LOG = get_log_path("heresy_log.jsonl")
 BLESS_LOG = get_log_path("support_log.jsonl")
 REPORT_PATH = get_log_path("ritual_sabbath.md")
