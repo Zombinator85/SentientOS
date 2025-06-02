@@ -3,6 +3,7 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from logging_config import get_log_path
 from utils import is_headless
 
 HEADLESS = is_headless()
@@ -52,7 +53,10 @@ class FaceEmotionTracker:
         output_file: str | None = None,
         feedback: "FeedbackManager | None" = None,
     ) -> None:
-        self.log_path = Path(output_file or os.getenv("VISION_LOG", "logs/vision/vision.jsonl"))
+        if output_file:
+            self.log_path = Path(output_file)
+        else:
+            self.log_path = get_log_path("vision/vision.jsonl", "VISION_LOG")
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         if HEADLESS:
             self.cap = None
