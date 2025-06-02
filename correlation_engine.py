@@ -3,6 +3,9 @@ import json
 from pathlib import Path
 from typing import List
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 CONFESSION_FILE = get_log_path("confessional_log.jsonl")
 BLESS_FILE = get_log_path("support_log.jsonl")
 

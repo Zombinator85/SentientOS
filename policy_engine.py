@@ -1,3 +1,6 @@
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Modular policy, gesture, and persona engine."""
 
 from __future__ import annotations

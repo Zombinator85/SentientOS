@@ -9,6 +9,9 @@ from mic_bridge import recognize_from_mic
 from tts_bridge import speak_async, stop, adapt_persona, backchannel
 import emotion_memory as em
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 VOICE_MODEL = os.getenv("VOICE_MODEL", "openai/gpt-4o")
