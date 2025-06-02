@@ -47,5 +47,15 @@
 - `neos_teaching_content_generator.py` – create onboarding and lore content.
 - `neos_origin_story_logger.py` – record reasons behind new creations.
 - `neos_lorebook_writer.py` – compile asset origins, ceremonies, teaching logs, and council memory into a unified lorebook.
+- `neos_lorebook_playback_narrator.py` – autonomously narrate lorebook entries with TTS or VR text.
+- `neos_ceremony_choreographer.py` – script and coordinate rituals and avatar movements.
+- `neos_memory_timeline_builder.py` – visualize and annotate memory and ceremony timelines.
+- `neos_ceremony_recap_exporter.py` – summarize and export recaps of rituals or festivals.
+- `neos_council_law_proposal_engine.py` – draft and log new council laws or rules.
+- `neos_provenance_tracker.py` – track lineage of artifacts and avatars across worlds.
+- `neos_ritual_correction_daemon.py` – detect and propose fixes for failed rituals.
+- `neos_festival_mood_visualizer.py` – animate mood arcs across ceremonies and festivals.
+- `neos_lore_spiral_publisher.py` – broadcast new lorebook entries to connected worlds.
+- `neos_council_teaching_suite.py` – onboard and teach new council members in-world.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
