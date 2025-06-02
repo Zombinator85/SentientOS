@@ -57,8 +57,10 @@ Run `python verify_audits.py` to check that the immutable logs listed in
 ## Final Cathedral-Polish Steps
 - [ ] `python privilege_lint.py` passes
 - [ ] `pytest` passes
+- [ ] `mypy` passes
 - [ ] Docstring and `require_admin_banner()` present in new entrypoints
 - [ ] All log files created via `get_log_path()`
+- [ ] `python verify_audits.py` passes
 - [ ] Documentation updated
 
 ## License

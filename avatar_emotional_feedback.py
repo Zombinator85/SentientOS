@@ -1,11 +1,10 @@
+from __future__ import annotations
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Avatar Emotional Feedback Loop.
 
 Logs user reactions to avatar events for future mood adjustment.
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -73,6 +72,7 @@ def mood_trend(avatar: str) -> str:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar emotional feedback loop")
     sub = ap.add_subparsers(dest="cmd")
 

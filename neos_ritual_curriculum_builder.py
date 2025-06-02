@@ -3,7 +3,6 @@ from logging_config import get_log_path
 
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """NeosVR Autonomous Ritual Curriculum Builder."""
 
 import argparse
@@ -37,6 +36,7 @@ def list_curricula(term: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Ritual Curriculum Builder")
     sub = ap.add_subparsers(dest="cmd")
 

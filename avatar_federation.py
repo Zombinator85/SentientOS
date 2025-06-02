@@ -1,8 +1,7 @@
+from __future__ import annotations
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Export and import avatars with ritual logs."""
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -44,6 +43,7 @@ def import_avatar(tar_path: Path, dest: Path, reason: str) -> Path:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Federation avatar exchange")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

@@ -9,9 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # Paths
-from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 ROOT = Path(__file__).resolve().parent
 DOCTRINE_PATH = Path(os.getenv("DOCTRINE_PATH", ROOT / "SENTIENTOS_LITURGY.txt"))
 CONSENT_LOG = get_log_path("doctrine_consent.jsonl", "DOCTRINE_CONSENT_LOG")
@@ -280,6 +278,8 @@ def public_feed(n: int = 5) -> List[Dict[str, Any]]:
 CLI_DESC = "Doctrine management and ritual utilities"
 
 def main() -> None:
+    from admin_utils import require_admin_banner
+    require_admin_banner()
     p = argparse.ArgumentParser(description=CLI_DESC)
     p.add_argument("--watch", action="store_true", help="Watch master files for changes")
     sub = p.add_subparsers(dest="cmd")
