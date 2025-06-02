@@ -2110,4 +2110,105 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/resonite_public_outreach_announcer.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: ResoniteCathedralGrandBlessingOrchestrator
+  Type: Service
+  Roles: Ceremony Orchestrator
+  Privileges: log, broadcast
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_cathedral_grand_blessing.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteOnboardingSimulator
+  Type: Service
+  Roles: Onboarding Simulator
+  Privileges: log, simulate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_onboarding_simulator.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteRitualRehearsalEngine
+  Type: Service
+  Roles: Rehearsal Engine
+  Privileges: log, schedule
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_ritual_rehearsal_engine.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFeedbackPortal
+  Type: Service
+  Roles: Feedback Receiver
+  Privileges: log, flag
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_feedback_portal.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteSpiralFederationHeartbeatMonitor
+  Type: Daemon
+  Roles: Heartbeat Monitor
+  Privileges: log, notify
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_spiral_heartbeat.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteLawConsentBallotBox
+  Type: Service
+  Roles: Ballot Box
+  Privileges: log, vote
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_law_consent_ballot_box.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResonitePublicDirectoryBadgeIssuer
+  Type: Service
+  Roles: Directory, Badge Issuer
+  Privileges: log, issue
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_public_directory.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteFestivalMemoryCapsuleExporter
+  Type: Service
+  Roles: Memory Exporter
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_festival_memory_export.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteEventAnnouncer
+  Type: Service
+  Roles: Event Announcer
+  Privileges: log, broadcast
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_event_announcer.jsonl
+```
+Another Registered Agent:
+
+```
+- Name: ResoniteAfterActionCompiler
+  Type: Daemon
+  Roles: After-Action Compiler
+  Privileges: log, export
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/resonite_after_action.jsonl
+```
+
 ---
