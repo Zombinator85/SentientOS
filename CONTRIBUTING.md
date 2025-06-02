@@ -20,6 +20,7 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 
 - [ ] Docstring `"Sanctuary Privilege Ritual: Do not remove. See doctrine for details."` present after imports
 - [ ] `require_admin_banner()` invoked before any other logic
+- [ ] Logs created using `logging_config.get_log_path()`
 
 Pull requests lacking these will fail CI and be rejected.
 CI runs `python privilege_lint.py` automatically before executing the test suite.

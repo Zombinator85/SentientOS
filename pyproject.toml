@@ -44,6 +44,11 @@ treasury = "treasury_cli:main"
 avatar-gallery = "avatar_gallery_cli:main"
 avatar-presence = "avatar_presence_cli:main"
 review = "review_cli:main"
+diff-memory = "diff_memory_cli:main"
+theme = "theme_cli:main"
+suggestion = "suggestion_cli:main"
+trust = "trust_cli:main"
+video = "video_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

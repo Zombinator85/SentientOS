@@ -24,4 +24,12 @@ The table below explains each variable and its default behavior.
 | `ELEVEN_VOICE` | Default ElevenLabs voice | `Rachel` |
 | `BARK_SPEAKER` | Bark speaker ID | `v2/en_speaker_6` |
 | `EMOTION_DETECTOR` | Emotion detection backend (`heuristic` or `neural`) | `heuristic` |
+| `USE_EMBEDDINGS` | Enable vector embeddings for search | `0` |
+| `TOMB_HASH` | Enable ledger tombstone hashing | `1` |
+| `INCOGNITO` | Skip logging to presence ledger | *(unset)* |
+| `WORKFLOW_LIBRARY` | Default workflow library directory | `workflows` |
+| `AVATAR_DIR` | Directory for generated avatars | `avatars` |
+| `NEOS_BRIDGE_DIR` | Path to NeosVR bridge directory | `C:/SentientOS/neos` |
+| `BACKCHANNEL_GAP` | Seconds between backchannel polls | `6` |
+| `LEDGER_BACKUP_DIR` | Directory for ledger backups | `backup` |
 

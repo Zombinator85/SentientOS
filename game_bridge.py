@@ -1,6 +1,6 @@
+from __future__ import annotations
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Game world integration for Minecraft and Valheim.
 
 This module logs in-game ritual events and acts as a bridge between
@@ -9,7 +9,6 @@ Each event is appended to ``logs/game_bridge_events.jsonl`` or the path
 specified by the ``GAME_BRIDGE_LOG`` environment variable.
 """
 
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -88,6 +87,7 @@ def presence_pulse(game: str, state: str) -> Dict[str, str]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Game world integration")
     sub = ap.add_subparsers(dest="cmd")
 
