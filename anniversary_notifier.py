@@ -2,6 +2,9 @@ import os
 import json
 import datetime
 from pathlib import Path
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 ANNIVERSARY = os.getenv("CATHEDRAL_BIRTH", "2023-01-01")
 LOG_FILE = Path("logs/anniversary_log.jsonl")
@@ -23,4 +26,5 @@ def check_and_log() -> None:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual
+    require_admin_banner()
     check_and_log()
