@@ -723,10 +723,10 @@ python replay.py --storyboard storyboard.json --timeline
 Annotations can be managed from the command line:
 
 ```bash
-python review_cli.py storyboard.json --annotate "Needs more tension" --chapter 2
-python review_cli.py storyboard.json --set-status approved --chapter 2
-python review_cli.py storyboard.json --whoami
-python review_cli.py storyboard.json --switch-persona Lumos
+review storyboard.json --annotate "Needs more tension" --chapter 2
+review storyboard.json --set-status approved --chapter 2
+review storyboard.json --whoami
+review storyboard.json --switch-persona Lumos
 ```
 Use `--mention NAME` with `--annotate` to notify collaborators.
 
