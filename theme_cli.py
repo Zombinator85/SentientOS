@@ -1,8 +1,11 @@
 import argparse
 import daily_theme
+from admin_utils import require_admin_banner
 
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Daily theme tool")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("generate", help="Generate today's theme")

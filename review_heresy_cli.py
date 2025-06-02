@@ -4,8 +4,10 @@ import os
 
 import heresy_log
 import heresy_review
+from admin_utils import require_admin_banner
 
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def list_unresolved() -> list:
     reviewed = heresy_review.reviewed_timestamps()
     out = []
@@ -32,6 +34,7 @@ def list_command(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    require_admin_banner()
     parser = argparse.ArgumentParser(description="Heresy review ritual")
     sub = parser.add_subparsers(dest="cmd")
 

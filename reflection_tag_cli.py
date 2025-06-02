@@ -2,7 +2,9 @@ import argparse
 import json
 import os
 from pathlib import Path
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 LOG_DIR = Path(os.getenv("REFLECTION_LOG_DIR", "logs/self_reflections"))
 TAG_FILE = Path(os.getenv("REFLECTION_TAG_FILE", "logs/reflection_tags.json"))
 TAG_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -38,6 +40,7 @@ def search_tag(tag: str) -> list:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Reflection tagging utility")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -8,8 +8,12 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 from log_utils import append_json, read_json
+from admin_utils import require_admin_banner
 
 LOG_PATH = Path(os.getenv("NEOS_AVATAR_PROVENANCE_LOG", "logs/neos_avatar_provenance.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -33,6 +37,7 @@ def list_queries(term: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Avatar Provenance Dashboard")
     sub = ap.add_subparsers(dest="cmd")
 

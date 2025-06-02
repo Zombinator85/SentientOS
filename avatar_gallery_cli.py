@@ -1,10 +1,14 @@
 """Simple CLI to view avatars and presence pulses."""
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 from pathlib import Path
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 PRESENCE_LOG = Path(os.getenv("AVATAR_PRESENCE_LOG", "logs/avatar_presence.jsonl"))
 
@@ -22,6 +26,7 @@ def list_invocations(filter_reason: str = "") -> list[dict]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar gallery viewer")
     ap.add_argument("--reason", default="", help="Filter by invocation reason")
     args = ap.parse_args()

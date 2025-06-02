@@ -5,8 +5,10 @@ from pathlib import Path
 
 import presence_pulse_api as pulse
 import ledger
+from admin_utils import require_admin_banner
 
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 def digest(days: int = 1) -> dict:
     start = datetime.utcnow() - timedelta(days=days)
     sup = ledger.summarize_log(Path("logs/support_log.jsonl"), limit=100)
@@ -24,6 +26,7 @@ def digest(days: int = 1) -> dict:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Ritual recap digest")
     ap.add_argument("--days", type=int, default=1)
     ap.add_argument("--out")

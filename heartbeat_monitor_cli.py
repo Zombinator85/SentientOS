@@ -1,6 +1,8 @@
 import time
 from pathlib import Path
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 LOG_PATH = Path("logs/user_presence.jsonl")
 
 
@@ -19,5 +21,10 @@ def monitor(period: float = 5.0, window: int = 60) -> None:
         time.sleep(period)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    require_admin_banner()
     monitor()
+
+
+if __name__ == "__main__":
+    main()

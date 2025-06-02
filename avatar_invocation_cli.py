@@ -2,7 +2,9 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
+from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 LOG_PATH = Path("logs/avatar_invocation.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -20,6 +22,7 @@ def log_invocation(line: str, mode: str, user: str = "") -> dict:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar ritual invocation")
     ap.add_argument("line")
     ap.add_argument("--mode", default="voice")

@@ -10,6 +10,9 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 LOG_PATH = Path(os.getenv("AVATAR_PRESENCE_LOG", "logs/avatar_presence.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -29,6 +32,7 @@ def log_invocation(path: str, reason: str, mode: str = "visual") -> dict:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Invoke avatar with blessing")
     ap.add_argument("avatar")
     ap.add_argument("reason")
