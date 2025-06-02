@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt  # type: ignore
 import presence_pulse_api as pulse
 
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 def plot_pulse(hours: int = 24) -> Path:
     intervals = [i for i in range(hours)]
     values = []

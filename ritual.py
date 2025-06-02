@@ -13,6 +13,9 @@ import doctrine  # Assume doctrine.py is importable
 import relationship_log as rl
 import headless_log as hl
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json")).resolve()
 REFUSAL_LOG = get_log_path("refusal_audit.jsonl", "REFUSAL_LOG")

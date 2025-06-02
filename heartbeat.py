@@ -3,6 +3,9 @@ import requests
 from datetime import datetime, UTC
 from emotions import empty_emotion_vector
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 RELAY_URL = "http://localhost:5000/relay"
 SECRET = "lumos_april_bridge_secure"
 MODEL = "openai/gpt-4o"

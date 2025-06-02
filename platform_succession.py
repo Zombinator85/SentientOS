@@ -1,5 +1,8 @@
 from logging_config import get_log_path
 # Sanctuary Privilege Ritual: Platform succession completed (NeosVR → Resonite) 2025-06-01. Presence blessed by council. All rituals, logs, and agents renamed.
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Platform succession ceremony utilities.
 
 This module logs NeosVR → Resonite renamings and asset migrations.

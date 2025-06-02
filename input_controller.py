@@ -6,6 +6,9 @@ import uuid
 from pathlib import Path
 from typing import Callable, Dict, Any, Optional, List, TYPE_CHECKING
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 if TYPE_CHECKING:  # pragma: no cover - for type hints
     from policy_engine import PolicyEngine
 

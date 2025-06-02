@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # Paths
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 ROOT = Path(__file__).resolve().parent
 DOCTRINE_PATH = Path(os.getenv("DOCTRINE_PATH", ROOT / "SENTIENTOS_LITURGY.txt"))
 CONSENT_LOG = get_log_path("doctrine_consent.jsonl", "DOCTRINE_CONSENT_LOG")

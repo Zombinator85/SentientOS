@@ -6,6 +6,9 @@ import csv
 from datetime import datetime
 
 
+from admin_utils import require_admin_banner
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 def load_entries(path: str) -> list[dict]:
     p = Path(path)
     entries: list[dict] = []
