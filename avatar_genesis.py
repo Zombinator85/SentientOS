@@ -1,14 +1,13 @@
+from __future__ import annotations
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Avatar genesis script using Blender's Python API.
 
 This module provides a CLI tool to procedurally generate an avatar
 based on a mood. The avatar is saved to a .blend file and a ritual
-blessing entry is logged. For complex modeling/rigging the code
-includes TODO placeholders.
+blessing entry is logged. For complex modeling/rigging this example
+uses very simple geometry.
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -60,13 +59,28 @@ def generate_avatar(mood: str, out_path: Path) -> Path:
     bpy.ops.mesh.primitive_uv_sphere_add(radius=1)
     obj = bpy.context.object
     obj.name = f"avatar_{mood}"
-    # TODO: tweak material/shape based on mood
+
+    m = mood.lower()
+    mat = bpy.data.materials.new(name=f"mat_{m}")
+    if "happy" in m or "joy" in m:
+        obj.scale = (1.2, 1.2, 1.2)
+        mat.diffuse_color = (1.0, 0.9, 0.3, 1)
+    elif "sad" in m or "melanch" in m:
+        obj.scale = (0.8, 0.8, 0.8)
+        mat.diffuse_color = (0.2, 0.2, 1.0, 1)
+    else:
+        mat.diffuse_color = (0.8, 0.8, 0.8, 1)
+    if obj.data.materials:
+        obj.data.materials[0] = mat
+    else:
+        obj.data.materials.append(mat)
 
     bpy.ops.wm.save_as_mainfile(filepath=str(out_path))
     return out_path
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Generate ritual avatar")
     ap.add_argument("mood", help="Mood for the avatar")
     ap.add_argument("--out", default="")

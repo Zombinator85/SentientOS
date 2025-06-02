@@ -1,6 +1,5 @@
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Avatar Memory Linker CLI
 
 Links avatar events (generation, invocation, federation) to moods and memory fragments.
@@ -63,6 +62,7 @@ def list_links(term: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar memory linker")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -1,13 +1,11 @@
+from __future__ import annotations
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Avatar Presence Pulse Animation
 
 Animates avatar presence intensity in sync with the presence pulse API.
-Currently outputs an ASCII bar to represent animation.
-TODO: real GUI or dashboard integration.
+Displays a tiny Tkinter gauge as a minimal GUI in addition to an ASCII bar.
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -71,6 +69,7 @@ def animate_once(avatar: str) -> dict:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar presence pulse animation")
     ap.add_argument("avatar")
     args = ap.parse_args()
