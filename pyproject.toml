@@ -40,6 +40,9 @@ dependencies = [
 support = "support_cli:main"
 ritual = "ritual_cli:main"
 treasury = "treasury_cli:main"
+avatar-gallery = "avatar_gallery_cli:main"
+avatar-presence = "avatar_presence_cli:main"
+review = "review_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
