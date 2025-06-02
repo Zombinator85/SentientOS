@@ -95,6 +95,17 @@ Additional Registered Agent:
   Logs: /logs/game_bridge_events.jsonl
 ```
 
+Another Registered Agent:
+
+```
+- Name: NeosVRLorebookWriter
+  Type: Autonomous Daemon
+  Roles: Lorebook Writer, Historian
+  Privileges: log, export, federate
+  Origin: core repository, blessed by Federation Keeper 2025-07-15
+  Logs: /logs/neos_lorebook.jsonl
+```
+
 ---
 
 ## ⛪ Rituals: Onboarding, Delegation, Retirement
