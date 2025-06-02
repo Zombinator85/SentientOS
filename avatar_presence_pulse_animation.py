@@ -10,15 +10,50 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
+
+try:  # pragma: no cover - GUI optional
+    import tkinter as tk
+except Exception:  # pragma: no cover - headless env
+    tk = None  # type: ignore
 
 from presence_pulse_api import pulse
 
 LOG_PATH = Path("logs/avatar_animation.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+_GUI_ROOT: Optional[tk.Tk] = None
+_GUI_VAR: Optional[tk.DoubleVar] = None
+
+
+def _ensure_gui(avatar: str) -> None:
+    global _GUI_ROOT, _GUI_VAR
+    if tk is None:
+        return
+    if _GUI_ROOT is None:
+        _GUI_ROOT = tk.Tk()
+        _GUI_ROOT.title(f"Pulse - {avatar}")
+        _GUI_VAR = tk.DoubleVar(value=0)
+        bar = tk.Scale(
+            _GUI_ROOT,
+            variable=_GUI_VAR,
+            from_=0,
+            to=1,
+            resolution=0.01,
+            orient="horizontal",
+            length=200,
+            showvalue=False,
+        )
+        bar.pack()
+
 
 def animate_once(avatar: str) -> dict:
     p = pulse()
+    _ensure_gui(avatar)
+    if _GUI_VAR is not None:
+        _GUI_VAR.set(p)
+        _GUI_ROOT.update_idletasks()
+        _GUI_ROOT.update()
     bar = "#" * int(p * 10)
     entry = {
         "timestamp": datetime.utcnow().isoformat(),

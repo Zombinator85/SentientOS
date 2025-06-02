@@ -26,12 +26,27 @@ class JukeboxIntegration:
 
     def _map_emotion_to_style(self, emotion_vector: Dict[str, float]) -> str:
         """Convert an emotion vector into a Jukebox style string."""
-        # TODO: implement mapping logic
-        return "ambient"
+        if not emotion_vector:
+            return "ambient"
+        mood = max(emotion_vector, key=emotion_vector.get)
+        mapping = {
+            "Joy": "pop",
+            "Anger": "metal",
+            "Sad": "blues",
+            "Sadness": "blues",
+            "Calm": "ambient",
+            "Fear": "drone",
+        }
+        return mapping.get(mood, "ambient")
 
     async def _run_jukebox_generation(self, prompt: str, style: str, output_path: Path) -> None:
         """Run the heavy Jukebox generation asynchronously."""
-        # TODO: hook into Jukebox inference here
-        await asyncio.sleep(5)
-        with output_path.open("wb") as f:
-            f.write(b"FAKE_MP3_DATA")
+        # Placeholder for real model inference.
+        cmd = ["echo", f"{prompt} -> {style}"]
+        try:
+            proc = await asyncio.create_subprocess_exec(*cmd)
+            await proc.communicate()
+        except Exception:
+            await asyncio.sleep(0.1)
+        output_path.write_bytes(b"FAKE_MP3_DATA")
+
