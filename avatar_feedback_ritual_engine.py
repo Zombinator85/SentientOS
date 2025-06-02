@@ -25,9 +25,22 @@ def log_feedback(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def adapt_ritual(feedback: str) -> dict[str, Any]:
-    """Placeholder adaptive ritual logic."""
-    # TODO: analyze feedback trends
-    info = {"feedback": feedback}
+    """Log feedback and return simple trend analysis."""
+    history: list[dict[str, Any]] = []
+    if LOG_PATH.exists():
+        for line in LOG_PATH.read_text(encoding="utf-8").splitlines():
+            try:
+                history.append(json.loads(line))
+            except Exception:
+                continue
+    positive = sum(1 for e in history if str(e.get("feedback", "")).lower() in {"love", "like", "joy", "good"})
+    negative = sum(1 for e in history if str(e.get("feedback", "")).lower() in {"dislike", "anger", "bad"})
+    trend = "neutral"
+    if positive > negative:
+        trend = "positive"
+    elif negative > positive:
+        trend = "negative"
+    info = {"feedback": feedback, "trend": trend}
     return log_feedback(info)
 
 

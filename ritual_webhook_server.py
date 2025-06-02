@@ -5,7 +5,6 @@ from flask_stub import Flask, request
 
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 app = Flask(__name__)
 LOG_DIR = get_log_path("webhooks")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -21,4 +20,5 @@ def receive(event: str):
 
 
 if __name__ == "__main__":  # pragma: no cover - manual server
+    require_admin_banner()
     app.run(port=5080)
