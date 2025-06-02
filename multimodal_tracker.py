@@ -2,6 +2,7 @@ import os
 import json
 import time
 from pathlib import Path
+from logging_config import get_log_dir
 from typing import Any, Dict, List, Optional
 from utils import is_headless
 
@@ -64,7 +65,9 @@ class MultiModalEmotionTracker:
         if HEADLESS:
             enable_vision = False
             enable_voice = False
-        self.log_dir = Path(output_dir or os.getenv("MULTI_LOG_DIR", "logs/multimodal"))
+        default_dir = get_log_dir() / "multimodal"
+        env_dir = os.getenv("MULTI_LOG_DIR")
+        self.log_dir = Path(output_dir or env_dir or default_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         if enable_vision:
             try:

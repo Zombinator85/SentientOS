@@ -1,5 +1,5 @@
 from __future__ import annotations
-from logging_config import get_log_path
+from logging_config import get_log_path, get_log_dir
 
 import argparse
 import datetime
@@ -14,7 +14,7 @@ from admin_utils import require_admin_banner
 
 LOG_PATH = get_log_path("genesis_oracle.jsonl", "GENESIS_ORACLE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-DATA_DIR = Path(os.getenv("GENESIS_ORACLE_DATA", "logs"))
+DATA_DIR = Path(os.getenv("GENESIS_ORACLE_DATA", str(get_log_dir())))
 
 
 def query_origin(obj: str) -> Dict[str, str]:
