@@ -14,6 +14,7 @@ SentientOS is a ledger-based automation framework that treats every log as sacre
 2. Install the project in editable mode using `pip install -e .`.
 3. Run `python installer/setup_installer.py` and follow the prompts.
 4. Launch a tool, e.g. `support --help`.
+5. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 Additional guides:
