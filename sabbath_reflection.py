@@ -3,11 +3,13 @@ import json
 from pathlib import Path
 from typing import List, Dict
 
+from logging_config import get_log_path
+
 import confessional_log as clog
 
-HERESY_LOG = Path("logs/heresy_log.jsonl")
-BLESS_LOG = Path("logs/support_log.jsonl")
-REPORT_PATH = Path("logs/ritual_sabbath.md")
+HERESY_LOG = get_log_path("heresy_log.jsonl")
+BLESS_LOG = get_log_path("support_log.jsonl")
+REPORT_PATH = get_log_path("ritual_sabbath.md")
 
 
 def _load_jsonl(path: Path) -> List[Dict]:

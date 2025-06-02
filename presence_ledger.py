@@ -1,12 +1,13 @@
 import json
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List
+
+from logging_config import get_log_path
 
 import ledger
 
-LEDGER_PATH = Path(os.getenv("USER_PRESENCE_LOG", "logs/user_presence.jsonl"))
+LEDGER_PATH = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
@@ -74,7 +75,7 @@ def recent_privilege_attempts(limit: int = 5) -> List[Dict[str, str]]:
 
 def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
     """Return basic stats from the music ledger."""
-    music_path = Path("logs/music_log.jsonl")
+    music_path = get_log_path("music_log.jsonl")
     if not music_path.exists():
         return {"events": {}, "emotions": {}}
     lines = music_path.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -96,7 +97,7 @@ def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
 
 def video_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
     """Return basic stats from the video ledger."""
-    video_path = Path("logs/video_log.jsonl")
+    video_path = get_log_path("video_log.jsonl")
     if not video_path.exists():
         return {"events": {}, "emotions": {}}
     lines = video_path.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -123,7 +124,7 @@ def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
     bless = 0
     reflections = 0
     mood_counts: Dict[str, int] = {}
-    music_path = Path("logs/music_log.jsonl")
+    music_path = get_log_path("music_log.jsonl")
     if music_path.exists():
         for ln in music_path.read_text(encoding="utf-8").splitlines()[-limit:]:
             try:
