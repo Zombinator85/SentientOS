@@ -1,17 +1,20 @@
 from __future__ import annotations
 from logging_config import get_log_path
 
-"""Avatar Autonomous Ritual Scheduler.
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+Avatar Autonomous Ritual Scheduler.
 
 Avatars can request or trigger new rituals. Requests may be reviewed and
 approved by council or users. All actions are logged.
 """
 
+from logging_config import get_log_path
+from admin_utils import require_admin_banner
+
 import argparse
 import json
-import os
 from datetime import datetime
-from pathlib import Path
 from typing import List, Dict
 
 REQUEST_LOG = get_log_path("avatar_ritual_requests.jsonl", "AVATAR_RITUAL_REQUEST_LOG")
@@ -56,6 +59,7 @@ def approve_request(index: int) -> Dict[str, str]:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar Autonomous Ritual Scheduler")
     sub = ap.add_subparsers(dest="cmd")
 
