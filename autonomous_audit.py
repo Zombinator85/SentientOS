@@ -4,6 +4,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List
 
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 LOG_PATH = Path(os.getenv("AUTONOMOUS_AUDIT_LOG", "logs/autonomous_audit.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -49,6 +53,7 @@ def recent(last: int = 10) -> List[Dict[str, Any]]:
 if __name__ == "__main__":  # pragma: no cover - CLI
     import argparse
 
+    require_admin_banner()
     p = argparse.ArgumentParser(description="Recent autonomous audit entries")
     p.add_argument("--last", type=int, default=10)
     args = p.parse_args()
