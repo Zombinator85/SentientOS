@@ -14,3 +14,15 @@ def test_reflection_log(tmp_path, monkeypatch):
     assert log.exists()
     assert len(log.read_text().splitlines()) == 1
 
+
+def test_analyze_image(tmp_path, monkeypatch):
+    log = tmp_path / "reflection.jsonl"
+    monkeypatch.setenv("AVATAR_REFLECTION_LOG", str(log))
+    importlib.reload(ar)
+
+    img = tmp_path / "smile.png"
+    img.write_text("data")
+
+    mood = ar.analyze_image(img)
+    assert mood == "happy"
+

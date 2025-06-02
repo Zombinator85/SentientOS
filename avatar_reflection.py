@@ -6,7 +6,8 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from random import choice
+
+import emotion_utils as eu
 
 LOG_PATH = Path(os.getenv("AVATAR_REFLECTION_LOG", "logs/avatar_reflection.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -16,9 +17,16 @@ MOODS = ["happy", "sad", "angry", "serene"]
 
 
 def analyze_image(image_path: Path) -> str:
-    """Return a placeholder mood classification for an image."""
-    # TODO: replace with real classifier
-    return choice(MOODS)
+    """Return a simple mood classification for an image."""
+
+    vec = eu.detect_image(str(image_path))
+    if vec.get("Joy", 0.0) > 0:
+        return "happy"
+    if vec.get("Sadness", 0.0) > 0:
+        return "sad"
+    if vec.get("Anger", 0.0) > 0:
+        return "angry"
+    return "serene"
 
 
 def log_reflection(image: str, mood: str, note: str = "") -> dict:
