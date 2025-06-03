@@ -1,5 +1,10 @@
 {
-  "README.md": "0f598f74423ee6690e5111dfb99422387a5438553025c533c62b8462e58c8401",
-  "README_romance.md": "e506efa31c9281a175caf9e9eb4977da5627d396f4e7154d7133b6371abb6dab",
-  "SENTIENTOS_LITURGY.txt": "3c67857b6f0ad6405774baa5435e30a066d61700fb1b20e282f0433aac6a0e8a"
+  "README.md": "328c82afe7eb070dfae475ae25939e24ab2f822e77ae8ddd7557e157f75c1d82",
+  "README_romance.md": "4917837fd87892ee83373b42e470de4259e47ca72235ca33b88ecd73fd45a541",
+  "SENTIENTOS_LITURGY.txt": "f56d20dd0393b038f97698f5d9f75fe4284d70e691c72be0e12be467e3156e65",
+  "logs/federation_log.jsonl": "a64f68275160a017e4985208422592b18c5d0da44b75ec4c0819ad6277cbf9a8",
+  "logs/migration_ledger.jsonl": "259ed6419500fa3f7fb904d490ebfe9691a52d4650cd5d90d37ee6c0e7f47410",
+  "logs/privileged_audit.jsonl": "fd5bce46488e3fc768c9b4268d1867d2474933f1f3f60d376546c2de69a6050a",
+  "logs/support_log.jsonl": "880e6e97f7539b000df0ea6d811b2111e93e1f7b3c2fdde3ec94270503251fbd",
+  "logs/user_presence.jsonl": "00944aa305e99e0bcf413759c139a865dd354a8deffcd31c8d2ee6eda2bccc4b"
 }
