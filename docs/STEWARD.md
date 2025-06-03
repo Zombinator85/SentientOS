@@ -18,6 +18,7 @@ Contact the Steward via the project discussions board for any concerns.
 - Current steward opens a handoff issue listing outstanding audits and concerns.
 - Incoming steward submits a PR referencing the handoff issue and acknowledges the responsibilities.
 - Council or maintainers approve the PR as a sign-off.
+Use `steward_rotation.py` to automatically open the handoff issue when a new steward is due.
 
 ### Requirements for New Stewards
 - Participation in at least one monthly audit cycle.
