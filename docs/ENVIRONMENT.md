@@ -72,8 +72,10 @@ The table below explains each variable and its default behavior.
 | `NEOS_FESTIVAL_REPLAY_ANNOTATION_LOG` | Path for festival replay annotations | `logs/neos_festival_replay_annotations.jsonl` |
 | `OCR_WATCH` | Folder watched for OCR screenshots | `screenshots` |
 | `PORT` | HTTP port for the blessing ceremony API | `5000` |
+| `PRIVILEGED_AUDIT_FILE` | Path for privileged command usage logs | `logs/privileged_audit.jsonl` |
 | `REQUIRED_FINAL_APPROVER` | Default final approver nickname | `4o` |
 | `RITUAL_BUNDLE_DIR` | Location for ritual bundles | `bundles` |
+| `SELF_DEFENSE_LOG` | Quarantine and privilege freeze audit log | `logs/agent_self_defense.jsonl` |
 | `SELF_REFLECTION_QUESTION` | Prompt used by self‑reflection logger | `What have you learned recently?` |
 | `SENTIENTOS_HEADLESS` | Run rituals without interactive prompts (`1` to enable) | *(unset)* |
 | `SMTP_FROM` | Default sender address for SMTP mail | *(none)* |

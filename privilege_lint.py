@@ -5,6 +5,13 @@ import datetime
 import os
 from pathlib import Path
 
+"""Lint entrypoints for the Sanctuary privilege ritual.
+
+Usage is recorded in ``logs/privileged_audit.jsonl`` or the path set by
+the ``PRIVILEGED_AUDIT_FILE`` environment variable. See
+``docs/ENVIRONMENT.md`` for details.
+"""
+
 DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
 
 ENTRY_PATTERNS = [
