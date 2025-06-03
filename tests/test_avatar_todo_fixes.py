@@ -6,14 +6,25 @@ import types
 from pathlib import Path
 import pytest
 
-pytest.skip("legacy avatar todo fixes interfere with env", allow_module_level=True)
-
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-# Provide a minimal admin_utils stub to avoid import side effects
-fake_admin = types.ModuleType("admin_utils")
-fake_admin.require_admin_banner = lambda: None
-sys.modules["admin_utils"] = fake_admin
+# Provide a minimal admin_utils stub for all tests
+@pytest.fixture(autouse=True)
+def stub_admin(monkeypatch):
+    fake_admin = types.ModuleType("admin_utils")
+    fake_admin.require_admin_banner = lambda: None
+    monkeypatch.setitem(sys.modules, "admin_utils", fake_admin)
+    globals()["admin_utils"] = fake_admin
+    yield
+    for mod in [
+        "avatar_cross_presence_collab",
+        "avatar_dream_daemon",
+        "avatar_mood_animator",
+        "avatar_personality_merge",
+        "avatar_storyteller",
+    ]:
+        sys.modules.pop(mod, None)
+
 
 
 def test_cross_presence_meet(tmp_path, monkeypatch):
@@ -22,19 +33,24 @@ def test_cross_presence_meet(tmp_path, monkeypatch):
     imp = tmp_path / "imp.jsonl"
     monkeypatch.setenv("AVATAR_EXPORT_LOG", str(exp))
     monkeypatch.setenv("AVATAR_IMPORT_LOG", str(imp))
-    monkeypatch.setenv("FEDERATION_NODES", str(tmp_path / "nodes.json"))
-    monkeypatch.setenv("FEDERATION_TRUST_LOG", str(tmp_path / "trust.jsonl"))
+    nodes = tmp_path / "nodes.json"
+    trust = tmp_path / "trust.jsonl"
+    monkeypatch.setenv("FEDERATION_NODES", str(nodes))
+    monkeypatch.setenv("FEDERATION_TRUST_LOG", str(trust))
     src = tmp_path / "a.blend"
     src.write_text("data")
     dest = tmp_path / "dest"
     dest.mkdir()
     import avatar_cross_presence_collab as acc
+    import federation_trust_protocol as ftp
     importlib.reload(acc)
+    importlib.reload(ftp)
     monkeypatch.setattr(acc, "LOG_PATH", log)
+    monkeypatch.setattr(ftp, "LOG_FILE", trust)
+    monkeypatch.setattr(ftp, "NODES_FILE", nodes)
     acc.meet(str(src), str(dest))
     assert log.exists()
     assert (dest / "a.blend").exists()
-    trust = Path(os.environ["FEDERATION_TRUST_LOG"])
     assert trust.exists() and trust.read_text().strip()
 
 

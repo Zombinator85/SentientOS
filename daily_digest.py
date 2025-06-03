@@ -1,16 +1,20 @@
-from admin_utils import require_admin_banner
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-"""Daily digest utility.
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+Daily digest utility.
 
 This script summarizes recent log activity and emotion changes. It is
 expected to be scheduled (e.g. via cron) every 24 hours. Older log
 fragments can optionally be pruned to keep disk usage reasonable.
 
-Integration Notes: schedule ``run_digest`` via cron or a task runner. Dashboards can read ``logs/daily_digest.jsonl`` for a summary feed.
+Integration Notes: schedule ``run_digest`` via cron or a task runner. Dashboards
+can read ``logs/daily_digest.jsonl`` for a summary feed.
 """
 
 from __future__ import annotations
+
+from admin_utils import require_admin_banner
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 import datetime as _dt
 import json
 import os

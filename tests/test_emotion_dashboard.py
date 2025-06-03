@@ -1,8 +1,10 @@
 import json
 from importlib import reload
+import os
+import sys
 import pytest
 
-pytestmark = pytest.mark.xfail(reason="emotion_dashboard imports broken", strict=False)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def test_load_and_query(tmp_path):
     log = tmp_path / "vision.jsonl"
