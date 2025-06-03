@@ -1,0 +1,29 @@
+name: "New Tag Proposal"
+about: "Suggest a new emotional or core value tag"
+title: "[Tag] <name>"
+labels: ["tag"]
+body:
+  - type: textarea
+    attributes:
+      label: Description
+      description: "What does this tag represent?"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Color
+      description: "Hex value or color word"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Example usage
+      description: "Link or describe an example"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Discussion link
+      description: "Issue or conversation that led to this proposal"
+    validations:
+      required: true
