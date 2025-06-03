@@ -7,21 +7,27 @@ from logging_config import get_log_dir
 from typing import Any, Dict, List, Optional, cast
 from utils import is_headless
 
+# Optional modules may not be present; declare with fallback None
+sr: ModuleType | None
+mic_bridge: ModuleType | None
+
 # --- Optional Voice Backends ---
 HEADLESS = is_headless()
 try:
-    import speech_recognition as sr
+    import speech_recognition as sr_mod
+    sr = sr_mod
 except Exception:
-    sr = None  # type: ignore[assignment]
+    sr = None
 
 try:
-    import mic_bridge
+    import mic_bridge as mic_mod
+    mic_bridge = mic_mod
 except Exception:
-    mic_bridge = None  # type: ignore[assignment]
+    mic_bridge = None
 
 if HEADLESS:
-    sr = None  # type: ignore[assignment]
-    mic_bridge = None  # type: ignore[assignment]
+    sr = None
+    mic_bridge = None
 
 from vision_tracker import FaceEmotionTracker
 
@@ -29,7 +35,7 @@ def empty_emotion_vector() -> Dict[str, float]:
     return {e: 0.0 for e in ["happy", "sad", "angry", "disgust", "fear", "surprise", "neutral"]}
 
 class PersonaMemory:
-    def __init__(self):
+    def __init__(self) -> None:
         self.timelines: Dict[int, List[Dict[str, Any]]] = {}
 
     def add(self, person_id: int, source: str, emotions: Dict[str, float], ts: float) -> None:
@@ -99,6 +105,7 @@ class MultiModalEmotionTracker:
             return {}
         if self.voice_backend == "mic_bridge":
             try:
+                assert mic_bridge is not None
                 res = mic_bridge.recognize_from_mic(save_audio=False)
                 emotions_raw: Any = res.get("emotions") or {}
                 emotions: Dict[str, float] = cast(Dict[str, float], emotions_raw)
@@ -107,6 +114,7 @@ class MultiModalEmotionTracker:
                 return {}
         elif self.voice_backend == "speech_recognition":
             try:
+                assert sr is not None
                 recognizer = sr.Recognizer()
                 mic = sr.Microphone(device_index=device_index)
                 with mic as source:
@@ -117,7 +125,7 @@ class MultiModalEmotionTracker:
                 return {}
         return {}
 
-    def process_once(self, frame) -> Dict[str, Any]:
+    def process_once(self, frame: Any) -> Dict[str, Any]:
         ts = time.time()
         voice_vec = self.analyze_voice()
         # --- Always produce a timestamped log, even if no vision or voice
