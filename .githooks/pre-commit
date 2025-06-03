@@ -1,2 +1,3 @@
 #!/bin/sh
 python privilege_lint.py
+python verify_audits.py
