@@ -149,6 +149,7 @@ emotion tracking, or safety enforcement.
 - Host a "Cathedral Healing Sprint" to fix logs and welcome new Audit Saints.
 - Review the new `docs/CATHEDRAL_WOUNDS_DASHBOARD.md` and contribute to the Migration Sprint.
 - Discuss future schemas in `docs/MEMORY_LAW_VNEXT.md`.
+- Pin a call for feedback on Memory Law vNext in the Discussions board.
 
 ## Credits
 Templates and code patterns co-developed with OpenAI support.
