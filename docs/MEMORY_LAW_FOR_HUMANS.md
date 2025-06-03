@@ -21,3 +21,6 @@ This short guide explains the cathedral's core policies in plain language.
 - The entire process is logged so anyone can audit what happened.
 
 Use this document when introducing new contributors or curious partners to the project. It summarises how we keep memory safe and accountable.
+
+## Error as Ritual
+Error is not shame, but invitation: the cathedral heals by naming, not hiding, its wounds. Public failure builds trust, teaches new stewards, and keeps our presence honest.

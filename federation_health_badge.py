@@ -47,6 +47,15 @@ def main() -> None:  # pragma: no cover - CLI
     stats = compute_health(args.hours)
     content = f"# Federation Health\n\n- Nodes: {stats['nodes']}\n- Recent events: {stats['recent']}\n- Status: {stats['status']}\n"
     args.output.write_text(content, encoding="utf-8")
+
+    readme = Path("README.md")
+    if readme.exists():
+        lines = readme.read_text(encoding="utf-8").splitlines()
+        for idx, line in enumerate(lines):
+            if line.startswith("Federated instances:"):
+                lines[idx] = f"Federated instances: **{stats['nodes']}**"
+        readme.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     print(json.dumps(stats))
 
 
