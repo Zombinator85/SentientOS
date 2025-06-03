@@ -6,7 +6,7 @@ import subprocess
 import base64
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional, cast
 import time
 import csv
 import zipfile
@@ -17,8 +17,11 @@ import narrator
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+from types import ModuleType
+
 try:
-    import tts_bridge
+    import tts_bridge as tts_mod
+    tts_bridge: ModuleType | None = tts_mod
 except Exception:  # pragma: no cover - optional
     tts_bridge = None
 
@@ -233,7 +236,7 @@ def dominant_emotion(entries: List[Dict[str, Any]]) -> Tuple[str, Optional[float
     for e in entries:
         emo = e.get('emotions', {})
         if isinstance(emo, dict) and emo:
-            lab = max(emo, key=emo.get)
+            lab = max(emo.keys(), key=lambda k: float(emo[k]))
             scores[lab] = scores.get(lab, 0.0) + float(emo[lab])
         feat = e.get('features') or e.get('emotion_features') or {}
         if isinstance(feat, dict):
@@ -243,23 +246,24 @@ def dominant_emotion(entries: List[Dict[str, Any]]) -> Tuple[str, Optional[float
                 vals.append(float(v))
             if isinstance(a, (int, float)):
                 ars.append(float(a))
-    mood = max(scores, key=scores.get).lower() if scores else 'neutral'
+    mood = max(scores.keys(), key=lambda k: scores[k]).lower() if scores else 'neutral'
     valence = sum(vals) / len(vals) if vals else None
     arousal = sum(ars) / len(ars) if ars else None
     return mood, arousal, valence
 
 
 def write_emotion_data(chapters: List[Chapter], overall_mood: str, voice: Optional[str], path: Path) -> None:
-    data = {
+    data: Dict[str, Any] = {
         'overall': {
             'mood': overall_mood,
             'voice': voice or (getattr(tts_bridge, 'CURRENT_PERSONA', None) if tts_bridge else None),
         },
         'chapters': []
     }
+    chapter_entries = cast(List[Dict[str, Any]], data['chapters'])
     for i, ch in enumerate(chapters, 1):
         mood, arousal, valence = dominant_emotion(ch.emotions)
-        data['chapters'].append({
+        chapter_entries.append({
             'chapter': i,
             'start': ch.start.isoformat(),
             'end': ch.end.isoformat(),

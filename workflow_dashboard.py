@@ -3,7 +3,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, TypedDict
 
 try:
     import yaml  # type: ignore
@@ -40,8 +40,15 @@ def record_feedback(workflow: str, helpful: bool) -> None:
     notification.send("workflow.feedback", {"workflow": workflow, "helpful": helpful})
 
 
-def load_metrics(name: str, last: int = 200) -> Dict[str, Any]:
-    data = {
+class Metrics(TypedDict):
+    success: int
+    failed: int
+    last_status: Optional[str]
+    last_ts: Optional[str]
+
+
+def load_metrics(name: str, last: int = 200) -> Metrics:
+    data: Metrics = {
         "success": 0,
         "failed": 0,
         "last_status": None,
