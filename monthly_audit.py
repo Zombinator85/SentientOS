@@ -12,7 +12,7 @@ AUDIT_DOC = Path("docs/AUDIT_LOG.md")
 
 
 def run_audit() -> None:
-    results, percent = va.verify_audits(quarantine=True, directory=LOG_DIR)
+    results, percent, _ = va.verify_audits(quarantine=True, directory=LOG_DIR)
     date = datetime.date.today().isoformat()
     summary = f"{percent:.1f}% valid"
     row = f"| {date} | {summary} |"
