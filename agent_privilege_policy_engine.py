@@ -1,9 +1,14 @@
+from __future__ import annotations
+from admin_utils import require_admin_banner
+
 """Agent Privilege Policy Engine
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 # Templates and code patterns co-developed with OpenAI support
 """
-from __future__ import annotations
+
+require_admin_banner()
+
 from logging_config import get_log_path
 
 import argparse
@@ -13,8 +18,6 @@ import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
-
-from admin_utils import require_admin_banner
 
 LOG_PATH = get_log_path("privilege_policy.jsonl", "PRIVILEGE_POLICY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +62,6 @@ class PrivilegePolicyEngine:
 
 
 def cli() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Privilege Policy Engine")
     ap.add_argument("agent")
     ap.add_argument("action")

@@ -1,4 +1,9 @@
 from __future__ import annotations
+from admin_utils import require_admin_banner
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
+require_admin_banner()
 
 import argparse
 import datetime
@@ -8,10 +13,6 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
-
-from admin_utils import require_admin_banner
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 @dataclass
 class AuditEntry:
@@ -100,7 +101,6 @@ def verify(path: Path) -> bool:
 
 
 def cli() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Audit log verifier")
     ap.add_argument("log")
     args = ap.parse_args()
