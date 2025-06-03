@@ -2375,3 +2375,13 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/ritual_calendar.json
 ```
+Another Registered Agent:
+
+```
+- Name: MigrationDaemon
+  Type: Daemon
+  Roles: Schema Healer, Ledger Writer
+  Privileges: log, migrate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/migration_ledger.jsonl
+```
