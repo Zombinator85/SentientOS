@@ -21,7 +21,7 @@ def _load_config() -> dict[str, str]:
         return {}
 
 
-def check_file(path: Path, quarantine: bool = False) -> Tuple[bool, List[str]]:
+def check_file(path: Path, prev_digest: str = "0" * 64, quarantine: bool = False) -> Tuple[bool, List[str], str]:
     """Validate one audit log line by line.
 
     Returns True if the log passes integrity checks.
@@ -29,7 +29,8 @@ def check_file(path: Path, quarantine: bool = False) -> Tuple[bool, List[str]]:
     """
     errors: List[str] = []
     bad_lines: List[str] = []
-    prev = "0" * 64
+    prev = prev_digest
+    first = True
     for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
@@ -43,37 +44,80 @@ def check_file(path: Path, quarantine: bool = False) -> Tuple[bool, List[str]]:
             errors.append(f"{lineno}: not a JSON object")
             bad_lines.append(line)
             continue
-        digest = ai._hash_entry(entry["timestamp"], entry["data"], prev)
+        if entry.get("prev_hash") != prev:
+            if first:
+                errors.append(f"{lineno}: prev hash mismatch")
+            else:
+                errors.append(f"{lineno}: chain break")
+        digest = ai._hash_entry(entry["timestamp"], entry["data"], entry.get("prev_hash", prev))
         current = entry.get("rolling_hash") or entry.get("hash")
         if current != digest:
             errors.append(f"{lineno}: hash mismatch")
             bad_lines.append(line)
             continue
         prev = current
+        first = False
 
     if quarantine and bad_lines:
         bad_path = path.with_suffix(path.suffix + ".bad")
         with bad_path.open("w", encoding="utf-8") as bf:
             bf.write("\n".join(bad_lines) + "\n")
 
-    return len(errors) == 0, errors
+    return len(errors) == 0, errors, prev
 
 
-def verify_audits(quarantine: bool = False) -> dict[str, List[str]]:
+def verify_audits(quarantine: bool = False, directory: Path | None = None) -> tuple[dict[str, List[str]], float]:
+    """Verify multiple audit logs.
+
+    If ``directory`` is provided, all ``*.jsonl`` files in that directory are
+    processed in alphabetical order with rolling hash chaining across files.
+    Otherwise the configuration in ``config/master_files.json`` is used.
+    Returns a mapping of file paths to error lists and the percentage of logs
+    that were fully valid.
+    """
+
     results: dict[str, List[str]] = {}
-    data = _load_config()
-    for file in data.keys():
-        path = Path(file)
-        if not path.is_absolute():
-            path = ROOT / path
-        ok, errs = check_file(path, quarantine=quarantine)
+    logs: List[Path] = []
+
+    if directory is not None:
+        logs = sorted(Path(directory).glob("*.jsonl"))
+    else:
+        data = _load_config()
+        for file in data.keys():
+            p = Path(file)
+            if not p.is_absolute():
+                p = ROOT / p
+            logs.append(p)
+
+    prev = "0" * 64
+    valid = 0
+    for path in logs:
+        ok, errs, prev = check_file(path, prev, quarantine=quarantine)
         results[str(path)] = errs
-    return results
+        if not errs:
+            valid += 1
+
+    percent = 0.0 if not logs else valid / len(logs) * 100
+    return results, percent
 
 
 def main() -> None:  # pragma: no cover - CLI
     require_admin_banner()
-    res = verify_audits(quarantine=True)
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Audit log verifier")
+    ap.add_argument("path", nargs="?", help="Log directory or single file")
+    args = ap.parse_args()
+
+    directory = None
+    if args.path:
+        p = Path(args.path)
+        if p.is_dir():
+            directory = p
+        else:
+            directory = p.parent
+
+    res, percent = verify_audits(quarantine=True, directory=directory)
     for file, errors in res.items():
         if not errors:
             print(f"{file}: valid")
@@ -81,6 +125,7 @@ def main() -> None:  # pragma: no cover - CLI
             print(f"{file}: {len(errors)} issue(s)")
             for err in errors:
                 print(f"  {err}")
+    print(f"{percent:.1f}% of logs valid")
 
 
 if __name__ == "__main__":  # pragma: no cover

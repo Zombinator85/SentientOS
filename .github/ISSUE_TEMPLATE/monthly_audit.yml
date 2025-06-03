@@ -1,0 +1,17 @@
+name: "Monthly Audit"
+about: "Record a monthly audit run and findings"
+title: "[Audit] <month>"
+labels: ["audit"]
+body:
+  - type: textarea
+    attributes:
+      label: Summary
+      description: "Overall status and notable issues"
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Logs reviewed
+      description: "List directories or files"
+    validations:
+      required: true
