@@ -1,7 +1,6 @@
-from admin_utils import require_admin_banner
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Avatar Council Blessing
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 Council members vote on major avatars. Votes are logged and a final blessing
 is recorded once quorum is reached.
@@ -11,6 +10,7 @@ Example:
     python avatar_council_blessing.py status avatar1 --quorum 2
 """
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import argparse
@@ -69,6 +69,7 @@ def check_quorum(avatar: str, quorum: int = 3) -> bool:
 
 
 def main() -> None:
+    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar council blessing")
     sub = ap.add_subparsers(dest="cmd")
 

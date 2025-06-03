@@ -4,12 +4,13 @@ import json
 import review_requests as rr
 import pytest
 
-pytestmark = pytest.mark.xfail(reason="legacy policy suggestion modules incomplete", strict=False)
+import admin_utils
 
 
 def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("REVIEW_REQUESTS_FILE", str(tmp_path / "req.jsonl"))
     monkeypatch.setenv("SUGGESTION_AUDIT_FILE", str(tmp_path / "audit.jsonl"))
+    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     importlib.reload(rr)
 
 

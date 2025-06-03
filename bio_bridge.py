@@ -1,7 +1,6 @@
-from admin_utils import require_admin_banner
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Biosignal integration bridge.
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 Collects physiological metrics from wearables or IoT sensors (heart rate,
 skin conductance, temperature) and logs them to ``logs/bio_events.jsonl``.
@@ -10,6 +9,7 @@ missing.
 """
 
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import json
@@ -27,6 +27,7 @@ LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 def read_biosignals() -> Dict[str, float]:
     """Return the latest biosignal measurements."""
+    require_admin_banner()
     # Real implementations would pull from BLE/USB APIs
     heart_rate = random.randint(60, 90)
     gsr = random.random()
