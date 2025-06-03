@@ -18,6 +18,13 @@ Run `python verify_audits.py` to check all configured logs. Invalid lines are li
 3. Findings and concerns are logged to `logs/audit_discussion.jsonl`.
 4. Decisions are recorded with reviewer names and a SHA-256 rolling hash.
 
+## Maintaining the Log Manifest
+The file `config/master_files.json` lists every immutable log tracked by the
+project.  Whenever you create a new audit log or repair an existing one, run
+`sha256sum <file>` and update the corresponding digest in this manifest.  The
+`verify_audits.py` script reads this list by default, so the hashes must match
+the current file contents.
+
 ## Flagging & Resolving Issues
 - Contributors may open an **Audit or Ethics Concern** issue.
 - Reviewers discuss and note their resolution in the issue thread.
