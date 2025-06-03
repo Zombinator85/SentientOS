@@ -1,16 +1,28 @@
 from logging_config import get_log_path
+
+import argparse
 import json
 import os
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
 from admin_utils import require_admin_banner
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+Autonomous audit and recap generator for the SentientOS Cathedral.
+It scans logs and ledger files for anomalies and can produce a
+public-facing report with sensitive fields masked.
+
+Example:
+    python autonomous_audit.py --report-dir public_reports
+"""
 
 LOG_PATH = get_log_path("autonomous_audit.jsonl", "AUTONOMOUS_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+PUBLIC_DIR = Path("public_reports")
 
 
 def log_entry(
@@ -51,12 +63,56 @@ def recent(last: int = 10) -> List[Dict[str, Any]]:
     return out
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI
-    import argparse
+def _mask(entry: Dict[str, Any]) -> Dict[str, Any]:
+    masked = entry.copy()
+    for key in ("email", "user", "agent"):
+        if key in masked:
+            masked[key] = "<redacted>"
+    return masked
 
+
+def scan_logs(log_dir: Path = Path("logs")) -> List[Dict[str, Any]]:
+    anomalies: List[Dict[str, Any]] = []
+    for fp in log_dir.glob("*.jsonl"):
+        for idx, line in enumerate(fp.read_text(encoding="utf-8").splitlines(), 1):
+            try:
+                entry = json.loads(line)
+            except Exception:
+                anomalies.append({"log": fp.name, "line": idx, "issue": "invalid json"})
+                continue
+            if "timestamp" not in entry or "action" not in entry:
+                anomalies.append({"log": fp.name, "line": idx, "issue": "missing fields"})
+    return anomalies
+
+
+def generate_report(report_dir: Path = PUBLIC_DIR) -> Path:
+    report_dir.mkdir(parents=True, exist_ok=True)
+    anomalies = scan_logs()
+    report = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "anomaly_count": len(anomalies),
+        "anomalies": [_mask(a) for a in anomalies],
+    }
+    name = f"audit_report_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+    dest = report_dir / name
+    dest.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return dest
+
+
+if __name__ == "__main__":  # pragma: no cover - CLI
     require_admin_banner()
-    p = argparse.ArgumentParser(description="Recent autonomous audit entries")
-    p.add_argument("--last", type=int, default=10)
+    p = argparse.ArgumentParser(description="Autonomous audit recap")
+    p.add_argument("--last", type=int, default=0, help="show last N entries")
+    p.add_argument(
+        "--report-dir",
+        default=str(PUBLIC_DIR),
+        help="directory for generated reports",
+    )
     args = p.parse_args()
-    for e in recent(args.last):
-        print(json.dumps(e, indent=2))
+    if args.last:
+        for e in recent(args.last):
+            print(json.dumps(e, indent=2))
+    else:
+        path = generate_report(Path(args.report_dir))
+        print(str(path))
+# May memory be healed and preserved.
