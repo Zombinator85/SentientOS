@@ -2,8 +2,9 @@ import os
 import json
 import time
 from pathlib import Path
+from types import ModuleType
 from logging_config import get_log_dir
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 from utils import is_headless
 
 # --- Optional Voice Backends ---
@@ -11,16 +12,16 @@ HEADLESS = is_headless()
 try:
     import speech_recognition as sr
 except Exception:
-    sr = None
+    sr = None  # type: ignore[assignment]
 
 try:
     import mic_bridge
 except Exception:
-    mic_bridge = None
+    mic_bridge = None  # type: ignore[assignment]
 
 if HEADLESS:
-    sr = None
-    mic_bridge = None
+    sr = None  # type: ignore[assignment]
+    mic_bridge = None  # type: ignore[assignment]
 
 from vision_tracker import FaceEmotionTracker
 
@@ -69,6 +70,7 @@ class MultiModalEmotionTracker:
         env_dir = os.getenv("MULTI_LOG_DIR")
         self.log_dir = Path(output_dir or env_dir or default_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.vision: Optional[FaceEmotionTracker]
         if enable_vision:
             try:
                 self.vision = FaceEmotionTracker(camera_index=camera_index, output_file=None)
@@ -77,7 +79,7 @@ class MultiModalEmotionTracker:
         else:
             self.vision = None
         # Decide which voice backend to use
-        self.voice_backend = None
+        self.voice_backend: Optional[str] = None
         if enable_voice:
             if mic_bridge is not None:
                 self.voice_backend = "mic_bridge"
@@ -98,7 +100,8 @@ class MultiModalEmotionTracker:
         if self.voice_backend == "mic_bridge":
             try:
                 res = mic_bridge.recognize_from_mic(save_audio=False)
-                return res.get("emotions") or {}
+                emotions = res.get("emotions") or {}
+                return cast(Dict[str, float], emotions)
             except Exception:
                 return {}
         elif self.voice_backend == "speech_recognition":
@@ -145,6 +148,7 @@ class MultiModalEmotionTracker:
             return
         frames = 0
         while True:
+            assert self.vision is not None and self.vision.cap is not None
             ret, frame = self.vision.cap.read()
             if not ret:
                 break
@@ -152,4 +156,5 @@ class MultiModalEmotionTracker:
             frames += 1
             if max_frames is not None and frames >= max_frames:
                 break
+        assert self.vision is not None and self.vision.cap is not None
         self.vision.cap.release()
