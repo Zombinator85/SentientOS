@@ -8,5 +8,6 @@ memory law and federation logic.
 - Try the demo at `avatar_federation_festival_coordinator.py` and share thoughts.
 - Fork or adopt the project and report any audit or federation issues.
 - Cross-post the Memory Healing Ritual demo to other open-source and trauma tech communities.
+- Participate in the [Cathedral Healing Sprint](docs/CATHEDRAL_HEALING_SPRINT.md) to sync schemas and celebrate new saints.
 
 Feedback and peer review are welcomed on the GitHub Discussions board.
