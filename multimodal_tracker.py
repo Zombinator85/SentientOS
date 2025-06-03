@@ -100,8 +100,9 @@ class MultiModalEmotionTracker:
         if self.voice_backend == "mic_bridge":
             try:
                 res = mic_bridge.recognize_from_mic(save_audio=False)
-                emotions = res.get("emotions") or {}
-                return cast(Dict[str, float], emotions)
+                emotions_raw: Any = res.get("emotions") or {}
+                emotions: Dict[str, float] = cast(Dict[str, float], emotions_raw)
+                return emotions
             except Exception:
                 return {}
         elif self.voice_backend == "speech_recognition":
