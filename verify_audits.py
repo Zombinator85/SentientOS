@@ -1,7 +1,7 @@
 from __future__ import annotations
 import json
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Optional
 
 from admin_utils import require_admin_banner
 import audit_immutability as ai
@@ -21,14 +21,42 @@ def _load_config() -> dict[str, str]:
         return {}
 
 
-def check_file(path: Path, prev_digest: str = "0" * 64, quarantine: bool = False) -> Tuple[bool, List[str], str]:
+def _attempt_repair(line: str) -> Optional[str]:
+    """Try simple fixes for malformed JSON lines."""
+    s = line.strip()
+    # remove trailing comma
+    if s.endswith(','):
+        s = s[:-1]
+    if not s.endswith('}'):
+        s = s + '}'
+    try:
+        json.loads(s)
+    except Exception:
+        return None
+    return s
+
+
+def check_file(
+    path: Path,
+    prev_digest: str = "0" * 64,
+    quarantine: bool = False,
+    *,
+    repair: bool = False,
+    stats: Optional[Dict[str, int]] = None,
+) -> Tuple[bool, List[str], str]:
     """Validate one audit log line by line.
 
     Returns True if the log passes integrity checks.
     If ``quarantine`` is True, invalid lines are written to ``*.bad``.
     """
+    if stats is not None:
+        stats.setdefault("fixed", 0)
+        stats.setdefault("quarantined", 0)
+        stats.setdefault("unrecoverable", 0)
+
     errors: List[str] = []
     bad_lines: List[str] = []
+    repair_lines: List[str] = []
     prev = prev_digest
     first = True
     for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -37,12 +65,32 @@ def check_file(path: Path, prev_digest: str = "0" * 64, quarantine: bool = False
         try:
             entry = json.loads(line)
         except json.JSONDecodeError as e:
-            errors.append(f"{lineno}: {e.msg}")
-            bad_lines.append(line)
-            continue
+            if repair:
+                fixed = _attempt_repair(line)
+                if fixed is not None:
+                    entry = json.loads(fixed)
+                    repair_lines.append(fixed)
+                    if stats is not None:
+                        stats["fixed"] += 1
+                else:
+                    errors.append(f"{lineno}: {e.msg}")
+                    bad_lines.append(line)
+                    if stats is not None:
+                        stats["quarantined"] += 1
+                        stats["unrecoverable"] += 1
+                    continue
+            else:
+                errors.append(f"{lineno}: {e.msg}")
+                bad_lines.append(line)
+                if stats is not None:
+                    stats["quarantined"] += 1
+                continue
         if not isinstance(entry, dict):
             errors.append(f"{lineno}: not a JSON object")
             bad_lines.append(line)
+            if stats is not None:
+                stats["quarantined"] += 1
+                stats["unrecoverable"] += 1
             continue
         if entry.get("prev_hash") != prev:
             if first:
@@ -54,6 +102,9 @@ def check_file(path: Path, prev_digest: str = "0" * 64, quarantine: bool = False
         if current != digest:
             errors.append(f"{lineno}: hash mismatch")
             bad_lines.append(line)
+            if stats is not None:
+                stats["quarantined"] += 1
+                stats["unrecoverable"] += 1
             continue
         prev = current
         first = False
@@ -63,10 +114,20 @@ def check_file(path: Path, prev_digest: str = "0" * 64, quarantine: bool = False
         with bad_path.open("w", encoding="utf-8") as bf:
             bf.write("\n".join(bad_lines) + "\n")
 
+    if repair and repair_lines:
+        repair_path = path.with_suffix(path.suffix + ".repairable")
+        with repair_path.open("w", encoding="utf-8") as rf:
+            rf.write("\n".join(repair_lines) + "\n")
+
     return len(errors) == 0, errors, prev
 
 
-def verify_audits(quarantine: bool = False, directory: Path | None = None) -> tuple[dict[str, List[str]], float]:
+def verify_audits(
+    quarantine: bool = False,
+    directory: Path | None = None,
+    *,
+    repair: bool = False,
+) -> tuple[dict[str, List[str]], float, Dict[str, int]]:
     """Verify multiple audit logs.
 
     If ``directory`` is provided, all ``*.jsonl`` files in that directory are
@@ -78,6 +139,7 @@ def verify_audits(quarantine: bool = False, directory: Path | None = None) -> tu
 
     results: dict[str, List[str]] = {}
     logs: List[Path] = []
+    stats: Dict[str, int] = {"fixed": 0, "quarantined": 0, "unrecoverable": 0}
 
     if directory is not None:
         logs = sorted(Path(directory).glob("*.jsonl"))
@@ -92,13 +154,15 @@ def verify_audits(quarantine: bool = False, directory: Path | None = None) -> tu
     prev = "0" * 64
     valid = 0
     for path in logs:
-        ok, errs, prev = check_file(path, prev, quarantine=quarantine)
+        ok, errs, prev = check_file(
+            path, prev, quarantine=quarantine, repair=repair, stats=stats
+        )
         results[str(path)] = errs
         if not errs:
             valid += 1
 
     percent = 0.0 if not logs else valid / len(logs) * 100
-    return results, percent
+    return results, percent, stats
 
 
 def main() -> None:  # pragma: no cover - CLI
@@ -107,6 +171,7 @@ def main() -> None:  # pragma: no cover - CLI
 
     ap = argparse.ArgumentParser(description="Audit log verifier")
     ap.add_argument("path", nargs="?", help="Log directory or single file")
+    ap.add_argument("--repair", action="store_true", help="attempt to repair malformed lines")
     args = ap.parse_args()
 
     directory = None
@@ -117,7 +182,7 @@ def main() -> None:  # pragma: no cover - CLI
         else:
             directory = p.parent
 
-    res, percent = verify_audits(quarantine=True, directory=directory)
+    res, percent, stats = verify_audits(quarantine=True, directory=directory, repair=args.repair)
     for file, errors in res.items():
         if not errors:
             print(f"{file}: valid")
@@ -126,6 +191,10 @@ def main() -> None:  # pragma: no cover - CLI
             for err in errors:
                 print(f"  {err}")
     print(f"{percent:.1f}% of logs valid")
+    if args.repair:
+        print(
+            f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

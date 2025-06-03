@@ -28,4 +28,4 @@ If the linter reports missing banners or docstrings the job will fail.
 
 Run `python privilege_lint.py` locally before submitting a pull request. You can also
 link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
-run the lint before each commit.
+run the lint before each commit. The hook also runs `python verify_audits.py logs/` to ensure audit logs remain valid before merging.

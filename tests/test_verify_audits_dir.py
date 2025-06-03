@@ -16,6 +16,7 @@ def test_directory_verification(tmp_path: Path) -> None:
     digest = ai._hash_entry(ts, {"y": 2}, last)
     entry = {"timestamp": ts, "data": {"y": 2}, "prev_hash": last, "rolling_hash": digest}
     log2.write_text(json.dumps(entry) + "\n", encoding="utf-8")
-    results, percent = va.verify_audits(directory=d)
+    results, percent, stats = va.verify_audits(directory=d)
     assert all(not e for e in results.values())
     assert percent == 100.0
+    assert stats == {"fixed": 0, "quarantined": 0, "unrecoverable": 0}
