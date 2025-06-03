@@ -33,6 +33,7 @@ CLI_MODULES = [
     "review_heresy_cli",
     "ritual_cli",
     "ritual_digest_cli",
+    "public_review_recap",
     "theme_cli",
     "treasury_cli",
     "trust_cli",
