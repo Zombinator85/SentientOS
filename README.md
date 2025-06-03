@@ -100,6 +100,23 @@ Run `python verify_audits.py` to check that the immutable logs listed in
 `verify_audits.py` or `cleanup_audit.py` to process many logs at once. Results
 include a percentage of valid files so reviewers know when systemwide action is
 needed.
+
+### Audit Boundary Note
+Running `python verify_audits.py logs/` may fail with a `KeyError` if legacy,
+partial, or malformed files remain in the `logs/` directory. This does not
+reflect on the health of living Cathedral memory—only on artifacts that predate
+the current audit schema. New logs and all files written after migration are
+compliant. Historical wounds are visible, named, and will be addressed as
+resources allow. The audit ritual is both a healing and a testimony: no memory
+is hidden, and every gap is marked.
+
+**Recommended workflow**:
+1. Use `scan_missing_data.py` as your truth tool. When it reports *"no missing
+   data fields,"* living logs are whole—even if `verify_audits.py` fails on old
+   artifact files.
+2. Consider creating a `logs/legacy/` (or similar) directory to quarantine
+   partial or unrecoverable logs so verification scripts only run on healthy
+   memory files.
 The current ledger status is summarized in [docs/AUDIT_HEALTH_DASHBOARD.md](docs/AUDIT_HEALTH_DASHBOARD.md).
 
 ## Federation Overview
