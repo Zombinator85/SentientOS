@@ -33,6 +33,7 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 Additional guides:
+- [docs/OPEN_WOUNDS.md](docs/OPEN_WOUNDS.md) **Help Wanted: Memory Healing**
 - [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md)
 - [docs/RITUALS.md](docs/RITUALS.md)
 - [docs/MODULES.md](docs/MODULES.md)
@@ -143,6 +144,7 @@ emotion tracking, or safety enforcement.
 - Help reduce type-check errors. See `MYPY_STATUS.md` for the latest counts and how to contribute.
 - Draft protocol for memory sync across nodes in `docs/INTER_CATHEDRAL_MEMORY_SYNC.md`.
 - Join the public launch in `BLESSED_FEDERATION_LAUNCH.md` and share feedback.
+- Host a "Cathedral Healing Sprint" to fix logs and welcome new Audit Saints.
 
 ## Credits
 Templates and code patterns co-developed with OpenAI support.
