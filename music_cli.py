@@ -108,13 +108,13 @@ def main() -> None:
     plst.add_argument("--limit", type=int, default=10)
     plst.add_argument("--user", default="anon")
 
-    wall = sub.add_parser("wall", help="Show public Mood Wall")
-    wall.add_argument("--limit", type=int, default=10)
-    wall.add_argument("--bless", metavar="MOOD", help="Bless a mood on the wall")
-    wall.add_argument("--message", default="", help="Blessing message")
-    wall.add_argument("--user", default="anon")
-    wall.add_argument("--sync", action="store_true", help="Sync mood wall from peers")
-    wall.add_argument("--global", dest="global_bless", action="store_true", help="Propagate blessing to peers")
+    wall_cmd = sub.add_parser("wall", help="Show public Mood Wall")
+    wall_cmd.add_argument("--limit", type=int, default=10)
+    wall_cmd.add_argument("--bless", metavar="MOOD", help="Bless a mood on the wall")
+    wall_cmd.add_argument("--message", default="", help="Blessing message")
+    wall_cmd.add_argument("--user", default="anon")
+    wall_cmd.add_argument("--sync", action="store_true", help="Sync mood wall from peers")
+    wall_cmd.add_argument("--global", dest="global_bless", action="store_true", help="Propagate blessing to peers")
 
     refl = sub.add_parser("reflect", help="Log personal music reflection")
     refl.add_argument("note")
@@ -141,9 +141,9 @@ def main() -> None:
             recap_shown = True
         elif args.cmd == "playlist":
             entries = ledger.playlist_by_mood(args.mood, args.limit)
-            wall = mood_wall.load_wall(100)
+            wall_data = mood_wall.load_wall(100)
             trending = ""
-            tm = mood_wall.top_moods(wall)
+            tm = mood_wall.top_moods(wall_data)
             if tm:
                 trending = max(tm.items(), key=lambda x: x[1])[0]
             reason = "requested"
@@ -181,14 +181,20 @@ def main() -> None:
                 else:
                     entry = mood_wall.bless_mood(args.bless, args.user, args.message)
                     print(json.dumps(entry, indent=2))
-            wall = mood_wall.load_wall(args.limit)
-            data = {"wall": wall, "top_moods": mood_wall.top_moods(wall)}
+            wall_data = mood_wall.load_wall(args.limit)
+            data = {"wall": wall_data, "top_moods": mood_wall.top_moods(wall_data)}
             print(json.dumps(data, indent=2))
             print_closing_recap()
             recap_shown = True
         elif args.cmd == "reflect":
             emo = _parse_emotion(args.emotion)
-            entry = ledger.log_music_event("reflection", args.note, reported=emo, file_path="", user=args.user)
+            entry = ledger.log_music_event(
+                "reflection",
+                "",
+                prompt=args.note,
+                reported=emo,
+                user=args.user,
+            )
             first = ledger.music_recap(100)
             if first["emotion_totals"] and sum(first["emotion_totals"].values()) <= sum(emo.values()):
                 ledger.log_mood_blessing(args.user, "self", emo, "First reflection")
