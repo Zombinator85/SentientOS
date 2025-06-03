@@ -16,6 +16,7 @@ This draft explores a self-healing, schema-evolving cathedral for 2025 and beyon
 * Federation-wide healing protocols that sync wound counts across all nodes.
 * Clearly defined "blessed" field changes with version increments.
 * Timestamp backfill scripts keep legacy entries valid, logging each auto-filled update.
+* All log entries must include a `data` field. Legacy entries healed by migration may carry a default placeholder and audit note.
 
 Contributors are invited to discuss and refine these ideas on the discussion board.
 Share suggestions for next-gen adapters via GitHub issues or the Discord channel.
