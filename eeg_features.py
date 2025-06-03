@@ -1,7 +1,6 @@
-from admin_utils import require_admin_banner
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """EEG feature extraction helpers.
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 This module reads raw EEG samples from :mod:`eeg_bridge` and estimates simple
 cognitive states such as focus or drowsiness. Detected states are timestamped and
@@ -12,6 +11,7 @@ without hardware or heavy dependencies.
 """
 
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import json
@@ -27,6 +27,7 @@ LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 def analyze_sample(sample: Dict[str, object]) -> Dict[str, object]:
     """Return cognitive state estimates for a raw EEG sample."""
+    require_admin_banner()
     bands = sample.get("band_power", {}) if isinstance(sample, dict) else {}
     focus = float(bands.get("beta", random.random()))
     drowsy = float(bands.get("theta", random.random()))

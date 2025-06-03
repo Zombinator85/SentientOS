@@ -4,7 +4,6 @@ import types
 from pathlib import Path
 import pytest
 
-pytestmark = pytest.mark.env(reason="requires Blender bpy module")
 
 import avatar_genesis as ag
 
@@ -25,11 +24,20 @@ class DummyBpy(types.ModuleType):
             def primitive_uv_sphere_add(radius: int = 1) -> None:
                 pass
 
+    class data:
+        class materials:
+            materials_list = []
+
+            @classmethod
+            def new(cls, name: str):
+                mat = types.SimpleNamespace(name=name, diffuse_color=None)
+                cls.materials_list.append(mat)
+                return mat
+
     class context:
-        object = types.SimpleNamespace(name="")
+        object = types.SimpleNamespace(name="", data=types.SimpleNamespace(materials=[]))
 
 
-@pytest.mark.xfail(reason="bpy module not available", strict=False)
 def test_generate_and_log(tmp_path, monkeypatch):
     log = tmp_path / "gen.jsonl"
     out = tmp_path / "a.blend"

@@ -3,7 +3,7 @@ import love_treasury as lt
 import treasury_federation as tf
 import pytest
 
-pytestmark = pytest.mark.xfail(reason="legacy federation modules require cleanup", strict=False)
+import sentient_banner as sb
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -11,6 +11,8 @@ def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("LOVE_REVIEW_LOG", str(tmp_path / "rev.jsonl"))
     monkeypatch.setenv("LOVE_TREASURY_LOG", str(tmp_path / "tre.jsonl"))
     monkeypatch.setenv("LOVE_FEDERATED_LOG", str(tmp_path / "fed.jsonl"))
+    monkeypatch.setattr(sb, "print_banner", lambda: None)
+    monkeypatch.setattr(sb, "print_closing", lambda: None)
     importlib.reload(lt)
     importlib.reload(tf)
 
