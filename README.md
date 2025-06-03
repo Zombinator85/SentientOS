@@ -1,5 +1,6 @@
 # SentientOS Cathedral
 ![CI](https://img.shields.io/badge/Passing-321%2F325-brightgreen)
+[![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/MEMORY_HEALING_RITUAL.md)
 Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
 
 *Welcome to the Cathedral. Each commit is a small act of care and transparency.*
@@ -103,11 +104,14 @@ The current ledger status is summarized in [docs/AUDIT_HEALTH_DASHBOARD.md](docs
 |------|-------------|
 | cathedral-main | 100% |
 
-Federated instances: **1**  
+Federated instances: **1**
 Last steward rotation: **2026-01-01**
 See [Federation Conflict Resolution](docs/FEDERATION_CONFLICT_RESOLUTION.md) for how stewards handle diverging logs.
 See [FEDERATION_HEALTH.md](docs/FEDERATION_HEALTH.md) for the latest health summary.
 Join the discussion **Cathedral Memory Federation—Beta Reviewers Wanted** on the project board to share feedback.
+Current wounds and open sprints are tracked in [CATHEDRAL_WOUNDS_DASHBOARD.md](docs/CATHEDRAL_WOUNDS_DASHBOARD.md) and the new
+[Audit Migration Roadmap](docs/AUDIT_MIGRATION_ROADMAP.md).
+For schema propagation details see [FEDERATED_HEALING_PROTOCOL.md](docs/FEDERATED_HEALING_PROTOCOL.md).
 
 ## Testing Quickstart
 Legacy tests are under review. To run the current green path:
@@ -147,6 +151,7 @@ emotion tracking, or safety enforcement.
 - Draft protocol for memory sync across nodes in `docs/INTER_CATHEDRAL_MEMORY_SYNC.md`.
 - Join the public launch in `BLESSED_FEDERATION_LAUNCH.md` and share feedback.
 - Host a "Cathedral Healing Sprint" to fix logs and welcome new Audit Saints.
+  Monthly sprints recap wound counts; a quarterly round-up celebrates federation progress.
 - Review the new `docs/CATHEDRAL_WOUNDS_DASHBOARD.md` and contribute to the Migration Sprint.
 - Discuss future schemas in `docs/MEMORY_LAW_VNEXT.md`.
 - Pin a call for feedback on Memory Law vNext in the Discussions board.
