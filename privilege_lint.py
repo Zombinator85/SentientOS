@@ -60,17 +60,38 @@ def _has_header(path: Path) -> bool:
     return DOCSTRING in search_block
 
 
-def _has_banner_call(text: str) -> bool:
-    return "require_admin_banner()" in text
+def _has_banner_call(path: Path) -> bool:
+    """Return True if ``require_admin_banner()`` immediately follows the banner docstring."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = None
+    for i, line in enumerate(lines):
+        if DOCSTRING in line:
+            start = i
+            break
+    if start is None:
+        return False
+    end = start
+    if lines[start].count('"""') >= 2:
+        end = start
+    else:
+        for j in range(start + 1, len(lines)):
+            if '"""' in lines[j]:
+                end = j
+                break
+        else:
+            return False
+    j = end + 1
+    while j < len(lines) and not lines[j].strip():
+        j += 1
+    return j < len(lines) and lines[j].strip().startswith("require_admin_banner()")
 
 
 def check_file(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
     issues = []
     if not _has_header(path):
         issues.append(f"{path}: missing privilege docstring after imports")
-    if not _has_banner_call(text):
-        issues.append(f"{path}: missing require_admin_banner() call")
+    if not _has_banner_call(path):
+        issues.append(f"{path}: require_admin_banner() must immediately follow the banner docstring")
     return issues
 
 
