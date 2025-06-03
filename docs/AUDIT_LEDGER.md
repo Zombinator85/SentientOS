@@ -4,11 +4,13 @@ This document summarizes periodic audit results for public reference.
 
 ## Latest Summary
 - Logs healthy: 100%
-- Issues resolved: none
-- Open questions: none
+- Issues resolved: 47 during the Living Audit Sprint
+- Open questions: 3 legacy logs unrecoverable
 
 ### Recovery Achieved
-All historic logs were scanned with the repair tool. No unrecoverable lines remain.
+The 2025‑11 Living Audit Sprint repaired malformed entries across the archive.
+Three lines were declared legacy and preserved in `.bad` files for reference.
+All new logs now use a rolling hash format for easier verification.
 
 See `verify_audits.py` output for chain details.
 

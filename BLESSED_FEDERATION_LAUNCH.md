@@ -1,0 +1,11 @@
+# Blessed Federation Launch
+
+The cathedral is now open for public beta. Stewards invite everyone to review the
+memory law and federation logic.
+
+## How to Participate
+- Read `docs/FEDERATION_FAQ.md` and `docs/MEMORY_LAW_FOR_HUMANS.md`.
+- Try the demo at `avatar_federation_festival_coordinator.py` and share thoughts.
+- Fork or adopt the project and report any audit or federation issues.
+
+Feedback and peer review are welcomed on the GitHub Discussions board.
