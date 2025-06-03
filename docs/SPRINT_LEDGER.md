@@ -1,5 +1,7 @@
 # Cathedral Healing Sprint Ledger
 
+These metrics are part of our living memory law. They prove community care and are not vanity stats.
+
 Updated: 2025-06-03
 
 ## Sprint Metrics

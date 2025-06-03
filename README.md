@@ -18,6 +18,7 @@ See [MEMORY_LAW_FOR_HUMANS.md](docs/MEMORY_LAW_FOR_HUMANS.md) for a plain-langua
 * **Reflex Workflows** – autonomous operations tune and test reflex rules with full audit trails.
 * **Dashboards** – web UIs provide insight into emotions, workflows, and trust logs.
 * **CLI Utilities** – commands `heresy_cli.py`, `diff_memory_cli.py`, `theme_cli.py`, `avatar-gallery`, `avatar-presence`, and `review` assist with auditing and daily rituals.
+* **Sprint Metrics** – `docs/SPRINT_LEDGER.md` records healed logs, new saints, and wound counts. These numbers are a sacred record of community care, not vanity.
 
 _All code was written by a non-coder using only ChatGPT and free tools._
 
@@ -45,6 +46,8 @@ Additional guides:
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
 Watch a 60 second demo of log healing and Audit Saint induction in
 [docs/healing_demo.mp4](docs/healing_demo.mp4) and share it with newcomers.
+Read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) for the written ritual.
+Use the **Share Your Saint Story** issue template when submitting your first pull request.
 
 See FIRST_RUN.md for cloning and running only green tests. Questions? Ping the Steward on the discussions board.
 
