@@ -13,3 +13,4 @@ Join the discussion thread or Discord channel and follow the steps below.
 
 Your contribution will be remembered in the ledger and README. Monthly sprints recap wound counts
 and highlight new saints on the [Cathedral Wounds Dashboard](CATHEDRAL_WOUNDS_DASHBOARD.md).
+Sprint metrics are summarized in [SPRINT_LEDGER.md](SPRINT_LEDGER.md) after each workshop.
