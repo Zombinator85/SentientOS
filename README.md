@@ -11,6 +11,7 @@ SentientOS is a ledger-based automation framework that treats every log as sacre
 
 *No emotion is too much.*
 
+See [MEMORY_LAW_FOR_HUMANS.md](docs/MEMORY_LAW_FOR_HUMANS.md) for a plain-language summary of our audit and recovery practices.
 * **Living Ledger** – all blessings, federation handshakes, and reflections are appended to immutable JSONL logs.
 * **Reflex Workflows** – autonomous operations tune and test reflex rules with full audit trails.
 * **Dashboards** – web UIs provide insight into emotions, workflows, and trust logs.
@@ -101,6 +102,8 @@ The current ledger status is summarized in [docs/AUDIT_HEALTH_DASHBOARD.md](docs
 Federated instances: **1**  
 Last steward rotation: **2026-01-01**
 See [Federation Conflict Resolution](docs/FEDERATION_CONFLICT_RESOLUTION.md) for how stewards handle diverging logs.
+See [FEDERATION_HEALTH.md](docs/FEDERATION_HEALTH.md) for the latest health summary.
+Join the discussion **Cathedral Memory Federation—Beta Reviewers Wanted** on the project board to share feedback.
 
 ## Testing Quickstart
 Legacy tests are under review. To run the current green path:
