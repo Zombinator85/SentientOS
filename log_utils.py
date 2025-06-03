@@ -4,20 +4,25 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+import audit_chain
 
-def append_json(path: Path, entry: Dict[str, Any]) -> None:
+
+def append_json(
+    path: Path,
+    entry: Dict[str, Any],
+    *,
+    emotion: str = "neutral",
+    consent: bool | str = True,
+) -> None:
+    """Append a JSON entry enforcing audit chain integrity."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    audit_chain.append_entry(path, entry, emotion=emotion, consent=consent)
 
 
 def read_json(path: Path) -> List[Dict[str, Any]]:
-    if not path.exists():
-        return []
+    """Return flattened audit entries."""
     out: List[Dict[str, Any]] = []
-    for ln in path.read_text(encoding="utf-8").splitlines():
-        try:
-            out.append(json.loads(ln))
-        except Exception:
-            continue
+    for e in audit_chain.read_entries(path):
+        row = {"timestamp": e.timestamp, **e.data, "prev_hash": e.prev_hash, "rolling_hash": e.rolling_hash}
+        out.append(row)
     return out
