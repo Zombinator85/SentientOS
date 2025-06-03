@@ -2,7 +2,7 @@
 import json
 import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, cast
 
 try:
     import yaml  # type: ignore
@@ -37,9 +37,9 @@ class SelfHealingManager:
 
     def __init__(self) -> None:
         self.state = _load_state()
-        self.last_event_ts = self.state.get("last_event_ts")
-        self.last_log_id = self.state.get("last_log_id")
-        self.failure_counts = self.state.get("wf_failures", {})
+        self.last_event_ts: Optional[str] = cast(Optional[str], self.state.get("last_event_ts"))
+        self.last_log_id: Optional[str] = cast(Optional[str], self.state.get("last_log_id"))
+        self.failure_counts: Dict[str, int] = cast(Dict[str, int], self.state.get("wf_failures", {}))
 
     def _record(self, parent: str, reason: str, next_step: str | None = None) -> None:
         mm.save_reflection(parent=parent, intent={}, result=None, reason=reason, next_step=next_step, plugin="self_heal")
@@ -56,17 +56,17 @@ class SelfHealingManager:
     def process_logs(self) -> None:
         logs = actuator.recent_logs(last=20)
         for log in logs:
-            log_id = log.get("id")
-            ts = log.get("timestamp")
-            if self.last_log_id and log_id <= self.last_log_id:
+            log_id = cast(Optional[str], log.get("id"))
+            ts = cast(Optional[str], log.get("timestamp"))
+            if self.last_log_id and log_id and log_id <= self.last_log_id:
                 continue
             self.last_log_id = log_id
             self._handle_log(log)
 
     def _handle_event(self, event: Dict[str, Any]) -> None:
-        name = event.get("event")
-        payload = event.get("payload", {})
-        parent = payload.get("id") or event.get("id") or name
+        name = str(event.get("event", ""))
+        payload = cast(Dict[str, Any], event.get("payload", {}))
+        parent = str(payload.get("id") or event.get("id") or name)
         if name.startswith("patch_") or name == "self_patch":
             reason = f"Patch event {name}"
             self._record(parent, reason)
@@ -78,8 +78,8 @@ class SelfHealingManager:
                 reason = f"System control failure: {event.get('error', '')}"
                 self._record(parent, reason, next_step="undo")
         elif name == "workflow.step" and payload.get("status") == "failed":
-            wf = payload.get("workflow")
-            step = payload.get("step")
+            wf = str(payload.get("workflow", ""))
+            step = str(payload.get("step", ""))
             key = f"{wf}:{step}"
             count = self.failure_counts.get(key, 0) + 1
             self.failure_counts[key] = count
@@ -91,8 +91,8 @@ class SelfHealingManager:
     def process_events(self) -> None:
         events = notification.list_events(20)
         for ev in events:
-            ts = ev.get("timestamp")
-            if self.last_event_ts and ts <= self.last_event_ts:
+            ts = cast(Optional[str], ev.get("timestamp"))
+            if self.last_event_ts and ts and ts <= self.last_event_ts:
                 continue
             self.last_event_ts = ts
             self._handle_event(ev)
