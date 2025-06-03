@@ -14,8 +14,8 @@ import audit_immutability as ai
 from log_utils import append_json, read_json
 
 from admin_utils import require_admin_banner
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
 
 LOG_PATH = get_log_path("archive_blessing.jsonl", "ARCHIVE_BLESSING_LOG")
 ARCHIVE_DIR = Path(os.getenv("ARCHIVE_DIR", "archives"))
