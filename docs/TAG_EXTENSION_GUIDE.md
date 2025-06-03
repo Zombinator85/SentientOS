@@ -2,6 +2,13 @@
 
 This guide explains how to propose new emotional or core value tags for the SentientOS project. Templates and code patterns co-developed with OpenAI support.
 
+| Quickstart Do | Quickstart Don't |
+|---------------|-----------------|
+| Read the [Code of Conduct](../CODE_OF_CONDUCT.md)* | Skip the privilege lint |
+| Provide a clear example | Omit reviewer sign-off |
+| Link to an issue | Forget documentation |
+\*Link placeholder
+
 ## Purpose & Principles
 - Keep the emotional tag list concise and respectful.
 - Ensure every tag improves clarity for memory search and reflection.
@@ -21,21 +28,27 @@ This guide explains how to propose new emotional or core value tags for the Sent
 ## Tag Glossary & Auditing
 Every tag is documented in `TAGS.md` with a short description and the approving reviewer. Audit tools scan logs for tag usage and compare with this glossary.
 
+| Tag | Meaning | Reviewer |
+|-----|---------|---------|
+| `joy` | General positive mood | `alice` |
+| `conflict` | Event highlighting disagreement | `bob` |
+
 ## Example PR & Reviewer Checklist
 - [ ] Description, color, and usage example provided.
 - [ ] Link to discussion or issue.
 - [ ] `python privilege_lint.py` passes.
 - [ ] Reviewer confirms `tags.py` updated and docs built.
+- [ ] **Reviewer sign-off** recorded.
 
 ## Support & Escalation
-Questions can be posted in the `#governance` channel or filed as an **Audit or Ethics Concern** issue. See [AUDIT_PROCESS.md](AUDIT_PROCESS.md) for details.
+Questions can be posted in the `#governance` channel, emailed to `support@sentientos.example.com`, or filed as an **Audit or Ethics Concern** issue. See [AUDIT_PROCESS.md](AUDIT_PROCESS.md) for details.
 
 ## FAQ
 **Q:** Can I rename a tag?
 **A:** Use the proposal template so downstream logs can be migrated.
 
 ## Common Mistakes
-- Adding a tag without updating `TAGS.md`.
-- Forgetting to run `privilege_lint.py` before opening the PR.
-- Skipping reviewer sign-off in the pull request.
+- **Adding a tag without updating `TAGS.md`.**
+- **Forgetting to run `privilege_lint.py` before opening the PR.**
+- **Skipping reviewer sign-off in the pull request.**
 

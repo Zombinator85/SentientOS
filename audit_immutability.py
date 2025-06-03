@@ -6,6 +6,7 @@ import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
+import argparse
 
 from admin_utils import require_admin_banner
 
@@ -16,7 +17,11 @@ class AuditEntry:
     timestamp: str
     data: dict
     prev_hash: str
-    hash: str
+    rolling_hash: str
+
+    @property
+    def hash(self) -> str:  # backward compatibility
+        return self.rolling_hash
 
 
 def _hash_entry(timestamp: str, data: dict, prev_hash: str) -> str:
@@ -33,8 +38,17 @@ def append_entry(path: Path, data: dict) -> AuditEntry:
     ts = datetime.datetime.utcnow().isoformat()
     digest = _hash_entry(ts, data, prev)
     entry = AuditEntry(ts, data, prev, digest)
-    with path.open("a", encoding="utf-8") as f:
+
+    # atomic append
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    with tmp_path.open("w", encoding="utf-8") as f:
+        if existing:
+            f.write(existing)
+            if not existing.endswith("\n"):
+                f.write("\n")
         f.write(json.dumps(entry.__dict__) + "\n")
+    os.replace(tmp_path, path)
     return entry
 
 
@@ -45,7 +59,12 @@ def read_entries(path: Path) -> List[AuditEntry]:
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
-        raw = json.loads(line)
+        try:
+            raw = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if "rolling_hash" not in raw and "hash" in raw:
+            raw["rolling_hash"] = raw["hash"]
         out.append(AuditEntry(**raw))
     return out
 
@@ -55,9 +74,10 @@ def verify(path: Path) -> bool:
     prev = "0" * 64
     for e in entries:
         expect = _hash_entry(e.timestamp, e.data, prev)
-        if e.hash != expect:
+        current = e.rolling_hash
+        if current != expect:
             return False
-        prev = e.hash
+        prev = current
     return True
 
 
