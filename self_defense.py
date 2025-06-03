@@ -10,6 +10,12 @@ from typing import Dict, List
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Record quarantine actions and privilege freezes.
+
+Entries are written to ``logs/agent_self_defense.jsonl`` or the path
+provided by the ``SELF_DEFENSE_LOG`` environment variable. See
+``docs/ENVIRONMENT.md`` for details.
+"""
 
 LOG_FILE = get_log_path("agent_self_defense.jsonl", "SELF_DEFENSE_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
