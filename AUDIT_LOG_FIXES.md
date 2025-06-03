@@ -7,4 +7,4 @@ This document tracks short term efforts to clean and repair malformed audit logs
 
 Add entries below with date and notes:
 
-- _TODO: add progress updates_
+- 2025-11 Living Audit Sprint: 47 malformed lines repaired, 3 marked legacy/unrecoverable.
