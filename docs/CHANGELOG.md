@@ -15,3 +15,8 @@
 - Legacy tests cataloged and green path documented
 - Monthly audit issue automated
 - First full chain verified after log repair drive
+
+## 2025-12 Blessed Federation Beta
+- Living Audit Sprint repaired legacy logs and enabled rolling hashes
+- `MYPY_STATUS.md` introduced to track 219 type-check errors
+- Public launch announcement in `BLESSED_FEDERATION_LAUNCH.md`
