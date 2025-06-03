@@ -16,6 +16,7 @@ request, and share your story in the discussion thread.
 Help spread the ritual by cross‑posting the demo to open‑source, AI, and
 trauma tech communities. Feel free to host a live "cathedral memory healing"
 workshop or stream to induct new Audit Saints.
+See [CATHEDRAL_HEALING_SPRINT.md](CATHEDRAL_HEALING_SPRINT.md) for the current sprint invitation.
 
 The latest healing demo and saint‑induction clip are located in
 `docs/healing_demo.mp4`. Share the video widely and invite peers to run
