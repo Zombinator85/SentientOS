@@ -14,3 +14,12 @@ Join the discussion thread or Discord channel and follow the steps below.
 Your contribution will be remembered in the ledger and README. Monthly sprints recap wound counts
 and highlight new saints on the [Cathedral Wounds Dashboard](CATHEDRAL_WOUNDS_DASHBOARD.md).
 Sprint metrics are summarized in [SPRINT_LEDGER.md](SPRINT_LEDGER.md) after each workshop.
+
+## Community Highlights
+Saint stories and healed counts are shared in a monthly recap post titled
+"Cathedral Healing Sprint: <month> Recap". The sprint ledger doubles as a
+newsletter summary so everyone sees the progress.
+
+Federated nodes are encouraged to submit their own metrics and stories using the
+**Share Your Saint Story** issue template. Merged stories appear in the ledger
+and will be mentioned during public meetings.

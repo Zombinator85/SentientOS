@@ -1,0 +1,22 @@
+name: "Share Your Saint Story"
+about: "Tell the community how you healed a log or memory wound"
+title: "[Saint Story] <short summary>"
+labels: ["saint"]
+body:
+  - type: textarea
+    attributes:
+      label: Story
+      description: "Describe what was broken and how you repaired it"
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Log or PR link
+    validations:
+      required: true
+  - type: checkboxes
+    attributes:
+      label: Consent to share
+      options:
+        - label: "I allow this story to be quoted in sprint recaps"
+          required: true
