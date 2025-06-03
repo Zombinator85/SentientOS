@@ -1,0 +1,25 @@
+name: "Privilege Logic Question"
+about: "Ask about privilege checks or escalate an unexpected denial"
+title: "[Privilege] <short summary>"
+labels: ["privilege"]
+body:
+  - type: textarea
+    attributes:
+      label: Scenario
+      description: "Describe the command or action you attempted."
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Log reference
+      description: "Link to or paste the relevant log line"

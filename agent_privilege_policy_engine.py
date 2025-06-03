@@ -1,6 +1,7 @@
 """Agent Privilege Policy Engine
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+# Templates and code patterns co-developed with OpenAI support
 """
 from __future__ import annotations
 from logging_config import get_log_path
