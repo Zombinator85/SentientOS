@@ -8,8 +8,12 @@ This draft explores a self-healing, schema-evolving cathedral for 2025 and beyon
 * Continuous celebration of Audit Saints after each successful fix.
 * Modular, self-evolving schema adapters for each field.
 * Version tags and auto-migration hooks to validate memory across nodes.
+* Automatic schema diffing across federated nodes.
+* Remote consensus workflow for approving schema upgrades.
+* Clearly defined "blessed" field changes with version increments.
 
 Contributors are invited to discuss and refine these ideas on the discussion board.
+Share suggestions for next-gen adapters via GitHub issues or the Discord channel.
 
 ## Roadmap
 
