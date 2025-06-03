@@ -1,7 +1,6 @@
-from admin_utils import require_admin_banner
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Haptic device bridge.
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 This module provides a thin abstraction over vendor APIs or serial
 connections for ingesting tactile feedback. Events are timestamped and
@@ -12,6 +11,7 @@ back to a simple mock that generates random feedback values.
 """
 
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import json
@@ -36,6 +36,7 @@ class HapticsBridge:
     """Interface to haptic devices via serial or mock."""
 
     def __init__(self, port: Optional[str] = None) -> None:
+        require_admin_banner()
         self.headless = is_headless() or serial is None
         if not self.headless and port:
             try:

@@ -4,9 +4,14 @@ import sys
 from pathlib import Path
 import pytest
 
-pytestmark = pytest.mark.xfail(reason="legacy gallery CLI not importable", strict=False)
+import admin_utils
 
 import avatar_artifact_gallery as aag
+
+
+def _mute_admin_banner():
+    """Silence privilege banner during tests."""
+    return None
 
 
 def test_gallery_filter(tmp_path, monkeypatch, capsys):
@@ -24,6 +29,7 @@ def test_gallery_filter(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("AVATAR_ARTIFACT_LOG", str(artifact))
     monkeypatch.setenv("ARTIFACT_GALLERY_LOG", str(gallery))
 
+    monkeypatch.setattr(admin_utils, "require_admin_banner", _mute_admin_banner)
     importlib.reload(aag)
 
     monkeypatch.setattr(sys, "argv", ["gallery", "--creator", "ava"])
