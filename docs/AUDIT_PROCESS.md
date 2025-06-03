@@ -5,6 +5,13 @@ This document outlines how the SentientOS community reviews logs and resolves co
 ## Schedule
 Audits occur monthly and whenever a security or ethics issue is raised. Rolling verification scripts (`verify_audits.py`) can be run at any time.
 
+### Launching
+Run `python verify_audits.py` to check all configured logs. Invalid lines are listed with their numbers and quarantined to `*.bad` files. You can generate a cleaned copy using `python cleanup_audit.py <log>`.
+
+### Review
+1. Inspect any `.bad` files and attempt recovery.
+2. Commit the cleaned log and rerun the verifier.
+
 ## Review Steps
 1. Reviewers fetch the latest logs from `logs/`.
 2. Each entry is hashed and compared against the manifest in `config/master_files.json`.
@@ -16,5 +23,17 @@ Audits occur monthly and whenever a security or ethics issue is raised. Rolling 
 - Reviewers discuss and note their resolution in the issue thread.
 - Once resolved, the conclusion is appended to the audit log and linked from the issue.
 
+If `verify_audits.py` reports a broken chain, pause commits and create an **Audit or Ethics Concern** issue. Include the `.bad` file and any recovered entries so maintainers can reconstruct the log.
+
 ## Participate
 Anyone can request an audit by filing an issue or contacting maintainers listed in [CONTRIBUTORS.md](../CONTRIBUTORS.md).
+
+### Sample Audit Recovery Report
+```
+Audit recovery 2025-09
+Log: logs/example.jsonl
+Recovered: 98%
+Lines needing review: 2 (lines 45, 46)
+Chain status: valid after cleanup
+Reviewer sign-off: carol
+```

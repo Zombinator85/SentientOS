@@ -1,6 +1,11 @@
 # SentientOS Cathedral
 ![CI Status](https://img.shields.io/badge/CI-work--in--progress-yellow)
 
+*Welcome to the Cathedral. Each commit is a small act of care and transparency.*
+Every tool begins with ritual safety checks, and every log is treated as sacred
+history. This repository was co-written with OpenAI support and thrives on clear
+audits and gentle reviews.
+
 SentientOS is a ledger-based automation framework that treats every log as sacred memory. Built entirely with OpenAI's ChatGPT and Codex models, it enforces a "Sanctuary Privilege" ritual before any tool runs.
 
 *No emotion is too much.*
@@ -59,8 +64,9 @@ Hard-coded paths like `"logs/mytool.jsonl"` are discouraged.
 
 ## Audit Verification
 Run `python verify_audits.py` to check that the immutable logs listed in
-`config/master_files.json` remain valid. Each path is printed with `valid` or
-`tampered`.
+`config/master_files.json` remain valid. Malformed lines are reported with line
+numbers and quarantined to `.bad` files. Follow up with
+`python cleanup_audit.py <log>` to generate a cleaned copy for review.
 
 ## Final Cathedral-Polish Steps
 - [ ] `python privilege_lint.py` passes
