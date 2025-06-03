@@ -9,6 +9,7 @@ import treasury_federation as tf
 import treasury_attestation as ta
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 
 def cmd_submit(args: argparse.Namespace) -> None:

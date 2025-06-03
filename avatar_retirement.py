@@ -1,3 +1,4 @@
+from admin_utils import require_admin_banner
 """Avatar Retirement & Archive Ritual
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -8,8 +9,8 @@ The act is logged in a ritual ledger.
 Example:
     python avatar_retirement.py retire avatar1.blend retired/ --mood nostalgia --reason "story closed"
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
-from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import argparse

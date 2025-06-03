@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover - optional
     requests = None
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 LOG_PATH = get_log_path("steward_rotation.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

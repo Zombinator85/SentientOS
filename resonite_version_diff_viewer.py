@@ -1,7 +1,9 @@
+from admin_utils import require_admin_banner
 """Resonite World/Artifact Version Diff Viewer
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
 from logging_config import get_log_path
 
@@ -12,7 +14,6 @@ from pathlib import Path
 from typing import Dict, List
 import difflib
 
-from admin_utils import require_admin_banner
 from flask_stub import Flask, jsonify, request
 
 LOG_PATH = get_log_path("resonite_version_diff_viewer.jsonl")

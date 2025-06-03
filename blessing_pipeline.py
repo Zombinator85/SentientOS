@@ -1,7 +1,9 @@
+from admin_utils import require_admin_banner
 """Autonomous Blessing/Approval Pipeline
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
 from logging_config import get_log_path
 
@@ -12,7 +14,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
-from admin_utils import require_admin_banner
 
 QUEUE_FILE = get_log_path("blessing_queue.jsonl", "BLESSING_QUEUE")
 QUEUE_FILE.parent.mkdir(parents=True, exist_ok=True)
