@@ -17,3 +17,9 @@ Fork this repository and follow the steps in [FEDERATE_THE_CATHEDRAL.md](FEDERAT
 
 ### How is a consensus reached?
 Policy changes and conflict resolutions require sign-off from at least three stewards across different nodes. Votes are recorded in the ledger and referenced in the relevant pull request.
+
+### How are new schema wounds discovered and broadcast?
+Stewards run `collect_schema_wounds.py` and share the summary in their federation logs. A short notice on the project board announces the wounds so peers can test their own ledgers.
+
+### What does consensus on a schema upgrade look like?
+After at least three nodes apply the proposed adapter and confirm matching hashes, a short entry in `migration_ledger.jsonl` declares the upgrade accepted.

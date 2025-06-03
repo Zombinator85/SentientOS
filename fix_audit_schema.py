@@ -11,14 +11,28 @@ from admin_utils import require_admin_banner
 
 Scan audit logs for schema drift and heal missing fields."""
 
-KNOWN_KEYS = {"timestamp", "peer", "email", "message", "ritual", "data", "supporter", "amount"}
+SCHEMA_VERSION = "1.0"
+
+KNOWN_KEYS = {
+    "timestamp",
+    "peer",
+    "email",
+    "message",
+    "ritual",
+    "data",
+    "supporter",
+    "amount",
+    "schema_version",
+}
+
 DEFAULTS: Dict[str, Callable[[], object]] = {
     "data": lambda: {},
     "timestamp": lambda: datetime.datetime.utcnow().isoformat(),
+    "schema_version": lambda: SCHEMA_VERSION,
 }
 
 
-def process_log(path: Path) -> Dict[str, int]:
+def process_log(path: Path, on_apply: Callable[[], None] | None = None) -> Dict[str, int]:
     fixed = 0
     flagged = 0
     untouched = 0
@@ -52,6 +66,8 @@ def process_log(path: Path) -> Dict[str, int]:
                 entry[key] = default()
                 changed = True
         if changed:
+            if on_apply:
+                on_apply()
             entry["auto_migrated"] = True
             fixed += 1
         else:
@@ -68,8 +84,16 @@ def main() -> None:  # pragma: no cover - CLI
     require_admin_banner()
     logs_dir = Path("logs")
     totals = {"fixed": 0, "flagged": 0, "untouched": 0}
+    banner_shown = False
+
+    def show_banner() -> None:
+        nonlocal banner_shown
+        if not banner_shown:
+            print("=== vNext schema adapter applied ===")
+            banner_shown = True
+
     for log_file in logs_dir.glob("*.jsonl"):
-        stats = process_log(log_file)
+        stats = process_log(log_file, show_banner)
         for k in totals:
             totals[k] += stats[k]
         if stats["fixed"]:
