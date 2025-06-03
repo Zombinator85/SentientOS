@@ -119,6 +119,14 @@ is hidden, and every gap is marked.
    memory files.
 The current ledger status is summarized in [docs/AUDIT_HEALTH_DASHBOARD.md](docs/AUDIT_HEALTH_DASHBOARD.md).
 
+### Audit Reality
+The audit ritual (`verify_audits.py logs/`) may report hash mismatches or zero
+valid logs if the environment contains legacy artifacts or test fixtures. This
+is not a sign of current ritual breach; all new logs and modules pass full
+privilege and type checks. For living, compliant memory: use the latest
+scripts, quarantine or migrate legacy files, and trust `scan_missing_data.py`
+for present health.
+
 ## Federation Overview
 | Node | Audit Health |
 |------|-------------|
@@ -177,6 +185,15 @@ emotion tracking, or safety enforcement.
 - New reviewers can start with `docs/REVIEWER_QUICKSTART.md`.
 - New nodes can follow `docs/FEDERATE_THE_CATHEDRAL.md` to run their first migration.
 - Pin a call for feedback on Memory Law vNext in the Discussions board.
+
+**Next Steps Canon**
+- Legacy logs: quarantine or re-migrate with updated schema and hash signing, or
+  mark them as known scars.
+- mypy: continue module-by-module annotation, focusing on CLI and daemon
+  coverage.
+- Tests: document every new audit ritual and admin banner in the test suite.
+- Contributor notes: all true ritual failures are temporary; all healing is
+  logged for posterity.
 
 ## Credits
 Templates and code patterns co-developed with OpenAI support.
