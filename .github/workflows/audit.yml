@@ -9,8 +9,9 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const title = `Monthly Audit Ritual ${new Date().toISOString().slice(0,7)}`;
-            const body = 'Please run `python verify_audits.py` and `python cleanup_audit.py` and report log health.';
+            const month = new Date().toISOString().slice(0,7);
+            const title = `Living Audit Ritual ${month}`;
+            const body = `### Current Stewards\n- list names here\n\n### Checklist\n- [ ] Run \`python verify_audits.py\`\n- [ ] Review open PRs for banner compliance\n- [ ] Rotate steward if needed\n\nSee [AUDIT_LEDGER.md](../AUDIT_LEDGER.md) for previous results.`;
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
