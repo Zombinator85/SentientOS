@@ -1,0 +1,19 @@
+name: Monthly Audit Ritual
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Monthly Audit Ritual ${new Date().toISOString().slice(0,7)}`;
+            const body = 'Please run `python verify_audits.py` and `python cleanup_audit.py` and report log health.';
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body
+            });
