@@ -1,5 +1,12 @@
 # Cathedral Steward
 
+**Steward Ritual Checklist**
+- Run `fix_audit_schema.py` after each cycle
+- Review `docs/OPEN_WOUNDS.md` and log new issues
+- Announce new Audit Saints in `CONTRIBUTORS.md`
+- Rotate steward if needed and update dates
+- Pass the torch with a handoff issue
+
 The Cathedral Steward safeguards memory integrity and guides new contributors.
 
 ## Role
