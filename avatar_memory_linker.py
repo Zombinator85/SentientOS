@@ -1,3 +1,4 @@
+from admin_utils import require_admin_banner
 """Avatar Memory Linker CLI
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -9,8 +10,8 @@ Example:
     python avatar_memory_linker.py link avatar1 blend created --mood joy --memory 123
     python avatar_memory_linker.py list --term forgiveness
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
-from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import argparse

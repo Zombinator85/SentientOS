@@ -20,6 +20,7 @@ ritual. Incompatibilities are logged and halt the process.
 Example:
     python avatar_federation_join.py --name nodeA --schema 2.0
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 SCHEMA_VERSION = "2.0"
 JOIN_LOG = get_log_path("avatar_federation_join.jsonl", "AVATAR_FEDERATION_JOIN_LOG")

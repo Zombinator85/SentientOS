@@ -6,6 +6,7 @@ from typing import List
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 
 def cleanup_audit(path: Path) -> tuple[Path, List[int]]:

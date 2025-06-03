@@ -1,12 +1,13 @@
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 """Resonite Ritual Proposal & Voting Dashboard
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
-from admin_utils import require_admin_banner
 
 import argparse
 import json

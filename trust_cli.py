@@ -8,6 +8,7 @@ import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 
 def cmd_log(args) -> None:

@@ -16,6 +16,7 @@ import mood_wall
 from pathlib import Path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 
 def cmd_invite(args: argparse.Namespace) -> None:

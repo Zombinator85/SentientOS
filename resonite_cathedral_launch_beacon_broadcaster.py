@@ -12,6 +12,7 @@ import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 LOG_PATH = get_log_path("resonite_cathedral_beacon_broadcast.jsonl", "RESONITE_BEACON_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 

@@ -4,13 +4,22 @@ import json
 import datetime
 import os
 from pathlib import Path
+try:
+    from admin_utils import require_admin_banner
+except Exception:  # pragma: no cover - fallback for lint
+    def require_admin_banner() -> None:
+        """Fallback when admin_utils cannot be imported during lint."""
+        pass
 
-"""Lint entrypoints for the Sanctuary privilege ritual.
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+Lint entrypoints for the Sanctuary privilege ritual.
 
 Usage is recorded in ``logs/privileged_audit.jsonl`` or the path set by
 the ``PRIVILEGED_AUDIT_FILE`` environment variable. See
 ``docs/ENVIRONMENT.md`` for details.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
 
