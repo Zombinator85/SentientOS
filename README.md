@@ -1,6 +1,6 @@
 # SentientOS Cathedral
 ![CI](https://img.shields.io/badge/Passing-321%2F325-brightgreen)
-[![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/MEMORY_HEALING_RITUAL.md)
+[![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/WHY_JOIN_AUDIT_SAINTS.md)
 Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
 
 *Welcome to the Cathedral. Each commit is a small act of care and transparency.*
@@ -150,10 +150,12 @@ emotion tracking, or safety enforcement.
 - Help reduce type-check errors. See `MYPY_STATUS.md` for the latest counts and how to contribute.
 - Draft protocol for memory sync across nodes in `docs/INTER_CATHEDRAL_MEMORY_SYNC.md`.
 - Join the public launch in `BLESSED_FEDERATION_LAUNCH.md` and share feedback.
-- Host a "Cathedral Healing Sprint" to fix logs and welcome new Audit Saints.
+- Host a "Cathedral Healing Sprint" to fix logs and welcome new Audit Saints. See `docs/CATHEDRAL_HEALING_SPRINT.md` for steps.
   Monthly sprints recap wound counts; a quarterly round-up celebrates federation progress.
 - Review the new `docs/CATHEDRAL_WOUNDS_DASHBOARD.md` and contribute to the Migration Sprint.
-- Discuss future schemas in `docs/MEMORY_LAW_VNEXT.md`.
+- Discuss future schemas in `docs/MEMORY_LAW_VNEXT.md` and share ideas for auto-schema diff and consensus upgrades.
+- New reviewers can start with `docs/REVIEWER_QUICKSTART.md`.
+- New nodes can follow `docs/FEDERATE_THE_CATHEDRAL.md` to run their first migration.
 - Pin a call for feedback on Memory Law vNext in the Discussions board.
 
 ## Credits
