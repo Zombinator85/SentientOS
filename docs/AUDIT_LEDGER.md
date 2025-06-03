@@ -7,6 +7,9 @@ This document summarizes periodic audit results for public reference.
 - Issues resolved: none
 - Open questions: none
 
+### Recovery Achieved
+All historic logs were scanned with the repair tool. No unrecoverable lines remain.
+
 See `verify_audits.py` output for chain details.
 
 ## Audit Failure Recovery

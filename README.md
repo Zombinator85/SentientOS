@@ -35,11 +35,18 @@ Additional guides:
 - [docs/RITUALS.md](docs/RITUALS.md)
 - [docs/MODULES.md](docs/MODULES.md)
 - [docs/TAG_EXTENSION_GUIDE.md](docs/TAG_EXTENSION_GUIDE.md)
+- [docs/FEDERATION_FAQ.md](docs/FEDERATION_FAQ.md)
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
 
 See FIRST_RUN.md for cloning and running only green tests. Questions? Ping the Steward on the discussions board.
+
+### Ask for a Buddy
+New contributors are invited to request a **buddy** for their first pull request or review. A buddy helps with environment setup, running `python verify_audits.py`, and general PR etiquette. Mention "buddy request" in your issue or discussion thread and a steward will pair you up.
+
+### Feedback Loop Ritual
+We maintain an open feedback form on the GitHub Discussions board. Share your first-run experience, documentation gaps, or ideas for new rituals. Stewards review submissions each month and incorporate improvements into future audits.
 ## Sanctuary Privilege Ritual
 Every entrypoint must open with the canonical ritual docstring followed by a
 call to `require_admin_banner()`:
@@ -74,6 +81,7 @@ Run `python verify_audits.py` to check that the immutable logs listed in
 `verify_audits.py` or `cleanup_audit.py` to process many logs at once. Results
 include a percentage of valid files so reviewers know when systemwide action is
 needed.
+The current ledger status is summarized in [docs/AUDIT_HEALTH_DASHBOARD.md](docs/AUDIT_HEALTH_DASHBOARD.md).
 
 ## Testing Quickstart
 Legacy tests are under review. To run the current green path:

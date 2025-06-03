@@ -6,3 +6,8 @@ repos:
     entry: python privilege_lint.py
     language: system
     pass_filenames: false
+  - id: audit-verify
+    name: audit log verify
+    entry: python verify_audits.py
+    language: system
+    pass_filenames: false
