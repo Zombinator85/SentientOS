@@ -9,7 +9,7 @@ import federation_log as fl
 import ledger
 import pytest
 
-pytestmark = pytest.mark.xfail(reason="legacy federation invite CLI missing deps", strict=False)
+import sentient_banner as sb
 
 
 def test_invite(tmp_path, monkeypatch):
@@ -20,6 +20,8 @@ def test_invite(tmp_path, monkeypatch):
         return entry
 
     monkeypatch.setattr(ledger, '_append', fake_append)
+    monkeypatch.setattr(sb, 'print_banner', lambda: None)
+    monkeypatch.setattr(sb, 'print_closing', lambda: None)
     importlib.reload(fl)
     importlib.reload(tf)
     tf.invite('peer1', email='a@example.com', blessing='hi', supporter='bob', affirm=True)

@@ -1,20 +1,10 @@
 # Legacy Test Status
 
-The following tests are currently excluded from CI runs. They either rely on missing
-external tooling or contain deprecated modules.
+Previously certain tests were excluded from CI runs due to missing tooling or
+deprecated modules. These issues have been resolved.
 
-| Test File | Status | Root Cause |
-|-----------|--------|------------|
-| `tests/test_avatar_genesis.py` | `env` | Requires Blender `bpy` module |
-| `tests/test_modalities.py` | `env` | Hardware bridges with syntax issues |
-| `tests/test_avatar_rituals.py` | xfail | Avatar retirement code syntax errors |
-| `tests/test_avatar_artifact_gallery.py` | xfail | Gallery CLI import fails |
-| `tests/test_policy_suggestions.py` | xfail | Missing `review_requests` dependencies |
-| `tests/test_federation.py` | xfail | Federation stubs incomplete |
-| `tests/test_federation_cli.py` | xfail | Federation CLI modules missing |
-| `tests/test_federation_invite.py` | xfail | Invite helpers incomplete |
-| `tests/test_music.py` | xfail | Music CLI lacks logging_config setup |
-| `tests/test_cli_daemon_admin_banner.py` | xfail | Large CLI list not stable |
+All tests previously listed in this document have been restored and no longer
+require special handling.
 
 Passing tests can be run with:
 

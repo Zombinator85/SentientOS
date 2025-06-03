@@ -5,9 +5,7 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import pytest
 
-pytestmark = pytest.mark.xfail(reason="legacy CLI list incomplete", strict=False)
 import admin_utils
-import pytest
 
 CLI_MODULES = [
     "affirmation_webhook_cli",

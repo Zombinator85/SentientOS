@@ -1,7 +1,6 @@
-from admin_utils import require_admin_banner
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """EEG bridge for real or emulated headsets.
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 This module streams raw EEG samples from supported headsets or a synthetic
 source. Each sample is timestamped and logged to ``logs/eeg_events.jsonl``.
@@ -12,6 +11,7 @@ The bridge falls back to a simple random data generator if ``mne`` or
 """
 
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import json
@@ -38,6 +38,7 @@ class EEGBridge:
     """Stream EEG samples from a headset or synthetic source."""
 
     def __init__(self, board_id: Optional[int] = None) -> None:
+        require_admin_banner()
         self.board_id = board_id
         self.headless = is_headless() or BoardShim is None
         if not self.headless and board_id is not None:
