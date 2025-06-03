@@ -2365,3 +2365,13 @@ Another Registered Agent:
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/archive_blessing.jsonl
 ```
+Another Registered Agent:
+
+```
+- Name: RitualCalendar
+  Type: CLI
+  Roles: Ritual Scheduler, Reminder
+  Privileges: log, schedule
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/ritual_calendar.json
+```
