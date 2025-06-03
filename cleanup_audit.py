@@ -26,20 +26,46 @@ def cleanup_audit(path: Path) -> tuple[Path, List[int]]:
     return out_path, bad_lines
 
 
+def cleanup_directory(directory: Path) -> tuple[dict[str, List[int]], float]:
+    """Clean all ``*.jsonl`` logs in ``directory``.
+
+    Returns a mapping of log paths to bad line numbers and the overall percentage
+    of valid lines.
+    """
+    results: dict[str, List[int]] = {}
+    total_lines = 0
+    total_bad = 0
+    for log in sorted(Path(directory).glob("*.jsonl")):
+        out, bad = cleanup_audit(log)
+        results[str(log)] = bad
+        lines = len(log.read_text(encoding="utf-8").splitlines())
+        total_lines += lines
+        total_bad += len(bad)
+    percent = 0.0 if total_lines == 0 else (total_lines - total_bad) / total_lines * 100
+    return results, percent
+
+
 def main() -> None:  # pragma: no cover - CLI
     require_admin_banner()
     import argparse
     ap = argparse.ArgumentParser(description="Pre-audit cleanup")
-    ap.add_argument("log")
+    ap.add_argument("path", help="Log file or directory")
     args = ap.parse_args()
-    path = Path(args.log)
-    out, bad = cleanup_audit(path)
-    total = len(path.read_text(encoding="utf-8").splitlines())
-    percent = 0 if total == 0 else len(bad) / total * 100
-    print(f"Cleaned log written to {out}")
-    print(f"{100-percent:.1f}% valid, {percent:.1f}% needing review")
-    if bad:
-        print("Lines needing review:", ", ".join(map(str, bad)))
+    p = Path(args.path)
+    if p.is_dir():
+        res, percent = cleanup_directory(p)
+        print(f"{percent:.1f}% of all lines valid")
+        for file, bad in res.items():
+            if bad:
+                print(f"{file}: lines needing review -> {', '.join(map(str, bad))}")
+    else:
+        out, bad = cleanup_audit(p)
+        total = len(p.read_text(encoding='utf-8').splitlines())
+        percent = 0 if total == 0 else len(bad) / total * 100
+        print(f"Cleaned log written to {out}")
+        print(f"{100-percent:.1f}% valid, {percent:.1f}% needing review")
+        if bad:
+            print("Lines needing review:", ", ".join(map(str, bad)))
 
 
 if __name__ == "__main__":

@@ -64,9 +64,15 @@ Hard-coded paths like `"logs/mytool.jsonl"` are discouraged.
 
 ## Audit Verification
 Run `python verify_audits.py` to check that the immutable logs listed in
-`config/master_files.json` remain valid. Malformed lines are reported with line
-numbers and quarantined to `.bad` files. Follow up with
-`python cleanup_audit.py <log>` to generate a cleaned copy for review.
+`config/master_files.json` remain valid. You can also pass a directory to
+`verify_audits.py` or `cleanup_audit.py` to process many logs at once. Results
+include a percentage of valid files so reviewers know when systemwide action is
+needed.
+
+## Cathedral Steward
+See [STEWARD.md](docs/STEWARD.md) for the steward role description and monthly
+responsibilities. They maintain [`AUDIT_LOG.md`](docs/AUDIT_LOG.md) and guide new
+contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md).
 
 ## Final Cathedral-Polish Steps
 - [ ] `python privilege_lint.py` passes
