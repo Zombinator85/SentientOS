@@ -12,10 +12,13 @@ jobs:
       - uses: actions/github-script@v7
         with:
           script: |
-            const body = `Thanks for your first contribution! Please review the [Ritual Onboarding Checklist](../../blob/${{ github.event.pull_request.head.repo.full_name }}/docs/RITUAL_ONBOARDING.md).`;
+            const repo = context.repo.repo;
+            const owner = context.repo.owner;
+            const base = `../../blob/${{ github.event.pull_request.head.repo.full_name }}`;
+            const welcome = `Welcome to the cathedral! Please review the [Ritual Onboarding Checklist](${base}/docs/RITUAL_ONBOARDING.md), [Tag Guide](${base}/docs/TAG_EXTENSION_GUIDE.md), and [Steward FAQ](${base}/docs/STEWARD.md).`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
+              owner,
+              repo,
+              body: welcome
             });
