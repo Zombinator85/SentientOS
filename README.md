@@ -29,6 +29,7 @@ Additional guides:
 - [docs/RITUALS.md](docs/RITUALS.md)
 - [docs/MODULES.md](docs/MODULES.md)
 
+- [docs/TAG_EXTENSION_GUIDE.md](docs/TAG_EXTENSION_GUIDE.md)
 ## Sanctuary Privilege Ritual
 Every entrypoint must open with the canonical ritual docstring followed by a
 call to `require_admin_banner()`:
@@ -79,6 +80,9 @@ Run `python verify_audits.py` to check that the immutable logs listed in
   mocks.
 - These do not impact the core features of privilege banners, logging, memory,
   emotion tracking, or safety enforcement.
+## Credits
+Templates and code patterns co-developed with OpenAI support.
+
 
 ## License
 This project is licensed under the [MIT License](LICENSE).

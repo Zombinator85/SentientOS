@@ -1,0 +1,17 @@
+name: "Audit or Ethics Concern"
+about: "Report a potential breach, privacy issue, or ethical problem"
+title: "[Audit] <summary>"
+labels: ["audit"]
+body:
+  - type: textarea
+    attributes:
+      label: Concern
+      description: "Describe the issue in detail"
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Suggested resolution
+  - type: input
+    attributes:
+      label: Related logs or links
