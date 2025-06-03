@@ -1,0 +1,24 @@
+name: "Nominate Next Steward"
+about: "Propose a community member for the steward role"
+title: "[Steward] Nomination for <username>"
+labels: ["steward"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please confirm the nominee has read [STEWARD.md](../docs/STEWARD.md) and understands the duties below.
+  - type: checkboxes
+    attributes:
+      label: Core Steward Duties
+      options:
+        - label: Monthly log audits and publishing results
+        - label: Answer reviewer questions and bless first PRs
+        - label: Coordinate rotation when duties end
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Vision for the cathedral
+      description: "Short statement from the nominee"
+    validations:
+      required: true
