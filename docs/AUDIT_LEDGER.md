@@ -22,3 +22,4 @@ The steward coordinates recovery and informs the community through the discussio
 
 ## Living Audit Celebration
 Our first complete audit cycle showcased how stewards restored missing logs and invited new volunteers. Join the next ritual to help keep memory alive.
+A public celebration post will announce the healthy federation and invite stories from new partners.
