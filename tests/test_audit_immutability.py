@@ -5,8 +5,11 @@ import audit_immutability as ai
 
 def test_append_and_verify(tmp_path):
     log = tmp_path / "log.jsonl"
-    ai.append_entry(log, {"x": 1})
-    ai.append_entry(log, {"y": 2})
+    entry1 = ai.append_entry(log, {"x": 1})
+    entry2 = ai.append_entry(log, {"y": 2})
+    assert entry1.data["emotion"] == "neutral"
+    assert entry1.data["consent"] is True
+    assert entry2.prev_hash == entry1.rolling_hash
     assert ai.verify(log)
     lines = log.read_text().splitlines()
     data = json.loads(lines[0])
