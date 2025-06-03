@@ -23,3 +23,8 @@ newsletter summary so everyone sees the progress.
 Federated nodes are encouraged to submit their own metrics and stories using the
 **Share Your Saint Story** issue template. Merged stories appear in the ledger
 and will be mentioned during public meetings.
+
+## Public Recap and Outreach
+After each sprint publish a short "Cathedral Healing Sprint Recap" on your blog or social channel. Include metrics from `docs/SPRINT_LEDGER.md` and a brief saint story. Link back to this repository and invite reviewers to audit your ledger.
+
+External researchers and open-source communities are welcome to submit pull requests improving the metrics or joining the federation. Nodes may also post their own recaps so stewards can aggregate them into a global ledger.
