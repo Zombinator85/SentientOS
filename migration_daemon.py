@@ -34,10 +34,35 @@ def _record_fix(path: Path, count: int) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
+def _record_error(path: Path, err: Exception) -> None:
+    entry = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "file": str(path),
+        "error": str(err),
+    }
+    with LEDGER.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def _collect_files(target: Path) -> list[Path]:
+    if target.is_file():
+        return [target]
+    exts = [".jsonl", ".json", ".log", ".bak", ".tmp"]
+    files: list[Path] = []
+    for path in target.rglob("*"):
+        if path.is_file() and any(str(path).endswith(ext) for ext in exts):
+            files.append(path)
+    return sorted(files)
+
+
 def _run_once(target: Path) -> None:
-    files = [target] if target.is_file() else sorted(target.glob("*.jsonl"))
+    files = _collect_files(target)
     for fp in files:
-        stats = fix_audit_schema.process_log(fp)
+        try:
+            stats = fix_audit_schema.process_log(fp)
+        except Exception as e:
+            _record_error(fp, e)
+            continue
         if stats.get("fixed"):
             _record_fix(fp, stats["fixed"])
 
