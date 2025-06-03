@@ -1,4 +1,4 @@
-from logging_config import get_log_path
+from logging_config import get_log_path, get_log_dir
 
 import argparse
 import json
@@ -71,7 +71,9 @@ def _mask(entry: Dict[str, Any]) -> Dict[str, Any]:
     return masked
 
 
-def scan_logs(log_dir: Path = Path("logs")) -> List[Dict[str, Any]]:
+def scan_logs(log_dir: Path | None = None) -> List[Dict[str, Any]]:
+    if log_dir is None:
+        log_dir = get_log_dir()
     anomalies: List[Dict[str, Any]] = []
     for fp in log_dir.glob("*.jsonl"):
         for idx, line in enumerate(fp.read_text(encoding="utf-8").splitlines(), 1):
