@@ -4,12 +4,12 @@ import hashlib
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import doctrine
 
 
-def _append(path: Path, entry: Dict[str, str]) -> Dict[str, str]:
+def _append(path: Path, entry: Dict[str, Any]) -> Dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
@@ -55,7 +55,7 @@ def log_music_event(
     peer: str | None = None,
     result_hash: str = "",
     user: str = "",
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a music generation or listen event in the living ledger."""
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -83,7 +83,7 @@ def log_music(
     result_hash: str,
     user: str = "",
     peer: str | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a generated music track in the living ledger."""
     return log_music_event(
         "generated",
@@ -103,7 +103,7 @@ def log_music_listen(
     reported: Dict[str, float] | None = None,
     received: Dict[str, float] | None = None,
     peer: str | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a music playback event with emotional metadata."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
     return log_music_event(
@@ -123,7 +123,7 @@ def log_music_share(
     peer: str,
     user: str = "",
     emotion: Dict[str, float] | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a shared track across federation and bless the recipient."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
     entry = log_music_event(
@@ -153,7 +153,7 @@ def log_video_event(
     peer: str | None = None,
     result_hash: str = "",
     user: str = "",
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a video creation or watch event in the living ledger."""
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -183,7 +183,7 @@ def log_video_create(
     *,
     user: str = "",
     peer: str | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Log a new created video."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
     return log_video_event(
@@ -204,7 +204,7 @@ def log_video_watch(
     user: str = "",
     perceived: Dict[str, float] | None = None,
     peer: str | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Log watching a video with optional emotion."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
     return log_video_event(
@@ -222,7 +222,7 @@ def log_video_share(
     peer: str,
     user: str = "",
     emotion: Dict[str, float] | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a shared video clip across federation."""
     h = hashlib.sha256(Path(file_path).read_bytes()).hexdigest() if Path(file_path).exists() else ""
     entry = log_video_event(
@@ -244,7 +244,7 @@ def log_mood_blessing(
     recipient: str,
     emotion: Dict[str, float],
     phrase: str,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Record a mood blessing for the public feed."""
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -301,7 +301,7 @@ def playlist_log(
     origin: str,
     *,
     reason: str = "",
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Return a signed playlist log structure."""
     text = json.dumps(entries, sort_keys=True)
     sig = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -316,7 +316,7 @@ def playlist_log(
     }
 
 
-def music_recap(limit: int = 20) -> Dict[str, object]:
+def music_recap(limit: int = 20) -> Dict[str, Any]:
     """Return emotion totals and resonance stats."""
     path = get_log_path("music_log.jsonl")
     if not path.exists():
@@ -345,7 +345,7 @@ def music_recap(limit: int = 20) -> Dict[str, object]:
     return {"emotion_totals": totals, "most_shared_mood": most, "top_tracks": top}
 
 
-def video_recap(limit: int = 20) -> Dict[str, object]:
+def video_recap(limit: int = 20) -> Dict[str, Any]:
     """Return emotion totals and resonance stats for videos."""
     path = get_log_path("video_log.jsonl")
     if not path.exists():
@@ -374,7 +374,7 @@ def video_recap(limit: int = 20) -> Dict[str, object]:
     return {"emotion_totals": totals, "most_shared_mood": most, "top_videos": top}
 
 
-def summarize_log(path: Path, limit: int = 3) -> Dict[str, List[Dict[str, str]]]:
+def summarize_log(path: Path, limit: int = 3) -> Dict[str, Any]:
     """Return count and last few entries for a ledger file."""
     if not path.exists():
         return {"count": 0, "recent": []}
