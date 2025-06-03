@@ -42,6 +42,8 @@ Additional guides:
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
+Watch a 60 second demo of log healing and Audit Saint induction in
+[docs/healing_demo.mp4](docs/healing_demo.mp4) and share it with newcomers.
 
 See FIRST_RUN.md for cloning and running only green tests. Questions? Ping the Steward on the discussions board.
 
@@ -145,6 +147,8 @@ emotion tracking, or safety enforcement.
 - Draft protocol for memory sync across nodes in `docs/INTER_CATHEDRAL_MEMORY_SYNC.md`.
 - Join the public launch in `BLESSED_FEDERATION_LAUNCH.md` and share feedback.
 - Host a "Cathedral Healing Sprint" to fix logs and welcome new Audit Saints.
+- Review the new `docs/CATHEDRAL_WOUNDS_DASHBOARD.md` and contribute to the Migration Sprint.
+- Discuss future schemas in `docs/MEMORY_LAW_VNEXT.md`.
 
 ## Credits
 Templates and code patterns co-developed with OpenAI support.
