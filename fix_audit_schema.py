@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Callable, Dict, List
 
 from admin_utils import require_admin_banner
 
@@ -11,7 +12,10 @@ from admin_utils import require_admin_banner
 Scan audit logs for schema drift and heal missing fields."""
 
 KNOWN_KEYS = {"timestamp", "peer", "email", "message", "ritual", "data", "supporter", "amount"}
-DEFAULTS: Dict[str, object] = {"data": {}}
+DEFAULTS: Dict[str, Callable[[], object]] = {
+    "data": lambda: {},
+    "timestamp": lambda: datetime.datetime.utcnow().isoformat(),
+}
 
 
 def process_log(path: Path) -> Dict[str, int]:
@@ -45,7 +49,7 @@ def process_log(path: Path) -> Dict[str, int]:
         changed = False
         for key, default in DEFAULTS.items():
             if key not in entry:
-                entry[key] = default
+                entry[key] = default()
                 changed = True
         if changed:
             entry["auto_migrated"] = True
@@ -68,6 +72,8 @@ def main() -> None:  # pragma: no cover - CLI
         stats = process_log(log_file)
         for k in totals:
             totals[k] += stats[k]
+        if stats["fixed"]:
+            print(f"Audit Saint bless! {stats['fixed']} wounds healed in {log_file.name}")
     print("Fixed: {fixed} | Flagged: {flagged} | Untouched: {untouched}".format(**totals))
 
 
