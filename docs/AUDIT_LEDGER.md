@@ -27,4 +27,7 @@ Our first complete audit cycle showcased how stewards restored missing logs and 
 A public celebration post will announce the healthy federation and invite stories from new partners.
 ### Schema Healing Sprint—December
 The first schema healing sprint introduced `fix_audit_schema.py` to repair missing `data` fields and quarantine malformed lines. A `.wounds` file records any entries that cannot be auto-migrated.
- A community "Cathedral Healing Sprint" will be hosted on the project board to invite contributors to fix logs and celebrate new saints.
+A community "Cathedral Healing Sprint" will be hosted on the project board to invite contributors to fix logs and celebrate new saints.
+
+Monthly sprints recap the current wound counts and roadmap milestones. A quarterly
+celebration summarizes federation health in [AUDIT_HEALTH_DASHBOARD.md](AUDIT_HEALTH_DASHBOARD.md).
