@@ -7,6 +7,7 @@ from admin_utils import require_admin_banner
 import verify_audits as va
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 LOG_DIR = get_log_dir()
 AUDIT_DOC = Path("docs/AUDIT_LOG.md")

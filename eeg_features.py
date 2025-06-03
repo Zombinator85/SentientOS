@@ -1,3 +1,4 @@
+from admin_utils import require_admin_banner
 """EEG feature extraction helpers.
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -9,9 +10,9 @@ logged to ``logs/eeg_features.jsonl``.
 The implementation here uses placeholder heuristics so that unit tests can run
 without hardware or heavy dependencies.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 from __future__ import annotations
-from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 import json

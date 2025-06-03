@@ -11,6 +11,7 @@ import heresy_log
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 BLESSING_LEDGER = get_log_path("blessing_ledger.jsonl", "BLESSING_LEDGER")
 BLESSING_LEDGER.parent.mkdir(parents=True, exist_ok=True)
 HERESY_REVIEW_LOG = get_log_path("heresy_review.jsonl", "HERESY_REVIEW_LOG")

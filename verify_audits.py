@@ -7,6 +7,7 @@ from admin_utils import require_admin_banner
 import audit_immutability as ai
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")

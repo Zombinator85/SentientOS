@@ -14,6 +14,7 @@ import presence_analytics as pa
 import ritual
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""

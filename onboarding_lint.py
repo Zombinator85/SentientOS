@@ -1,9 +1,10 @@
 from __future__ import annotations
+from admin_utils import require_admin_banner
 import subprocess
 from pathlib import Path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-from admin_utils import require_admin_banner
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 
 def _changed_files() -> list[str]:

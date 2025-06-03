@@ -1,6 +1,7 @@
 from __future__ import annotations
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 """Game world integration for Minecraft and Valheim.
 
 This module logs in-game ritual events and acts as a bridge between
