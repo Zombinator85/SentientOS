@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import datetime
+from logging_config import get_log_dir
 from pathlib import Path
 from typing import Callable, Dict, List
 
@@ -82,7 +83,7 @@ def process_log(path: Path, on_apply: Callable[[], None] | None = None) -> Dict[
 
 def main() -> None:  # pragma: no cover - CLI
     require_admin_banner()
-    logs_dir = Path("logs")
+    logs_dir = get_log_dir()
     totals = {"fixed": 0, "flagged": 0, "untouched": 0}
     banner_shown = False
 
