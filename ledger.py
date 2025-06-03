@@ -392,7 +392,7 @@ def summarize_log(path: Path, limit: int = 3) -> Dict[str, Any]:
 summary = summarize_log
 
 
-def streamlit_widget(st_module) -> None:
+def streamlit_widget(st_module: Any) -> None:
     """Display ledger summary in a Streamlit dashboard."""
     sup = summarize_log(get_log_path("support_log.jsonl"))
     fed = summarize_log(get_log_path("federation_log.jsonl"))
