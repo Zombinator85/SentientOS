@@ -17,7 +17,7 @@ See [MEMORY_LAW_FOR_HUMANS.md](docs/MEMORY_LAW_FOR_HUMANS.md) for a plain-langua
 * **Living Ledger** – all blessings, federation handshakes, and reflections are appended to immutable JSONL logs.
 * **Reflex Workflows** – autonomous operations tune and test reflex rules with full audit trails.
 * **Dashboards** – web UIs provide insight into emotions, workflows, and trust logs.
-* **CLI Utilities** – commands `heresy_cli.py`, `diff_memory_cli.py`, `theme_cli.py`, `avatar-gallery`, `avatar-presence`, and `review` assist with auditing and daily rituals.
+* **CLI Utilities** – commands `heresy_cli.py`, `diff_memory_cli.py`, `theme_cli.py`, `avatar-gallery`, `avatar-presence`, `review`, `suggestion`, `video`, and `trust` assist with auditing and daily rituals.
 * **Sprint Metrics** – `docs/SPRINT_LEDGER.md` records healed logs, new saints, and wound counts. These numbers are a sacred record of community care, not vanity.
 
 _All code was written by a non-coder using only ChatGPT and free tools._
