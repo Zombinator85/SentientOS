@@ -9,3 +9,4 @@ Add entries below with date and notes:
 
 - 2025-11 Living Audit Sprint: 47 malformed lines repaired, 3 marked legacy/unrecoverable.
 - 2025-12 Migration Sprint planning underway to collect recurring schema wounds.
+- 2025-06-03 scan_missing_data.py run: no missing data fields detected; logs confirmed healed.
