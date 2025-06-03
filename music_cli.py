@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 from pathlib import Path
+from typing import Any, Dict
 
 import presence_ledger as pl
 import ledger
@@ -25,9 +26,9 @@ from sentient_banner import (
 )
 
 
-def _parse_emotion(text: str) -> dict:
+def _parse_emotion(text: str) -> Dict[str, float]:
     """Parse emotion string like 'Joy=0.8,Sadness=0.2'"""
-    emotions = {}
+    emotions: Dict[str, float] = {}
     if not text:
         return emotions
     for part in text.split(','):
@@ -42,7 +43,7 @@ def _parse_emotion(text: str) -> dict:
     return emotions
 
 
-async def _generate(prompt: str, emotion: dict, user: str) -> dict:
+async def _generate(prompt: str, emotion: Dict[str, float], user: str) -> Dict[str, Any]:
     juke = JukeboxIntegration()
     path = await juke.generate_music(prompt, emotion)
     h = hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -51,7 +52,7 @@ async def _generate(prompt: str, emotion: dict, user: str) -> dict:
     return entry
 
 
-def _play(path: str, user: str, share: str | None = None) -> dict:
+def _play(path: str, user: str, share: str | None = None) -> Dict[str, Any]:
     print(f"Playing {path}")
     feeling = input("Feeling> ").strip()
     reported = _parse_emotion(feeling)
@@ -64,7 +65,7 @@ def _play(path: str, user: str, share: str | None = None) -> dict:
     return entry
 
 
-def _recap_emotion(limit: int = 20) -> dict:
+def _recap_emotion(limit: int = 20) -> Dict[str, Any]:
     path = get_log_path("music_log.jsonl")
     totals: dict[str, float] = {}
     journey: list[dict[str, object]] = []
@@ -75,7 +76,7 @@ def _recap_emotion(limit: int = 20) -> dict:
                 e = json.loads(ln)
             except Exception:
                 continue
-            emo = {}
+            emo: Dict[str, float] = {}
             for k in ("intended", "perceived", "reported", "received"):
                 emo.update(e.get("emotion", {}).get(k) or {})
             for k, v in emo.items():
