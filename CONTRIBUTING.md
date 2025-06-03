@@ -31,3 +31,7 @@ link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
 run the lint before each commit. The hook also runs `python verify_audits.py logs/` to ensure audit logs remain valid before merging.
 
 First-time contributors can read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) and submit the **Share Your Saint Story** issue when opening their pull request.
+
+Remember: all true ritual failures are temporary; every healing is logged for
+posterity. Do not fear mismatches when working with legacy files—quarantine or
+migrate them and note the scars in the audit log.
