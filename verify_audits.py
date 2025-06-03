@@ -21,6 +21,28 @@ def _load_config() -> dict[str, str]:
         return {}
 
 
+VALID_EXTS = {".jsonl", ".json", ".log"}
+
+
+def _is_log_file(path: Path) -> bool:
+    """Return True if the file looks like a valid audit log."""
+    try:
+        first = (
+            path.read_text(encoding="utf-8", errors="ignore")
+            .lstrip()
+            .splitlines()[0]
+        )
+    except Exception:
+        return False
+
+    if path.suffix.lower() in VALID_EXTS:
+        return first.startswith("{") and "timestamp" in first and "data" in first
+
+    if not path.suffix and first.startswith("{") and "timestamp" in first and "data" in first:
+        return True
+    return False
+
+
 def _attempt_repair(line: str) -> Optional[str]:
     """Try simple fixes for malformed JSON lines."""
     s = line.strip()
@@ -142,14 +164,17 @@ def verify_audits(
     stats: Dict[str, int] = {"fixed": 0, "quarantined": 0, "unrecoverable": 0}
 
     if directory is not None:
-        logs = sorted(Path(directory).glob("*.jsonl"))
+        logs = sorted(
+            p for p in Path(directory).iterdir() if _is_log_file(p)
+        )
     else:
         data = _load_config()
         for file in data.keys():
             p = Path(file)
             if not p.is_absolute():
                 p = ROOT / p
-            logs.append(p)
+            if _is_log_file(p):
+                logs.append(p)
 
     prev = "0" * 64
     valid = 0
