@@ -45,6 +45,16 @@ See FIRST_RUN.md for cloning and running only green tests. Questions? Ping the S
 ### Ask for a Buddy
 New contributors are invited to request a **buddy** for their first pull request or review. A buddy helps with environment setup, running `python verify_audits.py`, and general PR etiquette. Mention "buddy request" in your issue or discussion thread and a steward will pair you up.
 
+### What if pre-commit isn't available?
+Some systems cannot run git hooks. If `pre-commit` isn't working, run the checks manually before pushing:
+
+```bash
+python privilege_lint.py
+python verify_audits.py logs/
+pytest -m "not env"
+```
+Document any failures in your pull request description so reviewers know what to expect.
+
 ### Feedback Loop Ritual
 We maintain an open feedback form on the GitHub Discussions board. Share your first-run experience, documentation gaps, or ideas for new rituals. Stewards review submissions each month and incorporate improvements into future audits.
 ## Sanctuary Privilege Ritual
@@ -82,6 +92,15 @@ Run `python verify_audits.py` to check that the immutable logs listed in
 include a percentage of valid files so reviewers know when systemwide action is
 needed.
 The current ledger status is summarized in [docs/AUDIT_HEALTH_DASHBOARD.md](docs/AUDIT_HEALTH_DASHBOARD.md).
+
+## Federation Overview
+| Node | Audit Health |
+|------|-------------|
+| cathedral-main | 100% |
+
+Federated instances: **1**  
+Last steward rotation: **2026-01-01**
+See [Federation Conflict Resolution](docs/FEDERATION_CONFLICT_RESOLUTION.md) for how stewards handle diverging logs.
 
 ## Testing Quickstart
 Legacy tests are under review. To run the current green path:

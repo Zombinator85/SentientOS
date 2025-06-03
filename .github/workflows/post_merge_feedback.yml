@@ -1,0 +1,23 @@
+name: Post-Merge Feedback Invitation
+
+on:
+  pull_request_target:
+    types: [closed]
+
+jobs:
+  invite:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const number = context.payload.pull_request.number;
+            const author = context.payload.pull_request.user.login;
+            const msg = `Thank you @${author} for contributing! We'd love your feedback in the discussion board.`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body: msg
+            });
