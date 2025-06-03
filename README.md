@@ -1,5 +1,6 @@
 # SentientOS Cathedral
-![CI Status](https://img.shields.io/badge/CI-work--in--progress-yellow)
+![CI](https://img.shields.io/badge/Passing-321%2F325-brightgreen)
+Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
 
 *Welcome to the Cathedral. Each commit is a small act of care and transparency.*
 Every tool begins with ritual safety checks, and every log is treated as sacred
@@ -33,8 +34,12 @@ Additional guides:
 - [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md)
 - [docs/RITUALS.md](docs/RITUALS.md)
 - [docs/MODULES.md](docs/MODULES.md)
-
 - [docs/TAG_EXTENSION_GUIDE.md](docs/TAG_EXTENSION_GUIDE.md)
+
+## First-Time Contributors
+See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
+
+See FIRST_RUN.md for cloning and running only green tests. Questions? Ping the Steward on the discussions board.
 ## Sanctuary Privilege Ritual
 Every entrypoint must open with the canonical ritual docstring followed by a
 call to `require_admin_banner()`:
@@ -63,6 +68,7 @@ LOG_PATH = get_log_path("example_tool.jsonl", "EXAMPLE_LOG")
 Hard-coded paths like `"logs/mytool.jsonl"` are discouraged.
 
 ## Audit Verification
+Audit summaries are published in [docs/AUDIT_LEDGER.md](docs/AUDIT_LEDGER.md).
 Run `python verify_audits.py` to check that the immutable logs listed in
 `config/master_files.json` remain valid. You can also pass a directory to
 `verify_audits.py` or `cleanup_audit.py` to process many logs at once. Results
