@@ -8,6 +8,7 @@ from admin_utils import require_admin_banner
 import presence_ledger as pl
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 
 SUPPORT_LOG = get_log_path("support_log.jsonl")

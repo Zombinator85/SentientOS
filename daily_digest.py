@@ -1,3 +1,4 @@
+from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 Daily digest utility.
@@ -9,10 +10,10 @@ fragments can optionally be pruned to keep disk usage reasonable.
 Integration Notes: schedule ``run_digest`` via cron or a task runner. Dashboards
 can read ``logs/daily_digest.jsonl`` for a summary feed.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 from __future__ import annotations
 
-from admin_utils import require_admin_banner
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 import datetime as _dt

@@ -19,6 +19,7 @@ public-facing report with sensitive fields masked.
 Example:
     python autonomous_audit.py --report-dir public_reports
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 LOG_PATH = get_log_path("autonomous_audit.jsonl", "AUTONOMOUS_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

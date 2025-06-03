@@ -1,7 +1,9 @@
+from admin_utils import require_admin_banner
 """Multimodal Reflection/Diary Agent
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
 from logging_config import get_log_path
 
@@ -12,7 +14,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from admin_utils import require_admin_banner
 
 LOG_PATH = get_log_path("diary_agent.log", "DIARY_LOG")
 DIARY_DIR = Path(os.getenv("DIARY_DIR", "diaries"))

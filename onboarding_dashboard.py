@@ -6,6 +6,7 @@ import ledger
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 ENV_FILE = Path(__file__).resolve().parent / '.env'
 

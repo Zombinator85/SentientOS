@@ -20,6 +20,7 @@ onboarding ceremony.
 Example:
     python schema_migrate.py logs/example.jsonl
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 SCHEMA_VERSION = "2.0"
 MIGRATION_LOG = get_log_path("schema_migrate.jsonl", "SCHEMA_MIGRATION_LOG")

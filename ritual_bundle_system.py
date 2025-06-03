@@ -1,7 +1,9 @@
+from admin_utils import require_admin_banner
 """Ritual Bundle System
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
 from logging_config import get_log_path
 
@@ -13,7 +15,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from admin_utils import require_admin_banner
 
 LOG_PATH = get_log_path("ritual_bundle.jsonl", "RITUAL_BUNDLE_LOG")
 BUNDLE_DIR = Path(os.getenv("RITUAL_BUNDLE_DIR", "bundles"))

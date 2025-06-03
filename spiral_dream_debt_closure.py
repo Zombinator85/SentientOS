@@ -11,6 +11,7 @@ from typing import Dict, List
 from admin_utils import require_admin_banner
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 LOG_PATH = get_log_path("dream_debt_closure.jsonl", "DREAM_DEBT_CLOSURE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from admin_utils import require_admin_banner
 from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -8,9 +9,9 @@ Avatar Autonomous Ritual Scheduler.
 Avatars can request or trigger new rituals. Requests may be reviewed and
 approved by council or users. All actions are logged.
 """
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 from logging_config import get_log_path
-from admin_utils import require_admin_banner
 
 import argparse
 import json
