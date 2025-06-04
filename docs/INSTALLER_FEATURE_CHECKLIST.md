@@ -21,6 +21,7 @@ This checklist describes everything the installer sets up and how to verify that
 4. Open the README/docs and confirm they describe the update flow.
 5. Run the smoke tests and check the logs for pass/fail results.
 6. Run `update_cathedral.bat` and verify it pulls the latest code and reruns tests.
+7. Confirm new logs include `timestamp` and `data` fields automatically.
 
 ## Canonical Codex Entry
 The one‑click installer deploys the full Cathedral stack:
