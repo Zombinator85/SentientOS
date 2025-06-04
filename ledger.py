@@ -1,3 +1,4 @@
+from __future__ import annotations
 from logging_config import get_log_path
 import json
 import hashlib
@@ -5,8 +6,17 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+from cathedral_const import PUBLIC_LOG, log_json
 
-import doctrine
+class _DoctrineProxy:
+    PUBLIC_LOG = PUBLIC_LOG
+
+    @staticmethod
+    def log_json(path: Path, obj: Dict[str, Any]) -> None:
+        log_json(path, obj)
+
+doctrine = _DoctrineProxy()
+
 
 
 def _append(path: Path, entry: Dict[str, Any]) -> Dict[str, Any]:
@@ -256,8 +266,8 @@ def log_mood_blessing(
         "ritual": "Mood blessing recorded.",
     }
     _append(get_log_path("music_log.jsonl"), entry)
-    doctrine.log_json(
-        doctrine.PUBLIC_LOG,
+    log_json(
+        PUBLIC_LOG,
         {
             "time": time.time(),
             "event": "mood_blessing",
