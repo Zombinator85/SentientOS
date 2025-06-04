@@ -1,4 +1,3 @@
-from admin_utils import require_admin_banner
 """Avatar Council Blessing
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -10,8 +9,11 @@ Example:
     python avatar_council_blessing.py vote avatar1 alice
     python avatar_council_blessing.py status avatar1 --quorum 2
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from __future__ import annotations
+
+from admin_utils import require_admin_banner
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from logging_config import get_log_path
 
 import argparse

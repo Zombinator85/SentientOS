@@ -1,3 +1,4 @@
+from cathedral_const import PUBLIC_LOG, log_json as cathedral_log_json
 from admin_utils import require_admin_banner
 from logging_config import get_log_path
 import argparse
@@ -17,7 +18,6 @@ DOCTRINE_PATH = Path(os.getenv("DOCTRINE_PATH", ROOT / "SENTIENTOS_LITURGY.txt")
 CONSENT_LOG = get_log_path("doctrine_consent.jsonl", "DOCTRINE_CONSENT_LOG")
 STATUS_LOG = get_log_path("doctrine_status.jsonl", "DOCTRINE_STATUS_LOG")
 AMEND_LOG = get_log_path("doctrine_amendments.jsonl", "DOCTRINE_AMEND_LOG")
-PUBLIC_LOG = get_log_path("public_rituals.jsonl", "PUBLIC_RITUAL_LOG")
 MASTER_CONFIG = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json"))
 SIGNATURE_LOG = get_log_path("ritual_signatures.jsonl", "DOCTRINE_SIGNATURE_LOG")
 
@@ -72,8 +72,7 @@ def doctrine_hash() -> str:
 
 
 def log_json(path: Path, obj: Dict[str, Any]) -> None:
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(obj) + "\n")
+    cathedral_log_json(path, obj)
 
 
 def consent_history(user: Optional[str] = None, n: int = 20) -> List[Dict[str, Any]]:

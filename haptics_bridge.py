@@ -1,4 +1,3 @@
-from admin_utils import require_admin_banner
 """Haptic device bridge.
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -10,9 +9,11 @@ logged to ``logs/haptics_events.jsonl``.
 The default implementation uses ``pyserial`` if available and otherwise falls
 back to a simple mock that generates random feedback values.
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-
 from __future__ import annotations
+
+from admin_utils import require_admin_banner
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 from logging_config import get_log_path
 
 import json
