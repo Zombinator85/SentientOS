@@ -43,6 +43,7 @@ Additional guides:
 - [docs/MODULES.md](docs/MODULES.md)
 - [docs/TAG_EXTENSION_GUIDE.md](docs/TAG_EXTENSION_GUIDE.md)
 - [docs/FEDERATION_FAQ.md](docs/FEDERATION_FAQ.md)
+- [docs/CODEX_TYPE_CHECK_REMEDIATION.md](docs/CODEX_TYPE_CHECK_REMEDIATION.md)
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
