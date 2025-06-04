@@ -185,6 +185,7 @@ these wounds as healed.
 |---------|-------------|--------------------|
 | 2026-01 | 180         | 325                |
 | 2026-02 | 160         | 361                |
+| 2026-03 | 145         | 370                |
 
 ## Next Steps
 - Continue the Living Audit Sprint documented in `AUDIT_LOG_FIXES.md` and update `docs/AUDIT_LEDGER.md` with progress.
