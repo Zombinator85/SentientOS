@@ -42,7 +42,14 @@ def recommend_workflows(analytics_data: Dict[str, Any]) -> List[str]:
                 break
     for rec in suggestions:
         try:
-            rs.log_event("workflow", "recommend", "analytics", "suggest", {"text": rec})
+            rs.log_event(
+                "workflow",
+                "recommend",
+                "analytics",
+                "suggest",
+                rec,
+                {"text": rec},
+            )
         except Exception:
             pass
     return suggestions

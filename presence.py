@@ -4,15 +4,18 @@ import json
 import time
 import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Callable, Dict
 
 from admin_utils import require_admin_banner
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+_rec: Optional[Callable[[bool], Dict[str, Optional[str]]]]
 try:
-    from mic_bridge import recognize_from_mic
+    from mic_bridge import recognize_from_mic as _rec
 except Exception:  # pragma: no cover - defensive
-    recognize_from_mic = None
+    _rec = None
+
+recognize_from_mic: Optional[Callable[[bool], Dict[str, Optional[str]]]] = _rec
 
 WAKE_WORDS: List[str] = [w.strip() for w in os.getenv("WAKE_WORDS", "Lumos").split(",") if w.strip()]
 LOG_FILE = get_log_path("presence_events.jsonl")
