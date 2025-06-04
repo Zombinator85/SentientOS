@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
+from cathedral_const import validate_log_entry
+
 @dataclass
 class AuditEntry:
     timestamp: str
@@ -57,6 +59,9 @@ def append_entry(
     ts = datetime.datetime.utcnow().isoformat()
     digest = _hash_entry(ts, data, prev)
     entry = AuditEntry(ts, data, prev, digest)
+
+    # enforce schema
+    validate_log_entry({"timestamp": entry.timestamp, "data": entry.data})
 
     # atomic append
     tmp_path = path.with_suffix(path.suffix + ".tmp")
