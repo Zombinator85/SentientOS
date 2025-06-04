@@ -2,9 +2,15 @@ import os
 import sys
 import platform
 import getpass
+from typing import TYPE_CHECKING
 import warnings
 from pathlib import Path
-import presence_ledger as pl
+if TYPE_CHECKING:
+    import presence_ledger as pl
+class _StubLedger:
+    def log_privilege(self, *a, **k):
+        pass
+pl: object = _StubLedger()
 
 ADMIN_BANNER = (
     "Sanctuary Privilege • SentientOS runs with full Administrator rights to safeguard memory and doctrine.\n"
@@ -56,20 +62,25 @@ def require_admin_banner() -> None:
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     print_privilege_banner(tool)
+    global pl
+    if isinstance(pl, _StubLedger) and pl.__class__ is _StubLedger and pl.log_privilege == _StubLedger.log_privilege:
+        import presence_ledger as pl_module
+        pl = pl_module
+    _log_privilege = pl.log_privilege
     try:
         import privilege_lint as pl_lint
         pl_lint.audit_use("cli", tool)
     except Exception:
         pass
     if is_admin():
-        pl.log_privilege(user, platform.system(), tool, "success")
+        _log_privilege(user, platform.system(), tool, "success")
         print(ADMIN_BANNER)
         return
 
     if os.name == "nt":
         try:
             import ctypes  # type: ignore
-            pl.log_privilege(user, platform.system(), tool, "escalated")
+            _log_privilege(user, platform.system(), tool, "escalated")
             ctypes.windll.shell32.ShellExecuteW(
                 None,
                 "runas",
@@ -80,10 +91,10 @@ def require_admin_banner() -> None:
             )
             sys.exit()
         except Exception:
-            pl.log_privilege(user, platform.system(), tool, "failed")
+            _log_privilege(user, platform.system(), tool, "failed")
             sys.exit(FAIL_MESSAGE)
     else:
-        pl.log_privilege(user, platform.system(), tool, "failed")
+        _log_privilege(user, platform.system(), tool, "failed")
         sys.exit(FAIL_MESSAGE)
 
 

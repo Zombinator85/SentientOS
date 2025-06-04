@@ -1,3 +1,4 @@
+from cathedral_const import PUBLIC_LOG, log_json
 from logging_config import get_log_path
 import json
 import os
@@ -39,8 +40,8 @@ def log_event(
         f.write(json.dumps(entry) + "\n")
     # mirror to presence ledger and public feed
     pl.log(user, event, note)
-    doctrine.log_json(
-        doctrine.PUBLIC_LOG,
+    log_json(
+        PUBLIC_LOG,
         {"time": time.time(), "event": event, "user": user},
     )
     return entry_id
@@ -122,7 +123,7 @@ def generate_recap(user: str) -> str:
         f"{mem_count} memories, {len(affirmations)} affirmations and {len(amendments)} amendments were recorded."
     )
     log_event("recap", user, msg)
-    doctrine.log_json(doctrine.PUBLIC_LOG, {"time": time.time(), "event": "recap", "user": user, "summary": msg})
+    log_json(PUBLIC_LOG, {"time": time.time(), "event": "recap", "user": user, "summary": msg})
     return msg
 
 
