@@ -4,9 +4,9 @@ This page lists recurring audit failures and suggestions for healing them.
 
 | Error Signature | Example Entry | Healing Suggestion | Healed By |
 |-----------------|--------------|-------------------|-----------|
-| Missing `data` key | `{"timestamp": "...", "message": "..."}` | add `'data': {}` | _pending_ |
-| Missing `timestamp` | `{"message": "...", "data": {}}` | reconstruct or add `datetime.utcnow()` | _pending_ |
-| Unknown field `foo` | `{"foo": 1, "timestamp": "..."}` | remove field or document new schema | _pending_ |
+| Missing `data` key | `{"timestamp": "...", "message": "..."}` | add `'data': {}` | `cathedral_const.log_json` |
+| Missing `timestamp` | `{"message": "...", "data": {}}` | reconstruct or add `datetime.utcnow()` | `cathedral_const.log_json` |
+| Unknown field `foo` | `{"foo": 1, "timestamp": "..."}` | remove field or document new schema | `cathedral_const.log_json` |
 
 Upcoming **Migration Sprint** tasks will gather the most frequent wounds and propose new best practices.
 

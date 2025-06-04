@@ -15,3 +15,7 @@ pytest -m "not env"
 
 Contributions to repair or remove these legacy tests are welcome. Update this
 file as modules are healed.
+
+January 2026 update: audit log schema fixes allow several historical tests to
+run without custom patches. Remaining legacy items will be migrated in upcoming
+sprints.
