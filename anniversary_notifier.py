@@ -2,6 +2,8 @@ from logging_config import get_log_path
 import os
 import json
 import datetime
+
+from cathedral_const import log_json
 from pathlib import Path
 from admin_utils import require_admin_banner
 
@@ -17,13 +19,8 @@ def check_and_log() -> None:
     today = datetime.date.today().isoformat()[5:]
     ann = ANNIVERSARY[5:]
     if today == ann:
-        entry = {
-            "timestamp": datetime.datetime.utcnow().isoformat(),
-            "event": "anniversary",
-            "message": "Presence recap",
-        }
-        with LOG_FILE.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+        entry = {"event": "anniversary", "message": "Presence recap"}
+        log_json(LOG_FILE, {"timestamp": datetime.datetime.utcnow().isoformat(), "data": entry})
         print("Anniversary blessing recorded")
 
 

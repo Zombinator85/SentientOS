@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+from cathedral_const import validate_log_entry
+
 import audit_chain
 
 
@@ -16,7 +18,8 @@ def append_json(
 ) -> None:
     """Append a JSON entry enforcing audit chain integrity."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    audit_chain.append_entry(path, entry, emotion=emotion, consent=consent)
+    result = audit_chain.append_entry(path, entry, emotion=emotion, consent=consent)
+    validate_log_entry({"timestamp": result.timestamp, "data": result.data})
 
 
 def read_json(path: Path) -> List[Dict[str, Any]]:

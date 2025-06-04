@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any
 
+from cathedral_const import log_json
+
 LOG_PATH = get_log_path("privilege_policy.jsonl", "PRIVILEGE_POLICY_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 AGENTS_FILE = Path("AGENTS.md")
@@ -51,14 +53,12 @@ class PrivilegePolicyEngine:
         return allowed
 
     def _log(self, agent: str, action: str, allowed: bool) -> None:
-        entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+        data = {
             "agent": agent,
             "action": action,
             "result": "allowed" if allowed else "denied",
         }
-        with LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+        log_json(LOG_PATH, {"timestamp": datetime.utcnow().isoformat(), "data": data})
 
 
 def cli() -> None:  # pragma: no cover - CLI
