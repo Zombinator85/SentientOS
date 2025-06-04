@@ -31,6 +31,8 @@ import json
 import time
 from typing import Any, Dict
 
+from cathedral_const import log_json
+
 from flask_stub import Flask, Response, jsonify, request
 
 from api import actuator as core_actuator
@@ -42,9 +44,7 @@ app = Flask(__name__)
 
 
 def _log(entry: Dict[str, Any]) -> None:
-    entry["timestamp"] = time.time()
-    with open(AUDIT_LOG, "a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    log_json(AUDIT_LOG, {"timestamp": time.time(), "data": entry})
 
 
 @app.route("/act", methods=["POST"])

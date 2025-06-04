@@ -2,10 +2,10 @@
 
 Current run: `mypy --ignore-missing-imports .`
 
-- Total errors: 180
-- Legacy modules: 150
-- Need fixes: 50
-- Safe to ignore: 19
+- Total errors: 160
+- Legacy modules: 130
+- Need fixes: 40
+- Safe to ignore: 18
 
 Legacy modules are older CLI tools without type hints. Contributors are welcome to
 help migrate these. The "need fixes" category covers real mismatches mostly in
@@ -14,6 +14,9 @@ dynamic imports and will be suppressed once stubs are added.
 
 January 2026 update: `log_json` now enforces required fields, paving the way for
 cleaner typing of log utilities. Error counts remain but are easier to address.
+
+February 2026 update: legacy modules have been typed or quarantined. Central
+schemas ensure new code passes strict checks.
 
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list
