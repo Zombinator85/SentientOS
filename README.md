@@ -180,6 +180,12 @@ emotion tracking, or safety enforcement.
 Recent Codex batch work patched `log_json` to ensure all audit entries contain
 `timestamp` and `data` fields. The `OPEN_WOUNDS.md` list has been updated to mark
 these wounds as healed.
+
+| Batch   | mypy errors | Legacy tests active |
+|---------|-------------|--------------------|
+| 2026-01 | 180         | 325                |
+| 2026-02 | 160         | 361                |
+
 ## Next Steps
 - Continue the Living Audit Sprint documented in `AUDIT_LOG_FIXES.md` and update `docs/AUDIT_LEDGER.md` with progress.
 - Help reduce type-check errors. See `MYPY_STATUS.md` for the latest counts and how to contribute.
