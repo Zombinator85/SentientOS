@@ -35,3 +35,10 @@ First-time contributors can read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ON
 Remember: all true ritual failures are temporary; every healing is logged for
 posterity. Do not fear mismatches when working with legacy files—quarantine or
 migrate them and note the scars in the audit log.
+
+## Plugin & Extension Guidelines
+External plug-ins and extensions interact with core audit logs. To contribute one:
+- Provide a `register` function using `plugin_framework.register_plugin`.
+- Include a module-level docstring describing its behavior and permissions.
+- Use the trust engine logging helpers; avoid direct file writes.
+- Document any external dependencies in your pull request.

@@ -23,3 +23,7 @@ sprints.
 February 2026 update: further review quarantined obsolete suites while
 modernized ones have been re-enabled in CI. Legacy coverage now matches
 current modules.
+
+March 2026 update: additional outdated tests were archived and the
+remaining functional suites were modernized and re-enabled. CI now runs
+370 tests.

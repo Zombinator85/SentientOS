@@ -20,9 +20,7 @@ doctrine = _DoctrineProxy()
 
 
 def _append(path: Path, entry: Dict[str, Any]) -> Dict[str, Any]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    log_json(path, entry)
     return entry
 
 
