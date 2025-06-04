@@ -1,19 +1,18 @@
-"""EEG bridge for real or emulated headsets.
-
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
-
-This module streams raw EEG samples from supported headsets or a synthetic
-source. Each sample is timestamped and logged to ``logs/eeg_events.jsonl``.
-Band power estimates (alpha, beta, theta, gamma) are also logged.
-
-The bridge falls back to a simple random data generator if ``mne`` or
-``brainflow`` are unavailable or if ``SENTIENTOS_HEADLESS`` is enabled.
-"""
-from __future__ import annotations
-
 from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
+# EEG bridge for real or emulated headsets.
+#
+# This module streams raw EEG samples from supported headsets or a synthetic
+# source. Each sample is timestamped and logged to ``logs/eeg_events.jsonl``.
+# Band power estimates (alpha, beta, theta, gamma) are also logged.
+#
+# The bridge falls back to a simple random data generator if ``mne`` or
+# ``brainflow`` are unavailable or if ``SENTIENTOS_HEADLESS`` is enabled.
+
 from logging_config import get_log_path
 
 import json

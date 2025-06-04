@@ -1,12 +1,10 @@
-"""Cryptographic Ledger Seal & Backup Daemon
-
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
-"""
-from __future__ import annotations
-
 from admin_utils import require_admin_banner
 
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
+# Cryptographic Ledger Seal & Backup Daemon
 
 import argparse
 import hashlib
@@ -16,8 +14,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from logging_config import get_log_path
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 SEAL_LOG = get_log_path("ledger_seal.jsonl", "LEDGER_SEAL_LOG")
 SEAL_LOG.parent.mkdir(parents=True, exist_ok=True)
