@@ -32,6 +32,8 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 3. Run `python installer/setup_installer.py` and follow the prompts.
 4. Launch a tool, e.g. `support --help`.
 5. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+6. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
+7. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 Additional guides:
