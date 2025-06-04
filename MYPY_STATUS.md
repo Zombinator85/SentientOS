@@ -12,6 +12,9 @@ help migrate these. The "need fixes" category covers real mismatches mostly in
 `multimodal_tracker.py` and `music_cli.py`. The "safe to ignore" errors come from
 dynamic imports and will be suppressed once stubs are added.
 
+January 2026 update: `log_json` now enforces required fields, paving the way for
+cleaner typing of log utilities. Error counts remain but are easier to address.
+
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list
 and submit a pull request. See `CONTRIBUTING.md` for our ritual checklist.
