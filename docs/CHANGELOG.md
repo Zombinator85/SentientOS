@@ -25,3 +25,10 @@
 - Automated healing added in `log_json` for missing `timestamp` and `data`
 - `OPEN_WOUNDS.md` updated to mark wounds as healed
 - First step toward cleaner type checking and legacy test recovery
+
+## 2026-04 Type-Check & Audit Remediation Batch
+- Triage launched on remaining mypy errors (180 outstanding) with focus on core modules.
+- Log writes audited to enforce schema; avatar and workflow utilities cleaned.
+- Drafted stricter test cases for `verify_audits.py`.
+- Clarified type hints in `presence.py` for microphone and presence tracking.
+- Issues filed for major legacy mismatches and scheduled for later sprints.
