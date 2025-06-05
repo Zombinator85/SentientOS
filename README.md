@@ -37,6 +37,14 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 8. Run `python smoke_test_connector.py` to verify the OpenAI connector.
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
+
+## Contributor Quickstart
+1. Fork this repository and clone your fork.
+2. Install dependencies with `pip install -r requirements.txt` and `pip install -e .`.
+3. Run `python smoke_test_connector.py` to execute linting and unit tests.
+4. Run `python check_connector_health.py` to validate the connector endpoints.
+5. Commit your changes and open a pull request. CI logs summarize disconnects and payload errors.
+6. If tests fail, review `logs/openai_connector_health.jsonl` for details or see [docs/CONNECTOR_TROUBLESHOOTING.md](docs/CONNECTOR_TROUBLESHOOTING.md).
 Additional guides:
 - [docs/OPEN_WOUNDS.md](docs/OPEN_WOUNDS.md) **Help Wanted: Memory Healing**
 - [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md)
@@ -70,6 +78,11 @@ python verify_audits.py logs/
 pytest -m "not env"
 ```
 Document any failures in your pull request description so reviewers know what to expect.
+
+### CI Expectations
+Each pull request runs `privilege_lint.py`, `pytest`, `mypy`, and `check_connector_health.py`.
+Connector logs are summarized at the end of the workflow. Look for disconnect or
+`message_error` counts to diagnose issues.
 
 ### Feedback Loop Ritual
 We maintain an open feedback form on the GitHub Discussions board. Share your first-run experience, documentation gaps, or ideas for new rituals. Stewards review submissions each month and incorporate improvements into future audits.
