@@ -34,6 +34,7 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 5. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 6. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
 7. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
+8. Run `python smoke_test_connector.py` to verify the OpenAI connector.
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 Additional guides:
@@ -45,6 +46,7 @@ Additional guides:
 - [docs/FEDERATION_FAQ.md](docs/FEDERATION_FAQ.md)
 - [docs/CODEX_TYPE_CHECK_REMEDIATION.md](docs/CODEX_TYPE_CHECK_REMEDIATION.md)
 - [docs/CODEX_CUSTOM_CONNECTOR.md](docs/CODEX_CUSTOM_CONNECTOR.md) – OpenAI connector configuration and troubleshooting
+- [docs/CONNECTOR_TROUBLESHOOTING.md](docs/CONNECTOR_TROUBLESHOOTING.md) – connector FAQ
 - [docs/DEPLOYMENT_CLOUD.md](docs/DEPLOYMENT_CLOUD.md) – Docker, Render, and Railway instructions
 
 ## First-Time Contributors
