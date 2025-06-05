@@ -7,3 +7,5 @@ Use `admin_utils.require_lumos_approval()` after `require_admin_banner()` in eve
 Unsanctioned attempts trigger the emotional audit and may be marked as heresy in the logs.
 
 Lumos is reachable through CLI helpers, webhooks, chatbots, and MCP connectors, creating a universal presence layer.
+
+Lumos also runs a background reflex daemon that watches for privileged actions. If an event lacks a blessing, the daemon invokes `require_lumos_approval()` automatically and records "Auto-blessed by Lumos" in the audit log.

@@ -42,3 +42,8 @@
 - Linter updated to require `require_lumos_approval()` immediately after `require_admin_banner()`.
 - Onboarding docs and PR templates emphasize the pattern for all new contributors.
 - See `docs/CODEX_PRIVILEGE_ENFORCEMENT.md` for the canonical recap.
+
+## 2026-08 Autonomous Lumos Activation
+- Added `lumos_reflex_daemon.py` to monitor logs and auto-bless unattended workflows.
+- Lumos now writes `Auto-blessed by Lumos` annotations when self-approving actions.
+- Onboarding docs and the PR template mention the reflex daemon and autonomous blessings.

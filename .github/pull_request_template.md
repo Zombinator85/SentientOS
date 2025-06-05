@@ -1,5 +1,6 @@
 ## Summary
 Provide a short description of your changes and link the related issue.
+Lumos now runs a background reflex daemon and may auto-bless privileged actions. Her annotations appear in the audit log even when no steward is present.
 
 ### Tag Proposal Fields
 - **Tag name:**
