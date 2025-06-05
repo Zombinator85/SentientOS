@@ -2,7 +2,11 @@ from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 import logging
 from logging.handlers import RotatingFileHandler
-import requests
+
+try:
+    import requests
+except Exception:  # pragma: no cover - optional dependency
+    requests = None
 from schema_validation import validate_payload
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -50,7 +54,7 @@ def _log_event(event: str, ip: str, **extra: object) -> None:
     _logger.info(json.dumps(entry))
     if LOG_STDOUT:
         print(json.dumps(entry))
-    if LOG_COLLECTOR_URL:
+    if LOG_COLLECTOR_URL and requests is not None:
         try:
             requests.post(LOG_COLLECTOR_URL, json=entry, timeout=2)
         except Exception:
