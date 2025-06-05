@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Callable
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
@@ -21,6 +21,7 @@ Example:
     python schema_migrate.py logs/example.jsonl
 """
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 SCHEMA_VERSION = "2.0"
 MIGRATION_LOG = get_log_path("schema_migrate.jsonl", "SCHEMA_MIGRATION_LOG")

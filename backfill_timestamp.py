@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -16,6 +16,7 @@ migration ledger.
 """
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove.
+require_lumos_approval()
 
 LEDGER = get_log_path("migration_ledger.jsonl")
 LEDGER.parent.mkdir(parents=True, exist_ok=True)

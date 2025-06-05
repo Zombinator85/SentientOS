@@ -1,5 +1,5 @@
 from __future__ import annotations
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -10,6 +10,7 @@ Avatars can request or trigger new rituals. Requests may be reviewed and
 approved by council or users. All actions are logged.
 """
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 from logging_config import get_log_path
 

@@ -3,11 +3,12 @@ import json
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 import audit_immutability as ai
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")
