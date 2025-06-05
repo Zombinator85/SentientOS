@@ -5,11 +5,12 @@ import datetime
 from pathlib import Path
 from typing import List, Dict, Any
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 import support_log as sl
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH = MEMORY_DIR / "raw"

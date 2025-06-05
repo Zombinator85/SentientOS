@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
@@ -21,6 +21,7 @@ Example:
     python avatar_federation_join.py --name nodeA --schema 2.0
 """
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 SCHEMA_VERSION = "2.0"
 JOIN_LOG = get_log_path("avatar_federation_join.jsonl", "AVATAR_FEDERATION_JOIN_LOG")

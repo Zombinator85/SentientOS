@@ -6,9 +6,10 @@ from typing import Optional, Dict
 import threading
 import random
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 try:
     from TTS.api import TTS  # Coqui TTS, optional dependency
 except Exception:

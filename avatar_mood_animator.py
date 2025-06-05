@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 try:  # pragma: no cover - optional Blender dependency
     import bpy  # type: ignore
@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover - environment may lack Blender
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 LOG_PATH = get_log_path("avatar_mood_animation.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

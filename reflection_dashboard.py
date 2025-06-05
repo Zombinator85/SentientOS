@@ -8,10 +8,11 @@ import reflection_stream as rs
 import trust_engine as te
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 import ledger
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 try:
     import pandas as pd  # type: ignore

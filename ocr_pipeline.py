@@ -9,9 +9,10 @@ import atexit
 import requests
 from ocr_utils import ocr_chat_bubbles
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 FOLDER = Path(os.getenv("OCR_WATCH", "screenshots"))
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "secret")
