@@ -172,16 +172,19 @@ def _cli_recap(args: argparse.Namespace) -> None:
     if sl_path.exists():
         for ln in sl_path.read_text(encoding="utf-8").splitlines()[-args.last:]:
             try:
-                sup_entries.append(json.loads(ln))
+                entry = json.loads(ln)
             except Exception:
                 continue
+            sup_entries.append(entry.get("data", entry))
     lines = ["Affirmations:"]
     for a in aff:
         ts = datetime.utcfromtimestamp(a.get("time", 0)).isoformat()
         lines.append(f"- {ts} {a.get('user')}")
     lines.append("Blessings:")
     for b in sup_entries:
-        lines.append(f"- {b.get('timestamp')} {b.get('supporter')}: {b.get('message')}")
+        lines.append(
+            f"- {b.get('timestamp')} {b.get('supporter')}: {b.get('message')}"
+        )
     if args.highlight:
         aff_users = {a.get("user") for a in aff}
         bless_users = {b.get("supporter") for b in sup_entries}
