@@ -30,6 +30,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `SSE_TIMEOUT` | Seconds before idle SSE connection closes (used by `openai_connector.py`) | `30` |
 | `LOG_STDOUT` | Mirror connector logs to stdout (`1` to enable, `openai_connector.py`) | `0` |
 | `LOG_COLLECTOR_URL` | Optional URL for posting logs (`openai_connector.py`) | *(none)* |
+| `LUMOS_AUTO_APPROVE` | Automatically bless privileged commands (`admin_utils`) | *(unset)* |
+| `OPENAI_CONNECTOR_LOG` | Path to the connector log file (`openai_connector.py`) | `logs/openai_connector.jsonl` |
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
 | `BOT_TOKEN_MIXTRAL` | Telegram token for the Mixtral bot | *(none)* |
 | `BOT_TOKEN_DEEPSEEK` | Telegram token for the DeepSeek bot | *(none)* |
