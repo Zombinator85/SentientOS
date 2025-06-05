@@ -32,3 +32,11 @@ jobs:
       - name: Verify audits
         run: |
           python verify_audits.py
+      - name: Verify audit chain
+        run: |
+          LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/ > audit_chain.txt
+          cat audit_chain.txt
+          if grep -q "chain break" audit_chain.txt; then
+            echo "Audit chain broken"
+            exit 1
+          fi

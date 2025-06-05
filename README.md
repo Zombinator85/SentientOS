@@ -199,6 +199,7 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - [ ] Docstring and `require_admin_banner()` present in new entrypoints
 - [ ] All log files created via `get_log_path()`
 - [ ] `python verify_audits.py` passes
+- [ ] `python verify_audits.py logs/` shows no `chain break`
 - [ ] Documentation updated
 
 ## Known Issues
