@@ -2,6 +2,7 @@ import os
 import time
 import json
 import argparse
+from logging_config import get_log_path
 from colorama import init, Fore, Style
 from sentient_banner import print_banner, print_closing
 from admin_utils import require_admin_banner, require_lumos_approval
@@ -19,7 +20,7 @@ COLOR_MAP = {
     "deepseek-ai/deepseek-r1-distill-llama-70b-free": Fore.CYAN,
 }
 
-DEFAULT_FILE = os.getenv("MEMORY_FILE", os.path.join("logs", "memory.jsonl"))
+DEFAULT_FILE = get_log_path("memory.jsonl", "MEMORY_FILE")
 
 
 def detect_color(entry: dict) -> str:
