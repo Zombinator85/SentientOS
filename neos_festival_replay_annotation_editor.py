@@ -11,9 +11,11 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+from logging_config import get_log_path
 
-ANNOTATION_LOG = Path(
-    os.getenv("NEOS_FESTIVAL_REPLAY_ANNOTATION_LOG", "logs/neos_festival_replay_annotations.jsonl")
+ANNOTATION_LOG = get_log_path(
+    "neos_festival_replay_annotations.jsonl",
+    "NEOS_FESTIVAL_REPLAY_ANNOTATION_LOG",
 )
 ANNOTATION_LOG.parent.mkdir(parents=True, exist_ok=True)
 

@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from logging_config import get_log_path
 
 from admin_utils import require_admin_banner, require_lumos_approval
 import openai_connector
@@ -19,7 +20,7 @@ require_lumos_approval()
 def _setup() -> tuple[openai_connector.Flask.test_client, Path]:
     os.environ.setdefault("CONNECTOR_TOKEN", "token123")
     os.environ.setdefault("SSE_TIMEOUT", "0.2")
-    log_path = Path(os.getenv("OPENAI_CONNECTOR_LOG", "logs/openai_connector_health.jsonl"))
+    log_path = get_log_path("openai_connector_health.jsonl", "OPENAI_CONNECTOR_LOG")
     if log_path.exists():
         log_path.unlink()
     reload(openai_connector)
