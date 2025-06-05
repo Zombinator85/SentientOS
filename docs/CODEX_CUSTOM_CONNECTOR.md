@@ -20,5 +20,9 @@ SentientOS now exposes an authenticated SSE connector for real-time integration 
 1. Set `CONNECTOR_TOKEN` in your `.env` and ensure the `PORT` variable matches your deployment.
 2. Run `python openai_connector.py`.
 3. Clients must send `Authorization: Bearer $CONNECTOR_TOKEN` for both `/sse` and `/message`.
-4. Inspect `logs/openai_connector.jsonl` for authentication errors or connection problems.
-5. Restart the service if event streaming stalls or the log shows repeated failures.
+4. `POST /message` accepts JSON `{"text": "hello"}` and returns `{"status": "queued"}` on success. Malformed JSON or missing fields return a `400` error with details.
+5. `/sse` streams events as JSON lines prefixed with `data:`. Each message is logged with the client IP.
+6. Inspect `logs/openai_connector.jsonl` for authentication errors or connection problems.
+7. Restart the service if event streaming stalls or the log shows repeated failures.
+
+See [CONNECTOR_TROUBLESHOOTING.md](CONNECTOR_TROUBLESHOOTING.md) for additional tips and FAQs.

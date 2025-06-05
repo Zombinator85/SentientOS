@@ -1,5 +1,7 @@
 import os
 import sys
+import json
+import time
 from importlib import reload
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -46,9 +48,29 @@ def test_message_missing_token(tmp_path, monkeypatch):
     assert resp.status_code == 403
 
 
+def test_message_malformed_json(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    resp = client.post(
+        "/message",
+        json=None,
+        headers={"Authorization": "Bearer token123"},
+    )
+    assert resp.status_code == 400
+
+
+def test_message_missing_field(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    resp = client.post(
+        "/message",
+        json={},
+        headers={"Authorization": "Bearer token123"},
+    )
+    assert resp.status_code == 400
+
+
 def test_sse_authorized(tmp_path, monkeypatch):
     client = setup_app(tmp_path, monkeypatch)
-    openai_connector._events.put("test")
+    openai_connector._events.put(json.dumps({"time": time.time(), "data": "test"}))
     openai_connector.request = Request(None, {"Authorization": "Bearer token123"})
     resp = openai_connector.sse()
     status = resp.status_code if hasattr(resp, "status_code") else resp[1]
@@ -70,3 +92,17 @@ def test_sse_missing_token(tmp_path, monkeypatch):
     resp = openai_connector.sse()
     status = resp[1] if isinstance(resp, tuple) else resp.status_code
     assert status == 403
+
+
+def test_sse_multiple_clients(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    openai_connector._events.put(json.dumps({"time": time.time(), "data": {"a": 1}}))
+    openai_connector._events.put(json.dumps({"time": time.time(), "data": {"b": 2}}))
+    openai_connector.request = Request(None, {"Authorization": "Bearer token123"})
+    gen1 = openai_connector.sse().data
+    openai_connector.request = Request(None, {"Authorization": "Bearer token123"})
+    gen2 = openai_connector.sse().data
+    first1 = next(gen1)
+    first2 = next(gen2)
+    assert first1.startswith("data: ")
+    assert first2.startswith("data: ")
