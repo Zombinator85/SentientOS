@@ -21,12 +21,15 @@ You can also run `python -c "import secrets, sys; print(secrets.token_hex(32))"`
 
 ### Setting Variables in Cloud Dashboards
 
-Most platforms provide a web UI to manage environment variables. On Render or Railway, open your service settings and add the variables shown below. The connector uses `CONNECTOR_TOKEN` and `PORT` at minimum.
+Most platforms provide a web UI to manage environment variables. On Render or Railway, open your service settings and add the variables shown below. The connector uses `CONNECTOR_TOKEN` and `PORT` at minimum. Additional logging behavior is controlled by `SSE_TIMEOUT`, `LOG_STDOUT`, and `LOG_COLLECTOR_URL` in [`openai_connector.py`](../openai_connector.py).
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
 | `CONNECTOR_TOKEN` | Bearer token for the OpenAI connector endpoints | *(none)* |
+| `SSE_TIMEOUT` | Seconds before idle SSE connection closes (used by `openai_connector.py`) | `30` |
+| `LOG_STDOUT` | Mirror connector logs to stdout (`1` to enable, `openai_connector.py`) | `0` |
+| `LOG_COLLECTOR_URL` | Optional URL for posting logs (`openai_connector.py`) | *(none)* |
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
 | `BOT_TOKEN_MIXTRAL` | Telegram token for the Mixtral bot | *(none)* |
 | `BOT_TOKEN_DEEPSEEK` | Telegram token for the DeepSeek bot | *(none)* |
