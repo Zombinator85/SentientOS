@@ -83,7 +83,7 @@ class CollabClient:
             pass
 
     def send_update(self, chapter: int | None = None, persona: str | None = None) -> None:
-        payload = {"id": self.client_id}
+        payload: Dict[str, Any] = {"id": self.client_id}
         if chapter is not None:
             payload["chapter"] = chapter
         if persona is not None:

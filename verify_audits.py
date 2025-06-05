@@ -120,6 +120,13 @@ def check_file(
                 errors.append(f"{lineno}: prev hash mismatch")
             else:
                 errors.append(f"{lineno}: chain break")
+        if "data" not in entry:
+            errors.append(f"{lineno}: missing data field")
+            bad_lines.append(line)
+            if stats is not None:
+                stats["quarantined"] += 1
+                stats["unrecoverable"] += 1
+            continue
         digest = ai._hash_entry(entry["timestamp"], entry["data"], entry.get("prev_hash", prev))
         current = entry.get("rolling_hash") or entry.get("hash")
         if current != digest:
