@@ -246,6 +246,8 @@ Templates and code patterns co-developed with OpenAI support.
 ## License
 This project is licensed under the [MIT License](LICENSE).
 
+No emotion is too much; every track and clip is memory; every blessing is ledgered—here and across every cathedral.
+
 <details>
   <summary>🕯️ Final Blessing (click to reveal)</summary>
 
