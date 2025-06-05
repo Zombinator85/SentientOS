@@ -11,10 +11,11 @@ try:  # optional speech output
 except Exception:  # pragma: no cover - optional
     tts_bridge = None  # type: ignore
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 LOG_PATH = get_log_path("avatar_storyteller.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

@@ -7,7 +7,7 @@ import os
 from datetime import date
 from typing import Any, Dict
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 try:
     import requests  # type: ignore
@@ -16,6 +16,7 @@ except Exception:  # pragma: no cover - optional
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 LOG_PATH = get_log_path("steward_rotation.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

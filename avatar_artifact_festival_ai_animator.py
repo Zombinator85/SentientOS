@@ -1,11 +1,12 @@
 from __future__ import annotations
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 
 """Avatar/Artifact Festival AI Animator
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 import argparse
 import json

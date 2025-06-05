@@ -8,9 +8,10 @@ from typing import Dict, List
 
 import presence_pulse_api as pulse
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 CONFESSIONAL_LOG = get_log_path("confessional_log.jsonl", "CONFESSIONAL_LOG")
 SUPPORT_LOG = get_log_path("support_log.jsonl")
 FEDERATION_LOG = get_log_path("federation_log.jsonl")

@@ -6,9 +6,10 @@ import importlib
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Any, Tuple
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 try:
     import yaml  # type: ignore
 except Exception:  # pragma: no cover - optional dependency

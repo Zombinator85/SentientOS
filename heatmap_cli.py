@@ -4,10 +4,11 @@ import datetime
 import json
 from pathlib import Path
 from typing import Dict
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 CONFESSION_FILE = get_log_path("confessional_log.jsonl")
 HERESY_FILE = get_log_path("heresy_log.jsonl")
 

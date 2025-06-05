@@ -18,10 +18,11 @@ import workflow_recommendation as rec
 import review_requests as rr
 import notification
 from sentient_banner import streamlit_banner, streamlit_closing
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 import ledger
 
 try:  # optional deps
