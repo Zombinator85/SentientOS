@@ -32,6 +32,17 @@ _logger.addHandler(_handler)
 _logger.setLevel(logging.INFO)
 
 
+def _log_event(event: str, ip: str, **extra: object) -> None:
+    """Write a structured JSON entry to the connector log."""
+    entry: dict[str, object] = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": event,
+        "ip": ip,
+    }
+    entry.update(extra)
+    _logger.info(json.dumps(entry))
+
+
 def _authorized() -> bool:
     auth = request.headers.get("Authorization", "")
     if not auth or not auth.startswith("Bearer "):
@@ -46,23 +57,11 @@ def _authorized() -> bool:
 
 def _log_auth_error(provided: str) -> None:
     ip = request.headers.get("X-Forwarded-For", "unknown")
-    entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "event": "auth_error",
-        "ip": ip,
-        "provided": provided,
-    }
-    _logger.info(json.dumps(entry))
+    _log_event("auth_error", ip, provided=provided)
 
 
 def _log_disconnect(ip: str, reason: str) -> None:
-    entry = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "event": "disconnect",
-        "ip": ip,
-        "reason": reason,
-    }
-    _logger.info(json.dumps(entry))
+    _log_event("disconnect", ip, reason=reason)
 
 
 def _validate_message(data: object) -> tuple[bool, str | None]:
@@ -84,16 +83,7 @@ def message() -> Response:
     valid, err = _validate_message(data)
     if not valid:
         ip = request.headers.get("X-Forwarded-For", "unknown")
-        _logger.info(
-            json.dumps(
-                {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "event": "message_error",
-                    "ip": ip,
-                    "error": err,
-                }
-            )
-        )
+        _log_event("message_error", ip, error=err)
         msg = {
             "malformed_json": "malformed JSON",
             "missing_field": "missing 'text' field",
@@ -103,16 +93,7 @@ def message() -> Response:
     payload = json.dumps({"time": time.time(), "data": data})
     _events.put(payload)
     ip = request.headers.get("X-Forwarded-For", "unknown")
-    _logger.info(
-        json.dumps(
-            {
-                "timestamp": datetime.utcnow().isoformat(),
-                "event": "message",
-                "ip": ip,
-                "data": data,
-            }
-        )
-    )
+    _log_event("message", ip, data=data)
     return jsonify({"status": "queued"})
 
 
@@ -134,16 +115,7 @@ def sse() -> Response:
                     continue
                 payload = _events.get()
                 last = time.time()
-                _logger.info(
-                    json.dumps(
-                        {
-                            "timestamp": datetime.utcnow().isoformat(),
-                            "event": "sse",
-                            "ip": ip,
-                            "data": json.loads(payload)["data"],
-                        }
-                    )
-                )
+                _log_event("sse", ip, data=json.loads(payload)["data"])
                 yield f"data: {payload}\n\n"
         except GeneratorExit:
             _log_disconnect(ip, "client_closed")
