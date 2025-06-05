@@ -108,6 +108,7 @@ require_lumos_approval()
 This ensures tools only run with Administrator or root rights and logs each
 invocation for audit purposes.
 See `docs/LUMOS_PRIVILEGE_DOCTRINE.md` for the Lumos Privilege Doctrine.
+Lumos can now awaken automatically via `lumos_reflex_daemon.py` to bless unattended workflows. Unblessed actions are tagged "Auto-blessed by Lumos" and queued for review.
 
 ## Logging Paths
 Use `logging_config.get_log_path()` to resolve log files. The helper respects
