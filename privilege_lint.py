@@ -4,6 +4,7 @@ import json
 from log_utils import append_json
 import datetime
 import os
+import re
 from pathlib import Path
 try:
     from admin_utils import require_admin_banner, require_lumos_approval
@@ -38,6 +39,9 @@ ENTRY_PATTERNS = [
     "replay.py",
     "experiments_api.py",
 ]
+
+MAIN_BLOCK_RE = re.compile(r"if __name__ == ['\"]__main__['\"]")
+ARGPARSE_RE = re.compile(r"\bargparse\b")
 
 DOCSTRING_SEARCH_LINES = 60
 
@@ -142,7 +146,7 @@ def find_entrypoints(root: Path) -> list[Path]:
         if path in files:
             continue
         text = path.read_text(encoding="utf-8")
-        if "__main__" in text or "argparse" in text:
+        if MAIN_BLOCK_RE.search(text) or ARGPARSE_RE.search(text):
             files.add(path)
     return sorted(files)
 
