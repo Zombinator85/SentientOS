@@ -1,7 +1,36 @@
-from subprocess import call, check_call
+from subprocess import check_call, CalledProcessError
 import sys
+import time
+import json
+from pathlib import Path
+import os
 
 print("Running connector smoke tests...")
-check_call([sys.executable, "privilege_lint.py"])
-call([sys.executable, "-m", "pytest", "-q", "tests/test_openai_connector.py"])
+
+
+def run_once() -> None:
+    check_call([sys.executable, "privilege_lint.py"])
+    check_call([sys.executable, "-m", "pytest", "-q", "tests/test_openai_connector.py"])
+
+
+for attempt in range(3):
+    try:
+        run_once()
+        break
+    except CalledProcessError:
+        if attempt == 2:
+            raise
+        wait = 2 ** attempt
+        print(f"Retrying in {wait}s...")
+        time.sleep(wait)
+
+log_path = Path(os.getenv("OPENAI_CONNECTOR_LOG", "logs/openai_connector.jsonl"))
+if log_path.exists():
+    with log_path.open() as f:
+        lines = [json.loads(x) for x in f if x.strip()]
+    if lines:
+        print("last event", lines[-1].get("event"))
+    rotated = log_path.with_suffix(log_path.suffix + ".1").exists()
+    print("log rotation", rotated)
+
 print("done")
