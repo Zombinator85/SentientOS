@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 from cathedral_const import PUBLIC_LOG, log_json
+from log_utils import append_json
 
 class _DoctrineProxy:
     PUBLIC_LOG = PUBLIC_LOG
@@ -20,7 +21,7 @@ doctrine = _DoctrineProxy()
 
 
 def _append(path: Path, entry: Dict[str, Any]) -> Dict[str, Any]:
-    log_json(path, entry)
+    append_json(path, entry)
     return entry
 
 

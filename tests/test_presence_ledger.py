@@ -32,11 +32,12 @@ def test_log_privilege(tmp_path, monkeypatch):
     import importlib
     importlib.reload(pl)
     pl.log_privilege("tester", "Linux", "tool", "success")
-    data = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
-    assert data["user"] == "tester"
-    assert data["platform"] == "Linux"
-    assert data["tool"] == "tool"
-    assert data["status"] == "success"
+    entry = json.loads(path.read_text(encoding="utf-8").splitlines()[-1])
+    info = entry["data"]
+    assert info["user"] == "tester"
+    assert info["platform"] == "Linux"
+    assert info["tool"] == "tool"
+    assert info["status"] == "success"
 
 
 def test_music_stats(tmp_path, monkeypatch):

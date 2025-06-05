@@ -1,6 +1,7 @@
 from logging_config import get_log_path
 import sys
 import json
+from log_utils import append_json
 import datetime
 import os
 from pathlib import Path
@@ -47,8 +48,7 @@ def audit_use(tool: str, command: str) -> None:
         "tool": tool,
         "command": command,
     }
-    with AUDIT_FILE.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    append_json(AUDIT_FILE, entry)
 
 
 def _has_header(path: Path) -> bool:
