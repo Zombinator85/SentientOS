@@ -84,6 +84,12 @@ Each pull request runs `privilege_lint.py`, `pytest`, `mypy`, and `check_connect
 Connector logs are summarized at the end of the workflow. Look for disconnect or
 `message_error` counts to diagnose issues.
 
+## How to Request Support
+If you run into problems with the connector or any ritual tool, open an issue
+using the **Bug Report** or **Feature Request** templates. Include log snippets,
+steps to reproduce, and your environment details. You can also email
+`support@sentientos.example.com` for private assistance.
+
 ### Feedback Loop Ritual
 We maintain an open feedback form on the GitHub Discussions board. Share your first-run experience, documentation gaps, or ideas for new rituals. Stewards review submissions each month and incorporate improvements into future audits.
 ## Sanctuary Privilege Ritual

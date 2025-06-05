@@ -1,0 +1,22 @@
+name: "Bug Report"
+about: "Report problems or unexpected behavior"
+title: "[Bug] <summary>"
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: Steps to Reproduce
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+  - type: textarea
+    attributes:
+      label: Actual Behavior
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Logs
+      description: "Paste relevant log lines or attach the file"

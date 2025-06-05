@@ -4,6 +4,7 @@ import json
 import time
 import pytest
 from importlib import reload
+from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -131,3 +132,37 @@ def test_sse_disconnect(tmp_path, monkeypatch):
     gen.close()
     with pytest.raises(StopIteration):
         next(gen)
+
+def test_healthz_and_metrics(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    resp = openai_connector.healthz()
+    if hasattr(resp, "status_code"):
+        assert resp.status_code == 200
+        body = json.loads(resp.data)
+    else:
+        assert isinstance(resp, str)
+        body = json.loads(resp)
+    assert body["status"] == "ok"
+
+    openai_connector.request = Request(None, {"Authorization": "Bearer token123"})
+    openai_connector._events.put(json.dumps({"time": time.time(), "data": {"x": 1}}))
+    resp_sse = openai_connector.sse()
+    next(resp_sse.data)
+
+    metrics = openai_connector.metrics().data
+    if isinstance(metrics, bytes):
+        metrics = metrics.decode()
+    assert "connections_total" in metrics
+    assert "events_total" in metrics
+
+def test_schema_violation_logged(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    client.post(
+        "/message",
+        json={},
+        headers={"Authorization": "Bearer token123"},
+    )
+    log_path = Path(os.getenv("OPENAI_CONNECTOR_LOG"))
+    lines = [json.loads(x) for x in log_path.read_text().splitlines() if x.strip()]
+    assert any(e["event"] == "schema_violation" for e in lines)
+

@@ -52,4 +52,18 @@ curl -X POST -H "Authorization: Bearer $CONNECTOR_TOKEN" \
 # → {"error": "missing 'text' field"}
 ```
 
+### Schema Validation
+All requests are validated against a JSON schema. The `/message` payload must be:
+
+```json
+{"text": "string"}
+```
+
+Invalid payloads trigger a `schema_violation` log entry.
+
+### How to Request Support
+Open an issue using the **Bug Report** or **Feature Request** template and
+include the connector log excerpt and steps to reproduce. For private inquiries
+email `support@sentientos.example.com`.
+
 See [CONNECTOR_TROUBLESHOOTING.md](CONNECTOR_TROUBLESHOOTING.md) for additional tips and FAQs.

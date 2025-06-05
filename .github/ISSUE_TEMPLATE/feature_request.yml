@@ -1,0 +1,14 @@
+name: "Feature Request"
+about: "Propose a new feature or improvement"
+title: "[Feature] <summary>"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: Proposal
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Use Case
+      description: "Why is this feature valuable?"
