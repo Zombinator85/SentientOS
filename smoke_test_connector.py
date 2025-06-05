@@ -4,6 +4,7 @@ import time
 import json
 from pathlib import Path
 import os
+from logging_config import get_log_path
 import openai_connector
 
 print("Running connector smoke tests...")
@@ -32,7 +33,7 @@ for attempt in range(3):
         print(f"Retrying in {wait}s...")
         time.sleep(wait)
 
-log_path = Path(os.getenv("OPENAI_CONNECTOR_LOG", "logs/openai_connector.jsonl"))
+log_path = get_log_path("openai_connector.jsonl", "OPENAI_CONNECTOR_LOG")
 if log_path.exists():
     with log_path.open() as f:
         lines = [json.loads(x) for x in f if x.strip()]
