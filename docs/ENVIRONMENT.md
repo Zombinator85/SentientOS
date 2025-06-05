@@ -3,6 +3,26 @@
 SentientOS tools read configuration from `.env`. Copy `.env.example` to `.env` and update the values as needed.
 The table below explains each variable and its default behavior.
 
+### Generating a Secure `CONNECTOR_TOKEN`
+
+Linux/macOS:
+
+```bash
+openssl rand -hex 32
+```
+
+Windows (PowerShell):
+
+```powershell
+[System.Guid]::NewGuid().ToString("N")
+```
+
+You can also run `python -c "import secrets, sys; print(secrets.token_hex(32))"` on any platform.
+
+### Setting Variables in Cloud Dashboards
+
+Most platforms provide a web UI to manage environment variables. On Render or Railway, open your service settings and add the variables shown below. The connector uses `CONNECTOR_TOKEN` and `PORT` at minimum.
+
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
