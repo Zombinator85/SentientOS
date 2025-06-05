@@ -1,3 +1,10 @@
+"""Privilege helper utilities.
+
+``require_lumos_approval`` prompts for a Lumos blessing before privileged
+actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
+running unattended.
+"""
+
 import os
 import sys
 import platform
