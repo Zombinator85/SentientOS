@@ -5,6 +5,10 @@ from pathlib import Path
 from types import ModuleType
 from logging_config import get_log_dir
 from typing import Any, Dict, List, Optional, cast
+
+# Common emotion vector type
+Emotion = Dict[str, float]
+LogEntry = Dict[str, Any]
 from utils import is_headless
 
 # Optional modules may not be present; declare with fallback None
@@ -31,21 +35,21 @@ if HEADLESS:
 
 from vision_tracker import FaceEmotionTracker
 
-def empty_emotion_vector() -> Dict[str, float]:
+def empty_emotion_vector() -> Emotion:
     return {e: 0.0 for e in ["happy", "sad", "angry", "disgust", "fear", "surprise", "neutral"]}
 
 class PersonaMemory:
     def __init__(self) -> None:
-        self.timelines: Dict[int, List[Dict[str, Any]]] = {}
+        self.timelines: Dict[int, List[LogEntry]] = {}
 
-    def add(self, person_id: int, source: str, emotions: Dict[str, float], ts: float) -> None:
+    def add(self, person_id: int, source: str, emotions: Emotion, ts: float) -> None:
         if not emotions:
             return
         self.timelines.setdefault(person_id, []).append(
             {"timestamp": ts, "source": source, "emotions": emotions}
         )
 
-    def average(self, person_id: int, source: Optional[str] = None, window: int = 5) -> Dict[str, float]:
+    def average(self, person_id: int, source: Optional[str] = None, window: int = 5) -> Emotion:
         hist = [h["emotions"] for h in self.timelines.get(person_id, []) if source is None or h["source"] == source]
         hist = hist[-window:]
         avg = empty_emotion_vector()
@@ -95,12 +99,12 @@ class MultiModalEmotionTracker:
                 self.voice_backend = None
         self.memory = PersonaMemory()
 
-    def _log(self, person_id: int, entry: Dict[str, Any]) -> None:
+    def _log(self, person_id: int, entry: LogEntry) -> None:
         path = self.log_dir / f"{person_id}.jsonl"
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
 
-    def analyze_voice(self, device_index: Optional[int] = None) -> Dict[str, float]:
+    def analyze_voice(self, device_index: Optional[int] = None) -> Emotion:
         if HEADLESS or not self.voice_backend:
             return {}
         if self.voice_backend == "mic_bridge":
@@ -108,7 +112,7 @@ class MultiModalEmotionTracker:
                 assert mic_bridge is not None
                 res = mic_bridge.recognize_from_mic(save_audio=False)
                 emotions_raw: Any = res.get("emotions") or {}
-                emotions: Dict[str, float] = cast(Dict[str, float], emotions_raw)
+                emotions: Emotion = cast(Emotion, emotions_raw)
                 return emotions
             except Exception:
                 return {}
@@ -125,7 +129,7 @@ class MultiModalEmotionTracker:
                 return {}
         return {}
 
-    def process_once(self, frame: Any) -> Dict[str, Any]:
+    def process_once(self, frame: Any) -> LogEntry:
         ts = time.time()
         voice_vec = self.analyze_voice()
         # --- Always produce a timestamped log, even if no vision or voice
@@ -133,7 +137,7 @@ class MultiModalEmotionTracker:
         data["timestamp"] = ts
         if not data.get("faces"):
             # Log the voice vector (if any), or at minimum an empty/neutral event
-            entry = {"timestamp": ts, "vision": {}, "voice": voice_vec or {}}
+            entry: LogEntry = {"timestamp": ts, "vision": {}, "voice": voice_vec or {}}
             self.memory.add(0, "voice", voice_vec, ts) if voice_vec else None
             self._log(0, entry)
         for face in data.get("faces", []):
@@ -145,7 +149,7 @@ class MultiModalEmotionTracker:
             self._log(fid, {"timestamp": ts, "vision": emotions, "voice": voice_vec})
         return data
 
-    def update_text_sentiment(self, person_id: int, sentiment: Dict[str, float]) -> None:
+    def update_text_sentiment(self, person_id: int, sentiment: Emotion) -> None:
         self.memory.add(person_id, "text", sentiment, time.time())
 
     def run(self, max_frames: Optional[int] = None) -> None:
