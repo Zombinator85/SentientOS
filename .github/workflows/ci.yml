@@ -23,12 +23,12 @@ jobs:
       - name: Run mypy
         run: |
           mypy --ignore-missing-imports .
-        - name: Run tests
-          run: |
-            pytest
-        - name: Connector health check
-          run: |
-            python check_connector_health.py
-        - name: Verify audits
-          run: |
-            python verify_audits.py
+      - name: Run tests
+        run: |
+          pytest
+      - name: Connector health check
+        run: |
+          python check_connector_health.py
+      - name: Verify audits
+        run: |
+          python verify_audits.py
