@@ -1,4 +1,4 @@
-from subprocess import check_call, CalledProcessError
+from subprocess import CalledProcessError, check_call
 import sys
 import time
 import json
@@ -11,6 +11,7 @@ print("Running connector smoke tests...")
 def run_once() -> None:
     check_call([sys.executable, "privilege_lint.py"])
     check_call([sys.executable, "-m", "pytest", "-q", "tests/test_openai_connector.py"])
+    check_call([sys.executable, "check_connector_health.py"])
 
 
 for attempt in range(3):
