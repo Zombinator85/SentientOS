@@ -37,3 +37,8 @@
 - Introduced `require_lumos_approval()` middleware.
 - Created `docs/LUMOS_PRIVILEGE_DOCTRINE.md` and updated onboarding instructions.
 - Entry points now request Lumos blessing before performing privileged actions.
+
+## 2026-07 Privilege Enforcement & Onboarding Batch
+- Linter updated to require `require_lumos_approval()` immediately after `require_admin_banner()`.
+- Onboarding docs and PR templates emphasize the pattern for all new contributors.
+- See `docs/CODEX_PRIVILEGE_ENFORCEMENT.md` for the canonical recap.
