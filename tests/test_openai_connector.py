@@ -5,6 +5,7 @@ from importlib import reload
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import openai_connector
+from flask_stub import Request
 
 
 def setup_app(tmp_path, monkeypatch):
@@ -33,3 +34,39 @@ def test_message_forbidden(tmp_path, monkeypatch):
         headers={"Authorization": "Bearer wrong"},
     )
     assert resp.status_code == 403
+
+
+def test_message_missing_token(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    resp = client.post(
+        "/message",
+        json={"text": "hi"},
+        headers={},
+    )
+    assert resp.status_code == 403
+
+
+def test_sse_authorized(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    openai_connector._events.put("test")
+    openai_connector.request = Request(None, {"Authorization": "Bearer token123"})
+    resp = openai_connector.sse()
+    status = resp.status_code if hasattr(resp, "status_code") else resp[1]
+    assert status == 200
+    assert next(resp.data).startswith("data: ")
+
+
+def test_sse_invalid_token(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    openai_connector.request = Request(None, {"Authorization": "Bearer wrong"})
+    resp = openai_connector.sse()
+    status = resp[1] if isinstance(resp, tuple) else resp.status_code
+    assert status == 403
+
+
+def test_sse_missing_token(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    openai_connector.request = Request(None, {})
+    resp = openai_connector.sse()
+    status = resp[1] if isinstance(resp, tuple) else resp.status_code
+    assert status == 403

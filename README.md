@@ -44,6 +44,8 @@ Additional guides:
 - [docs/TAG_EXTENSION_GUIDE.md](docs/TAG_EXTENSION_GUIDE.md)
 - [docs/FEDERATION_FAQ.md](docs/FEDERATION_FAQ.md)
 - [docs/CODEX_TYPE_CHECK_REMEDIATION.md](docs/CODEX_TYPE_CHECK_REMEDIATION.md)
+- [docs/CODEX_CUSTOM_CONNECTOR.md](docs/CODEX_CUSTOM_CONNECTOR.md) – OpenAI connector configuration and troubleshooting
+- [docs/DEPLOYMENT_CLOUD.md](docs/DEPLOYMENT_CLOUD.md) – Docker, Render, and Railway instructions
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
