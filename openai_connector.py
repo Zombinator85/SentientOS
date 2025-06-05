@@ -10,10 +10,8 @@ except Exception:  # pragma: no cover - optional dependency
 from schema_validation import validate_payload
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-# Set ``LUMOS_AUTO_APPROVE=1`` to bypass the interactive blessing prompt
-require_lumos_approval()
+require_lumos_approval()  # Set ``LUMOS_AUTO_APPROVE=1`` to bypass the interactive blessing prompt
 
 import os
 import json
