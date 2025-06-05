@@ -185,6 +185,12 @@ bash setup_env.sh
 pytest -m "not env"
 ```
 
+For a comprehensive pre-submit routine, run:
+
+```bash
+./final_submission_prep.sh
+```
+
 See `LEGACY_TESTS.md` for failing suites that need volunteers.
 
 ## Cathedral Steward
