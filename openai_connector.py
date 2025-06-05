@@ -1,18 +1,29 @@
+"""OpenAI event connector.
+
+This module logs structured events to ``LOG_PATH``. Set the environment
+variable ``OPENAI_CONNECTOR_LOG`` to override the default log destination
+(``logs/openai_connector.jsonl``).
+
+Privilege escalation is gated by ``admin_utils.require_lumos_approval``.
+To run non-interactively, set ``LUMOS_AUTO_APPROVE=1``.
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+"""
+
 from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 import logging
 from logging.handlers import RotatingFileHandler
 
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()  # Set ``LUMOS_AUTO_APPROVE=1`` to bypass the interactive blessing prompt
+
 try:
     import requests
 except Exception:  # pragma: no cover - optional dependency
     requests = None
+
 from schema_validation import validate_payload
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()  # Set ``LUMOS_AUTO_APPROVE=1`` to bypass the interactive blessing prompt
-
 import os
 import json
 import time
@@ -20,11 +31,12 @@ from datetime import datetime
 from queue import SimpleQueue
 from flask_stub import Flask, jsonify, request, Response
 
-
 CONNECTOR_TOKEN = os.getenv("CONNECTOR_TOKEN", "test-token")
 app = Flask(__name__)
 _events: SimpleQueue[str] = SimpleQueue()
+
 # Override the default connector log path with ``OPENAI_CONNECTOR_LOG``
+# (defaults to ``logs/openai_connector.jsonl``)
 LOG_PATH = get_log_path("openai_connector.jsonl", "OPENAI_CONNECTOR_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 SSE_TIMEOUT = float(os.getenv("SSE_TIMEOUT", "30"))  # seconds
