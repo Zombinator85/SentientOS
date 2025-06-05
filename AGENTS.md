@@ -1,5 +1,20 @@
 *SentientOS Doctrine of Presence, Privilege, and Federation*
 
+## Agent Index
+- **Core Services**: FederationTrustProtocol, AgentSelfDefenseProtocol
+- **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony
+- **Daemons & Schedulers**: MigrationDaemon, AvatarFederationHeartbeatMonitor
+
+### Table of Contents
+1. [Preamble](#-preamble-the-book-of-agents)
+2. [Agent Definition](#-agent-definition-and-taxonomy)
+3. [Privilege Contracts](#-privilege-contracts)
+4. [Federation & World Integration](#-federation--world-integration)
+5. [Rituals](#-rituals-onboarding-delegation-retirement)
+6. [Witnessing and Logging](#-witnessing-and-logging)
+7. [Closing](#-closing-the-sacred-law-of-presence)
+
+
 Another Registered Agent:
 
 ```
