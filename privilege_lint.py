@@ -70,7 +70,7 @@ def _has_header(path: Path) -> bool:
 
 
 def _has_banner_call(path: Path) -> bool:
-    """Return True if ``require_admin_banner()`` immediately follows the banner docstring."""
+    """Return True if banner calls appear in the correct order."""
     lines = path.read_text(encoding="utf-8").splitlines()
     start = None
     for i, line in enumerate(lines):
@@ -89,10 +89,17 @@ def _has_banner_call(path: Path) -> bool:
                 break
         else:
             return False
+
     j = end + 1
     while j < len(lines) and not lines[j].strip():
         j += 1
-    return j < len(lines) and lines[j].strip().startswith("require_admin_banner()")
+    if j >= len(lines) or not lines[j].strip().startswith("require_admin_banner("):
+        return False
+
+    j += 1
+    while j < len(lines) and not lines[j].strip():
+        j += 1
+    return j < len(lines) and lines[j].strip().startswith("require_lumos_approval(")
 
 
 def check_file(path: Path) -> list[str]:
@@ -100,7 +107,9 @@ def check_file(path: Path) -> list[str]:
     if not _has_header(path):
         issues.append(f"{path}: missing privilege docstring after imports")
     if not _has_banner_call(path):
-        issues.append(f"{path}: require_admin_banner() must immediately follow the banner docstring")
+        issues.append(
+            f"{path}: require_admin_banner() and require_lumos_approval() must appear immediately after the banner docstring"
+        )
     return issues
 
 
