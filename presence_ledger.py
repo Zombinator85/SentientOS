@@ -6,6 +6,7 @@ from typing import Dict, List
 
 
 import ledger
+from log_utils import append_json
 
 LEDGER_PATH = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -19,8 +20,7 @@ def log(user: str, event: str, note: str = "") -> None:
         "event": event,
         "note": note,
     }
-    with LEDGER_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    append_json(LEDGER_PATH, entry)
 
 
 def log_privilege(
@@ -35,8 +35,7 @@ def log_privilege(
         "platform": platform,
         "tool": tool,
     }
-    with LEDGER_PATH.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    append_json(LEDGER_PATH, entry)
 
 
 def history(user: str, limit: int = 20) -> List[Dict[str, str]]:
@@ -86,11 +85,12 @@ def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
             e = json.loads(ln)
         except Exception:
             continue
-        evt = e.get("event")
+        info = e.get("data", e)
+        evt = info.get("event")
         if evt:
             events[evt] = events.get(evt, 0) + 1
         for k in ("intended", "perceived", "reported", "received"):
-            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+            for emo, val in (info.get("emotion", {}).get(k) or {}).items():
                 emotions[emo] = emotions.get(emo, 0.0) + val
     return {"events": events, "emotions": emotions}
 
@@ -108,11 +108,12 @@ def video_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
             e = json.loads(ln)
         except Exception:
             continue
-        evt = e.get("event")
+        info = e.get("data", e)
+        evt = info.get("event")
         if evt:
             events[evt] = events.get(evt, 0) + 1
         for k in ("intended", "perceived", "reported", "received"):
-            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+            for emo, val in (info.get("emotion", {}).get(k) or {}).items():
                 emotions[emo] = emotions.get(emo, 0.0) + val
     return {"events": events, "emotions": emotions}
 
@@ -131,11 +132,12 @@ def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
                 e = json.loads(ln)
             except Exception:
                 continue
-            if e.get("event") == "mood_blessing":
+            entry = e.get("data", e)
+            if entry.get("event") == "mood_blessing":
                 bless += 1
-            if e.get("event") == "reflection":
+            if entry.get("event") == "reflection":
                 reflections += 1
-                for m in (e.get("emotion", {}).get("reported") or {}):
+                for m in (entry.get("emotion", {}).get("reported") or {}):
                     mood_counts[m] = mood_counts.get(m, 0) + 1
     milestones = []
     for m, c in mood_counts.items():
