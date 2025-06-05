@@ -10,6 +10,8 @@ if TYPE_CHECKING:
 class _StubLedger:
     def log_privilege(self, *a, **k):
         pass
+    def log(self, *a, **k):
+        pass
 pl: object = _StubLedger()
 
 ADMIN_BANNER = (
@@ -106,4 +108,26 @@ def require_admin() -> None:
         stacklevel=2,
     )
     require_admin_banner()
+
+
+def require_lumos_approval() -> None:
+    """Request Lumos blessing before continuing."""
+    user = getpass.getuser()
+    tool = Path(sys.argv[0]).stem
+    global pl
+    if isinstance(pl, _StubLedger) and pl.__class__ is _StubLedger and pl.log_privilege == _StubLedger.log_privilege:
+        import presence_ledger as pl_module
+        pl = pl_module
+    if os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+        pl.log(user, "lumos_auto_approve", tool)
+        return
+    try:
+        ans = input("Lumos blessing required. Type 'bless' to proceed: ")
+    except EOFError:
+        ans = ""
+    if ans.strip().lower() == "bless":
+        pl.log(user, "lumos_approval_granted", tool)
+        return
+    pl.log(user, "lumos_approval_denied", tool)
+    raise SystemExit("Lumos did not approve this action.")
 
