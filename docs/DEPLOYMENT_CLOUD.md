@@ -13,3 +13,7 @@ This guide outlines a minimal setup for deploying the OpenAI connector using pop
 2. Add `CONNECTOR_TOKEN` and `PORT` variables in the project settings.
 3. Railway automatically builds the `Dockerfile` and deploys the container.
 4. Open the generated URL to access the connector endpoints.
+
+After deployment run `python smoke_test_connector.py` in the container shell to
+verify the connector and review `logs/openai_connector.jsonl` for any `auth_error`
+entries. Rotate logs may have numerical suffixes.
