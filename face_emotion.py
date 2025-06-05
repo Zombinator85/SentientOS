@@ -17,7 +17,10 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from multimodal_tracker import MultiModalEmotionTracker
 
 try:
     from fer import FER  # type: ignore
@@ -52,7 +55,12 @@ class FaceEmotionDetector:
         self._log(emotions)
         return {k: float(v) for k, v in emotions.items()}
 
-    def webcam_loop(self, tracker: Optional["multimodal_tracker.MultiModalEmotionTracker"] = None, person_id: int = 0, max_frames: Optional[int] = None) -> None:
+    def webcam_loop(
+        self,
+        tracker: Optional["MultiModalEmotionTracker"] = None,
+        person_id: int = 0,
+        max_frames: Optional[int] = None,
+    ) -> None:
         if not self.detector or not cv2:
             print("[FACE_EMOTION] camera or FER not available")
             return

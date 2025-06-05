@@ -15,7 +15,7 @@ AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _audit(action: str, request_id: str, **meta: Any) -> None:
-    entry = {
+    entry: Dict[str, Any] = {
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "action": action,
         "request": request_id,
@@ -36,7 +36,7 @@ def log_request(
 ) -> str:
     """Record a proactive review or policy suggestion."""
     entry_id = uuid.uuid4().hex[:8]
-    entry = {
+    entry: Dict[str, Any] = {
         "id": entry_id,
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "kind": kind,
@@ -66,7 +66,7 @@ def log_policy_suggestion(
 ) -> str:
     """Create a policy/reflex suggestion with rationale."""
     entry_id = uuid.uuid4().hex[:8]
-    entry = {
+    entry: Dict[str, Any] = {
         "id": entry_id,
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "kind": kind,
@@ -223,9 +223,12 @@ def update_request(request_id: str, status: str) -> bool:
 
 def implement_request(request_id: str, approvers: Optional[list[str]] = None) -> bool:
     entry = get_request(request_id)
-    desc = entry.get("suggestion") if entry else request_id
-    kwargs = {"approvers": approvers} if approvers is not None else {}
-    if not final_approval.request_approval(desc, **kwargs):
+    desc = str(entry.get("suggestion") if entry else request_id)
+    if approvers is not None:
+        approved = final_approval.request_approval(desc, approvers=approvers)
+    else:
+        approved = final_approval.request_approval(desc)
+    if not approved:
         _audit("blocked", request_id, approver=final_approval.last_approver())
         return False
     if update_request(request_id, "implemented"):
@@ -251,9 +254,10 @@ def chain_suggestion(
     policy: Optional[str] = None,
 ) -> str:
     prev = get_request(previous_id)
-    target = prev.get("target") if prev else ""
+    target = str(prev.get("target") if prev else "")
+    kind_val = str(prev.get("kind", "workflow")) if prev else "workflow"
     sid = log_policy_suggestion(
-        prev.get("kind", "workflow") if prev else "workflow",
+        kind_val,
         target,
         suggestion,
         rationale,

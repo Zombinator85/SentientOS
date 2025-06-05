@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Any
 
 try:
     import cv2  # type: ignore
@@ -14,7 +14,7 @@ except Exception:
     pytesseract = None
 
 
-def ocr_chat_bubbles(image_path: str) -> List[Dict[str, object]]:
+def ocr_chat_bubbles(image_path: str) -> List[Dict[str, Any]]:
     """Detect chat bubbles in ``image_path`` and OCR each one.
 
     Returns a list of dicts with ``bbox`` and ``text`` keys. Works best when
@@ -32,7 +32,7 @@ def ocr_chat_bubbles(image_path: str) -> List[Dict[str, object]]:
             blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
         )
         cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        results: List[Dict[str, object]] = []
+        results: List[Dict[str, Any]] = []
         for c in cnts:
             x, y, w, h = cv2.boundingRect(c)
             if w * h < 1000:
