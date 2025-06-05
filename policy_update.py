@@ -4,9 +4,10 @@ import datetime
 from pathlib import Path
 import review_requests as rr
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 POLICY_STATE_FILE = get_log_path("policy_state.json")
 AUDIT_FILE = get_log_path("policy_audit.jsonl")
 POLICY_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)

@@ -7,9 +7,10 @@ from pathlib import Path
 
 import memory_manager as mm
 
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 QUESTION = os.getenv("SELF_REFLECTION_QUESTION", "What have you learned recently?")
 LOG_DIR = get_log_path("self_reflections", "REFLECTION_LOG_DIR")
 LOG_DIR.mkdir(parents=True, exist_ok=True)

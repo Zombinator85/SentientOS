@@ -6,11 +6,12 @@ from typing import Dict, List
 
 from logging_config import get_log_path
 from cathedral_wounds_dashboard import gather_wounds, parse_saints
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 """Generate a healing sprint ledger with community metrics."""
 

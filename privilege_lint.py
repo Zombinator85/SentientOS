@@ -6,9 +6,12 @@ import datetime
 import os
 from pathlib import Path
 try:
-    from admin_utils import require_admin_banner
+    from admin_utils import require_admin_banner, require_lumos_approval
 except Exception:  # pragma: no cover - fallback for lint
     def require_admin_banner() -> None:
+        """Fallback when admin_utils cannot be imported during lint."""
+        pass
+    def require_lumos_approval() -> None:
         """Fallback when admin_utils cannot be imported during lint."""
         pass
 
@@ -21,6 +24,7 @@ the ``PRIVILEGED_AUDIT_FILE`` environment variable. See
 ``docs/ENVIRONMENT.md`` for details.
 """
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
 
@@ -102,13 +106,29 @@ def _has_banner_call(path: Path) -> bool:
     return j < len(lines) and lines[j].strip().startswith("require_lumos_approval(")
 
 
+def _has_lumos_call(path: Path) -> bool:
+    """Return True if ``require_lumos_approval()`` follows ``require_admin_banner()``."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for i, line in enumerate(lines):
+        if line.strip().startswith("require_admin_banner("):
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            return j < len(lines) and lines[j].strip().startswith("require_lumos_approval(")
+    return False
+
+
 def check_file(path: Path) -> list[str]:
     issues = []
     if not _has_header(path):
         issues.append(f"{path}: missing privilege docstring after imports")
     if not _has_banner_call(path):
         issues.append(
-            f"{path}: require_admin_banner() and require_lumos_approval() must appear immediately after the banner docstring"
+            f"{path}: require_admin_banner() must immediately follow the banner docstring and be followed by require_lumos_approval()"
+        )
+    elif not _has_lumos_call(path):
+        issues.append(
+            f"{path}: require_lumos_approval() must immediately follow require_admin_banner()"
         )
     return issues
 

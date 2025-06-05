@@ -3,10 +3,11 @@ import json
 from pathlib import Path
 from flask_stub import Flask, render_template_string
 import privilege_lint as pl
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 app = Flask(__name__)
 LOG = pl.AUDIT_FILE

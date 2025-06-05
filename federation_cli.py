@@ -9,7 +9,7 @@ from sentient_banner import (
     print_snapshot_banner,
     print_closing_recap,
 )
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 import treasury_federation as tf
 import ledger
 import mood_wall
@@ -17,6 +17,7 @@ from pathlib import Path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 
 def cmd_invite(args: argparse.Namespace) -> None:

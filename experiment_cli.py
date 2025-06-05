@@ -1,10 +1,11 @@
 import argparse
 import experiment_tracker as et
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 
 
 def main() -> None:
