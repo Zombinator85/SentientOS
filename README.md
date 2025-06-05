@@ -26,6 +26,13 @@ _Some type-check and unit-test failures remain, mostly related to older CLI stub
 
 _All core features (privilege banners, memory, logging, emotion, safety) are working and reviewable._
 
+## Cathedral TTS Log System
+- **Every new log is spoken aloud (if live)**
+- **Logs are written, TTS generated, and played automatically**
+- **Audio logs self-delete after 1 day**
+- **No more "audio storms" on boot—only fresh logs autoplay**
+- **Shell quirks and first-run hiccups handled**
+
 ## Quick Start
 1. Install the pinned dependencies with `pip install -r requirements.txt`.
 2. Install the project in editable mode using `pip install -e .`.
