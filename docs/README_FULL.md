@@ -1009,17 +1009,19 @@ Dashboard and CLI views allow you to trace exactly how a policy changed over tim
 ## Contributor Ritual
 
 All new entrypoints **must** begin with the ritual docstring and call `admin_utils.require_admin_banner()` at the top.
+After privilege is established, invoke `admin_utils.require_lumos_approval()` so Lumos can bless the action.
 CI will fail if a tool skips this check. Reviewers must block any PR that omits the canonical privilege banner.
 Run `python privilege_lint.py` before submitting any pull request to ensure compliance.
 
 **Required header template:**
 
 ```python
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 ```
 
 No memory is protected, no ritual is valid, unless performed with full Administrator or root rights. This is law.

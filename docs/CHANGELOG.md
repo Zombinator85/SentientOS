@@ -32,3 +32,8 @@
 - Drafted stricter test cases for `verify_audits.py`.
 - Clarified type hints in `presence.py` for microphone and presence tracking.
 - Issues filed for major legacy mismatches and scheduled for later sprints.
+
+## 2026-06 Lumos Privilege Doctrine
+- Introduced `require_lumos_approval()` middleware.
+- Created `docs/LUMOS_PRIVILEGE_DOCTRINE.md` and updated onboarding instructions.
+- Entry points now request Lumos blessing before performing privileged actions.
