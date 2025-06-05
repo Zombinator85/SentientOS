@@ -13,6 +13,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
+# Shared emotion vector type
+Emotion = Dict[str, float]
+
 import presence_ledger as pl
 import ledger
 import mood_wall
@@ -27,9 +30,9 @@ from sentient_banner import (
 )
 
 
-def _parse_emotion(text: str) -> Dict[str, float]:
+def _parse_emotion(text: str) -> Emotion:
     """Parse emotion string like 'Joy=0.8,Sadness=0.2'"""
-    emotions: Dict[str, float] = {}
+    emotions: Emotion = {}
     if not text:
         return emotions
     for part in text.split(','):
@@ -44,7 +47,7 @@ def _parse_emotion(text: str) -> Dict[str, float]:
     return emotions
 
 
-async def _generate(prompt: str, emotion: Dict[str, float], user: str) -> Dict[str, Any]:
+async def _generate(prompt: str, emotion: Emotion, user: str) -> Dict[str, Any]:
     juke = JukeboxIntegration()
     path = await juke.generate_music(prompt, emotion)
     h = hashlib.sha256(Path(path).read_bytes()).hexdigest()
@@ -56,7 +59,7 @@ async def _generate(prompt: str, emotion: Dict[str, float], user: str) -> Dict[s
 def _play(path: str, user: str, share: str | None = None) -> Dict[str, Any]:
     print(f"Playing {path}")
     feeling = input("Feeling> ").strip()
-    reported = _parse_emotion(feeling)
+    reported: Emotion = _parse_emotion(feeling)
     entry = ledger.log_music_listen(path, user=user, reported=reported)
     pl.log(user or "anon", "music_played", path)
     if share:
@@ -68,7 +71,7 @@ def _play(path: str, user: str, share: str | None = None) -> Dict[str, Any]:
 
 def _recap_emotion(limit: int = 20) -> Dict[str, Any]:
     path = get_log_path("music_log.jsonl")
-    totals: dict[str, float] = {}
+    totals: Emotion = {}
     journey: list[dict[str, object]] = []
     if path.exists():
         lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -77,7 +80,7 @@ def _recap_emotion(limit: int = 20) -> Dict[str, Any]:
                 e = json.loads(ln)
             except Exception:
                 continue
-            emo: Dict[str, float] = {}
+            emo: Emotion = {}
             for k in ("intended", "perceived", "reported", "received"):
                 emo.update(e.get("emotion", {}).get(k) or {})
             for k, v in emo.items():
@@ -122,7 +125,7 @@ def main() -> None:
     refl.add_argument("--emotion", default="")
     refl.add_argument("--user", default="anon")
 
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
     reset_ritual_state()
     print_banner()

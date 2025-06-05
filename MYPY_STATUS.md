@@ -2,15 +2,16 @@
 
 Current run: `mypy --ignore-missing-imports .`
 
-- Total errors: 145
+- Total errors: 142
 - Legacy modules: 130
-- Need fixes: 40
+- Need fixes: 37
 - Safe to ignore: 18
 
 Legacy modules are older CLI tools without type hints. Contributors are welcome to
-help migrate these. The "need fixes" category covers real mismatches mostly in
-`multimodal_tracker.py` and `music_cli.py`. The "safe to ignore" errors come from
-dynamic imports and will be suppressed once stubs are added.
+help migrate these. The "need fixes" category previously covered real mismatches
+mostly in `multimodal_tracker.py` and `music_cli.py`, which are now typed. The
+"safe to ignore" errors come from dynamic imports and will be suppressed once stubs
+are added.
 
 January 2026 update: `log_json` now enforces required fields, paving the way for
 cleaner typing of log utilities. Error counts remain but are easier to address.
