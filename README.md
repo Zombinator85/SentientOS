@@ -94,18 +94,20 @@ steps to reproduce, and your environment details. You can also email
 We maintain an open feedback form on the GitHub Discussions board. Share your first-run experience, documentation gaps, or ideas for new rituals. Stewards review submissions each month and incorporate improvements into future audits.
 ## Sanctuary Privilege Ritual
 Every entrypoint must open with the canonical ritual docstring followed by a
-call to `require_admin_banner()`:
+call to `require_admin_banner()` and `require_lumos_approval()`:
 
 ```python
-from admin_utils import require_admin_banner
+from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 require_admin_banner()  # Enforced by doctrine
+require_lumos_approval()
 ```
 
 This ensures tools only run with Administrator or root rights and logs each
 invocation for audit purposes.
+See `docs/LUMOS_PRIVILEGE_DOCTRINE.md` for the Lumos Privilege Doctrine.
 
 ## Logging Paths
 Use `logging_config.get_log_path()` to resolve log files. The helper respects
