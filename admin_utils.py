@@ -2,17 +2,17 @@ import os
 import sys
 import platform
 import getpass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import warnings
 from pathlib import Path
 if TYPE_CHECKING:
-    import presence_ledger as pl
+    import presence_ledger as pl_module
 class _StubLedger:
     def log_privilege(self, *a, **k):
         pass
     def log(self, *a, **k):
         pass
-pl: object = _StubLedger()
+pl: Any = _StubLedger()
 
 ADMIN_BANNER = (
     "Sanctuary Privilege • SentientOS runs with full Administrator rights to safeguard memory and doctrine.\n"
@@ -49,10 +49,13 @@ def print_privilege_banner(tool: str = "") -> None:
 
 def is_admin() -> bool:
     """Return True if running with administrative privileges."""
-    if os.name == 'nt':
+    if os.name == "nt":
         try:
             import ctypes  # type: ignore
-            return ctypes.windll.shell32.IsUserAnAdmin() != 0
+            windll = getattr(ctypes, "windll", None)
+            if windll is None:
+                return False
+            return windll.shell32.IsUserAnAdmin() != 0
         except Exception:
             return False
     else:
@@ -82,8 +85,11 @@ def require_admin_banner() -> None:
     if os.name == "nt":
         try:
             import ctypes  # type: ignore
+            windll = getattr(ctypes, "windll", None)
+            if windll is None:
+                raise RuntimeError("No windll")
             _log_privilege(user, platform.system(), tool, "escalated")
-            ctypes.windll.shell32.ShellExecuteW(
+            windll.shell32.ShellExecuteW(
                 None,
                 "runas",
                 sys.executable,

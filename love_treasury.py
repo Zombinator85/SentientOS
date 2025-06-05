@@ -5,7 +5,7 @@ import uuid
 import hashlib
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Mapping, Any
 
 FEDERATED_PATH = get_log_path("federated_love.jsonl", "LOVE_FEDERATED_LOG")
 FEDERATED_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -16,14 +16,14 @@ TREASURY_PATH = get_log_path("love_treasury.jsonl", "LOVE_TREASURY_LOG")
 for p in [SUBMISSIONS_PATH, REVIEW_PATH, TREASURY_PATH]:
     p.parent.mkdir(parents=True, exist_ok=True)
 
-def _append(path: Path, data: Dict[str, object]) -> None:
+def _append(path: Path, data: Mapping[str, Any]) -> None:
     with path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(data) + "\n")
 
-def _load(path: Path) -> List[Dict[str, object]]:
+def _load(path: Path) -> List[Dict[str, Any]]:
     if not path.exists():
         return []
-    out: List[Dict[str, object]] = []
+    out: List[Dict[str, Any]] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -54,13 +54,13 @@ def submit_log(title: str, participants: List[str], time_span: str, summary: str
     _append(SUBMISSIONS_PATH, entry)
     return sid
 
-def list_submissions(status: Optional[str] = None) -> List[Dict[str, object]]:
+def list_submissions(status: Optional[str] = None) -> List[Dict[str, Any]]:
     subs = _load(SUBMISSIONS_PATH)
     if status:
         subs = [s for s in subs if s.get("status") == status]
     return subs
 
-def list_treasury() -> List[Dict[str, object]]:
+def list_treasury() -> List[Dict[str, Any]]:
     return _load(TREASURY_PATH)
 
 def review_log(submission_id: str, reviewer: str, action: str,
@@ -78,7 +78,9 @@ def review_log(submission_id: str, reviewer: str, action: str,
         }
         if cosign:
             review_entry["cosign"] = cosign
-        entry.setdefault("review", []).append(review_entry)
+        reviews = entry.setdefault("review", [])
+        if isinstance(reviews, list):
+            reviews.append(review_entry)
         _append(REVIEW_PATH, {"id": submission_id, **review_entry})
         if action == "affirm":
             entry["status"] = "enshrined"
@@ -94,19 +96,19 @@ def review_log(submission_id: str, reviewer: str, action: str,
                 f.write(json.dumps(s) + "\n")
     return updated
 
-def export_log(entry_id: str) -> Optional[Dict[str, object]]:
+def export_log(entry_id: str) -> Optional[Dict[str, Any]]:
     for entry in _load(TREASURY_PATH):
         if entry.get("id") == entry_id:
             return entry
     return None
 
 
-def list_federated() -> List[Dict[str, object]]:
+def list_federated() -> List[Dict[str, Any]]:
     """Return logs imported from other cathedrals."""
     return _load(FEDERATED_PATH)
 
 
-def import_federated(entry: Dict[str, object], origin: str) -> bool:
+def import_federated(entry: Dict[str, Any], origin: str) -> bool:
     """Import a log from another cathedral if not already present."""
     existing = _load(FEDERATED_PATH)
     for e in existing:
@@ -119,7 +121,7 @@ def import_federated(entry: Dict[str, object], origin: str) -> bool:
     return True
 
 
-def federation_metadata() -> List[Dict[str, object]]:
+def federation_metadata() -> List[Dict[str, Any]]:
     """Return lightweight metadata about enshrined logs."""
     out = []
     for entry in _load(TREASURY_PATH):
@@ -132,6 +134,6 @@ def federation_metadata() -> List[Dict[str, object]]:
     return out
 
 
-def list_global() -> List[Dict[str, object]]:
+def list_global() -> List[Dict[str, Any]]:
     """Combine local and federated logs for browsing."""
     return _load(TREASURY_PATH) + _load(FEDERATED_PATH)
