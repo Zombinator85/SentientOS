@@ -6,6 +6,7 @@ The table below explains each variable and its default behavior.
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
+| `CONNECTOR_TOKEN` | Bearer token for the OpenAI connector endpoints | *(none)* |
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
 | `BOT_TOKEN_MIXTRAL` | Telegram token for the Mixtral bot | *(none)* |
 | `BOT_TOKEN_DEEPSEEK` | Telegram token for the DeepSeek bot | *(none)* |

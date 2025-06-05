@@ -15,3 +15,10 @@
 
 ## Canonical Recap
 SentientOS now exposes an authenticated SSE connector for real-time integration with OpenAI tools. The cathedral's event bus can emit and receive commands securely, laying the groundwork for universal memory and audit tracking across future projects.
+
+## Integration
+1. Set `CONNECTOR_TOKEN` in your `.env` and ensure the `PORT` variable matches your deployment.
+2. Run `python openai_connector.py`.
+3. Clients must send `Authorization: Bearer $CONNECTOR_TOKEN` for both `/sse` and `/message`.
+4. Inspect `logs/openai_connector.jsonl` for authentication errors or connection problems.
+5. Restart the service if event streaming stalls or the log shows repeated failures.
