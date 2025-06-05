@@ -38,6 +38,11 @@ def main() -> None:
     assert _post(client, "/message", {"text": "hi"}, token) == 200
     assert _post(client, "/message", {"text": "hi"}, "wrong") == 403
     assert _post(client, "/message", None, token) == 400
+    assert json.loads(openai_connector.healthz()) == {"status": "ok"}
+    metric_text = openai_connector.metrics().data
+    if isinstance(metric_text, bytes):
+        metric_text = metric_text.decode()
+    assert "connections_total" in metric_text
 
     openai_connector.request = Request(None, {"Authorization": f"Bearer {token}"})
     resp = openai_connector.sse()
