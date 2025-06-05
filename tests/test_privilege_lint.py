@@ -48,3 +48,20 @@ def test_banner_not_immediate(tmp_path):
     )
     issues = pl.check_file(path)
     assert any("require_admin_banner()" in i for i in issues)
+
+
+def test_missing_admin_banner(tmp_path):
+    path = tmp_path / "cli.py"
+    path.write_text(f"{pl.DOCSTRING}\nprint('hi')\n", encoding="utf-8")
+    issues = pl.check_file(path)
+    assert any("require_admin_banner()" in i for i in issues)
+
+
+def test_missing_lumos_call(tmp_path):
+    path = tmp_path / "cli.py"
+    path.write_text(
+        f"{pl.DOCSTRING}\nrequire_admin_banner()\n",
+        encoding="utf-8",
+    )
+    issues = pl.check_file(path)
+    assert any("require_lumos_approval()" in i for i in issues)
