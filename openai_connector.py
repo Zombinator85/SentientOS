@@ -1,4 +1,5 @@
 from admin_utils import require_admin_banner
+from logging_config import get_log_path
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
@@ -7,6 +8,7 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 import os
 import json
 import time
+from datetime import datetime
 from queue import SimpleQueue
 from flask_stub import Flask, jsonify, request, Response
 
@@ -14,13 +16,30 @@ from flask_stub import Flask, jsonify, request, Response
 CONNECTOR_TOKEN = os.getenv("CONNECTOR_TOKEN", "test-token")
 app = Flask(__name__)
 _events: SimpleQueue[str] = SimpleQueue()
+LOG_PATH = get_log_path("openai_connector.jsonl", "OPENAI_CONNECTOR_LOG")
+LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _authorized() -> bool:
     auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
+    if not auth or not auth.startswith("Bearer "):
+        _log_auth_error(auth or "<missing>")
         return False
-    return auth.split(" ", 1)[1] == CONNECTOR_TOKEN
+    token = auth.split(" ", 1)[1]
+    if token != CONNECTOR_TOKEN:
+        _log_auth_error(auth)
+        return False
+    return True
+
+
+def _log_auth_error(provided: str) -> None:
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "error": "invalid_token",
+        "provided": provided,
+    }
+    with LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 @app.route("/message", methods=["POST"])
@@ -45,7 +64,7 @@ def sse() -> Response:
                 continue
             yield f"data: {_events.get()}\n\n"
 
-    return Response(gen(), mimetype="text/event-stream")
+    return Response(gen())
 
 
 if __name__ == "__main__":  # pragma: no cover - manual launch
