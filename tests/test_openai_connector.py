@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+import pytest
 from importlib import reload
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -12,6 +13,8 @@ from flask_stub import Request
 
 def setup_app(tmp_path, monkeypatch):
     monkeypatch.setenv("CONNECTOR_TOKEN", "token123")
+    monkeypatch.setenv("OPENAI_CONNECTOR_LOG", str(tmp_path / "log.jsonl"))
+    monkeypatch.setenv("SSE_TIMEOUT", "0.2")
     reload(openai_connector)
     return openai_connector.app.test_client()
 
@@ -53,6 +56,16 @@ def test_message_malformed_json(tmp_path, monkeypatch):
     resp = client.post(
         "/message",
         json=None,
+        headers={"Authorization": "Bearer token123"},
+    )
+    assert resp.status_code == 400
+
+
+def test_message_invalid_type(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    resp = client.post(
+        "/message",
+        json={"text": 123},
         headers={"Authorization": "Bearer token123"},
     )
     assert resp.status_code == 400
@@ -106,3 +119,15 @@ def test_sse_multiple_clients(tmp_path, monkeypatch):
     first2 = next(gen2)
     assert first1.startswith("data: ")
     assert first2.startswith("data: ")
+
+
+def test_sse_disconnect(tmp_path, monkeypatch):
+    client = setup_app(tmp_path, monkeypatch)
+    openai_connector._events.put(json.dumps({"time": time.time(), "data": {"x": 1}}))
+    openai_connector.request = Request(None, {"Authorization": "Bearer token123"})
+    resp = openai_connector.sse()
+    gen = resp.data
+    next(gen)
+    gen.close()
+    with pytest.raises(StopIteration):
+        next(gen)
