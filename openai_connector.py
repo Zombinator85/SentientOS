@@ -20,6 +20,7 @@ app = Flask(__name__)
 _events: SimpleQueue[str] = SimpleQueue()
 LOG_PATH = get_log_path("openai_connector.jsonl", "OPENAI_CONNECTOR_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+SSE_TIMEOUT = float(os.getenv("SSE_TIMEOUT", "30"))  # seconds
 
 # Configure rotating JSONL logger
 _logger = logging.getLogger("openai_connector")
@@ -54,12 +55,34 @@ def _log_auth_error(provided: str) -> None:
     _logger.info(json.dumps(entry))
 
 
+def _log_disconnect(ip: str, reason: str) -> None:
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "disconnect",
+        "ip": ip,
+        "reason": reason,
+    }
+    _logger.info(json.dumps(entry))
+
+
+def _validate_message(data: object) -> tuple[bool, str | None]:
+    if not isinstance(data, dict):
+        return False, "malformed_json"
+    text = data.get("text") if isinstance(data, dict) else None
+    if text is None:
+        return False, "missing_field"
+    if not isinstance(text, str):
+        return False, "invalid_type"
+    return True, None
+
+
 @app.route("/message", methods=["POST"])
 def message() -> Response:
     if not _authorized():
         return "Forbidden", 403
     data = request.get_json(silent=True)
-    if data is None:
+    valid, err = _validate_message(data)
+    if not valid:
         ip = request.headers.get("X-Forwarded-For", "unknown")
         _logger.info(
             json.dumps(
@@ -67,24 +90,16 @@ def message() -> Response:
                     "timestamp": datetime.utcnow().isoformat(),
                     "event": "message_error",
                     "ip": ip,
-                    "error": "malformed_json",
+                    "error": err,
                 }
             )
         )
-        return jsonify({"error": "malformed JSON"}), 400
-    if not isinstance(data, dict) or "text" not in data:
-        ip = request.headers.get("X-Forwarded-For", "unknown")
-        _logger.info(
-            json.dumps(
-                {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "event": "message_error",
-                    "ip": ip,
-                    "error": "missing_field",
-                }
-            )
-        )
-        return jsonify({"error": "missing 'text' field"}), 400
+        msg = {
+            "malformed_json": "malformed JSON",
+            "missing_field": "missing 'text' field",
+            "invalid_type": "'text' must be a string",
+        }[err]
+        return jsonify({"error": msg}), 400
     payload = json.dumps({"time": time.time(), "data": data})
     _events.put(payload)
     ip = request.headers.get("X-Forwarded-For", "unknown")
@@ -107,23 +122,32 @@ def sse() -> Response:
         return "Forbidden", 403
 
     def gen():
-        while True:
-            if _events.empty():
-                time.sleep(0.1)
-                continue
-            payload = _events.get()
-            ip = request.headers.get("X-Forwarded-For", "unknown")
-            _logger.info(
-                json.dumps(
-                    {
-                        "timestamp": datetime.utcnow().isoformat(),
-                        "event": "sse",
-                        "ip": ip,
-                        "data": json.loads(payload)["data"],
-                    }
+        ip = request.headers.get("X-Forwarded-For", "unknown")
+        last = time.time()
+        try:
+            while True:
+                if _events.empty():
+                    if time.time() - last > SSE_TIMEOUT:
+                        _log_disconnect(ip, "timeout")
+                        break
+                    time.sleep(0.1)
+                    continue
+                payload = _events.get()
+                last = time.time()
+                _logger.info(
+                    json.dumps(
+                        {
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "event": "sse",
+                            "ip": ip,
+                            "data": json.loads(payload)["data"],
+                        }
+                    )
                 )
-            )
-            yield f"data: {payload}\n\n"
+                yield f"data: {payload}\n\n"
+        except GeneratorExit:
+            _log_disconnect(ip, "client_closed")
+            raise
 
     return Response(gen())
 
