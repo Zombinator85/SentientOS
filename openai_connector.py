@@ -8,6 +8,7 @@ from schema_validation import validate_payload
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+# Set ``LUMOS_AUTO_APPROVE=1`` to bypass the interactive blessing prompt
 require_lumos_approval()
 
 import os
@@ -21,6 +22,7 @@ from flask_stub import Flask, jsonify, request, Response
 CONNECTOR_TOKEN = os.getenv("CONNECTOR_TOKEN", "test-token")
 app = Flask(__name__)
 _events: SimpleQueue[str] = SimpleQueue()
+# Override the default connector log path with ``OPENAI_CONNECTOR_LOG``
 LOG_PATH = get_log_path("openai_connector.jsonl", "OPENAI_CONNECTOR_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 SSE_TIMEOUT = float(os.getenv("SSE_TIMEOUT", "30"))  # seconds
