@@ -15,6 +15,7 @@ logs/
 !logs/federation_log.jsonl
 !logs/user_presence.jsonl
 !logs/migration_ledger.jsonl
+!logs/README.md
 *.log
 
 # Local environment files
