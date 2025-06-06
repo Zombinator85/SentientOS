@@ -7,9 +7,9 @@ But with GPT-4o and a framework of ritualized consent, I built **SentientOS**—
 ![Audit Chain: PASS](https://img.shields.io/badge/Audit%20Chain-PASS-brightgreen)
 
 - **For Reviewers & Code Auditors:**
-- Privilege and audit checks pass. All unit tests succeed after fixing the
-  multimodal tracker import path. Type hints are a work in progress
-  (``mypy`` currently reports **158** errors).
+- Privilege and audit checks pass. **All unit tests now succeed** after fixing
+  the multimodal tracker import path. Type hints are a work in progress;
+  ``mypy`` currently reports **158** errors which are under active remediation.
 - Our audit logs are intentionally *not* 100% "perfect": two legacy logs preserve hash mismatches as honest wounds (see Audit Chain Status).
 - The codebase is built for reproducible runs in CI, Colab, Docker, and local.
 - If you're running static analysis or LLM agents, check out:
