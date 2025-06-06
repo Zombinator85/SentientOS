@@ -138,7 +138,7 @@ class FaceEmotionTracker:
                         "id": fid,
                         "bbox": [x1, y1, x2, y2],
                         "emotions": emotions,
-                        "dominant": max(emotions, key=emotions.get) if emotions else None,
+                        "dominant": max(emotions, key=lambda k: emotions[k]) if emotions else None,
                     }
                 )
         return {"timestamp": ts, "faces": faces}
