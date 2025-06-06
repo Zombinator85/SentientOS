@@ -6,7 +6,7 @@ class Request:
         self._json = json_data or {}
         self.headers = headers or {}
 
-    def get_json(self, silent=False):
+    def get_json(self, force=False, silent=False):
         return self._json
 
 
@@ -55,6 +55,9 @@ class Flask:
                     return Response(rv, 200)
 
         return Client()
+
+    def run(self, *args, **kwargs):
+        pass
 
 
 def jsonify(obj):
