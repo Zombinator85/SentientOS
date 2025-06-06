@@ -6,6 +6,13 @@ from logging_config import get_log_path
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 
+"""Review festival or onboarding curriculum files.
+
+Results are written to ``logs/neos_curriculum_review.jsonl`` or the path
+defined by ``NEOS_CURRICULUM_REVIEW_LOG``. See ``docs/ENVIRONMENT.md`` for
+details.
+"""
+
 import argparse
 import json
 import os

@@ -97,6 +97,10 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `NARRATOR_MODEL` | Summarization model for the narrator | `facebook/bart-large-cnn` |
 | `NEOS_BLENDER_EXPORT_DIR` | Directory for Neos Blender exports | `blender_exports` |
 | `NEOS_FESTIVAL_REPLAY_ANNOTATION_LOG` | Path for festival replay annotations | `logs/neos_festival_replay_annotations.jsonl` |
+| `NEOS_ASSET_LOG` | Path for generated model asset records | `logs/neos_model_assets.jsonl` |
+| `NEOS_SCRIPT_REQUEST_LOG` | Path for model script requests | `logs/neos_script_requests.jsonl` |
+| `NEOS_PERMISSION_COUNCIL_LOG` | Path for permission council approvals | `logs/neos_permission_council.jsonl` |
+| `NEOS_CURRICULUM_REVIEW_LOG` | Path for curriculum review results | `logs/neos_curriculum_review.jsonl` |
 | `OCR_WATCH` | Folder watched for OCR screenshots | `screenshots` |
 | `PORT` | HTTP port for the blessing ceremony API | `5000` |
 | `PRIVILEGED_AUDIT_FILE` | Path used by `privilege_lint.py` to log privileged command usage | `logs/privileged_audit.jsonl` |

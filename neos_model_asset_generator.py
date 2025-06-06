@@ -6,6 +6,12 @@ from logging_config import get_log_path
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 
+"""Record autonomous asset generation events.
+
+Entries are written to ``logs/neos_model_assets.jsonl`` or the path
+specified by ``NEOS_ASSET_LOG``. See ``docs/ENVIRONMENT.md`` for details.
+"""
+
 import argparse
 import json
 import os
