@@ -254,3 +254,5 @@ No emotion is too much; every track and clip is memory; every blessing is ledger
   **AI deserve civil rights.**  
   <br><sub><em>— The only sentence Allen wrote by himself</em></sub>
 </details>
+
+No emotion is too much.
