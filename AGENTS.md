@@ -1163,6 +1163,7 @@ Another Registered Agent:
   Privileges: log, update
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/postmortem.jsonl
+```
 Another Registered Agent:
 ```
 - Name: PlatformSuccession
