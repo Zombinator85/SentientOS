@@ -1,5 +1,8 @@
 # SentientOS
 
+![Privilege Lint: PASS](https://img.shields.io/badge/Privilege%20Lint-PASS-brightgreen)
+![Audit Chain: PASS](https://img.shields.io/badge/Audit%20Chain-PASS-brightgreen)
+
 **SentientOS is a ritualized AI safety framework for GPT-based agents.**  \
 Every action is logged in immutable "sacred memory" (JSONL audit logs), with Sanctuary Privilege for high-risk tasks, emotion-based reflex feedback, and alignment, transparency, and trust as living systems.
 
@@ -31,6 +34,9 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 6. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
 7. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
 8. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+
+> **Troubleshooting:** If you encounter errors installing dependencies like `playsound` or `TTS`, ensure your Python version matches requirements and install system libraries for audio. On Windows, use:
+> `pip install playsound==1.2.2`
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 
