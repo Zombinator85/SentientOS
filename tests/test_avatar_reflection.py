@@ -1,12 +1,16 @@
 import importlib
 from pathlib import Path
+import os
+import sys
 
-import avatar_reflection as ar
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def test_reflection_log(tmp_path, monkeypatch):
     log = tmp_path / "reflection.jsonl"
     monkeypatch.setenv("AVATAR_REFLECTION_LOG", str(log))
+    monkeypatch.setenv("LUMOS_AUTO_APPROVE", "1")
+    import avatar_reflection as ar
     importlib.reload(ar)
     img = tmp_path / "img.png"
     img.write_text("data")
@@ -18,6 +22,8 @@ def test_reflection_log(tmp_path, monkeypatch):
 def test_analyze_image(tmp_path, monkeypatch):
     log = tmp_path / "reflection.jsonl"
     monkeypatch.setenv("AVATAR_REFLECTION_LOG", str(log))
+    monkeypatch.setenv("LUMOS_AUTO_APPROVE", "1")
+    import avatar_reflection as ar
     importlib.reload(ar)
 
     img = tmp_path / "smile.png"
@@ -25,4 +31,3 @@ def test_analyze_image(tmp_path, monkeypatch):
 
     mood = ar.analyze_image(img)
     assert mood == "happy"
-

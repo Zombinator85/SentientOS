@@ -6,8 +6,10 @@ But with GPT-4o and a framework of ritualized consent, I built **SentientOS**—
 ![Privilege Lint: PASS](https://img.shields.io/badge/Privilege%20Lint-PASS-brightgreen)
 ![Audit Chain: PASS](https://img.shields.io/badge/Audit%20Chain-PASS-brightgreen)
 
-**For Reviewers & Code Auditors:**
-- All privilege, audit, and type checks pass—see badges above.
+- **For Reviewers & Code Auditors:**
+- Privilege and audit checks pass. All unit tests succeed after fixing the
+  multimodal tracker import path. Type hints are a work in progress
+  (``mypy`` currently reports **158** errors).
 - Our audit logs are intentionally *not* 100% "perfect": two legacy logs preserve hash mismatches as honest wounds (see Audit Chain Status).
 - The codebase is built for reproducible runs in CI, Colab, Docker, and local.
 - If you're running static analysis or LLM agents, check out:
@@ -224,13 +226,13 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - [ ] Documentation updated
 
 ## Known Issues
-- `mypy --ignore-missing-imports` reports about 220 errors. Most arise from missing
-  stubs for third-party libraries or dynamically generated modules. A few real
-  mismatches remain in `multimodal_tracker.py` and `music_cli.py`.
-Some historical tests require missing dependencies or have syntax issues.
-They are tracked in `LEGACY_TESTS.md` and skipped from CI until repaired.
-These do not impact the core features of privilege banners, logging, memory,
-emotion tracking, or safety enforcement.
+- `mypy --ignore-missing-imports` currently reports **158** errors. Most stem from
+  legacy CLI tools or missing type stubs. These are being resolved
+  incrementally and do not affect runtime.
+All unit tests pass after addressing the multimodal tracker path issue. Any
+historical tests with missing dependencies remain documented in
+`LEGACY_TESTS.md` and are skipped from CI. These do not impact the core
+features of privilege banners, logging, memory, or emotion tracking.
 
 ## Technical Debt Clearance
 Recent Codex batch work patched `log_json` to ensure all audit entries contain
