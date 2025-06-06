@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, cast
 
 import final_approval
 
@@ -25,7 +25,7 @@ def list_pending() -> list[str]:
     return [p.stem for p in REVIEW_DIR.glob("*.json")]
 
 
-def load_review(name: str) -> Optional[Dict[str, str]]:
+def load_review(name: str) -> Optional[Dict[str, Any]]:
     fp = REVIEW_DIR / f"{name}.json"
     if fp.exists():
         try:
@@ -75,7 +75,7 @@ def _log_action(name: str, user: str, action: str, comment: str = "") -> None:
 
 def comment_review(name: str, user: str, text: str) -> None:
     info = load_review(name) or {"name": name}
-    comments = info.setdefault("comments", [])
+    comments: List[Dict[str, Any]] = cast(List[Dict[str, Any]], info.setdefault("comments", []))
     comments.append({
         "user": user,
         "text": text,
@@ -87,9 +87,9 @@ def comment_review(name: str, user: str, text: str) -> None:
 
 def vote_review(name: str, user: str, upvote: bool = True) -> None:
     info = load_review(name) or {"name": name}
-    votes = info.setdefault("votes", {})
+    votes: Dict[str, int] = cast(Dict[str, int], info.setdefault("votes", {}))
     votes[user] = 1 if upvote else -1
-    required = info.get("required_votes", 2)
+    required = int(info.get("required_votes", 2))
     (REVIEW_DIR / f"{name}.json").write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding="utf-8")
     _log_action(name, user, "upvote" if upvote else "downvote")
     if sum(1 for v in votes.values() if v > 0) >= required:

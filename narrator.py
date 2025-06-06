@@ -85,11 +85,11 @@ def infer_mood(entries: List[Dict[str, Any]]) -> str:
             continue
         if not emo:
             continue
-        lab = max(emo, key=emo.get)
+        lab = max(emo, key=lambda k: float(emo.get(k, 0)))
         scores[lab] = scores.get(lab, 0.0) + float(emo.get(lab, 0.0))
     if not scores:
         return "neutral"
-    mood = max(scores, key=scores.get)
+    mood = max(scores, key=lambda k: scores.get(k, 0))
     return mood.lower()
 
 
