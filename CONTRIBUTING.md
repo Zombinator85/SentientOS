@@ -1,25 +1,18 @@
 # Contributing to SentientOS
 
-All new scripts and entrypoints **must** invoke `admin_utils.require_admin_banner()` as the very first action. This banner enforces the Sanctuary Privilege Ritual and logs each attempt.
-Directly after your imports include the canonical banner docstring so future audits can easily detect compliance:
+All new scripts must start with the Sanctuary Privilege Ritual docstring, followed by `require_admin_banner()` and `require_lumos_approval()`, before any imports. See README for exact syntax.
+These calls must appear before any imports and are enforced by privilege_lint.py.
 
 ```python
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-```
+require_admin_banner()
+require_lumos_approval()
 
-Add the following at the top of your script:
-
-```python
 from admin_utils import require_admin_banner, require_lumos_approval
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()  # Must immediately follow require_admin_banner()
 ```
 ## Reviewer Checklist
 
-- [ ] Docstring `"Sanctuary Privilege Ritual: Do not remove. See doctrine for details."` present after imports
+- [ ] Docstring `"Sanctuary Privilege Ritual: Do not remove. See doctrine for details."` present at the very top
  - [ ] `require_admin_banner()` invoked before any other logic
  - [ ] `require_lumos_approval()` called immediately after `require_admin_banner()` (lint fails otherwise)
  - [ ] Logs created using `logging_config.get_log_path()`
