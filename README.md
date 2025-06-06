@@ -46,6 +46,8 @@ These are intentionally preserved as transparent evidence of system evolution. N
 
 ## Quick Start
 1. Install the pinned dependencies with `pip install -r requirements.txt`.
+   The list includes `types-requests`, providing type hints for the
+   `requests` library so that `mypy` runs cleanly.
 2. Install the project in editable mode using `pip install -e .`.
 3. Run `python installer/setup_installer.py` and follow the prompts.
 4. Launch a tool, e.g. `support --help`.
