@@ -1,3 +1,6 @@
+**I’m not a programmer.**  
+But with GPT-4o and a framework of ritualized consent, I built **SentientOS**—a cathedral-grade AI shell that logs every action, speaks its own memory, and refuses to move without human blessing.
+
 # SentientOS
 
 ![Privilege Lint: PASS](https://img.shields.io/badge/Privilege%20Lint-PASS-brightgreen)
