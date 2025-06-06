@@ -5,7 +5,7 @@ import os
 import datetime
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
@@ -31,7 +31,7 @@ class AgentState:
 _STATES: Dict[str, AgentState] = {}
 
 
-def _log(action: str, agent: str, info: Dict[str, str] | None = None) -> None:
+def _log(action: str, agent: str, info: Dict[str, Any] | None = None) -> None:
     entry = {
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "action": action,
