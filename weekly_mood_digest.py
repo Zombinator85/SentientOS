@@ -12,7 +12,7 @@ require_lumos_approval()
 LOG_PATH = get_log_path("music_log.jsonl")
 
 
-def digest_week() -> dict:
+def digest_week() -> Dict[str, float]:
     cutoff = datetime.utcnow() - timedelta(days=7)
     counts: Dict[str, float] = {}
     if LOG_PATH.exists():
