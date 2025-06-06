@@ -11,13 +11,13 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 TEACHING_LOG = get_log_path("spiral_teaching_companion.jsonl", "SPIRAL_TEACHING_LOG")
 TEACHING_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 
-def start_session(user: str, lesson: str) -> Dict[str, str]:
+def start_session(user: str, lesson: str) -> Dict[str, Any]:
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "user": user,
@@ -29,7 +29,7 @@ def start_session(user: str, lesson: str) -> Dict[str, str]:
     return entry
 
 
-def log_progress(user: str, lesson: str, progress: int) -> Dict[str, str]:
+def log_progress(user: str, lesson: str, progress: int) -> Dict[str, Any]:
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "user": user,
@@ -41,10 +41,10 @@ def log_progress(user: str, lesson: str, progress: int) -> Dict[str, str]:
     return entry
 
 
-def history(user: str = "") -> List[Dict[str, str]]:
+def history(user: str = "") -> List[Dict[str, Any]]:
     if not TEACHING_LOG.exists():
         return []
-    out: List[Dict[str, str]] = []
+    out: List[Dict[str, Any]] = []
     for ln in TEACHING_LOG.read_text(encoding="utf-8").splitlines():
         try:
             obj = json.loads(ln)
