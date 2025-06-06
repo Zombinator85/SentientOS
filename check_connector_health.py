@@ -10,6 +10,7 @@ from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
 import openai_connector
 from flask_stub import Request
+from typing import Any
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
@@ -17,7 +18,7 @@ require_admin_banner()  # Enforced by doctrine
 require_lumos_approval()
 
 
-def _setup() -> tuple[openai_connector.Flask.test_client, Path]:
+def _setup() -> tuple[Any, Path]:
     os.environ.setdefault("CONNECTOR_TOKEN", "token123")
     os.environ.setdefault("SSE_TIMEOUT", "0.2")
     log_path = get_log_path("openai_connector_health.jsonl", "OPENAI_CONNECTOR_LOG")
