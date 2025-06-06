@@ -39,7 +39,7 @@ def run_loop() -> None:  # pragma: no cover - realtime usage
         return
     print(f"[PRESENCE] Listening for wake words: {', '.join(WAKE_WORDS)}")
     while True:
-        result = recognize_from_mic(save_audio=False)
+        result = recognize_from_mic(False)
         text = (result.get("message") or "").lower()
         if not text:
             continue

@@ -3,18 +3,22 @@ import os
 import json
 import time
 import random
+import threading
 import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Callable, cast, Any
 
 from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+_speak_async: Optional[Callable[..., threading.Thread]]
 try:
-    from tts_bridge import speak_async
+    from tts_bridge import speak_async as _speak_async
 except Exception:  # pragma: no cover - optional
-    speak_async = None
+    _speak_async = None
+
+speak_async: Optional[Callable[..., threading.Thread]] = _speak_async
 
 from mic_bridge import recognize_from_mic
 
@@ -24,7 +28,7 @@ LOG_FILE = get_log_path("backchannel_audit.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _log(trigger: str, phrase: str, extra: Dict[str, str] | None = None) -> None:
+def _log(trigger: str, phrase: str, extra: Dict[str, Any] | None = None) -> None:
     entry = {
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "trigger": trigger,
@@ -40,9 +44,9 @@ def run_loop() -> None:  # pragma: no cover - real-time loop
     last_speech = time.time()
     print(f"[BACKCHANNEL] Running with gap {GAP_SECONDS}s")
     while True:
-        result = recognize_from_mic(save_audio=False)
+        result = recognize_from_mic(False)
         text = result.get("message")
-        emotions = result.get("emotions") or {}
+        emotions = cast(Dict[str, float], result.get("emotions") or {})
         if text:
             last_speech = time.time()
             continue
