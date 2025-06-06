@@ -46,6 +46,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `TTS_ENGINE` | Primary text-to-speech engine | `pyttsx3` |
 | `TTS_COQUI_MODEL` | Coqui TTS model path | `tts_models/en/vctk/vits` |
 | `AUDIO_LOG_DIR` | Directory for audio logs | `logs/audio` |
+| `AUTONOMOUS_AUDIT_LOG` | Path used by `autonomous_audit.py` for audit entries | `logs/autonomous_audit.jsonl` |
 | `ELEVEN_API_KEY` | Optional ElevenLabs API key | *(none)* |
 | `ELEVEN_VOICE` | Default ElevenLabs voice | `Rachel` |
 | `BARK_SPEAKER` | Bark speaker ID | `v2/en_speaker_6` |

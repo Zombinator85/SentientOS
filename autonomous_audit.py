@@ -6,6 +6,9 @@ Autonomous audit and recap generator for the SentientOS Cathedral.
 It scans logs and ledger files for anomalies and can produce a
 public-facing report with sensitive fields masked.
 
+The log file defaults to ``logs/autonomous_audit.jsonl`` and can be
+customized with the ``AUTONOMOUS_AUDIT_LOG`` environment variable.
+
 Example:
     python autonomous_audit.py --report-dir public_reports
 """
