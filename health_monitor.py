@@ -20,7 +20,7 @@ def check_all() -> None:
         ok = True
         reason = ""
         try:
-            ok, reason = funcs["check"]()  # type: ignore[call-arg]
+            ok, reason = funcs["check"]()  # type: ignore[call-arg,misc]
         except Exception as e:  # pragma: no cover - defensive
             ok = False
             reason = str(e)
