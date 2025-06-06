@@ -1,8 +1,13 @@
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, TypedDict
 
 from admin_utils import require_admin_banner, require_lumos_approval
+
+
+class Viseme(TypedDict):
+    time: float
+    viseme: str
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
@@ -12,8 +17,8 @@ except Exception:  # pragma: no cover - optional
     pyttsx3 = None
 
 
-def _simple_visemes(text: str) -> Dict[str, float]:
-    visemes = []
+def _simple_visemes(text: str) -> Dict[str, List[Viseme]]:
+    visemes: List[Viseme] = []
     t = 0.0
     for word in text.split():
         char = word[0].lower()
