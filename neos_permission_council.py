@@ -6,6 +6,14 @@ from logging_config import get_log_path
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 
+"""Approve Neos model assets and script requests.
+
+Decisions are logged to ``logs/neos_permission_council.jsonl`` or the path
+from ``NEOS_PERMISSION_COUNCIL_LOG``. Pending items are read from the
+``NEOS_ASSET_LOG`` and ``NEOS_SCRIPT_REQUEST_LOG`` files. See
+``docs/ENVIRONMENT.md`` for details.
+"""
+
 import argparse
 import json
 import os
