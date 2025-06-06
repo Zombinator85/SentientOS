@@ -1,6 +1,7 @@
 import argparse
 import daily_theme
 from admin_utils import require_admin_banner, require_lumos_approval
+from typing import Optional
 
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -15,10 +16,10 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.cmd == "generate":
-        theme = daily_theme.generate()
+        theme: Optional[str] = daily_theme.generate()
         print(theme)
     else:
-        theme = daily_theme.latest()
+        theme: Optional[str] = daily_theme.latest()
         if theme:
             print(theme)
         else:

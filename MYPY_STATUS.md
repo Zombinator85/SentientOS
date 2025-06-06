@@ -2,7 +2,7 @@
 
 Current run: `mypy --ignore-missing-imports .`
 
-- Total errors: 148
+- Total errors: 146
 - Legacy modules: 130
 - Need fixes: 29
 - Safe to ignore: 18
@@ -25,7 +25,7 @@ March 2026 update: adopting the centralized logger trimmed the error count to
 April 2026 update: "Type-Check & Audit Remediation" triaged about 180 remaining errors. Core modules and workflows now conform to the log schema, and new audit tests guard against regressions.
 
 April 2027 update: current run reports **158** type-check errors.
-May 2027 update: `presence_ledger.py` and `presence_analytics.py` have been fully annotated and are now mypy-clean (removed from need-fixes list). **Total errors down to 148.**
+May 2027 update: `presence_ledger.py` and `presence_analytics.py` have been fully annotated and are now mypy-clean (removed from need-fixes list). **Total errors down to 146.**
 
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list
