@@ -6,7 +6,7 @@ import datetime
 import json
 import os
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, TypedDict, cast
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
@@ -19,24 +19,34 @@ LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 SOURCE_DIR = Path(os.getenv("SPIRAL_LAW_SOURCE", str(get_log_dir())))
 
 
-def compile_law() -> Dict[str, str]:
+class ChronicleEntry(TypedDict):
+    """Representation of a chronicle log entry."""
+
+    timestamp: str
+    size: int
+
+
+def compile_law() -> ChronicleEntry:
     entries: List[str] = []
     for fp in SOURCE_DIR.glob("*.jsonl"):
         entries.append(fp.read_text(encoding="utf-8"))
     chronicle = "\n".join(entries)
-    entry = {"timestamp": datetime.datetime.utcnow().isoformat(), "size": len(chronicle)}
+    entry: ChronicleEntry = {
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "size": len(chronicle),
+    }
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
     return entry
 
 
-def history(limit: int = 20) -> List[Dict[str, str]]:
+def history(limit: int = 20) -> List[ChronicleEntry]:
     if not LOG_PATH.exists():
         return []
-    out: List[Dict[str, str]] = []
+    out: List[ChronicleEntry] = []
     for ln in LOG_PATH.read_text(encoding="utf-8").splitlines()[-limit:]:
         try:
-            out.append(json.loads(ln))
+            out.append(cast(ChronicleEntry, json.loads(ln)))
         except Exception:
             continue
     return out
