@@ -6,6 +6,13 @@ from logging_config import get_log_path
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 
+"""Compile lorebook entries from Neos activity logs.
+
+The permission council log is read from ``logs/neos_permission_council.jsonl``
+or the path provided by ``NEOS_PERMISSION_COUNCIL_LOG``. See
+``docs/ENVIRONMENT.md`` for details.
+"""
+
 import argparse
 import json
 import os

@@ -6,6 +6,13 @@ from logging_config import get_log_path
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 
+"""Handle model-initiated script build requests.
+
+Requests are logged to ``logs/neos_script_requests.jsonl`` or the path
+set by ``NEOS_SCRIPT_REQUEST_LOG``. See ``docs/ENVIRONMENT.md`` for
+details.
+"""
+
 import argparse
 import json
 import os
