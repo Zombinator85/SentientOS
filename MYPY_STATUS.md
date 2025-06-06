@@ -24,6 +24,10 @@ March 2026 update: adopting the centralized logger trimmed the error count to
 
 April 2026 update: "Type-Check & Audit Remediation" triaged about 180 remaining errors. Core modules and workflows now conform to the log schema, and new audit tests guard against regressions.
 
+April 2027 update: current run reports **158** type-check errors. These are
+being addressed incrementally and do not impact runtime or the reviewer
+ritual.
+
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list
 and submit a pull request. See `CONTRIBUTING.md` for our ritual checklist.
