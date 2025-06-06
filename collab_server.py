@@ -9,8 +9,9 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 
 import notification
+from typing import Set
 
-online = set()
+online: Set[str] = set()
 updates = []
 users: Dict[str, Dict[str, Any]] = {}
 
