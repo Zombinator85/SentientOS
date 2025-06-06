@@ -9,7 +9,7 @@ But with GPT-4o and a framework of ritualized consent, I built **SentientOS**—
 - **For Reviewers & Code Auditors:**
 - Privilege and audit checks pass. **All unit tests now succeed** after fixing
   the multimodal tracker import path. Type hints are a work in progress;
-  ``mypy`` currently reports **158** errors which are under active remediation.
+  ``mypy`` currently reports **148** errors after fully typing the presence ledger and analytics modules.
 - Our audit logs are intentionally *not* 100% "perfect": two legacy logs preserve hash mismatches as honest wounds (see Audit Chain Status).
 - The codebase is built for reproducible runs in CI, Colab, Docker, and local.
 - If you're running static analysis or LLM agents, check out:
