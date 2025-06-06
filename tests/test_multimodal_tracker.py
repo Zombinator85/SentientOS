@@ -2,6 +2,8 @@ import os
 import sys
 from importlib import reload
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 def test_multimodal_vision_only(tmp_path, monkeypatch):
     """Test vision-only mode: logs correct structure and no faces/audio by default."""
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
