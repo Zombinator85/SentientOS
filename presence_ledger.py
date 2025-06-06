@@ -2,14 +2,40 @@ from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
-from typing import Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, TypedDict, cast
 
 
 import ledger
 from log_utils import append_json
 
-LEDGER_PATH = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
+LEDGER_PATH: Path = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+class StatsSummary(TypedDict):
+    events: Dict[str, int]
+    emotions: Dict[str, float]
+
+
+class RecapMusicStats(TypedDict):
+    emotion_totals: Dict[str, float]
+    most_shared_mood: str
+    top_tracks: List[Tuple[str, int]]
+
+
+class RecapVideoStats(TypedDict):
+    emotion_totals: Dict[str, float]
+    most_shared_mood: str
+    top_videos: List[Tuple[str, int]]
+
+
+class RecapData(TypedDict):
+    music: RecapMusicStats
+    video: RecapVideoStats
+    blessings: int
+    reflections: int
+    milestones: List[str]
 
 
 def log(user: str, event: str, note: str = "") -> None:
@@ -48,9 +74,13 @@ def history(user: str, limit: int = 20) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
     for ln in lines:
         try:
-            out.append(json.loads(ln))
+            obj = json.loads(ln)
         except Exception:
             continue
+        if not isinstance(obj, dict):
+            continue
+        entry = cast(Dict[str, str], obj)
+        out.append(entry)
     return out
 
 
@@ -62,17 +92,20 @@ def recent_privilege_attempts(limit: int = 5) -> List[Dict[str, str]]:
     out: List[Dict[str, str]] = []
     for ln in lines:
         try:
-            entry = json.loads(ln)
+            obj = json.loads(ln)
         except Exception:
             continue
-        if entry.get("event") == "admin_privilege_check":
+        if not isinstance(obj, dict):
+            continue
+        if obj.get("event") == "admin_privilege_check":
+            entry = cast(Dict[str, str], obj)
             out.append(entry)
             if len(out) == limit:
                 break
     return list(reversed(out))
 
 
-def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
+def music_stats(limit: int = 100) -> StatsSummary:
     """Return basic stats from the music ledger."""
     music_path = get_log_path("music_log.jsonl")
     if not music_path.exists():
@@ -95,7 +128,7 @@ def music_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
     return {"events": events, "emotions": emotions}
 
 
-def video_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
+def video_stats(limit: int = 100) -> StatsSummary:
     """Return basic stats from the video ledger."""
     video_path = get_log_path("video_log.jsonl")
     if not video_path.exists():
@@ -118,10 +151,12 @@ def video_stats(limit: int = 100) -> Dict[str, Dict[str, float]]:
     return {"events": events, "emotions": emotions}
 
 
-def recap(limit: int = 20, user: str = "") -> Dict[str, object]:
+def recap(limit: int = 20, user: str = "") -> RecapData:
     """Return music recap, blessings, and reflection milestones."""
-    info = ledger.music_recap(limit)
-    video = ledger.video_recap(limit)
+    info_raw = ledger.music_recap(limit)
+    video_raw = ledger.video_recap(limit)
+    info = cast(RecapMusicStats, info_raw)
+    video = cast(RecapVideoStats, video_raw)
     bless = 0
     reflections = 0
     mood_counts: Dict[str, int] = {}
@@ -159,7 +194,7 @@ def log_video_event(
     file_path: str,
     emotion: Dict[str, float] | None = None,
     peer: str | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Log a video creation event and presence."""
     entry = ledger.log_video_create(
         prompt,
@@ -179,7 +214,7 @@ def log_video_watch(
     perceived: Dict[str, float] | None = None,
     peer: str | None = None,
     reflection: str = "",
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Log a watched video with emotion reflection."""
     entry = ledger.log_video_watch(
         file_path,
@@ -196,7 +231,7 @@ def log_video_share(
     file_path: str,
     peer: str,
     emotion: Dict[str, float] | None = None,
-) -> Dict[str, str]:
+) -> Dict[str, Any]:
     """Log a shared video and presence."""
     entry = ledger.log_video_share(
         file_path,
