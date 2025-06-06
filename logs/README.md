@@ -1,0 +1,1 @@
+This directory stores audit logs in JSONL format. Two legacy files (`migration_ledger.jsonl` and `support_log.jsonl`) each contain a historical `prev hash` mismatch that predates the immutable chain protocol. These entries remain untouched for transparency; no logs are ever overwritten or hidden.

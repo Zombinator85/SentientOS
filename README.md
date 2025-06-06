@@ -17,6 +17,11 @@ _All code was written by a non-coder using only ChatGPT and free tools._
 _Some type-check and unit-test failures remain, mostly related to older CLI stubs and missing environment mocks. Full explanation in [Known Issues](#known-issues) below._
 
 _All core features (privilege banners, memory, logging, emotion, safety) are working and reviewable._
+## Audit Chain Status
+All current and operational logs validate as unbroken audit chains.
+Two legacy logs (`migration_ledger.jsonl` and `support_log.jsonl`) display a single prev hash mismatch each, reflecting system state transitions before adoption of the immutable chain protocol.
+These are intentionally preserved as transparent evidence of system evolution. No logs are ever silently overwritten or hidden.
+
 
 ## Cathedral TTS Log System
 - **Every new log is spoken aloud (if live)**
