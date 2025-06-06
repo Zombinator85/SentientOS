@@ -1,3 +1,9 @@
+from admin_utils import require_admin_banner, require_lumos_approval
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
+
 """Analyze rendered avatars and log emotional context."""
 from __future__ import annotations
 from logging_config import get_log_path
@@ -9,11 +15,6 @@ from datetime import datetime
 from pathlib import Path
 
 import emotion_utils as eu
-from admin_utils import require_admin_banner, require_lumos_approval
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 LOG_PATH = get_log_path("avatar_reflection.jsonl", "AVATAR_REFLECTION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
