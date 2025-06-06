@@ -1,7 +1,7 @@
 from logging_config import get_log_path
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, TypedDict, cast
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -14,25 +14,44 @@ except Exception:  # pragma: no cover - optional
     st = None
 
 
-def _load(limit: int = 100) -> List[Dict[str, object]]:
+class VideoEmotion(TypedDict):
+    """Emotion metadata for a video entry."""
+
+    intended: Dict[str, float]
+    perceived: Dict[str, float]
+    reported: Dict[str, float]
+    received: Dict[str, float]
+
+
+class VideoEntry(TypedDict):
+    """Data structure for each video_log entry."""
+
+    emotion: VideoEmotion
+
+
+def _load(limit: int = 100) -> List[VideoEntry]:
     path = get_log_path("video_log.jsonl")
     if not path.exists():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()[-limit:]
-    out: List[Dict[str, object]] = []
+    out: List[VideoEntry] = []
     for ln in lines:
         try:
-            out.append(json.loads(ln))
+            obj = json.loads(ln)
         except Exception:
             continue
+        if isinstance(obj, dict):
+            out.append(cast(VideoEntry, obj))
     return out
 
 
-def top_emotions(entries: List[Dict[str, object]]) -> Dict[str, float]:
+def top_emotions(entries: List[VideoEntry]) -> Dict[str, float]:
     totals: Dict[str, float] = {}
     for e in entries:
+        emo_block = e["emotion"]
         for k in ("intended", "perceived", "reported", "received"):
-            for emo, val in (e.get("emotion", {}).get(k) or {}).items():
+            vals = emo_block[k]
+            for emo, val in vals.items():
                 totals[emo] = totals.get(emo, 0.0) + val
     return totals
 
