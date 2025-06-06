@@ -2,7 +2,7 @@
 
 Current run: `mypy --ignore-missing-imports .`
 
-- Total errors: 142
+- Total errors: 165
 - Legacy modules: 130
 - Need fixes: 37
 - Safe to ignore: 18
