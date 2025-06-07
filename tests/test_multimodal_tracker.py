@@ -23,6 +23,7 @@ def test_multimodal_voice_only(tmp_path, monkeypatch):
     """Test voice-only mode logs correct audio and timeline."""
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
     monkeypatch.setenv("MULTIMODAL_LOG", str(tmp_path / "multi.jsonl"))
+    monkeypatch.delenv("SENTIENTOS_HEADLESS", raising=False)
 
     # Patch mic_bridge for voice sentiment
     class FakeMic:
@@ -44,6 +45,7 @@ def test_multimodal_both_sources(tmp_path, monkeypatch):
     """Test both vision and voice pipelines log and update memory."""
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
     monkeypatch.setenv("MULTIMODAL_LOG", str(tmp_path / "multi.jsonl"))
+    monkeypatch.delenv("SENTIENTOS_HEADLESS", raising=False)
 
     # Patch mic_bridge for voice
     class FakeMic:

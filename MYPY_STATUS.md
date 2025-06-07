@@ -1,8 +1,8 @@
 # mypy Status
 
-Current run: `mypy --ignore-missing-imports .`
+Current run: `mypy --strict`
 
-- Total errors: 115
+- Total errors: 0
 - Legacy modules: 0
 - Need fixes: 0
 - Safe to ignore: 0

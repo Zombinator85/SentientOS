@@ -1,6 +1,7 @@
+"""Review CLI for annotating and managing storyboard feedback."""
+
 import argparse
 from pathlib import Path
-from sentient_banner import print_banner, print_closing
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -14,6 +15,7 @@ import re
 
 
 def annotate(path: Path, chapter: int, text: str) -> None:
+    """Add an annotation to a storyboard chapter and send mention notifications."""
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch.setdefault("annotations", []).append(text)
@@ -24,6 +26,7 @@ def annotate(path: Path, chapter: int, text: str) -> None:
 
 
 def suggest_edit(path: Path, chapter: int, text: str) -> None:
+    """Append an edit suggestion for the given chapter."""
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch.setdefault("suggestions", []).append(text)
@@ -31,6 +34,7 @@ def suggest_edit(path: Path, chapter: int, text: str) -> None:
 
 
 def resolve_comment(path: Path, chapter: int, index: int) -> None:
+    """Remove an annotation by index from a chapter."""
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ann = ch.get("annotations", [])
@@ -39,6 +43,7 @@ def resolve_comment(path: Path, chapter: int, index: int) -> None:
     save_storyboard(data, path)
 
 def set_status(path: Path, chapter: int, status: str) -> None:
+    """Set an explicit status on a storyboard chapter."""
     data = load_storyboard(path)
     ch = data.get("chapters", [])[chapter - 1]
     ch["status"] = status
@@ -46,6 +51,10 @@ def set_status(path: Path, chapter: int, status: str) -> None:
 
 
 def main() -> None:
+    """Entry point for the review CLI."""
+    # Lazily import banner utilities to avoid circular imports.
+    from sentient_banner import print_banner, print_closing
+
     require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser()

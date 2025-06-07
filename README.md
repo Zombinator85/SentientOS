@@ -301,7 +301,7 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - [ ] Documentation updated
 
 ## Known Issues
-- `mypy --ignore-missing-imports` currently reports **115** errors across the codebase. Legacy CLI tools are progressively being typed.
+- `mypy --strict` currently reports **0** errors across the codebase.
 All unit tests pass after addressing the multimodal tracker path issue. Any
 historical tests with missing dependencies remain documented in
 `LEGACY_TESTS.md` and are skipped from CI. These do not impact the core
