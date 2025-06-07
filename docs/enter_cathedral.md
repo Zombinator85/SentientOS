@@ -1,15 +1,22 @@
-# `/enter_cathedral` Ritual Route
+# `/enter_cathedral` Endpoint
 
-Only council-blessed avatars may invoke this HTTP route. The caller sends a JSON payload containing their `avatar_id`, a short `intent` statement, and a `consent_token` previously issued by the guardian daemon.
+## Purpose and Ritual
+The endpoint invites a remote avatar or service into the cathedral. It logs the request and performs a short consent ceremony before any data exchange.
 
+## Expected JSON Payload
 ```json
 {
-  "avatar_id": "Lumos",
-  "intent": "join nightly reflection",
-  "consent_token": "abc123"
+  "name": "str",            // unique avatar name
+  "token": "str",           // federation or session token
+  "blessing": "str"         // optional greeting or vow
 }
 ```
 
-The server verifies the token and logs the request to `logs/enter_cathedral.jsonl`. The entry stores timestamp, avatar, intent, and the requesting IP. Failed authentications are logged with reason codes. All data is retained for audit.
+## Authentication and Consent
+`token` is validated against the federation ledger. The caller must present proof of consent. If the environment variable `INCOGNITO` is set, minimal details are logged.
 
-Access is rate limited to one request per minute per avatar. Abuse triggers a privilege freeze via `self_defense.py`.
+## Rate Limits and Safety
+Calls are rate-limited per IP and token. Excess requests are ignored for one minute. Invalid tokens are recorded for audit.
+
+## Persistence
+Successful entries append a record to `logs/federation_log.jsonl` and a short summary to `logs/support_log.jsonl`.
