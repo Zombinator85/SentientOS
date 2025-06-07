@@ -4,7 +4,10 @@ import json
 import hashlib
 import datetime
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
+
+# Vector type can be either an embedding vector or bag-of-words mapping
+Vector = Union[List[float], Dict[str, int]]
 from emotions import empty_emotion_vector
 import emotion_memory as em
 
@@ -121,11 +124,12 @@ def _embedding(text: str) -> List[float]:
     return [b / 255.0 for b in digest[:64]]
 
 
-def _vectorize(text: str):
+def _vectorize(text: str) -> Vector:
+    """Return either an embedding vector or bag-of-words mapping."""
     return _embedding(text) if USE_EMBEDDINGS else _bag_of_words(text)
 
 
-def _cosine(a, b) -> float:
+def _cosine(a: Vector, b: Vector) -> float:
     """Cosine similarity for dict or list vectors."""
     if isinstance(a, dict) and isinstance(b, dict):
         dot = sum(a.get(t, 0) * b.get(t, 0) for t in a)
