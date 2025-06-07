@@ -122,6 +122,9 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `USER` | Default user name when not provided | `anon` |
 | `VOICE_MODEL` | Model used for voice responses | `openai/gpt-4o` |
 | `WAKE_WORDS` | Wake words that trigger presence logging | `Lumos` |
+| `STORY_DURATION` | Seconds to capture when recording story clips | `5` |
+| `STORY_RES` | Resolution for screen recordings | `1024x768` |
+| `DISPLAY` | X11 display used for screen capture | `:0.0` |
 | `WEBHOOK_CHECK_SEC` | Seconds between webhook status checks | `60` |
 | `WORKFLOW_REVIEW_DIR` | Directory for submitted workflow reviews | `workflows/review` |
 

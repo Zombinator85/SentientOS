@@ -69,6 +69,8 @@ Every reflex promotion or demotion is logged with user, timestamp, and context f
 Install the pinned dependencies with `pip install -r requirements.txt`. Then install the project in editable mode using `pip install -e .` and run `python installer/setup_installer.py` for a one-click setup. The installer seeds example files and walks you through providing API keys and checking your microphone. No user data ever leaves your machine. When complete, a small onboarding dashboard lists active models and your handle.
 Copy `.env.example` to `.env` and see [ENVIRONMENT.md](ENVIRONMENT.md) for details on each variable.
 
+Type checking uses `mypy --strict` with **0** errors in core modules.
+
 
 The cathedral will not run until you affirm the liturgy. On first launch `user_profile.update_profile()` invokes a short ritual requiring your signature. This moment is logged as a ceremonial welcome before any other feature is unlocked.
 
