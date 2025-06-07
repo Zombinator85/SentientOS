@@ -14,7 +14,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from flask_stub import Flask, jsonify, request
 
@@ -24,18 +24,18 @@ LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 app = Flask(__name__)
 
 
-def log_event(action: str, data: Dict[str, str]) -> Dict[str, str]:
+def log_event(action: str, data: Dict[str, Any]) -> Dict[str, Any]:
     entry = {"timestamp": datetime.utcnow().isoformat(), "action": action, **data}
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
     return entry
 
 
-def compose_timeline(name: str, events: List[str]) -> Dict[str, str]:
+def compose_timeline(name: str, events: List[str]) -> Dict[str, Any]:
     return log_event("compose", {"name": name, "events": events})
 
 
-def history(limit: int = 20) -> List[Dict[str, str]]:
+def history(limit: int = 20) -> List[Dict[str, Any]]:
     if not LOG_PATH.exists():
         return []
     lines = LOG_PATH.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -64,7 +64,7 @@ def api_history() -> str:
 
 
 # ProtoFlux hook
-def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
+def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
     events = data.get("events") or []
     if not isinstance(events, list):
         events = [events]

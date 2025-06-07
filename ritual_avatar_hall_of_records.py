@@ -15,13 +15,13 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 LOG_PATH = get_log_path("avatar_hall_of_records.jsonl", "AVATAR_HALL_RECORDS_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
-def log_record(record_type: str, data: Dict[str, str]) -> Dict[str, str]:
+def log_record(record_type: str, data: Dict[str, str]) -> Dict[str, Any]:
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "type": record_type,
@@ -32,7 +32,7 @@ def log_record(record_type: str, data: Dict[str, str]) -> Dict[str, str]:
     return entry
 
 
-def list_records(record_type: str | None = None) -> List[Dict[str, str]]:
+def list_records(record_type: str | None = None) -> List[Dict[str, Any]]:
     if not LOG_PATH.exists():
         return []
     out: List[Dict[str, str]] = []
