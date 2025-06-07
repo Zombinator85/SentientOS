@@ -1,3 +1,5 @@
+"""CLI to correlate confession and blessing logs."""
+
 from logging_config import get_log_path
 import json
 from pathlib import Path

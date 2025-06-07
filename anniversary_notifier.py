@@ -1,3 +1,5 @@
+"""Anniversary notifier that logs cathedral anniversaries."""
+
 from logging_config import get_log_path
 import os
 import json

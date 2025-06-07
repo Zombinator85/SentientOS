@@ -15,7 +15,7 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 
 try:
-    import yaml  # type: ignore
+    import yaml  # type: ignore  # optional YAML support
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 

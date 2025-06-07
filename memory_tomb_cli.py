@@ -37,7 +37,7 @@ def list_entries(args: argparse.Namespace) -> None:
 
 def wordcloud_command(args: argparse.Namespace) -> None:
     try:
-        from wordcloud import WordCloud  # type: ignore
+        from wordcloud import WordCloud  # type: ignore  # wordcloud optional
     except Exception:
         print("wordcloud package required")
         return

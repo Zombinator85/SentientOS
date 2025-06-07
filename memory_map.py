@@ -9,8 +9,8 @@ from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 try:
-    import pandas as pd  # type: ignore
-    import streamlit as st  # type: ignore
+    import pandas as pd  # type: ignore  # pandas optional
+    import streamlit as st  # type: ignore  # Streamlit dashboard
 except Exception:  # pragma: no cover - optional
     pd = None
     st = None

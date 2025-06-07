@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 try:
-    import yaml  # type: ignore
+    import yaml  # type: ignore  # YAML workflow library
 except Exception:  # pragma: no cover - optional
     yaml = None
 

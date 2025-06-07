@@ -16,7 +16,7 @@ import os
 import final_approval
 
 try:
-    import yaml  # type: ignore
+    import yaml  # type: ignore  # optional YAML policies
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 

@@ -146,12 +146,11 @@ Additional guides:
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
-Watch a 60 second demo of log healing and Audit Saint induction in
-[docs/healing_demo.mp4](docs/healing_demo.mp4) and share it with newcomers.
+The video demo has been removed; stay tuned for an updated screencast.
 Read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) for the written ritual.
 Use the **Share Your Saint Story** issue template when submitting your first pull request.
 
-See FIRST_RUN.md for cloning and running only green tests. Questions? Ping the Steward on the discussions board.
+See FIRST_RUN.md for cloning and running only green tests. Environment variables are described in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md). Questions? Ping the Steward on the discussions board.
 
 ### Ask for a Buddy
 New contributors are invited to request a **buddy** for their first pull request or review. A buddy helps with environment setup, running `python verify_audits.py`, and general PR etiquette. Mention "buddy request" in your issue or discussion thread and a steward will pair you up.

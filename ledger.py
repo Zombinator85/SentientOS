@@ -503,4 +503,5 @@ def print_recap(limit: int = 3) -> None:
         "federation_recent": fed["recent"],
         "music_recent": music["recent"],
     }
+    # PresenceMetrics available in analytics, not shown here.
     print(json.dumps(data, indent=2))

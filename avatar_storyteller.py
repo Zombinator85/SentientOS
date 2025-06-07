@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 
 try:  # optional speech output
-    import tts_bridge  # type: ignore
+    import tts_bridge  # type: ignore  # internal TTS bridge
 except Exception:  # pragma: no cover - optional
-    tts_bridge = None  # type: ignore
+    tts_bridge = None  # type: ignore  # disable speech
 
 from admin_utils import require_admin_banner, require_lumos_approval
 

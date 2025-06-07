@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 try:
-    import requests  # type: ignore
+    import requests  # type: ignore  # HTTP client optional
 except Exception:  # pragma: no cover - optional
     requests = None
 

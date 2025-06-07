@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 try:
-    from wordcloud import WordCloud  # type: ignore
+    from wordcloud import WordCloud  # type: ignore  # wordcloud optional
 except Exception:  # pragma: no cover - optional
     WordCloud = None
 

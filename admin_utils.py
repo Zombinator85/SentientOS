@@ -58,7 +58,7 @@ def is_admin() -> bool:
     """Return True if running with administrative privileges."""
     if os.name == "nt":
         try:
-            import ctypes  # type: ignore
+            import ctypes  # type: ignore  # windows admin API
             windll = getattr(ctypes, "windll", None)
             if windll is None:
                 return False
@@ -91,7 +91,7 @@ def require_admin_banner() -> None:
 
     if os.name == "nt":
         try:
-            import ctypes  # type: ignore
+            import ctypes  # type: ignore  # windows admin API
             windll = getattr(ctypes, "windll", None)
             if windll is None:
                 raise RuntimeError("No windll")

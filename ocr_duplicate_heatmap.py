@@ -9,8 +9,8 @@ import os
 from pathlib import Path
 
 try:
-    from PIL import Image  # type: ignore
-    import numpy as np  # type: ignore
+    from PIL import Image  # type: ignore  # Pillow missing stubs
+    import numpy as np  # type: ignore  # numpy optional for heatmap
 except Exception:  # pragma: no cover - optional
     Image = None
     np = None
