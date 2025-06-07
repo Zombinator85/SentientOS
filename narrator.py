@@ -27,15 +27,19 @@ import json
 import os
 from pathlib import Path
 from logging_config import get_log_path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable, Optional
 
+pipeline: Optional[Callable[..., Any]]
 try:  # summarisation backend
-    from transformers import pipeline
+    from transformers import pipeline as hf_pipeline
+    pipeline = hf_pipeline
 except Exception:  # pragma: no cover - optional dependency
     pipeline = None
 
+tts_bridge: Any
 try:
-    import tts_bridge  # handles multiple TTS engines
+    import tts_bridge as tts_mod  # handles multiple TTS engines
+    tts_bridge = tts_mod
 except Exception:  # pragma: no cover - optional
     tts_bridge = None
 
