@@ -1,7 +1,13 @@
+"""Tests for the review CLI utilities."""
+
 import json
 from pathlib import Path
 import subprocess
 import os
+import sys
+
+os.environ.setdefault("SENTIENTOS_HEADLESS", "1")
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from review_cli import annotate, suggest_edit, resolve_comment, set_status
 import importlib
@@ -9,6 +15,7 @@ import user_profile as up
 
 
 def test_annotation(tmp_path):
+    """Verify annotations, suggestions, and comment resolution."""
     sb = tmp_path / "sb.json"
     data = {"chapters": [{"chapter": 1, "text": "A"}]}
     sb.write_text(json.dumps(data))
@@ -24,6 +31,7 @@ def test_annotation(tmp_path):
 
 
 def test_status_and_persona(tmp_path):
+    """Ensure CLI reports persona from saved user profile."""
     sb = tmp_path / "sb.json"
     data = {"chapters": [{"chapter": 1, "text": "A"}]}
     sb.write_text(json.dumps(data))
