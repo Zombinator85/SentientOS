@@ -44,11 +44,13 @@ def usage_stats(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         if not wf:
             continue
         kind = ev.get("event")
-        ts_str = ev.get("timestamp")
-        try:
-            ts = datetime.datetime.fromisoformat(ts_str)
-        except Exception:
-            ts = None
+        ts_str_raw = ev.get("timestamp")
+        ts: Optional[datetime.datetime] = None
+        if isinstance(ts_str_raw, str):
+            try:
+                ts = datetime.datetime.fromisoformat(ts_str_raw)
+            except Exception:
+                ts = None
         if kind == "workflow.start":
             start_times[wf] = ts or datetime.datetime.utcnow()
         elif kind == "workflow.end":
@@ -63,7 +65,7 @@ def usage_stats(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
             if wf in start_times and ts:
                 delta = (ts - start_times.pop(wf)).total_seconds()
                 info["duration_total"] += delta
-            info["last_ts"] = ts_str
+            info["last_ts"] = ts_str_raw
             info["last_status"] = status
         elif kind == "workflow.step":
             if ev.get("payload", {}).get("status") == "denied":
@@ -101,11 +103,13 @@ def find_bottlenecks(events: List[Dict[str, Any]]) -> Dict[str, Any]:
         wf = ev.get("payload", {}).get("workflow")
         step = ev.get("payload", {}).get("step")
         kind = ev.get("event")
-        ts_str = ev.get("timestamp")
-        try:
-            ts = datetime.datetime.fromisoformat(ts_str)
-        except Exception:
-            ts = None
+        ts_str_raw = ev.get("timestamp")
+        ts = None
+        if isinstance(ts_str_raw, str):
+            try:
+                ts = datetime.datetime.fromisoformat(ts_str_raw)
+            except Exception:
+                ts = None
         if kind == "workflow.step" and step:
             status = ev.get("payload", {}).get("status")
             if status == "failed":

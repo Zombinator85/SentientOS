@@ -65,10 +65,14 @@ def api_history() -> str:
 
 # ProtoFlux hook
 def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
-    events = data.get("events") or []
-    if not isinstance(events, list):
-        events = [events]
-    return compose_timeline(data.get("name", ""), [str(e) for e in events])
+    events_raw = data.get("events")
+    if isinstance(events_raw, list):
+        events: List[str] = [str(e) for e in events_raw]
+    elif events_raw is not None:
+        events = [str(events_raw)]
+    else:
+        events = []
+    return compose_timeline(data.get("name", ""), events)
 
 
 def main() -> None:  # pragma: no cover - CLI
