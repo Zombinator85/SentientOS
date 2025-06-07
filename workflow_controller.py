@@ -249,9 +249,9 @@ def run_workflow(
                     persona=persona,
                     policy=ev_name,
                 )
-                for fn in step.get("on_fail", []):
+                for fail_fn in step.get("on_fail", []):
                     try:
-                        fn()
+                        fail_fn()
                     except Exception:
                         pass
                 if auto_undo:
@@ -265,8 +265,8 @@ def run_workflow(
                 )
                 return False
         try:
-            fn: Callable[[], Any] | str = step.get("action", lambda: None)
-            if isinstance(fn, str) and fn == "run:reflex":
+            action_fn: Callable[[], Any] | str = step.get("action", lambda: None)
+            if isinstance(action_fn, str) and action_fn == "run:reflex":
                 rule = step.get("params", {}).get("rule", step.get("rule", step.get("name")))
                 step["reflex_rule"] = rule
 
@@ -290,13 +290,13 @@ def run_workflow(
                     )
                     return success
 
-                fn = _reflex_action
-                step["action"] = fn
-            elif isinstance(fn, str):
-                fn = _wrap_action(fn, step.get("params"))
-                step["action"] = fn
+                action_fn = _reflex_action
+                step["action"] = action_fn
+            elif isinstance(action_fn, str):
+                action_fn = _wrap_action(action_fn, step.get("params"))
+                step["action"] = action_fn
 
-            fn()
+            action_fn()
             executed.append(step)
             _HISTORY.append((name, step))
             _log(
@@ -317,9 +317,9 @@ def run_workflow(
                 agent=agent,
                 persona=persona,
             )
-            for fn in step.get("on_fail", []):
+            for fail_fn in step.get("on_fail", []):
                 try:
-                    fn()
+                    fail_fn()
                 except Exception:
                     pass
             if auto_undo:
