@@ -9,6 +9,7 @@ git clone <your-fork-url>
 cd SentientOS
 bash setup_env.sh
 pip install -r requirements.txt
+python onboard_cli.py --check
 ```
 
 ## Running Tests
