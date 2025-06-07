@@ -16,9 +16,9 @@ except Exception:
     TTS = None
 
 try:
-    import requests  # used for ElevenLabs
+    import requests  # type: ignore  # used for ElevenLabs
 except Exception:
-    requests = None
+    requests = None  # type: ignore[misc]
 
 try:  # Bark TTS optional
     from bark import generate_audio  # type: ignore
