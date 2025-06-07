@@ -1,5 +1,3 @@
-from admin_utils import require_admin_banner, require_lumos_approval
-
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 Autonomous audit and recap generator for the SentientOS Cathedral.
@@ -12,8 +10,11 @@ customized with the ``AUTONOMOUS_AUDIT_LOG`` environment variable.
 Example:
     python autonomous_audit.py --report-dir public_reports
 """
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+
+from admin_utils import require_admin_banner, require_lumos_approval
 
 from logging_config import get_log_path, get_log_dir
 
