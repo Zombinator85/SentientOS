@@ -283,6 +283,7 @@ All unit tests pass after addressing the multimodal tracker path issue. Any
 historical tests with missing dependencies remain documented in
 `LEGACY_TESTS.md` and are skipped from CI. These do not impact the core
 features of privilege banners, logging, memory, or emotion tracking.
+- Legacy wounds transparently documented and preserved in audit logs.
 
 ## Technical Debt Clearance
 Recent Codex batch work patched `log_json` to ensure all audit entries contain
