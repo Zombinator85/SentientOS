@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from admin_utils import require_admin_banner, require_lumos_approval
 from flask_stub import Flask, jsonify, request
@@ -21,7 +21,7 @@ LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 app = Flask(__name__)
 
 
-def log_status(world: str, status: str, latency: float = 0.0) -> Dict[str, str]:
+def log_status(world: str, status: str, latency: float = 0.0) -> Dict[str, Any]:
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "world": world,
@@ -33,7 +33,7 @@ def log_status(world: str, status: str, latency: float = 0.0) -> Dict[str, str]:
     return entry
 
 
-def history(limit: int = 20) -> List[Dict[str, str]]:
+def history(limit: int = 20) -> List[Dict[str, Any]]:
     if not LOG_PATH.exists():
         return []
     lines = LOG_PATH.read_text(encoding="utf-8").splitlines()[-limit:]
@@ -52,7 +52,7 @@ def api_history() -> str:
     return jsonify(history(int(data.get("limit", 20))))
 
 
-def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
+def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
     return log_status(data.get("world", ""), data.get("status", ""), float(data.get("latency", 0.0)))
 
 

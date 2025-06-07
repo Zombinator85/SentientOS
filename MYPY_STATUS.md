@@ -2,9 +2,9 @@
 
 Current run: `mypy --ignore-missing-imports .`
 
-- Total errors: 125
+- Total errors: 112
 - Legacy modules: 130
-- Need fixes: 29
+- Need fixes: 22
 - Safe to ignore: 18
 
 Legacy modules are older CLI tools without type hints. Contributors are welcome to

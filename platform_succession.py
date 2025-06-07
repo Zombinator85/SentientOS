@@ -15,13 +15,13 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 MIGRATION_LEDGER = get_log_path("migration_ledger.jsonl")
 MIGRATION_LEDGER.parent.mkdir(parents=True, exist_ok=True)
 
 
-def log_event(user: str, event: str, files: List[str] | None = None, note: str = "") -> Dict[str, str]:
+def log_event(user: str, event: str, files: List[str] | None = None, note: str = "") -> Dict[str, Any]:
     """Append a platform_succession event to the migration ledger."""
     entry = {
         "time": datetime.utcnow().isoformat(),

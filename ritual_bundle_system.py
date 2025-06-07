@@ -14,7 +14,7 @@ import hashlib
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 LOG_PATH = get_log_path("ritual_bundle.jsonl", "RITUAL_BUNDLE_LOG")
@@ -23,7 +23,7 @@ LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 BUNDLE_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _log(action: str, data: Dict[str, str]) -> Dict[str, str]:
+def _log(action: str, data: Dict[str, str]) -> Dict[str, Any]:
     entry = {"timestamp": datetime.utcnow().isoformat(), "action": action, **data}
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
@@ -38,12 +38,12 @@ def _hash_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def create_bundle(name: str, assets: List[str], script: str, permissions: List[str]) -> Dict[str, str]:
-    asset_info = []
+def create_bundle(name: str, assets: List[str], script: str, permissions: List[str]) -> Dict[str, Any]:
+    asset_info: List[Dict[str, str]] = []
     for p in assets:
         ap = Path(p)
         asset_info.append({"path": str(ap), "hash": _hash_file(ap)})
-    bundle = {
+    bundle: Dict[str, Any] = {
         "name": name,
         "timestamp": datetime.utcnow().isoformat(),
         "assets": asset_info,
@@ -58,7 +58,7 @@ def create_bundle(name: str, assets: List[str], script: str, permissions: List[s
     return bundle
 
 
-def verify_bundle(path: str) -> Dict[str, str]:
+def verify_bundle(path: str) -> Dict[str, Any]:
     p = Path(path)
     data = json.loads(p.read_text(encoding="utf-8"))
     valid = True
@@ -72,7 +72,7 @@ def verify_bundle(path: str) -> Dict[str, str]:
     return {"valid": valid}
 
 
-def history(limit: int = 20) -> List[Dict[str, str]]:
+def history(limit: int = 20) -> List[Dict[str, Any]]:
     if not LOG_PATH.exists():
         return []
     lines = LOG_PATH.read_text(encoding="utf-8").splitlines()[-limit:]
