@@ -31,3 +31,19 @@ def test_analyze_image(tmp_path, monkeypatch):
 
     mood = ar.analyze_image(img)
     assert mood == "happy"
+
+
+def test_analyze_image_failure(tmp_path, monkeypatch):
+    monkeypatch.setenv("AVATAR_REFLECTION_LOG", str(tmp_path / "log.jsonl"))
+    monkeypatch.setenv("LUMOS_AUTO_APPROVE", "1")
+    import avatar_reflection as ar
+    importlib.reload(ar)
+
+    def boom(path: str):
+        raise RuntimeError("fail")
+
+    monkeypatch.setattr(ar.eu, "detect_image", boom)
+    img = tmp_path / "whatever.png"
+    img.write_text("data")
+    mood = ar.analyze_image(img)
+    assert mood == "serene"
