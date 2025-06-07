@@ -1,10 +1,12 @@
+"""Persistent stream of reflection events."""
+
 from logging_config import get_log_path
 import os
 import json
 import datetime
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 STREAM_DIR = get_log_path("reflections", "REFLECTION_DIR")
 STREAM_FILE = STREAM_DIR / "stream.jsonl"
@@ -13,6 +15,7 @@ STREAM_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _now() -> str:
+    """Return the current UTC timestamp."""
     return datetime.datetime.utcnow().isoformat()
 
 
@@ -88,9 +91,12 @@ def get(entry_id: str) -> Optional[Dict[str, Any]]:
             if not line.strip():
                 continue
             try:
-                entry = json.loads(line)
+                obj = json.loads(line)
             except Exception:
                 continue
+            if not isinstance(obj, dict):
+                continue
+            entry = cast(Dict[str, Any], obj)
             if entry.get("id") == entry_id:
                 return entry
     return None
