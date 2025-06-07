@@ -26,7 +26,10 @@ MOODS = ["happy", "sad", "angry", "serene"]
 def analyze_image(image_path: Path) -> str:
     """Return a simple mood classification for an image."""
 
-    vec = eu.detect_image(str(image_path))
+    try:
+        vec = eu.detect_image(str(image_path))
+    except Exception:  # pragma: no cover - optional dependency failures
+        vec = {}
     if vec.get("Joy", 0.0) > 0:
         return "happy"
     if vec.get("Sadness", 0.0) > 0:
