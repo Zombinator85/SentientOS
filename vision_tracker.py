@@ -9,11 +9,11 @@ from utils import is_headless
 HEADLESS = is_headless()
 
 try:
-    import cv2  # type: ignore
-    import mediapipe as mp  # type: ignore
-    from insightface.app import FaceAnalysis  # type: ignore
-    from fer import FER  # type: ignore
-    import numpy as np  # type: ignore
+    import cv2  # type: ignore  # OpenCV optional
+    import mediapipe as mp  # type: ignore  # mediapipe missing stubs
+    from insightface.app import FaceAnalysis  # type: ignore  # third-party lib
+    from fer import FER  # type: ignore  # FER emotion detector
+    import numpy as np  # type: ignore  # numpy for arrays
 except Exception:  # pragma: no cover - optional dependencies
     cv2 = None
     mp = None

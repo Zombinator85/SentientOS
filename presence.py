@@ -1,3 +1,5 @@
+"""Presence detection service for wake words and transcripts."""
+
 from logging_config import get_log_path
 import os
 import json

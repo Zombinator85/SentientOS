@@ -9,7 +9,7 @@ import datetime
 import json
 from pathlib import Path
 
-import matplotlib.pyplot as plt  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore  # matplotlib optional
 
 from ocr_log_export import OCR_LOG
 

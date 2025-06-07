@@ -7,7 +7,7 @@ from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 try:
-    import streamlit as st  # type: ignore
+    import streamlit as st  # type: ignore  # optional Streamlit app
 except Exception:  # pragma: no cover - optional
     st = None
 

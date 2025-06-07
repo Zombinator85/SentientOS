@@ -2,8 +2,8 @@ import os
 from typing import Dict, Tuple
 
 try:
-    import numpy as np  # type: ignore
-    import librosa  # type: ignore
+    import numpy as np  # type: ignore  # numerical processing
+    import librosa  # type: ignore  # audio analysis
 except Exception:  # pragma: no cover - optional dependency
     np = None
     librosa = None
@@ -14,7 +14,7 @@ SOTA_MODEL = os.getenv("SOTA_EMOTION_MODEL")
 if SOTA_MODEL:
     try:
         import torch  # pragma: no cover - optional
-        from transformers import pipeline  # type: ignore
+        from transformers import pipeline  # type: ignore  # optional transformers
         _sota_classifier = pipeline("audio-classification", model=SOTA_MODEL)
     except Exception:  # pragma: no cover - missing deps
         _sota_classifier = None

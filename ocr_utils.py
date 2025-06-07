@@ -2,14 +2,14 @@ import os
 from typing import List, Dict, Any
 
 try:
-    import cv2  # type: ignore
-    import numpy as np  # type: ignore
+    import cv2  # type: ignore  # OpenCV optional
+    import numpy as np  # type: ignore  # numerical operations
 except Exception:
     cv2 = None
     np = None
 
 try:
-    import pytesseract  # type: ignore
+    import pytesseract  # type: ignore  # Tesseract OCR module
 except Exception:
     pytesseract = None
 

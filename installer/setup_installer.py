@@ -107,7 +107,7 @@ def create_env() -> None:
 
 def check_microphone() -> None:
     try:
-        import sounddevice as sd  # type: ignore
+        import sounddevice as sd  # type: ignore  # optional audio dependency
         devices = sd.query_devices()
         if not devices:
             print('No microphone devices detected.')
@@ -150,7 +150,7 @@ def main() -> None:
     smoke_test()
     print('Setup complete. Launching onboarding dashboard...')
     try:
-        import onboarding_dashboard  # type: ignore
+        import onboarding_dashboard  # type: ignore  # optional GUI
         onboarding_dashboard.launch()
     except Exception:
         print('onboarding_dashboard not available. Setup finished.')
