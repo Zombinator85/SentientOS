@@ -47,7 +47,7 @@ def run_dashboard(storyboard: str) -> Flask:
 
     @app.route("/jump", methods=["POST"])
     def _jump() -> Any:
-        idx = int(request.json.get("index", 0))
+        idx = int(request.get_json().get("index", 0))
         if 0 <= idx < len(state["chapters"]):
             state["index"] = idx
         return jsonify({"ok": True})
