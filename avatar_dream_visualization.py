@@ -1,10 +1,12 @@
-from __future__ import annotations
-from logging_config import get_log_path
-
-from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+
+from admin_utils import require_admin_banner, require_lumos_approval
+
+from __future__ import annotations
+from logging_config import get_log_path
 """Avatar Dream/Festival Visualization.
 
 Visualizes active/inactive avatar dreams, festival ceremonies, or mass rituals.

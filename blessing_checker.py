@@ -1,11 +1,13 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
+
+from admin_utils import require_admin_banner, require_lumos_approval
+
 from logging_config import get_log_path
 import json
 from pathlib import Path
-
-from admin_utils import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 BLESSING_LEDGER = get_log_path("blessing_ledger.jsonl")
 
 
