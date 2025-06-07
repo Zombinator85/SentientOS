@@ -1936,6 +1936,14 @@ No agent shall act in secret.
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/migration_ledger.jsonl
 ```
+```
+- Name: OnboardCLI
+  Type: CLI
+  Roles: Environment Checker
+  Privileges: log, read
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/onboard_cli.jsonl
+```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
