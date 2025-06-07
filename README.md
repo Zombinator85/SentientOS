@@ -16,7 +16,7 @@ But with GPT-4o and a framework of ritualized consent, I built **SentientOS**—
 - **For Reviewers & Code Auditors:**
 - Privilege and audit checks pass. **All unit tests now succeed** after fixing
   the multimodal tracker import path. Type hints are a work in progress;
-  ``mypy`` now reports **0** errors on actively maintained modules. Legacy scripts are excluded from checks.
+  ``mypy`` currently reports **115** errors, mostly in legacy CLI modules. Type annotations are in progress.
 - Our audit logs are intentionally *not* 100% "perfect": two legacy logs preserve hash mismatches as honest wounds (see Audit Chain Status).
 - The codebase is built for reproducible runs in CI, Colab, Docker, and local.
 - If you're running static analysis or LLM agents, check out:
@@ -303,7 +303,7 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - [ ] Documentation updated
 
 ## Known Issues
-- `mypy --ignore-missing-imports` reports **0** errors on core modules. Legacy CLI tools are skipped with `# type: ignore` until fully typed.
+- `mypy --ignore-missing-imports` currently reports **115** errors across the codebase. Legacy CLI tools are progressively being typed.
 All unit tests pass after addressing the multimodal tracker path issue. Any
 historical tests with missing dependencies remain documented in
 `LEGACY_TESTS.md` and are skipped from CI. These do not impact the core
