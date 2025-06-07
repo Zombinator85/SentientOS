@@ -1,3 +1,8 @@
+"""Privilege Banner: This script requires admin and Lumos approval."""
+from admin_utils import require_admin_banner, require_lumos_approval
+require_admin_banner()
+require_lumos_approval()
+# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import sys
 import os
 from importlib import reload
