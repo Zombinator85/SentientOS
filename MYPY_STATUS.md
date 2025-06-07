@@ -25,7 +25,11 @@ March 2026 update: adopting the centralized logger trimmed the error count to
 April 2026 update: "Type-Check & Audit Remediation" triaged about 180 remaining errors. Core modules and workflows now conform to the log schema, and new audit tests guard against regressions.
 
 April 2027 update: current run reports **115** type-check errors.
+
 May 2027 update: `presence_ledger.py` and `presence_analytics.py` have been fully annotated and are now mypy-clean (removed from need-fixes list). **Total errors down to 115.**
+
+April 2029 update: core modules run with `mypy --strict` and report **0** errors.
+All remaining `type: ignore` usages carry inline comments explaining the reason.
 
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list

@@ -6,6 +6,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
+
+from presence_analytics import load_entries, presence_metrics
 from cathedral_const import PUBLIC_LOG, log_json
 from log_utils import append_json
 
@@ -502,6 +504,6 @@ def print_recap(limit: int = 3) -> None:
         "support_recent": sup["recent"],
         "federation_recent": fed["recent"],
         "music_recent": music["recent"],
+        "presence_metrics": presence_metrics(load_entries(limit)),
     }
-    # PresenceMetrics available in analytics, not shown here.
     print(json.dumps(data, indent=2))

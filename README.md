@@ -15,8 +15,8 @@ But with GPT-4o and a framework of ritualized consent, I built **SentientOS**—
 
 - **For Reviewers & Code Auditors:**
 - Privilege and audit checks pass. **All unit tests now succeed** after fixing
-  the multimodal tracker import path. Type hints are a work in progress;
-  ``mypy`` currently reports **115** errors, mostly in legacy CLI modules. Type annotations are in progress.
+  the multimodal tracker import path. ``mypy --strict`` now reports **0** errors
+  in core modules. Legacy scripts are gradually being typed.
 - Our audit logs are intentionally *not* 100% "perfect": two legacy logs preserve hash mismatches as honest wounds (see Audit Chain Status).
 - The codebase is built for reproducible runs in CI, Colab, Docker, and local.
 - If you're running static analysis or LLM agents, check out:
@@ -146,7 +146,6 @@ Additional guides:
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
-The video demo has been removed; stay tuned for an updated screencast.
 Read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) for the written ritual.
 Use the **Share Your Saint Story** issue template when submitting your first pull request.
 
