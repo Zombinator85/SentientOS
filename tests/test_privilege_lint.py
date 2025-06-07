@@ -65,3 +65,28 @@ def test_missing_lumos_call(tmp_path):
     )
     issues = pl.check_file(path)
     assert any("require_lumos_approval()" in i for i in issues)
+
+
+def test_recursive_detection(tmp_path):
+    sub = tmp_path / "subdir"
+    sub.mkdir()
+    path = sub / "tool.py"
+    path.write_text("if __name__ == '__main__':\n    pass\n", encoding="utf-8")
+    files = pl.find_entrypoints(tmp_path)
+    assert path in files
+    issues = pl.check_file(path)
+    _assert_missing(issues)
+
+
+def test_non_cli_banner_not_immediate(tmp_path):
+    path = tmp_path / "tool.py"
+    path.write_text(
+        f'"{pl.DOCSTRING}"\n'
+        "print('hi')\n"
+        "require_admin_banner()\n"
+        "require_lumos_approval()\n"
+        "if __name__ == '__main__':\n    pass\n",
+        encoding="utf-8",
+    )
+    issues = pl.check_file(path)
+    assert any("require_admin_banner()" in i for i in issues)
