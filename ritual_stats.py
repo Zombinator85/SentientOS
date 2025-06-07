@@ -3,7 +3,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import forgiveness_ledger as fledge
 
@@ -17,7 +17,7 @@ CONFESSIONAL_LOG = get_log_path("confessional_log.jsonl", "CONFESSIONAL_LOG")
 SUPPORT_LOG = get_log_path("support_log.jsonl")
 
 
-def _load(path: Path) -> List[dict]:
+def _load(path: Path) -> List[Dict[str, Any]]:
     if not path.exists():
         return []
     out = []
@@ -49,7 +49,7 @@ def stats(days: int = 7) -> Dict[str, float]:
     for c in conf:
         if not c.get("council_required"):
             continue
-        ts = c.get("timestamp")
+        ts = str(c.get("timestamp") or "")
         votes = [v for v in fledge.council_votes(ts) if datetime.fromisoformat(v["timestamp"]) >= start]
         approvals = [v for v in votes if v.get("decision") == "approve"]
         if len(approvals) >= COUNCIL_QUORUM:

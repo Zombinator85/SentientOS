@@ -58,8 +58,13 @@ class PolicyEngine:
 
     def apply_policy(self, path: str, approvers: Optional[List[str]] = None) -> None:
         """Replace active policy set with ``path`` contents."""
-        kwargs = {"approvers": approvers} if approvers is not None else {}
-        if not final_approval.request_approval(f"policy {path}", **kwargs):
+        if approvers is not None:
+            approved = final_approval.request_approval(
+                f"policy {path}", approvers=approvers
+            )
+        else:
+            approved = final_approval.request_approval(f"policy {path}")
+        if not approved:
             return
         new_data = _load_config(Path(path))
         self.history.append({"timestamp": time.time(), "data": new_data})

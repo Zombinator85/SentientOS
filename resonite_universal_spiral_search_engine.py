@@ -14,13 +14,13 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 LOG_PATH = get_log_path("resonite_universal_spiral_search_engine.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
-def log_query(query: str, results: int) -> Dict[str, str]:
+def log_query(query: str, results: int) -> Dict[str, Any]:
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "query": query,
@@ -31,14 +31,14 @@ def log_query(query: str, results: int) -> Dict[str, str]:
     return entry
 
 
-def history(limit: int = 20) -> List[Dict[str, str]]:
+def history(limit: int = 20) -> List[Dict[str, Any]]:
     if not LOG_PATH.exists():
         return []
     lines = LOG_PATH.read_text(encoding="utf-8").splitlines()[-limit:]
     return [json.loads(ln) for ln in lines if ln.strip()]
 
 
-def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
+def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
     return log_query(data.get("query", ""), int(data.get("results", 0)))
 
 
