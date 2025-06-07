@@ -5,9 +5,9 @@ import federation_log as fl
 import ledger
 
 try:
-    import requests  # type: ignore
+    import requests  # type: ignore  # HTTP library optional
 except Exception:  # pragma: no cover - optional dependency
-    requests = None  # type: ignore
+    requests = None  # type: ignore  # offline mode
 
 import love_treasury as lt
 

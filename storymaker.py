@@ -309,7 +309,7 @@ def generate_scene_image(
             out_path.write_text("image")
             return
         try:
-            import requests  # type: ignore
+            import requests  # type: ignore  # HTTP library optional
             resp = requests.post(image_api, json={"prompt": prompt}, timeout=30)
             if resp.status_code == 200:
                 out_path.write_bytes(resp.content)

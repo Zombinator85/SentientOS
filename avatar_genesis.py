@@ -23,9 +23,9 @@ LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
 try:
-    import bpy  # type: ignore
+    import bpy  # type: ignore  # Blender API lacks stubs
 except Exception:  # pragma: no cover - environment may lack Blender
-    bpy = None  # type: ignore
+    bpy = None  # type: ignore  # Blender unavailable
 
 
 BLEND_DIR = Path(os.getenv("AVATAR_DIR", "avatars"))

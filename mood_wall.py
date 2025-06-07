@@ -1,3 +1,6 @@
+"""Utility functions for sharing and blessing community moods."""
+# No privilege required for this tool.
+
 from logging_config import get_log_path
 import json
 from pathlib import Path
@@ -5,9 +8,9 @@ from typing import Dict, List, Optional
 
 import ledger
 try:
-    import requests  # type: ignore
+    import requests  # type: ignore  # HTTP client optional
 except Exception:  # pragma: no cover - optional
-    requests = None  # type: ignore
+    requests = None  # type: ignore  # offline mode
 
 LOG = get_log_path("music_log.jsonl")
 

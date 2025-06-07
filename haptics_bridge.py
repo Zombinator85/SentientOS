@@ -26,7 +26,7 @@ from typing import Dict, Optional
 from utils import is_headless
 
 try:  # optional
-    import serial  # type: ignore
+    import serial  # type: ignore  # pyserial optional
 except Exception:  # pragma: no cover - optional
     serial = None
 

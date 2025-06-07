@@ -1,3 +1,5 @@
+"""Bridge module for text-to-speech engines."""
+
 from logging_config import get_log_path
 import os
 import time
@@ -18,10 +20,10 @@ except Exception:
 try:
     import requests  # type: ignore  # used for ElevenLabs
 except Exception:
-    requests = None  # type: ignore[misc]
+    requests = None  # type: ignore[misc]  # requests missing
 
 try:  # Bark TTS optional
-    from bark import generate_audio  # type: ignore
+    from bark import generate_audio  # type: ignore  # Bark library has no stubs
 except Exception:
     generate_audio = None
 
@@ -146,7 +148,7 @@ def speak(
         if hasattr(audio_arr, "save"):
             audio_arr.save(save_path)
         else:
-            from scipy.io.wavfile import write as wavwrite  # type: ignore
+            from scipy.io.wavfile import write as wavwrite  # type: ignore  # scipy optional for bark
             wavwrite(save_path, 22050, audio_arr)
     elif ENGINE_TYPE == "pyttsx3":
         ENGINE.save_to_file(text, save_path)
