@@ -2,7 +2,7 @@ import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import matplotlib.pyplot as plt  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore  # matplotlib optional
 import presence_pulse_api as pulse
 
 

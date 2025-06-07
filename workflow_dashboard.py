@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict
 
 try:
-    import yaml  # type: ignore
+    import yaml  # type: ignore  # optional YAML parsing
 except Exception:  # pragma: no cover - optional
     yaml = None
 
@@ -26,8 +26,8 @@ require_lumos_approval()
 import ledger
 
 try:  # optional deps
-    import streamlit as st  # type: ignore
-    import pandas as pd  # type: ignore
+    import streamlit as st  # type: ignore  # Streamlit dashboard
+    import pandas as pd  # type: ignore  # pandas for tables
     import graphviz
 except Exception:  # pragma: no cover - optional
     st = None

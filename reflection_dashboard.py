@@ -1,3 +1,5 @@
+"""Reflection dashboard for reviewing past actions."""
+
 import argparse
 import json
 import time
@@ -15,12 +17,12 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 
 try:
-    import pandas as pd  # type: ignore
+    import pandas as pd  # type: ignore  # pandas optional
 except Exception:  # pragma: no cover - optional
     pd = None
 
 try:
-    import streamlit as st  # type: ignore
+    import streamlit as st  # type: ignore  # Streamlit dashboard
 except Exception:  # pragma: no cover - optional
     st = None
 

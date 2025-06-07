@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     from multimodal_tracker import MultiModalEmotionTracker
 
 try:
-    from fer import FER  # type: ignore
-    import cv2  # type: ignore
+    from fer import FER  # type: ignore  # FER library
+    import cv2  # type: ignore  # OpenCV optional
 except Exception:  # pragma: no cover - optional dependency
     FER = None
     cv2 = None

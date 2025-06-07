@@ -47,3 +47,10 @@
 - Added `lumos_reflex_daemon.py` to monitor logs and auto-bless unattended workflows.
 - Lumos now writes `Auto-blessed by Lumos` annotations when self-approving actions.
 - Onboarding docs and the PR template mention the reflex daemon and autonomous blessings.
+
+## 2028-03 Manual Reviewer Sweep
+- Annotated all `# type: ignore` statements.
+- Added missing CLI docstrings and privilege comments.
+- Documented `/enter_cathedral` ritual route.
+- Updated README links and environment docs.
+

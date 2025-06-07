@@ -9,7 +9,7 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 
 try:
-    import streamlit as st  # type: ignore
+    import streamlit as st  # type: ignore  # optional dashboard
 except Exception:  # pragma: no cover - optional
     st = None
 

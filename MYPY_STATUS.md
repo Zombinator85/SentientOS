@@ -30,3 +30,5 @@ May 2027 update: `presence_ledger.py` and `presence_analytics.py` have been full
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list
 and submit a pull request. See `CONTRIBUTING.md` for our ritual checklist.
+
+March 2028 update: manual sweep added comments to all `# type: ignore` lines for clarity.

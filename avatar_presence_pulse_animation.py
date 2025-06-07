@@ -19,7 +19,7 @@ from typing import Optional
 try:  # pragma: no cover - GUI optional
     import tkinter as tk
 except Exception:  # pragma: no cover - headless env
-    tk = None  # type: ignore
+    tk = None  # type: ignore  # Tkinter optional on headless systems
 
 from presence_pulse_api import pulse
 

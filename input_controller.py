@@ -14,12 +14,12 @@ if TYPE_CHECKING:  # pragma: no cover - for type hints
     from policy_engine import PolicyEngine
 
 try:
-    import pyautogui  # type: ignore
+    import pyautogui  # type: ignore  # automation tool missing stubs
 except Exception:  # pragma: no cover - optional dependency
     pyautogui = None
 
 try:
-    import keyboard  # type: ignore
+    import keyboard  # type: ignore  # keyboard input library missing stubs
 except Exception:  # pragma: no cover - optional dependency
     keyboard = None
 
