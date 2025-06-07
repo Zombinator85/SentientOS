@@ -141,8 +141,8 @@ def find_entrypoints(root: Path) -> list[Path]:
     """Return Python entrypoint files under ``root``."""
     files: set[Path] = set()
     for pattern in ENTRY_PATTERNS:
-        files.update(root.glob(pattern))
-    for path in root.glob("*.py"):
+        files.update(root.rglob(pattern))
+    for path in root.rglob("*.py"):
         if path in files:
             continue
         text = path.read_text(encoding="utf-8")
