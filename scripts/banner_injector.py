@@ -6,16 +6,10 @@ from pathlib import Path
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""CLI tool to inject the SentientOS privilege banner into Python files."""
-
-# CLI tool to inject the SentientOS privilege banner into Python files.
-
-# CLI tool to inject the SentientOS privilege banner into Python files.
-
-# CLI tool to inject the SentientOS privilege banner into Python files.
-
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()
 require_lumos_approval()
+# CLI tool to inject the SentientOS privilege banner into Python files.
 
 BANNER_LINES = [
     '"""Privilege Banner: This script requires admin and Lumos approval."""',

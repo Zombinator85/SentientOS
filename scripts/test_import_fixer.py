@@ -7,16 +7,10 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Assist in resolving missing test imports by editing failing tests."""
-
-# Assist in resolving missing test imports by editing failing tests.
-
-# Assist in resolving missing test imports by editing failing tests.
-
-# Assist in resolving missing test imports by editing failing tests.
-
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()
 require_lumos_approval()
+# Assist in resolving missing test imports by editing failing tests.
 
 __test__ = False
 

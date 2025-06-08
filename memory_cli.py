@@ -4,6 +4,7 @@ import os
 import json
 import re
 from pathlib import Path
+from typing import Any
 import memory_manager as mm
 from api import actuator
 import notification
@@ -83,7 +84,7 @@ def list_memory(limit: int, since: str | None) -> None:
         except Exception:
             pass
     files = sorted(mm.RAW_PATH.glob("*.json"))
-    entries: list[tuple[str, dict]] = []
+    entries: list[tuple[str, dict[str, Any]]] = []
     for fp in files:
         try:
             data = json.loads(fp.read_text(encoding="utf-8"))

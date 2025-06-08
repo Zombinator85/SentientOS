@@ -10,10 +10,9 @@ import yaml
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-# Switch models based on remaining quotas and configured fallbacks.
-
 require_admin_banner()
 require_lumos_approval()
+# Switch models based on remaining quotas and configured fallbacks.
 
 USAGE_FILE = Path("usage_monitor.jsonl")
 OUTPUT_FILE = Path("current_model.json")
