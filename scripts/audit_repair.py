@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import datetime
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, List
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Banner: requires admin & Lumos approval."""
+"""Privilege Banner: requires admin & Lumos approval."""
 
 require_admin_banner()
 require_lumos_approval()
@@ -65,13 +66,24 @@ def repair_log(path: Path, prev: str, *, check_only: bool = False) -> Tuple[str,
     return prev, fixed
 
 
+def _log_summary(entries: List[Dict[str, Any]]) -> None:
+    """Append a summary entry for this run."""
+    run_dir = Path("logs/repair_runs")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    path = run_dir / f"{datetime.date.today():%Y-%m-%d}.json"
+    with path.open("a", encoding="utf-8") as f:
+        for entry in entries:
+            f.write(json.dumps(entry) + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
     ap = argparse.ArgumentParser(description="Repair audit log chains")
     ap.add_argument("--logs-dir", default="logs", help="directory of logs")
-    ap.add_argument("--check-only", action="store_true", help="do not modify files")
     ap.add_argument("--fix", action="store_true", help="apply repairs in place")
+    ap.add_argument("--dry-run", action="store_true", help="run without writing changes")
+    ap.add_argument("--strict", action="store_true", help="fail if any repair is performed")
     ap.add_argument(
         "--auto-approve",
         action="store_true",
@@ -84,15 +96,18 @@ def main(argv: list[str] | None = None) -> int:
 
     logs_dir = Path(args.logs_dir)
     prev = "0" * 64
-    any_mismatch = False
+    any_fixed = False
+    summary: List[Dict[str, Any]] = []
     for log in sorted(logs_dir.glob("*.jsonl")):
         total = sum(1 for _ in log.read_text(encoding="utf-8").splitlines() if _.strip())
-        prev, fixed = repair_log(log, prev, check_only=not args.fix)
-        status = "OK" if fixed == 0 else "FAIL"
+        prev, fixed = repair_log(log, prev, check_only=args.dry_run or not args.fix)
+        status = "OK" if fixed == 0 else "FIXED"
         if fixed:
-            any_mismatch = True
+            any_fixed = True
         print(f"{log.name}: {total} entries, {fixed} fixed, {status}")
-    if args.check_only and any_mismatch:
+        summary.append({"file": log.name, "fixed_count": fixed, "skipped": 0, "errors": []})
+    _log_summary(summary)
+    if args.strict and any_fixed:
         return 1
     return 0
 
