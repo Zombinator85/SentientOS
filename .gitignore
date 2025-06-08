@@ -27,3 +27,4 @@ audio_logs/*
 !audio_logs/.gitkeep
 backups/
 logs/*.jsonl
+site/
