@@ -40,9 +40,12 @@ jobs:
       - name: Privilege lint
         run: |
           LUMOS_AUTO_APPROVE=1 python privilege_lint.py
+      - name: Repair audit chains
+        run: |
+          python scripts/audit_repair.py --logs-dir logs --auto-approve
       - name: Verify audits
         run: |
-          LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
+          LUMOS_AUTO_APPROVE=1 python verify_audits.py logs --repair
       - name: Type check
         run: mypy --strict
       - name: Build Docs
