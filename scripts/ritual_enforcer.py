@@ -61,7 +61,7 @@ def _fix_banner(lines: List[str]) -> List[str]:
     if shebang:
         new_lines.append(shebang)
     # insert banner at the very top
-    new_lines.append(DOCSTRING)
+    new_lines.append(f'"""{DOCSTRING}"""')
     new_lines.append(IMPORT_LINE)
     new_lines.append("require_admin_banner()")
     new_lines.append("require_lumos_approval()")
