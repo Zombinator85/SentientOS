@@ -32,7 +32,9 @@ def main(argv: list[str] | None = None) -> int:
     steps = [
         ["python", "scripts/ritual_enforcer.py", "--mode", "check", "--files", "**/*.py"],
         ["mypy", "--strict", *FILES_TO_TYPECHECK],
+        ["python", "verify_audits.py", "logs", "--auto-repair", "--check-only"],
         ["pytest", "-q"],
+        ["python", "scripts/build_docs.py"],
     ]
     for cmd in steps:
         code = run_cmd(cmd, env)
