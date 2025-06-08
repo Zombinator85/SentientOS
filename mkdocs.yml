@@ -1,0 +1,9 @@
+site_name: SentientOS
+nav:
+  - Home: README.md
+  - One Pager: one_pager.md
+  - Rituals: docs/rituals.md
+  - Audit Chain: audit_log/README.md
+  - Agents: AGENTS.md
+  - Error Resolution: docs/ERROR_RESOLUTION_GUIDE.md
+theme: readthedocs
