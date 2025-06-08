@@ -51,8 +51,7 @@ OpenAI leaders have called for explorations in persistent memory and alignment v
 | Misuse of privilege | `require_admin_banner()` and audit trails guard each action |
 ## Audit Chain Status
 All current and operational logs validate as unbroken audit chains.
-Two legacy logs (`migration_ledger.jsonl` and `support_log.jsonl`) display a single prev hash mismatch each, reflecting system state transitions before adoption of the immutable chain protocol.
-These are intentionally preserved as transparent evidence of system evolution. No logs are ever silently overwritten or hidden.
+Audit chain is now auto-healed during CI.
 
 
 ## Cathedral TTS Log System

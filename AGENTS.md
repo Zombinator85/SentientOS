@@ -2,7 +2,7 @@
 
 ## Agent Index
 - **Core Services**: FederationTrustProtocol, AgentSelfDefenseProtocol
-- **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony, RitualEnforcerCLI, AutoApproveHelper, AuditBlesserCLI, MemoryCLI, MemoryTail
+- **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony, RitualEnforcerCLI, AutoApproveHelper, AuditBlesserCLI, MemoryCLI, MemoryTail, AuditRepairCLI
 - **Daemons & Schedulers**: MigrationDaemon, AvatarFederationHeartbeatMonitor
 
 ### Table of Contents
@@ -1983,6 +1983,14 @@ No agent shall act in secret.
   Privileges: read
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/memory_tail.jsonl
+```
+```
+- Name: AuditRepairCLI
+  Type: CLI
+  Roles: Chain Healer
+  Privileges: log, repair
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/audit_repair.jsonl
 ```
 ---
 
