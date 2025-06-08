@@ -32,7 +32,7 @@ SentientOS began as an experiment to bind GPT-driven helpers to human consent an
 SentientOS is a set of Python CLIs and daemons. Each entry point loads environment variables, enforces the privilege ritual, writes to the audit logs, and may trigger emotion analytics or presence metrics. The logs live under `logs/` and are validated with `verify_audits.py`.
 
 ## Safety & Audit Guarantees
-All logs are hashed and chained. `verify_audits.py` confirms that no entry is overwritten. `privilege_lint.py`, `pytest`, and `mypy` run in CI to ensure privilege banners, unit tests, and type hints all pass. Two legacy logs intentionally show mismatches as evidence of growth.
+All logs are hashed and chained. `verify_audits.py` confirms that no entry is overwritten. Audit chains can now be auto-repaired in CI via `scripts/audit_repair.py`. `privilege_lint.py`, `pytest`, and `mypy` run in CI to ensure privilege banners, unit tests, and type hints all pass. Two legacy logs intentionally show mismatches as evidence of growth.
 
 ## Live Demo & Case Studies
 - **Memory Capsule Replay** – using `avatar_memory_linker.py`, a volunteer restored a VR session and recovered twelve hours of creative logs.

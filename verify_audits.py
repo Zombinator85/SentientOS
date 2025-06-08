@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 
@@ -205,8 +206,13 @@ def main() -> None:  # pragma: no cover - CLI
 
     ap = argparse.ArgumentParser(description="Audit log verifier")
     ap.add_argument("path", nargs="?", help="Log directory or single file")
-    ap.add_argument("--repair", action="store_true", help="attempt to repair malformed lines")
+    ap.add_argument("--repair", action="store_true", help="attempt to repair malformed lines and chain")
+    ap.add_argument("--auto-approve", action="store_true", help="skip prompts")
     args = ap.parse_args()
+
+    auto = args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1"
+    if auto:
+        os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
     directory = None
     if args.path:
@@ -216,7 +222,27 @@ def main() -> None:  # pragma: no cover - CLI
         else:
             directory = p.parent
 
-    res, percent, stats = verify_audits(quarantine=True, directory=directory, repair=args.repair)
+    logs: list[Path] = []
+    if directory is not None:
+        logs = sorted(p for p in Path(directory).iterdir() if _is_log_file(p))
+    else:
+        data = _load_config()
+        for file in data.keys():
+            q = Path(file)
+            if not q.is_absolute():
+                q = ROOT / q
+            if _is_log_file(q):
+                logs.append(q)
+
+    if args.repair or auto:
+        from scripts.audit_repair import repair_log
+
+        prev = "0" * 64
+        for log in logs:
+            prev, fixed = repair_log(log, prev)
+            print(f"Repair {log.name}: {fixed} fixed")
+
+    res, percent, stats = verify_audits(quarantine=True, directory=directory, repair=args.repair or auto)
     for file, errors in res.items():
         if not errors:
             print(f"{file}: valid")
@@ -225,10 +251,13 @@ def main() -> None:  # pragma: no cover - CLI
             for err in errors:
                 print(f"  {err}")
     print(f"{percent:.1f}% of logs valid")
-    if args.repair:
+    if args.repair or auto:
         print(
             f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
         )
+    if all(not e for e in res.values()):
+        raise SystemExit(0)
+    raise SystemExit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover
