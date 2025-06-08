@@ -9,16 +9,10 @@ from scripts.auto_approve import prompt_yes_no
 import argparse
 import os
 
-"""Automatically bless audit mismatches found during verification."""
-
-# Automatically bless audit mismatches found during verification.
-
-# Automatically bless audit mismatches found during verification.
-
-# Automatically bless audit mismatches found during verification.
-
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()
 require_lumos_approval()
+# Automatically bless audit mismatches found during verification.
 
 BLESSINGS_FILE = Path("SANCTUARY_BLESSINGS.jsonl")
 

@@ -14,10 +14,9 @@ from email.message import EmailMessage
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-# Generate daily usage summaries and optionally email them.
-
 require_admin_banner()
 require_lumos_approval()
+# Generate daily usage summaries and optionally email them.
 
 
 def load_usage(path: Path, since: datetime) -> Dict[str, List[dict]]:
