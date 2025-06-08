@@ -76,19 +76,24 @@ if [ "$ans" != "y" ]; then
   echo "Consent required."; exit 1
 fi
 ```
-1. Install the pinned dependencies with `pip install -r requirements.txt`.
+1. Ensure your system has Python **3.11+** and install `build-essential` and
+   `libasound2` (or equivalent audio libraries) so optional TTS features work.
+2. Install the pinned dependencies with `pip install -r requirements.txt`.
    The list includes `types-requests`, providing type hints for the
    `requests` library so that `mypy` runs cleanly.
-2. Install the project in editable mode using `pip install -e .`.
-3. Run `python installer/setup_installer.py` and follow the prompts.
-4. Launch a tool, e.g. `support --help`.
-5. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
-6. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
-7. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
-8. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+3. Install the project in editable mode using `pip install -e .`.
+4. Run `python installer/setup_installer.py` and follow the prompts.
+5. Launch a tool, e.g. `support --help`.
+6. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+7. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
+8. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
+9. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+10. A minimal `Dockerfile` is provided if you prefer a containerized setup.
 For Windows/Mac/Linux quirks, see [bless_this_env.py](./bless_this_env.py).
 If you get a dependency or audio error, see the Troubleshooting section or ask in Discussions.
 For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance.
+
+Additional tips for resolving legacy audit wounds and import errors are provided in [docs/ERROR_RESOLUTION_GUIDE.md](docs/ERROR_RESOLUTION_GUIDE.md).
 
 > **Troubleshooting:** If you encounter errors installing dependencies like `playsound` or `TTS`, ensure your Python version matches requirements and install system libraries for audio. On Windows, use:
 > `pip install playsound==1.2.2`
