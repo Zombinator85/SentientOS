@@ -10,6 +10,9 @@ import notification
 import self_patcher
 import final_approval
 import ledger
+import datetime
+import logging_config
+import memory_tail
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from admin_utils import require_admin_banner, require_lumos_approval
 import presence_analytics as pa
@@ -70,6 +73,47 @@ def show_actions(last: int, reflect: bool) -> None:
         if reflect and entry.get("reflection_text"):
             line += f" | {entry['reflection_text']}"
         print(line)
+
+
+def list_memory(limit: int, since: str | None) -> None:
+    since_dt = None
+    if since:
+        try:
+            since_dt = datetime.datetime.fromisoformat(since)
+        except Exception:
+            pass
+    files = sorted(mm.RAW_PATH.glob("*.json"))
+    entries: list[tuple[str, dict]] = []
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        ts = data.get("timestamp")
+        if since_dt and ts:
+            try:
+                ts_dt = datetime.datetime.fromisoformat(ts)
+            except Exception:
+                continue
+            if ts_dt < since_dt:
+                continue
+        entries.append((ts or "", data))
+    entries = entries[-limit:]
+    for _, e in entries:
+        print(json.dumps(e))
+
+
+def tail_log(last: int, follow: bool) -> None:
+    path = logging_config.get_log_path("memory.jsonl", "MEMORY_FILE")
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        print(f"memory.jsonl not found: {path}")
+        return
+    for line in lines[-last:]:
+        print(line)
+    if follow:
+        memory_tail.tail_memory(str(path))
 
 
 def show_reflections(last: int, plugin: str | None, user: str | None, failures: bool, as_json: bool) -> None:
@@ -136,6 +180,9 @@ def main() -> None:
     plot.add_argument("--last", type=int, default=10, help="Show last N entries")
     pb = sub.add_parser("playback", help="Print recent fragments with emotions")
     pb.add_argument("--last", type=int, default=5, help="Show last N entries")
+    tail_cmd = sub.add_parser("tail", help="Tail memory log")
+    tail_cmd.add_argument("--last", type=int, default=10, help="Show last N lines")
+    tail_cmd.add_argument("--follow", action="store_true", help="Follow new entries")
     acts = sub.add_parser("actions", help="Show recent actuator events")
     acts.add_argument("--last", type=int, default=10, help="Show last N events")
     acts.add_argument("--reflect", action="store_true", help="Include reflections")
@@ -145,6 +192,10 @@ def main() -> None:
     refl.add_argument("--user")
     refl.add_argument("--failures", action="store_true", help="Only failed actions")
     refl.add_argument("--json", action="store_true", help="Export as JSON")
+
+    lst = sub.add_parser("list", help="List memory fragments")
+    lst.add_argument("--limit", type=int, default=5)
+    lst.add_argument("--since")
 
     goals = sub.add_parser("goals", help="List goals")
     goals.add_argument(
@@ -260,6 +311,10 @@ def main() -> None:
         show_timeline(args.last)
     elif args.cmd == "playback":
         playback(args.last)
+    elif args.cmd == "tail":
+        tail_log(args.last, follow=args.follow)
+    elif args.cmd == "list":
+        list_memory(args.limit, args.since)
     elif args.cmd == "actions":
         show_actions(args.last, reflect=args.reflect)
     elif args.cmd == "reflections":
