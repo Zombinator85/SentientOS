@@ -9,6 +9,7 @@ import audit_immutability as ai
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+from scripts.auto_approve import is_auto_approve
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")

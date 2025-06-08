@@ -26,6 +26,7 @@ the ``PRIVILEGED_AUDIT_FILE`` environment variable. See
 """
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+from scripts.auto_approve import is_auto_approve, prompt_yes_no
 
 DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
 

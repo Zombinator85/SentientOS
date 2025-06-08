@@ -2,32 +2,41 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
 require_admin_banner()
 require_lumos_approval()
+from scripts.auto_approve import is_auto_approve
 
-REQUIRED_PACKAGES = ["build-essential", "libasound2", "python3.11"]
+# Check a Dockerfile for required SentientOS build packages.
+
+REQUIRED = ["build-essential", "libasound2", "python3.11"]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify Dockerfile contains required packages")
-    parser.add_argument("dockerfile", nargs="?", default="Dockerfile", help="Path to Dockerfile")
+    parser = argparse.ArgumentParser(
+        description="Verify required packages in Dockerfile"
+    )
+    parser.add_argument("--dockerfile", default="Dockerfile", help="Path to Dockerfile")
     args = parser.parse_args()
 
     path = Path(args.dockerfile)
     if not path.exists():
         print(f"Dockerfile not found: {path}")
         sys.exit(1)
+
     content = path.read_text(encoding="utf-8")
-    missing = [pkg for pkg in REQUIRED_PACKAGES if pkg not in content]
+    missing = [pkg for pkg in REQUIRED if pkg not in content]
     if missing:
         print("Missing packages: " + ", ".join(missing))
-        print("Consider adding them with apt-get install")
+        print("Hint: apt-get install " + " ".join(missing))
         sys.exit(1)
+
     sys.exit(0)
 
 

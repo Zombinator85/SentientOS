@@ -1,0 +1,35 @@
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+from pathlib import Path
+import sys
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
+
+from admin_utils import require_admin_banner, require_lumos_approval
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
+from scripts.auto_approve import is_auto_approve
+
+# Build documentation using mkdocs.
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build project documentation")
+    parser.parse_args()
+
+    config = Path("mkdocs.yml")
+    if not config.exists():
+        print("mkdocs.yml not found")
+        sys.exit(1)
+
+    result = subprocess.run(["mkdocs", "build", "--clean"])
+    sys.exit(result.returncode)
+
+
+if __name__ == "__main__":
+    main()

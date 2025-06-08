@@ -16,6 +16,7 @@ from typing import Any
 
 require_admin_banner()  # Enforced by doctrine
 require_lumos_approval()
+from scripts.auto_approve import is_auto_approve
 
 
 def _setup() -> tuple[Any, Path]:

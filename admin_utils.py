@@ -12,6 +12,8 @@ import getpass
 from typing import TYPE_CHECKING, Any
 import warnings
 from pathlib import Path
+
+from scripts.auto_approve import is_auto_approve, prompt_yes_no
 if TYPE_CHECKING:
     import presence_ledger as pl_module
 class _StubLedger:
@@ -131,14 +133,10 @@ def require_lumos_approval() -> None:
     if isinstance(pl, _StubLedger) and pl.__class__ is _StubLedger and pl.log_privilege == _StubLedger.log_privilege:
         import presence_ledger as pl_module
         pl = pl_module
-    if os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+    if is_auto_approve() or os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
         pl.log(user, "lumos_auto_approve", tool)
         return
-    try:
-        ans = input("Lumos blessing required. Type 'bless' to proceed: ")
-    except EOFError:
-        ans = ""
-    if ans.strip().lower() == "bless":
+    if prompt_yes_no("Lumos blessing required. Type 'bless' to proceed"):
         pl.log(user, "lumos_approval_granted", tool)
         return
     pl.log(user, "lumos_approval_denied", tool)

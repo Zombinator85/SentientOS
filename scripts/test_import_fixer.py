@@ -8,83 +8,85 @@ sys.path.append(str(Path(__file__).resolve().parent.parent))
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
 require_admin_banner()
 require_lumos_approval()
+from scripts.auto_approve import is_auto_approve, prompt_yes_no
+
+# Assist in resolving missing test imports by editing failing tests.
 
 __test__ = False
 
-ERROR_PATTERN = re.compile(r"ModuleNotFoundError: No module named '(?P<mod>[^']+)'")
+ERROR_RE = re.compile(r"(?:ModuleNotFoundError|ImportError):.*?'([^']+)'")
 
 
 def parse_missing_modules(log_path: Path) -> set[str]:
-    modules = set()
+    modules: set[str] = set()
     for line in log_path.read_text(encoding="utf-8").splitlines():
-        m = ERROR_PATTERN.search(line)
+        m = ERROR_RE.search(line)
         if m:
-            modules.add(m.group('mod'))
+            modules.add(m.group(1))
     return modules
 
 
-def find_tests_for_module(module: str) -> list[Path]:
-    tests = []
-    for path in Path('.').rglob('test_*.py'):
-        content = path.read_text(encoding='utf-8', errors='ignore')
-        if f"import {module}" in content or f"from {module} import" in content:
-            tests.append(path)
-    return tests
+def find_test_files(module: str) -> list[Path]:
+    results = []
+    for p in Path("tests").rglob("test_*.py"):
+        text = p.read_text(encoding="utf-8", errors="ignore")
+        if f"import {module}" in text or f"from {module} import" in text:
+            results.append(p)
+    return results
 
 
-def process_file(path: Path, module: str, replacement: str | None) -> str:
-    lines = path.read_text(encoding='utf-8').splitlines()
-    changed = False
+def patch_file(path: Path, module: str, replacement: str | None) -> str:
+    lines = path.read_text(encoding="utf-8").splitlines()
     if replacement:
-        new_lines = []
-        for line in lines:
-            if line.lstrip().startswith(f"import {module}"):
-                new_lines.append(f"import {replacement}")
-                changed = True
-            elif line.lstrip().startswith(f"from {module} import"):
-                new_lines.append(line.replace(f"from {module} import", f"from {replacement} import"))
-                changed = True
-            else:
-                new_lines.append(line)
-        lines = new_lines
-    else:
-        skip_header = [
-            "import pytest",
-            f"pytest.skip('Module {module} missing; deprecated test — see RITUAL_FAILURES.md')",
+        updated = [
+            (
+                line.replace(f"import {module}", f"import {replacement}")
+                if line.lstrip().startswith(f"import {module}")
+                else (
+                    line.replace(f"from {module} import", f"from {replacement} import")
+                    if line.lstrip().startswith(f"from {module} import")
+                    else line
+                )
+            )
+            for line in lines
         ]
-        lines = skip_header + lines
-        changed = True
-    if changed:
-        path.write_text("\n".join(lines) + "\n", encoding='utf-8')
-    return "replaced" if replacement else "skipped"
+        action = "replaced"
+    else:
+        skip_lines = [
+            "import pytest",
+            f"pytest.skip(\"Missing module '{module}'; test deprecated — see RITUAL_FAILURES.md\")",
+        ]
+        updated = skip_lines + lines
+        action = "skipped"
+    path.write_text("\n".join(updated) + "\n", encoding="utf-8")
+    return action
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fix missing module imports in tests")
-    parser.add_argument("log_file", help="Pytest error log file")
+    parser = argparse.ArgumentParser(description="Fix missing imports in tests")
+    parser.add_argument("--log", required=True, help="Pytest error log file")
     args = parser.parse_args()
-    log_path = Path(args.log_file)
+
+    log_path = Path(args.log)
     if not log_path.exists():
         print(f"Log file not found: {log_path}")
         sys.exit(1)
 
     modules = parse_missing_modules(log_path)
-    summary = []
-    for mod in modules:
-        tests = find_tests_for_module(mod)
-        for test_file in tests:
-            print(f"Missing module '{mod}' found in {test_file}")
-            repl = input("Enter replacement import path or leave blank to skip test: ").strip()
-            action = process_file(test_file, mod, repl if repl else None)
+    summary: list[str] = []
+    for module in modules:
+        for test_file in find_test_files(module):
+            print(f"Missing module '{module}' in {test_file}")
+            repl = input("Replacement import path (leave blank to skip test): ").strip()
+            action = patch_file(test_file, module, repl or None)
             summary.append(f"{test_file}: {action}")
 
     if summary:
         print("\nSummary:")
-        for item in summary:
-            print(" -", item)
+        for entry in summary:
+            print(f" - {entry}")
 
 
 if __name__ == "__main__":
