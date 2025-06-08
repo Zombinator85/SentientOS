@@ -19,9 +19,12 @@ def _load_config() -> dict[str, str]:
     if not CONFIG.exists():
         return {}
     try:
-        return json.loads(CONFIG.read_text())
+        raw = json.loads(CONFIG.read_text())
+        if isinstance(raw, dict):
+            return {str(k): str(v) for k, v in raw.items()}
     except Exception:
-        return {}
+        pass
+    return {}
 
 
 VALID_EXTS = {".jsonl", ".json", ".log"}
@@ -207,11 +210,13 @@ def main() -> None:  # pragma: no cover - CLI
     ap = argparse.ArgumentParser(description="Audit log verifier")
     ap.add_argument("path", nargs="?", help="Log directory or single file")
     ap.add_argument("--repair", action="store_true", help="attempt to repair malformed lines and chain")
+    ap.add_argument("--auto-repair", action="store_true", help="heal logs then verify")
+    ap.add_argument("--check-only", action="store_true", help="verify without modifying logs")
     ap.add_argument("--auto-approve", action="store_true", help="skip prompts")
     args = ap.parse_args()
 
-    auto = args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1"
-    if auto:
+    auto_env = args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1"
+    if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
     directory = None
@@ -234,15 +239,40 @@ def main() -> None:  # pragma: no cover - CLI
             if _is_log_file(q):
                 logs.append(q)
 
-    if args.repair or auto:
-        from scripts.audit_repair import repair_log
+    # run initial verification without mutating logs
+    res, percent, stats = verify_audits(
+        quarantine=True,
+        directory=directory,
+        repair=args.repair and not args.check_only,
+    )
+
+    chain_ok = all(not e for e in res.values())
+
+    if args.auto_repair and not chain_ok:
+        from scripts import audit_repair
 
         prev = "0" * 64
         for log in logs:
-            prev, fixed = repair_log(log, prev)
-            print(f"Repair {log.name}: {fixed} fixed")
+            prev, _ = audit_repair.repair_log(log, prev, check_only=False)
+        res, percent, stats = verify_audits(
+            quarantine=True,
+            directory=directory,
+            repair=False,
+        )
+        chain_ok = all(not e for e in res.values())
+    elif args.repair and not args.check_only:
+        from scripts import audit_repair
 
-    res, percent, stats = verify_audits(quarantine=True, directory=directory, repair=args.repair or auto)
+        prev = "0" * 64
+        for log in logs:
+            prev, fixed = audit_repair.repair_log(log, prev, check_only=False)
+            print(f"Repair {log.name}: {fixed} fixed")
+        res, percent, stats = verify_audits(
+            quarantine=True,
+            directory=directory,
+            repair=False,
+        )
+        chain_ok = all(not e for e in res.values())
     for file, errors in res.items():
         if not errors:
             print(f"{file}: valid")
@@ -251,11 +281,11 @@ def main() -> None:  # pragma: no cover - CLI
             for err in errors:
                 print(f"  {err}")
     print(f"{percent:.1f}% of logs valid")
-    if args.repair or auto:
+    if args.repair or args.auto_repair:
         print(
             f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
         )
-    if all(not e for e in res.values()):
+    if chain_ok:
         raise SystemExit(0)
     raise SystemExit(1)
 
