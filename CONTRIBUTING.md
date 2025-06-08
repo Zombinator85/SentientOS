@@ -1,4 +1,6 @@
 # Contributing to SentientOS
+SentientOS welcomes contributions that honor privilege banners, immutable memory, and open logs. All healing must be documented; no wounds erased.
+
 
 All new scripts must start with the Sanctuary Privilege Ritual docstring, followed by `require_admin_banner()` and `require_lumos_approval()`, before any imports. See README for exact syntax.
 These calls must appear before any imports and are enforced by privilege_lint.py.

@@ -1,5 +1,7 @@
 # Audit Log Repair Drive
 
+This file records our audit wounds and their healing. Mismatched hashes from the early days remain visible so reviewers can trace how the protocol matured.
+
 This document tracks short term efforts to clean and repair malformed audit logs.
 
 - 2025-10 Kickoff: volunteers invited to clean inconsistent JSONL files.
