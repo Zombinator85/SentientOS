@@ -11,10 +11,9 @@ import streamlit as st
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-# Streamlit dashboard for SentientOS usage and audit metrics.
-
 require_admin_banner()
 require_lumos_approval()
+# Streamlit dashboard for SentientOS usage and audit metrics.
 
 USAGE_FILE = Path("usage_data.json")
 AUDIT_LOG_DIR = Path("audit_logs")

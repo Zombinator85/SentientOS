@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Summarize token usage and post to Slack."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
 import collections
 import datetime as dt
@@ -12,6 +12,11 @@ from pathlib import Path
 import requests
 
 from scripts.auto_approve import prompt_yes_no
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
+# Summarize token usage and post to Slack.
 
 
 LOG_FILE = Path("logs/usage.jsonl")
