@@ -1,83 +1,97 @@
 from __future__ import annotations
-from pathlib import Path
-import shutil
 import argparse
-from datetime import datetime
+import ast
+import shutil
+from pathlib import Path
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""CLI tool to inject the SentientOS privilege banner into Python files."""
 
 require_admin_banner()
 require_lumos_approval()
 
+BANNER_LINES = [
+    '"""Privilege Banner: This script requires admin and Lumos approval."""',
+    "require_admin_banner()",
+    "require_lumos_approval()",
+    "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
+]
 
-HEADER_TEMPLATE = (
-    '"""Privilege Banner: This script requires admin and Lumos approval."""\n'
-    'require_admin_banner()\n'
-    'require_lumos_approval()\n'
-    '# \U0001f56f\ufe0f Privilege ritual migrated {today} by Cathedral decree.\n'
-)
-
-ADMIN_IMPORT = (
-    "from admin_utils import require_admin_banner, require_lumos_approval\n"
-)
+IMPORT_LINE = "from admin_utils import require_admin_banner, require_lumos_approval"
 
 
-def inject_banner(file_path: Path) -> None:
-    if not file_path.exists():
-        print(f"File not found: {file_path}")
+def inject_banner(path: Path) -> None:
+    if not path.exists():
+        print(f"File not found: {path}")
         return
-    backup_path = file_path.with_suffix(file_path.suffix + ".bak")
-    shutil.copy2(file_path, backup_path)
+    backup = path.with_suffix(path.suffix + ".bak")
+    shutil.copy2(path, backup)
 
-    text = file_path.read_text(encoding="utf-8").splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     shebang = ""
-    if text and text[0].startswith("#!"):
-        shebang = text.pop(0) + "\n"
+    if lines and lines[0].startswith("#!"):
+        shebang = lines.pop(0)
 
-    imports = []
-    remaining = []
-    for line in text:
-        stripped = line.lstrip()
-        if stripped.startswith("import ") or stripped.startswith("from "):
-            imports.append(line)
-        else:
-            remaining.append(line)
+    source = "\n".join(lines)
+    tree = ast.parse(source)
 
-    if ADMIN_IMPORT.strip() not in [imp.strip() for imp in imports]:
-        imports.insert(0, ADMIN_IMPORT.rstrip("\n"))
+    doc_line = None
+    first_import_line = None
+    import_ranges: list[int] = []
+    for node in tree.body:
+        if (
+            doc_line is None
+            and isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
+            doc_line = node.lineno
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            if first_import_line is None or node.lineno < first_import_line:
+                first_import_line = node.lineno
+            start = node.lineno
+            end = getattr(node, "end_lineno", node.lineno)
+            import_ranges.extend(range(start, end + 1))
 
-    header = HEADER_TEMPLATE.format(today=datetime.utcnow().date().isoformat())
-    new_lines = []
+    insertion_line = len(lines) + 1
+    if doc_line is not None:
+        insertion_line = doc_line
+    if first_import_line is not None:
+        insertion_line = min(insertion_line, first_import_line)
+
+    imports = [
+        lines[i - 1] for i in sorted(set(import_ranges)) if 0 <= i - 1 < len(lines)
+    ]
+    for i in sorted(set(import_ranges), reverse=True):
+        if 0 <= i - 1 < len(lines):
+            lines.pop(i - 1)
+
+    removed_before = len([i for i in import_ranges if i <= insertion_line - 1])
+    insertion_idx = max(0, insertion_line - 1 - removed_before)
+
+    new_lines: list[str] = []
     if shebang:
-        new_lines.append(shebang.rstrip("\n"))
-    new_lines.append(header.rstrip("\n"))
+        new_lines.append(shebang)
+    new_lines.extend(lines[:insertion_idx])
+    new_lines.append(IMPORT_LINE)
+    new_lines.extend(BANNER_LINES)
     new_lines.extend(imports)
-    new_lines.extend(remaining)
+    new_lines.extend(lines[insertion_idx:])
 
-    file_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-    print(f"Updated {file_path}")
+    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+    print(f"Updated {path}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Inject privilege banner into multiple Python scripts"
-    )
+    parser = argparse.ArgumentParser(description="Inject privilege banner into files")
     parser.add_argument(
-        "file_list",
-        help="Text file containing newline separated file paths to process",
+        "--files", nargs="+", required=True, help="Python files to modify"
     )
     args = parser.parse_args()
-    file_list_path = Path(args.file_list)
-    if not file_list_path.exists():
-        print(f"List file not found: {file_list_path}")
-        return
-    for line in file_list_path.read_text(encoding="utf-8").splitlines():
-        path = Path(line.strip())
-        if path.suffix == "":
-            continue
-        inject_banner(path)
+
+    for file_path in args.files:
+        inject_banner(Path(file_path))
 
 
 if __name__ == "__main__":
