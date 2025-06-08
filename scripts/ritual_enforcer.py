@@ -30,14 +30,23 @@ class FileReport:
 
 
 def _has_banner(path: Path) -> bool:
-    """Return True if the file contains the ritual banner."""
+    """Return True if the file begins with the privilege banner."""
     lines = path.read_text(encoding="utf-8").splitlines()
-    header = "\n".join(lines[:20])
-    return (
-        DOCSTRING in header
-        and "require_admin_banner()" in header
-        and "require_lumos_approval()" in header
-    )
+    idx = 0
+    if lines and lines[0].startswith("#!"):
+        idx = 1
+    while idx < len(lines) and lines[idx].startswith("from "):
+        idx += 1
+    needed = [
+        f'"""{DOCSTRING}"""',
+        "require_admin_banner()",
+        "require_lumos_approval()",
+    ]
+    for expected in needed:
+        if idx >= len(lines) or lines[idx].strip() != expected:
+            return False
+        idx += 1
+    return True
 
 
 def _fix_banner(lines: List[str]) -> List[str]:
@@ -61,8 +70,8 @@ def _fix_banner(lines: List[str]) -> List[str]:
     if shebang:
         new_lines.append(shebang)
     # insert banner at the very top
-    new_lines.append(f'"""{DOCSTRING}"""')
     new_lines.append(IMPORT_LINE)
+    new_lines.append(f'"""{DOCSTRING}"""')
     new_lines.append("require_admin_banner()")
     new_lines.append("require_lumos_approval()")
     new_lines.extend(cleaned)

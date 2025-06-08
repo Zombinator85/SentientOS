@@ -23,3 +23,12 @@ def test_auto_approve(tmp_path, monkeypatch):
     data = json.loads(bless_file.read_text().splitlines()[-1])
     assert data["action"] == "automatic audit blessing"
 
+
+def test_no_bless(monkeypatch):
+    monkeypatch.setenv("LUMOS_AUTO_APPROVE", "")
+    monkeypatch.setattr(audit_blesser, "run_verify", lambda: DummyCP())
+    monkeypatch.setattr(audit_blesser, "append_blessing", lambda: None)
+    monkeypatch.setattr(audit_blesser, "prompt_yes_no", lambda p: False)
+    ret = audit_blesser.main([])
+    assert ret == 1
+

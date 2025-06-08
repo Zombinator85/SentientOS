@@ -53,7 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     if "prev hash mismatch" in output or "chain break" in output:
         if auto or prompt_yes_no("Bless mismatches?"):
             append_blessing()
-        return 0
+            return 0
+        return 1
     return 0
 
 
