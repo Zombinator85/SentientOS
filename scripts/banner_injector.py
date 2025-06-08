@@ -2,6 +2,7 @@ from __future__ import annotations
 import argparse
 import ast
 import shutil
+import sys
 from pathlib import Path
 
 from admin_utils import require_admin_banner, require_lumos_approval
@@ -85,15 +86,29 @@ def inject_banner(path: Path) -> None:
     print(f"Updated {path}")
 
 
+def check_file(path: Path) -> bool:
+    """Return True if file already contains the privilege banner."""
+    text = path.read_text(encoding="utf-8") if path.exists() else ""
+    return "Privilege Banner" in text and "require_admin_banner()" in text
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Inject privilege banner into files")
-    parser.add_argument(
-        "--files", nargs="+", required=True, help="Python files to modify"
-    )
+    parser.add_argument("--files", nargs="+", required=True, help="Python files to modify")
+    parser.add_argument("--check", action="store_true", help="Only check for banner")
     args = parser.parse_args()
 
+    success = True
     for file_path in args.files:
-        inject_banner(Path(file_path))
+        path = Path(file_path)
+        if args.check:
+            if not check_file(path):
+                print(f"Missing banner: {path}")
+                success = False
+        else:
+            inject_banner(path)
+    if args.check and not success:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
