@@ -11,7 +11,7 @@ Built for devs, researchers, and survivors, SentientOS proves that alignment, us
 
 _All code was written by a non-coder using only ChatGPT and free tools._
 
-_Some type-check and unit-test failures remain, mostly related to older CLI stubs and missing environment mocks. Full explanation in [Known Issues](#known-issues) below._
+_All type-check, privilege lint, and unit tests pass. Legacy audit mismatches remain documented in `AUDIT_LOG_FIXES.md`._
 
 _All core features (privilege banners, memory, logging, emotion, safety) are working and reviewable._
 
@@ -278,12 +278,11 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - [ ] Documentation updated
 
 ## Known Issues
-- `mypy --strict` currently reports **0** errors across the codebase.
-All unit tests pass after addressing the multimodal tracker path issue. Any
-historical tests with missing dependencies remain documented in
-`LEGACY_TESTS.md` and are skipped from CI. These do not impact the core
-features of privilege banners, logging, memory, or emotion tracking.
-- Legacy wounds transparently documented and preserved in audit logs.
+- `mypy --strict` currently reports **0** errors across the codebase. All tests
+  and privilege lint checks pass.
+- Legacy audit files `migration_ledger.jsonl` and `support_log.jsonl` contain
+  historic hash mismatches. These scars are documented in
+  `AUDIT_LOG_FIXES.md` and preserved for transparency.
 
 ## Technical Debt Clearance
 Recent Codex batch work patched `log_json` to ensure all audit entries contain
