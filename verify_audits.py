@@ -218,6 +218,7 @@ def main() -> None:  # pragma: no cover - CLI
     auto_env = args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1"
     if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
+    strict_env = os.getenv("STRICT") == "1"
 
     directory = None
     if args.path:
@@ -247,13 +248,15 @@ def main() -> None:  # pragma: no cover - CLI
     )
 
     chain_ok = all(not e for e in res.values())
+    total_fixed = 0
 
     if args.auto_repair and not chain_ok:
         from scripts import audit_repair
 
         prev = "0" * 64
         for log in logs:
-            prev, _ = audit_repair.repair_log(log, prev, check_only=False)
+            prev, fixed = audit_repair.repair_log(log, prev, check_only=False)
+            total_fixed += fixed
         res, percent, stats = verify_audits(
             quarantine=True,
             directory=directory,
@@ -267,6 +270,7 @@ def main() -> None:  # pragma: no cover - CLI
         for log in logs:
             prev, fixed = audit_repair.repair_log(log, prev, check_only=False)
             print(f"Repair {log.name}: {fixed} fixed")
+            total_fixed += fixed
         res, percent, stats = verify_audits(
             quarantine=True,
             directory=directory,
@@ -285,6 +289,9 @@ def main() -> None:  # pragma: no cover - CLI
         print(
             f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
         )
+    if strict_env and total_fixed:
+        print("Strict mode: repairs detected")
+        raise SystemExit(1)
     if chain_ok:
         raise SystemExit(0)
     raise SystemExit(1)

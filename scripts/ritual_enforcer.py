@@ -1,7 +1,7 @@
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Privilege Banner: requires admin & Lumos approval."""
 require_admin_banner()
 require_lumos_approval()
 
@@ -11,11 +11,17 @@ import shutil
 from pathlib import Path
 from typing import Iterable, List
 
-DOCSTRING = "Sanctuary Privilege Banner: This script requires admin & Lumos approval."
+DOCSTRING = "Privilege Banner: requires admin & Lumos approval."
 OLD_DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
+HEADER_LINES = [
+    f'"""{DOCSTRING}"""',
+    "require_admin_banner()",
+    "require_lumos_approval()",
+]
 IMPORT_LINE = "from admin_utils import require_admin_banner, require_lumos_approval"
 AUTO_APPROVE_IMPORT = "from scripts.auto_approve import prompt_yes_no"
 PROMPT_RE = re.compile(r"(?<!prompt_yes_no)\b(?:input|click\.confirm|prompt)\(")
+ENTRY_RE = re.compile(r"if __name__ == ['\"]__main__['\"]")
 
 """CLI tool to enforce privilege banners and migrate interactive prompts."""
 
@@ -29,23 +35,17 @@ class FileReport:
         self.modified = False
 
 
-def _has_banner(path: Path) -> bool:
+def _has_banner(lines: List[str]) -> bool:
     """Return True if the file begins with the privilege banner."""
-    lines = path.read_text(encoding="utf-8").splitlines()
     idx = 0
     if lines and lines[0].startswith("#!"):
         idx = 1
-    while idx < len(lines) and lines[idx].startswith("from "):
-        idx += 1
-    needed = [
-        f'"""{DOCSTRING}"""',
-        "require_admin_banner()",
-        "require_lumos_approval()",
-    ]
-    for expected in needed:
+    for expected in HEADER_LINES:
         if idx >= len(lines) or lines[idx].strip() != expected:
             return False
         idx += 1
+    if idx >= len(lines) or lines[idx].strip() != IMPORT_LINE:
+        return False
     return True
 
 
@@ -54,27 +54,20 @@ def _fix_banner(lines: List[str]) -> List[str]:
     shebang = ""
     if lines and lines[0].startswith("#!"):
         shebang = lines.pop(0)
-    # remove existing banners or related imports
-    cleaned = [
+    imports = [l for l in lines if l.startswith("import ") or l.startswith("from ")]
+    body = [
         l
         for l in lines
-        if l.strip() not in {
-            DOCSTRING,
-            OLD_DOCSTRING,
-            "require_admin_banner()",
-            "require_lumos_approval()",
-            IMPORT_LINE,
-        }
+        if l not in imports
+        and l.strip() not in {DOCSTRING, OLD_DOCSTRING, "require_admin_banner()", "require_lumos_approval()", IMPORT_LINE}
     ]
     new_lines: List[str] = []
     if shebang:
         new_lines.append(shebang)
-    # insert banner at the very top
+    new_lines.extend(HEADER_LINES)
     new_lines.append(IMPORT_LINE)
-    new_lines.append(f'"""{DOCSTRING}"""')
-    new_lines.append("require_admin_banner()")
-    new_lines.append("require_lumos_approval()")
-    new_lines.extend(cleaned)
+    new_lines.extend(imports)
+    new_lines.extend(body)
     return new_lines
 
 
@@ -99,6 +92,10 @@ def _replace_prompts(lines: List[str]) -> List[str]:
     return new_lines
 
 
+def _is_entrypoint(lines: List[str]) -> bool:
+    return any(ENTRY_RE.search(l) for l in lines)
+
+
 def process_file(path: Path, mode: str, backup_dir: Path | None) -> FileReport:
     report = FileReport(path)
     try:
@@ -107,7 +104,7 @@ def process_file(path: Path, mode: str, backup_dir: Path | None) -> FileReport:
         report.issues.append(f"read error: {exc}")
         return report
 
-    if not _has_banner(path):
+    if not _has_banner(lines):
         report.issues.append("missing banner at line 1")
         if mode == "fix":
             lines = _fix_banner(lines)
@@ -135,7 +132,17 @@ def expand_files(patterns: Iterable[str]) -> List[Path]:
     files: List[Path] = []
     for pat in patterns:
         files.extend(Path().glob(pat))
-    return [p for p in files if p.is_file() and p.name != "__init__.py"]
+    result: List[Path] = []
+    for p in files:
+        if not p.is_file() or p.name == "__init__.py":
+            continue
+        try:
+            lines = p.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            continue
+        if _is_entrypoint(lines):
+            result.append(p)
+    return result
 
 
 def main(argv: List[str] | None = None) -> int:
