@@ -13,11 +13,10 @@ class DummyCP:
 
 
 def test_auto_approve(tmp_path, monkeypatch):
-    monkeypatch.setenv("LUMOS_AUTO_APPROVE", "1")
     bless_file = tmp_path / "SANCTUARY_BLESSINGS.jsonl"
     monkeypatch.setattr(audit_blesser, "BLESSINGS_FILE", bless_file)
     monkeypatch.setattr(audit_blesser, "run_verify", lambda: DummyCP())
-    ret = audit_blesser.main([])
+    ret = audit_blesser.main(["--auto-approve"])
     assert ret == 0
     assert bless_file.exists()
     data = json.loads(bless_file.read_text().splitlines()[-1])
