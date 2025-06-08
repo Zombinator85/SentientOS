@@ -16,18 +16,18 @@ except Exception:  # pragma: no cover - fallback for lint
         """Fallback when admin_utils cannot be imported during lint."""
         pass
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+"""Sanctuary Privilege Banner: This script requires admin & Lumos approval.
 
-Lint entrypoints for the Sanctuary privilege ritual.
+Lint entrypoints for the Sanctuary privilege banner.
 
 Usage is recorded in ``logs/privileged_audit.jsonl`` or the path set by
 the ``PRIVILEGED_AUDIT_FILE`` environment variable. See
 ``docs/ENVIRONMENT.md`` for details.
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()  # Enforced: Sanctuary Privilege Banner—do not remove. See doctrine.
 require_lumos_approval()
 
-DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
+DOCSTRING = "Sanctuary Privilege Banner: This script requires admin & Lumos approval."
 
 ENTRY_PATTERNS = [
     "*_cli.py",
@@ -60,7 +60,7 @@ def audit_use(tool: str, command: str) -> None:
 
 
 def _has_header(path: Path) -> bool:
-    """Return True if the ritual docstring appears soon after imports."""
+    """Return True if the banner docstring appears soon after imports."""
     lines = path.read_text(encoding="utf-8").splitlines()
     idx = 0
     # Skip shebangs, comments and imports at the top of the file
