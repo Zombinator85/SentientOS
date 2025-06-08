@@ -22,7 +22,7 @@ jobs:
           python scripts/ritual_enforcer.py --mode fix
       - name: Run tests
         run: |
-          pytest -m "not env" -q
+          pytest -q
       - name: Privilege lint
         run: |
           LUMOS_AUTO_APPROVE=1 python privilege_lint.py
