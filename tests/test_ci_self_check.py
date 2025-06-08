@@ -15,7 +15,7 @@ def test_ci_success(monkeypatch):
         return Dummy(0)
     monkeypatch.setattr(ci.subprocess, "run", fake_run)
     assert ci.main([]) == 0
-    assert len(calls) == 3
+    assert len(calls) == 5
 
 def test_ci_failure(monkeypatch):
     def fake_run(cmd, env=None):
