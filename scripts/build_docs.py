@@ -1,4 +1,5 @@
 from __future__ import annotations
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -12,20 +13,29 @@ require_lumos_approval()
 
 
 def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build documentation")
+    parser.add_argument("--deploy", action="store_true", help="Deploy to GitHub Pages")
+    args = parser.parse_args(argv)
+
     config = Path("mkdocs.yml")
     if not config.exists():
         print("mkdocs.yml not found", file=sys.stderr)
         return 1
-    result = subprocess.run(["mkdocs", "build", "--clean"], capture_output=True, text=True)
+
+    cmd = ["mkdocs", "build", "--clean"]
+    if args.deploy:
+        cmd = ["mkdocs", "gh-deploy", "--force"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
     sys.stdout.write(result.stdout)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         return result.returncode
-    site_dir = Path("site")
-    pages = sorted(p.relative_to(site_dir) for p in site_dir.rglob("*.html"))
-    print(f"Generated {len(pages)} pages:")
-    for p in pages:
-        print(f"- {p}")
+    if not args.deploy:
+        site_dir = Path("site")
+        pages = sorted(p.relative_to(site_dir) for p in site_dir.rglob("*.html"))
+        print(f"Generated {len(pages)} pages:")
+        for p in pages:
+            print(f"- {p}")
     return 0
 
 
