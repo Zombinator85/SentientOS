@@ -39,3 +39,27 @@ External plug-ins and extensions interact with core audit logs. To contribute on
 - Include a module-level docstring describing its behavior and permissions.
 - Use the trust engine logging helpers; avoid direct file writes.
 - Document any external dependencies in your pull request.
+
+## Documentation & Types
+Run `python scripts/build_docs.py` to build the documentation site. Ensure `mypy --strict` runs without errors.
+
+### MkDocs preview
+Use `mkdocs serve` to preview docs locally.
+
+### CI Workflow
+CI also runs mypy and docs build along with tests:
+
+```yaml
+- name: Enforce privilege rituals
+  run: python scripts/ritual_enforcer.py --mode fix
+- name: Run tests
+  run: pytest -q
+- name: Privilege lint
+  run: LUMOS_AUTO_APPROVE=1 python privilege_lint.py
+- name: Verify audits
+  run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
+- name: Type check
+  run: mypy --strict
+- name: Build Docs
+  run: python scripts/build_docs.py
+```

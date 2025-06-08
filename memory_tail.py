@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import time
 import json
@@ -12,8 +13,7 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 
 init()
-
-COLOR_MAP = {
+COLOR_MAP: dict[str, str] = {
     "heartbeat": Fore.YELLOW,
     "openai/gpt-4o": Fore.GREEN,
     "mixtral": Fore.MAGENTA,
@@ -23,18 +23,21 @@ COLOR_MAP = {
 DEFAULT_FILE = get_log_path("memory.jsonl", "MEMORY_FILE")
 
 
-def detect_color(entry: dict) -> str:
+from typing import Any, Dict
+
+
+def detect_color(entry: dict[str, Any]) -> str:
     source = (entry.get("source") or "").lower()
     tags = [t.lower() for t in entry.get("tags", [])]
     if source in COLOR_MAP:
-        return COLOR_MAP[source]
+        return str(COLOR_MAP[source])
     for t in tags:
         if t in COLOR_MAP:
-            return COLOR_MAP[t]
-    return Fore.WHITE
+            return str(COLOR_MAP[t])
+    return str(Fore.WHITE)
 
 
-def dominant_emotion(entry: dict) -> str | None:
+def dominant_emotion(entry: dict[str, Any]) -> str | None:
     emotions = entry.get("emotions")
     if isinstance(emotions, dict) and emotions:
         emo, score = max(emotions.items(), key=lambda x: x[1])
