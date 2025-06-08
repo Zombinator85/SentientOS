@@ -4,16 +4,10 @@ from pathlib import Path
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Generate a summary of known errors and how to resolve them."""
-
-# Generate a summary of known errors and how to resolve them.
-
-# Generate a summary of known errors and how to resolve them.
-
-# Generate a summary of known errors and how to resolve them.
-
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()
 require_lumos_approval()
+# Generate a summary of known errors and how to resolve them.
 
 RITUAL_DOC = Path("RITUAL_FAILURES.md")
 AUDIT_DOC = Path("AUDIT_LOG_FIXES.md")

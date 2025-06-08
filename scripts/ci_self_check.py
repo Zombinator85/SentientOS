@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Run privileged CI self checks."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 import os
 import subprocess
 import sys
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
 
 
 FILES_TO_TYPECHECK = [
