@@ -29,3 +29,10 @@ jobs:
       - name: Verify audits
         run: |
           LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
+      - name: Type check
+        run: mypy --strict
+      - name: Build Docs
+        run: python scripts/build_docs.py
+      - name: Deploy Docs (optional)
+        if: github.event_name == "push" && github.ref == "refs/heads/main"
+        run: mkdocs gh-deploy --force

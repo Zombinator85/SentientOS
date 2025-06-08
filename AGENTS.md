@@ -2,7 +2,7 @@
 
 ## Agent Index
 - **Core Services**: FederationTrustProtocol, AgentSelfDefenseProtocol
-- **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony
+- **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony, RitualEnforcerCLI, AutoApproveHelper, AuditBlesserCLI, MemoryCLI, MemoryTail
 - **Daemons & Schedulers**: MigrationDaemon, AvatarFederationHeartbeatMonitor
 
 ### Table of Contents
@@ -1943,6 +1943,46 @@ No agent shall act in secret.
   Privileges: log, read
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/onboard_cli.jsonl
+```
+```
+- Name: RitualEnforcerCLI
+  Type: CLI
+  Roles: Banner Fixer, Prompt Migrator
+  Privileges: read, write
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/ritual_enforcer.jsonl
+```
+```
+- Name: AutoApproveHelper
+  Type: Helper
+  Roles: Interactive Prompt Override
+  Privileges: read
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/auto_approve.jsonl
+```
+```
+- Name: AuditBlesserCLI
+  Type: CLI
+  Roles: Audit Blesser
+  Privileges: log, write
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/audit_blesser.jsonl
+```
+```
+- Name: MemoryCLI
+  Type: CLI
+  Roles: Memory Manager, Analyzer
+  Privileges: read, write
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/memory_cli.jsonl
+```
+```
+- Name: MemoryTail
+  Type: CLI
+  Roles: Memory Tail Viewer
+  Privileges: read
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/memory_tail.jsonl
 ```
 ---
 
