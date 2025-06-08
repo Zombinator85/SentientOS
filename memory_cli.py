@@ -1,3 +1,4 @@
+from __future__ import annotations
 import argparse
 import os
 import json
@@ -8,6 +9,7 @@ from api import actuator
 import notification
 import self_patcher
 import final_approval
+import ledger
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from admin_utils import require_admin_banner, require_lumos_approval
 import presence_analytics as pa
@@ -93,7 +95,7 @@ def show_goals(status: str) -> None:
             line += f" | {g['critique']}"
         print(line)
 
-def main():
+def main() -> None:
     require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(
