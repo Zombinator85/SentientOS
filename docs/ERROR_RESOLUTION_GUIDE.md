@@ -47,3 +47,9 @@ After auto-repair:
 support_log.jsonl: 1 entries, 1 fixed, OK
 ```
 CI runs this command so minor wounds never block the ritual.
+
+## Automatic Repair vs Strict Mode
+Automatic repair keeps CI green by fixing mismatched rolling hashes on the fly.
+Production environments set `STRICT=1` to abort if any repair occurs so auditors
+can review the wounds first. Run `verify_audits.py --auto-repair` locally to heal
+logs, then rerun with `STRICT=1` to confirm nothing else changes.
