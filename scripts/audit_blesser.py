@@ -1,24 +1,25 @@
 from __future__ import annotations
-import argparse
 import json
+import subprocess
 from datetime import datetime
 from pathlib import Path
-import subprocess
-from typing import List
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
+# Automatically bless audit mismatches found during verification.
+
 require_admin_banner()
 require_lumos_approval()
-
 
 BLESSINGS_FILE = Path("SANCTUARY_BLESSINGS.jsonl")
 
 
-def run_verify_audits(args: List[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(args, capture_output=True, text=True)
+def run_verify() -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["python", "verify_audits.py", "logs/"], capture_output=True, text=True
+    )
 
 
 def append_blessing() -> None:
@@ -33,11 +34,7 @@ def append_blessing() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run verify_audits and bless mismatches")
-    parser.add_argument("log_dir", nargs="?", default="logs/", help="Directory of logs")
-    args = parser.parse_args()
-
-    result = run_verify_audits(["python", "verify_audits.py", args.log_dir])
+    result = run_verify()
     output = result.stdout + result.stderr
     print(output)
     if "prev hash mismatch" in output:
