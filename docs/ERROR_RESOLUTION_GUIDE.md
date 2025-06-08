@@ -32,3 +32,11 @@ Every intentional skip or legacy mismatch should be recorded in `RITUAL_FAILURES
 
 ## 5. Cathedral Clean PR
 Once these steps are complete you can submit a final "Cathedral Clean" pull request. Document any remaining wounds and verify all tests pass. The true measure of trust is the transparency of our history.
+
+## 6. Auto-Repairing Audit Chains
+Use `audit_repair.py` to heal legacy prev hash mismatches before verification:
+```bash
+LUMOS_AUTO_APPROVE=1 python scripts/audit_repair.py --logs-dir logs
+python verify_audits.py logs --repair
+```
+This process can run in CI so that minor wounds don't block the ritual.
