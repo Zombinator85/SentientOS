@@ -32,6 +32,7 @@ Run `python privilege_lint.py` locally before submitting a pull request. You can
 link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
 run the lint before each commit. After cloning, run `pre-commit install` to set up the hooks.
 The hook also runs `python verify_audits.py logs/` to ensure audit logs remain valid before merging.
+If you modify audit logs, run the linters in strict mode locally by setting `SENTIENTOS_LINT_STRICT=1`.
 
 First-time contributors can read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) and submit the **Share Your Saint Story** issue when opening their pull request.
 

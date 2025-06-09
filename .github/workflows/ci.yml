@@ -28,6 +28,11 @@ jobs:
         run: pre-commit run --all-files
       - name: Run tests
         run: pytest -q --cov=sentientos --cov-report=xml --cov-report=term --cov-fail-under=90
+      - name: Strict privilege / audit lint
+        run: |
+          export SENTIENTOS_LINT_STRICT=1
+          python privilege_lint.py --no-emoji
+          python verify_audits.py logs/ --no-emoji
       - name: Run mypy
         run: mypy --strict sentientos
       - name: Coverage guard
