@@ -66,11 +66,11 @@ def is_admin() -> bool:
     """Return True if running with administrative privileges."""
     if os.name == "nt":
         try:
-            import ctypes  # type: ignore  # windows admin API
+            import ctypes  # windows admin API
             windll = getattr(ctypes, "windll", None)
             if windll is None:
                 return False
-            return windll.shell32.IsUserAnAdmin() != 0
+            return bool(windll.shell32.IsUserAnAdmin())
         except Exception:
             return False
     else:
@@ -88,8 +88,8 @@ def require_admin_banner() -> None:
         pl = pl_module
     _log_privilege = pl.log_privilege
     try:
-        import privilege_lint as pl_lint  # type: ignore
-        pl_lint.audit_use("cli", tool)
+        import privilege_lint as pl_lint
+        pl_lint.audit_use("cli", tool)  # type: ignore[attr-defined]
     except Exception:
         pass
     if is_admin():
@@ -99,7 +99,7 @@ def require_admin_banner() -> None:
 
     if os.name == "nt":
         try:
-            import ctypes  # type: ignore  # windows admin API
+            import ctypes  # windows admin API
             windll = getattr(ctypes, "windll", None)
             if windll is None:
                 raise RuntimeError("No windll")
