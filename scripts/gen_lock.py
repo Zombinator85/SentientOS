@@ -33,17 +33,36 @@ def compile_lock(pyproject: Path, extra: str) -> str:
     return result.stdout
 
 
+def extras_with_requirements(pyproject: Path) -> list[str]:
+    import tomllib
+
+    data = tomllib.loads(pyproject.read_text())
+    extras = data.get("project", {}).get("optional-dependencies", {})
+    return [
+        name
+        for name, pkgs in extras.items()
+        if any(p.strip().startswith("-r") for p in pkgs)
+    ]
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Generate lock files")
     parser.add_argument("--check", action="store_true", help="fail if locks diverge")
+    parser.add_argument("--strict", action="store_true", help="error on extras referencing -r")
     args = parser.parse_args(argv)
+
+    root = Path(__file__).resolve().parents[1]
+    pyproject = root / "pyproject.toml"
+
+    if args.strict:
+        offenders = extras_with_requirements(pyproject)
+        if offenders:
+            print("extras referencing -r detected:", ", ".join(offenders), file=sys.stderr)
+            sys.exit(1)
 
     if not shutil.which("pip-compile"):
         print("pip-tools not found. Install with: pip install pip-tools", file=sys.stderr)
         sys.exit(1)
-
-    root = Path(__file__).resolve().parents[1]
-    pyproject = root / "pyproject.toml"
 
     changed = False
     for extra, out in LOCKS:

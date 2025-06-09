@@ -24,9 +24,13 @@ jobs:
       - if: matrix.mode == 'core'
         run: pip install -r requirements.txt
       - if: matrix.mode == 'bin-lock'
-        run: pip install .[locked-bin]
+        run: |
+          pip install -r lock-bin.txt
+          pip install .
       - if: matrix.mode == 'src-lock-full'
-        run: pip install .[locked-src]
+        run: |
+          pip install -r lock-src.txt
+          pip install .
       - id: tests
         run: pytest -q
       - name: Env report
