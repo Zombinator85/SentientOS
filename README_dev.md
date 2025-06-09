@@ -20,6 +20,20 @@ pip install privilege-lint[all]
 pytest -q
 ```
 
+### Installing extras (bin vs src)
+
+Pre-built wheels install without a compiler:
+
+```bash
+pip install privilege-lint[bin]
+```
+
+Source builds offer the full feature set but require gcc and node:
+
+```bash
+pip install privilege-lint[all]
+```
+
 Tests will auto-skip when optional tools like `node`, `go`, or `dmypy` are missing.
 Run `plint-env` to see a quick capability report:
 
