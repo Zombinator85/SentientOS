@@ -60,3 +60,9 @@
 - requirements-extras.txt defines js/go/report/dev groups
 - CI now runs python-only and full jobs
 
+## 2028-05 v9.2 Green-Suite
+- Dynamic skip markers auto-skip JS/Go/dmypy tests when runtimes missing
+- `plint-env` CLI reports optional stack status
+- `privilege-lint[all]` installs all extras
+- CI fails if the full matrix skips more than 5% of tests
+
