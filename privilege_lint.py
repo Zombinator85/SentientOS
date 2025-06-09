@@ -19,13 +19,6 @@ except Exception:  # pragma: no cover - fallback for lint
         """Fallback when admin_utils cannot be imported during lint."""
         pass
 
-    # Local fallback banner lines (if import fails)
-    BANNER_LINES = [
-        '"""Privilege Banner: requires admin & Lumos approval."""',
-        "require_admin_banner()",
-        "require_lumos_approval()",
-        "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
-    ]
 
 
 """Lint entrypoints for the Sanctuary privilege ritual.
