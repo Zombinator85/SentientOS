@@ -38,13 +38,20 @@ def repair_log(path: Path, prev: str, *, check_only: bool = False) -> Tuple[str,
     ]
     repaired: list[Dict[str, Any]] = []
     fixed = 0
+    prev_entry: Dict[str, Any] | None = None
     for entry in lines:
         changed = False
+        prev_changed = False
         if "timestamp" not in entry or "data" not in entry or not isinstance(entry.get("data"), dict):
             repaired.append(entry)
+            prev_entry = entry
             prev = entry.get("rolling_hash", prev)
             continue
         expected = compute_hash(entry["timestamp"], entry["data"], prev)
+        if prev_entry is not None and prev_entry.get("next_hash") != expected:
+            prev_changed = True
+            if not check_only:
+                prev_entry["next_hash"] = expected
         if entry.get("prev_hash") != prev:
             changed = True
             if not check_only:
@@ -56,9 +63,12 @@ def repair_log(path: Path, prev: str, *, check_only: bool = False) -> Tuple[str,
                 entry["rolling_hash"] = expected
                 entry.pop("hash", None)
         repaired.append(entry)
-        prev = expected
+        if prev_changed:
+            fixed += 1
         if changed:
             fixed += 1
+        prev_entry = entry
+        prev = expected
     if fixed and not check_only:
         with path.open("w", encoding="utf-8") as f:
             for e in repaired:
