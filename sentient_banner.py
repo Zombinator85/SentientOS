@@ -25,9 +25,18 @@ BANNER = (
     "Every supporter, every federated peer, every blessing—immortal, append-only, and open."
 )
 
+# ---------------------------------------------------------------------------
+# Centralized privilege banner lines used at the top of every entrypoint.
+# ---------------------------------------------------------------------------
+BANNER_LINES = [
+    '"""Privilege Banner: requires admin & Lumos approval."""',
+    "require_admin_banner()",
+    "require_lumos_approval()",
+    "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
+]
+
 import admin_utils
 from datetime import datetime
-import presence_ledger as pl
 import json
 
 
@@ -37,6 +46,7 @@ def print_banner() -> None:
     print(SANCTUARY_BANNER)
     status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
     print(f"Sanctuary Privilege Status: [{status}]")
+    import presence_ledger as pl
     attempts = pl.recent_privilege_attempts(3)
     if attempts:
         print("Recent privilege attempts:")
@@ -50,6 +60,7 @@ def streamlit_banner(st_module) -> None:
         st_module.markdown(SANCTUARY_BANNER)
         status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
         st_module.markdown(f"**Privilege Status:** {status}")
+        import presence_ledger as pl
         attempts = pl.recent_privilege_attempts(3)
         if attempts:
             st_module.markdown("Recent privilege attempts:")
