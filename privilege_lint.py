@@ -1,11 +1,12 @@
 from logging_config import get_log_path
 import sys
 import json
-from log_utils import append_json
 import datetime
 import os
 import re
 from pathlib import Path
+from log_utils import append_json
+
 try:
     from admin_utils import require_admin_banner, require_lumos_approval
     from sentient_banner import BANNER_LINES
@@ -13,10 +14,19 @@ except Exception:  # pragma: no cover - fallback for lint
     def require_admin_banner() -> None:
         """Fallback when admin_utils cannot be imported during lint."""
         pass
+
     def require_lumos_approval() -> None:
         """Fallback when admin_utils cannot be imported during lint."""
         pass
-    from sentient_banner import BANNER_LINES
+
+    # Local fallback banner lines (if import fails)
+    BANNER_LINES = [
+        '"""Privilege Banner: requires admin & Lumos approval."""',
+        "require_admin_banner()",
+        "require_lumos_approval()",
+        "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
+    ]
+
 
 """Lint entrypoints for the Sanctuary privilege ritual.
 
@@ -26,6 +36,7 @@ Usage is recorded in ``logs/privileged_audit.jsonl`` or the path set by
 require_admin_banner()  # Enforced banner calls
 require_lumos_approval()
 
+# The exact docstring that must appear after imports:
 DOCSTRING = BANNER_LINES[0].strip('"')
 
 ENTRY_PATTERNS = [
@@ -41,7 +52,6 @@ ENTRY_PATTERNS = [
 
 MAIN_BLOCK_RE = re.compile(r"if __name__ == ['\"]__main__['\"]")
 ARGPARSE_RE = re.compile(r"\bargparse\b")
-
 DOCSTRING_SEARCH_LINES = 60
 
 AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
@@ -72,6 +82,7 @@ def _has_header(path: Path) -> bool:
             idx += 1
             continue
         break
+
     search_block = "\n".join(lines[idx : idx + DOCSTRING_SEARCH_LINES])
     return DOCSTRING in search_block
 
@@ -79,30 +90,27 @@ def _has_header(path: Path) -> bool:
 def _has_banner_call(path: Path) -> bool:
     """Return True if banner calls appear in the correct order."""
     lines = path.read_text(encoding="utf-8").splitlines()
-    start = None
-    for i, line in enumerate(lines):
-        if DOCSTRING in line:
-            start = i
-            break
+    # Find the docstring line
+    start = next((i for i, l in enumerate(lines) if DOCSTRING in l), None)
     if start is None:
         return False
-    end = start
+
+    # Find end of docstring (single- or multi-line)
     if lines[start].count('"""') >= 2:
         end = start
     else:
-        for j in range(start + 1, len(lines)):
-            if '"""' in lines[j]:
-                end = j
-                break
-        else:
+        end = next((j for j in range(start + 1, len(lines)) if '"""' in lines[j]), None)
+        if end is None:
             return False
 
+    # Check require_admin_banner() immediately after
     j = end + 1
     while j < len(lines) and not lines[j].strip():
         j += 1
     if j >= len(lines) or not lines[j].strip().startswith("require_admin_banner("):
         return False
 
+    # Check require_lumos_approval() immediately after
     j += 1
     while j < len(lines) and not lines[j].strip():
         j += 1
@@ -110,7 +118,7 @@ def _has_banner_call(path: Path) -> bool:
 
 
 def _has_lumos_call(path: Path) -> bool:
-    """Return True if ``require_lumos_approval()`` follows ``require_admin_banner()``."""
+    """Return True if `require_lumos_approval()` follows `require_admin_banner()`."""
     lines = path.read_text(encoding="utf-8").splitlines()
     for i, line in enumerate(lines):
         if line.strip().startswith("require_admin_banner("):
@@ -122,25 +130,27 @@ def _has_lumos_call(path: Path) -> bool:
 
 
 def check_file(path: Path) -> list[str]:
-    issues = []
+    issues: list[str] = []
     if not _has_header(path):
         issues.append(f"{path}: missing privilege docstring after imports")
     if not _has_banner_call(path):
         issues.append(
-            f"{path}: require_admin_banner() must immediately follow the banner docstring and be followed by require_lumos_approval()"
+            f"{path}: `require_admin_banner()` must immediately follow the banner docstring and be followed by `require_lumos_approval()`"
         )
     elif not _has_lumos_call(path):
         issues.append(
-            f"{path}: require_lumos_approval() must immediately follow require_admin_banner()"
+            f"{path}: `require_lumos_approval()` must immediately follow `require_admin_banner()`"
         )
     return issues
 
 
 def find_entrypoints(root: Path) -> list[Path]:
-    """Return Python entrypoint files under ``root``."""
+    """Return Python entrypoint files under `root`."""
     files: set[Path] = set()
     for pattern in ENTRY_PATTERNS:
         files.update(root.rglob(pattern))
+
+    # Also pick up any script with a `__main__` block or use of argparse
     for path in root.rglob("*.py"):
         if path in files:
             continue
@@ -153,13 +163,15 @@ def find_entrypoints(root: Path) -> list[Path]:
 def main() -> int:
     root = Path(__file__).resolve().parent
     files = find_entrypoints(root)
-    issues = []
+    issues: list[str] = []
     for path in files:
         issues.extend(check_file(path))
+
     if issues:
         print("\n".join(sorted(issues)))
         return 1
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
