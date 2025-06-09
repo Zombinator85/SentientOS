@@ -11,6 +11,7 @@ Quick-start minimal:
 ```bash
 pip install -r requirements.txt
 pytest -q
+mypy sentientos
 ```
 
 Full extras:
@@ -19,6 +20,10 @@ Full extras:
 pip install privilege-lint[all]
 pytest -q
 ```
+
+Run mypy locally with: `mypy sentientos`
+
+Tests must keep 80 % coverage.
 
 ### Installing extras (bin vs src)
 
