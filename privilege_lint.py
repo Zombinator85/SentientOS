@@ -27,6 +27,11 @@ from privilege_lint.license_rules import (
 )
 from privilege_lint.cache import LintCache
 from privilege_lint.runner import parallel_validate, DEFAULT_WORKERS
+from privilege_lint.template_rules import validate_template, parse_context
+from privilege_lint.security_rules import validate_security
+from privilege_lint.comment_controls import parse_controls, is_disabled
+from privilege_lint.metrics import MetricsCollector
+from privilege_lint.plugins import load_plugins
 
 from logging_config import get_log_path
 
@@ -145,10 +150,12 @@ def audit_use(tool: str, cmd: str) -> None:
 
 
 class PrivilegeLinter:
-    def __init__(self, config: LintConfig | None = None, project_root: Path | None = None) -> None:
+    def __init__(self, config: LintConfig | None = None, project_root: Path | None = None, metrics: MetricsCollector | None = None) -> None:
         self.project_root = project_root or Path.cwd()
         self.config = config or load_config(self.project_root)
+        self.metrics = metrics or MetricsCollector()
         self.cache = LintCache(self.project_root, self.config, enabled=self.config.cache)
+        self.plugins = load_plugins()
         if self.config.banner_file:
             try:
                 self.banner = Path(self.config.banner_file).read_text(encoding="utf-8").splitlines()
@@ -167,26 +174,50 @@ class PrivilegeLinter:
 
     def validate(self, file_path: Path) -> list[str]:
         lines = file_path.read_text(encoding="utf-8").splitlines()
-        issues = []
+        controls = parse_controls(lines)
+        issues: list[str] = []
+
+        def add(rule: str, errs: list[str]) -> None:
+            filtered = []
+            for e in errs:
+                m = re.match(rf"{re.escape(str(file_path))}:(\d+)", e)
+                line = int(m.group(1)) if m else 1
+                if not is_disabled(controls, rule, line):
+                    filtered.append(e)
+            self.metrics.record(rule, len(filtered))
+            issues.extend(filtered)
+
         if self.config.enforce_banner:
-            issues.extend(validate_banner_order(lines, file_path, self.banner))
+            add('banner-order', validate_banner_order(lines, file_path, self.banner))
         if self.config.enforce_import_sort:
-            issues.extend(validate_import_sort(lines, file_path, self.project_root))
+            add('import-sort', validate_import_sort(lines, file_path, self.project_root))
         if self.config.enforce_type_hints:
-            issues.extend(
+            add(
+                'type-hint',
                 validate_type_hints(
                     lines,
                     file_path,
                     exclude_private=self.config.exclude_private,
                     fail_on_missing_return=self.config.fail_on_missing_return,
-                )
+                ),
             )
         if self.config.shebang_require:
-            issues.extend(validate_shebang(file_path, self.config.shebang_require))
+            add('shebang', validate_shebang(file_path, self.config.shebang_require))
         if self.config.docstrings_enforce:
-            issues.extend(validate_docstrings(lines, file_path, self.config.docstring_style))
+            add('docstring', validate_docstrings(lines, file_path, self.config.docstring_style))
         if self.license_header:
-            issues.extend(validate_license_header(lines, file_path, self.license_header))
+            add('license', validate_license_header(lines, file_path, self.license_header))
+        if self.config.templates_enabled and file_path.suffix in {'.j2', '.hbs', '.jinja'}:
+            ctx = self.config.templates_context or parse_context(lines)
+            add('template', validate_template(file_path, ctx))
+        if self.config.security_enabled and file_path.suffix == '.py':
+            sec = validate_security(lines, file_path)
+            for name, msgs in sec.items():
+                add(name, msgs)
+        for plugin in self.plugins:
+            add(plugin.__name__, plugin(file_path, self.config))
+
+        self.metrics.file_scanned()
         return issues
 
     def apply_fix(self, file_path: Path) -> bool:
@@ -279,13 +310,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--show-hints", action="store_true", help="Print type hint violations in quiet mode")
     ap.add_argument("--no-cache", action="store_true", help="Disable cache")
     ap.add_argument("--mypy", action="store_true", help="Force full mypy run")
+    ap.add_argument("--report-json", type=str, default=None, help="Write metrics JSON report")
     args = ap.parse_args(argv)
 
-    linter = PrivilegeLinter()
+    metrics = MetricsCollector()
+    linter = PrivilegeLinter(metrics=metrics)
     if args.no_cache:
         linter.cache.enabled = False
     files = iter_py_files(args.paths)
-    check_files = [f for f in files if not linter.cache.is_valid(f)]
+    check_files = []
+    for f in files:
+        if linter.cache.is_valid(f):
+            metrics.cache_hit()
+        else:
+            check_files.append(f)
 
     if args.fix:
         fixed = 0
@@ -326,6 +364,7 @@ def main(argv: list[str] | None = None) -> int:
             linter.cache.update(df)
 
     linter.cache.save()
+    metrics.finish()
     if issues:
         if not args.quiet or args.show_hints:
             print("\n".join(sorted(issues)))
@@ -334,6 +373,9 @@ def main(argv: list[str] | None = None) -> int:
     stamp_src = linter.cache.cfg_hash + subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"]).decode().strip()
     stamp = hashlib.sha1(stamp_src.encode()).hexdigest()
     (Path(".git") / ".privilege_lint.gitcache").write_text(stamp)
+    report_path = args.report_json or ("plint_metrics.json" if linter.config.report_json else None)
+    if report_path:
+        metrics.write_json(Path(report_path))
     return 0
 
 
