@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from ._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
+from ._env import (
+    HAS_NODE,
+    HAS_GO,
+    HAS_DMYPY,
+    HAS_PYESPRIMA,
+    NODE,
+    GO,
+    DMYPY,
+    PYESPRIMA,
+)
 
 
 def report() -> str:
@@ -9,10 +18,12 @@ def report() -> str:
         ("node", HAS_NODE, NODE.info),
         ("go", HAS_GO, GO.info),
         ("dmypy", HAS_DMYPY, DMYPY.info),
+        ("pyesprima", HAS_PYESPRIMA, PYESPRIMA.info),
     ]
     for name, ok, info in rows:
         check = "\u2714\ufe0f" if ok else "\u274c"
-        lines.append(f"{name:<12} {check:<6} {info}")
+        desc = info if ok else "MISSING"
+        lines.append(f"{name:<12} {check:<6} {desc}")
     return "\n".join(lines)
 
 

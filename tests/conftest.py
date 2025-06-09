@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY
+from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
 
 
 sys.modules['requests'] = types.ModuleType('requests')
@@ -23,8 +23,8 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(config, items):
     for item in items:
         if 'requires_node' in item.keywords and not HAS_NODE:
-            item.add_marker(pytest.mark.skip(reason='node runtime not available'))
+            item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE.info}'))
         if 'requires_go' in item.keywords and not HAS_GO:
-            item.add_marker(pytest.mark.skip(reason='go runtime not available'))
+            item.add_marker(pytest.mark.skip(reason=f'go missing: {GO.info}'))
         if 'requires_dmypy' in item.keywords and not HAS_DMYPY:
-            item.add_marker(pytest.mark.skip(reason='dmypy not available'))
+            item.add_marker(pytest.mark.skip(reason=f'dmypy missing: {DMYPY.info}'))

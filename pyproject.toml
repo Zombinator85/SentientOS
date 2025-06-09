@@ -38,11 +38,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-all = [
+bin = [
+    "pyesprima-binary",
+    "sarif-om-bin",
+]
+src = [
     "pyesprima",
-    "go-vet-wrapper",
-    "dmypy",
     "sarif-om",
+]
+all = [
+    "privilege-lint[bin,src]",
 ]
 
 [project.scripts]
