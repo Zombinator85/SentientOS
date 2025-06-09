@@ -9,11 +9,15 @@ import json
 import os
 import re
 import sys
+import subprocess
+import hashlib
 from pathlib import Path
 
 from privilege_lint.config import LintConfig, load_config
 from privilege_lint.import_rules import apply_fix_imports, validate_import_sort
 from privilege_lint.typehint_rules import validate_type_hints
+from privilege_lint.typing_rules import run_incremental
+from privilege_lint.data_rules import validate_json, validate_csv
 from privilege_lint.shebang_rules import validate_shebang, apply_fix as fix_shebang
 from privilege_lint.docstring_rules import validate_docstrings, apply_fix_docstring_stub
 from privilege_lint.license_rules import (
@@ -274,6 +278,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--max-workers", type=int, default=None, help="Worker count for parallel scan")
     ap.add_argument("--show-hints", action="store_true", help="Print type hint violations in quiet mode")
     ap.add_argument("--no-cache", action="store_true", help="Disable cache")
+    ap.add_argument("--mypy", action="store_true", help="Force full mypy run")
     args = ap.parse_args(argv)
 
     linter = PrivilegeLinter()
@@ -297,11 +302,38 @@ def main(argv: list[str] | None = None) -> int:
     issues = parallel_validate(linter, check_files, args.max_workers)
     for fp in check_files:
         linter.cache.update(fp)
+
+    if linter.config.mypy_enabled:
+        mypy_targets = files if args.mypy else check_files
+        mypy_issues, checked = run_incremental(
+            mypy_targets,
+            linter.cache,
+            strict=linter.config.mypy_strict,
+            force_full=args.mypy,
+        )
+        issues.extend(mypy_issues)
+        checked_count = len(checked)
+    
+    if linter.config.data_paths:
+        data_files = iter_data_files(linter.config.data_paths)
+        for df in data_files:
+            if linter.cache.is_valid(df):
+                continue
+            if df.suffix == ".json" and linter.config.data_check_json:
+                issues.extend(validate_json(df))
+            elif df.suffix == ".csv" and linter.config.data_check_csv:
+                issues.extend(validate_csv(df))
+            linter.cache.update(df)
+
     linter.cache.save()
     if issues:
         if not args.quiet or args.show_hints:
             print("\n".join(sorted(issues)))
         return 1
+
+    stamp_src = linter.cache.cfg_hash + subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"]).decode().strip()
+    stamp = hashlib.sha1(stamp_src.encode()).hexdigest()
+    (Path(".git") / ".privilege_lint.gitcache").write_text(stamp)
     return 0
 
 

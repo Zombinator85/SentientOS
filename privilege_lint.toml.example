@@ -16,3 +16,12 @@ insert_stub = true # auto-insert "TODO:" stub on --fix
 [lint.shebang]
 require = true
 fix_mode = true # auto-chmod +x
+
+[lint.mypy]
+enabled = true
+strict = true
+
+[lint.data]
+paths = ["data"]
+check_json = true
+check_csv = true

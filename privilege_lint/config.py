@@ -22,9 +22,14 @@ class LintConfig:
     docstring_insert_stub: bool = False
     license_header: str | None = None
     cache: bool = True
+    mypy_enabled: bool = False
+    mypy_strict: bool = True
+    data_paths: list[str] = None  # to be replaced after load_config
+    data_check_json: bool = False
+    data_check_csv: bool = False
 
 
-_DEFAULT = LintConfig()
+_DEFAULT = LintConfig(data_paths=[])
 
 
 def _load_file(path: Path) -> dict:
@@ -44,6 +49,8 @@ def load_config(start: Path | None = None) -> LintConfig:
                 data = _load_file(cfg_path).get("lint", {})
                 shebang = data.get("shebang", {})
                 docs = data.get("docstrings", {})
+                mypy = data.get("mypy", {})
+                datacfg = data.get("data", {})
                 return LintConfig(
                     enforce_banner=bool(data.get("enforce_banner", _DEFAULT.enforce_banner)),
                     enforce_import_sort=bool(data.get("enforce_import_sort", _DEFAULT.enforce_import_sort)),
@@ -59,5 +66,10 @@ def load_config(start: Path | None = None) -> LintConfig:
                     docstring_insert_stub=bool(docs.get("insert_stub", _DEFAULT.docstring_insert_stub)),
                     license_header=data.get("license_header", _DEFAULT.license_header),
                     cache=bool(data.get("cache", _DEFAULT.cache)),
+                    mypy_enabled=bool(mypy.get("enabled", _DEFAULT.mypy_enabled)),
+                    mypy_strict=bool(mypy.get("strict", _DEFAULT.mypy_strict)),
+                    data_paths=list(datacfg.get("paths", _DEFAULT.data_paths)),
+                    data_check_json=bool(datacfg.get("check_json", _DEFAULT.data_check_json)),
+                    data_check_csv=bool(datacfg.get("check_csv", _DEFAULT.data_check_csv)),
                 )
     return _DEFAULT
