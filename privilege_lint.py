@@ -1,23 +1,21 @@
-from logging_config import get_log_path
-import sys
-import json
-import datetime
-import os
-import re
+from __future__ import annotations
+
+import sys, json, datetime, os, re
 from pathlib import Path
+from logging_config import get_log_path
 from log_utils import append_json
+
+# Always use the canonical banner definition
+from sentient_banner import BANNER_LINES
 
 try:
     from admin_utils import require_admin_banner, require_lumos_approval
-    from sentient_banner import BANNER_LINES
-except Exception:  # pragma: no cover - fallback for lint
+except Exception:  # pragma: no cover – runs in CI w/out deps
     def require_admin_banner() -> None:
-        """Fallback when admin_utils cannot be imported during lint."""
-        pass
+        ...
 
     def require_lumos_approval() -> None:
-        """Fallback when admin_utils cannot be imported during lint."""
-        pass
+        ...
 
 
 
@@ -45,7 +43,31 @@ ENTRY_PATTERNS = [
 
 MAIN_BLOCK_RE = re.compile(r"if __name__ == ['\"]__main__['\"]")
 ARGPARSE_RE = re.compile(r"\bargparse\b")
-DOCSTRING_SEARCH_LINES = 60
+DOCSTRING_SEARCH_LINES = 60     # keep
+
+# ------------------------------------------------------------
+# Helper duplicated from scripts/ritual_enforcer.py
+# ------------------------------------------------------------
+_IMPORT_RE = re.compile(r"^(from|import)\s+[A-Za-z0-9_. ,]+")
+
+def _first_code_line(lines: list[str]) -> int:
+    """
+    Return the index of the first real statement (after she-bang, encoding
+    comment, copyright, blank lines, *and* import statements).
+    """
+    idx = 0
+    while idx < len(lines):
+        line = lines[idx].strip()
+        if (
+            not line
+            or line.startswith("#")
+            or line.startswith(("#!", "# -*-"))
+            or _IMPORT_RE.match(line)
+        ):
+            idx += 1
+            continue
+        break
+    return idx
 
 AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -62,21 +84,10 @@ def audit_use(tool: str, command: str) -> None:
 
 
 def _has_header(path: Path) -> bool:
-    """Return True if the ritual docstring appears soon after imports."""
+    """True if the ritual docstring appears shortly after initial imports."""
     lines = path.read_text(encoding="utf-8").splitlines()
-    idx = 0
-    # Skip shebangs, comments and imports at the top of the file
-    while idx < len(lines):
-        line = lines[idx].strip()
-        if not line or line.startswith("#"):
-            idx += 1
-            continue
-        if line.startswith("import ") or line.startswith("from "):
-            idx += 1
-            continue
-        break
-
-    search_block = "\n".join(lines[idx : idx + DOCSTRING_SEARCH_LINES])
+    start = _first_code_line(lines)
+    search_block = "\n".join(lines[start : start + DOCSTRING_SEARCH_LINES])
     return DOCSTRING in search_block
 
 
