@@ -16,11 +16,16 @@ pytest -q
 Full extras:
 
 ```bash
-pip install -r requirements-extras.txt[dev,js,go]
+pip install privilege-lint[all]
 pytest -q
 ```
 
 Tests will auto-skip when optional tools like `node`, `go`, or `dmypy` are missing.
+Run `plint-env` to see a quick capability report:
+
+```bash
+plint-env
+```
 
 Canonical banner:
 

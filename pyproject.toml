@@ -37,6 +37,14 @@ dependencies = [
     "mypy>=1.5,<2",
 ]
 
+[project.optional-dependencies]
+all = [
+    "pyesprima",
+    "go-vet-wrapper",
+    "dmypy",
+    "sarif-om",
+]
+
 [project.scripts]
 support = "support_cli:main"
 ritual = "ritual_cli:main"
@@ -49,6 +57,7 @@ theme = "theme_cli:main"
 suggestion = "suggestion_cli:main"
 trust = "trust_cli:main"
 video = "video_cli:main"
+plint-env = "scripts.plint_env:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
