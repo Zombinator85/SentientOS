@@ -15,3 +15,10 @@ jobs:
       - run: python -m scripts.lock check
       - name: Cathedral CI
         run: python scripts/ci_self_check.py
+      - uses: actions/cache@v3
+        with:
+          path: .mypy_cache
+          key: ${{ runner.os }}-mypy-${{ hashFiles('**/pyproject.toml', 'mypy.ini') }}
+      - run: pip install -e .[dev]
+      - run: mypy sentientos
+      - run: pytest --cov=sentientos --cov-report=xml

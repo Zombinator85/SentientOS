@@ -16,3 +16,8 @@ repos:
     entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
     language: system
     pass_filenames: false
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.8.0
+  hooks:
+    - id: mypy
+      additional_dependencies: [types-requests, types-PyYAML]
