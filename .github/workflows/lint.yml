@@ -11,6 +11,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - name: Lint runtime check
         run: |
           python - <<'PY'
