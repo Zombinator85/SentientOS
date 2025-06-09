@@ -46,3 +46,12 @@ External plug-ins and extensions interact with core audit logs. To contribute on
 - Include a module-level docstring describing its behavior and permissions.
 - Use the trust engine logging helpers; avoid direct file writes.
 - Document any external dependencies in your pull request.
+
+## Typical workflow
+
+```bash
+git checkout -b feat/<short-title>
+make lint
+make test
+git push -u origin …
+```

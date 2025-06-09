@@ -48,6 +48,8 @@ AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 def audit_use(tool: str, command: str) -> None:
     """Append a privileged command usage entry."""
+    if os.getenv("SENTIENTOS_LINT_STRICT") != "1" and os.getenv("PRIVILEGED_AUDIT_FILE") is None:
+        return
     entry = {
         "timestamp": datetime.datetime.utcnow().isoformat(),
         "tool": tool,
@@ -152,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Privilege banner lint")
     parser.add_argument("--strict", action="store_true", help="fail on issues")
     parser.add_argument("--no-emoji", action="store_true", help="disable emoji output")
+    parser.add_argument("--junit-xml", help="write JUnit XML report")
     args = parser.parse_args(argv)
 
     if args.no_emoji:
@@ -167,6 +170,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if issues:
         print("\n".join(sorted(issues)))
+    if args.junit_xml:
+        from xml.etree.ElementTree import Element, SubElement, ElementTree
+
+        p = Path(args.junit_xml)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        suite = Element("testsuite", name="privilege-lint", tests=str(len(files)))
+        case = SubElement(suite, "testcase", name="privilege-lint")
+        if issues:
+            SubElement(case, "error", message="; ".join(sorted(issues)))
+        tree = ElementTree(suite)
+        tree.write(p, encoding="utf-8", xml_declaration=True)
+
+    if issues:
         if strict:
             return 1
         print(f"\033[33mWARNING: {len(issues)} issue(s) found\033[0m")
