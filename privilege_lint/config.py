@@ -27,9 +27,13 @@ class LintConfig:
     data_paths: list[str] = None  # to be replaced after load_config
     data_check_json: bool = False
     data_check_csv: bool = False
+    templates_enabled: bool = False
+    templates_context: list[str] | None = None
+    security_enabled: bool = False
+    report_json: bool = False
 
 
-_DEFAULT = LintConfig(data_paths=[])
+_DEFAULT = LintConfig(data_paths=[], templates_context=[])
 
 
 def _load_file(path: Path) -> dict:
@@ -51,6 +55,9 @@ def load_config(start: Path | None = None) -> LintConfig:
                 docs = data.get("docstrings", {})
                 mypy = data.get("mypy", {})
                 datacfg = data.get("data", {})
+                templates = data.get("templates", {})
+                security = data.get("security", {})
+                output = data.get("output", {})
                 return LintConfig(
                     enforce_banner=bool(data.get("enforce_banner", _DEFAULT.enforce_banner)),
                     enforce_import_sort=bool(data.get("enforce_import_sort", _DEFAULT.enforce_import_sort)),
@@ -71,5 +78,9 @@ def load_config(start: Path | None = None) -> LintConfig:
                     data_paths=list(datacfg.get("paths", _DEFAULT.data_paths)),
                     data_check_json=bool(datacfg.get("check_json", _DEFAULT.data_check_json)),
                     data_check_csv=bool(datacfg.get("check_csv", _DEFAULT.data_check_csv)),
+                    templates_enabled=bool(templates.get("enabled", _DEFAULT.templates_enabled)),
+                    templates_context=list(templates.get("context", [])),
+                    security_enabled=bool(security.get("enabled", _DEFAULT.security_enabled)),
+                    report_json=bool(output.get("report_json", _DEFAULT.report_json)),
                 )
     return _DEFAULT

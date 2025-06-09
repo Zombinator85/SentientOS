@@ -93,3 +93,26 @@ After a successful run the linter writes `.privilege_lint.gitcache` in the `.git
 directory. The pre-commit hook reads this stamp and exits immediately when the
 tree hash matches, allowing no-change runs to finish in under a second.
 
+### Template & Security Rules
+Enable template scanning with `[lint.templates]`. Templates ending in `.j2`, `.hbs` or `.jinja`
+are checked for balanced `{%` blocks, unused variables, and triple-brace HTML escapes.
+Specify a `context = ["var"]` list to detect unused or missing variables.
+
+`[lint.security]` looks for hard-coded credentials, `subprocess` calls with `shell=True`,
+and unsafe `pickle.loads` usage. These patterns cannot be auto-fixed.
+
+### Inline Rule Controls
+Use `# plint: disable=<rule>` and `# plint: enable=<rule>` to skip warnings for a
+single line or until re-enabled. Example:
+
+```python
+password = "AKIA..."  # plint: disable=security-key
+```
+
+### Plugin API & Metrics
+Third-party checks can register via `privilege_lint.plugins` entry points. Each plugin
+exposes `validate(file_path, config)` and returns a list of error strings.
+
+Run `python privilege_lint.py --report-json report.json` to write a metrics summary
+of rule counts and runtime for CI dashboards.
+
