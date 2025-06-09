@@ -31,9 +31,21 @@ class LintConfig:
     templates_context: list[str] | None = None
     security_enabled: bool = False
     report_json: bool = False
+    sarif: bool = False
+    js_enabled: bool = False
+    go_enabled: bool = False
+    baseline_file: str | None = None
+    policy: str | None = None
 
 
-_DEFAULT = LintConfig(data_paths=[], templates_context=[])
+_DEFAULT = LintConfig(
+    data_paths=[],
+    templates_context=[],
+    js_enabled=False,
+    go_enabled=False,
+    baseline_file=None,
+    policy=None,
+)
 
 
 def _load_file(path: Path) -> dict:
@@ -58,6 +70,8 @@ def load_config(start: Path | None = None) -> LintConfig:
                 templates = data.get("templates", {})
                 security = data.get("security", {})
                 output = data.get("output", {})
+                js = data.get("js", {})
+                go = data.get("go", {})
                 return LintConfig(
                     enforce_banner=bool(data.get("enforce_banner", _DEFAULT.enforce_banner)),
                     enforce_import_sort=bool(data.get("enforce_import_sort", _DEFAULT.enforce_import_sort)),
@@ -82,5 +96,10 @@ def load_config(start: Path | None = None) -> LintConfig:
                     templates_context=list(templates.get("context", [])),
                     security_enabled=bool(security.get("enabled", _DEFAULT.security_enabled)),
                     report_json=bool(output.get("report_json", _DEFAULT.report_json)),
+                    sarif=bool(output.get("sarif", _DEFAULT.sarif)),
+                    js_enabled=bool(js.get("enabled", _DEFAULT.js_enabled)),
+                    go_enabled=bool(go.get("enabled", _DEFAULT.go_enabled)),
+                    baseline_file=data.get("baseline", _DEFAULT.baseline_file),
+                    policy=data.get("policy", _DEFAULT.policy),
                 )
     return _DEFAULT
