@@ -28,3 +28,4 @@ audio_logs/*
 backups/
 logs/*.jsonl
 site/
+.privilege_lint.cache
