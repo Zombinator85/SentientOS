@@ -27,12 +27,19 @@ BANNER = (
 
 import admin_utils
 from datetime import datetime
-import presence_ledger as pl
 import json
+
+BANNER_LINES = [
+    '"""Privilege Banner: requires admin & Lumos approval."""',
+    "require_admin_banner()",
+    "require_lumos_approval()",
+    "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
+]
 
 
 def print_banner() -> None:
     """Print the entry banner, privilege status, and recent attempts."""
+    import presence_ledger as pl
     print(ENTRY_BANNER)
     print(SANCTUARY_BANNER)
     status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
@@ -46,6 +53,7 @@ def print_banner() -> None:
 def streamlit_banner(st_module) -> None:
     """Display the entry and sanctuary banners using a Streamlit module if available."""
     if hasattr(st_module, "markdown"):
+        import presence_ledger as pl
         st_module.markdown(ENTRY_BANNER)
         st_module.markdown(SANCTUARY_BANNER)
         status = "🛡️ Privileged" if admin_utils.is_admin() else "⚠️ Not Privileged"
