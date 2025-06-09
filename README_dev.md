@@ -38,3 +38,19 @@ repos:
     pass_filenames: false
 ```
 
+### Configuring the Linter
+
+Create a `privilege_lint.toml` at the repository root to enable optional rules
+and control autofix behaviour. Example:
+
+```toml
+[lint]
+enforce_banner = true
+enforce_import_sort = true
+banner_file = "BANNER_ASCII.txt"
+fix_overwrite = false
+```
+
+When `fix_overwrite` is `false`, running `python privilege_lint.py --fix` writes
+changes to `file.py.fixed` instead of overwriting the original.
+

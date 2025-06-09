@@ -1,3 +1,13 @@
 #!/bin/sh
-python privilege_lint.py
+CONFIG="privilege_lint.toml"
+SAMPLE="privilege_lint.toml.example"
+if [ ! -f "$CONFIG" ]; then
+    if grep -q "\[tool.privilege_lint\]" pyproject.toml 2>/dev/null && \
+       grep -q "required\s*=\s*true" pyproject.toml 2>/dev/null; then
+        echo "privilege_lint config required but missing" >&2
+        exit 1
+    fi
+    [ -f "$SAMPLE" ] && cp "$SAMPLE" "$CONFIG"
+fi
+python privilege_lint.py --quiet
 python verify_audits.py
