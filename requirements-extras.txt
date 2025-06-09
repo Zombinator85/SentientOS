@@ -1,0 +1,12 @@
+[js]
+pyesprima>=4
+
+[go]
+# uses system go
+
+[report]
+# optional reporting tools
+
+[dev]
+colorama>=0.4.6
+requests>=2.31.0

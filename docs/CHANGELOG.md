@@ -54,3 +54,9 @@
 - Documented `/enter_cathedral` ritual route.
 - Updated README links and environment docs.
 
+## 2028-04 v9.1 Hot-Fix
+- Lazy-import sentinel guards optional dependencies
+- Cross-language rules gated when runtimes missing
+- requirements-extras.txt defines js/go/report/dev groups
+- CI now runs python-only and full jobs
+

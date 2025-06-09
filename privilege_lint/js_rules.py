@@ -4,15 +4,14 @@ import re
 from pathlib import Path
 from typing import List
 
-try:
-    import pyesprima as esprima
-except Exception:  # pragma: no cover - optional dependency
-    esprima = None
+from ._compat import RuleSkippedError, safe_import
+
+esprima = safe_import("pyesprima", stub={"parseScript": None})
 
 
 def _parse(path: Path):
-    if not esprima:
-        return None
+    if getattr(esprima, "parseScript", None) is None:
+        raise RuleSkippedError("missing dependency")
     try:
         return esprima.parseScript(path.read_text(encoding="utf-8"), tolerant=True)
     except Exception:
@@ -30,7 +29,10 @@ def validate_js(path: Path, license_header: str | None = None) -> List[str]:
         if imports != sorted(imports):
             ln = lines.index(imports[0]) + 1
             issues.append(f"{path}:{ln} imports not sorted")
-    tree = _parse(path)
+    try:
+        tree = _parse(path)
+    except RuleSkippedError:
+        raise
     if tree is None:
         return issues
     source = path.read_text(encoding="utf-8")
