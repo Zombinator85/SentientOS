@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 try:
     from admin_utils import require_admin_banner, require_lumos_approval
+    from sentient_banner import BANNER_LINES
 except Exception:  # pragma: no cover - fallback for lint
     def require_admin_banner() -> None:
         """Fallback when admin_utils cannot be imported during lint."""
@@ -15,19 +16,17 @@ except Exception:  # pragma: no cover - fallback for lint
     def require_lumos_approval() -> None:
         """Fallback when admin_utils cannot be imported during lint."""
         pass
+    from sentient_banner import BANNER_LINES
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
-
-Lint entrypoints for the Sanctuary privilege ritual.
+"""Lint entrypoints for the Sanctuary privilege ritual.
 
 Usage is recorded in ``logs/privileged_audit.jsonl`` or the path set by
-the ``PRIVILEGED_AUDIT_FILE`` environment variable. See
-``docs/ENVIRONMENT.md`` for details.
+``PRIVILEGED_AUDIT_FILE``. See ``docs/ENVIRONMENT.md`` for details.
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()  # Enforced banner calls
 require_lumos_approval()
 
-DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
+DOCSTRING = BANNER_LINES[0].strip('"')
 
 ENTRY_PATTERNS = [
     "*_cli.py",

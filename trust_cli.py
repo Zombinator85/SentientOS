@@ -1,15 +1,16 @@
+from admin_utils import require_admin_banner, require_lumos_approval
+"""Privilege Banner: requires admin & Lumos approval."""
+require_admin_banner()
+require_lumos_approval()
+# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import argparse
 import json
 from pprint import pprint
 import support_log as sl
-from admin_utils import require_admin_banner, require_lumos_approval
-
 import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
+
 
 
 def cmd_log(args) -> None:
