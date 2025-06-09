@@ -212,6 +212,7 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     parser.add_argument("--repair", action="store_true", help="attempt to repair malformed lines")
     parser.add_argument("--strict", action="store_true", help="fail if any invalid logs")
     parser.add_argument("--no-emoji", action="store_true", help="disable emoji output")
+    parser.add_argument("--junit-xml", help="write JUnit XML report")
     args = parser.parse_args(argv)
     if args.no_emoji:
         os.environ["SENTIENTOS_NO_EMOJI"] = "1"
@@ -245,6 +246,24 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
         print(
             f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
         )
+    if args.junit_xml:
+        from xml.etree.ElementTree import Element, SubElement, ElementTree
+
+        p = Path(args.junit_xml)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        suite = Element(
+            "testsuite",
+            name="audit-verify",
+            tests=str(len(res)),
+            errors=str(invalid_count),
+        )
+        for file, errors in res.items():
+            case = SubElement(suite, "testcase", name=file)
+            if errors:
+                SubElement(case, "error", message="; ".join(errors))
+        tree = ElementTree(suite)
+        tree.write(p, encoding="utf-8", xml_declaration=True)
+
     if invalid_count and not strict:
         print(f"{YELLOW}WARNING: {invalid_count} invalid file(s){RESET}")
         return 0

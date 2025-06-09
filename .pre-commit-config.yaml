@@ -3,11 +3,11 @@ repos:
   hooks:
   - id: privilege-lint
     name: privilege-lint (non-strict)
-    entry: python privilege_lint.py --no-emoji
+    entry: bash -c 'SENTIENTOS_NO_EMOJI=1 SENTIENTOS_LINT_STRICT=0 python privilege_lint.py'
     language: system
     pass_filenames: false
   - id: audit-verify
     name: audit-verify (non-strict)
-    entry: python verify_audits.py logs/ --no-emoji
+    entry: bash -c 'SENTIENTOS_NO_EMOJI=1 SENTIENTOS_LINT_STRICT=0 python verify_audits.py logs/'
     language: system
     pass_filenames: false

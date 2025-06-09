@@ -1,5 +1,7 @@
 # SentientOS Cathedral
 [![CI](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen)
+![Lint](https://img.shields.io/badge/strict%20audit-green)
 [![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/WHY_JOIN_AUDIT_SAINTS.md)
 Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
 

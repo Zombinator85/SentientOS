@@ -31,8 +31,12 @@ jobs:
       - name: Strict privilege / audit lint
         run: |
           export SENTIENTOS_LINT_STRICT=1
-          python privilege_lint.py --no-emoji
-          python verify_audits.py logs/ --no-emoji
+          python privilege_lint.py --no-emoji --junit-xml build/audit-report.xml
+          python verify_audits.py logs/ --no-emoji --junit-xml build/audit-report.xml
+      - uses: actions/upload-artifact@v3
+        with:
+          name: audit-report
+          path: build/audit-report.xml
       - name: Run mypy
         run: mypy --strict sentientos
       - name: Coverage guard
