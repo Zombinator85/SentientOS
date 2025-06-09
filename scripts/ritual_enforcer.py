@@ -14,11 +14,7 @@ from typing import Iterable, List
 
 DOCSTRING = "Privilege Banner: requires admin & Lumos approval."
 OLD_DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
-HEADER_LINES = [
-    f'"""{DOCSTRING}"""',
-    "require_admin_banner()",
-    "require_lumos_approval()",
-]
+HEADER_LINES = BANNER_LINES
 IMPORT_LINE = "from admin_utils import require_admin_banner, require_lumos_approval"
 AUTO_APPROVE_IMPORT = "from scripts.auto_approve import prompt_yes_no"
 PROMPT_RE = re.compile(r"(?<!prompt_yes_no)\b(?:input|click\.confirm|prompt)\(")
@@ -60,7 +56,14 @@ def _fix_banner(lines: List[str]) -> List[str]:
         l
         for l in lines
         if l not in imports
-        and l.strip() not in {DOCSTRING, OLD_DOCSTRING, "require_admin_banner()", "require_lumos_approval()", IMPORT_LINE}
+        and l.strip() not in {
+            DOCSTRING,
+            OLD_DOCSTRING,
+            "require_admin_banner()",
+            "require_lumos_approval()",
+            IMPORT_LINE,
+            BANNER_LINES[-1],
+        }
     ]
     new_lines: List[str] = []
     if shebang:
