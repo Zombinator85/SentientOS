@@ -1,0 +1,24 @@
+name: Lint Benchmark
+on:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Lint runtime check
+        run: |
+          python - <<'PY'
+import time, subprocess, sys
+start = time.time()
+subprocess.run([sys.executable, '-m', 'privilege_lint'], check=True)
+elapsed = time.time() - start
+print(f"lint runtime: {elapsed:.2f}s")
+if elapsed > 3:
+    raise SystemExit('Linter too slow')
+PY

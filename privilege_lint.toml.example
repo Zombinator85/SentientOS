@@ -3,3 +3,9 @@ enforce_banner = true
 enforce_import_sort = true
 banner_file = "BANNER_ASCII.txt"
 fix_overwrite = false # true = in-place, false = .fixed copy
+enforce_type_hints = true
+exclude_private = true # ignore names starting '_'
+fail_on_missing_return = true
+[lint.shebang]
+require = true
+fix_mode = true # auto-chmod +x
