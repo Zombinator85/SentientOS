@@ -3,7 +3,18 @@ on:
   pull_request:
 
 jobs:
-  lint:
+  python-only:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  full:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +28,7 @@ jobs:
         with:
           go-version: '1.22'
       - run: pip install -r requirements.txt
-      - run: pip install -r requirements-dev.txt
+      - run: pip install -r requirements-extras.txt[dev,js,go]
       - name: Lint runtime check
         run: |
           python - <<'PY'
@@ -26,8 +37,8 @@ start = time.time()
 subprocess.run([sys.executable, '-m', 'privilege_lint'], check=True)
 elapsed = time.time() - start
 print(f"lint runtime: {elapsed:.2f}s")
-    if elapsed > 3:
-        raise SystemExit('Linter too slow')
+if elapsed > 3:
+    raise SystemExit('Linter too slow')
 PY
       - name: Upload SARIF
         if: always()

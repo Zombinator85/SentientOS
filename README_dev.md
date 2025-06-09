@@ -6,6 +6,22 @@ and only then your other imports.
 
 🔧 Dev setup: `pip install -r requirements-dev.txt`
 
+Quick-start minimal:
+
+```bash
+pip install -r requirements.txt
+pytest -q
+```
+
+Full extras:
+
+```bash
+pip install -r requirements-extras.txt[dev,js,go]
+pytest -q
+```
+
+Tests will auto-skip when optional tools like `node`, `go`, or `dmypy` are missing.
+
 Canonical banner:
 
 ```
