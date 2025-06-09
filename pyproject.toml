@@ -38,17 +38,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-bin = [
-    "pyesprima-binary",
-    "sarif-om-bin",
-]
-src = [
-    "pyesprima",
-    "sarif-om",
-]
-all = [
-    "privilege-lint[bin,src]",
-]
+bin = []
+src = []
 
 [project.scripts]
 support = "support_cli:main"

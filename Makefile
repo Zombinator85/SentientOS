@@ -1,10 +1,7 @@
-.PHONY: lock-refresh lock-install-bin lock-install-src
+.PHONY: lock lock-install
 
-lock-refresh:
-	python scripts/gen_lock.py
+lock:
+	python -m scripts.lock freeze
 
-lock-install-bin:
-	python scripts/install_locked.py bin
-
-lock-install-src:
-	python scripts/install_locked.py src
+lock-install:
+	python -m scripts.lock install
