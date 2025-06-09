@@ -18,9 +18,15 @@ def main(path: str = ".") -> None:
     linter = PrivilegeLinter()
     start = time.time()
     parallel_validate(linter, files)
-    dur = time.time() - start
-    print(f"Linted {len(files)} files in {dur:.2f}s")
+    cold = time.time() - start
+
+    start = time.time()
+    parallel_validate(linter, files)
+    warm = time.time() - start
+    hit_ratio = 1 - len([f for f in files if not linter.cache.is_valid(f)]) / len(files)
+    print(f"Cold: {cold:.2f}s, Warm: {warm:.2f}s, cache hit ratio {hit_ratio:.2f}")
 
 
 if __name__ == "__main__":
     main()
+

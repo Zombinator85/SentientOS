@@ -6,6 +6,13 @@ fix_overwrite = false # true = in-place, false = .fixed copy
 enforce_type_hints = true
 exclude_private = true # ignore names starting '_'
 fail_on_missing_return = true
+license_header = "# SPDX-License-Identifier: MIT"
+cache = true
+
+[lint.docstrings]
+enforce = true
+style = "google" # or "numpy"
+insert_stub = true # auto-insert "TODO:" stub on --fix
 [lint.shebang]
 require = true
 fix_mode = true # auto-chmod +x
