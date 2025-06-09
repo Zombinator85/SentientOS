@@ -78,3 +78,7 @@
 - `plint-env report --json` outputs machine-readable status
 - CI uploads env reports per matrix job and fails if tool-chains vanish
 
+## 2028-07 v9.4.1 Lock-Forge
+- Lock files shipped and enforced via CI and pre-commit
+- `scripts/gen_lock.py` checks drift and regenerates
+

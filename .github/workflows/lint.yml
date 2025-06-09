@@ -21,8 +21,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-      - run: pip install -r requirements.txt
-      - if: matrix.mode != 'core'
+      - if: matrix.mode == 'core'
+        run: pip install -r requirements.txt
+      - if: matrix.mode == 'bin-lock'
         run: pip install .[locked-bin]
       - if: matrix.mode == 'src-lock-full'
         run: pip install .[locked-src]
