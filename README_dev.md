@@ -116,3 +116,24 @@ exposes `validate(file_path, config)` and returns a list of error strings.
 Run `python privilege_lint.py --report-json report.json` to write a metrics summary
 of rule counts and runtime for CI dashboards.
 
+
+### Cross-language Linting
+Enable JS/TS and Go checks in `privilege_lint.toml`:
+```toml
+[lint.js]
+enabled = true
+[lint.go]
+enabled = true
+```
+
+### dmypy Acceleration
+When `mypy` rules are enabled, a background `dmypy` daemon will be used if available to speed up full-repo type checks. Set `[lint.mypy] enabled=true` and run normally.
+
+### SARIF Reporting
+Add `[output] sarif=true` and run `python privilege_lint.py --sarif=plint.sarif` to generate a report for GitHub Advanced Security or IDE import.
+
+### Baseline Generation
+Run `scripts/plint_baseline.py` once on a legacy repo to write `.plint_baseline.json`. Existing violations will be ignored until the code changes.
+
+### Policy Hooks
+Specify `policy="sentientos"` under `[lint]` to load additional rules from `policies/sentientos.py`.

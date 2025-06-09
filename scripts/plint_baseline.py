@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from privilege_lint import PrivilegeLinter, iter_py_files
+from privilege_lint.runner import parallel_validate
+
+
+def main() -> None:
+    linter = PrivilegeLinter()
+    files = iter_py_files([str(Path.cwd())])
+    issues = parallel_validate(linter, files)
+    baseline = {msg: True for msg in sorted(issues)}
+    Path(".plint_baseline.json").write_text(json.dumps(baseline, indent=2))
+    print(f"Baseline written with {len(baseline)} entries")
+
+
+if __name__ == "__main__":
+    main()
