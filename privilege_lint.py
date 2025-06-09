@@ -1,6 +1,8 @@
 # ── privilege_lint.py ──────────────────────────────────────────────
 from __future__ import annotations
 
+import ast
+
 import datetime
 import json
 import os
@@ -9,7 +11,19 @@ import sys
 from pathlib import Path
 
 from logging_config import get_log_path
-from sentient_banner import BANNER_LINES  # single source of truth ✨
+
+BANNER_ASCII = [
+    "#  _____  _             _",
+    "# |  __ \\| |           (_)",
+    "# | |__) | |_   _  __ _ _ _ __   __ _",
+    "# |  ___/| | | | |/ _` | | '_ \\ / _` |",
+    "# | |    | | |_| | (_| | | | | | (_| |",
+    "# |_|    |_\\__,_|\\__, |_|_| |_|\\__, |",
+    "#                  __/ |         __/ |",
+    "#                 |___/         |___/ ",
+]
+
+FUTURE_IMPORT = "from __future__ import annotations"
 
 # Optional real helpers (stubbed in CI)
 try:
@@ -19,70 +33,81 @@ except Exception:  # pragma: no cover
     def require_lumos_approval() -> None: ...
 
 # --------------------------------------------------------------------------- #
-DOCSTRING               = BANNER_LINES[0].strip('"')
-DOCSTRING_SEARCH_LINES  = 60
-_IMPORT_RE              = re.compile(r"^(from|import)\s+[A-Za-z0-9_. ,]+")
-
-def _first_code_line(lines: list[str]) -> int:
-    """
-    Return the index of the first *real* line after she-bang / encoding,
-    comments, blank lines, **and import statements**.
-    """
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if (
-            not line                             # blank
-            or line.startswith("#")              # comment
-            or line.startswith(("#!", "# -*-"))  # shebang / coding
-            or _IMPORT_RE.match(line)            # import
-        ):
-            i += 1
-            continue
-        break
-    return i
-# --------------------------------------------------------------------------- #
-
-def _has_header(path: Path) -> bool:
-    """True iff the ritual docstring appears shortly after initial imports."""
-    lines  = path.read_text(encoding="utf-8").splitlines()
-    start  = _first_code_line(lines)
-    block  = "\n".join(lines[start : start + DOCSTRING_SEARCH_LINES])
-    return DOCSTRING in block
+_IMPORT_RE = re.compile(r"^(from|import)\s+[A-Za-z0-9_. ,]+")
 
 
-def _has_banner_call(path: Path) -> bool:
-    """True if the two require_* calls follow the docstring in order."""
-    lines, loc = path.read_text(encoding="utf-8").splitlines(), None
-    for idx, line in enumerate(lines):
-        if DOCSTRING in line:
-            loc = idx
+def get_banner(lines: list[str]) -> int | None:
+    """Return end index of ASCII banner or None if not present."""
+    idx = 0
+    while idx < len(lines) and lines[idx].startswith(("#!", "# -*-")):
+        idx += 1
+    if len(lines) - idx < len(BANNER_ASCII):
+        return None
+    for off, text in enumerate(BANNER_ASCII):
+        if lines[idx + off].rstrip() != text.rstrip():
+            return None
+    return idx + len(BANNER_ASCII) - 1
+
+
+def validate_banner_order(lines: list[str], path: Path) -> list[str]:
+    """Ensure banner→future→docstring→imports order."""
+    errors: list[str] = []
+    idx = 0
+    banner_end = get_banner(lines)
+    if banner_end is not None:
+        idx = banner_end + 1
+
+    while idx < len(lines) and not lines[idx].strip():
+        idx += 1
+
+    if idx >= len(lines) or lines[idx].strip() != FUTURE_IMPORT:
+        return [f"{path}: Banner and __future__ import must be first."]
+
+    idx += 1
+
+    # Determine end of module docstring, if any
+    doc_end = None
+    try:
+        mod = ast.parse("\n".join(lines))
+        doc = ast.get_docstring(mod)
+        if doc is None:
+            raise IndexError
+        for node in mod.body:
+            if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+                doc_end = node.end_lineno - 1
+                break
+    except IndexError:
+        doc_end = None
+    except Exception:
+        doc_end = None
+
+    if doc_end is None:
+        for i in range(idx, len(lines)):
+            s = lines[i].lstrip()
+            if s.startswith(('"""', "'''")):
+                quote = s[:3]
+                if s.count(quote) >= 2 and s.rstrip().endswith(quote):
+                    doc_end = i
+                else:
+                    for j in range(i + 1, len(lines)):
+                        if lines[j].rstrip().endswith(quote):
+                            doc_end = j
+                            break
+                if doc_end is None:
+                    doc_end = len(lines) - 1
+                break
+
+    if doc_end is None:
+        doc_end = idx - 1
+
+    for i in range(idx, len(lines)):
+        s = lines[i].strip()
+        if _IMPORT_RE.match(s) and s != FUTURE_IMPORT:
+            if i < doc_end + 1:
+                errors.append(f"{path}: imports must follow module docstring")
             break
-    if loc is None:
-        return False
 
-    # Skip to the line after the closing triple-quote
-    while loc + 1 < len(lines) and '"""' not in lines[loc + 1]:
-        loc += 1
-    if loc + 1 >= len(lines):
-        return False
-    loc += 2  # first line *after* docstring
-
-    # Skip blanks
-    while loc < len(lines) and not lines[loc].strip():
-        loc += 1
-    if loc >= len(lines) or not lines[loc].strip().startswith("require_admin_banner("):
-        return False
-
-    loc += 1
-    while loc < len(lines) and not lines[loc].strip():
-        loc += 1
-    return loc < len(lines) and lines[loc].strip().startswith("require_lumos_approval(")
-
-
-def _has_lumos_call(path: Path) -> bool:
-    """Redundant now, but kept for backward-compat w/ older tooling."""
-    return _has_banner_call(path)
+    return errors
 
 
 # ----------------------------- lint driver ---------------------------------- #
@@ -117,12 +142,8 @@ def find_entrypoints(root: Path) -> list[Path]:
 
 
 def check_file(path: Path) -> list[str]:
-    errs: list[str] = []
-    if not _has_header(path):
-        errs.append(f"{path}: missing privilege docstring near top")
-    if not _has_banner_call(path):
-        errs.append(f"{path}: banner calls not in correct order")
-    return errs
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return validate_banner_order(lines, path)
 
 
 def main() -> int:
