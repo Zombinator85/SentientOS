@@ -25,3 +25,13 @@ strict = true
 paths = ["data"]
 check_json = true
 check_csv = true
+
+[lint.templates]
+enabled = true
+context = ["name", "age"]
+
+[lint.security]
+enabled = true
+
+[output]
+report_json = false
