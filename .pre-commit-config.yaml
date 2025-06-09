@@ -3,7 +3,7 @@ repos:
   hooks:
   - id: privilege-lint
     name: privilege lint
-    entry: python privilege_lint.py --quiet
+    entry: bash scripts/precommit_privilege.sh
     language: system
     pass_filenames: false
   - id: audit-verify
