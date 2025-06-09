@@ -20,7 +20,7 @@ from cathedral_const import validate_log_entry
 @dataclass
 class AuditEntry:
     timestamp: str
-    data: dict
+    data: dict[str, object]
     prev_hash: str
     rolling_hash: str
 
@@ -29,7 +29,7 @@ class AuditEntry:
         return self.rolling_hash
 
 
-def _hash_entry(timestamp: str, data: dict, prev_hash: str) -> str:
+def _hash_entry(timestamp: str, data: dict[str, object], prev_hash: str) -> str:
     h = hashlib.sha256()
     h.update(timestamp.encode("utf-8"))
     h.update(json.dumps(data, sort_keys=True).encode("utf-8"))
@@ -39,7 +39,7 @@ def _hash_entry(timestamp: str, data: dict, prev_hash: str) -> str:
 
 def append_entry(
     path: Path,
-    data: dict,
+    data: dict[str, object],
     emotion: str = "neutral",
     consent: bool | str = True,
 ) -> AuditEntry:

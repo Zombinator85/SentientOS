@@ -53,7 +53,10 @@ def print_banner() -> None:
         print(json.dumps(attempts, indent=2))
 
 
-def streamlit_banner(st_module) -> None:
+from typing import Any
+
+
+def streamlit_banner(st_module: Any) -> None:
     """Display the entry and sanctuary banners using a Streamlit module if available."""
     if hasattr(st_module, "markdown"):
         st_module.markdown(ENTRY_BANNER)
@@ -150,7 +153,7 @@ def print_closing(show_recap: bool = True) -> None:
     print_timestamped_closing()
 
 
-def streamlit_closing(st_module, show_recap: bool = True) -> None:
+def streamlit_closing(st_module: Any, show_recap: bool = True) -> None:
     """Display the closing snapshot, optional recap, and invocation."""
     if hasattr(st_module, "markdown"):
         try:

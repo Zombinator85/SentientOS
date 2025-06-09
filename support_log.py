@@ -5,6 +5,6 @@ import ledger
 LOG_PATH = get_log_path("support_log.jsonl")
 
 
-def add(name: str, message: str, amount: str = "") -> dict:
+def add(name: str, message: str, amount: str = "") -> dict[str, str]:
     """Record a supporter blessing in the living ledger."""
     return ledger.log_support(name, message, amount)
