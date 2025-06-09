@@ -29,6 +29,8 @@ from privilege_lint.cache import LintCache
 from privilege_lint.runner import parallel_validate, DEFAULT_WORKERS
 from privilege_lint.template_rules import validate_template, parse_context
 from privilege_lint.security_rules import validate_security
+from privilege_lint.js_rules import validate_js
+from privilege_lint.go_rules import validate_go
 from privilege_lint.comment_controls import parse_controls, is_disabled
 from privilege_lint.metrics import MetricsCollector
 from privilege_lint.plugins import load_plugins
@@ -156,6 +158,21 @@ class PrivilegeLinter:
         self.metrics = metrics or MetricsCollector()
         self.cache = LintCache(self.project_root, self.config, enabled=self.config.cache)
         self.plugins = load_plugins()
+        if self.config.policy:
+            from policies import load_policy
+
+            self.plugins.extend(load_policy(self.config.policy, self.project_root))
+        if self.config.baseline_file:
+            p = Path(self.config.baseline_file)
+            if p.exists():
+                try:
+                    self.baseline = set(json.loads(p.read_text()).keys())
+                except Exception:
+                    self.baseline = set()
+            else:
+                self.baseline = set()
+        else:
+            self.baseline = set()
         if self.config.banner_file:
             try:
                 self.banner = Path(self.config.banner_file).read_text(encoding="utf-8").splitlines()
@@ -183,7 +200,8 @@ class PrivilegeLinter:
                 m = re.match(rf"{re.escape(str(file_path))}:(\d+)", e)
                 line = int(m.group(1)) if m else 1
                 if not is_disabled(controls, rule, line):
-                    filtered.append(e)
+                    if e not in self.baseline:
+                        filtered.append(e)
             self.metrics.record(rule, len(filtered))
             issues.extend(filtered)
 
@@ -301,6 +319,21 @@ def iter_py_files(paths: list[str]) -> list[Path]:
     return sorted(set(result))
 
 
+def iter_ext_files(paths: list[str], exts: set[str]) -> list[Path]:
+    result: list[Path] = []
+    for p in paths:
+        path = Path(p)
+        if path.is_dir():
+            for root, dirs, files in os.walk(path):
+                dirs[:] = [d for d in dirs if d not in {"tests", "venv", "__pycache__", "node_modules"}]
+                for f in files:
+                    if any(f.endswith(e) for e in exts):
+                        result.append(Path(root) / f)
+        elif path.is_file() and any(path.name.endswith(e) for e in exts):
+            result.append(path)
+    return sorted(set(result))
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Privilege banner linter")
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
@@ -311,6 +344,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-cache", action="store_true", help="Disable cache")
     ap.add_argument("--mypy", action="store_true", help="Force full mypy run")
     ap.add_argument("--report-json", type=str, default=None, help="Write metrics JSON report")
+    ap.add_argument("--sarif", type=str, default=None, help="Write SARIF report")
     args = ap.parse_args(argv)
 
     metrics = MetricsCollector()
@@ -318,8 +352,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_cache:
         linter.cache.enabled = False
     files = iter_py_files(args.paths)
+    js_files = iter_ext_files(args.paths, {".js", ".ts"}) if linter.config.js_enabled else []
+    go_files = iter_ext_files(args.paths, {".go"}) if linter.config.go_enabled else []
     check_files = []
-    for f in files:
+    for f in files + js_files + go_files:
         if linter.cache.is_valid(f):
             metrics.cache_hit()
         else:
@@ -337,7 +373,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Fixed {fixed} files")
         return 0
 
-    issues = parallel_validate(linter, check_files, args.max_workers)
+    issues = parallel_validate(linter, [f for f in check_files if f.suffix == '.py'], args.max_workers)
+    other_files = [f for f in check_files if f.suffix in {'.js', '.ts', '.go'}]
+    for f in other_files:
+        if f.suffix in {'.js', '.ts'}:
+            issues.extend(validate_js(f, linter.license_header))
+        elif f.suffix == '.go':
+            issues.extend(validate_go(f, linter.license_header))
     for fp in check_files:
         linter.cache.update(fp)
 
@@ -376,6 +418,11 @@ def main(argv: list[str] | None = None) -> int:
     report_path = args.report_json or ("plint_metrics.json" if linter.config.report_json else None)
     if report_path:
         metrics.write_json(Path(report_path))
+    sarif_path = args.sarif or ("plint.sarif" if linter.config.sarif else None)
+    if sarif_path:
+        from reporters.sarif import write_sarif
+
+        write_sarif(issues, Path(sarif_path))
     return 0
 
 

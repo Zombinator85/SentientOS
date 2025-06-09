@@ -35,3 +35,10 @@ enabled = true
 
 [output]
 report_json = false
+sarif = false
+
+[lint.js]
+enabled = true
+
+[lint.go]
+enabled = true
