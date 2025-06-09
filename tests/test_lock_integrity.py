@@ -3,7 +3,7 @@ from pathlib import Path
 
 def test_lock_files_exist() -> None:
     root = Path(__file__).resolve().parents[1]
-    for name in ("lock-bin.txt", "lock-src.txt"):
+    for name in ("requirements-lock.txt", "requirements-src-lock.txt"):
         path = root / name
         assert path.exists(), f"missing {name}"
         lines = path.read_text().splitlines()
