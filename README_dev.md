@@ -41,13 +41,12 @@ Run `plint-env` to see a quick capability report:
 plint-env
 ```
 
-### Locked extras install
+### Locked install
 
-Regenerate lock files with `python scripts/gen_lock.py` whenever dependencies change and install them via Make:
+Regenerate lock files with `python -m scripts.lock freeze` and install the exact environment:
 
 ```bash
-make lock-install-bin  # no compilers needed
-make lock-install-src  # build from source
+python -m scripts.lock install
 ```
 
 Canonical banner:

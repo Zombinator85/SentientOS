@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
-      - run: pip install -r requirements.txt mypy
+      - run: python -m scripts.lock install
+      - run: python -m scripts.lock check
       - name: Cathedral CI
         run: python scripts/ci_self_check.py
