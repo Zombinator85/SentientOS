@@ -1,5 +1,6 @@
 import os, sys, subprocess
 from pathlib import Path
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -8,6 +9,7 @@ from privilege_lint.js_rules import validate_js
 from privilege_lint.go_rules import validate_go
 
 
+@pytest.mark.requires_node
 def test_js_eval(tmp_path: Path) -> None:
     f = tmp_path / "demo.js"
     f.write_text("eval('1')", encoding="utf-8")
@@ -15,6 +17,7 @@ def test_js_eval(tmp_path: Path) -> None:
     assert any("avoid eval" in m for m in issues)
 
 
+@pytest.mark.requires_go
 def test_go_wrap(tmp_path: Path, monkeypatch) -> None:
     f = tmp_path / "main.go"
     f.write_text("package main\nfunc main(){}", encoding="utf-8")

@@ -31,6 +31,7 @@ from privilege_lint.template_rules import validate_template, parse_context
 from privilege_lint.security_rules import validate_security
 from privilege_lint.js_rules import validate_js
 from privilege_lint.go_rules import validate_go
+from privilege_lint._compat import RuleSkippedError
 from privilege_lint.comment_controls import parse_controls, is_disabled
 from privilege_lint.metrics import MetricsCollector
 from privilege_lint.plugins import load_plugins
@@ -376,10 +377,13 @@ def main(argv: list[str] | None = None) -> int:
     issues = parallel_validate(linter, [f for f in check_files if f.suffix == '.py'], args.max_workers)
     other_files = [f for f in check_files if f.suffix in {'.js', '.ts', '.go'}]
     for f in other_files:
-        if f.suffix in {'.js', '.ts'}:
-            issues.extend(validate_js(f, linter.license_header))
-        elif f.suffix == '.go':
-            issues.extend(validate_go(f, linter.license_header))
+        try:
+            if f.suffix in {'.js', '.ts'}:
+                issues.extend(validate_js(f, linter.license_header))
+            elif f.suffix == '.go':
+                issues.extend(validate_go(f, linter.license_header))
+        except RuleSkippedError:
+            pass
     for fp in check_files:
         linter.cache.update(fp)
 
