@@ -17,9 +17,24 @@ Canonical banner:
 #                 |___/         |___/ 
 ```
 
-Run the linter before committing:
+Run the linter before committing. With no arguments it scans the repository root.
+Use `--fix` to rewrite files in-place and `--quiet` for pre-commit hooks:
 
 ```bash
-python privilege_lint.py
+python privilege_lint.py           # scan repo
+python privilege_lint.py src/      # scan a directory
+python privilege_lint.py --fix src/    # rewrite issues
+```
+
+Sample `.pre-commit-config.yaml` hook:
+
+```yaml
+repos:
+- repo: local
+  hooks:
+  - id: privilege-lint
+    entry: python privilege_lint.py --quiet
+    language: system
+    pass_filenames: false
 ```
 

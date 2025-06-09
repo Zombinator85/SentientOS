@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 
+import argparse
 import datetime
 import json
 import os
@@ -111,46 +112,124 @@ def validate_banner_order(lines: list[str], path: Path) -> list[str]:
 
 
 # ----------------------------- lint driver ---------------------------------- #
-ENTRY_PATTERNS = [
-    "*_cli.py", "*_dashboard.py", "*_daemon.py", "*_engine.py",
-    "collab_server.py", "autonomous_ops.py", "replay.py", "experiments_api.py",
-]
-MAIN_BLOCK_RE  = re.compile(r"if __name__ == ['\"]__main__['\"]")
-ARGPARSE_RE    = re.compile(r"\bargparse\b")
-
-AUDIT_FILE     = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
+AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 def audit_use(tool: str, cmd: str) -> None:
-    record = {"timestamp": datetime.datetime.utcnow().isoformat(), "tool": tool, "command": cmd}
+    record = {
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "tool": tool,
+        "command": cmd,
+    }
     with open(AUDIT_FILE, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(record) + "\n")
 
 
-def find_entrypoints(root: Path) -> list[Path]:
-    files: set[Path] = set()
-    for pat in ENTRY_PATTERNS:
-        files.update(root.rglob(pat))
-    for p in root.rglob("*.py"):
-        if p in files:
-            continue
-        txt = p.read_text(encoding="utf-8")
-        if MAIN_BLOCK_RE.search(txt) or ARGPARSE_RE.search(txt):
-            files.add(p)
-    return sorted(files)
+class PrivilegeLinter:
+    def __init__(self) -> None:
+        pass
+
+    def validate(self, file_path: Path) -> list[str]:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        return validate_banner_order(lines, file_path)
+
+    def apply_fix(self, file_path: Path) -> bool:
+        original = file_path.read_text(encoding="utf-8").splitlines()
+        lines = original[:]
+
+        banner_end = get_banner(lines)
+        if banner_end is None:
+            insert_at = 0
+            while insert_at < len(lines) and lines[insert_at].startswith(("#!", "# -*-")):
+                insert_at += 1
+            lines[insert_at:insert_at] = BANNER_ASCII
+            banner_end = insert_at + len(BANNER_ASCII) - 1
+
+        if FUTURE_IMPORT in lines:
+            idx = lines.index(FUTURE_IMPORT)
+            if idx != banner_end + 1:
+                line = lines.pop(idx)
+                if idx < banner_end + 1:
+                    banner_end -= 1
+                lines.insert(banner_end + 1, line)
+
+        # recalc docstring after banner/future adjustments
+        try:
+            mod = ast.parse("\n".join(lines))
+            doc = ast.get_docstring(mod)
+            doc_start = doc_end = None
+            if doc is not None:
+                for node in mod.body:
+                    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
+                        doc_start = node.lineno - 1
+                        doc_end = node.end_lineno - 1
+                        break
+        except Exception:
+            doc_start = doc_end = None
+
+        if doc_start is not None:
+            move_lines: list[str] = []
+            remove_idx: list[int] = []
+            for i in range(doc_start):
+                if _IMPORT_RE.match(lines[i]) and lines[i].strip() != FUTURE_IMPORT:
+                    move_lines.append(lines[i])
+                    remove_idx.append(i)
+            for i in reversed(remove_idx):
+                lines.pop(i)
+            if move_lines:
+                doc_end = doc_end - len([i for i in remove_idx if i <= doc_end])
+                insert_pos = doc_end + 1
+                for off, line in enumerate(move_lines):
+                    lines.insert(insert_pos + off, line)
+
+        changed = lines != original
+        if changed:
+            file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return changed
 
 
-def check_file(path: Path) -> list[str]:
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return validate_banner_order(lines, path)
+def iter_py_files(paths: list[str]) -> list[Path]:
+    result: list[Path] = []
+    for p in paths:
+        path = Path(p)
+        if path.is_dir():
+            for root, dirs, files in os.walk(path):
+                dirs[:] = [d for d in dirs if d not in {"tests", "venv", "__pycache__"}]
+                for f in files:
+                    if f.endswith(".py"):
+                        result.append(Path(root) / f)
+        elif path.is_file() and path.suffix == ".py":
+            result.append(path)
+    return sorted(set(result))
 
 
-def main() -> int:
-    root   = Path(__file__).resolve().parent
-    issues = [e for f in find_entrypoints(root) for e in check_file(f)]
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Privilege banner linter")
+    ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
+    ap.add_argument("--fix", action="store_true", help="Rewrite files in place")
+    ap.add_argument("--quiet", action="store_true", help="Suppress output")
+    args = ap.parse_args(argv)
+
+    linter = PrivilegeLinter()
+    files = iter_py_files(args.paths)
+
+    if args.fix:
+        fixed = 0
+        for fp in files:
+            if linter.validate(fp):
+                if linter.apply_fix(fp):
+                    fixed += 1
+        if not args.quiet:
+            print(f"Fixed {fixed} files")
+        return 0
+
+    issues: list[str] = []
+    for fp in files:
+        issues.extend(linter.validate(fp))
     if issues:
-        print("\n".join(sorted(issues)))
+        if not args.quiet:
+            print("\n".join(sorted(issues)))
         return 1
     return 0
 
