@@ -6,7 +6,9 @@ if [[ -f "$STAMP_FILE" && $(cat "$STAMP_FILE") == "$TREE" ]]; then
     echo "privilege lint cache hit"
     exit 0
 fi
-python scripts/gen_lock.py --check || exit 1
+if command -v pip-compile >/dev/null; then
+    python scripts/gen_lock.py --check || { echo "Run make lock-refresh"; exit 1; }
+fi
 CFG_HASH=$(python - <<'PY'
 from privilege_lint.config import load_config
 from privilege_lint.cache import _cfg_hash
