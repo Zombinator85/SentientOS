@@ -43,7 +43,7 @@ plint-env
 
 ### Locked extras install
 
-Generate lock files with `python scripts/gen_lock.py` and install deterministic extras:
+Regenerate lock files with `python scripts/gen_lock.py` whenever dependencies change and install deterministic extras:
 
 ```bash
 pip install privilege-lint[locked-bin]  # no compilers needed
