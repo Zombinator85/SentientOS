@@ -40,6 +40,12 @@ dependencies = [
 [project.optional-dependencies]
 bin = []
 src = []
+dev = [
+    "mypy==1.*",
+    "types-requests",
+    "types-PyYAML",
+    "pytest-cov",
+]
 
 [project.scripts]
 support = "support_cli:main"

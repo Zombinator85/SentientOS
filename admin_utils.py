@@ -5,6 +5,8 @@ actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
 running unattended.
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import platform
@@ -14,11 +16,17 @@ import warnings
 from pathlib import Path
 if TYPE_CHECKING:
     import presence_ledger as pl_module
+    import privilege_lint as pl_lint_module
+
+
 class _StubLedger:
-    def log_privilege(self, *a, **k):
+    def log_privilege(self, *a: object, **k: object) -> None:
         pass
-    def log(self, *a, **k):
+
+    def log(self, *a: object, **k: object) -> None:
         pass
+from typing import Any
+
 pl: Any = _StubLedger()
 
 ADMIN_BANNER = (
@@ -80,7 +88,7 @@ def require_admin_banner() -> None:
         pl = pl_module
     _log_privilege = pl.log_privilege
     try:
-        import privilege_lint as pl_lint
+        import privilege_lint as pl_lint  # type: ignore
         pl_lint.audit_use("cli", tool)
     except Exception:
         pass
