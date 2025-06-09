@@ -13,6 +13,9 @@ from pathlib import Path
 
 from privilege_lint.config import LintConfig, load_config
 from privilege_lint.import_rules import apply_fix_imports, validate_import_sort
+from privilege_lint.typehint_rules import validate_type_hints
+from privilege_lint.shebang_rules import validate_shebang, apply_fix as fix_shebang
+from privilege_lint.runner import parallel_validate, DEFAULT_WORKERS
 
 from logging_config import get_log_path
 
@@ -149,6 +152,17 @@ class PrivilegeLinter:
             issues.extend(validate_banner_order(lines, file_path, self.banner))
         if self.config.enforce_import_sort:
             issues.extend(validate_import_sort(lines, file_path, self.project_root))
+        if self.config.enforce_type_hints:
+            issues.extend(
+                validate_type_hints(
+                    lines,
+                    file_path,
+                    exclude_private=self.config.exclude_private,
+                    fail_on_missing_return=self.config.fail_on_missing_return,
+                )
+            )
+        if self.config.shebang_require:
+            issues.extend(validate_shebang(file_path, self.config.shebang_require))
         return issues
 
     def apply_fix(self, file_path: Path) -> bool:
@@ -207,6 +221,9 @@ class PrivilegeLinter:
         if changed:
             out_path = file_path if self.config.fix_overwrite else file_path.with_name(file_path.name + ".fixed")
             out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        if self.config.shebang_require:
+            changed |= fix_shebang(file_path, self.config.shebang_fix_mode)
         return changed
 
 
@@ -230,6 +247,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
     ap.add_argument("--fix", action="store_true", help="Rewrite files in place")
     ap.add_argument("--quiet", action="store_true", help="Suppress output")
+    ap.add_argument("--max-workers", type=int, default=None, help="Worker count for parallel scan")
+    ap.add_argument("--show-hints", action="store_true", help="Print type hint violations in quiet mode")
     args = ap.parse_args(argv)
 
     linter = PrivilegeLinter()
@@ -245,11 +264,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Fixed {fixed} files")
         return 0
 
-    issues: list[str] = []
-    for fp in files:
-        issues.extend(linter.validate(fp))
+    issues = parallel_validate(linter, files, args.max_workers)
     if issues:
-        if not args.quiet:
+        if not args.quiet or args.show_hints:
             print("\n".join(sorted(issues)))
         return 1
     return 0
