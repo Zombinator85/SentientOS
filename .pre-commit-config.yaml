@@ -11,3 +11,8 @@ repos:
     entry: python verify_audits.py
     language: system
     pass_filenames: false
+  - id: pytest
+    name: unit tests
+    entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
+    language: system
+    pass_filenames: false

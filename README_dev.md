@@ -4,6 +4,8 @@
 Add the banner, `from __future__ import annotations`, an optional docstring,
 and only then your other imports.
 
+🔧 Dev setup: `pip install -r requirements-dev.txt`
+
 Canonical banner:
 
 ```
