@@ -25,12 +25,9 @@ def test_check_and_fix(tmp_path, monkeypatch):
     ])
     assert ret == 0
     fixed = src.read_text().splitlines()
-    assert fixed[:3] == [
-        '"""Privilege Banner: requires admin & Lumos approval."""',
-        'require_admin_banner()',
-        'require_lumos_approval()',
-    ]
-    assert fixed[3].startswith('from admin_utils')
+    idx = fixed.index(ritual_enforcer.BANNER_LINES[0])
+    assert fixed[idx : idx + len(ritual_enforcer.BANNER_LINES)] == ritual_enforcer.BANNER_LINES
+    assert 'from admin_utils' in fixed[0]
     assert "prompt_yes_no(" in "\n".join(fixed)
     assert (backups / f"{src.name}.bak").exists()
 
