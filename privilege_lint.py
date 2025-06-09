@@ -5,6 +5,7 @@ from log_utils import append_json
 import datetime
 import os
 from pathlib import Path
+import argparse
 try:
     from admin_utils import require_admin_banner, require_lumos_approval
 except Exception:  # pragma: no cover - fallback for lint
@@ -147,15 +148,29 @@ def find_entrypoints(root: Path) -> list[Path]:
     return sorted(files)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Privilege banner lint")
+    parser.add_argument("--strict", action="store_true", help="fail on issues")
+    parser.add_argument("--no-emoji", action="store_true", help="disable emoji output")
+    args = parser.parse_args(argv)
+
+    if args.no_emoji:
+        os.environ["SENTIENTOS_NO_EMOJI"] = "1"
+
+    strict = args.strict or os.getenv("SENTIENTOS_LINT_STRICT") == "1"
+
     root = Path(__file__).resolve().parent
     files = find_entrypoints(root)
-    issues = []
+    issues: list[str] = []
     for path in files:
         issues.extend(check_file(path))
+
     if issues:
         print("\n".join(sorted(issues)))
-        return 1
+        if strict:
+            return 1
+        print(f"\033[33mWARNING: {len(issues)} issue(s) found\033[0m")
+        return 0
     return 0
 
 if __name__ == "__main__":

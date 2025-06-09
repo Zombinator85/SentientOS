@@ -13,6 +13,10 @@ import sys
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 
+YELLOW = "\033[33m"
+RED = "\033[31m"
+RESET = "\033[0m"
+
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")
 
@@ -202,14 +206,17 @@ def verify_audits(
     return results, percent, stats
 
 
-def main() -> None:  # pragma: no cover - CLI
+def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     parser = argparse.ArgumentParser(description="Audit log verifier")
     parser.add_argument("path", nargs="?", help="Log directory or single file")
     parser.add_argument("--repair", action="store_true", help="attempt to repair malformed lines")
+    parser.add_argument("--strict", action="store_true", help="fail if any invalid logs")
     parser.add_argument("--no-emoji", action="store_true", help="disable emoji output")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.no_emoji:
         os.environ["SENTIENTOS_NO_EMOJI"] = "1"
+
+    strict = args.strict or os.getenv("SENTIENTOS_LINT_STRICT") == "1"
 
     require_admin_banner()
 
@@ -222,11 +229,15 @@ def main() -> None:  # pragma: no cover - CLI
             directory = p.parent
 
     res, percent, stats = verify_audits(quarantine=True, directory=directory, repair=args.repair)
+    valid_count = 0
+    invalid_count = 0
     for file, errors in res.items():
         if not errors:
+            valid_count += 1
             print(f"{file}: valid")
         else:
-            print(f"{file}: {len(errors)} issue(s)")
+            invalid_count += 1
+            print(f"{RED}{file}: {len(errors)} issue(s){RESET}")
             for err in errors:
                 print(f"  {err}")
     print(f"{percent:.1f}% of logs valid")
@@ -234,7 +245,11 @@ def main() -> None:  # pragma: no cover - CLI
         print(
             f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
         )
+    if invalid_count and not strict:
+        print(f"{YELLOW}WARNING: {invalid_count} invalid file(s){RESET}")
+        return 0
+    return 1 if invalid_count else 0
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    sys.exit(main())
