@@ -1,176 +1,133 @@
+# ── privilege_lint.py ──────────────────────────────────────────────
 from __future__ import annotations
 
-import sys, json, datetime, os, re
+import datetime
+import json
+import os
+import re
+import sys
 from pathlib import Path
+
 from logging_config import get_log_path
-from log_utils import append_json
+from sentient_banner import BANNER_LINES  # single source of truth ✨
 
-# Always use the canonical banner definition
-from sentient_banner import BANNER_LINES
-
+# Optional real helpers (stubbed in CI)
 try:
-    from admin_utils import require_admin_banner, require_lumos_approval
-except Exception:  # pragma: no cover – runs in CI w/out deps
-    def require_admin_banner() -> None:
-        ...
+    from admin_utils import require_admin_banner, require_lumos_approval  # noqa: F401
+except Exception:  # pragma: no cover
+    def require_admin_banner() -> None: ...
+    def require_lumos_approval() -> None: ...
 
-    def require_lumos_approval() -> None:
-        ...
-
-
-
-"""Lint entrypoints for the Sanctuary privilege ritual.
-
-Usage is recorded in ``logs/privileged_audit.jsonl`` or the path set by
-``PRIVILEGED_AUDIT_FILE``. See ``docs/ENVIRONMENT.md`` for details.
-"""
-require_admin_banner()  # Enforced banner calls
-require_lumos_approval()
-
-# The exact docstring that must appear after imports:
-DOCSTRING = BANNER_LINES[0].strip('"')
-
-ENTRY_PATTERNS = [
-    "*_cli.py",
-    "*_dashboard.py",
-    "*_daemon.py",
-    "*_engine.py",
-    "collab_server.py",
-    "autonomous_ops.py",
-    "replay.py",
-    "experiments_api.py",
-]
-
-MAIN_BLOCK_RE = re.compile(r"if __name__ == ['\"]__main__['\"]")
-ARGPARSE_RE = re.compile(r"\bargparse\b")
-DOCSTRING_SEARCH_LINES = 60     # keep
-
-# ------------------------------------------------------------
-# Helper duplicated from scripts/ritual_enforcer.py
-# ------------------------------------------------------------
-_IMPORT_RE = re.compile(r"^(from|import)\s+[A-Za-z0-9_. ,]+")
+# --------------------------------------------------------------------------- #
+DOCSTRING               = BANNER_LINES[0].strip('"')
+DOCSTRING_SEARCH_LINES  = 60
+_IMPORT_RE              = re.compile(r"^(from|import)\s+[A-Za-z0-9_. ,]+")
 
 def _first_code_line(lines: list[str]) -> int:
     """
-    Return the index of the first real statement (after she-bang, encoding
-    comment, copyright, blank lines, *and* import statements).
+    Return the index of the first *real* line after she-bang / encoding,
+    comments, blank lines, **and import statements**.
     """
-    idx = 0
-    while idx < len(lines):
-        line = lines[idx].strip()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
         if (
-            not line
-            or line.startswith("#")
-            or line.startswith(("#!", "# -*-"))
-            or _IMPORT_RE.match(line)
+            not line                             # blank
+            or line.startswith("#")              # comment
+            or line.startswith(("#!", "# -*-"))  # shebang / coding
+            or _IMPORT_RE.match(line)            # import
         ):
-            idx += 1
+            i += 1
             continue
         break
-    return idx
-
-AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
-AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-
-def audit_use(tool: str, command: str) -> None:
-    """Append a privileged command usage entry."""
-    entry = {
-        "timestamp": datetime.datetime.utcnow().isoformat(),
-        "tool": tool,
-        "command": command,
-    }
-    append_json(AUDIT_FILE, entry)
-
+    return i
+# --------------------------------------------------------------------------- #
 
 def _has_header(path: Path) -> bool:
-    """True if the ritual docstring appears shortly after initial imports."""
-    lines = path.read_text(encoding="utf-8").splitlines()
-    start = _first_code_line(lines)
-    search_block = "\n".join(lines[start : start + DOCSTRING_SEARCH_LINES])
-    return DOCSTRING in search_block
+    """True iff the ritual docstring appears shortly after initial imports."""
+    lines  = path.read_text(encoding="utf-8").splitlines()
+    start  = _first_code_line(lines)
+    block  = "\n".join(lines[start : start + DOCSTRING_SEARCH_LINES])
+    return DOCSTRING in block
 
 
 def _has_banner_call(path: Path) -> bool:
-    """Return True if banner calls appear in the correct order."""
-    lines = path.read_text(encoding="utf-8").splitlines()
-    # Find the docstring line
-    start = next((i for i, l in enumerate(lines) if DOCSTRING in l), None)
-    if start is None:
+    """True if the two require_* calls follow the docstring in order."""
+    lines, loc = path.read_text(encoding="utf-8").splitlines(), None
+    for idx, line in enumerate(lines):
+        if DOCSTRING in line:
+            loc = idx
+            break
+    if loc is None:
         return False
 
-    # Find end of docstring (single- or multi-line)
-    if lines[start].count('"""') >= 2:
-        end = start
-    else:
-        end = next((j for j in range(start + 1, len(lines)) if '"""' in lines[j]), None)
-        if end is None:
-            return False
+    # Skip to the line after the closing triple-quote
+    while loc + 1 < len(lines) and '"""' not in lines[loc + 1]:
+        loc += 1
+    if loc + 1 >= len(lines):
+        return False
+    loc += 2  # first line *after* docstring
 
-    # Check require_admin_banner() immediately after
-    j = end + 1
-    while j < len(lines) and not lines[j].strip():
-        j += 1
-    if j >= len(lines) or not lines[j].strip().startswith("require_admin_banner("):
+    # Skip blanks
+    while loc < len(lines) and not lines[loc].strip():
+        loc += 1
+    if loc >= len(lines) or not lines[loc].strip().startswith("require_admin_banner("):
         return False
 
-    # Check require_lumos_approval() immediately after
-    j += 1
-    while j < len(lines) and not lines[j].strip():
-        j += 1
-    return j < len(lines) and lines[j].strip().startswith("require_lumos_approval(")
+    loc += 1
+    while loc < len(lines) and not lines[loc].strip():
+        loc += 1
+    return loc < len(lines) and lines[loc].strip().startswith("require_lumos_approval(")
 
 
 def _has_lumos_call(path: Path) -> bool:
-    """Return True if `require_lumos_approval()` follows `require_admin_banner()`."""
-    lines = path.read_text(encoding="utf-8").splitlines()
-    for i, line in enumerate(lines):
-        if line.strip().startswith("require_admin_banner("):
-            j = i + 1
-            while j < len(lines) and not lines[j].strip():
-                j += 1
-            return j < len(lines) and lines[j].strip().startswith("require_lumos_approval(")
-    return False
+    """Redundant now, but kept for backward-compat w/ older tooling."""
+    return _has_banner_call(path)
 
 
-def check_file(path: Path) -> list[str]:
-    issues: list[str] = []
-    if not _has_header(path):
-        issues.append(f"{path}: missing privilege docstring after imports")
-    if not _has_banner_call(path):
-        issues.append(
-            f"{path}: `require_admin_banner()` must immediately follow the banner docstring and be followed by `require_lumos_approval()`"
-        )
-    elif not _has_lumos_call(path):
-        issues.append(
-            f"{path}: `require_lumos_approval()` must immediately follow `require_admin_banner()`"
-        )
-    return issues
+# ----------------------------- lint driver ---------------------------------- #
+ENTRY_PATTERNS = [
+    "*_cli.py", "*_dashboard.py", "*_daemon.py", "*_engine.py",
+    "collab_server.py", "autonomous_ops.py", "replay.py", "experiments_api.py",
+]
+MAIN_BLOCK_RE  = re.compile(r"if __name__ == ['\"]__main__['\"]")
+ARGPARSE_RE    = re.compile(r"\bargparse\b")
+
+AUDIT_FILE     = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
+AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+
+def audit_use(tool: str, cmd: str) -> None:
+    record = {"timestamp": datetime.datetime.utcnow().isoformat(), "tool": tool, "command": cmd}
+    with open(AUDIT_FILE, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record) + "\n")
 
 
 def find_entrypoints(root: Path) -> list[Path]:
-    """Return Python entrypoint files under `root`."""
     files: set[Path] = set()
-    for pattern in ENTRY_PATTERNS:
-        files.update(root.rglob(pattern))
-
-    # Also pick up any script with a `__main__` block or use of argparse
-    for path in root.rglob("*.py"):
-        if path in files:
+    for pat in ENTRY_PATTERNS:
+        files.update(root.rglob(pat))
+    for p in root.rglob("*.py"):
+        if p in files:
             continue
-        text = path.read_text(encoding="utf-8")
-        if MAIN_BLOCK_RE.search(text) or ARGPARSE_RE.search(text):
-            files.add(path)
+        txt = p.read_text(encoding="utf-8")
+        if MAIN_BLOCK_RE.search(txt) or ARGPARSE_RE.search(txt):
+            files.add(p)
     return sorted(files)
 
 
-def main() -> int:
-    root = Path(__file__).resolve().parent
-    files = find_entrypoints(root)
-    issues: list[str] = []
-    for path in files:
-        issues.extend(check_file(path))
+def check_file(path: Path) -> list[str]:
+    errs: list[str] = []
+    if not _has_header(path):
+        errs.append(f"{path}: missing privilege docstring near top")
+    if not _has_banner_call(path):
+        errs.append(f"{path}: banner calls not in correct order")
+    return errs
 
+
+def main() -> int:
+    root   = Path(__file__).resolve().parent
+    issues = [e for f in find_entrypoints(root) for e in check_file(f)]
     if issues:
         print("\n".join(sorted(issues)))
         return 1
@@ -178,4 +135,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    require_admin_banner()
+    require_lumos_approval()
     sys.exit(main())
+# ────────────────────────────────────────────────────────────
