@@ -66,3 +66,9 @@
 - `privilege-lint[all]` installs all extras
 - CI fails if the full matrix skips more than 5% of tests
 
+## 2028-06 v9.3 Zero-Red-Bar
+- Split extras into `bin` vs `src`
+- Soft-install wrapper retries with `--no-binary :all:`
+- Env sentinel handles missing `pyesprima`
+- CI installs `bin` wheels first and compiles `src` only on capable runners
+

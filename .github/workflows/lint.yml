@@ -14,6 +14,18 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - run: pytest -q
 
+  bin-extras:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: pip install .
+      - run: python scripts/install_extras.py --soft bin
+      - run: pytest -q
+
   full:
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +40,9 @@ jobs:
         with:
           go-version: '1.22'
       - run: pip install -r requirements.txt
-      - run: pip install .[all]
+      - run: pip install .
+      - run: python scripts/install_extras.py --soft bin
+      - run: python scripts/install_extras.py src
       - name: Env report
         run: plint-env
       - id: tests
