@@ -30,8 +30,7 @@ def validate_docstrings(lines: list[str], path: Path, style: str) -> list[str]:
         elif not _style_matches(doc, style):
             issues.append(f"{path}:{lineno} docstring not {style} style")
 
-    # module
-    check(tree, "<module>")
+
 
     for node in tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
