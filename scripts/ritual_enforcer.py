@@ -1,5 +1,6 @@
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
+from sentient_banner import BANNER_LINES
 
 """Privilege Banner: requires admin & Lumos approval."""
 require_admin_banner()
@@ -11,13 +12,9 @@ import shutil
 from pathlib import Path
 from typing import Iterable, List
 
-DOCSTRING = "Privilege Banner: requires admin & Lumos approval."
+DOCSTRING = BANNER_LINES[0].strip('"')
 OLD_DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
-HEADER_LINES = [
-    f'"""{DOCSTRING}"""',
-    "require_admin_banner()",
-    "require_lumos_approval()",
-]
+HEADER_LINES = [BANNER_LINES[0], BANNER_LINES[1], BANNER_LINES[2]]
 IMPORT_LINE = "from admin_utils import require_admin_banner, require_lumos_approval"
 AUTO_APPROVE_IMPORT = "from scripts.auto_approve import prompt_yes_no"
 PROMPT_RE = re.compile(r"(?<!prompt_yes_no)\b(?:input|click\.confirm|prompt)\(")
