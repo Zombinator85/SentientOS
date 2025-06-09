@@ -32,24 +32,39 @@ def _elevation_hint() -> str:
     return "How to fix: Run this command with 'sudo'."
 
 
+def _strip_emoji(text: str) -> str:
+    """Return ``text`` with emoji removed if SENTIENTOS_NO_EMOJI is set."""
+    if os.getenv("SENTIENTOS_NO_EMOJI") == "1":
+        return text.encode("ascii", "ignore").decode("ascii", "ignore")
+    return text
+
+
 def print_privilege_banner(tool: str = "") -> None:
     """Print the current privilege status banner."""
     user = getpass.getuser()
     plat = platform.system()
     status = "\U0001F6E1\uFE0F Privileged" if is_admin() else "\u26A0\uFE0F Not Privileged"
     banner = f"\U0001F6E1\uFE0F Sanctuary Privilege Status: [{status}]"
+    banner = _strip_emoji(banner)
     try:
         print(banner)
     except UnicodeEncodeError:
         enc = sys.stdout.encoding or "utf-8"
         print(banner.encode(enc, errors="replace").decode(enc, errors="replace"))
-    print(f"Current user: {user}")
-    print(f"Platform: {plat}")
+    print(_strip_emoji(f"Current user: {user}"))
+    print(_strip_emoji(f"Platform: {plat}"))
     if not is_admin():
         print(
-            "Ritual refusal: You must run with administrator rights to access the cathedral's memory, logs, and doctrine."
+            _strip_emoji(
+                "Ritual refusal: You must run with administrator rights to access the cathedral's memory, logs, and doctrine."
+            )
         )
-        print(_elevation_hint())
+        print(_strip_emoji(_elevation_hint()))
+
+
+def print_privilege_banner_safe(tool: str = "") -> None:
+    """Backward compatible safe alias for ``print_privilege_banner``."""
+    print_privilege_banner(tool)
 
 
 def is_admin() -> bool:

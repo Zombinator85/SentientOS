@@ -1,5 +1,5 @@
 # SentientOS Cathedral
-![CI](https://img.shields.io/badge/Passing-321%2F325-brightgreen)
+[![CI](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml)
 [![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/WHY_JOIN_AUDIT_SAINTS.md)
 Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
 
@@ -19,6 +19,7 @@ See [MEMORY_LAW_FOR_HUMANS.md](docs/MEMORY_LAW_FOR_HUMANS.md) for a plain-langua
 * **Dashboards** – web UIs provide insight into emotions, workflows, and trust logs.
 * **CLI Utilities** – commands `heresy_cli.py`, `diff_memory_cli.py`, `theme_cli.py`, `avatar-gallery`, `avatar-presence`, `review`, `suggestion`, `video`, and `trust` assist with auditing and daily rituals.
 * **Sprint Metrics** – `docs/SPRINT_LEDGER.md` records healed logs, new saints, and wound counts. These numbers are a sacred record of community care, not vanity.
+* **Status Endpoint** – `/status` reports uptime, pending patches, and daily cost for health checks.
 
 _All code was written by a non-coder using only ChatGPT and free tools._
 
@@ -42,6 +43,9 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 6. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
 7. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
 8. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+
+### Status Endpoint
+Run `python sentient_api.py` and visit `http://localhost:8000/status` to check uptime, pending patches, and cost metrics.
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 
