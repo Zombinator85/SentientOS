@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -24,19 +25,31 @@ def _probe(cmd: list[str]) -> Capability:
         return Capability(False, f"{exe} invocation failed: {exc}")
 
 
+def detect_pkg(name: str) -> Capability:
+    try:
+        importlib.import_module(name)
+        return Capability(True, "available")
+    except Exception as exc:
+        return Capability(False, str(exc))
+
+
 NODE = _probe(["node", "--version"])
 GO = _probe(["go", "version"])
 DMYPY = _probe(["dmypy", "--version"])
+PYESPRIMA = detect_pkg("pyesprima")
 
 HAS_NODE = NODE.available
 HAS_GO = GO.available
 HAS_DMYPY = DMYPY.available
+HAS_PYESPRIMA = PYESPRIMA.available
 
 __all__ = [
     "HAS_NODE",
     "HAS_GO",
     "HAS_DMYPY",
+    "HAS_PYESPRIMA",
     "NODE",
     "GO",
     "DMYPY",
+    "PYESPRIMA",
 ]
