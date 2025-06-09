@@ -49,8 +49,21 @@ enforce_banner = true
 enforce_import_sort = true
 banner_file = "BANNER_ASCII.txt"
 fix_overwrite = false
+enforce_type_hints = true
+exclude_private = true
+fail_on_missing_return = true
+[lint.shebang]
+require = true
+fix_mode = true
 ```
 
 When `fix_overwrite` is `false`, running `python privilege_lint.py --fix` writes
 changes to `file.py.fixed` instead of overwriting the original.
+
+The linter scans files in parallel using a thread pool. On repositories of around
+1k files the run time should remain under two seconds. Use `--max-workers` to
+override the automatic worker count.
+
+Executable scripts must start with `#!/usr/bin/env python3` when shebang checks
+are enabled. Autofix mode can also set executable bits if `fix_mode` is true.
 
