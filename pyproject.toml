@@ -45,6 +45,11 @@ dev = [
     "types-requests",
     "types-PyYAML",
     "pytest-cov",
+    "sphinx==7.*",
+    "sphinx-autodoc-typehints",
+    "myst-parser",
+    "furo",
+    "sphinx-autobuild",
 ]
 
 [project.scripts]
