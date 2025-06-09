@@ -82,3 +82,8 @@
 - Lock files shipped and enforced via CI and pre-commit
 - `scripts/gen_lock.py` checks drift and regenerates
 
+## 2028-07 v9.4.2 Lock-Legit
+- Removed invalid extras referencing `-r` requirements
+- Makefile provides `lock-install-*` helpers
+- CI installs via lock files directly
+

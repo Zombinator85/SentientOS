@@ -43,11 +43,11 @@ plint-env
 
 ### Locked extras install
 
-Regenerate lock files with `python scripts/gen_lock.py` whenever dependencies change and install deterministic extras:
+Regenerate lock files with `python scripts/gen_lock.py` whenever dependencies change and install them via Make:
 
 ```bash
-pip install privilege-lint[locked-bin]  # no compilers needed
-pip install privilege-lint[locked-src]  # build from source
+make lock-install-bin  # no compilers needed
+make lock-install-src  # build from source
 ```
 
 Canonical banner:
