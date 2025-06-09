@@ -32,17 +32,31 @@ class FileReport:
         self.modified = False
 
 
-def _has_banner(lines: List[str]) -> bool:
-    """Return True if the file begins with the privilege banner."""
+def _first_code_line(lines: List[str]) -> int:
+    """Return index of the first non-import code line."""
     idx = 0
-    if lines and lines[0].startswith("#!"):
-        idx = 1
+    if idx < len(lines) and lines[idx].startswith("#!"):
+        idx += 1
+    if idx < len(lines) and re.match(r"#.*coding[:=]", lines[idx]):
+        idx += 1
+    while idx < len(lines) and (not lines[idx].strip() or lines[idx].strip().startswith("#")):
+        idx += 1
+    while idx < len(lines) and (
+        lines[idx].startswith("import ") or lines[idx].startswith("from ")
+    ):
+        idx += 1
+    while idx < len(lines) and (not lines[idx].strip() or lines[idx].strip().startswith("#")):
+        idx += 1
+    return idx
+
+
+def _has_banner(lines: List[str]) -> bool:
+    """Return True if the banner appears at the first code line."""
+    idx = _first_code_line(lines)
     for expected in HEADER_LINES:
         if idx >= len(lines) or lines[idx].strip() != expected:
             return False
         idx += 1
-    if idx >= len(lines) or lines[idx].strip() != IMPORT_LINE:
-        return False
     return True
 
 
@@ -51,18 +65,33 @@ def _fix_banner(lines: List[str]) -> List[str]:
     shebang = ""
     if lines and lines[0].startswith("#!"):
         shebang = lines.pop(0)
+    encoding = ""
+    if lines and re.match(r"#.*coding[:=]", lines[0]):
+        encoding = lines.pop(0)
     imports = [l for l in lines if l.startswith("import ") or l.startswith("from ")]
     body = [
         l
         for l in lines
         if l not in imports
-        and l.strip() not in {DOCSTRING, OLD_DOCSTRING, "require_admin_banner()", "require_lumos_approval()", IMPORT_LINE}
+        and l.strip() not in {
+            DOCSTRING,
+            OLD_DOCSTRING,
+            "require_admin_banner()",
+            "require_lumos_approval()",
+            IMPORT_LINE,
+            BANNER_LINES[3],
+        }
     ]
     new_lines: List[str] = []
     if shebang:
         new_lines.append(shebang)
-    new_lines.extend(HEADER_LINES)
+    if encoding:
+        new_lines.append(encoding)
+    if IMPORT_LINE in imports:
+        imports.remove(IMPORT_LINE)
     new_lines.append(IMPORT_LINE)
+    new_lines.extend(HEADER_LINES)
+    new_lines.append(BANNER_LINES[3])
     new_lines.extend(imports)
     new_lines.extend(body)
     return new_lines
@@ -102,7 +131,7 @@ def process_file(path: Path, mode: str, backup_dir: Path | None) -> FileReport:
         return report
 
     if not _has_banner(lines):
-        report.issues.append("missing banner at line 1")
+        report.issues.append("missing banner after imports")
         if mode == "fix":
             lines = _fix_banner(lines)
             report.modified = True
@@ -164,7 +193,15 @@ def main(argv: List[str] | None = None) -> int:
         default=Path("backups"),
         help="Directory for backups when fixing files",
     )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Run in fix mode (same as --mode fix)",
+    )
     args = parser.parse_args(argv)
+
+    if args.fix:
+        args.mode = "fix"
 
     files = expand_files(args.files)
     backup_dir = args.backup_dir if args.mode == "fix" else None
