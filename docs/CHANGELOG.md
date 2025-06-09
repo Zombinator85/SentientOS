@@ -72,3 +72,9 @@
 - Env sentinel handles missing `pyesprima`
 - CI installs `bin` wheels first and compiles `src` only on capable runners
 
+## 2028-07 v9.4 Iron-Wheel
+- Deterministic lock files `lock-bin.txt` and `lock-src.txt`
+- Extras aliases `locked-bin` / `locked-src` install from the locks
+- `plint-env report --json` outputs machine-readable status
+- CI uploads env reports per matrix job and fails if tool-chains vanish
+

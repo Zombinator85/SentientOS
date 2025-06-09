@@ -41,6 +41,15 @@ Run `plint-env` to see a quick capability report:
 plint-env
 ```
 
+### Locked extras install
+
+Generate lock files with `python scripts/gen_lock.py` and install deterministic extras:
+
+```bash
+pip install privilege-lint[locked-bin]  # no compilers needed
+pip install privilege-lint[locked-src]  # build from source
+```
+
 Canonical banner:
 
 ```
