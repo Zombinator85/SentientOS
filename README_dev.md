@@ -64,6 +64,17 @@ The linter scans files in parallel using a thread pool. On repositories of aroun
 1k files the run time should remain under two seconds. Use `--max-workers` to
 override the automatic worker count.
 
+### Docstring & License Rules
+Set `[lint.docstrings]` in the config to enforce Google or NumPy style docstrings on
+all public objects. When `insert_stub` is true, `--fix` inserts `"TODO:"` stubs for
+missing docstrings.
+
+`license_header` ensures a SPDX identifier or custom header appears near the top of
+each file.
+
+Runs automatically cache lint results in `.privilege_lint.cache`. Disable with
+`--no-cache`.
+
 Executable scripts must start with `#!/usr/bin/env python3` when shebang checks
 are enabled. Autofix mode can also set executable bits if `fix_mode` is true.
 

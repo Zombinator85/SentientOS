@@ -17,6 +17,11 @@ class LintConfig:
     fail_on_missing_return: bool = True
     shebang_require: bool = False
     shebang_fix_mode: bool = False
+    docstrings_enforce: bool = False
+    docstring_style: str = "google"
+    docstring_insert_stub: bool = False
+    license_header: str | None = None
+    cache: bool = True
 
 
 _DEFAULT = LintConfig()
@@ -38,6 +43,7 @@ def load_config(start: Path | None = None) -> LintConfig:
             if cfg_path.exists():
                 data = _load_file(cfg_path).get("lint", {})
                 shebang = data.get("shebang", {})
+                docs = data.get("docstrings", {})
                 return LintConfig(
                     enforce_banner=bool(data.get("enforce_banner", _DEFAULT.enforce_banner)),
                     enforce_import_sort=bool(data.get("enforce_import_sort", _DEFAULT.enforce_import_sort)),
@@ -48,5 +54,10 @@ def load_config(start: Path | None = None) -> LintConfig:
                     fail_on_missing_return=bool(data.get("fail_on_missing_return", _DEFAULT.fail_on_missing_return)),
                     shebang_require=bool(shebang.get("require", _DEFAULT.shebang_require)),
                     shebang_fix_mode=bool(shebang.get("fix_mode", _DEFAULT.shebang_fix_mode)),
+                    docstrings_enforce=bool(docs.get("enforce", _DEFAULT.docstrings_enforce)),
+                    docstring_style=str(docs.get("style", _DEFAULT.docstring_style)),
+                    docstring_insert_stub=bool(docs.get("insert_stub", _DEFAULT.docstring_insert_stub)),
+                    license_header=data.get("license_header", _DEFAULT.license_header),
+                    cache=bool(data.get("cache", _DEFAULT.cache)),
                 )
     return _DEFAULT

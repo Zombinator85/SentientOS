@@ -15,6 +15,13 @@ from privilege_lint.config import LintConfig, load_config
 from privilege_lint.import_rules import apply_fix_imports, validate_import_sort
 from privilege_lint.typehint_rules import validate_type_hints
 from privilege_lint.shebang_rules import validate_shebang, apply_fix as fix_shebang
+from privilege_lint.docstring_rules import validate_docstrings, apply_fix_docstring_stub
+from privilege_lint.license_rules import (
+    validate_license_header,
+    apply_fix_license_header,
+    DEFAULT_HEADER,
+)
+from privilege_lint.cache import LintCache
 from privilege_lint.runner import parallel_validate, DEFAULT_WORKERS
 
 from logging_config import get_log_path
@@ -137,6 +144,7 @@ class PrivilegeLinter:
     def __init__(self, config: LintConfig | None = None, project_root: Path | None = None) -> None:
         self.project_root = project_root or Path.cwd()
         self.config = config or load_config(self.project_root)
+        self.cache = LintCache(self.project_root, self.config, enabled=self.config.cache)
         if self.config.banner_file:
             try:
                 self.banner = Path(self.config.banner_file).read_text(encoding="utf-8").splitlines()
@@ -144,6 +152,10 @@ class PrivilegeLinter:
                 self.banner = DEFAULT_BANNER_ASCII
         else:
             self.banner = DEFAULT_BANNER_ASCII
+        if self.config.license_header and Path(self.config.license_header).exists():
+            self.license_header = Path(self.config.license_header).read_text(encoding="utf-8").strip()
+        else:
+            self.license_header = DEFAULT_HEADER
 
     def validate(self, file_path: Path) -> list[str]:
         lines = file_path.read_text(encoding="utf-8").splitlines()
@@ -163,6 +175,10 @@ class PrivilegeLinter:
             )
         if self.config.shebang_require:
             issues.extend(validate_shebang(file_path, self.config.shebang_require))
+        if self.config.docstrings_enforce:
+            issues.extend(validate_docstrings(lines, file_path, self.config.docstring_style))
+        if self.license_header:
+            issues.extend(validate_license_header(lines, file_path, self.license_header))
         return issues
 
     def apply_fix(self, file_path: Path) -> bool:
@@ -217,13 +233,17 @@ class PrivilegeLinter:
         if self.config.enforce_import_sort:
             apply_fix_imports(lines, self.project_root)
 
-        changed = lines != original
+        changed = apply_fix_license_header(lines, file_path, self.license_header) or lines != original
+
+        out_path = file_path if self.config.fix_overwrite else file_path.with_name(file_path.name + ".fixed")
         if changed:
-            out_path = file_path if self.config.fix_overwrite else file_path.with_name(file_path.name + ".fixed")
             out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+        if self.config.docstrings_enforce and self.config.docstring_insert_stub:
+            changed |= apply_fix_docstring_stub(out_path, self.config.docstring_style)
+
         if self.config.shebang_require:
-            changed |= fix_shebang(file_path, self.config.shebang_fix_mode)
+            changed |= fix_shebang(out_path, self.config.shebang_fix_mode)
         return changed
 
 
@@ -249,22 +269,31 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--quiet", action="store_true", help="Suppress output")
     ap.add_argument("--max-workers", type=int, default=None, help="Worker count for parallel scan")
     ap.add_argument("--show-hints", action="store_true", help="Print type hint violations in quiet mode")
+    ap.add_argument("--no-cache", action="store_true", help="Disable cache")
     args = ap.parse_args(argv)
 
     linter = PrivilegeLinter()
+    if args.no_cache:
+        linter.cache.enabled = False
     files = iter_py_files(args.paths)
+    check_files = [f for f in files if not linter.cache.is_valid(f)]
 
     if args.fix:
         fixed = 0
-        for fp in files:
+        for fp in check_files:
             if linter.validate(fp):
                 if linter.apply_fix(fp):
                     fixed += 1
+            linter.cache.update(fp)
+        linter.cache.save()
         if not args.quiet:
             print(f"Fixed {fixed} files")
         return 0
 
-    issues = parallel_validate(linter, files, args.max_workers)
+    issues = parallel_validate(linter, check_files, args.max_workers)
+    for fp in check_files:
+        linter.cache.update(fp)
+    linter.cache.save()
     if issues:
         if not args.quiet or args.show_hints:
             print("\n".join(sorted(issues)))
