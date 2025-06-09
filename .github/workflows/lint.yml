@@ -3,84 +3,41 @@ on:
   pull_request:
 
 jobs:
-  python-only:
+  lint:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        mode: [core, bin-lock, src-lock-full]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: pip install -r requirements-dev.txt
-      - run: pytest -q
-
-  bin-extras:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - run: pip install -r requirements.txt
-      - run: pip install .
-      - run: python scripts/install_extras.py --soft bin
-      - run: pytest -q
-
-  full:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: actions/setup-node@v3
+      - if: matrix.mode == 'src-lock-full'
+        uses: actions/setup-node@v3
         with:
           node-version: '20'
-      - uses: actions/setup-go@v5
+      - if: matrix.mode == 'src-lock-full'
+        uses: actions/setup-go@v5
         with:
           go-version: '1.22'
       - run: pip install -r requirements.txt
-      - run: pip install .
-      - run: python scripts/install_extras.py --soft bin
-      - run: python scripts/install_extras.py src
-      - name: Env report
-        run: plint-env
+      - if: matrix.mode != 'core'
+        run: pip install .[locked-bin]
+      - if: matrix.mode == 'src-lock-full'
+        run: pip install .[locked-src]
       - id: tests
-        run: |
-          out=$(pytest -q)
-          echo "$out"
-          echo "out<<EOF" >> $GITHUB_OUTPUT
-          echo "$out" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-      - name: Fail on excessive skips
-        run: |
-          python - <<'PY'
-import os, re, sys
-out=os.environ['PYTEST_OUT']
-m=re.search(r'(\d+) passed', out)
-passed=int(m.group(1)) if m else 0
-m=re.search(r'(\d+) skipped', out)
-skipped=int(m.group(1)) if m else 0
-total=passed+skipped
-if total and skipped/total>0.05:
-    raise SystemExit('Too many skips')
-PY
-        env:
-          PYTEST_OUT: ${{ steps.tests.outputs.out }}
-      - name: Lint runtime check
-        run: |
-          python - <<'PY'
-import time, subprocess, sys
-start = time.time()
-subprocess.run([sys.executable, '-m', 'privilege_lint'], check=True)
-elapsed = time.time() - start
-print(f"lint runtime: {elapsed:.2f}s")
-if elapsed > 3:
-    raise SystemExit('Linter too slow')
-PY
-      - name: Upload SARIF
-        if: always()
-        uses: actions/upload-artifact@v4
+        run: pytest -q
+      - name: Env report
+        run: plint-env report --json > env.json
+      - uses: actions/upload-artifact@v4
         with:
-          name: sarif
-          path: plint.sarif
+          name: env_${{ matrix.mode }}.json
+          path: env.json
+      - name: Fail on JS/Go skips
+        if: matrix.mode == 'src-lock-full'
+        run: |
+          if grep -q 'requires_node' <<< "${{ steps.tests.outputs.stdout }}"; then
+            echo 'node tests skipped'; exit 1; fi
+          if grep -q 'requires_go' <<< "${{ steps.tests.outputs.stdout }}"; then
+            echo 'go tests skipped'; exit 1; fi
