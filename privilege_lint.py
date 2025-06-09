@@ -152,10 +152,14 @@ class PrivilegeLinter:
                 self.banner = DEFAULT_BANNER_ASCII
         else:
             self.banner = DEFAULT_BANNER_ASCII
-        if self.config.license_header and Path(self.config.license_header).exists():
-            self.license_header = Path(self.config.license_header).read_text(encoding="utf-8").strip()
+        if self.config.license_header:
+            path = Path(self.config.license_header)
+            if path.exists():
+                self.license_header = path.read_text(encoding="utf-8").strip()
+            else:
+                self.license_header = self.config.license_header.strip()
         else:
-            self.license_header = DEFAULT_HEADER
+            self.license_header = ""
 
     def validate(self, file_path: Path) -> list[str]:
         lines = file_path.read_text(encoding="utf-8").splitlines()

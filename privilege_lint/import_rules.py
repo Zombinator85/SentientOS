@@ -24,7 +24,7 @@ def _gather_imports(lines: list[str]) -> tuple[int, int, list[str]]:
         stripped = line.strip()
         if stripped == "from __future__ import annotations":
             continue
-        if stripped.startswith(_IMPORT_RE):
+        if stripped.startswith(_IMPORT_RE) or (start != -1 and stripped == ""):
             if start == -1:
                 start = i
             imports.append(line.rstrip())
@@ -50,6 +50,8 @@ def apply_fix_imports(lines: list[str], project_root: Path, dry_run: bool = Fals
         return imports if dry_run else False
     groups = {0: [], 1: [], 2: []}
     for line in imports:
+        if not line.strip():
+            continue
         if line.startswith('from '):
             mod = line.split()[1]
         else:

@@ -15,6 +15,8 @@ def validate_license_header(lines: list[str], path: Path, header: str) -> list[s
 
 
 def apply_fix_license_header(lines: list[str], path: Path, header: str) -> bool:
+    if not header:
+        return False
     idx = 0
     if lines and lines[0].startswith("#!"):
         idx = 1
