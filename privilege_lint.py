@@ -11,9 +11,12 @@ import re
 import sys
 from pathlib import Path
 
+from privilege_lint.config import LintConfig, load_config
+from privilege_lint.import_rules import apply_fix_imports, validate_import_sort
+
 from logging_config import get_log_path
 
-BANNER_ASCII = [
+DEFAULT_BANNER_ASCII = [
     "#  _____  _             _",
     "# |  __ \\| |           (_)",
     "# | |__) | |_   _  __ _ _ _ __   __ _",
@@ -23,6 +26,7 @@ BANNER_ASCII = [
     "#                  __/ |         __/ |",
     "#                 |___/         |___/ ",
 ]
+BANNER_ASCII = DEFAULT_BANNER_ASCII
 
 FUTURE_IMPORT = "from __future__ import annotations"
 
@@ -37,24 +41,24 @@ except Exception:  # pragma: no cover
 _IMPORT_RE = re.compile(r"^(from|import)\s+[A-Za-z0-9_. ,]+")
 
 
-def get_banner(lines: list[str]) -> int | None:
+def get_banner(lines: list[str], banner_lines: list[str]) -> int | None:
     """Return end index of ASCII banner or None if not present."""
     idx = 0
     while idx < len(lines) and lines[idx].startswith(("#!", "# -*-")):
         idx += 1
-    if len(lines) - idx < len(BANNER_ASCII):
+    if len(lines) - idx < len(banner_lines):
         return None
-    for off, text in enumerate(BANNER_ASCII):
+    for off, text in enumerate(banner_lines):
         if lines[idx + off].rstrip() != text.rstrip():
             return None
-    return idx + len(BANNER_ASCII) - 1
+    return idx + len(banner_lines) - 1
 
 
-def validate_banner_order(lines: list[str], path: Path) -> list[str]:
+def validate_banner_order(lines: list[str], path: Path, banner_lines: list[str]) -> list[str]:
     """Ensure banner→future→docstring→imports order."""
     errors: list[str] = []
     idx = 0
-    banner_end = get_banner(lines)
+    banner_end = get_banner(lines, banner_lines)
     if banner_end is not None:
         idx = banner_end + 1
 
@@ -127,24 +131,37 @@ def audit_use(tool: str, cmd: str) -> None:
 
 
 class PrivilegeLinter:
-    def __init__(self) -> None:
-        pass
+    def __init__(self, config: LintConfig | None = None, project_root: Path | None = None) -> None:
+        self.project_root = project_root or Path.cwd()
+        self.config = config or load_config(self.project_root)
+        if self.config.banner_file:
+            try:
+                self.banner = Path(self.config.banner_file).read_text(encoding="utf-8").splitlines()
+            except Exception:
+                self.banner = DEFAULT_BANNER_ASCII
+        else:
+            self.banner = DEFAULT_BANNER_ASCII
 
     def validate(self, file_path: Path) -> list[str]:
         lines = file_path.read_text(encoding="utf-8").splitlines()
-        return validate_banner_order(lines, file_path)
+        issues = []
+        if self.config.enforce_banner:
+            issues.extend(validate_banner_order(lines, file_path, self.banner))
+        if self.config.enforce_import_sort:
+            issues.extend(validate_import_sort(lines, file_path, self.project_root))
+        return issues
 
     def apply_fix(self, file_path: Path) -> bool:
         original = file_path.read_text(encoding="utf-8").splitlines()
         lines = original[:]
 
-        banner_end = get_banner(lines)
+        banner_end = get_banner(lines, self.banner)
         if banner_end is None:
             insert_at = 0
             while insert_at < len(lines) and lines[insert_at].startswith(("#!", "# -*-")):
                 insert_at += 1
-            lines[insert_at:insert_at] = BANNER_ASCII
-            banner_end = insert_at + len(BANNER_ASCII) - 1
+            lines[insert_at:insert_at] = self.banner
+            banner_end = insert_at + len(self.banner) - 1
 
         if FUTURE_IMPORT in lines:
             idx = lines.index(FUTURE_IMPORT)
@@ -183,9 +200,13 @@ class PrivilegeLinter:
                 for off, line in enumerate(move_lines):
                     lines.insert(insert_pos + off, line)
 
+        if self.config.enforce_import_sort:
+            apply_fix_imports(lines, self.project_root)
+
         changed = lines != original
         if changed:
-            file_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            out_path = file_path if self.config.fix_overwrite else file_path.with_name(file_path.name + ".fixed")
+            out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return changed
 
 

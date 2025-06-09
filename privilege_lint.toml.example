@@ -1,0 +1,5 @@
+[lint]
+enforce_banner = true
+enforce_import_sort = true
+banner_file = "BANNER_ASCII.txt"
+fix_overwrite = false # true = in-place, false = .fixed copy
