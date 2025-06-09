@@ -6,10 +6,7 @@ if [[ -f "$STAMP_FILE" && $(cat "$STAMP_FILE") == "$TREE" ]]; then
     echo "privilege lint cache hit"
     exit 0
 fi
-if ! git diff --quiet lock-bin.txt; then
-    echo "Run gen_lock.py" >&2
-    exit 1
-fi
+python scripts/gen_lock.py --check || exit 1
 CFG_HASH=$(python - <<'PY'
 from privilege_lint.config import load_config
 from privilege_lint.cache import _cfg_hash
