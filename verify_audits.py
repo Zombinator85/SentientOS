@@ -5,6 +5,9 @@ from typing import List, Tuple, Dict, Optional
 
 from admin_utils import require_admin_banner, require_lumos_approval
 import audit_immutability as ai
+import argparse
+import os
+import sys
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
@@ -200,13 +203,15 @@ def verify_audits(
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
-    import argparse
+    parser = argparse.ArgumentParser(description="Audit log verifier")
+    parser.add_argument("path", nargs="?", help="Log directory or single file")
+    parser.add_argument("--repair", action="store_true", help="attempt to repair malformed lines")
+    parser.add_argument("--no-emoji", action="store_true", help="disable emoji output")
+    args = parser.parse_args()
+    if args.no_emoji:
+        os.environ["SENTIENTOS_NO_EMOJI"] = "1"
 
-    ap = argparse.ArgumentParser(description="Audit log verifier")
-    ap.add_argument("path", nargs="?", help="Log directory or single file")
-    ap.add_argument("--repair", action="store_true", help="attempt to repair malformed lines")
-    args = ap.parse_args()
+    require_admin_banner()
 
     directory = None
     if args.path:
