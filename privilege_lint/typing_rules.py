@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Iterable, Set
 
 from mypy import api as mypy_api
+import shutil
+import subprocess
 
 from .cache import LintCache
 
@@ -83,7 +85,14 @@ def run_incremental(
     if strict:
         args.append("--strict")
     args.extend(str(p) for p in sorted(changed))
-    out, err, status = mypy_api.run(args)
+
+    use_dmypy = not force_full and shutil.which("dmypy") is not None
+    if use_dmypy:
+        cmd = ["dmypy", "run", "--"] + args
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        out, err, status = proc.stdout, proc.stderr, proc.returncode
+    else:
+        out, err, status = mypy_api.run(args)
 
     issues: list[str] = []
     if status == 0:
