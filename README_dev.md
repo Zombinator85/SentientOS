@@ -23,6 +23,12 @@ pytest -q
 
 Run mypy locally with: `mypy sentientos`
 
+Build docs locally:
+```bash
+pip install -e .[dev]
+make docs
+```
+
 Tests must keep 80 % coverage.
 
 ### Installing extras (bin vs src)
@@ -185,3 +191,5 @@ Run `scripts/plint_baseline.py` once on a legacy repo to write `.plint_baseline.
 
 ### Policy Hooks
 Specify `policy="sentientos"` under `[lint]` to load additional rules from `policies/sentientos.py`.
+
+Documentation lives at https://zombinator85.github.io/SentientOS/.
