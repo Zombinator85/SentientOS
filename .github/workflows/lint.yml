@@ -28,7 +28,31 @@ jobs:
         with:
           go-version: '1.22'
       - run: pip install -r requirements.txt
-      - run: pip install -r requirements-extras.txt[dev,js,go]
+      - run: pip install .[all]
+      - name: Env report
+        run: plint-env
+      - id: tests
+        run: |
+          out=$(pytest -q)
+          echo "$out"
+          echo "out<<EOF" >> $GITHUB_OUTPUT
+          echo "$out" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Fail on excessive skips
+        run: |
+          python - <<'PY'
+import os, re, sys
+out=os.environ['PYTEST_OUT']
+m=re.search(r'(\d+) passed', out)
+passed=int(m.group(1)) if m else 0
+m=re.search(r'(\d+) skipped', out)
+skipped=int(m.group(1)) if m else 0
+total=passed+skipped
+if total and skipped/total>0.05:
+    raise SystemExit('Too many skips')
+PY
+        env:
+          PYTEST_OUT: ${{ steps.tests.outputs.out }}
       - name: Lint runtime check
         run: |
           python - <<'PY'
