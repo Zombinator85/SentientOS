@@ -80,3 +80,16 @@ Runs automatically cache lint results in `.privilege_lint.cache`. Disable with
 Executable scripts must start with `#!/usr/bin/env python3` when shebang checks
 are enabled. Autofix mode can also set executable bits if `fix_mode` is true.
 
+### MyPy & Data Validators
+Set `[lint.mypy]` to enable incremental type checking. Only files changed since
+the last run and their imports are passed to `mypy`. Use `--mypy` on the CLI to
+force a full type check regardless of cache state.
+
+`[lint.data]` lists folders containing JSON or CSV assets. `validate_json` ensures
+the files parse and keys are snake_case; `--fix` sorts keys and strips trailing
+commas. `validate_csv` flags inconsistent column counts or blank headers.
+
+After a successful run the linter writes `.privilege_lint.gitcache` in the `.git`
+directory. The pre-commit hook reads this stamp and exits immediately when the
+tree hash matches, allowing no-change runs to finish in under a second.
+

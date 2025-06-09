@@ -29,3 +29,4 @@ backups/
 logs/*.jsonl
 site/
 .privilege_lint.cache
+.privilege_lint.gitcache
