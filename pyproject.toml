@@ -49,8 +49,6 @@ src = [
 all = [
     "privilege-lint[bin,src]",
 ]
-locked-bin = ["-r lock-bin.txt"]
-locked-src = ["-r lock-src.txt"]
 
 [project.scripts]
 support = "support_cli:main"

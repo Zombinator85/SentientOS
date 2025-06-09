@@ -1,7 +1,13 @@
+import importlib
 import pytest
 import sys
 import types
 from pathlib import Path
+
+try:
+    importlib.import_module('yaml')
+except Exception as exc:
+    raise RuntimeError('PyYAML required for tests') from exc
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -12,6 +18,12 @@ sys.modules['requests'] = types.ModuleType('requests')
 sys.modules['requests'].get = lambda *a, **k: None
 sys.modules['requests'].post = lambda *a, **k: None
 sys.modules['requests'].request = lambda *a, **k: None
+
+for name in ['pyesprima', 'sarif_om']:
+    try:
+        importlib.import_module(name)
+    except Exception:
+        sys.modules[name] = types.ModuleType(name)
 
 
 def pytest_configure(config):
