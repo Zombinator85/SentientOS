@@ -12,7 +12,8 @@ def test_good_order(tmp_path: Path) -> None:
         'import os',
     ])
     path.write_text(content, encoding="utf-8")
-    assert pl.check_file(path) == []
+    linter = pl.PrivilegeLinter()
+    assert linter.validate(path) == []
 
 
 def test_missing_docstring(tmp_path: Path) -> None:
@@ -22,7 +23,8 @@ def test_missing_docstring(tmp_path: Path) -> None:
         'import os',
     ])
     path.write_text(content, encoding="utf-8")
-    assert pl.check_file(path) == []
+    linter = pl.PrivilegeLinter()
+    assert linter.validate(path) == []
 
 
 def test_bad_future_position(tmp_path: Path) -> None:
@@ -33,5 +35,6 @@ def test_bad_future_position(tmp_path: Path) -> None:
         'import os',
     ])
     path.write_text(content, encoding="utf-8")
-    issues = pl.check_file(path)
+    linter = pl.PrivilegeLinter()
+    issues = linter.validate(path)
     assert any("Banner and __future__ import" in i for i in issues)
