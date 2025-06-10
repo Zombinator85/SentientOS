@@ -17,9 +17,10 @@ Add entries below with date and notes:
   living logs are whole. Old, unrecoverable files should be moved to a
   `legacy/` subdirectory so verification scripts run only on healthy memory.
 - 2025-06-10 verify_audits.py run: no chain breaks detected; logs fully valid.
-- 2025-06-10 verify_audits.py --repair run: privileged_audit.jsonl healed; 0 new
-  issues found. The prior truncated section (lines 993-1075) remains unrecoverab
-  le with 83 lines removed.
+- 2025-06-10 verify_audits.py --repair run: privileged_audit.jsonl healed; 0 new issues found. The prior truncated section (lines 993-1075) remains unrecoverable with 83 lines removed.
+
+- 2025-06-10 verify_audits.py --repair run: no additional entries healed. Six malformed
+  lines in `privileged_audit.jsonl` were quarantined as unrecoverable.
 
 ## migration_ledger.jsonl
 - Wound at entry #1: prev hash mismatch.
