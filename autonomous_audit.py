@@ -111,7 +111,6 @@ def generate_report(report_dir: Path = PUBLIC_DIR) -> Path:
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI
-    require_admin_banner()
     p = argparse.ArgumentParser(description="Autonomous audit recap")
     p.add_argument("--last", type=int, default=0, help="show last N entries")
     p.add_argument(
