@@ -5,9 +5,9 @@ import types
 from pathlib import Path
 import builtins
 
-# Define placeholders so modules that call these built-ins at import time do not
-# raise ``NameError``. Individual tests can monkeypatch them with real behavior
-# when needed.
+# The admin banner checks can exit the process during module import if not
+# stubbed ahead of time.  Stub them here so test discovery doesn't trip the
+# privilege checks.
 builtins.require_admin_banner = lambda *a, **k: None
 builtins.require_lumos_approval = lambda *a, **k: None
 
@@ -34,6 +34,8 @@ for name in ['pyesprima', 'sarif_om']:
 
 
 def pytest_configure(config):
+    builtins.require_admin_banner = lambda *a, **k: None
+    builtins.require_lumos_approval = lambda *a, **k: None
     config.addinivalue_line('markers', 'requires_node: skip if node missing')
     config.addinivalue_line('markers', 'requires_go: skip if go missing')
     config.addinivalue_line('markers', 'requires_dmypy: skip if dmypy missing')
