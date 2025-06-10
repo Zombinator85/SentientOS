@@ -305,16 +305,31 @@ class PrivilegeLinter:
         return changed
 
 
+def _contains_cli_hint(fp: Path) -> bool:
+    """Return True if file appears to be a CLI entrypoint."""
+    try:
+        text = fp.read_text(encoding="utf-8")
+    except Exception:
+        return False
+    if "__name__ == \"__main__\"" in text:
+        return True
+    return "argparse" in text
+
+
 def iter_py_files(paths: list[str]) -> list[Path]:
     result: list[Path] = []
     for p in paths:
         path = Path(p)
         if path.is_dir():
             for root, dirs, files in os.walk(path):
-                dirs[:] = [d for d in dirs if d not in {"tests", "venv", "__pycache__"}]
+                dirs[:] = [d for d in dirs if d not in {"venv", "__pycache__"}]
                 for f in files:
-                    if f.endswith(".py"):
-                        result.append(Path(root) / f)
+                    if not f.endswith(".py"):
+                        continue
+                    fp = Path(root) / f
+                    if "tests" in fp.parts and not _contains_cli_hint(fp):
+                        continue
+                    result.append(fp)
         elif path.is_file() and path.suffix == ".py":
             result.append(path)
     return sorted(set(result))
