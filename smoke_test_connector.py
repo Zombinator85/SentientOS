@@ -32,7 +32,9 @@ for attempt in range(3):
         print(f"Retrying in {wait}s...")
         time.sleep(wait)
 
-log_path = Path(os.getenv("OPENAI_CONNECTOR_LOG", "logs/openai_connector.jsonl"))
+from logging_config import get_log_path
+
+log_path = get_log_path("openai_connector.jsonl", "OPENAI_CONNECTOR_LOG")
 if log_path.exists():
     with log_path.open() as f:
         lines = [json.loads(x) for x in f if x.strip()]

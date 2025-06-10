@@ -1,5 +1,9 @@
-"""Analyze rendered avatars and log emotional context."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
+
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_lumos_approval()
 from logging_config import get_log_path
 
 import argparse
@@ -9,11 +13,8 @@ from datetime import datetime
 from pathlib import Path
 
 import emotion_utils as eu
+from PIL import Image, ImageStat
 from admin_utils import require_admin_banner, require_lumos_approval
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 LOG_PATH = get_log_path("avatar_reflection.jsonl", "AVATAR_REFLECTION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -25,13 +26,18 @@ MOODS = ["happy", "sad", "angry", "serene"]
 def analyze_image(image_path: Path) -> str:
     """Return a simple mood classification for an image."""
 
-    vec = eu.detect_image(str(image_path))
-    if vec.get("Joy", 0.0) > 0:
-        return "happy"
-    if vec.get("Sadness", 0.0) > 0:
-        return "sad"
-    if vec.get("Anger", 0.0) > 0:
+    try:
+        img = Image.open(image_path).convert("RGB")
+    except Exception:
+        return "serene"
+    stat = ImageStat.Stat(img)
+    r, g, b = stat.mean
+    if r > g and r > b:
         return "angry"
+    if b > r and b > g:
+        return "sad"
+    if g > r and g > b:
+        return "happy"
     return "serene"
 
 

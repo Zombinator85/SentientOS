@@ -59,21 +59,20 @@ def audit_use(tool: str, command: str) -> None:
 
 
 def _has_header(path: Path) -> bool:
-    """Return True if the ritual docstring appears soon after imports."""
+    """Return True if the ritual docstring appears before any imports."""
     lines = path.read_text(encoding="utf-8").splitlines()
-    idx = 0
-    # Skip shebangs, comments and imports at the top of the file
-    while idx < len(lines):
-        line = lines[idx].strip()
-        if not line or line.startswith("#"):
-            idx += 1
-            continue
-        if line.startswith("import ") or line.startswith("from "):
-            idx += 1
-            continue
-        break
-    search_block = "\n".join(lines[idx : idx + DOCSTRING_SEARCH_LINES])
-    return DOCSTRING in search_block
+    doc_idx = None
+    for i, line in enumerate(lines):
+        if DOCSTRING in line:
+            doc_idx = i
+            break
+    if doc_idx is None:
+        return False
+    for j in range(doc_idx):
+        stripped = lines[j].strip()
+        if stripped and not stripped.startswith("#"):
+            return False
+    return True
 
 
 def _has_banner_call(path: Path) -> bool:
@@ -124,7 +123,7 @@ def _has_lumos_call(path: Path) -> bool:
 def check_file(path: Path) -> list[str]:
     issues = []
     if not _has_header(path):
-        issues.append(f"{path}: missing privilege docstring after imports")
+        issues.append(f"{path}: missing privilege docstring before imports")
     if not _has_banner_call(path):
         issues.append(
             f"{path}: require_admin_banner() must immediately follow the banner docstring and be followed by require_lumos_approval()"
