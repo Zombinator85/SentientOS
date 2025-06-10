@@ -7,7 +7,7 @@ import datetime as dt
 import json
 import os
 import time
-from pathlib import Path
+from logging_config import get_log_path
 
 import requests
 
@@ -19,7 +19,7 @@ require_lumos_approval()
 # Summarize token usage and post to Slack.
 
 
-LOG_FILE = Path("logs/usage.jsonl")
+LOG_FILE = get_log_path("usage.jsonl")
 
 
 def aggregate() -> dict[str, dict[str, int]]:
