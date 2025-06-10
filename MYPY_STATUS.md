@@ -1,8 +1,8 @@
 # mypy Status
 
-Current run (2025-06-10): `mypy --strict`
+Current run (2029-06-10): `mypy --strict privilege_lint scripts/auto_approve.py`
 
-- Total errors: 360
+- Total errors: 0
 - Legacy modules: 0
 - Need fixes: 0
 - Safe to ignore: 0
@@ -30,6 +30,11 @@ May 2027 update: `presence_ledger.py` and `presence_analytics.py` have been full
 
 April 2029 update: core modules run with `mypy --strict` and report **0** errors.
 All remaining `type: ignore` usages carry inline comments explaining the reason.
+
+June 2029 update: `privilege_lint` and `scripts/auto_approve.py` checked clean
+with `mypy --strict`. A stub ignore comment was added for the optional `yaml`
+import and the `scripts` folder is now a package to prevent duplicate module
+errors.
 
 ### Call for Contributors
 If you want to help reduce the error count, pick an item from the "need fixes" list
