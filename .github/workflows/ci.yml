@@ -23,7 +23,7 @@ jobs:
       - name: Pre-commit
         run: pre-commit run --all-files
       - name: Verify audits
-        run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/ --repair
+        run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
       - run: mypy sentientos
       - run: pytest --cov=sentientos --cov-report=xml
 
