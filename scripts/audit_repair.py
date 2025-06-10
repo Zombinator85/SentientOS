@@ -7,6 +7,8 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, Tuple, List
 
+from logging_config import get_log_path
+
 from admin_utils import require_admin_banner, require_lumos_approval
 
 """Privilege Banner: requires admin & Lumos approval."""
@@ -78,7 +80,7 @@ def repair_log(path: Path, prev: str, *, check_only: bool = False) -> Tuple[str,
 
 def _log_summary(entries: List[Dict[str, Any]]) -> None:
     """Append a summary entry for this run."""
-    run_dir = Path("logs/repair_runs")
+    run_dir = get_log_path("repair_runs")
     run_dir.mkdir(parents=True, exist_ok=True)
     path = run_dir / f"{datetime.date.today():%Y-%m-%d}.json"
     with path.open("a", encoding="utf-8") as f:
