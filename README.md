@@ -70,6 +70,13 @@ Use `sentientos --help` to explore the CLI.
 ### Status Endpoint
 Run `python sentient_api.py` and visit `http://localhost:8000/status` to check uptime, pending patches, and cost metrics.
 
+### Multi-Tenant mode
+Generate an API key with `python scripts/generate_api_key.py <tenant>` and send requests using:
+
+```bash
+curl -H "Authorization: Bearer <token>" http://localhost:8000/status
+```
+
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 
 ### Run locally with Docker

@@ -26,6 +26,10 @@ spec:
           ports:
             - containerPort: 5000
             - containerPort: 9100
+          volumeMounts:
+            - name: auth-keys
+              mountPath: /app/keys.yaml
+              subPath: keys.yaml
           readinessProbe:
             httpGet:
               path: /status
@@ -35,3 +39,7 @@ spec:
               path: /metrics
               port: 9100
           resources: {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: auth-keys
+          secret:
+            secretName: {{ include "sentientos.fullname" . }}-auth
