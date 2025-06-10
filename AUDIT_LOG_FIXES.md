@@ -16,6 +16,7 @@ Add entries below with date and notes:
   trigger KeyError in `verify_audits.py`. Use `scan_missing_data.py` to confirm
   living logs are whole. Old, unrecoverable files should be moved to a
   `legacy/` subdirectory so verification scripts run only on healthy memory.
+- 2025-06-10 verify_audits.py run: no chain breaks detected; logs fully valid.
 
 ## migration_ledger.jsonl
 - Wound at entry #1: prev hash mismatch.
