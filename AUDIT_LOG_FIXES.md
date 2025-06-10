@@ -26,3 +26,7 @@ Add entries below with date and notes:
 - Wound at entry #1: prev hash mismatch.
 - Cause: Pre-chain adoption, audit protocol upgrade.
 - Status: Intentionally preserved as evidence of system evolution.
+
+## privileged_audit.jsonl
+- Wounds at entries #993-1004: missing prev_hash and rolling_hash due to truncated logging.
+- Status: 12 unrecoverable lines quarantined after verify_audits repair.
