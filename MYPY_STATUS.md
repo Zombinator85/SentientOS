@@ -1,10 +1,10 @@
 # mypy Status
 
-Current run (2029-06-10): `mypy --strict privilege_lint scripts/auto_approve.py`
+Current run (2029-06-10): `mypy multimodal_tracker.py music_cli.py`
 
-- Total errors: 0
+- Total errors: 102
 - Legacy modules: 0
-- Need fixes: 0
+- Need fixes: 102
 - Safe to ignore: 0
 
 Legacy modules are older CLI tools without type hints. Contributors are welcome to
@@ -35,6 +35,10 @@ June 2029 update: `privilege_lint` and `scripts/auto_approve.py` checked clean
 with `mypy --strict`. A stub ignore comment was added for the optional `yaml`
 import and the `scripts` folder is now a package to prevent duplicate module
 errors.
+
+June 2030 update: annotated emotion utilities and mic_bridge. `mypy` on
+`multimodal_tracker.py` and `music_cli.py` now reports **102** errors across
+imports, down from 132.
 
 ### Call for Contributors
 

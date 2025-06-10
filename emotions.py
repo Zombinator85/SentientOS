@@ -1,5 +1,10 @@
 """Canonical 64-emotion schema for SentientOS."""
 
+from typing import Dict
+
+# Reusable emotion vector type
+Emotion = Dict[str, float]
+
 # Eight groups of eight emotions each, distilled from the previous conversations.
 EMOTIONS = [
     # 1. Foundational Joy & Love
@@ -21,6 +26,6 @@ EMOTIONS = [
 ]
 
 
-def empty_emotion_vector():
+def empty_emotion_vector() -> Emotion:
     """Return a zeroed vector for all emotion labels."""
     return {emotion: 0.0 for emotion in EMOTIONS}

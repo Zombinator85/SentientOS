@@ -3,10 +3,10 @@ import os
 import json
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, TypedDict
 
 
-from emotions import empty_emotion_vector
+from emotions import Emotion, empty_emotion_vector
 import emotion_utils as eu
 from utils import is_headless
 
@@ -24,18 +24,32 @@ if is_headless():
 
 from memory_manager import append_memory
 
+
+class MicResult(TypedDict):
+    message: str | None
+    source: str
+    audio_file: str | None
+    emotions: Emotion
+    emotion_features: Dict[str, float]
+
 AUDIO_DIR = get_log_path("audio", "AUDIO_LOG_DIR")
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
+def recognize_from_mic(save_audio: bool = True) -> MicResult:
     """Capture a single phrase from the default microphone."""
     if sr is None:
         if is_headless():
             print("[MIC] Headless mode - skipping mic capture")
         else:
             print("[MIC] speech_recognition not available")
-        return {"message": None, "source": "mic", "audio_file": None}
+        return {
+            "message": None,
+            "source": "mic",
+            "audio_file": None,
+            "emotions": empty_emotion_vector(),
+            "emotion_features": {},
+        }
 
     recognizer = sr.Recognizer()
     with sr.Microphone() as source:
@@ -105,10 +119,16 @@ def recognize_from_mic(save_audio: bool = True) -> Dict[str, Optional[str]]:
     }
 
 
-def recognize_from_file(path: str) -> Dict[str, Optional[str]]:
+def recognize_from_file(path: str) -> MicResult:
     """Recognize speech from a WAV file."""
     if sr is None:
-        return {"message": None, "source": "file", "audio_file": path}
+        return {
+            "message": None,
+            "source": "file",
+            "audio_file": path,
+            "emotions": empty_emotion_vector(),
+            "emotion_features": {},
+        }
 
     recognizer = sr.Recognizer()
     with sr.AudioFile(path) as source:
