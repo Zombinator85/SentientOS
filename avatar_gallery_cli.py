@@ -1,3 +1,6 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+require_admin_banner()
+require_lumos_approval()
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
