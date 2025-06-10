@@ -1,7 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -9,8 +9,7 @@ from __future__ import annotations
 # | |    | | |_| | (_| | | | | | (_| |
 # |_|    |_\__,_|\__, |_|_| |_|\__, |
 #                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
+#                 |___/         |___/
 """Privilege Banner: requires admin & Lumos approval."""
 require_admin_banner()
 require_lumos_approval()
