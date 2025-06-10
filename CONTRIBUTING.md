@@ -16,12 +16,13 @@ from admin_utils import require_admin_banner, require_lumos_approval
 
 - [ ] Docstring `"Sanctuary Privilege Ritual: Do not remove. See doctrine for details."` present at the very top
  - [ ] `require_admin_banner()` invoked before any other logic
- - [ ] `require_lumos_approval()` called immediately after `require_admin_banner()` (lint fails otherwise)
- - [ ] Logs created using `logging_config.get_log_path()`
+- [ ] `require_lumos_approval()` called immediately after `require_admin_banner()` (lint fails otherwise)
+- [ ] Logs created using `logging_config.get_log_path()`
+- [ ] `pre-commit run --all-files` passes (`privilege-lint`, `audit-verify`, `pytest-args`)
 
 Pull requests lacking these will fail CI and be rejected.
-CI runs `python privilege_lint.py` automatically before executing the test suite.
-If the linter reports missing banners or docstrings the job will fail.
+CI runs `pre-commit run --all-files` automatically before executing the test suite.
+If any hook (`privilege-lint`, `audit-verify`, or `pytest-args`) fails, the job will fail.
 
 Run `python privilege_lint.py` locally before submitting a pull request. You can also
 link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically

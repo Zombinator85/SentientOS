@@ -19,7 +19,9 @@ jobs:
         with:
           path: .mypy_cache
           key: ${{ runner.os }}-mypy-${{ hashFiles('**/pyproject.toml', 'mypy.ini') }}
-      - run: pip install -e .[dev]
+      - run: pip install pre-commit && pip install -e .[dev]
+      - name: Pre-commit
+        run: pre-commit run --all-files
       - run: mypy sentientos
       - run: pytest --cov=sentientos --cov-report=xml
 
