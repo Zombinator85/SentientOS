@@ -3,7 +3,7 @@ SentientOS welcomes contributions that honor privilege banners, immutable memory
 
 
 All new scripts must start with the Sanctuary Privilege Ritual docstring, followed by `require_admin_banner()` and `require_lumos_approval()`, before any imports. See README for exact syntax.
-These calls must appear before any imports and are enforced by privilege_lint_cli.py.
+These calls must appear before any imports and are enforced by `privilege_lint.py`.
 
 ```python
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
@@ -26,9 +26,9 @@ copy the skeleton automatically.
 
 Pull requests lacking these will fail CI and be rejected.
 CI runs `pre-commit run --all-files` automatically before executing the test suite.
-If any hook (`privilege-lint`, `audit-verify`, or `pytest-args`) fails, the job will fail.
+It then executes `python privilege_lint.py` before running tests. If any hook (`privilege-lint`, `audit-verify`, or `pytest-args`) fails, or if the linter reports violations, the job will fail.
 
-Run `python privilege_lint_cli.py` locally before submitting a pull request. You can also
+Run `python privilege_lint.py` locally before submitting a pull request. You can also
 link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
 run the lint before each commit. The hook also runs `python verify_audits.py logs/` to ensure audit logs remain valid before merging.
 
@@ -57,10 +57,10 @@ CI also runs mypy and docs build along with tests:
 ```yaml
 - name: Enforce privilege rituals
   run: python scripts/ritual_enforcer.py --mode fix
+- name: Privilege lint
+  run: LUMOS_AUTO_APPROVE=1 python privilege_lint.py
 - name: Run tests
   run: pytest -q
-- name: Privilege lint
-  run: LUMOS_AUTO_APPROVE=1 python privilege_lint_cli.py
 - name: Verify audits
   run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
 - name: Type check
