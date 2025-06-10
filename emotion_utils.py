@@ -1,20 +1,20 @@
 import os
 from typing import Dict, Tuple
+from emotions import Emotion, empty_emotion_vector
 
 try:
-    import numpy as np  # type: ignore  # numerical processing
-    import librosa  # type: ignore  # audio analysis
+    import numpy as np  # numerical processing
+    import librosa  # audio analysis
 except Exception:  # pragma: no cover - optional dependency
     np = None
     librosa = None
 
-from emotions import empty_emotion_vector
 
 SOTA_MODEL = os.getenv("SOTA_EMOTION_MODEL")
 if SOTA_MODEL:
     try:
         import torch  # pragma: no cover - optional
-        from transformers import pipeline  # type: ignore  # optional transformers
+        from transformers import pipeline  # optional transformers
         _sota_classifier = pipeline("audio-classification", model=SOTA_MODEL)
     except Exception:  # pragma: no cover - missing deps
         _sota_classifier = None
@@ -25,7 +25,7 @@ else:
 # :func:`vad_and_features`, "neural" uses :func:`neural_emotions`.
 DETECTOR = os.getenv("EMOTION_DETECTOR", "heuristic")
 
-def vad_and_features(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
+def vad_and_features(path: str) -> Tuple[Emotion, Dict[str, float]]:
     """Return emotion vector and raw features for an audio file.
 
     Uses simple spectral features when ``librosa`` is available. Falls back to an
@@ -60,7 +60,7 @@ def vad_and_features(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
         pass
     return vec, features
 
-def _map_vad_to_epu(valence: float, arousal: float, dominance: float) -> Dict[str, float]:
+def _map_vad_to_epu(valence: float, arousal: float, dominance: float) -> Emotion:
     """Map valence, arousal, dominance to the canonical emotion vector."""
     vec = empty_emotion_vector()
     if valence > 0.6:
@@ -75,7 +75,7 @@ def _map_vad_to_epu(valence: float, arousal: float, dominance: float) -> Dict[st
         vec["Confident"] = dominance
     return vec
 
-def neural_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
+def neural_emotions(path: str) -> Tuple[Emotion, Dict[str, float]]:
     """Lightweight neural-ish emotion classifier.
 
     This is intentionally simple so that tests run quickly. It mimics a neural
@@ -106,7 +106,7 @@ def neural_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
 
     return vec, features
 
-def sota_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
+def sota_emotions(path: str) -> Tuple[Emotion, Dict[str, float]]:
     """Use a pretrained model if available."""
     if _sota_classifier is None or not os.path.exists(path):
         return neural_emotions(path)
@@ -118,7 +118,7 @@ def sota_emotions(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
     except Exception:
         return neural_emotions(path)
 
-def vision_emotions(path: str) -> Dict[str, float]:
+def vision_emotions(path: str) -> Emotion:
     """Very naive facial emotion detector based on file name."""
     vec = empty_emotion_vector()
     name = os.path.basename(path).lower()
@@ -138,7 +138,7 @@ LEXICON = {
     "fear": "Fear",
 }
 
-def text_sentiment(text: str) -> Dict[str, float]:
+def text_sentiment(text: str) -> Emotion:
     """Very small lexicon-based sentiment lookup."""
     vec = empty_emotion_vector()
     words = text.lower().split()
@@ -153,7 +153,7 @@ def fuse(
     text_vec: Dict[str, float],
     vision_vec: Dict[str, float] | None = None,
     weights: Dict[str, float] | None = None,
-) -> Dict[str, float]:
+) -> Emotion:
     """Fuse multiple emotion sources with optional weights."""
     weights = weights or {"audio": 1.0, "text": 1.0, "vision": 1.0}
     out = empty_emotion_vector()
@@ -172,7 +172,7 @@ def fuse(
         out[k] = val / denom if denom else 0.0
     return out
 
-def detect(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
+def detect(path: str) -> Tuple[Emotion, Dict[str, float]]:
     """Dispatch to the configured emotion detector."""
     if DETECTOR == "neural":
         return neural_emotions(path)
@@ -180,6 +180,6 @@ def detect(path: str) -> Tuple[Dict[str, float], Dict[str, float]]:
         return sota_emotions(path)
     return vad_and_features(path)
 
-def detect_image(path: str) -> Dict[str, float]:
+def detect_image(path: str) -> Emotion:
     """Return facial emotions from an image path if provided."""
     return vision_emotions(path)

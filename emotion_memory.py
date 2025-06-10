@@ -1,10 +1,10 @@
 from typing import Dict, List
-from emotions import empty_emotion_vector
+from emotions import Emotion, empty_emotion_vector
 
 MAX_HISTORY = 5
-_history: List[Dict[str, float]] = []
+_history: List[Emotion] = []
 
-def add_emotion(vec: Dict[str, float]) -> None:
+def add_emotion(vec: Emotion) -> None:
     """Add an emotion vector to rolling history."""
     if not vec:
         return
@@ -12,7 +12,7 @@ def add_emotion(vec: Dict[str, float]) -> None:
     if len(_history) > MAX_HISTORY:
         del _history[:-MAX_HISTORY]
 
-def average_emotion() -> Dict[str, float]:
+def average_emotion() -> Emotion:
     """Return the average emotion vector."""
     avg = empty_emotion_vector()
     if not _history:
@@ -27,7 +27,7 @@ def average_emotion() -> Dict[str, float]:
 def clear() -> None:
     _history.clear()
 
-def trend() -> Dict[str, float]:
+def trend() -> Emotion:
     """Return change in average emotion over time."""
     if len(_history) < 2:
         return empty_emotion_vector()
@@ -35,7 +35,7 @@ def trend() -> Dict[str, float]:
     first = _history[:mid]
     second = _history[mid:]
 
-    def _avg(vecs: List[Dict[str, float]]) -> Dict[str, float]:
+    def _avg(vecs: List[Emotion]) -> Emotion:
         out = empty_emotion_vector()
         for v in vecs:
             for k, val in v.items():
