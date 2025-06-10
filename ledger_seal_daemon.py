@@ -1,9 +1,9 @@
-from admin_utils import require_admin_banner, require_lumos_approval
-
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+
+from admin_utils import require_admin_banner, require_lumos_approval
 
 # Cryptographic Ledger Seal & Backup Daemon
 
