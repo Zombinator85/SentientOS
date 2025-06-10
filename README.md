@@ -2,7 +2,8 @@
 [![CI](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml)
 ![Docker](https://img.shields.io/github/actions/workflow/status/Zombinator85/SentientOS/ci.yml?label=docker)
 ![Coverage](./coverage.svg)
-![PyPI](https://img.shields.io/badge/PyPI-coming%20soon-lightgrey)
+[![PyPI](https://img.shields.io/pypi/v/sentientos.svg)](https://pypi.org/project/sentientos/)
+[![GHCR](https://img.shields.io/badge/ghcr-image-blue)](https://github.com/Zombinator85/SentientOS/pkgs/container/sentientos)
 ![Lint](https://img.shields.io/badge/strict%20audit-green)
 [![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/WHY_JOIN_AUDIT_SAINTS.md)
 Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
@@ -51,6 +52,20 @@ _All core features (privilege banners, memory, logging, emotion, safety) are wor
 6. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
 7. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
 8. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+
+### Quick Install
+
+```bash
+pip install sentientos
+sentientos status --url http://localhost:5000
+```
+
+```bash
+docker pull ghcr.io/Zombinator85/sentientos:0.4.1
+docker run -p 5000:5000 ghcr.io/Zombinator85/sentientos:0.4.1
+```
+
+Use `sentientos --help` to explore the CLI.
 
 ### Status Endpoint
 Run `python sentient_api.py` and visit `http://localhost:8000/status` to check uptime, pending patches, and cost metrics.
