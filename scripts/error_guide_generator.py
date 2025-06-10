@@ -1,12 +1,13 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
+from __future__ import annotations
 from __future__ import annotations
 import re
 from pathlib import Path
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()
-require_lumos_approval()
 # Generate a summary of known errors and how to resolve them.
 
 RITUAL_DOC = Path("RITUAL_FAILURES.md")

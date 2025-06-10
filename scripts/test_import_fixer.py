@@ -1,3 +1,7 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
+from __future__ import annotations
 from __future__ import annotations
 import argparse
 import re
@@ -7,9 +11,6 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()
-require_lumos_approval()
 # Assist in resolving missing test imports by editing failing tests.
 
 __test__ = False
