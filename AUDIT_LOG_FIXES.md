@@ -29,5 +29,5 @@ Add entries below with date and notes:
 - Status: Intentionally preserved as evidence of system evolution.
 
 ## privileged_audit.jsonl
-- Wounds at entries #993-1004: missing prev_hash and rolling_hash due to truncated logging.
-- Status: 12 unrecoverable lines quarantined after verify_audits repair.
+- Wounds at entries #993-1075: missing `data`, `prev_hash`, and `rolling_hash` due to truncated CLI output.
+- Status: 83 unrecoverable lines removed after verify_audits repair.
