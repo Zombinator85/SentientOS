@@ -1,3 +1,6 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+require_admin_banner()
+require_lumos_approval()
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -29,9 +32,6 @@ import ledger
 import mood_wall
 from pathlib import Path
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 
 def cmd_invite(args: argparse.Namespace) -> None:
