@@ -5,9 +5,9 @@ from pathlib import Path
 from types import ModuleType
 from logging_config import get_log_dir
 from typing import Any, Dict, List, Optional, cast
+from emotions import Emotion, empty_emotion_vector
 
-# Common emotion vector type
-Emotion = Dict[str, float]
+# Local alias for log entries
 LogEntry = Dict[str, Any]
 from utils import is_headless
 
@@ -34,9 +34,6 @@ if HEADLESS:
     mic_bridge = None
 
 from vision_tracker import FaceEmotionTracker
-
-def empty_emotion_vector() -> Emotion:
-    return {e: 0.0 for e in ["happy", "sad", "angry", "disgust", "fear", "surprise", "neutral"]}
 
 class PersonaMemory:
     def __init__(self) -> None:
