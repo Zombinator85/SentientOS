@@ -37,6 +37,7 @@ import and the `scripts` folder is now a package to prevent duplicate module
 errors.
 
 ### Call for Contributors
+
 If you want to help reduce the error count, pick an item from the "need fixes" list
 and submit a pull request. See `CONTRIBUTING.md` for our ritual checklist.
 
