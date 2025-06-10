@@ -1,0 +1,10 @@
+version: '3.9'
+services:
+  sentientos:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - SENTIENTOS_HEADLESS=1
+      - LUMOS_AUTO_APPROVE=1
+      - SENTIENTOS_NO_EMOJI=1

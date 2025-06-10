@@ -1,6 +1,6 @@
 # SentientOS Cathedral
 [![CI](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml)
-![Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen)
+![Coverage](./coverage.svg)
 ![Lint](https://img.shields.io/badge/strict%20audit-green)
 [![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/WHY_JOIN_AUDIT_SAINTS.md)
 Passing: 321/325 (legacy excluded); see LEGACY_TESTS.md for details.
@@ -51,6 +51,15 @@ Run `python sentient_api.py` and visit `http://localhost:8000/status` to check u
 
 See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and usage details.
 
+### Run locally with Docker
+The project includes a Docker image mirroring CI. Start everything with:
+
+```bash
+docker compose up
+```
+
+This runs the tests and then launches `sentient_api.py` on port 5000.
+
 ## Contributor Quickstart
 1. Fork this repository and clone your fork.
 2. Install dependencies with `pip install -r requirements.txt` and `pip install -e .`.
@@ -69,6 +78,7 @@ Additional guides:
 - [docs/CODEX_CUSTOM_CONNECTOR.md](docs/CODEX_CUSTOM_CONNECTOR.md) – OpenAI connector configuration and troubleshooting
 - [docs/CONNECTOR_TROUBLESHOOTING.md](docs/CONNECTOR_TROUBLESHOOTING.md) – connector FAQ
 - [docs/DEPLOYMENT_CLOUD.md](docs/DEPLOYMENT_CLOUD.md) – Docker, Render, and Railway instructions
+- [docs/DOCKER_TROUBLESHOOT.md](docs/DOCKER_TROUBLESHOOT.md) – helps with WSL path issues
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
