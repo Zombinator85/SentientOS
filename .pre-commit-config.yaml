@@ -1,24 +1,27 @@
 repos:
-- repo: local
-  hooks:
-  - id: privilege-lint
-    name: privilege lint
-    entry: bash scripts/precommit_privilege.sh
-    language: system
-    pass_filenames: false
-  - id: audit-verify
-    name: audit log verify
-    entry: python verify_audits.py
-    language: system
-    pass_filenames: false
-  - id: pytest
-    name: unit tests
-    entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
-    language: python
-    pass_filenames: false
-    additional_dependencies: [pytest, pytest-cov, requests, PyYAML]
-- repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v1.16.0
-  hooks:
-    - id: mypy
-      additional_dependencies: [pytest, pytest-cov, requests, PyYAML]
+  - repo: local
+    hooks:
+      - id: privilege-lint
+        name: privilege lint
+        entry: bash scripts/precommit_privilege.sh
+        language: system
+        pass_filenames: false
+
+      - id: audit-verify
+        name: audit log verify
+        entry: python verify_audits.py logs/ --no-input
+        language: system
+        pass_filenames: false
+
+      - id: pytest
+        name: unit tests
+        entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
+        language: python
+        pass_filenames: false
+        additional_dependencies: [pytest, pytest-cov, requests, PyYAML]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [pytest, pytest-cov, requests, PyYAML, types-PyYAML, types-requests]
