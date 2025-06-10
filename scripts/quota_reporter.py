@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
+from __future__ import annotations
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
@@ -13,9 +17,6 @@ import requests
 
 from scripts.auto_approve import prompt_yes_no
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()
-require_lumos_approval()
 # Summarize token usage and post to Slack.
 
 
