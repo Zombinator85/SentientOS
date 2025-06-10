@@ -9,5 +9,5 @@ if [ ! -f "$CONFIG" ]; then
     fi
     [ -f "$SAMPLE" ] && cp "$SAMPLE" "$CONFIG"
 fi
-python privilege_lint.py --quiet
+python privilege_lint_cli.py --quiet
 python verify_audits.py

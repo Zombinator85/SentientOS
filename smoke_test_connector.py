@@ -11,7 +11,7 @@ print("Running connector smoke tests...")
 
 
 def run_once() -> None:
-    check_call([sys.executable, "privilege_lint.py"])
+    check_call([sys.executable, "privilege_lint_cli.py"])
     check_call([sys.executable, "-m", "pytest", "-q", "tests/test_openai_connector.py"])
     check_call([sys.executable, "check_connector_health.py"])
     client = openai_connector.app.test_client()

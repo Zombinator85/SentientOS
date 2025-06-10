@@ -19,7 +19,7 @@ Log audit compliance: new schema fixes integrated, stricter audit checks in prog
 Roadmap and documentation updated to reflect ongoing blockers and required next steps.
 
 ## Testing
-✅ python privilege_lint.py
+✅ python privilege_lint_cli.py
 
 ✅ pytest -q
 
