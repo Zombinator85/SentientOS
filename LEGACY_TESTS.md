@@ -27,3 +27,7 @@ current modules.
 March 2026 update: additional outdated tests were archived and the
 remaining functional suites were modernized and re-enabled. CI now runs
 370 tests.
+
+June 2029 update: the cache speed test no longer uses `xfail` and now verifies
+the precommit script cache hit behavior. The `memory_tail` suite relies on
+`pytest.importorskip` for optional dependencies.
