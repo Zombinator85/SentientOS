@@ -1,3 +1,6 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+require_admin_banner()
+require_lumos_approval()
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -19,9 +22,6 @@ from pathlib import Path
 import memory_manager as mm
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 TOMB_PATH = mm.TOMB_PATH
 
 

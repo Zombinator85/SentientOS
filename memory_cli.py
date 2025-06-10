@@ -1,3 +1,6 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+require_admin_banner()
+require_lumos_approval()
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -32,9 +35,6 @@ from admin_utils import require_admin_banner, require_lumos_approval
 import presence_analytics as pa
 import ritual
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
