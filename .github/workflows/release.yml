@@ -17,6 +17,8 @@ jobs:
       - run: pip install build twine
       - run: python -m build
       - run: twine check dist/*
+      - name: Set version
+        run: echo "PACKAGE_VERSION=$(python -c 'import importlib.metadata as m; print(m.version("sentientos"))')" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -27,6 +29,29 @@ jobs:
           body_path: changelog.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish to TestPyPI
-        if: secrets.TEST_PYPI_TOKEN != ''
-        run: twine upload -r testpypi --username __token__ --password ${{ secrets.TEST_PYPI_TOKEN }} dist/*
+      - name: Publish package
+        env:
+          TEST_PYPI_API_TOKEN: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-rc* ]]; then
+            twine upload -r testpypi --username __token__ --password "$TEST_PYPI_API_TOKEN" dist/*
+          else
+            twine upload --username __token__ --password "$PYPI_API_TOKEN" dist/*
+          fi
+      - name: Build Docker image
+        run: docker build -t ghcr.io/${{ github.repository }}/sentientos:${{ env.PACKAGE_VERSION }} .
+      - name: Login to GHCR
+        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Push image
+        run: docker push ghcr.io/${{ github.repository }}/sentientos:${{ env.PACKAGE_VERSION }}
+      - name: Sign tag
+        env:
+          SIGNING_FPR: ${{ secrets.SIGNING_FPR }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          git config --global user.signingkey "$SIGNING_FPR"
+          git tag -s "v${{ env.PACKAGE_VERSION }}" -m "SentientOS ${{ env.PACKAGE_VERSION }}"
+          git push origin "v${{ env.PACKAGE_VERSION }}"
