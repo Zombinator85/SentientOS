@@ -1,9 +1,9 @@
 import os
 import sys
 import json
-from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+import importlib
 import scripts.quota_reporter as qr
 
 class DummyResp:
@@ -13,8 +13,10 @@ class DummyResp:
 
 
 def test_report(monkeypatch, tmp_path):
-    log = tmp_path / "logs" / "usage.jsonl"
-    log.parent.mkdir()
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    importlib.reload(qr)
+    log = qr.LOG_FILE
+    log.parent.mkdir(parents=True, exist_ok=True)
     entries = [
         {"timestamp": "2024-01-01T10:00:00", "model": "gpt", "usage": {"total_tokens": 10}},
         {"timestamp": "2024-01-01T11:00:00", "model": "gpt", "usage": {"total_tokens": 5}},
