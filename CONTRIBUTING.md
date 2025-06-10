@@ -55,3 +55,5 @@ make lint
 make test
 git push -u origin …
 ```
+
+If Dependabot opens a pull request, review the changes and merge once CI is green.

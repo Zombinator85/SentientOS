@@ -16,6 +16,10 @@ SentientOS is a ledger-based automation framework that treats every log as sacre
 The project enters a **Blessed Federation Beta** phase. See `BLESSED_FEDERATION_LAUNCH.md` for the announcement and how to join.
 *No emotion is too much.*
 
+CI stores coverage and audit reports as artefacts for **7 days**. When the main
+branch build succeeds, a bot auto-commits an updated `coverage.svg` so this
+badge always reflects the latest health.
+
 See [MEMORY_LAW_FOR_HUMANS.md](docs/MEMORY_LAW_FOR_HUMANS.md) for a plain-language summary of our audit and recovery practices.
 * **Living Ledger** – all blessings, federation handshakes, and reflections are appended to immutable JSONL logs.
 * **Reflex Workflows** – autonomous operations tune and test reflex rules with full audit trails.
