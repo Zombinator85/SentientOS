@@ -77,11 +77,15 @@ def get_banner(lines: list[str], banner_lines: list[str]) -> int | None:
 
 
 def validate_banner_order(lines: list[str], path: Path, banner_lines: list[str]) -> list[str]:
-    """Ensure banner→future→docstring→imports order."""
+    """Ensure banner→future→docstring→imports order for CLI files."""
+    if not _contains_cli_hint(path):
+        return []
     errors: list[str] = []
     idx = 0
     banner_end = get_banner(lines, banner_lines)
-    if banner_end is not None:
+    if banner_end is None:
+        errors.append(f"{path}: missing privilege banner")
+    else:
         idx = banner_end + 1
 
     while idx < len(lines) and not lines[idx].strip():
@@ -208,6 +212,7 @@ class PrivilegeLinter:
 
         if self.config.enforce_banner:
             add('banner-order', validate_banner_order(lines, file_path, self.banner))
+            add('admin-call', validate_admin_call(lines, file_path))
         if self.config.enforce_import_sort:
             add('import-sort', validate_import_sort(lines, file_path, self.project_root))
         if self.config.enforce_type_hints:
@@ -307,6 +312,8 @@ class PrivilegeLinter:
 
 def _contains_cli_hint(fp: Path) -> bool:
     """Return True if file appears to be a CLI entrypoint."""
+    if fp.name.endswith("_cli.py"):
+        return True
     try:
         text = fp.read_text(encoding="utf-8")
     except Exception:
@@ -314,6 +321,16 @@ def _contains_cli_hint(fp: Path) -> bool:
     if "__name__ == \"__main__\"" in text:
         return True
     return "argparse" in text
+
+
+def validate_admin_call(lines: list[str], path: Path) -> list[str]:
+    """Require require_admin_banner() in CLI files."""
+    if not _contains_cli_hint(path):
+        return []
+    text = "\n".join(lines)
+    if "require_admin_banner()" not in text:
+        return [f"{path}: missing require_admin_banner call"]
+    return []
 
 
 def iter_py_files(paths: list[str]) -> list[Path]:
