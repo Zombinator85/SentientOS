@@ -27,7 +27,7 @@ import json
 import os
 from pathlib import Path
 from logging_config import get_log_path
-from typing import Any, Dict, List, Callable, Optional
+from typing import Any, Dict, List, Callable, Optional, Sequence
 
 pipeline: Optional[Callable[..., Any]]
 try:  # summarisation backend
@@ -125,11 +125,14 @@ def generate_narrative(prompt: str, dry_run: bool = False) -> str:
     if dry_run or pipeline is None:
         return prompt
     model = os.getenv("NARRATOR_MODEL", "facebook/bart-large-cnn")
-    summarizer = pipeline("summarization", model=model)
+    summarizer: Callable[..., Sequence[Dict[str, Any]]] = pipeline("summarization", model=model)
     try:
-        result = summarizer(prompt, max_length=180, min_length=80, do_sample=False)
+        result: Sequence[Dict[str, Any]] = summarizer(
+            prompt, max_length=180, min_length=80, do_sample=False
+        )
         if result:
-            return result[0].get("summary_text", "")
+            summary = result[0].get("summary_text", "")
+            return str(summary)
     except Exception:
         pass
     return prompt

@@ -29,7 +29,8 @@ def load_review(name: str) -> Optional[Dict[str, Any]]:
     fp = REVIEW_DIR / f"{name}.json"
     if fp.exists():
         try:
-            return json.loads(fp.read_text(encoding="utf-8"))
+            data = json.loads(fp.read_text(encoding="utf-8"))
+            return cast(Dict[str, Any], data)
         except Exception:
             return None
     return None
