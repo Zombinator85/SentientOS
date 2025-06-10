@@ -38,3 +38,21 @@ def test_bad_future_position(tmp_path: Path) -> None:
     linter = pl.PrivilegeLinter()
     issues = linter.validate(path)
     assert any("Banner and __future__ import" in i for i in issues)
+
+
+def test_main_block_in_tests_scanned(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    f = tests_dir / "cli.py"
+    f.write_text('if __name__ == "__main__":\n    pass\n', encoding="utf-8")
+    rc = pl.main([str(tmp_path), "--quiet"])
+    assert rc == 1
+
+
+def test_argparse_usage_in_tests_scanned(tmp_path: Path) -> None:
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    f = tests_dir / "cli.py"
+    f.write_text('import argparse\nargparse.ArgumentParser()\n', encoding="utf-8")
+    rc = pl.main([str(tmp_path), "--quiet"])
+    assert rc == 1
