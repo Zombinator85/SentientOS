@@ -1,4 +1,4 @@
-# ── privilege_lint.py ──────────────────────────────────────────────
+# ── privilege_lint_cli.py ─────────────────────────────────────────
 from __future__ import annotations
 
 import ast
