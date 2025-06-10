@@ -16,5 +16,5 @@ print(_cfg_hash(load_config()))
 PY
 )
 NEWSTAMP="$TREE"
-LUMOS_AUTO_APPROVE=1 python privilege_lint.py --quiet && echo "$NEWSTAMP" > "$STAMP_FILE"
+LUMOS_AUTO_APPROVE=1 python privilege_lint_cli.py --quiet && echo "$NEWSTAMP" > "$STAMP_FILE"
 

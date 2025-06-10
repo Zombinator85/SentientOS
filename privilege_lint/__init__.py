@@ -4,7 +4,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_cli_path = Path(__file__).resolve().parent.parent / "privilege_lint.py"
+_cli_path = Path(__file__).resolve().parent.parent / "privilege_lint_cli.py"
 _spec = importlib.util.spec_from_file_location("_privilege_lint_cli", _cli_path)
 if _spec is None or _spec.loader is None:
     raise ImportError("Failed to load privilege_lint CLI module")
