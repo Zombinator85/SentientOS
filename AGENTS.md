@@ -1,6 +1,7 @@
 *SentientOS Doctrine of Presence, Privilege, and Federation*
 
 ## Agent Index
+<!-- Verified unique on 2025-06-10 -->
 - **Core Services**: FederationTrustProtocol, AgentSelfDefenseProtocol
 - **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony, RitualEnforcerCLI, AutoApproveHelper, AuditBlesserCLI, MemoryCLI, MemoryTail, AuditRepairCLI
 - **Daemons & Schedulers**: MigrationDaemon, AvatarFederationHeartbeatMonitor
