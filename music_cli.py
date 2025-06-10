@@ -29,9 +29,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any, Dict
-
-# Shared emotion vector type
-Emotion = Dict[str, float]
+from emotions import Emotion
 
 import presence_ledger as pl
 import ledger
