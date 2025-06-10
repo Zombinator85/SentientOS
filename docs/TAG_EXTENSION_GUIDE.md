@@ -36,7 +36,7 @@ Every tag is documented in `TAGS.md` with a short description and the approving 
 ## Example PR & Reviewer Checklist
 - [ ] Description, color, and usage example provided.
 - [ ] Link to discussion or issue.
-- [ ] `python privilege_lint.py` passes.
+- [ ] `python privilege_lint_cli.py` passes.
 - [ ] Reviewer confirms `tags.py` updated and docs built.
 - [ ] **Reviewer sign-off** recorded.
 
@@ -49,6 +49,6 @@ Questions can be posted in the `#governance` channel, emailed to `support@sentie
 
 ## Common Mistakes
 - **Adding a tag without updating `TAGS.md`.**
-- **Forgetting to run `privilege_lint.py` before opening the PR.**
+- **Forgetting to run `privilege_lint_cli.py` before opening the PR.**
 - **Skipping reviewer sign-off in the pull request.**
 

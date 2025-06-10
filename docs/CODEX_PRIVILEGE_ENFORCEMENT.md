@@ -12,7 +12,7 @@ Onboarding:
 Updated onboarding and script templates emphasize this pattern for all contributors—ensuring that every act is both authorized and sanctified at entry.
 
 ## Testing
-✅ python privilege_lint.py
+✅ python privilege_lint_cli.py
 
 ✅ pytest -q
 

@@ -1,6 +1,6 @@
 # Developer Guide
 
-`privilege_lint.py` enforces a strict header for every Python entrypoint.
+`privilege_lint_cli.py` enforces a strict header for every Python entrypoint.
 Add the banner, `from __future__ import annotations`, an optional docstring,
 and only then your other imports.
 
@@ -77,9 +77,9 @@ Run the linter before committing. With no arguments it scans the repository root
 Use `--fix` to rewrite files in-place and `--quiet` for pre-commit hooks:
 
 ```bash
-python privilege_lint.py           # scan repo
-python privilege_lint.py src/      # scan a directory
-python privilege_lint.py --fix src/    # rewrite issues
+python privilege_lint_cli.py           # scan repo
+python privilege_lint_cli.py src/      # scan a directory
+python privilege_lint_cli.py --fix src/    # rewrite issues
 ```
 
 Sample `.pre-commit-config.yaml` hook:
@@ -89,7 +89,7 @@ repos:
 - repo: local
   hooks:
   - id: privilege-lint
-    entry: python privilege_lint.py --quiet
+    entry: python privilege_lint_cli.py --quiet
     language: system
     pass_filenames: false
 ```
@@ -113,7 +113,7 @@ require = true
 fix_mode = true
 ```
 
-When `fix_overwrite` is `false`, running `python privilege_lint.py --fix` writes
+When `fix_overwrite` is `false`, running `python privilege_lint_cli.py --fix` writes
 changes to `file.py.fixed` instead of overwriting the original.
 
 The linter scans files in parallel using a thread pool. On repositories of around
@@ -167,7 +167,7 @@ password = "AKIA..."  # plint: disable=security-key
 Third-party checks can register via `privilege_lint.plugins` entry points. Each plugin
 exposes `validate(file_path, config)` and returns a list of error strings.
 
-Run `python privilege_lint.py --report-json report.json` to write a metrics summary
+Run `python privilege_lint_cli.py --report-json report.json` to write a metrics summary
 of rule counts and runtime for CI dashboards.
 
 
@@ -184,7 +184,7 @@ enabled = true
 When `mypy` rules are enabled, a background `dmypy` daemon will be used if available to speed up full-repo type checks. Set `[lint.mypy] enabled=true` and run normally.
 
 ### SARIF Reporting
-Add `[output] sarif=true` and run `python privilege_lint.py --sarif=plint.sarif` to generate a report for GitHub Advanced Security or IDE import.
+Add `[output] sarif=true` and run `python privilege_lint_cli.py --sarif=plint.sarif` to generate a report for GitHub Advanced Security or IDE import.
 
 ### Baseline Generation
 Run `scripts/plint_baseline.py` once on a legacy repo to write `.plint_baseline.json`. Existing violations will be ignored until the code changes.

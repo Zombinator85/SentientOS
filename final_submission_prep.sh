@@ -14,8 +14,8 @@ python -m pip install --upgrade pip
 pip install requests playsound TTS==0.14 torch
 
 # Run audit linter with bypass flag
-echo "\n[+] Running privilege_lint.py with LUMOS_AUTO_APPROVE..."
-LUMOS_AUTO_APPROVE=1 python privilege_lint.py
+echo "\n[+] Running privilege_lint_cli.py with LUMOS_AUTO_APPROVE..."
+LUMOS_AUTO_APPROVE=1 python privilege_lint_cli.py
 
 # Run audit verifier
 echo "\n[+] Verifying audit chain integrity..."
