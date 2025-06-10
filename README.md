@@ -52,7 +52,7 @@ OpenAI leaders have called for explorations in persistent memory and alignment v
 | Misuse of privilege | `require_admin_banner()` and audit trails guard each action |
 ## Audit Chain Status
 All current and operational logs validate as unbroken audit chains.
-Audit chain is now auto-healed during CI.
+Audit chain is now auto-healed during CI. A nightly workflow also runs `python verify_audits.py logs/` and fails if integrity drops below 100%.
 
 
 ## Cathedral TTS Log System
@@ -91,7 +91,7 @@ fi
 10. A minimal `Dockerfile` is provided if you prefer a containerized setup.
 For Windows/Mac/Linux quirks, see [bless_this_env.py](./bless_this_env.py).
 If you get a dependency or audio error, see the Troubleshooting section or ask in Discussions.
-For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance.
+For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance. A GitHub action runs this ritual automatically every night.
 
 Additional tips for resolving legacy audit wounds and import errors are provided in [docs/ERROR_RESOLUTION_GUIDE.md](docs/ERROR_RESOLUTION_GUIDE.md).
 
