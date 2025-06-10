@@ -1,15 +1,20 @@
-# Minimal runtime for SentientOS connector
-FROM python:3.11-slim
+# Docker image used for CI parity and local development
+FROM python:3.12-slim
+
+# Create non-root user for safety
+RUN useradd -m sentient
+
 WORKDIR /app
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
+COPY . /app
 
-# Runtime secrets are provided via environment variables
-ARG CONNECTOR_TOKEN
-ENV CONNECTOR_TOKEN=${CONNECTOR_TOKEN}
-ARG PORT=5000
-ENV PORT=${PORT}
-EXPOSE ${PORT}
+# Install all dev dependencies
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir -r requirements-dev.txt
 
-CMD ["python", "openai_connector.py"]
+# Drop privileges
+USER sentient
+
+EXPOSE 5000
+
+# Default command mirrors CI: run tests then launch API
+CMD pytest -q && python sentient_api.py

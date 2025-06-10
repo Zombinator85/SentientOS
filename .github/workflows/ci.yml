@@ -6,12 +6,16 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.12']
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
       - name: Cache pip
         uses: actions/cache@v3
         with:
@@ -25,19 +29,50 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
       - name: Run pre-commit
+        if: runner.os != 'Windows'
         run: pre-commit run --all-files
+      - name: Run pre-commit (Windows)
+        if: runner.os == 'Windows'
+        run: pipx run pre-commit run --all-files
       - name: Run tests
-        run: pytest -q --cov=sentientos --cov-report=xml --cov-report=term --cov-fail-under=90
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then chcp 65001; fi
+          pytest -q --cov=sentientos --cov-report=xml --cov-report=term --cov-fail-under=90
       - name: Strict privilege / audit lint
         run: |
           export SENTIENTOS_LINT_STRICT=1
           python privilege_lint.py --no-emoji --junit-xml build/audit-report.xml
           python verify_audits.py logs/ --no-emoji --junit-xml build/audit-report.xml
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: audit-report
+          name: audit-report-${{ matrix.os }}
           path: build/audit-report.xml
+          retention-days: 7
       - name: Run mypy
         run: mypy --strict sentientos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: coverage.xml
+          retention-days: 7
       - name: Coverage guard
         run: python scripts/coverage_guard.py
+
+  coverage-badge:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-ubuntu-latest
+      - run: |
+          pip install coverage-badge
+          coverage-badge -o coverage.svg -f
+      - run: |
+          git config --global user.email "ci@sentientos.bot"
+          git config --global user.name  "SentientOS CI"
+          git add coverage.svg
+          git commit -m "ci: update coverage badge [skip ci]"
+          git push
