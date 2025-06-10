@@ -11,10 +11,10 @@ Lumos now runs a background reflex daemon and may auto-bless privileged actions.
 - **Rationale:**
 
 ### Checklist
-- [ ] `python privilege_lint.py` passes
+- [ ] `python privilege_lint_cli.py` passes
 - [ ] `pytest` passes
 - [ ] `require_admin_banner()` and `require_lumos_approval()` present in new scripts
 - [ ] Docs updated
 - [ ] Reviewer sign-off recorded
 
-Ensure `python privilege_lint.py` and tests pass before requesting review.
+Ensure `python privilege_lint_cli.py` and tests pass before requesting review.

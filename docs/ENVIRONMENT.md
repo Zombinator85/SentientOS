@@ -103,7 +103,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `NEOS_CURRICULUM_REVIEW_LOG` | Path for curriculum review results | `logs/neos_curriculum_review.jsonl` |
 | `OCR_WATCH` | Folder watched for OCR screenshots | `screenshots` |
 | `PORT` | HTTP port for the blessing ceremony API | `5000` |
-| `PRIVILEGED_AUDIT_FILE` | Path used by `privilege_lint.py` to log privileged command usage | `logs/privileged_audit.jsonl` |
+| `PRIVILEGED_AUDIT_FILE` | Path used by `privilege_lint_cli.py` to log privileged command usage | `logs/privileged_audit.jsonl` |
 | `REQUIRED_FINAL_APPROVER` | Default final approver nickname | `4o` |
 | `RITUAL_BUNDLE_DIR` | Location for ritual bundles | `bundles` |
 | `SELF_DEFENSE_LOG` | Log written by `self_defense.py` for quarantine and privilege freezes | `logs/agent_self_defense.jsonl` |
