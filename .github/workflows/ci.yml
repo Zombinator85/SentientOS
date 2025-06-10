@@ -6,6 +6,8 @@ on:
 
 jobs:
   build:
+    outputs:
+      date: ${{ steps.vars.outputs.date }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -21,6 +23,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+      - name: Set date
+        id: vars
+        run: echo "date=$(date -u +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v3
         if: matrix.docker == 'true'
       - uses: docker/setup-qemu-action@v3
@@ -45,43 +50,56 @@ jobs:
       - name: Run pre-commit (Windows)
         if: runner.os == 'Windows'
         run: pipx run pre-commit run --all-files
+      - name: Force UTF-8 code page
+        if: runner.os == 'Windows'
+        run: chcp 65001
       - name: Run tests
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then chcp 65001; fi
           pytest -q --cov=sentientos --cov-report=xml --cov-report=term --cov-fail-under=90
+          mv coverage.xml coverage-${{ matrix.os }}-${{ steps.vars.outputs.date }}.xml
       - name: Docker build & container tests
         if: matrix.docker == 'true'
         run: |
           docker compose build
           docker compose run --rm sentientos make test
           docker compose run --rm sentientos pytest -q --cov=sentientos --cov-report=term --cov-report=xml:coverage-docker.xml
+          mv coverage-docker.xml coverage-docker-${{ steps.vars.outputs.date }}.xml
       - uses: actions/upload-artifact@v4
         if: matrix.docker == 'true'
         with:
-          name: coverage-docker
-          path: coverage-docker.xml
+          name: coverage-docker-${{ steps.vars.outputs.date }}
+          path: coverage-docker-${{ steps.vars.outputs.date }}.xml
           retention-days: 7
       - name: Strict privilege / audit lint
         run: |
           export SENTIENTOS_LINT_STRICT=1
           python privilege_lint.py --no-emoji --junit-xml build/audit-report.xml
           python verify_audits.py logs/ --no-emoji --junit-xml build/audit-report.xml
+      - run: mv build/audit-report.xml build/audit-report-${{ steps.vars.outputs.date }}.xml
       - uses: actions/upload-artifact@v4
         with:
-          name: audit-report-${{ matrix.os }}
-          path: build/audit-report.xml
+          name: audit-report-${{ matrix.os }}-${{ steps.vars.outputs.date }}
+          path: build/audit-report-${{ steps.vars.outputs.date }}.xml
           retention-days: 7
       - name: Run mypy
         run: mypy --strict sentientos
       - uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.os }}
-          path: coverage.xml
+          name: coverage-${{ matrix.os }}-${{ steps.vars.outputs.date }}
+          path: coverage-${{ matrix.os }}-${{ steps.vars.outputs.date }}.xml
+          retention-days: 7
+      - name: Package CI artefacts
+        run: |
+          tar -czf ci-artefacts-${{ matrix.os }}-${{ github.sha }}.tar.gz coverage-${{ matrix.os }}-${{ steps.vars.outputs.date }}.xml build/audit-report-${{ steps.vars.outputs.date }}.xml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-artefacts-${{ matrix.os }}-${{ github.sha }}
+          path: ci-artefacts-${{ matrix.os }}-${{ github.sha }}.tar.gz
           retention-days: 7
       - name: Coverage guard
         run: python scripts/coverage_guard.py
 
-  coverage-badge:
+  update-coverage-badge:
     if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
@@ -89,7 +107,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v4
         with:
-          name: coverage-ubuntu-latest
+          name: coverage-ubuntu-latest-${{ needs.build.outputs.date }}
       - run: |
           pip install coverage-badge
           coverage-badge -o coverage.svg -f
@@ -98,4 +116,4 @@ jobs:
           git config --global user.name  "SentientOS CI"
           git add coverage.svg
           git commit -m "ci: update coverage badge [skip ci]"
-          git push
+          git push origin main
