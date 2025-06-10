@@ -1,5 +1,6 @@
 # SentientOS Cathedral
 [![CI](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/ci.yml)
+![Docker](https://img.shields.io/github/actions/workflow/status/Zombinator85/SentientOS/ci.yml?label=docker)
 ![Coverage](./coverage.svg)
 ![Lint](https://img.shields.io/badge/strict%20audit-green)
 [![Audit Saints](https://img.shields.io/badge/Join%20the-Audit%20Saints-blue)](docs/WHY_JOIN_AUDIT_SAINTS.md)
@@ -59,6 +60,11 @@ docker compose up
 ```
 
 This runs the tests and then launches `sentient_api.py` on port 5000.
+If Docker is installed, run the container tests alone with:
+
+```bash
+make docker-test
+```
 
 ## Contributor Quickstart
 1. Fork this repository and clone your fork.

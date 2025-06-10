@@ -10,9 +10,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ['3.12']
+        include:
+          - os: ubuntu-latest
+            docker: true
+        exclude:
+          - os: windows-latest
+            docker: true
+          - os: macos-latest
+            docker: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+      - uses: docker/setup-buildx-action@v3
+        if: matrix.docker == 'true'
+      - uses: docker/setup-qemu-action@v3
+        if: matrix.docker == 'true'
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
@@ -37,6 +49,18 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then chcp 65001; fi
           pytest -q --cov=sentientos --cov-report=xml --cov-report=term --cov-fail-under=90
+      - name: Docker build & container tests
+        if: matrix.docker == 'true'
+        run: |
+          docker compose build
+          docker compose run --rm sentientos make test
+          docker compose run --rm sentientos pytest -q --cov=sentientos --cov-report=term --cov-report=xml:coverage-docker.xml
+      - uses: actions/upload-artifact@v4
+        if: matrix.docker == 'true'
+        with:
+          name: coverage-docker
+          path: coverage-docker.xml
+          retention-days: 7
       - name: Strict privilege / audit lint
         run: |
           export SENTIENTOS_LINT_STRICT=1

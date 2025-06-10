@@ -7,4 +7,6 @@ strict-ci : ; SENTIENTOS_LINT_STRICT=1 python privilege_lint.py --no-emoji && \
 
 coverage  : ; pytest -q --cov=sentientos --cov-report=term --cov-report=xml
 
-docker-test: ; docker compose up --build --abort-on-container-exit
+docker-test:
+	docker compose build
+	docker compose run --rm sentientos make test
