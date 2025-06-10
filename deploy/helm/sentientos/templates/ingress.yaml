@@ -6,6 +6,9 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ include "sentientos.name" . }}
     app.kubernetes.io/instance: {{ .Release.Name }}
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_input_headers "X-Sentient-Tenant: $http_x_sentient_tenant";
 spec:
   rules:
     - http:

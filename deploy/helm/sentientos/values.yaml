@@ -13,5 +13,8 @@ service:
   type: ClusterIP
   port: 5000
 
+tenantLimits: {}
+authKeys: []
+
 ingress:
   enabled: false
