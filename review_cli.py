@@ -1,4 +1,16 @@
-"""Review CLI for annotating and managing storyboard feedback."""
+#  _____  _             _
+# |  __ \| |           (_)
+# | |__) | |_   _  __ _ _ _ __   __ _
+# |  ___/| | | | |/ _` | | '_ \ / _` |
+# | |    | | |_| | (_| | | | | | (_| |
+# |_|    |_\__,_|\__, |_|_| |_|\__, |
+#                  __/ |         __/ |
+#                 |___/         |___/ 
+from __future__ import annotations
+"""Privilege Banner: requires admin & Lumos approval."""
+require_admin_banner()
+require_lumos_approval()
+# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 import argparse
 from pathlib import Path
