@@ -7,9 +7,13 @@ RUN useradd -m sentient
 WORKDIR /app
 COPY . /app
 
+# Install build tools for C-extension wheels
+RUN apt-get update && apt-get install -y \
+      build-essential gcc && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install all dev dependencies
-RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir -r requirements-dev.txt
+RUN pip install --no-cache-dir -r requirements-dev.txt
 
 # Drop privileges
 USER sentient
