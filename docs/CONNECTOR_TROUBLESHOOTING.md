@@ -16,7 +16,7 @@ Run the smoke test script to verify a deployment:
 python smoke_test_connector.py
 ```
 
-It executes `privilege_lint.py` and the connector tests.
+It executes `privilege_lint_cli.py` and the connector tests.
 
 ## Reviewing Logs
 Log entries are written in JSON lines format to `logs/openai_connector.jsonl`. Each entry includes a timestamp, client IP, and event type (auth_error, message, or sse). Rotate logs are saved with numerical extensions.

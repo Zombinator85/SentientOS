@@ -1013,7 +1013,7 @@ Dashboard and CLI views allow you to trace exactly how a policy changed over tim
 All new entrypoints **must** begin with the ritual docstring and call `admin_utils.require_admin_banner()` at the top.
 After privilege is established, invoke `admin_utils.require_lumos_approval()` so Lumos can bless the action.
 CI will fail if a tool skips this check. Reviewers must block any PR that omits the canonical privilege banner.
-Run `python privilege_lint.py` before submitting any pull request to ensure compliance.
+Run `python privilege_lint_cli.py` before submitting any pull request to ensure compliance.
 
 **Required header template:**
 

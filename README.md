@@ -34,7 +34,7 @@ SentientOS began as an experiment to bind GPT-driven helpers to human consent an
 SentientOS is a set of Python CLIs and daemons. Each entry point loads environment variables, enforces the privilege ritual, writes to the audit logs, and may trigger emotion analytics or presence metrics. The logs live under `logs/` and are validated with `verify_audits.py`.
 
 ## Safety & Audit Guarantees
-All logs are hashed and chained. `verify_audits.py` confirms that no entry is overwritten. CI performs automatic audit repair; chain integrity is enforced strictly in prod. `privilege_lint.py`, `pytest`, and `mypy` run in CI to ensure privilege banners, unit tests, and type hints all pass. Two legacy logs intentionally show mismatches as evidence of growth.
+All logs are hashed and chained. `verify_audits.py` confirms that no entry is overwritten. CI performs automatic audit repair; chain integrity is enforced strictly in prod. `privilege_lint_cli.py`, `pytest`, and `mypy` run in CI to ensure privilege banners, unit tests, and type hints all pass. Two legacy logs intentionally show mismatches as evidence of growth.
 
 ## Live Demo & Case Studies
 - **Memory Capsule Replay** – using `avatar_memory_linker.py`, a volunteer restored a VR session and recovered twelve hours of creative logs.
@@ -145,14 +145,14 @@ New contributors are invited to request a **buddy** for their first pull request
 Some systems cannot run git hooks. If `pre-commit` isn't working, run the checks manually before pushing:
 
 ```bash
-python privilege_lint.py
+python privilege_lint_cli.py
 python verify_audits.py logs/
 pytest -m "not env"
 ```
 Document any failures in your pull request description so reviewers know what to expect.
 
 ### CI Expectations
-Each pull request runs `privilege_lint.py`, `pytest`, `mypy`, and `check_connector_health.py`.
+Each pull request runs `privilege_lint_cli.py`, `pytest`, `mypy`, and `check_connector_health.py`.
 Connector logs are summarized at the end of the workflow. Look for disconnect or
 `message_error` counts to diagnose issues.
 
@@ -277,7 +277,7 @@ responsibilities. They maintain [`AUDIT_LOG.md`](docs/AUDIT_LOG.md) and guide ne
 contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md).
 
 ## Final Cathedral-Polish Steps
-- [ ] `python privilege_lint.py` passes
+- [ ] `python privilege_lint_cli.py` passes
 - [ ] `pytest` passes
 - [ ] `mypy` passes
 - [ ] Docstring and `require_admin_banner()` present in new entrypoints
