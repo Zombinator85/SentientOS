@@ -16,6 +16,6 @@ def run(cmd: str, **kw: Any) -> subprocess.CompletedProcess[str]:
 
 run("python scripts/ritual_enforcer.py --fix")
 run("python verify_audits.py logs/ --auto-repair", **AUTO)
-run("mypy --strict --exclude tests", **AUTO)
+run("mypy --strict --exclude tests sentientos", **AUTO)
 run("pytest -q -m 'not env'", **AUTO)
 print("✅ All CI gates passed.")

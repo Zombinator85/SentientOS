@@ -2,7 +2,7 @@
 
 Current run (2025-06-10): `mypy --strict`
 
-- Total errors: 0
+- Total errors: 360
 - Legacy modules: 0
 - Need fixes: 0
 - Safe to ignore: 0
