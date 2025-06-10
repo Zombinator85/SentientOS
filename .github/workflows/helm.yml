@@ -1,0 +1,38 @@
+name: Helm
+
+on:
+  pull_request:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: azure/setup-helm@v3
+      - uses: helm/chart-testing-action@v2
+        with:
+          command: lint
+          charts_dir: deploy/helm
+
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Lint values.yaml
+        run: pipx run yamllint deploy/helm/sentientos/values.yaml
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: azure/setup-helm@v3
+      - name: Package chart
+        run: helm package deploy/helm/sentientos
+      - name: Push chart
+        env:
+          HELM_EXPERIMENTAL_OCI: 1
+        run: helm push ./sentientos-0.4.1.tgz oci://ghcr.io/${{ github.repository_owner }}/charts

@@ -1,0 +1,22 @@
+name: performance-check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  locust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - run: pip install locust
+      - run: |
+          locust -f bench/locustfile.py --headless -u 100 -r 100 --run-time 30s --csv=locust --only-summary || true
+      - name: Check p95 latency
+        run: |
+          p95=$(awk -F, 'END {print $17}' locust_stats.csv)
+          echo "p95=$p95"
+          test "$(printf '%.0f' "$p95")" -le 250

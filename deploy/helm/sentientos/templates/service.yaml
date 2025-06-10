@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sentientos.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "sentientos.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: 5000
+  selector:
+    app.kubernetes.io/name: {{ include "sentientos.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}

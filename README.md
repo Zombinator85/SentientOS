@@ -86,6 +86,13 @@ If Docker is installed, run the container tests alone with:
 make docker-test
 ```
 
+### Deploy on Kubernetes
+
+```bash
+helm repo add sentientos oci://ghcr.io/<user>/charts
+helm install my-sentientos sentientos/sentientos
+```
+
 ## Contributor Quickstart
 1. Fork this repository and clone your fork.
 2. Install dependencies with `pip install -r requirements.txt` and `pip install -e .`.
