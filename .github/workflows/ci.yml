@@ -20,6 +20,8 @@ jobs:
           path: .mypy_cache
           key: ${{ runner.os }}-mypy-${{ hashFiles('**/pyproject.toml', 'mypy.ini') }}
       - run: pip install pre-commit && pip install -e .[dev]
+      - name: Privilege lint
+        run: LUMOS_AUTO_APPROVE=1 python privilege_lint_cli.py
       - name: Pre-commit
         run: pre-commit run --all-files
       - name: Verify audits
