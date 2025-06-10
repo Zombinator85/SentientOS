@@ -3,6 +3,13 @@ import pytest
 import sys
 import types
 from pathlib import Path
+import builtins
+
+# Define placeholders so modules that call these built-ins at import time do not
+# raise ``NameError``. Individual tests can monkeypatch them with real behavior
+# when needed.
+builtins.require_admin_banner = lambda *a, **k: None
+builtins.require_lumos_approval = lambda *a, **k: None
 
 try:
     importlib.import_module('yaml')
