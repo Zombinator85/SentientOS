@@ -12,6 +12,10 @@ require_lumos_approval()
 
 from admin_utils import require_admin_banner, require_lumos_approval
 ```
+
+Use `scripts/templates/cli_skeleton.py` as the starting point for any new
+command-line interface. You can also run `python scripts/new_cli.py <name>` to
+copy the skeleton automatically.
 ## Reviewer Checklist
 
 - [ ] Docstring `"Sanctuary Privilege Ritual: Do not remove. See doctrine for details."` present at the very top
