@@ -19,6 +19,7 @@ provided by the ``SELF_DEFENSE_LOG`` environment variable. See
 ``docs/ENVIRONMENT.md`` for details.
 """
 
+# uses SELF_DEFENSE_LOG if set, otherwise logs/agent_self_defense.jsonl
 LOG_FILE = get_log_path("agent_self_defense.jsonl", "SELF_DEFENSE_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 

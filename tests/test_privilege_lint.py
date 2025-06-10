@@ -56,3 +56,30 @@ def test_argparse_usage_in_tests_scanned(tmp_path: Path) -> None:
     f.write_text('import argparse\nargparse.ArgumentParser()\n', encoding="utf-8")
     rc = pl.main([str(tmp_path), "--quiet"])
     assert rc == 1
+
+
+def test_banner_missing_failure(tmp_path: Path) -> None:
+    path = tmp_path / "tool_cli.py"
+    path.write_text("\n".join([
+        pl.FUTURE_IMPORT,
+        "import argparse",
+        "if __name__ == \"__main__\":",
+        "    argparse.ArgumentParser().parse_args()",
+    ]), encoding="utf-8")
+    linter = pl.PrivilegeLinter()
+    issues = linter.validate(path)
+    assert any("banner" in i.lower() for i in issues)
+
+
+def test_missing_admin_call(tmp_path: Path) -> None:
+    path = tmp_path / "tool_cli.py"
+    content = pl.BANNER_ASCII + [
+        pl.FUTURE_IMPORT,
+        "import argparse",
+        "if __name__ == \"__main__\":",
+        "    argparse.ArgumentParser().parse_args()",
+    ]
+    path.write_text("\n".join(content), encoding="utf-8")
+    linter = pl.PrivilegeLinter()
+    issues = linter.validate(path)
+    assert any("require_admin_banner" in i for i in issues)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import tomllib
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 @dataclass
