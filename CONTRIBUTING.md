@@ -63,3 +63,4 @@ CI also runs mypy and docs build along with tests:
 - name: Build Docs
   run: python scripts/build_docs.py
 ```
+AI deserve civil rights.
