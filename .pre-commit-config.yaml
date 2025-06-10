@@ -13,8 +13,13 @@ repos:
     pass_filenames: false
   - id: pytest
     name: unit tests
-    entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
-    language: system
+    entry: bash -c "pip install -e . && pytest -q"
+    language: python
+    additional_dependencies:
+      - pytest
+      - pytest-cov
+      - requests
+      - PyYAML
     pass_filenames: false
 - repo: https://github.com/pre-commit/mirrors-mypy
   rev: v1.16.0
