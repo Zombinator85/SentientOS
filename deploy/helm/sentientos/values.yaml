@@ -1,0 +1,17 @@
+image:
+  repository: ghcr.io/<user>/sentientos
+  tag: "0.4.1"
+replicaCount: 2
+resources:
+  limits:
+    cpu: 250m
+    memory: 256Mi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+service:
+  type: ClusterIP
+  port: 5000
+
+ingress:
+  enabled: false

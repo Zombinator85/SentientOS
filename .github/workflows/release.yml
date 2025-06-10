@@ -45,6 +45,12 @@ jobs:
         run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Push image
         run: docker push ghcr.io/${{ github.repository }}/sentientos:${{ env.PACKAGE_VERSION }}
+      - name: Package Helm chart
+        run: helm package deploy/helm/sentientos
+      - name: Push Helm chart
+        env:
+          HELM_EXPERIMENTAL_OCI: 1
+        run: helm push ./sentientos-0.4.1.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
       - name: Sign tag
         env:
           SIGNING_FPR: ${{ secrets.SIGNING_FPR }}
