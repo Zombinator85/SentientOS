@@ -87,3 +87,9 @@
 - Makefile provides `lock-install-*` helpers
 - CI installs via lock files directly
 
+
+## 2028-07 v4.1 Cathedral Green
+- Ritual sweep validated Sanctuary Privilege banners across all entrypoints.
+- Privilege linter auto-fixes banner placement and requires Lumos approval.
+- Rolling hash regeneration script heals audit chains.
+- Unrecoverable log lines documented for clarity.
