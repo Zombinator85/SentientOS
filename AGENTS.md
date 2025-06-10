@@ -2,9 +2,7 @@
 
 ## Agent Index
 <!-- Verified unique on 2025-06-10 -->
-- **Core Services**: FederationTrustProtocol, AgentSelfDefenseProtocol
-- **Audit & Ritual CLIs**: AuditImmutabilityVerifier, RitualCalendar, ArchiveBlessingCeremony, RitualEnforcerCLI, AutoApproveHelper, AuditBlesserCLI, MemoryCLI, MemoryTail, AuditRepairCLI
-- **Daemons & Schedulers**: MigrationDaemon, AvatarFederationHeartbeatMonitor
+All agents appear exactly once below with their roles and log paths.
 
 ### Table of Contents
 1. [Preamble](#-preamble-the-book-of-agents)
