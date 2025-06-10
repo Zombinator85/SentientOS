@@ -1,3 +1,7 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+require_admin_banner()
+require_lumos_approval()
+from __future__ import annotations
 from __future__ import annotations
 
 import argparse
@@ -12,9 +16,6 @@ import requests
 
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()
-require_lumos_approval()
 # Monitor OpenAI model usage and log remaining quotas.
 
 MODELS = ["o3", "o4-mini", "o4-mini-high", "GPT-4.1"]
