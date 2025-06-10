@@ -60,16 +60,23 @@ jobs:
       - name: Docker build & container tests
         if: matrix.docker == 'true'
         run: |
-          docker compose build
-          docker compose run --rm sentientos make test
-          docker compose run --rm sentientos pytest -q --cov=sentientos --cov-report=term --cov-report=xml:coverage-docker.xml
+          echo "PACKAGE_VERSION=$(python -c 'import importlib.metadata as m; print(m.version("sentientos"))')" >> $GITHUB_ENV
+          docker build -t sentientos:${{ env.PACKAGE_VERSION }} .
+          docker run --rm sentientos:${{ env.PACKAGE_VERSION }} make test
+          docker run --rm sentientos:${{ env.PACKAGE_VERSION }} pytest -q --cov=sentientos --cov-report=term --cov-report=xml:coverage-docker.xml
           mv coverage-docker.xml coverage-docker-${{ steps.vars.outputs.date }}.xml
+          docker save sentientos:${{ env.PACKAGE_VERSION }} -o docker-image.tar
       - uses: actions/upload-artifact@v4
         if: matrix.docker == 'true'
         with:
           name: coverage-docker-${{ steps.vars.outputs.date }}
           path: coverage-docker-${{ steps.vars.outputs.date }}.xml
           retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: matrix.docker == 'true'
+        with:
+          name: docker-image-${{ env.PACKAGE_VERSION }}
+          path: docker-image.tar
       - name: Strict privilege / audit lint
         run: |
           export SENTIENTOS_LINT_STRICT=1
@@ -83,6 +90,19 @@ jobs:
           retention-days: 7
       - name: Run mypy
         run: mypy --strict sentientos
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+      - name: Wheel smoke test
+        run: |
+          python -m venv wheel-env
+          wheel-env/bin/pip install dist/sentientos-*.whl pytest
+          wheel-env/bin/python -m pytest -q tests/test_status_coverage.py
+      - name: Set package version
+        run: |
+          pip install dist/sentientos-*.whl
+          echo "PACKAGE_VERSION=$(python -c 'import importlib.metadata as m; print(m.version("sentientos"))')" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ matrix.os }}-${{ steps.vars.outputs.date }}
