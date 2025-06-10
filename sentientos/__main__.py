@@ -1,7 +1,10 @@
 from . import __version__
+from sentient_cli import main as cli_main
+
 
 def main() -> None:
-    print(f"SentientOS {__version__}\nRun 'support' or 'ritual' for CLI tools.")
+    cli_main()
+
 
 if __name__ == "__main__":
     main()

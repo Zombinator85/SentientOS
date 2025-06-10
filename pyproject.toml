@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sentientos"
-version = "0.1.0"
+version = "0.4.1"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 readme = "README.md"
 authors = [{name = "SentientOS"}]
@@ -49,6 +49,7 @@ theme = "theme_cli:main"
 suggestion = "suggestion_cli:main"
 trust = "trust_cli:main"
 video = "video_cli:main"
+sentientos = "sentient_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
