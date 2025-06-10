@@ -138,6 +138,7 @@ def validate_banner_order(lines: list[str], path: Path, banner_lines: list[str])
 
 
 # ----------------------------- lint driver ---------------------------------- #
+# uses PRIVILEGED_AUDIT_FILE if set, otherwise logs/privileged_audit.jsonl
 AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
 AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
