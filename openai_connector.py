@@ -1,18 +1,18 @@
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-"""OpenAI event connector.
-
-This module logs structured events to ``LOG_PATH``. Set the environment
-variable ``OPENAI_CONNECTOR_LOG`` to override the default log destination
-(``logs/openai_connector.jsonl``).
-
-Privilege escalation is gated by ``admin_utils.require_lumos_approval``.
-To run non-interactively, set ``LUMOS_AUTO_APPROVE=1``.
-
+"""
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()  # Set ``LUMOS_AUTO_APPROVE=1`` to bypass the interactive blessing prompt
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+require_admin_banner()
+require_lumos_approval()
+# OpenAI event connector.
+#
+# This module logs structured events to ``LOG_PATH``. Set the environment
+# variable ``OPENAI_CONNECTOR_LOG`` to override the default log destination
+# (``logs/openai_connector.jsonl``).
+#
+# Privilege escalation is gated by ``admin_utils.require_lumos_approval``.
+# To run non-interactively, set ``LUMOS_AUTO_APPROVE=1``.
 
 from logging_config import get_log_path
 import logging
