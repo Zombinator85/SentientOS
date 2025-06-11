@@ -3,7 +3,6 @@ from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
-
 from logging_config import get_log_path
 import argparse
 import json
@@ -12,8 +11,6 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-
-
 LAW_LOG = get_log_path("neos_living_law.jsonl", "NEOS_LIVING_LAW_LOG")
 PROPOSAL_LOG = get_log_path("neos_living_law_proposals.jsonl", "NEOS_LIVING_LAW_PROPOSALS_LOG")
 PROPOSAL_LOG.parent.mkdir(parents=True, exist_ok=True)

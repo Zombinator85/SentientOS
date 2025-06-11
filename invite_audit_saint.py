@@ -3,11 +3,8 @@ from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
-
 import sys
 from pathlib import Path
-
-
 def add_saint(name: str) -> None:
     """Append *name* to the Audit Saints section in CONTRIBUTORS.md."""
     path = Path("CONTRIBUTORS.md")

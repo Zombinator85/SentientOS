@@ -1,18 +1,19 @@
-from __future__ import annotations
-from logging_config import get_log_path
-
-from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+from __future__ import annotations
+require_admin_banner()
 require_lumos_approval()
-"""Avatar Sanctuary Artifacts Generator."""
-
+from admin_utils import require_admin_banner, require_lumos_approval
+from logging_config import get_log_path
 import argparse
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+"""Avatar Sanctuary Artifacts Generator."""
+
 
 LOG_PATH = get_log_path("avatar_sanctuary_artifacts.jsonl", "AVATAR_ARTIFACT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

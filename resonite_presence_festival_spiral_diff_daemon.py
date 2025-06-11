@@ -3,14 +3,12 @@ from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
-
 from logging_config import get_log_path
 import argparse
 import json
 import os
 from datetime import datetime
 from pathlib import Path
-
 LOG_PATH = get_log_path("resonite_presence_festival_diff.jsonl", "RESONITE_PRESENCE_FESTIVAL_DIFF_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
