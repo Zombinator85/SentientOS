@@ -1,5 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import json
@@ -9,7 +10,6 @@ import datetime
 from pathlib import Path
 from typing import Any, Dict, Tuple, List
 from logging_config import get_log_path
-from admin_utils import require_admin_banner, require_lumos_approval
 def compute_hash(timestamp: str, data: Dict[str, Any], prev_hash: str) -> str:
     """Return SHA256 hash of the audit entry using canonical form."""
     clean = dict(data)
@@ -99,8 +99,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1":
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-    require_admin_banner()
-    require_lumos_approval()
 
     logs_dir = Path(args.logs_dir)
     prev = "0" * 64

@@ -1,23 +1,22 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
-"""Resonite Federation Handshake Auditor
-
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
-"""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
-
-
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 import uuid
+"""Resonite Federation Handshake Auditor
+
+Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+"""
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
+
 
 LOG_PATH = get_log_path("resonite_federation_handshake_auditor.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +48,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Federation Handshake Auditor")
     sub = ap.add_subparsers(dest="cmd")
 
