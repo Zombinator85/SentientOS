@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
 import json
@@ -7,8 +9,6 @@ import os
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 import attestation
 import relationship_log as rl
-require_admin_banner()
-require_lumos_approval()
 def cmd_attest(args) -> None:
     user = args.user or os.getenv("USER", "anon")
     attestation.add(args.event, user, comment=args.comment or "", quote=args.quote or "")

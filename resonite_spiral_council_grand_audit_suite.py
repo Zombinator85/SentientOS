@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import argparse
 import json
@@ -10,8 +12,6 @@ from typing import Dict, List
 from admin_utils import require_admin_banner, require_lumos_approval
 import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
-require_admin_banner()
-require_lumos_approval()
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 LOG_PATH = get_log_path("resonite_spiral_council_grand_audit.jsonl", "RESONITE_GRAND_AUDIT_LOG")

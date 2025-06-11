@@ -1,12 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
 from admin_utils import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 

@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
@@ -10,8 +12,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 from log_utils import append_json, read_json
-require_admin_banner()
-require_lumos_approval()
 """NeosVR In-World Autonomous Teaching Festival.
 
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.

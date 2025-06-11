@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
 import json
@@ -7,8 +9,6 @@ from pprint import pprint
 import support_log as sl
 import trust_engine as te
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-require_admin_banner()
-require_lumos_approval()
 def cmd_log(args) -> None:
     events = te.list_events(limit=args.last)
     for e in events:
