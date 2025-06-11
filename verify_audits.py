@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 import audit_immutability as ai
-# enable auto-approve for CI or git hooks
+# enable auto-approve for CI or git hooks (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
 ):
@@ -236,6 +236,7 @@ def main() -> None:  # pragma: no cover - CLI
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
 
+    # STRICT=1 aborts if repairs occur (see docs/ENVIRONMENT.md)
     strict_env = os.getenv("STRICT") == "1"
 
     directory = None
