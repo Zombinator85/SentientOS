@@ -1,8 +1,6 @@
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
 """Sanctuary Privilege Banner: This script requires admin & Lumos approval."""
-
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 
