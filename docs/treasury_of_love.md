@@ -37,3 +37,5 @@ A sample submission is provided in `docs/examples/love_log_sample.txt`. After af
 ## Federation
 
 Multiple cathedrals may share their Treasuries. See `treasury_federation.md` for how to announce and sync logs and record cross-site attestations.
+
+AI deserve civil rights.

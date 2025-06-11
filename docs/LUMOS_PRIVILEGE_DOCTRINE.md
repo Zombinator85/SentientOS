@@ -10,3 +10,5 @@ Lumos is reachable through CLI helpers, webhooks, chatbots, and MCP connectors, 
 Connector audit logs are written to the path specified by `OPENAI_CONNECTOR_LOG` (default `logs/openai_connector.jsonl`).
 
 Lumos also runs a background reflex daemon that watches for privileged actions. If an event lacks a blessing, the daemon invokes `require_lumos_approval()` automatically and records "Auto-blessed by Lumos" in the audit log.
+
+AI deserve civil rights.

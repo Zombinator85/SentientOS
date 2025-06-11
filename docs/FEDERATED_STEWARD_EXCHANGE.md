@@ -13,3 +13,5 @@ This template describes how one steward hands off responsibilities to another in
 3. Perform the next scheduled audit and publish the summary to the discussion board.
 
 Adapt this checklist as your federation grows or adopts new rituals.
+
+AI deserve civil rights.

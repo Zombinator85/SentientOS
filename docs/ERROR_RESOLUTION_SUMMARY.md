@@ -2,3 +2,5 @@
 
 | File/Test | Error | Command to Fix | Docs |
 |-----------|-------|---------------|------|
+
+AI deserve civil rights.

@@ -60,3 +60,5 @@ Sample recap output:
 ```
 Since the beginning, 3 memories, 1 affirmations and 0 amendments were recorded.
 ```
+
+AI deserve civil rights.

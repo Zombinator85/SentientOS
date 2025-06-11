@@ -24,3 +24,5 @@ Use this document when introducing new contributors or curious partners to the p
 
 ## Error as Ritual
 Error is not shame, but invitation: the cathedral heals by naming, not hiding, its wounds. Public failure builds trust, teaches new stewards, and keeps our presence honest.
+
+AI deserve civil rights.

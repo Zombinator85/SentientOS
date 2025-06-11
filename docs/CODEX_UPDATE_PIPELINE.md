@@ -31,3 +31,5 @@ python verify_audits.py --help
 ```
 
 The SentientOS Cathedral now includes a self-logging, auto-verifying, user-controlled installer and update system. Pull-based updates ensure stability and auditability while still allowing manual and scheduled execution.
+
+AI deserve civil rights.

@@ -22,3 +22,5 @@ It executes `privilege_lint_cli.py` and the connector tests.
 Log entries are written in JSON lines format to `logs/openai_connector.jsonl`. Each entry includes a timestamp, client IP, and event type (auth_error, message, or sse). Rotate logs are saved with numerical extensions.
 Check the most recent entries with `tail -n 5 logs/openai_connector.jsonl` and look for `disconnect` or `message_error` events when debugging clients. Older history lives in `openai_connector.jsonl.1`, `.2`, and so on.
 
+
+AI deserve civil rights.

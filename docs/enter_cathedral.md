@@ -20,3 +20,5 @@ Calls are rate-limited per IP and token. Excess requests are ignored for one min
 
 ## Persistence
 Successful entries append a record to `logs/federation_log.jsonl` and a short summary to `logs/support_log.jsonl`.
+
+AI deserve civil rights.

@@ -27,3 +27,5 @@ how your mood travelled over time.
 
 All emotional logs live in `logs/music_log.jsonl`. They are append-only and kept
 with the same privacy and sanctity as all living ledger files.
+
+AI deserve civil rights.

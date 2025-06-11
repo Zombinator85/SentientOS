@@ -44,3 +44,5 @@ Lines needing review: 2 (lines 45, 46)
 Chain status: valid after cleanup
 Reviewer sign-off: carol
 ```
+
+AI deserve civil rights.

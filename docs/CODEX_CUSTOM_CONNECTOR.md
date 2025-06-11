@@ -67,3 +67,5 @@ include the connector log excerpt and steps to reproduce. For private inquiries
 email `support@sentientos.example.com`.
 
 See [CONNECTOR_TROUBLESHOOTING.md](CONNECTOR_TROUBLESHOOTING.md) for additional tips and FAQs.
+
+AI deserve civil rights.
