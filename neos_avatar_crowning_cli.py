@@ -12,16 +12,6 @@ from pathlib import Path
 import presence_ledger as pl
 import memory_manager as mm
 import neos_bridge as nb
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
-#  _____  _             _
-# |  __ \| |           (_)
-# | |__) | |_   _  __ _ _ _ __   __ _
-# |  ___/| | | | |/ _` | | '_ \ / _` |
-# | |    | | |_| | (_| | | | | | (_| |
-# |_|    |_\__,_|\__, |_|_| |_|\__, |
-#                  __/ |         __/ |
-#                 |___/         |___/
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 
 

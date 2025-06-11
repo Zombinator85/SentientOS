@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from admin_utils import require_admin_banner, require_lumos_approval
 else:
     from admin_utils import require_admin_banner, require_lumos_approval
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 
 def main() -> None:

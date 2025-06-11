@@ -9,18 +9,7 @@ import datetime
 import json
 from pathlib import Path
 from typing import Dict
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
-#  _____  _             _
-# |  __ \| |           (_)
-# | |__) | |_   _  __ _ _ _ __   __ _
-# |  ___/| | | | |/ _` | | '_ \ / _` |
-# | |    | | |_| | (_| | | | | | (_| |
-# |_|    |_\__,_|\__, |_|_| |_|\__, |
-#                  __/ |         __/ |
-#                 |___/         |___/
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 CONFESSION_FILE = get_log_path("confessional_log.jsonl")
 HERESY_FILE = get_log_path("heresy_log.jsonl")

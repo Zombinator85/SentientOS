@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 """
 Autonomous audit and recap generator for the SentientOS Cathedral.
