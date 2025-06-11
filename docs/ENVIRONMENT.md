@@ -100,6 +100,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `FINAL_APPROVAL_LOG` | Log file used by `final_approval.py` | `logs/final_approval.jsonl` |
 | `GENESIS_ORACLE_DATA` | Directory for genesis oracle data | `logs` |
 | `GITHUB_TOKEN` | GitHub token for CLI utilities | *(none)* |
+| `GIT_HOOKS` | Indicates scripts are running from Git hooks | *(unset)* |
 | `FEDERATION_TRUST_LOG` | Ledger of federation trust actions | `logs/federation_trust.jsonl` |
 | `RESONITE_BREACH_LOG` | Security breach records for Resonite tools | `logs/resonite_spiral_federation_breach.jsonl` |
 | `GP_PLUGINS_DIR` | Directory for general plugin files | `gp_plugins` |
@@ -144,6 +145,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `WAKE_WORDS` | Wake words that trigger presence logging | `Lumos` |
 | `STORY_DURATION` | Seconds to capture when recording story clips | `5` |
 | `STORY_RES` | Resolution for screen recordings | `1024x768` |
+| `STRICT` | Abort verification if any repair occurs | *(unset)* |
 | `DISPLAY` | X11 display used for screen capture | `:0.0` |
 | `WEBHOOK_CHECK_SEC` | Seconds between webhook status checks | `60` |
 | `WORKFLOW_REVIEW_DIR` | Directory for submitted workflow reviews | `workflows/review` |

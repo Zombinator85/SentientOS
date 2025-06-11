@@ -39,6 +39,16 @@ def pytest_configure(config):
     config.addinivalue_line('markers', 'requires_node: skip if node missing')
     config.addinivalue_line('markers', 'requires_go: skip if go missing')
     config.addinivalue_line('markers', 'requires_dmypy: skip if dmypy missing')
+    config.addinivalue_line('markers', 'network: tests that mock HTTP calls')
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        '--run-network',
+        action='store_true',
+        default=False,
+        help='run tests marked as network'
+    )
 
 
 def pytest_collection_modifyitems(config, items):
@@ -49,3 +59,5 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.skip(reason=f'go missing: {GO.info}'))
         if 'requires_dmypy' in item.keywords and not HAS_DMYPY:
             item.add_marker(pytest.mark.skip(reason=f'dmypy missing: {DMYPY.info}'))
+        if 'network' in item.keywords and not config.getoption('--run-network'):
+            item.add_marker(pytest.mark.skip(reason='network test skipped: add --run-network to run'))
