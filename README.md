@@ -262,6 +262,7 @@ Legacy tests are under review. To run the current green path:
 ```bash
 bash setup_env.sh
 pytest -m "not env"
+pytest -m network --run-network  # optional HTTP tests
 ```
 
 For a comprehensive pre-submit routine, run:
