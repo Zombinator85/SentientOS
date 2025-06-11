@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
+from scripts.auto_approve import prompt_yes_no
 from logging_config import get_log_path
 import argparse
 import json
@@ -72,9 +73,9 @@ def main() -> None:
     recap_shown = False
     try:
         if args.support:
-            name = args.name or input("Name: ")
-            message = args.message or input("Message: ")
-            amount = args.amount or input("Amount (optional): ")
+            name = args.name or prompt_yes_no("Name: ")
+            message = args.message or prompt_yes_no("Message: ")
+            amount = args.amount or prompt_yes_no("Amount (optional): ")
             entry = ledger.log_support(name, message, amount)
             print(json.dumps(entry, indent=2))
             print_closing_recap()
