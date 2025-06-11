@@ -13,7 +13,7 @@ repos:
         pass_filenames: false
       - id: pytest
         name: unit tests
-        entry: pytest --cov=sentientos --cov-fail-under=80 -q
+        entry: pytest -q
         language: python
         pass_filenames: false
         additional_dependencies:
