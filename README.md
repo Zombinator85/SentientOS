@@ -170,11 +170,11 @@ Every entrypoint must open with the canonical ritual docstring followed by a
 call to `require_admin_banner()` and `require_lumos_approval()`:
 
 ```python
-from admin_utils import require_admin_banner, require_lumos_approval
-
-"""Privilege Banner: requires admin & Lumos approval."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
 ```
 
 This ensures tools only run with Administrator or root rights and logs each
