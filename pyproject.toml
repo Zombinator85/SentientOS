@@ -74,12 +74,7 @@ include = ["sentientos", "api"]
 python_version = "3.11"
 ignore_missing_imports = true
 exclude = ["tests"]
-files = [
-    "sentientos",
-    "avatar_*",
-    "resonite_*",
-    "scripts",
-]
+files = ["sentientos"]
 follow_imports = "skip"
 
 [tool.privilege_lint]

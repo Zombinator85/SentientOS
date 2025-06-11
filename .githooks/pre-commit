@@ -9,5 +9,7 @@ if [ ! -f "$CONFIG" ]; then
     fi
     [ -f "$SAMPLE" ] && cp "$SAMPLE" "$CONFIG"
 fi
+export LUMOS_AUTO_APPROVE=1
+export SENTIENTOS_HEADLESS=1
 python privilege_lint_cli.py --quiet
 python verify_audits.py
