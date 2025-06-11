@@ -1,12 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from admin_utils import require_admin_banner, require_lumos_approval
 from scripts.auto_approve import prompt_yes_no
 import argparse
 import os
@@ -41,8 +41,6 @@ def main(argv: list[str] | None = None) -> int:
     if auto:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-    require_admin_banner()
-    require_lumos_approval()
 
     result = run_verify()
     output = result.stdout + result.stderr
