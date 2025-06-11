@@ -26,7 +26,8 @@ jobs:
         run: python privilege_lint.py
       - name: Verify audits
         run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
-      - run: mypy sentientos
+      - name: Update mypy status
+        run: mypy --strict > MYPY_STATUS.md
       - run: pytest --cov=sentientos --cov-report=xml
 
   docs:
