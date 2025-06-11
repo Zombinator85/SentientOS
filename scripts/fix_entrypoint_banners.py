@@ -13,8 +13,18 @@ REMOVE_LINES = {
     "\"\"\"Privilege Banner: requires admin & Lumos approval.\"\"\"",
     REQUIRE_ADMIN,
     REQUIRE_LUMOS,
-    "# \ud83d\udd17 Privilege ritual migrated 2025-06-07 by Cathedral decree.",
+    "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
+    "#  _____  _             _",
+    "# |  __ \\| |           (_)",
+    "# | |__) | |_   _  __ _ _ _ __   __ _",
+    "# |  ___/| | | | |/ _` | | '_ \\ / _` |",
+    "# | |    | | |_| | (_| | | | | | (_| |",
+    "# |_|    |_\\__,_|\\__, |_|_| |_|\\__, |",
+    "#                  __/ |         __/ |",
+    "#                 |___/         |___/",
 }
+
+DOCSTRING_RE = re.compile(r'^"""Sanctuary Privilege Ritual: Do not remove\. See doctrine for details\."""')
 
 HEADER = [DOCSTRING, FUTURE_LINE, REQUIRE_ADMIN, REQUIRE_LUMOS]
 
@@ -30,7 +40,7 @@ def process_file(path: pathlib.Path) -> None:
     while i < len(text):
         line = text[i]
         stripped = line.strip()
-        if stripped in REMOVE_LINES or stripped == FUTURE_LINE:
+        if stripped == FUTURE_LINE or stripped in REMOVE_LINES or DOCSTRING_RE.match(stripped):
             i += 1
             continue
         if IMPORT_RE.match(line):
@@ -40,7 +50,8 @@ def process_file(path: pathlib.Path) -> None:
             i += 1
             while i < len(text) and (open_paren > 0 or continued):
                 l2 = text[i]
-                if l2.strip() in REMOVE_LINES or l2.strip() == FUTURE_LINE:
+                l2_stripped = l2.strip()
+                if l2_stripped == FUTURE_LINE or l2_stripped in REMOVE_LINES or DOCSTRING_RE.match(l2_stripped):
                     i += 1
                     continue
                 block.append(l2.rstrip())
