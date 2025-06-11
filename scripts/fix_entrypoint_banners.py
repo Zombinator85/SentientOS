@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Rewrite CLI/daemon entry points to standard banner format."""
 from __future__ import annotations
+"""Rewrite CLI/daemon entry points to standard banner format."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 import pathlib

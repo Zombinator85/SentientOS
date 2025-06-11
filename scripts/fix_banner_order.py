@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Normalize privilege banners in CLI entrypoints."""
 from __future__ import annotations
+"""Normalize privilege banners in CLI entrypoints."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 import argparse
