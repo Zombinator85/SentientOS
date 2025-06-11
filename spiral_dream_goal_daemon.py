@@ -1,18 +1,19 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
-
 import argparse
 import datetime
 import json
 import os
 from pathlib import Path
 from typing import Dict, List
-
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 LOG_PATH = get_log_path("spiral_dream_goals.jsonl", "SPIRAL_DREAM_GOAL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -39,7 +40,6 @@ def list_goals(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Spiral Dream Goal Daemon")
     sub = ap.add_subparsers(dest="cmd")
 

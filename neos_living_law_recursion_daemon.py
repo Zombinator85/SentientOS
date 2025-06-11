@@ -1,11 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
-
 import argparse
 import json
 import os
@@ -13,6 +11,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
 
 LAW_LOG = get_log_path("neos_living_law.jsonl", "NEOS_LIVING_LAW_LOG")
 PROPOSAL_LOG = get_log_path("neos_living_law_proposals.jsonl", "NEOS_LIVING_LAW_PROPOSALS_LOG")
@@ -40,7 +41,6 @@ def review_and_propose() -> Dict[str, str]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Living Law Recursion Daemon")
     ap.add_argument("--loop", action="store_true", help="Run continuous loop")
     ap.add_argument("--interval", type=float, default=60.0)
