@@ -1,6 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from sentient_banner import BANNER_LINES
@@ -17,7 +17,7 @@ ENTRYPOINTS_FILE = Path("entrypoints.txt")
 DOCSTRING = BANNER_LINES[0].strip('"')
 OLD_DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
 HEADER_LINES = [BANNER_LINES[0], BANNER_LINES[1], BANNER_LINES[2]]
-IMPORT_LINE = "from admin_utils import require_admin_banner, require_lumos_approval"
+IMPORT_LINE = "from sentientos.privilege import require_admin_banner, require_lumos_approval"
 AUTO_APPROVE_IMPORT = "from scripts.auto_approve import prompt_yes_no"
 PROMPT_RE = re.compile(r"(?<!prompt_yes_no)\b(?:input|click\.confirm|prompt)\(")
 ENTRY_RE = re.compile(r"if __name__ == ['\"]__main__['\"]")

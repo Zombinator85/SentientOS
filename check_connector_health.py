@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from logging_config import get_log_path
 
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 import openai_connector
 from flask_stub import Request
 from typing import Any

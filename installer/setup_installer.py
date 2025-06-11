@@ -1,7 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
 require_admin_banner()
@@ -14,7 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from admin_utils import require_admin_banner
+from sentientos.privilege import require_admin_banner
 from sentient_banner import print_banner, print_closing
 from logging_config import get_log_dir
 from cathedral_const import PUBLIC_LOG, log_json
