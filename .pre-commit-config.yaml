@@ -22,10 +22,10 @@ repos:
         entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
         language: python
         pass_filenames: false
-        additional_dependencies: [pytest, pytest-cov, requests, PyYAML]
+        additional_dependencies: [pytest, pytest-cov, requests, requests_mock, PyYAML]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.16.0
     hooks:
       - id: mypy
-        additional_dependencies: [pytest, pytest-cov, requests, PyYAML, types-PyYAML, types-requests]
+        additional_dependencies: [pytest, pytest-cov, requests, requests_mock, PyYAML, types-PyYAML, types-requests]
