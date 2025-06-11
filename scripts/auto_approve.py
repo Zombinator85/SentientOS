@@ -1,8 +1,10 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-"""Sanctuary Privilege Banner: This script requires admin & Lumos approval."""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+"""Sanctuary Privilege Banner: This script requires admin & Lumos approval."""
 
 import os
 
