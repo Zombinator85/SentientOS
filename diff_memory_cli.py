@@ -1,10 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import argparse
 import memory_diff_audit as mda
 from admin_utils import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare memory sessions")
     parser.add_argument("session_a")

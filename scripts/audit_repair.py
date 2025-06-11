@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import json
 import hashlib
 import os
@@ -8,8 +10,6 @@ from pathlib import Path
 from typing import Any, Dict, Tuple, List
 from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
 def compute_hash(timestamp: str, data: Dict[str, Any], prev_hash: str) -> str:
     """Return SHA256 hash of the audit entry using canonical form."""
     clean = dict(data)
