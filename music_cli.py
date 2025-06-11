@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
@@ -23,10 +21,8 @@ from sentient_banner import (
     reset_ritual_state,
     ENTRY_BANNER,
 )
-
-
-
-
+require_admin_banner()
+require_lumos_approval()
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 

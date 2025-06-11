@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import json
 from pathlib import Path
@@ -10,11 +8,8 @@ from admin_utils import require_admin_banner, require_lumos_approval
 import love_treasury as lt
 import treasury_federation as tf
 import treasury_attestation as ta
-
-
-
-
-
+require_admin_banner()
+require_lumos_approval()
 def cmd_submit(args: argparse.Namespace) -> None:
     log_text = Path(args.file).read_text(encoding="utf-8")
     participants = [p.strip() for p in args.participants.split(',') if p.strip()]

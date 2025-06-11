@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path, get_log_dir
 import argparse
@@ -11,9 +9,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
-
-
-
+require_admin_banner()
+require_lumos_approval()
 """
 Autonomous audit and recap generator for the SentientOS Cathedral.
 It scans logs and ledger files for anomalies and can produce a

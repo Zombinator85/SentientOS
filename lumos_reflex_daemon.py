@@ -1,15 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 import json
 import time
 from typing import Dict, Any
 from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
-
-
-
+require_admin_banner()
+require_lumos_approval()
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 AUDIT_PATH = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_LOG")
