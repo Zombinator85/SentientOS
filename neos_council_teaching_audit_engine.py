@@ -1,18 +1,17 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
-
 import argparse
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
 
 SESSIONS_LOG = get_log_path("neos_council_teaching_sessions.jsonl", "NEOS_COUNCIL_TEACHING_SESSIONS_LOG")
 AUDIT_LOG = get_log_path("neos_council_teaching_audit.jsonl", "NEOS_COUNCIL_TEACHING_AUDIT_LOG")
@@ -56,7 +55,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Council Teaching Audit Engine")
     sub = ap.add_subparsers(dest="cmd")
 
