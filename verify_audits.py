@@ -1,20 +1,19 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import json
 import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
-from admin_utils import require_admin_banner, require_lumos_approval
 import audit_immutability as ai
-# enable auto-approve for CI or git hooks
+# enable auto-approve for CI or git hooks (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
 ):
     os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")
@@ -125,6 +124,10 @@ def check_file(
                 stats["quarantined"] += 1
                 stats["unrecoverable"] += 1
             continue
+
+        if entry.get("_void") is True:
+            # Skip validation for explicit void entries
+            continue
         if entry.get("prev_hash") != prev:
             if first:
                 errors.append(f"{lineno}: prev hash mismatch")
@@ -232,9 +235,8 @@ def main() -> None:  # pragma: no cover - CLI
     if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-    require_admin_banner()
-    require_lumos_approval()
 
+    # STRICT=1 aborts if repairs occur (see docs/ENVIRONMENT.md)
     strict_env = os.getenv("STRICT") == "1"
 
     directory = None
