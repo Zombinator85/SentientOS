@@ -8,6 +8,7 @@ repos:
         pass_filenames: false
         env:
           LUMOS_AUTO_APPROVE: '1'
+          PYTHONPATH: "."
 
       - id: audit-verify
         name: audit log verify
@@ -16,24 +17,27 @@ repos:
         pass_filenames: false
         env:
           LUMOS_AUTO_APPROVE: '1'
+          PYTHONPATH: "."
 
       - id: mass-checker
         name: privilege banner mass check
         entry: python scripts/ritual_enforcer.py --mode check
         language: system
         pass_filenames: false
+        env:
+          PYTHONPATH: "."
 
       - id: pytest
         name: unit tests
         entry: pytest --cov=sentientos --cov-fail-under=80 -q
         language: python
         pass_filenames: false
+        env:
+          PYTHONPATH: "."
         additional_dependencies:
           - pytest
           - pytest-cov
           - requests
-          - requests_mock
-          - PyYAML
           - mypy
           - types-PyYAML
           - types-requests
@@ -46,7 +50,5 @@ repos:
           - pytest
           - pytest-cov
           - requests
-          - requests_mock
-          - PyYAML
           - types-PyYAML
           - types-requests
