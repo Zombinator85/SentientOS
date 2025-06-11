@@ -280,7 +280,6 @@ def public_feed(n: int = 5) -> List[Dict[str, Any]]:
 CLI_DESC = "Doctrine management and ritual utilities"
 
 def main() -> None:
-    require_admin_banner()
     p = argparse.ArgumentParser(description=CLI_DESC)
     p.add_argument("--watch", action="store_true", help="Watch master files for changes")
     sub = p.add_subparsers(dest="cmd")

@@ -39,7 +39,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar/Artifact Festival AI Animator")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -51,7 +51,6 @@ ANIMATION_MAP = {
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Avatar Emotion-Animation Sync")
     sub = ap.add_subparsers(dest="cmd")
 

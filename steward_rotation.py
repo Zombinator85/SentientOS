@@ -44,7 +44,6 @@ def create_issue(repo: str, token: str, new_steward: str) -> Dict[str, Any]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Create steward rotation issue")
     ap.add_argument("repo", help="owner/repo")
     ap.add_argument("new_steward")

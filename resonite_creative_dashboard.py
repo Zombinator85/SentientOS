@@ -35,7 +35,6 @@ def main() -> None:
     parser.add_argument("action")
     parser.add_argument("mood")
     args = parser.parse_args()
-    require_admin_banner()
     print(json.dumps(log_action(args.user, args.action, args.mood), indent=2))
 
 

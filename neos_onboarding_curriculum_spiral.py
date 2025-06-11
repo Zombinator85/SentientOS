@@ -45,7 +45,6 @@ def list_lessons(user: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Onboarding Curriculum Spiral")
     sub = ap.add_subparsers(dest="cmd")
 

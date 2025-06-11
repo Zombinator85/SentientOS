@@ -76,7 +76,6 @@ def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Onboarding/Festival Ritual Timeline Composer")
     sub = ap.add_subparsers(dest="cmd")
 

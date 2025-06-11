@@ -52,7 +52,6 @@ def main() -> None:  # pragma: no cover - CLI
     hs = sub.add_parser("history", help="Show ring transitions")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "set":
         print(json.dumps(log_transition(args.user, args.ring, "set"), indent=2))
     else:

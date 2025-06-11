@@ -38,7 +38,6 @@ def list_curricula(term: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Ritual Curriculum Builder")
     sub = ap.add_subparsers(dest="cmd")
 

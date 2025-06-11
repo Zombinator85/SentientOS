@@ -61,7 +61,6 @@ def approve_request(index: int) -> Dict[str, str]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar Autonomous Ritual Scheduler")
     sub = ap.add_subparsers(dest="cmd")
 
