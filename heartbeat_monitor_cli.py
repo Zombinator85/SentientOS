@@ -2,10 +2,11 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 from logging_config import get_log_path
 import time
 from pathlib import Path
-from admin_utils import require_admin_banner, require_lumos_approval
 LOG_PATH = get_log_path("user_presence.jsonl")
 
 

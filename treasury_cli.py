@@ -2,11 +2,12 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 import json
 from pathlib import Path
 from sentient_banner import ENTRY_BANNER, print_banner, print_closing
-from admin_utils import require_admin_banner, require_lumos_approval
 import love_treasury as lt
 import treasury_federation as tf
 import treasury_attestation as ta

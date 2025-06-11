@@ -2,9 +2,10 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 import memory_diff_audit as mda
-from admin_utils import require_admin_banner, require_lumos_approval
 def main() -> None:
     parser = argparse.ArgumentParser(description="Compare memory sessions")
     parser.add_argument("session_a")
