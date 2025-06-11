@@ -17,6 +17,12 @@ repos:
         env:
           LUMOS_AUTO_APPROVE: '1'
 
+      - id: mass-checker
+        name: privilege banner mass check
+        entry: python scripts/ritual_enforcer.py --mode check
+        language: system
+        pass_filenames: false
+
       - id: pytest
         name: unit tests
         entry: pytest --cov=sentientos --cov-fail-under=80 -q
