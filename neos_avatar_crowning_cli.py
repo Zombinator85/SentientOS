@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 import argparse
@@ -10,8 +12,6 @@ from pathlib import Path
 import presence_ledger as pl
 import memory_manager as mm
 import neos_bridge as nb
-require_admin_banner()
-require_lumos_approval()
 LOG_PATH = get_log_path("neos_avatar_crowning.jsonl", "NEOS_CROWN_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 AGENTS_PATH = Path("AGENTS.md")
