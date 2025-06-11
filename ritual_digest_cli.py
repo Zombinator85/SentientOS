@@ -1,7 +1,16 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+from logging_config import get_log_path
+import argparse
+import json
+from datetime import datetime, timedelta
+from pathlib import Path
+import presence_pulse_api as pulse
+import ledger
+from admin_utils import require_admin_banner, require_lumos_approval
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -9,22 +18,10 @@ from __future__ import annotations
 # | |    | | |_| | (_| | | | | | (_| |
 # |_|    |_\__,_|\__, |_|_| |_|\__, |
 #                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
+#                 |___/         |___/
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
-from logging_config import get_log_path
-import argparse
-import json
-from datetime import datetime, timedelta
-from pathlib import Path
 
-import presence_pulse_api as pulse
-import ledger
-from admin_utils import require_admin_banner, require_lumos_approval
 
 
 def digest(days: int = 1) -> dict:
@@ -44,7 +41,6 @@ def digest(days: int = 1) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Ritual recap digest")
     ap.add_argument("--days", type=int, default=1)
     ap.add_argument("--out")

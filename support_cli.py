@@ -1,7 +1,14 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
+import argparse
+import json
+import support_log as sl
+import ledger
+from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -9,27 +16,13 @@ from __future__ import annotations
 # | |    | | |_| | (_| | | | | | (_| |
 # |_|    |_\__,_|\__, |_|_| |_|\__, |
 #                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
+#                 |___/         |___/
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
-from admin_utils import require_admin_banner, require_lumos_approval
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
-import argparse
-import json
-import support_log as sl
-import ledger
-from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 def main() -> None:
-    require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     p = argparse.ArgumentParser(
         prog="support",

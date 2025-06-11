@@ -1,9 +1,17 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
-
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+from logging_config import get_log_path, get_log_dir
+import argparse
+import json
+import os
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List
+
 
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
@@ -19,15 +27,7 @@ Example:
     python autonomous_audit.py --report-dir public_reports
 """
 
-from logging_config import get_log_path, get_log_dir
 
-import argparse
-import json
-import os
-import time
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List
 
 LOG_PATH = get_log_path("autonomous_audit.jsonl", "AUTONOMOUS_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

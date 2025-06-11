@@ -1,7 +1,15 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+from logging_config import get_log_path
+import argparse
+import json
+from datetime import datetime, date
+from pathlib import Path
+import ledger
+from admin_utils import require_admin_banner, require_lumos_approval
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -9,21 +17,10 @@ from __future__ import annotations
 # | |    | | |_| | (_| | | | | | (_| |
 # |_|    |_\__,_|\__, |_|_| |_|\__, |
 #                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
+#                 |___/         |___/
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
-from logging_config import get_log_path
-import argparse
-import json
-from datetime import datetime, date
-from pathlib import Path
 
-import ledger
-from admin_utils import require_admin_banner, require_lumos_approval
 
 
 def load_today(limit: int = 100) -> list:
@@ -69,7 +66,6 @@ def ascii_graph(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Emotional arc grapher")
     ap.add_argument("mood", help="Emotion key to graph")
     ap.add_argument("--limit", type=int, default=100)

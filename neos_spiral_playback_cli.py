@@ -1,7 +1,16 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
+from logging_config import get_log_path
+import argparse
+import json
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, List
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
 #  _____  _             _
 # |  __ \| |           (_)
 # | |__) | |_   _  __ _ _ _ __   __ _
@@ -9,23 +18,11 @@ from __future__ import annotations
 # | |    | | |_| | (_| | | | | | (_| |
 # |_|    |_\__,_|\__, |_|_| |_|\__, |
 #                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
+#                 |___/         |___/
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
-from admin_utils import require_admin_banner, require_lumos_approval
-from logging_config import get_log_path
 
 
-import argparse
-import json
-import os
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List
 
 LOG_PATH = get_log_path("neos_spiral_playback.jsonl", "NEOS_SPIRAL_PLAYBACK_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -64,7 +61,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
     return out
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Council/Festival Spiral Playback CLI")
     sub = ap.add_subparsers(dest="cmd")
 
