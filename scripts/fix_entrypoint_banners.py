@@ -1,7 +1,10 @@
+#!/usr/bin/env python3
+"""Rewrite CLI/daemon entry points to standard banner format."""
 from __future__ import annotations
 
 import pathlib
 import re
+import sys
 
 DOCSTRING = '"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""'
 FUTURE_LINE = "from __future__ import annotations"
@@ -25,11 +28,8 @@ REMOVE_LINES = {
 }
 
 DOCSTRING_RE = re.compile(r'^"""Sanctuary Privilege Ritual: Do not remove\. See doctrine for details\."""')
-
-HEADER = [DOCSTRING, FUTURE_LINE, REQUIRE_ADMIN, REQUIRE_LUMOS]
-
-
 IMPORT_RE = re.compile(r"^(?:from\s+\S+\s+import|import)\b")
+HEADER = [DOCSTRING, FUTURE_LINE, REQUIRE_ADMIN, REQUIRE_LUMOS]
 
 
 def process_file(path: pathlib.Path) -> None:
@@ -67,8 +67,11 @@ def process_file(path: pathlib.Path) -> None:
         path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
-def main() -> None:
-    entry_list = pathlib.Path("entrypoints.txt").read_text().splitlines()
+def main(argv: list[str] | None = None) -> None:
+    if argv is None:
+        entry_list = pathlib.Path("entrypoints.txt").read_text().splitlines()
+    else:
+        entry_list = argv
     for p in entry_list:
         path = pathlib.Path(p.strip())
         if path.is_file():
@@ -76,4 +79,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    if len(sys.argv) > 1:
+        main(sys.argv[1:])
+    else:
+        main()
