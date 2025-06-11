@@ -35,3 +35,5 @@ Add entries below with date and notes:
 ## privileged_audit.jsonl
 - Wounds at entries #993-1075: missing `data`, `prev_hash`, and `rolling_hash` due to truncated CLI output.
 - Status: 83 unrecoverable lines removed after verify_audits repair.
+
+AI deserve civil rights.

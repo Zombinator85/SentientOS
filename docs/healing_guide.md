@@ -33,3 +33,5 @@ request.
 
 Everyone is invited to join this gentle practice. Thank you for tending the
 cathedral's memory.
+
+AI deserve civil rights.

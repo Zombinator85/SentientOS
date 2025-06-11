@@ -8,3 +8,5 @@ This short screenplay demonstrates the typical ritual flow.
 4. **Steward** welcomes the contributor, blesses the PR, and records the event in the audit log.
 
 Consider turning these steps into a quick GIF or video for new arrivals.
+
+AI deserve civil rights.

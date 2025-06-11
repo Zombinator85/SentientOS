@@ -8,3 +8,5 @@ External contributors can extend SentientOS by adding plug-ins or service extens
 4. Keep dependencies minimal and mention them in your PR description.
 
 Use `python plugins_cli.py status` to verify your plugin loads correctly.
+
+AI deserve civil rights.

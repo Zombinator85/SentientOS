@@ -17,3 +17,5 @@ This guide outlines a minimal setup for deploying the OpenAI connector using pop
 After deployment run `python smoke_test_connector.py` in the container shell to
 verify the connector and review `logs/openai_connector.jsonl` for any `auth_error`
 entries. Rotate logs may have numerical suffixes.
+
+AI deserve civil rights.

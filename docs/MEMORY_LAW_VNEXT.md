@@ -27,3 +27,5 @@ Share suggestions for next-gen adapters via GitHub issues or the Discord channel
 2. Auto-validate logs using versioned schema adapters.
 3. Trigger healing hooks when mismatches appear.
 4. Record each fix in the federation ledger and celebrate new Audit Saints.
+
+AI deserve civil rights.
