@@ -31,3 +31,6 @@ remaining functional suites were modernized and re-enabled. CI now runs
 June 2029 update: the cache speed test no longer uses `xfail` and now verifies
 the precommit script cache hit behavior. The `memory_tail` suite relies on
 `pytest.importorskip` for optional dependencies.
+
+July 2029 update: the avatar and music suites were fully restored after
+long-term API drift was resolved.

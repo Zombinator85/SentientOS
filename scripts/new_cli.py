@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 from admin_utils import require_admin_banner, require_lumos_approval
-
 import argparse
 from pathlib import Path
 import shutil
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
+
 TEMPLATE = Path(__file__).resolve().parent / "templates" / "cli_skeleton.py"
 
 

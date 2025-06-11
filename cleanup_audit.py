@@ -1,13 +1,14 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import json
 from pathlib import Path
 from typing import List
-
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 
 def cleanup_audit(path: Path) -> tuple[Path, List[int]]:
@@ -48,7 +49,6 @@ def cleanup_directory(directory: Path) -> tuple[dict[str, List[int]], float]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     import argparse
     ap = argparse.ArgumentParser(description="Pre-audit cleanup")
     ap.add_argument("path", help="Log file or directory")
