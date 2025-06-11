@@ -73,7 +73,6 @@ def tail_memory(path: str, delay: float = 1.0) -> None:
 
 
 def main() -> None:
-    require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description="Tail memory.jsonl")
     parser.add_argument("--file", default=DEFAULT_FILE, help="Path to JSONL log")

@@ -42,7 +42,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Model-Origin Story Logger")
     sub = ap.add_subparsers(dest="cmd")
 

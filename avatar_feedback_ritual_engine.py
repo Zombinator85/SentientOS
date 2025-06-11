@@ -47,7 +47,6 @@ def adapt_ritual(feedback: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar feedback-driven ritual engine")

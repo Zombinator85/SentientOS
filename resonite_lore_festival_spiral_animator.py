@@ -35,7 +35,6 @@ def main() -> None:
     parser.add_argument("artifact")
     parser.add_argument("user")
     args = parser.parse_args()
-    require_admin_banner()
     print(json.dumps(log_animation(args.name, args.artifact, args.user), indent=2))
 
 

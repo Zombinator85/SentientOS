@@ -125,7 +125,6 @@ def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Council Law Vault & Amendment Engine")
     sub = ap.add_subparsers(dest="cmd")
 

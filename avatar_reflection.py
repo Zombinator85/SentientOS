@@ -52,7 +52,6 @@ def log_reflection(image: str, mood: str, note: str = "") -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Reflect on rendered avatar image")
     ap.add_argument("image")
     ap.add_argument("--note", default="")

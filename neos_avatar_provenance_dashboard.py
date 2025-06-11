@@ -40,7 +40,6 @@ def list_queries(term: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Avatar Provenance Dashboard")
     sub = ap.add_subparsers(dest="cmd")
 

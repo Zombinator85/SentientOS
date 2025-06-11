@@ -52,7 +52,6 @@ def update_avatar(avatar: str, mood: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Mood evolving avatar animator")

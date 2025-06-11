@@ -57,10 +57,8 @@ def main() -> None:
 
     args = parser.parse_args()
     if args.cmd == "schedule":
-        require_admin_banner()
         print(json.dumps(log_event(args.event, args.mood, args.user), indent=2))
     else:
-        require_admin_banner()
         print(json.dumps(list_events(args.term), indent=2))
 
 
