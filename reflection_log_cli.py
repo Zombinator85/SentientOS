@@ -2,8 +2,9 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
+
+from logging_config import get_log_path
 import argparse
 import datetime
 import os

@@ -27,7 +27,6 @@ def broadcast(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Real-time avatar presence stream")

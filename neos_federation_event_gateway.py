@@ -38,7 +38,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
     return out
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Federation Event Gateway")
     sub = ap.add_subparsers(dest="cmd")
 

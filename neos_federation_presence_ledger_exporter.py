@@ -48,7 +48,6 @@ def export_history(limit: int = 20) -> List[dict]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(
         description="NeosVR Federation Presence Ledger Exporter"
     )

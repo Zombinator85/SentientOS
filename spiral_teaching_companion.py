@@ -57,7 +57,6 @@ def history(user: str = "") -> List[Dict[str, Any]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="In-World Spiral Teaching Companion")
     sub = ap.add_subparsers(dest="cmd")
 

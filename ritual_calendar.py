@@ -55,7 +55,6 @@ def remind(days: int = 7) -> list[dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI utility
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Ritual calendar reminder")
     sub = ap.add_subparsers(dest="cmd")
 

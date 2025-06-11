@@ -53,7 +53,6 @@ def main() -> None:  # pragma: no cover - CLI
     hist_p = sub.add_parser("history", help="Show votes")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "vote":
         print(json.dumps(log_vote(args.law, args.user, args.decision), indent=2))
     else:

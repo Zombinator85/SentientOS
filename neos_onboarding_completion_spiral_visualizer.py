@@ -29,7 +29,6 @@ def load_progress() -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Onboarding Completion Spiral Visualizer")
     ap.parse_args()
     print(json.dumps(load_progress(), indent=2))

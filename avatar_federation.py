@@ -45,7 +45,6 @@ def import_avatar(tar_path: Path, dest: Path, reason: str) -> Path:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Federation avatar exchange")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

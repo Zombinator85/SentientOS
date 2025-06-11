@@ -58,7 +58,6 @@ def history(limit: int = 20) -> List[Dict[str, List[str]]]:
     return out
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Autonomous Artifact Blessing Reconciler")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -95,7 +95,6 @@ def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Federation/Artifact License Broker")
     sub = ap.add_subparsers(dest="cmd")
 

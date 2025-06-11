@@ -45,7 +45,6 @@ def recite(avatar: str, memory: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar storyteller and reciter")

@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import json
 import datetime
 from logging_config import get_log_dir
@@ -11,7 +12,6 @@ from typing import Callable, Dict, List
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 Scan audit logs for schema drift and heal missing fields."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 SCHEMA_VERSION = "1.0"
 

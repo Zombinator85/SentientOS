@@ -54,7 +54,6 @@ def meet(source: str, target: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar cross presence collaboration")

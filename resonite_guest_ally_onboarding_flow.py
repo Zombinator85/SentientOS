@@ -47,7 +47,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Guest/Ally Onboarding Flow")
     sub = ap.add_subparsers(dest="cmd")
 

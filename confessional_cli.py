@@ -2,12 +2,13 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 import json
 import os
 import confessional_log as clog
 import confessional_review as crev
-from admin_utils import require_admin_banner, require_lumos_approval
 def cmd_log(args: argparse.Namespace) -> None:
     entry = clog.log_confession(
         args.subsystem,

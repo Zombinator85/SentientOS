@@ -29,7 +29,6 @@ def playback(fragment: str) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Ritual Memory Playback")
     ap.add_argument("fragment", help="Text to replay in VR")
     args = ap.parse_args()

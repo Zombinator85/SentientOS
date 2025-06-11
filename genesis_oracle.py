@@ -33,7 +33,6 @@ def query_origin(obj: str) -> Dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Genesis Oracle")
     ap.add_argument("--object", required=True)
     args = ap.parse_args()

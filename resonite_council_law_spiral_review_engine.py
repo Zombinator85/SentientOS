@@ -43,7 +43,6 @@ def main() -> None:
     p_vote.add_argument("decision")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "propose":
         print(json.dumps(log_act(args.user, args.text, "proposal"), indent=2))
     else:

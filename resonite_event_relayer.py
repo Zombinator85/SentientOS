@@ -53,7 +53,6 @@ def main() -> None:  # pragma: no cover - CLI
     hs = sub.add_parser("history", help="Show events")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "broadcast":
         print(json.dumps(log_event(args.event, args.world, args.user), indent=2))
     else:

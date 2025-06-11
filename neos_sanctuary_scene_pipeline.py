@@ -34,7 +34,6 @@ def generate_scene(mood: str, blessing: str) -> Dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Sanctuary Scene Pipeline")
     ap.add_argument("mood")
     ap.add_argument("blessing")

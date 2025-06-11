@@ -55,7 +55,6 @@ def main() -> None:  # pragma: no cover - CLI
     hs = sub.add_parser("history", help="Show scan history")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "scan":
         print(json.dumps(log_scan(args.artifact, args.origin, args.blessed, args.user), indent=2))
     else:

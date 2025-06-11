@@ -52,7 +52,6 @@ def set_pose(avatar: str, pose: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar ritual pose engine")

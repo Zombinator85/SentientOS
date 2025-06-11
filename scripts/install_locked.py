@@ -16,6 +16,7 @@ def main(argv: list[str] | None = None) -> None:
         print(f"lock file not found: {lock}", file=sys.stderr)
         sys.exit(1)
 
+    # the `CI` environment variable is set on most continuous integration systems
     if not os.environ.get("CI"):
         print(f"Installing from {lock.name}; this helper is mostly for CI.")
 

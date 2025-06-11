@@ -44,7 +44,6 @@ def retire_avatar(path: Path, archive: Path, mood: str = "", reason: str = "") -
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Retire avatar")
     ap.add_argument("avatar")
     ap.add_argument("archive")
