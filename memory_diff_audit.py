@@ -2,14 +2,14 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 import json
 from pathlib import Path
 from difflib import SequenceMatcher
 import csv
 from datetime import datetime
-from admin_utils import require_admin_banner, require_lumos_approval
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 def load_entries(path: str) -> list[dict]:
     p = Path(path)
     entries: list[dict] = []
