@@ -229,7 +229,8 @@ Internal benchmarks typically score **0.96+** on a scale from 0 to 1. Low scores
 Audit summaries are published in [docs/AUDIT_LEDGER.md](docs/AUDIT_LEDGER.md).
 Run `python verify_audits.py` to check that the immutable logs listed in
 `config/master_files.json` remain valid. You can also pass a directory to
-`verify_audits.py` or `cleanup_audit.py` to process many logs at once. Results
+`verify_audits.py`, `cleanup_audit.py`, or `scripts/audit_repair.py` to process
+many logs at once. `audit_repair.py` heals mismatched rolling hashes. Results
 include a percentage of valid files so reviewers know when systemwide action is
 needed.
 
