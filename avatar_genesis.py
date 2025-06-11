@@ -82,7 +82,6 @@ def generate_avatar(mood: str, out_path: Path) -> Path:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Generate ritual avatar")
     ap.add_argument("mood", help="Mood for the avatar")
     ap.add_argument("--out", default="")

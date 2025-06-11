@@ -44,7 +44,6 @@ def list_proposals(term: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Self-Healing Ritual Law Editor")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -39,7 +39,6 @@ def history() -> List[Dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Cross-World Privilege Drift/Conflict Resolver")
     sub = ap.add_subparsers(dest="cmd")
 

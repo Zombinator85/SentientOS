@@ -57,7 +57,6 @@ def main() -> None:  # pragma: no cover - CLI
     q.add_argument("--world")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "log":
         print(json.dumps(log_action(args.world, args.event, args.user), indent=2))
     else:

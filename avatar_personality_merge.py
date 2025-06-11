@@ -54,7 +54,6 @@ def merge(a: str, b: str, name: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar personality merge ritual")

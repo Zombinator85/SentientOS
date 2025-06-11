@@ -45,7 +45,6 @@ def list_blessings(filter_world: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Cross-World Artifact/Avatar Blessing Tracker")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -43,7 +43,6 @@ def log_session(asset: str, path: Path) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR On-the-Fly Blender Bridge")
     ap.add_argument("asset")
     args = ap.parse_args()

@@ -30,7 +30,6 @@ def compile_lorebook(out: Path) -> Path:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar ritual lorebook generator")

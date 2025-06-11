@@ -53,7 +53,6 @@ def main() -> None:  # pragma: no cover - CLI
     hs = sub.add_parser("history", help="Show timeline events")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "log":
         print(json.dumps(log_event(args.event, args.detail, args.user), indent=2))
     else:

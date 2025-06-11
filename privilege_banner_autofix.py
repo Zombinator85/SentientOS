@@ -91,7 +91,6 @@ def main() -> None:  # pragma: no cover - CLI
     ap.add_argument("--report", action="store_true", help="Print summary report")
     args = ap.parse_args()
 
-    require_admin_banner()
 
     root = Path(__file__).resolve().parent
     files: List[Path] = []

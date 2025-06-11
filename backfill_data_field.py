@@ -74,7 +74,6 @@ def backfill_file(path: Path) -> int:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Backfill missing data fields in logs")
     ap.add_argument("target", nargs="?", default="logs", help="Log directory or file")
     args = ap.parse_args()

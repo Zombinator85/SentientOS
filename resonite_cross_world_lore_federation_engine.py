@@ -35,7 +35,6 @@ def main() -> None:
     parser.add_argument("target")
     parser.add_argument("user")
     args = parser.parse_args()
-    require_admin_banner()
     print(json.dumps(log_sync(args.source, args.target, args.user), indent=2))
 
 

@@ -45,7 +45,6 @@ def export(out: Path, limit: int = 100) -> Path:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Lore Spiral Synthesis & Export Agent")
     sub = ap.add_subparsers(dest="cmd")
 

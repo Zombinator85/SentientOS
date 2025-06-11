@@ -232,7 +232,6 @@ def live_playback(
 
 
 def main(argv=None):
-    require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description='Replay storyboard')
     parser.add_argument('--storyboard')

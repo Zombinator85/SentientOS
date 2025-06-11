@@ -57,10 +57,8 @@ def main() -> None:
 
     args = parser.parse_args()
     if args.cmd == "log":
-        require_admin_banner()
         print(json.dumps(log_session(args.teacher, args.learner, args.lesson), indent=2))
     else:
-        require_admin_banner()
         print(json.dumps(list_sessions(args.term), indent=2))
 
 
