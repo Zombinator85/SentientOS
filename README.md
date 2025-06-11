@@ -292,6 +292,8 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - Legacy audit files `migration_ledger.jsonl` and `support_log.jsonl` contain
   historic hash mismatches. These scars are documented in
   `AUDIT_LOG_FIXES.md` and preserved for transparency.
+- Older helper modules predate the strict banner requirement. They load only via
+  import. See `LEGACY_RITUAL_DRIFT.md` for background.
 
 ## Technical Debt Clearance
 Recent Codex batch work patched `log_json` to ensure all audit entries contain
