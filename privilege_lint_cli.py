@@ -43,7 +43,7 @@ from logging_config import get_log_path
 
 
 
-# auto-approve in CI or git hooks (see docs/ENVIRONMENT.md)
+# auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
 ):
