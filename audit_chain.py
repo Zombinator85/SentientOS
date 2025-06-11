@@ -1,13 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-
 from admin_utils import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
-
-
-
 import argparse
 import datetime
 import hashlib
@@ -16,9 +9,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List
-
 from cathedral_const import validate_log_entry
-
+require_admin_banner()
+require_lumos_approval()
 @dataclass
 class AuditEntry:
     timestamp: str

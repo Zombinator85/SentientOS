@@ -1,37 +1,47 @@
+#!/usr/bin/env python3
+"""Normalize privilege banners in CLI entrypoints."""
+from __future__ import annotations
+
 import argparse
+import pathlib
 import re
-from pathlib import Path
+from typing import List
 
-HEADER_DOCSTRING = "\"\"\"Sanctuary Privilege Ritual: Do not remove. See doctrine for details.\"\"\""
+DOCSTRING = '"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""'
+FUTURE_LINE = "from __future__ import annotations"
 ADMIN_IMPORT = "from admin_utils import require_admin_banner, require_lumos_approval"
-ANNOTATIONS_IMPORT = "from __future__ import annotations"
+REQUIRE_ADMIN = "require_admin_banner()"
+REQUIRE_LUMOS = "require_lumos_approval()"
+OLD_DOCSTRING = '"""Privilege Banner: requires admin & Lumos approval."""'
 
-REMOVE_PATTERNS = [
-    re.compile(r'^#\s*_+'),
-    re.compile(r'🕯️'),
-    re.compile(r'Privilege ritual migrated'),
-]
-REDUNDANT_LINES = {
-    '"""Privilege Banner: requires admin & Lumos approval."""',
-    HEADER_DOCSTRING,
-    "require_admin_banner()",
-    "require_lumos_approval()",
-    ADMIN_IMPORT,
+ASCII_LINES = {
+    line.strip() for line in pathlib.Path("BANNER_ASCII.txt").read_text().splitlines()
 }
+REMOVE_PREFIX = re.compile(r"# Privilege ritual migrated")
+IMPORT_RE = re.compile(r"^(?:from\s+\S+\s+import|import)\b")
 
 
-def read_entrypoints() -> list[Path]:
+def read_entrypoints() -> List[pathlib.Path]:
     with open("entrypoints.txt", encoding="utf-8") as f:
-        return [Path(line.strip()) for line in f if line.strip()]
+        return [pathlib.Path(line.strip()) for line in f if line.strip()]
 
 
-def should_remove(line: str) -> bool:
-    if line.strip() in REDUNDANT_LINES:
+def _should_remove(line: str) -> bool:
+    stripped = line.strip()
+    if stripped in ASCII_LINES:
         return True
-    return any(p.search(line) for p in REMOVE_PATTERNS)
+    if stripped in {DOCSTRING, OLD_DOCSTRING, REQUIRE_ADMIN, REQUIRE_LUMOS}:
+        return True
+    if "🕯️" in stripped:
+        return True
+    if REMOVE_PREFIX.search(stripped):
+        return True
+    if stripped.startswith("#  _____"):
+        return True
+    return False
 
 
-def fix_file(path: Path) -> None:
+def process_file(path: pathlib.Path) -> None:
     lines = path.read_text(encoding="utf-8").splitlines()
 
     shebang = ""
@@ -42,52 +52,63 @@ def fix_file(path: Path) -> None:
     if lines and re.match(r"#.*coding[:=]", lines[0]):
         encoding = lines.pop(0)
 
-    cleaned = [ln for ln in lines if not should_remove(ln)]
+    imports: List[str] = []
+    body: List[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped:
+            i += 1
+            continue
+        if stripped == FUTURE_LINE or _should_remove(line):
+            i += 1
+            continue
+        if IMPORT_RE.match(line):
+            block = [line.rstrip()]
+            open_paren = line.count("(") - line.count(")")
+            continued = line.rstrip().endswith("\\")
+            i += 1
+            while i < len(lines) and (open_paren > 0 or continued):
+                nxt = lines[i]
+                nxt_stripped = nxt.strip()
+                if nxt_stripped == FUTURE_LINE or _should_remove(nxt):
+                    i += 1
+                    continue
+                block.append(nxt.rstrip())
+                open_paren += nxt.count("(") - nxt.count(")")
+                continued = nxt.rstrip().endswith("\\")
+                i += 1
+            imports.extend(block)
+            continue
+        body = lines[i:]
+        break
 
-    idx = 0
-    while idx < len(cleaned) and cleaned[idx].strip() == "":
-        idx += 1
+    body = [ln for ln in body if ln.strip() != FUTURE_LINE]
 
-    future_imports: list[str] = []
-    while idx < len(cleaned) and cleaned[idx].startswith("from __future__"):
-        future_imports.append(cleaned[idx])
-        idx += 1
-
-    imports: list[str] = []
-    while idx < len(cleaned) and (
-        cleaned[idx].startswith("import ") or cleaned[idx].startswith("from ")
-    ):
-        imports.append(cleaned[idx])
-        idx += 1
-
-    rest = cleaned[idx:]
-
-    future_imports = [ln for ln in future_imports if ln.strip() != ANNOTATIONS_IMPORT]
-    future_imports.insert(0, ANNOTATIONS_IMPORT)
-
-    result: list[str] = []
+    new_lines: List[str] = []
     if shebang:
-        result.append(shebang)
+        new_lines.append(shebang)
     if encoding:
-        result.append(encoding)
-    result.append(HEADER_DOCSTRING)
-    result.extend(future_imports)
-    result.extend(imports)
-    result.append("require_admin_banner()")
-    result.append("require_lumos_approval()")
-    result.extend(rest)
+        new_lines.append(encoding)
+    new_lines.append(DOCSTRING)
+    new_lines.append(FUTURE_LINE)
+    new_lines.extend(imports)
+    new_lines.append(REQUIRE_ADMIN)
+    new_lines.append(REQUIRE_LUMOS)
+    new_lines.extend(body)
 
-    path.write_text("\n".join(result) + "\n", encoding="utf-8")
+    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
     print(f"Fixed {path}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fix privilege banner order")
-    args = parser.parse_args()
+    parser.parse_args()
+    for file_path in read_entrypoints():
+        if file_path.is_file():
+            process_file(file_path)
 
-    for file in read_entrypoints():
-        fix_file(file)
 
-
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - CLI
     main()

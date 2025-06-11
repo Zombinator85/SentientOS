@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 from logging_config import get_log_path
 from datetime import datetime
 import json
@@ -9,9 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 from admin_utils import require_admin_banner, require_lumos_approval
-
-
-
+require_admin_banner()
+require_lumos_approval()
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 LOG_PATH = get_log_path("avatar_dreams.jsonl")

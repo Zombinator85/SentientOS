@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 import argparse
@@ -10,10 +8,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-
-
-
-
+require_admin_banner()
+require_lumos_approval()
 VOTE_LOG = get_log_path("neos_festival_law_votes.jsonl", "NEOS_FESTIVAL_LAW_VOTE_LOG")
 VOTE_LOG.parent.mkdir(parents=True, exist_ok=True)
 
