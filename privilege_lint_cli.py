@@ -38,6 +38,12 @@ from privilege_lint.plugins import load_plugins
 
 from logging_config import get_log_path
 
+# auto-approve in CI or git hooks
+if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
+    os.getenv("CI") or os.getenv("GIT_HOOKS")
+):
+    os.environ["LUMOS_AUTO_APPROVE"] = "1"
+
 DEFAULT_BANNER_ASCII = [
     "#  _____  _             _",
     "# |  __ \\| |           (_)",
