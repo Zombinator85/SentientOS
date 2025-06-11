@@ -2,7 +2,7 @@ import tempfile
 import wave
 from importlib import reload
 
-import emotion_utils as eu
+import sentientos.emotion_utils as eu
 
 
 def create_silence(path: str) -> None:

@@ -2,7 +2,7 @@ import importlib
 import json
 from pathlib import Path
 
-import game_bridge as gb
+import sentientos.game_bridge as gb
 
 
 def test_logging(tmp_path, monkeypatch):

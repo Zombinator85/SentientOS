@@ -1,6 +1,6 @@
 import json
 import time
-from feedback import FeedbackManager, FeedbackRule
+from sentientos.feedback import FeedbackManager, FeedbackRule
 
 
 def test_rule_trigger(tmp_path):
@@ -43,7 +43,6 @@ def test_load_rules_with_check(tmp_path, monkeypatch):
     cfg = tmp_path / 'rules.json'
     cfg.write_text(json.dumps([{'emotion': 'Joy', 'threshold': 0.5, 'action': 'rec', 'check_func': 'mod:check'}]))
     import sys
-    sys.path.insert(0, str(tmp_path))
     fm = FeedbackManager()
     trig = {}
     fm.register_action('rec', lambda r,u,v: trig.setdefault('hit', True))

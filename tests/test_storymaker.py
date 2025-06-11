@@ -6,11 +6,10 @@ import datetime as dt
 import time
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import storymaker
-import tts_bridge
-import replay
+import sentientos.storymaker as storymaker
+import sentientos.tts_bridge as tts_bridge
+import sentientos.replay as replay
 
 
 def test_storymaker_dry_run(tmp_path, monkeypatch):

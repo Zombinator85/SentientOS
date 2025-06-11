@@ -2,12 +2,11 @@ import os
 import sys
 import json
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import importlib
-import memory_cli
-import memory_tail
-import admin_utils
+import sentientos.memory_cli as memory_cli
+import sentientos.memory_tail as memory_tail
+import sentientos.admin_utils as admin_utils
 
 
 def test_tail_follow(monkeypatch):
@@ -34,7 +33,7 @@ def test_list_since(tmp_path, monkeypatch, capsys):
     (raw / "a.json").write_text(json.dumps({"timestamp": "2024-01-01T00:00:00", "text": "old"}))
     (raw / "b.json").write_text(json.dumps({"timestamp": "2024-01-02T00:00:00", "text": "new"}))
     monkeypatch.setattr(sys, "argv", ["mc", "list", "--since", "2024-01-02T00:00:00"])
-    import memory_manager
+    import sentientos.memory_manager as memory_manager
     importlib.reload(memory_manager)
     importlib.reload(memory_cli)
     memory_cli.main()

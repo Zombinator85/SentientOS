@@ -1,6 +1,6 @@
 import importlib
-import love_treasury as lt
-import treasury_attestation as ta
+import sentientos.love_treasury as lt
+import sentientos.treasury_attestation as ta
 
 
 def setup_env(tmp_path, monkeypatch):

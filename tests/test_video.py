@@ -4,11 +4,10 @@ import sys
 from pathlib import Path
 import pytest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import ledger
-import presence_ledger as pl
-import admin_utils
+import sentientos.ledger as ledger
+import sentientos.presence_ledger as pl
+import sentientos.admin_utils as admin_utils
 
 
 def test_log_video_event(monkeypatch):
@@ -44,7 +43,7 @@ def test_video_cli_create(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(sys, "argv", [
         "video_cli.py", "create", str(video), "Clip", "--prompt", "hi", "--emotion", "Joy=1.0"
     ])
-    import video_cli
+    import sentientos.video_cli as video_cli
     import importlib
     importlib.reload(video_cli)
     video_cli.main()
@@ -79,7 +78,7 @@ def test_video_cli_share(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr("builtins.input", lambda prompt="": "Joy=1.0")
     monkeypatch.setattr(sys, "argv", ["video_cli.py", "play", str(video), "--share", "ally"])
-    import video_cli
+    import sentientos.video_cli as video_cli
     import importlib
     importlib.reload(video_cli)
     video_cli.main()

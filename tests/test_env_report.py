@@ -1,4 +1,4 @@
-from privilege_lint.env import report
+from sentientos.privilege_lint.env import report
 
 
 def test_env_report_smoke():

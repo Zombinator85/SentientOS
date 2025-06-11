@@ -3,8 +3,8 @@ import time
 
 def test_on_demand_trigger(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    import reflex_manager as rm
-    import memory_manager as mm
+    import sentientos.reflex_manager as rm
+    import sentientos.memory_manager as mm
     from api import actuator
     importlib.reload(mm)
     importlib.reload(actuator)
@@ -29,16 +29,16 @@ def test_on_demand_trigger(tmp_path, monkeypatch):
 def test_load_rules(tmp_path):
     cfg = tmp_path / "r.json"
     cfg.write_text("[{\"trigger\":\"on_demand\",\"actions\":[{\"type\":\"shell\",\"cmd\":\"e\"}]}]")
-    import reflex_manager as rm
+    import sentientos.reflex_manager as rm
     rules = rm.load_rules(str(cfg))
     assert rules and isinstance(rules[0].trigger, rm.OnDemandTrigger)
 
 
 def test_apply_analytics(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    import reflex_manager as rm
-    import workflow_controller as wc
-    import workflow_analytics as wa
+    import sentientos.reflex_manager as rm
+    import sentientos.workflow_controller as wc
+    import sentientos.workflow_analytics as wa
     importlib.reload(rm)
     importlib.reload(wc)
     importlib.reload(wa)
@@ -58,14 +58,14 @@ def test_apply_analytics(tmp_path, monkeypatch):
 
 def test_audit_attribution_and_policy(tmp_path, monkeypatch):
     monkeypatch.setenv("REFLEX_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
-    import reflex_manager as rm
+    import sentientos.reflex_manager as rm
     import importlib
 
     importlib.reload(rm)
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [], name="multi")
     mgr = rm.ReflexManager()
     mgr.add_rule(rule)
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     mgr.promote_rule("multi", by="alice", persona="P", policy="pol1", reviewer="bob")
     entries = mgr.get_audit("multi", agent="alice")

@@ -2,9 +2,9 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
-import policy_engine as pe
+import sentientos.policy_engine as pe
 
 
 def make_cfg(tmp_path, text):
@@ -42,7 +42,7 @@ def test_rollback(tmp_path):
     engine = pe.PolicyEngine(str(cfg))
     new = tmp_path / 'new.yml'
     new.write_text('{"policies":[{"id":"b"}]}')
-    import final_approval
+    import sentientos.final_approval as final_approval
     final_approval.request_approval = lambda d: True
     engine.apply_policy(str(new))
     assert engine.policies[0]['id'] == 'b'

@@ -4,9 +4,8 @@ import sys
 import os
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import neos_lorebook_writer as nlw
+import sentientos.neos_lorebook_writer as nlw
 
 
 def setup_logs(tmp_path):

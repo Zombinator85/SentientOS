@@ -3,9 +3,8 @@ import sys
 from importlib import reload
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import privilege_lint as pl
+import sentientos.privilege_lint as pl
 
 
 def test_audit_use(tmp_path, monkeypatch):

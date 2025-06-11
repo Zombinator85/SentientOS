@@ -1,7 +1,7 @@
 import importlib
 from pathlib import Path
 
-import avatar_federation as af
+import sentientos.avatar_federation as af
 
 
 def test_export_and_import(tmp_path, monkeypatch):

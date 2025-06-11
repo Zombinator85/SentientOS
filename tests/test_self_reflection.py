@@ -1,12 +1,11 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import memory_manager as mm
-import notification
-import self_patcher
+import sentientos.memory_manager as mm
+import sentientos.notification as notification
+import sentientos.self_patcher as self_patcher
 from api import actuator
-import self_reflection
+import sentientos.self_reflection as self_reflection
 from importlib import reload
 import pytest
 
@@ -46,8 +45,8 @@ def test_reflection_on_system_control(tmp_path, monkeypatch):
     pol = tmp_path / "pol.yml"
     pol.write_text('{"policies":[{"conditions":{"event":"input.type_text"},"actions":[{"type":"deny"}]}]}')
     import importlib
-    import policy_engine as pe
-    import input_controller as ic
+    import sentientos.policy_engine as pe
+    import sentientos.input_controller as ic
     importlib.reload(pe)
     importlib.reload(ic)
     engine = pe.PolicyEngine(str(pol))

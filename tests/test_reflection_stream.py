@@ -1,12 +1,11 @@
 import os
 import sys
 import importlib
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import memory_manager as mm
-import reflection_stream as rs
-import plugin_framework as pf
-import health_monitor as hm
+import sentientos.memory_manager as mm
+import sentientos.reflection_stream as rs
+import sentientos.plugin_framework as pf
+import sentientos.health_monitor as hm
 
 
 def setup_env(tmp_path, monkeypatch):

@@ -1,6 +1,6 @@
 import json
-import verify_audits as va
-import audit_immutability as ai
+import sentientos.verify_audits as va
+import sentientos.audit_immutability as ai
 from pathlib import Path
 
 

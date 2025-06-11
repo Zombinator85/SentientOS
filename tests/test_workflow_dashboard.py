@@ -2,19 +2,18 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
 import json
 import importlib
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import workflow_library as wl
-import workflow_controller as wc
-import workflow_review as wr
-import self_reflection as sr
+import sentientos.workflow_library as wl
+import sentientos.workflow_controller as wc
+import sentientos.workflow_review as wr
+import sentientos.self_reflection as sr
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -23,18 +22,17 @@ def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("WORKFLOW_LIBRARY", str(tmp_path / "lib"))
     for mod in (wl, wc, wr, sr):
         importlib.reload(mod)
-    import notification
+    import sentientos.notification as notification
     importlib.reload(notification)
     wl.LIB_DIR.mkdir(exist_ok=True)
     wr.REVIEW_DIR.mkdir(exist_ok=True)
-    sys.path.insert(0, str(wl.LIB_DIR))
 
 
 def test_suggest_and_dashboard_cli(tmp_path, monkeypatch, capsys):
     setup_env(tmp_path, monkeypatch)
     tpl = wl.LIB_DIR / "reset_workspace.json"
     tpl.write_text(json.dumps({"name": "reset_workspace", "steps": []}))
-    import workflow_dashboard as wd
+    import sentientos.workflow_dashboard as wd
     importlib.reload(wd)
     wd.st = None
     wd.pd = None
@@ -76,7 +74,7 @@ def undo():
 
 def test_record_feedback(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
-    import workflow_dashboard as wd
+    import sentientos.workflow_dashboard as wd
     importlib.reload(wd)
     wd.record_feedback("demo", True)
     log = (tmp_path / "mem" / "events.jsonl").read_text()

@@ -5,13 +5,12 @@ import sys
 from importlib import reload
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import pytest
 
 import json
-import autonomous_audit as aa
-import ritual
+import sentientos.autonomous_audit as aa
+import sentientos.ritual as ritual
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -19,7 +18,7 @@ def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("AUTONOMOUS_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
     global actuator, rm
     import api.actuator as actuator
-    import reflex_manager as rm
+    import sentientos.reflex_manager as rm
     reload(aa)
     reload(actuator)
     reload(rm)

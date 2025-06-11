@@ -1,11 +1,10 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import prompt_assembler as pa
-import user_profile as up
-import memory_manager as mm
+import sentientos.prompt_assembler as pa
+import sentientos.user_profile as up
+import sentientos.memory_manager as mm
 
 
 def test_assemble_prompt_includes_profile_and_memory(tmp_path, monkeypatch):

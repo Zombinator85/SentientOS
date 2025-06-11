@@ -1,9 +1,9 @@
 import importlib
 import json
 
-import reflex_manager as rm
-import reflection_stream as rs
-import workflow_controller as wc
+import sentientos.reflex_manager as rm
+import sentientos.reflection_stream as rs
+import sentientos.workflow_controller as wc
 
 
 def test_reflex_proposal_logging(tmp_path, monkeypatch):
@@ -27,7 +27,7 @@ def test_workflow_agent_logging(tmp_path, monkeypatch):
 
 def test_review_comment(tmp_path, monkeypatch):
     monkeypatch.setenv("WORKFLOW_REVIEW_DIR", str(tmp_path))
-    import workflow_review as wr
+    import sentientos.workflow_review as wr
     importlib.reload(wr)
     wr.flag_for_review("demo", "a", "b")
     wr.comment_review("demo", "alice", "looks good")

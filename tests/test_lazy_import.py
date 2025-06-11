@@ -1,7 +1,6 @@
 import warnings
 import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from privilege_lint._compat import safe_import
+from sentientos.privilege_lint._compat import safe_import
 
 
 def test_safe_import_stub():

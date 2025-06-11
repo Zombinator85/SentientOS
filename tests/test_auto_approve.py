@@ -2,9 +2,8 @@ import os
 import sys
 from importlib import reload
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import scripts.auto_approve as aa
+import sentientos.scripts.auto_approve as aa
 
 
 def test_prompt_yes_no_interactive(monkeypatch):

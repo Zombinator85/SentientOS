@@ -2,11 +2,10 @@ import os
 import sys
 import json
 import datetime
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import memory_manager as mm
-import notification
-import presence_analytics as pa
+import sentientos.memory_manager as mm
+import sentientos.notification as notification
+import sentientos.presence_analytics as pa
 
 
 def create_entry(ts: str, emotions: dict | None = None, tags=None, text=""):

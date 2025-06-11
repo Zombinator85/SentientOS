@@ -1,11 +1,10 @@
 import os
 import sys
 import importlib
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import ledger_cli
-import sentient_banner as sb
-import ledger
-import admin_utils
+import sentientos.ledger_cli as ledger_cli
+import sentientos.sentient_banner as sb
+import sentientos.ledger as ledger
+import sentientos.admin_utils as admin_utils
 import pytest
 
 

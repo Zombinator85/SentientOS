@@ -2,13 +2,12 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import trust_engine as te
+import sentientos.trust_engine as te
 
 
 def test_log_and_explain(tmp_path, monkeypatch):
@@ -29,7 +28,7 @@ def test_policy_triggers_gesture(tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     from importlib import reload
     reload(te)
-    import policy_engine as pe
+    import sentientos.policy_engine as pe
     reload(pe)
 
     # Save a policy for the trust engine

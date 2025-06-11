@@ -3,9 +3,8 @@ import sys
 import json
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from scripts import audit_blesser
+from sentientos.scripts import audit_blesser
 
 class DummyCP:
     stdout = "prev hash mismatch"

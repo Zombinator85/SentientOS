@@ -6,7 +6,6 @@ import types
 from pathlib import Path
 import pytest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Provide a minimal admin_utils stub for all tests
 @pytest.fixture(autouse=True)
@@ -42,8 +41,8 @@ def test_cross_presence_meet(tmp_path, monkeypatch):
     src.write_text("data")
     dest = tmp_path / "dest"
     dest.mkdir()
-    import avatar_cross_presence_collab as acc
-    import federation_trust_protocol as ftp
+    import sentientos.avatar_cross_presence_collab as acc
+    import sentientos.federation_trust_protocol as ftp
     importlib.reload(acc)
     importlib.reload(ftp)
     monkeypatch.setattr(acc, "LOG_PATH", log)
@@ -59,7 +58,7 @@ def test_dream_daemon_run(tmp_path, monkeypatch):
     log = tmp_path / "dream.jsonl"
     dream_dir = tmp_path / "dreams"
     monkeypatch.setenv("AVATAR_DREAM_DIR", str(dream_dir))
-    import avatar_dream_daemon as add
+    import sentientos.avatar_dream_daemon as add
     importlib.reload(add)
     monkeypatch.setattr(add, "LOG_PATH", log)
     add.run_once("moon")
@@ -84,7 +83,7 @@ class DummyBpy(types.ModuleType):
 def test_mood_animator_with_bpy(tmp_path, monkeypatch):
     log = tmp_path / "anim.jsonl"
     monkeypatch.setitem(sys.modules, "bpy", DummyBpy("bpy"))
-    import avatar_mood_animator as ama
+    import sentientos.avatar_mood_animator as ama
     importlib.reload(ama)
     monkeypatch.setattr(ama, "LOG_PATH", log)
     src = tmp_path / "a.blend"
@@ -103,7 +102,7 @@ def test_personality_merge(tmp_path, monkeypatch):
     ]
     mem_log.write_text("\n".join(json.dumps(e) for e in entries))
     monkeypatch.setenv("AVATAR_MEMORY_LINK_LOG", str(mem_log))
-    import avatar_personality_merge as apm
+    import sentientos.avatar_personality_merge as apm
     importlib.reload(apm)
     monkeypatch.setattr(apm, "LOG_PATH", merge_log)
     apm.merge("a", "b", "c")
@@ -117,7 +116,7 @@ def test_avatar_storyteller(tmp_path, monkeypatch):
     called = {}
     dummy = types.SimpleNamespace(speak=lambda *a, **k: called.setdefault("ok", True))
     monkeypatch.setitem(sys.modules, "tts_bridge", dummy)
-    import avatar_storyteller as ast
+    import sentientos.avatar_storyteller as ast
     importlib.reload(ast)
     monkeypatch.setattr(ast, "LOG_PATH", log)
     ast.recite("ava", "hello!")

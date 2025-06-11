@@ -4,9 +4,9 @@ import sys
 from pathlib import Path
 import pytest
 
-import admin_utils
+import sentientos.admin_utils as admin_utils
 
-import avatar_artifact_gallery as aag
+import sentientos.avatar_artifact_gallery as aag
 
 
 def _mute_admin_banner():

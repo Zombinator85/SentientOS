@@ -2,17 +2,16 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
 import importlib
 import json
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import admin_utils
-import presence_ledger as pl
+import sentientos.admin_utils as admin_utils
+import sentientos.presence_ledger as pl
 
 
 def test_resonite_beacon_cli(tmp_path, monkeypatch, capsys):
@@ -21,7 +20,7 @@ def test_resonite_beacon_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("RESONITE_BEACON_LOG", str(beacon))
     monkeypatch.setenv("USER_PRESENCE_LOG", str(presence))
 
-    import resonite_cathedral_launch_beacon_broadcaster as rcl
+    import sentientos.resonite_cathedral_launch_beacon_broadcaster as rcl
     importlib.reload(pl)
     importlib.reload(rcl)
 

@@ -2,9 +2,8 @@ import asyncio
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import telegram_bot as tb
+import sentientos.telegram_bot as tb
 
 
 class DummyMsg:

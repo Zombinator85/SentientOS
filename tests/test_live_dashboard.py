@@ -2,7 +2,7 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import json
 import os
@@ -10,11 +10,10 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import storymaker
-import replay
-import tts_bridge
+import sentientos.storymaker as storymaker
+import sentientos.replay as replay
+import sentientos.tts_bridge as tts_bridge
 
 
 def test_live_capture(tmp_path, monkeypatch):

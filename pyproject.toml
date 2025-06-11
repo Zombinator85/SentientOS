@@ -68,7 +68,7 @@ plint-env = "scripts.plint_env:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["sentientos", "api"]
+include = ["sentientos", "api", "scripts", "privilege_lint"]
 
 [tool.mypy]
 python_version = "3.11"

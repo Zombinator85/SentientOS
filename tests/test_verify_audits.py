@@ -2,10 +2,9 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import audit_immutability as ai
-import verify_audits as va
+import sentientos.audit_immutability as ai
+import sentientos.verify_audits as va
 
 
 def test_verify_valid_log(tmp_path: Path) -> None:

@@ -3,9 +3,8 @@ import sys
 import json
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import ocr_log_html_report as rep
+import sentientos.ocr_log_html_report as rep
 
 
 def test_generate_html_report(tmp_path):

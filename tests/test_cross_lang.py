@@ -6,12 +6,11 @@ import pytest
 
 pytestmark = [pytest.mark.requires_node, pytest.mark.requires_go]
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from privilege_lint import LintConfig, PrivilegeLinter
-from privilege_lint.js_rules import validate_js
-from privilege_lint.go_rules import validate_go
-from privilege_lint._compat import RuleSkippedError
+from sentientos.privilege_lint import LintConfig, PrivilegeLinter
+from sentientos.privilege_lint.js_rules import validate_js
+from sentientos.privilege_lint.go_rules import validate_go
+from sentientos.privilege_lint._compat import RuleSkippedError
 
 
 def test_js_eval(tmp_path: Path) -> None:

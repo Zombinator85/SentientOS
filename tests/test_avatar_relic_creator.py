@@ -4,17 +4,16 @@ from pathlib import Path
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import avatar_relic_creator as arc
+import sentientos.avatar_relic_creator as arc
 
 
 def test_extract_records_memory(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "mem"))
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     importlib.reload(mm)
     importlib.reload(arc)
-    import avatar_artifact_gallery as aag
+    import sentientos.avatar_artifact_gallery as aag
     importlib.reload(aag)
 
     relic_log = tmp_path / "relics.jsonl"
@@ -36,7 +35,7 @@ def test_log_path_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("AVATAR_RELIC_LOG", str(tmp_path / "custom.jsonl"))
     monkeypatch.setenv("LUMOS_AUTO_APPROVE", "1")
     import importlib
-    import avatar_relic_creator as arc
+    import sentientos.avatar_relic_creator as arc
     importlib.reload(arc)
 
     arc.log_relic("ava", "token", {"fragments": []})

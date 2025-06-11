@@ -1,14 +1,13 @@
 import sys, os
 from importlib import reload
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def test_multimodal_vision_only(tmp_path, monkeypatch):
     """Test vision-only mode: logs correct structure and no faces/audio by default."""
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
     monkeypatch.setenv("MULTIMODAL_LOG", str(tmp_path / "multi.jsonl"))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    import multimodal_tracker as mt
+    import sentientos.multimodal_tracker as mt
     reload(mt)
     tracker = mt.MultiModalEmotionTracker(enable_voice=False, camera_index=None, output_dir=str(tmp_path))
     result = tracker.process_once(None)
@@ -31,7 +30,7 @@ def test_multimodal_voice_only(tmp_path, monkeypatch):
         def recognize_from_mic(save_audio: bool = True):
             return {"emotions": {"Joy": 1.0}}
     monkeypatch.setitem(sys.modules, "mic_bridge", FakeMic)
-    import multimodal_tracker as mt
+    import sentientos.multimodal_tracker as mt
     reload(mt)
     tracker = mt.MultiModalEmotionTracker(enable_vision=False, enable_voice=True, camera_index=None, output_dir=str(tmp_path))
     result = tracker.process_once(None)
@@ -55,7 +54,7 @@ def test_multimodal_both_sources(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "mic_bridge", FakeMic)
 
     # Patch vision tracker for a fake face/emotion
-    import multimodal_tracker as mt
+    import sentientos.multimodal_tracker as mt
     reload(mt)
     class FakeVision:
         def process_frame(self, frame):
@@ -74,7 +73,7 @@ def test_multimodal_headless(tmp_path, monkeypatch):
     monkeypatch.setenv("MULTI_LOG_DIR", str(tmp_path))
     monkeypatch.setitem(sys.modules, "mic_bridge", None)
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    import multimodal_tracker as mt
+    import sentientos.multimodal_tracker as mt
     reload(mt)
     tracker = mt.MultiModalEmotionTracker(enable_vision=False, enable_voice=False, camera_index=None, output_dir=str(tmp_path))
     result = tracker.process_once(None)

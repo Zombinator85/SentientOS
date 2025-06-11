@@ -1,5 +1,5 @@
 import os
-from logging_config import get_log_dir, get_log_path, LOG_DIR_ENV
+from sentientos.logging_config import get_log_dir, get_log_path, LOG_DIR_ENV
 
 
 def test_get_log_dir_default(tmp_path, monkeypatch):

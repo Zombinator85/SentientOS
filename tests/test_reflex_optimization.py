@@ -3,10 +3,9 @@ import sys
 import json
 import importlib
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import reflex_manager as rm
-import reflection_stream as rs
+import sentientos.reflex_manager as rm
+import sentientos.reflection_stream as rs
 
 
 def test_ab_autopromotion(tmp_path, monkeypatch):
@@ -37,7 +36,7 @@ def test_manual_promotion(tmp_path, monkeypatch):
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [], name="X")
     mgr = rm.ReflexManager()
     mgr.add_rule(rule)
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     mgr.promote_rule("X", by="alice")
     assert rule.status == "preferred"
@@ -48,8 +47,8 @@ def test_manual_promotion(tmp_path, monkeypatch):
 def test_dashboard_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     (tmp_path / "exp.json").write_text(json.dumps({"exp": {"rules": {}}}))
-    import reflex_dashboard as rd
-    import reflex_manager as rm
+    import sentientos.reflex_dashboard as rd
+    import sentientos.reflex_manager as rm
     importlib.reload(rm)
     importlib.reload(rd)
     rd.st = None
@@ -62,8 +61,8 @@ def test_dashboard_cli(tmp_path, monkeypatch, capsys):
 def test_trial_autopromotion_and_demote(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     monkeypatch.setenv("REFLECTION_DIR", str(tmp_path / "logs"))
-    import reflex_manager as rm
-    import reflection_stream as rs
+    import sentientos.reflex_manager as rm
+    import sentientos.reflection_stream as rs
     from api import actuator
     import importlib
     importlib.reload(rs)
@@ -84,7 +83,7 @@ def test_trial_autopromotion_and_demote(tmp_path, monkeypatch, capsys):
     rule.execute()
     assert rule.status == "inactive"
 
-    import reflex_dashboard as rd
+    import sentientos.reflex_dashboard as rd
     importlib.reload(rd)
     rd.st = None
     monkeypatch.setattr(sys, "argv", ["rd", "--history", "T"])
@@ -96,8 +95,8 @@ def test_trial_autopromotion_and_demote(tmp_path, monkeypatch, capsys):
 def test_cli_demote(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     (tmp_path / "exp.json").write_text(json.dumps({"exp": {"rules": {}}}))
-    import reflex_dashboard as rd
-    import reflex_manager as rm
+    import sentientos.reflex_dashboard as rd
+    import sentientos.reflex_manager as rm
     importlib.reload(rm)
     importlib.reload(rd)
     rd.st = None
@@ -123,7 +122,7 @@ def test_annotation_and_audit(tmp_path, monkeypatch):
     mgr.annotate("ann", "check", tags=["needs review"], by="bob")
     audit = mgr.get_audit("ann")
     assert audit and audit[-1]["action"] == "annotate"
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     mgr.promote_rule("ann", by="bob")
     mgr.revert_rule("ann")
@@ -135,7 +134,7 @@ def test_workflow_reflex_audit_link(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     monkeypatch.setenv("REFLEX_AUDIT_LOG", str(tmp_path / "audit.jsonl"))
-    import workflow_controller as wc
+    import sentientos.workflow_controller as wc
     importlib.reload(wc)
     importlib.reload(rm)
     from api import actuator
@@ -157,8 +156,8 @@ def test_workflow_reflex_audit_link(tmp_path, monkeypatch):
 def test_workflow_triggered_trials(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLEX_EXPERIMENTS", str(tmp_path / "exp.json"))
     monkeypatch.setenv("REFLECTION_DIR", str(tmp_path / "logs"))
-    import reflex_manager as rm
-    import workflow_controller as wc
+    import sentientos.reflex_manager as rm
+    import sentientos.workflow_controller as wc
     from api import actuator
     import importlib
 
@@ -184,7 +183,7 @@ def test_workflow_triggered_trials(tmp_path, monkeypatch, capsys):
     wc.run_workflow("demo_reflex")
     assert steps[0].get("reflex_status") == "inactive"
 
-    import reflex_dashboard as rd
+    import sentientos.reflex_dashboard as rd
     importlib.reload(rd)
     rd.st = None
     monkeypatch.setattr(sys, "argv", ["rd", "--list-experiments"])

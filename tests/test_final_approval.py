@@ -5,9 +5,8 @@ import os
 import sys
 
 # ensure project root is on path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import final_approval as fa
+import sentientos.final_approval as fa
 
 
 def reload_with(tmp_path, monkeypatch, env=None, file_chain=None):
@@ -76,10 +75,10 @@ def test_cli_override(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("FOUR_O_APPROVE", "false")
     monkeypatch.setenv("ALICE_APPROVE", "true")
     import importlib
-    import final_approval
+    import sentientos.final_approval as final_approval
     importlib.reload(final_approval)
-    import memory_cli as mc
-    import self_patcher
+    import sentientos.memory_cli as mc
+    import sentientos.self_patcher as self_patcher
     p = self_patcher.apply_patch("note", auto=False)
     import sys
     monkeypatch.setattr(sys, "argv", ["mc", "--final-approvers", "alice", "approve_patch", p["id"]])

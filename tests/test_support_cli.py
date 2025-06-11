@@ -2,16 +2,15 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
 import importlib
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import support_cli
+import sentientos.support_cli as support_cli
 import pytest
-import support_log
-import sentient_banner as sb
+import sentientos.support_log as support_log
+import sentientos.sentient_banner as sb
 
 
 def test_support_bless(monkeypatch, capsys):

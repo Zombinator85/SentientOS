@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 
-import avatar_genesis as ag
+import sentientos.avatar_genesis as ag
 
 
 class DummyBpy(types.ModuleType):

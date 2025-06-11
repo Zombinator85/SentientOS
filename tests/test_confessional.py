@@ -3,12 +3,11 @@ import sys
 import importlib
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import confessional_log as clog
-import confessional_review as crev
-import confessional_cli
-import forgiveness_ledger as fledge
+import sentientos.confessional_log as clog
+import sentientos.confessional_review as crev
+import sentientos.confessional_cli as confessional_cli
+import sentientos.forgiveness_ledger as fledge
 
 
 def test_log_and_tail(tmp_path, monkeypatch):

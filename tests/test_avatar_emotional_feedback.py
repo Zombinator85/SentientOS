@@ -1,7 +1,7 @@
 import importlib
 from pathlib import Path
 
-import avatar_emotional_feedback as aef
+import sentientos.avatar_emotional_feedback as aef
 
 
 def test_log_and_trend(tmp_path, monkeypatch):

@@ -1,11 +1,11 @@
 import importlib
 import json
 
-import workflow_controller as wc
-import workflow_analytics as wa
-import workflow_recommendation as rec
-import workflow_library as wl
-import review_requests as rr
+import sentientos.workflow_controller as wc
+import sentientos.workflow_analytics as wa
+import sentientos.workflow_recommendation as rec
+import sentientos.workflow_library as wl
+import sentientos.review_requests as rr
 
 
 def setup_env(tmp_path, monkeypatch):

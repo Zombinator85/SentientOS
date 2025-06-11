@@ -3,9 +3,8 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import federation_trust_protocol as ftp
+import sentientos.federation_trust_protocol as ftp
 
 
 def setup_env(tmp_path, monkeypatch):

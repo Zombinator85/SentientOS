@@ -1,11 +1,10 @@
-from logging_config import get_log_path
+from sentientos.logging_config import get_log_path
 import os
 import sys
 import json
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import presence_ledger as pl
+import sentientos.presence_ledger as pl
 import importlib
 
 

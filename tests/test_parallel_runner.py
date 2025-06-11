@@ -1,10 +1,9 @@
 import os, sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import privilege_lint as pl
-from privilege_lint.runner import parallel_validate
+import sentientos.privilege_lint as pl
+from sentientos.privilege_lint.runner import parallel_validate
 
 
 def test_parallel_matches_serial(tmp_path: Path) -> None:

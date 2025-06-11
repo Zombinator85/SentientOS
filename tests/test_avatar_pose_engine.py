@@ -2,7 +2,7 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import importlib
 import importlib
@@ -11,7 +11,7 @@ import types
 import json
 from pathlib import Path
 
-import avatar_pose_engine as ape
+import sentientos.avatar_pose_engine as ape
 
 
 class DummyBpy(types.ModuleType):

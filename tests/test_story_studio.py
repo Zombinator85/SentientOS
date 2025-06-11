@@ -3,10 +3,9 @@ import sys
 import os
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import story_studio
-import replay
+import sentientos.story_studio as story_studio
+import sentientos.replay as replay
 
 
 def test_load_and_save(tmp_path):

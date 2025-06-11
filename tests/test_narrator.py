@@ -3,9 +3,8 @@ import sys
 import json
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import narrator
+import sentientos.narrator as narrator
 
 
 def test_narrator_dry_run(tmp_path, monkeypatch, capsys):

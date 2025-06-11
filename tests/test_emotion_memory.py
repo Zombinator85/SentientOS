@@ -1,4 +1,4 @@
-import emotion_memory as em
+import sentientos.emotion_memory as em
 
 def test_average_emotion():
     em.clear()

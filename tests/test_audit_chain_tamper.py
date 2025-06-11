@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import pytest
-import audit_immutability as ai
+import sentientos.audit_immutability as ai
 
 
 def test_append_rejects_tampered_chain(tmp_path: Path) -> None:

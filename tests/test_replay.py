@@ -4,9 +4,8 @@ import json
 import time
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import replay
+import sentientos.replay as replay
 
 
 def test_replay_cli(tmp_path, capsys, monkeypatch):

@@ -1,12 +1,12 @@
 import importlib
 import os
 from pathlib import Path
-from admin_utils import require_admin_banner
+from sentientos.admin_utils import require_admin_banner
 
 
 def test_autofix(tmp_path, monkeypatch):
     monkeypatch.setenv("PRIVILEGE_AUDIT_LOG", str(tmp_path / "log.jsonl"))
-    import privilege_banner_autofix as pba
+    import sentientos.privilege_banner_autofix as pba
     importlib.reload(pba)
     target = tmp_path / "tool_cli.py"
     target.write_text("import os\nprint('hi')\n", encoding="utf-8")

@@ -4,7 +4,7 @@ import types
 import json
 from pathlib import Path
 
-import avatar_presence_pulse_animation as apa
+import sentientos.avatar_presence_pulse_animation as apa
 
 
 class DummyTk(types.ModuleType):

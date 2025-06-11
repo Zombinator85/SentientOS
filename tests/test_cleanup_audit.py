@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-import audit_immutability as ai
-import cleanup_audit as ca
+import sentientos.audit_immutability as ai
+import sentientos.cleanup_audit as ca
 
 
 def test_cleanup_directory(tmp_path: Path) -> None:

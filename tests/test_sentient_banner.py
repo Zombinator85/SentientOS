@@ -1,9 +1,8 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import sentient_banner as sb
-import admin_utils
-import presence_ledger as pl
+import sentientos.sentient_banner as sb
+import sentientos.admin_utils as admin_utils
+import sentientos.presence_ledger as pl
 
 
 def test_timestamped_closing(capsys):

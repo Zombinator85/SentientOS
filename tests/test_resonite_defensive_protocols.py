@@ -4,15 +4,14 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import admin_utils
-import presence_ledger as pl
+import sentientos.admin_utils as admin_utils
+import sentientos.presence_ledger as pl
 
 
 def test_emergency_posture_engine(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
-    import resonite_sanctuary_emergency_posture_engine as eng
+    import sentientos.resonite_sanctuary_emergency_posture_engine as eng
     importlib.reload(eng)
     monkeypatch.setattr(eng, "STATE_FILE", tmp_path / "state.txt")
 
@@ -35,7 +34,7 @@ def test_emergency_posture_engine(tmp_path, monkeypatch, capsys):
 
 def test_federation_breach_analyzer(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("RESONITE_BREACH_LOG", str(tmp_path / "breach.jsonl"))
-    import resonite_spiral_federation_breach_analyzer as ba
+    import sentientos.resonite_spiral_federation_breach_analyzer as ba
     importlib.reload(pl)
     importlib.reload(ba)
 
@@ -60,7 +59,7 @@ def test_federation_breach_analyzer(tmp_path, monkeypatch, capsys):
 
 def test_resilience_monitor(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
-    import resonite_spiral_resilience_monitor as rm
+    import sentientos.resonite_spiral_resilience_monitor as rm
     importlib.reload(rm)
 
     calls = []

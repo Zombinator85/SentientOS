@@ -1,15 +1,14 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import self_patcher
-import notification
+import sentientos.self_patcher as self_patcher
+import sentientos.notification as notification
 
 
 def test_apply_and_rollback(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import notification
+    import sentientos.notification as notification
     reload(notification)
     reload(self_patcher)
     p = self_patcher.apply_patch("note", auto=False)
@@ -22,7 +21,7 @@ def test_apply_and_rollback(tmp_path, monkeypatch):
         if patch["id"] == p["id"]:
             assert patch["rolled_back"]
 
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     assert self_patcher.approve_patch(p["id"])
     patches = self_patcher.list_patches()
@@ -35,7 +34,7 @@ def test_apply_and_rollback(tmp_path, monkeypatch):
 def test_reject_patch(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import notification
+    import sentientos.notification as notification
     reload(notification)
     reload(self_patcher)
     p = self_patcher.apply_patch("note", auto=False)
@@ -49,11 +48,11 @@ def test_reject_patch(tmp_path, monkeypatch):
 def test_patch_requires_approval(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import notification
+    import sentientos.notification as notification
     reload(notification)
     reload(self_patcher)
     p = self_patcher.apply_patch("note", auto=False)
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: False)
     assert not self_patcher.approve_patch(p["id"])
     patches = self_patcher.list_patches()

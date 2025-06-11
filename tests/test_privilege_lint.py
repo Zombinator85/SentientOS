@@ -1,6 +1,5 @@
 import os, sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import privilege_lint as pl
+import sentientos.privilege_lint as pl
 from pathlib import Path
 
 

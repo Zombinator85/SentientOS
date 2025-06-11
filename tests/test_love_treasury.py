@@ -1,7 +1,7 @@
 import importlib
 import os
 
-import love_treasury as lt
+import sentientos.love_treasury as lt
 
 
 def setup_env(tmp_path, monkeypatch):

@@ -1,9 +1,8 @@
 import os, sys, json
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from privilege_lint.data_rules import validate_json, validate_csv
+from sentientos.privilege_lint.data_rules import validate_json, validate_csv
 
 
 def test_json_fix(tmp_path: Path) -> None:

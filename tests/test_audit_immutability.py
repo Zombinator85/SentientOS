@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-import audit_immutability as ai
+import sentientos.audit_immutability as ai
 
 
 def test_append_and_verify(tmp_path):

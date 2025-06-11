@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-import avatar_mood_evolution as ame
+import sentientos.avatar_mood_evolution as ame
 
 
 def test_mood_stats(tmp_path, monkeypatch):

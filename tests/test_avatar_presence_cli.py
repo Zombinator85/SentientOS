@@ -2,12 +2,12 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import importlib
 from pathlib import Path
 
-import avatar_presence_cli as ap
+import sentientos.avatar_presence_cli as ap
 
 
 def test_log_invocation(tmp_path, monkeypatch, capsys):

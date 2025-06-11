@@ -1,14 +1,13 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import json
 from importlib import reload
 import pytest
 from pathlib import Path
 
-import admin_utils
+import sentientos.admin_utils as admin_utils
 
-import epu
+import sentientos.epu as epu
 
 
 def test_eeg_emulator(tmp_path, monkeypatch):
@@ -16,7 +15,7 @@ def test_eeg_emulator(tmp_path, monkeypatch):
     feat_log = tmp_path / "feat.jsonl"
     monkeypatch.setenv("EEG_LOG", str(eeg_log))
     monkeypatch.setenv("EEG_FEATURE_LOG", str(feat_log))
-    import eeg_emulator
+    import sentientos.eeg_emulator as eeg_emulator
     monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     reload(eeg_emulator)
     eeg_emulator.run(duration=0.1, interval=0.05)
@@ -30,8 +29,8 @@ def test_haptics_and_bio(tmp_path, monkeypatch):
     b_log = tmp_path / "b.jsonl"
     monkeypatch.setenv("HAPTIC_LOG", str(h_log))
     monkeypatch.setenv("BIO_LOG", str(b_log))
-    import haptics_bridge
-    import bio_bridge
+    import sentientos.haptics_bridge as haptics_bridge
+    import sentientos.bio_bridge as bio_bridge
     monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     reload(haptics_bridge)
     reload(bio_bridge)
@@ -52,7 +51,7 @@ def test_relay_extra_endpoints(tmp_path, monkeypatch):
     mood_log.write_text(json.dumps({"timestamp": 0, "mood": {"Joy": 1}}) + "\n")
     monkeypatch.setenv("EPU_MOOD_LOG", str(mood_log))
     monkeypatch.setenv("RELAY_SECRET", "secret123")
-    import epu
+    import sentientos.epu as epu
     epu.MOOD_LOG = mood_log
     client = setup_app(tmp_path, monkeypatch)
     resp = client.post("/mood")

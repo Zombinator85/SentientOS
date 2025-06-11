@@ -2,15 +2,14 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 import os
 import sys
 
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def test_memory_cli_import():
-    import memory_cli
+    import sentientos.memory_cli as memory_cli
 
     assert hasattr(memory_cli, "main")

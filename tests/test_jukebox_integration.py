@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 
-import jukebox_integration as ji
+import sentientos.jukebox_integration as ji
 
 
 async def fake_run(self, prompt, style, output):

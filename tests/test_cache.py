@@ -1,10 +1,9 @@
 import os, sys
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from privilege_lint.cache import LintCache
-from privilege_lint.config import LintConfig
-import privilege_lint as pl
+from sentientos.privilege_lint.cache import LintCache
+from sentientos.privilege_lint.config import LintConfig
+import sentientos.privilege_lint as pl
 
 
 def test_cache_hit(tmp_path: Path) -> None:

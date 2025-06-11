@@ -2,10 +2,10 @@ import os
 import importlib
 import json
 
-import workflow_controller as wc
-import workflow_analytics as wa
-import workflow_recommendation as rec
-import workflow_library as wl
+import sentientos.workflow_controller as wc
+import sentientos.workflow_analytics as wa
+import sentientos.workflow_recommendation as rec
+import sentientos.workflow_library as wl
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -41,7 +41,7 @@ def test_usage_and_recommend(tmp_path, monkeypatch):
 def test_ai_edit(tmp_path, monkeypatch):
     path = tmp_path / "wf.json"
     path.write_text(json.dumps({"name": "demo", "steps": [{"name": "b"}, {"name": "a"}]}))
-    import workflow_editor as we
+    import sentientos.workflow_editor as we
     importlib.reload(we)
     data = we.load_file(path)
     new, expl = we.ai_suggest_edits(data)

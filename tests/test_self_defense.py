@@ -2,7 +2,7 @@ import importlib
 import os
 from pathlib import Path
 
-import self_defense as sd
+import sentientos.self_defense as sd
 
 
 def setup_env(tmp_path, monkeypatch):

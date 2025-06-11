@@ -6,10 +6,9 @@ import pytest
 from importlib import reload
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import openai_connector
-from flask_stub import Request
+import sentientos.openai_connector as openai_connector
+from sentientos.flask_stub import Request
 
 
 def setup_app(tmp_path, monkeypatch):

@@ -1,5 +1,5 @@
 import importlib
-import admin_utils
+import sentientos.admin_utils as admin_utils
 import sentientos.__main__ as sm
 
 

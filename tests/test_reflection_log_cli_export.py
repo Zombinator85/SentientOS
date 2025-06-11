@@ -3,9 +3,8 @@ import os
 from importlib import reload
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import reflection_log_cli as rlc
+import sentientos.reflection_log_cli as rlc
 
 
 def test_export_day(tmp_path, monkeypatch):

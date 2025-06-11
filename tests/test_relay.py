@@ -2,9 +2,8 @@ import os
 import sys
 from importlib import reload
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import relay_app
+import sentientos.relay_app as relay_app
 import time
 
 

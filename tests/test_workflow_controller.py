@@ -3,18 +3,17 @@ import sys
 import importlib
 import json
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 wc = None
 
 
 def setup(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     importlib.reload(mm)
     global wc
     if wc is None:
-        import workflow_controller as _wc
+        import sentientos.workflow_controller as _wc
         wc = _wc
     importlib.reload(wc)
 
@@ -57,7 +56,7 @@ def test_workflow_policy_denied(tmp_path, monkeypatch):
     setup(tmp_path, monkeypatch)
     pol = tmp_path / "pol.yml"
     pol.write_text('{"policies":[{"conditions":{"event":"workflow.demo.step2"},"actions":[{"type":"deny"}]}]}')
-    import policy_engine as pe
+    import sentientos.policy_engine as pe
     importlib.reload(pe)
     engine = pe.PolicyEngine(str(pol))
     steps = [
@@ -74,7 +73,7 @@ def test_workflow_policy_logging(tmp_path, monkeypatch):
     setup(tmp_path, monkeypatch)
     pol = tmp_path / "pol.yml"
     pol.write_text('{"policies":[{"conditions":{"event":"workflow.demo.step1"},"actions":[{"type":"deny"}]}]}')
-    import policy_engine as pe
+    import sentientos.policy_engine as pe
     importlib.reload(pe)
     engine = pe.PolicyEngine(str(pol))
     steps = [
@@ -115,7 +114,6 @@ def undo(path):
 """,
         encoding="utf-8",
     )
-    sys.path.insert(0, str(tmp_path))
     wf = tmp_path / "wf.json"
     wf.write_text(
         (

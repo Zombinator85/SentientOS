@@ -1,9 +1,8 @@
 import os, sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import privilege_lint as pl
+import sentientos.privilege_lint as pl
 
 
 def _mk_file(tmp_path: Path, text: str) -> Path:

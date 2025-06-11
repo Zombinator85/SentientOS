@@ -2,15 +2,14 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
 import importlib
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import admin_utils
+import sentientos.admin_utils as admin_utils
 
 
 def test_avatar_autonomous_scheduler_cli(tmp_path, monkeypatch):
@@ -19,7 +18,7 @@ def test_avatar_autonomous_scheduler_cli(tmp_path, monkeypatch):
     monkeypatch.setenv("AVATAR_RITUAL_REQUEST_LOG", str(req))
     monkeypatch.setenv("AVATAR_RITUAL_APPROVAL_LOG", str(apv))
 
-    import avatar_autonomous_ritual_scheduler as ars
+    import sentientos.avatar_autonomous_ritual_scheduler as ars
     importlib.reload(ars)
 
     calls = []

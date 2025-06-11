@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def test_learning_tuning(tmp_path, monkeypatch):
@@ -9,7 +8,7 @@ def test_learning_tuning(tmp_path, monkeypatch):
     monkeypatch.setenv("REFLEX_TUNING_LOG", str(tmp_path / "t.jsonl"))
     import importlib, feedback
     importlib.reload(feedback)
-    from feedback import FeedbackManager, FeedbackRule
+    from sentientos.feedback import FeedbackManager, FeedbackRule
 
     fm = FeedbackManager(learning=True)
     fm.register_action("noop", lambda r, u, v: None)

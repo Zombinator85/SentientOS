@@ -2,10 +2,9 @@ import os
 import sys
 import pytest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import input_controller as ic
-import ui_controller as uc
+import sentientos.input_controller as ic
+import sentientos.ui_controller as uc
 
 
 def setup(tmp_path, monkeypatch):
@@ -54,7 +53,7 @@ def test_policy_denied(tmp_path, monkeypatch):
     pol = tmp_path / "pol.yml"
     pol.write_text('{"policies":[{"conditions":{"event":"input.type_text"},"actions":[{"type":"deny"}]}]}')
     import importlib
-    import policy_engine as pe
+    import sentientos.policy_engine as pe
     importlib.reload(pe)
     engine = pe.PolicyEngine(str(pol))
     controller = ic.InputController(policy_engine=engine)

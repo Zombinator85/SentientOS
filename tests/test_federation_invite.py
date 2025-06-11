@@ -3,13 +3,12 @@ import json
 import importlib
 from pathlib import Path
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-import treasury_federation as tf
-import federation_log as fl
-import ledger
+import sentientos.treasury_federation as tf
+import sentientos.federation_log as fl
+import sentientos.ledger as ledger
 import pytest
 
-import sentient_banner as sb
+import sentientos.sentient_banner as sb
 
 
 def test_invite(tmp_path, monkeypatch):

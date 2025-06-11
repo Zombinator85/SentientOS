@@ -2,7 +2,7 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 """Tests for the review CLI utilities."""
 
@@ -13,11 +13,10 @@ import os
 import sys
 
 os.environ.setdefault("SENTIENTOS_HEADLESS", "1")
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from review_cli import annotate, suggest_edit, resolve_comment, set_status
+from sentientos.review_cli import annotate, suggest_edit, resolve_comment, set_status
 import importlib
-import user_profile as up
+import sentientos.user_profile as up
 
 
 def test_annotation(tmp_path):

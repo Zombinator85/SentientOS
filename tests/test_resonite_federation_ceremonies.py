@@ -3,14 +3,13 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import admin_utils
+import sentientos.admin_utils as admin_utils
 
 
 def test_handshake_auditor_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
-    import resonite_federation_handshake_auditor as hsa
+    import sentientos.resonite_federation_handshake_auditor as hsa
     importlib.reload(hsa)
 
     calls = []
@@ -33,7 +32,7 @@ def test_handshake_auditor_cli(tmp_path, monkeypatch, capsys):
 def test_handshake_verifier_cli(tmp_path, monkeypatch, capsys):
     log_path = tmp_path / "verify.jsonl"
     monkeypatch.setenv("RESONITE_HANDSHAKE_VERIFIER_LOG", str(log_path))
-    import resonite_federation_handshake_verifier as hsv
+    import sentientos.resonite_federation_handshake_verifier as hsv
     importlib.reload(hsv)
 
     calls = []

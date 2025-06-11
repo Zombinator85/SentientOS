@@ -2,16 +2,15 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
 import importlib
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import pytest
 
-import treasury_federation as tf
-import sentient_banner as sb
+import sentientos.treasury_federation as tf
+import sentientos.sentient_banner as sb
 
 
 def test_cli_invite(monkeypatch, capsys):
@@ -50,7 +49,7 @@ def test_cli_invite(monkeypatch, capsys):
         "Ada",
         "--affirm",
     ])
-    import federation_cli
+    import sentientos.federation_cli as federation_cli
     importlib.reload(federation_cli)
     federation_cli.main()
     out = capsys.readouterr().out
@@ -64,7 +63,7 @@ def test_cli_ledger_summary(monkeypatch):
     monkeypatch.setattr(sb, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
     monkeypatch.setattr(sb, "print_closing_recap", lambda: calls.__setitem__("recap", calls["recap"] + 1))
     monkeypatch.setattr(sys, "argv", ["fed", "--ledger-summary"])
-    import federation_cli
+    import sentientos.federation_cli as federation_cli
     importlib.reload(federation_cli)
     federation_cli.main()
     assert calls["snap"] >= 2 and calls["recap"] == 1

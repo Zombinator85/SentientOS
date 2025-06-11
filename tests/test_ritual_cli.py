@@ -2,7 +2,7 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
@@ -11,9 +11,9 @@ import threading
 import importlib
 from pathlib import Path
 
-import ritual
-import doctrine
-import ledger
+import sentientos.ritual as ritual
+import sentientos.doctrine as doctrine
+import sentientos.ledger as ledger
 
 
 def setup_env(tmp_path, monkeypatch):

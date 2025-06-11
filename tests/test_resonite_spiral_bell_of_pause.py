@@ -3,16 +3,15 @@ import json
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import admin_utils
+import sentientos.admin_utils as admin_utils
 
 
 def test_bell_of_pause_cli(tmp_path, monkeypatch, capsys):
     bell_log = tmp_path / "bell.jsonl"
     monkeypatch.setenv("RESONITE_BELL_PAUSE_LOG", str(bell_log))
 
-    import resonite_spiral_bell_of_pause as rbp
+    import sentientos.resonite_spiral_bell_of_pause as rbp
     importlib.reload(rbp)
 
     calls = []

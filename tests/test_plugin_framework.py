@@ -2,7 +2,6 @@ import os
 import sys
 import importlib
 import pytest
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def setup_env(tmp_path, monkeypatch, headless=True):
@@ -12,8 +11,8 @@ def setup_env(tmp_path, monkeypatch, headless=True):
         monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     else:
         monkeypatch.delenv("SENTIENTOS_HEADLESS", raising=False)
-    import trust_engine as te
-    import plugin_framework as pf
+    import sentientos.trust_engine as te
+    import sentientos.plugin_framework as pf
     importlib.reload(te)
     importlib.reload(pf)
     pf.load_plugins()
@@ -62,8 +61,8 @@ def test_plugin_self_heal(tmp_path, monkeypatch):
     monkeypatch.setenv("GP_PLUGINS_DIR", str(plugins_dir))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import importlib
-    import plugin_framework as pf
-    import trust_engine as te
+    import sentientos.plugin_framework as pf
+    import sentientos.trust_engine as te
     importlib.reload(pf)
     importlib.reload(te)
     pf.load_plugins()
@@ -86,8 +85,8 @@ def test_plugin_proposal_flow(tmp_path, monkeypatch):
     monkeypatch.setenv("GP_PLUGINS_DIR", str(plugins_dir))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import importlib
-    import plugin_framework as pf
-    import trust_engine as te
+    import sentientos.plugin_framework as pf
+    import sentientos.trust_engine as te
     importlib.reload(pf)
     importlib.reload(te)
     pf.propose_plugin('sample', str(sample), user='model')

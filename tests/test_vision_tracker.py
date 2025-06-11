@@ -5,12 +5,12 @@ def test_tracker_process_frame(tmp_path, monkeypatch):
     log = tmp_path / "vision.jsonl"
     monkeypatch.setenv("VISION_LOG", str(log))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    import vision_tracker as vt
+    import sentientos.vision_tracker as vt
     reload(vt)
 
     # Try to attach FeedbackManager if available
     try:
-        from feedback import FeedbackManager, FeedbackRule
+        from sentientos.feedback import FeedbackManager, FeedbackRule
         fm = FeedbackManager()
         fm.register_action('rec', lambda r, u, v: None)
         fm.add_rule(FeedbackRule(emotion='happy', threshold=0.5, action='rec'))
@@ -31,12 +31,12 @@ def test_update_voice_sentiment(tmp_path, monkeypatch):
     log = tmp_path / "vision.jsonl"
     monkeypatch.setenv("VISION_LOG", str(log))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    import vision_tracker as vt
+    import sentientos.vision_tracker as vt
     reload(vt)
 
     # Optional feedback
     try:
-        from feedback import FeedbackManager, FeedbackRule
+        from sentientos.feedback import FeedbackManager, FeedbackRule
         fm = FeedbackManager()
         fm.register_action('rec', lambda r, u, v: None)
         fm.add_rule(FeedbackRule(emotion='happy', threshold=0.5, action='rec'))

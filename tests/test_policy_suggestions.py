@@ -1,10 +1,10 @@
 import importlib
 import json
 
-import review_requests as rr
+import sentientos.review_requests as rr
 import pytest
 
-import admin_utils
+import sentientos.admin_utils as admin_utils
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -43,7 +43,7 @@ def test_vote_promote(tmp_path, monkeypatch):
 def test_cli_explain(tmp_path, monkeypatch, capsys):
     setup_env(tmp_path, monkeypatch)
     sid = rr.log_policy_suggestion("workflow", "demo", "x", "why")
-    import suggestion_cli as sc
+    import sentientos.suggestion_cli as sc
     monkeypatch.setattr(
         sc.sys, "argv", ["sc", "explain", sid], raising=False
     )
@@ -55,7 +55,7 @@ def test_cli_explain(tmp_path, monkeypatch, capsys):
 def test_chained_and_provenance(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     sid = rr.log_policy_suggestion("workflow", "demo", "x", "why", agent="alice")
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: True)
     rr.implement_request(sid)
     rr.comment_request(sid, "bob", "fail again")
@@ -69,7 +69,7 @@ def test_chained_and_provenance(tmp_path, monkeypatch):
 def test_implement_requires_approval(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
     sid = rr.log_policy_suggestion("workflow", "demo", "x", "why")
-    import final_approval
+    import sentientos.final_approval as final_approval
     monkeypatch.setattr(final_approval, "request_approval", lambda d: False)
     assert not rr.implement_request(sid)
     info = rr.get_request(sid)

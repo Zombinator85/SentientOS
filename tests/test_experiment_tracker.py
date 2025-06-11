@@ -3,9 +3,8 @@ import sys
 import importlib
 import json
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import experiment_tracker as et
+import sentientos.experiment_tracker as et
 
 
 def setup_env(tmp_path, monkeypatch):

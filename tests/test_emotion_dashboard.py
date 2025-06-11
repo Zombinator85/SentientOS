@@ -2,7 +2,7 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import json
 from importlib import reload
@@ -10,7 +10,6 @@ import os
 import sys
 import pytest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def test_load_and_query(tmp_path):
     log = tmp_path / "vision.jsonl"
@@ -21,7 +20,7 @@ def test_load_and_query(tmp_path):
     ]
     log.write_text("\n".join(json.dumps(e) for e in entries))
 
-    import emotion_dashboard as ed
+    import sentientos.emotion_dashboard as ed
     reload(ed)
     
     # Test log loader (should parse timeline, skip empty faces entry for id 1)
@@ -41,7 +40,7 @@ def test_load_log_basic(tmp_path):
     # For backward compatibility with older loader
     log = tmp_path / 'vision.jsonl'
     log.write_text(json.dumps({'faces': []}) + '\n')
-    import emotion_dashboard as ed
+    import sentientos.emotion_dashboard as ed
     reload(ed)
     data = ed.load_logs(str(log))
     # Should return dict, but empty (no IDs)

@@ -1,9 +1,8 @@
 import os, sys
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import privilege_lint as pl
-from privilege_lint.config import LintConfig
+import sentientos.privilege_lint as pl
+from sentientos.privilege_lint.config import LintConfig
 
 
 def test_google_style(tmp_path: Path) -> None:

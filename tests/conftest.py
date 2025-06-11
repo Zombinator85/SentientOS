@@ -18,7 +18,7 @@ except Exception as exc:
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
+from sentientos.privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
 
 
 sys.modules['requests'] = types.ModuleType('requests')

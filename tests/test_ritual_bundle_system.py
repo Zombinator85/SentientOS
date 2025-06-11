@@ -2,7 +2,7 @@ import importlib
 import json
 from pathlib import Path
 
-import ritual_bundle_system as rbs
+import sentientos.ritual_bundle_system as rbs
 
 
 def test_create_and_verify(tmp_path, monkeypatch):

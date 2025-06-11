@@ -1,8 +1,7 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import notification
+import sentientos.notification as notification
 from api import actuator
 
 def setup(tmp_path, monkeypatch):

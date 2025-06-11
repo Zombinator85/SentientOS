@@ -3,10 +3,9 @@ from pathlib import Path
 import importlib.metadata as imd
 from importlib.metadata import EntryPoint
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import privilege_lint as pl
-from privilege_lint.config import LintConfig
+import sentientos.privilege_lint as pl
+from sentientos.privilege_lint.config import LintConfig
 
 
 def test_plugin_runs(tmp_path: Path, monkeypatch) -> None:

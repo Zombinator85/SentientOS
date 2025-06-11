@@ -3,9 +3,8 @@ import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import healing_sprint_ledger as hsl
+import sentientos.healing_sprint_ledger as hsl
 
 
 def test_gather_metrics(tmp_path, monkeypatch):

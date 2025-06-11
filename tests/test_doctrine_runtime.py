@@ -6,7 +6,6 @@ import hashlib
 from pathlib import Path
 import pytest
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 def setup_env(tmp_path, monkeypatch):
@@ -16,7 +15,7 @@ def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("PUBLIC_RITUAL_LOG", str(tmp_path / "public.jsonl"))
     monkeypatch.setenv("DOCTRINE_SIGNATURE_LOG", str(tmp_path / "sig.jsonl"))
     monkeypatch.setenv("MASTER_CONFIG", str(tmp_path / "master.json"))
-    import doctrine
+    import sentientos.doctrine as doctrine
     importlib.reload(doctrine)
     return doctrine
 

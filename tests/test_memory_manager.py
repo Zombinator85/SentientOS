@@ -2,14 +2,13 @@ import os
 import sys
 import json
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 
 def test_append_memory_creates_file(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     fragment_id = mm.append_memory("hello world", tags=["test"], source="unit")
@@ -25,7 +24,7 @@ def test_append_memory_creates_file(tmp_path, monkeypatch):
 def test_append_memory_custom_emotions(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     custom = {e: 0.0 for e in mm.empty_emotion_vector().keys()}
@@ -39,7 +38,7 @@ def test_append_memory_custom_emotions(tmp_path, monkeypatch):
 def test_get_context_returns_relevant_snippet(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     mm.append_memory("alpha beta gamma")
@@ -54,7 +53,7 @@ import datetime
 def test_purge_memory_removes_old(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     old_id = mm.append_memory("old fragment")
@@ -74,7 +73,7 @@ def test_purge_memory_removes_old(tmp_path, monkeypatch):
 def test_summarize_memory_creates_summary(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     mm.append_memory("summary test")
@@ -88,7 +87,7 @@ def test_summarize_memory_creates_summary(tmp_path, monkeypatch):
 def test_purge_memory_respects_max_files(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     id1 = mm.append_memory("frag one")
@@ -110,7 +109,7 @@ def test_purge_memory_respects_max_files(tmp_path, monkeypatch):
 def test_summarize_memory_includes_multiple_snippets(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     mm.append_memory("first snippet")
@@ -129,7 +128,7 @@ def test_embedding_retrieval(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     monkeypatch.setenv("USE_EMBEDDINGS", "1")
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     mm.append_memory("dogs and cats")
@@ -142,7 +141,7 @@ def test_embedding_retrieval(tmp_path, monkeypatch):
 def test_search_by_tags(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     mm.append_memory("one", tags=["a", "b"])
@@ -158,7 +157,7 @@ def test_search_by_tags(tmp_path, monkeypatch):
 def test_purge_archives_to_tomb(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     reload(mm)
 
     fid = mm.append_memory("obsolete", tags=["x"])

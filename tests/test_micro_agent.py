@@ -1,10 +1,9 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import autonomous_reflector as ar
-import memory_manager as mm
+import sentientos.autonomous_reflector as ar
+import sentientos.memory_manager as mm
 from api import actuator
 from importlib import reload
 

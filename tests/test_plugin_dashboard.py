@@ -2,14 +2,13 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import os
 import sys
 import importlib
 import json
 import pytest
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 def setup(tmp_path, monkeypatch, plugin_dir=None):
     monkeypatch.setenv("TRUST_DIR", str(tmp_path/"trust"))
@@ -17,8 +16,8 @@ def setup(tmp_path, monkeypatch, plugin_dir=None):
         plugin_dir = "gp_plugins"
     monkeypatch.setenv("GP_PLUGINS_DIR", str(plugin_dir))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    import plugin_framework as pf
-    import plugin_dashboard as pd
+    import sentientos.plugin_framework as pf
+    import sentientos.plugin_dashboard as pd
     importlib.reload(pf)
     importlib.reload(pd)
     return pd

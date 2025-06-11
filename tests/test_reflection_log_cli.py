@@ -2,16 +2,15 @@
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.admin_utils import require_admin_banner, require_lumos_approval
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 import sys
 import os
 from importlib import reload
 from pathlib import Path
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import reflection_log_cli as rlc
+import sentientos.reflection_log_cli as rlc
 
 
 def test_load_entries(tmp_path, monkeypatch):

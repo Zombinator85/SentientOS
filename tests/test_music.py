@@ -1,20 +1,19 @@
-from logging_config import get_log_path
+from sentientos.logging_config import get_log_path
 import os
 import sys
 import importlib
 import json
 import pytest
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import ledger
-import doctrine
-import music_cli
-import jukebox_integration
-import presence_ledger as pl
-import sentient_banner as sb
-import admin_utils
-import mood_wall
+import sentientos.ledger as ledger
+import sentientos.doctrine as doctrine
+import sentientos.music_cli as music_cli
+import sentientos.jukebox_integration as jukebox_integration
+import sentientos.presence_ledger as pl
+import sentientos.sentient_banner as sb
+import sentientos.admin_utils as admin_utils
+import sentientos.mood_wall as mood_wall
 
 
 def test_log_music(monkeypatch, tmp_path):
@@ -179,7 +178,7 @@ def test_music_cli_wall_global(monkeypatch, capsys):
     logged = []
     monkeypatch.setattr(ledger, "log_mood_blessing", lambda u, r, e, p: logged.append(r) or {"ok": True})
     monkeypatch.setattr(sys, "argv", ["music_cli.py", "wall", "--bless", "Joy", "--global"])
-    import music_cli
+    import sentientos.music_cli as music_cli
     import importlib
     importlib.reload(music_cli)
     music_cli.main()
@@ -195,7 +194,7 @@ def test_playlist_explanation(monkeypatch, capsys):
     monkeypatch.setattr(mood_wall, "latest_blessing_for", lambda m: {"sender": "Ada"})
     monkeypatch.setattr(ledger, "playlist_by_mood", lambda m, l: [{"file": "a"}])
     monkeypatch.setattr(sys, "argv", ["music_cli.py", "playlist", "Joy"])
-    import music_cli
+    import sentientos.music_cli as music_cli
     import importlib
     importlib.reload(music_cli)
     music_cli.main()

@@ -1,10 +1,9 @@
 import os
 import sys
 import json
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import importlib
-import scripts.quota_reporter as qr
+import sentientos.scripts.quota_reporter as qr
 
 class DummyResp:
     def __init__(self, status=200):

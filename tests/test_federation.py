@@ -1,9 +1,9 @@
 import importlib
-import love_treasury as lt
-import treasury_federation as tf
+import sentientos.love_treasury as lt
+import sentientos.treasury_federation as tf
 import pytest
 
-import sentient_banner as sb
+import sentientos.sentient_banner as sb
 
 
 def setup_env(tmp_path, monkeypatch):

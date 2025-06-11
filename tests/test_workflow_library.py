@@ -3,18 +3,17 @@ import sys
 import importlib
 import json
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import workflow_controller as wc
-import workflow_library as wl
-import memory_manager as mm
+import sentientos.workflow_controller as wc
+import sentientos.workflow_library as wl
+import sentientos.memory_manager as mm
 
 
 def setup(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path / "mem"))
     monkeypatch.setenv("ACT_SANDBOX", str(tmp_path / "sb"))
     global mm
-    import memory_manager as _mm
+    import sentientos.memory_manager as _mm
     importlib.reload(_mm)
     mm = _mm
     import api.actuator as act
@@ -78,11 +77,10 @@ def undo():
         ),
         encoding="utf-8",
     )
-    sys.path.insert(0, str(tmp_path))
     wl.load_template("fail")
     for _ in range(3):
         wc.run_workflow("fail")
-    import self_reflection as sr
+    import sentientos.self_reflection as sr
     importlib.reload(sr)
     mgr = sr.SelfHealingManager()
     mgr.run_cycle()

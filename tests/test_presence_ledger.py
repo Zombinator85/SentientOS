@@ -1,11 +1,10 @@
-from logging_config import get_log_path
+from sentientos.logging_config import get_log_path
 import json
 import os
 import sys
 from pathlib import Path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import presence_ledger as pl
+import sentientos.presence_ledger as pl
 
 def test_recent_privilege_attempts(tmp_path, monkeypatch):
     path = tmp_path / "user_presence.jsonl"

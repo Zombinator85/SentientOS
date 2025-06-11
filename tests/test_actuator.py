@@ -2,9 +2,8 @@ import os
 import sys
 from importlib import reload
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import relay_app
+import sentientos.relay_app as relay_app
 from api import actuator
 import pytest
 
@@ -48,7 +47,7 @@ def test_run_shell_blocked():
 def test_act_logging(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
@@ -134,7 +133,7 @@ def test_template_expansion(monkeypatch):
 def test_recent_logs_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
@@ -148,7 +147,7 @@ def test_recent_logs_cli(tmp_path, monkeypatch, capsys):
 def test_template_prompting(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
@@ -164,7 +163,7 @@ def test_template_prompting(tmp_path, monkeypatch, capsys):
 def test_reflection_and_rate_limit(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
@@ -177,7 +176,7 @@ def test_reflection_and_rate_limit(tmp_path, monkeypatch):
 def test_dry_run(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     import importlib
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     importlib.reload(mm)
     importlib.reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
@@ -189,7 +188,7 @@ def test_plugin_hello(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     monkeypatch.setenv("ACT_PLUGINS_DIR", "plugins")
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     out = actuator.dispatch({"type": "hello", "name": "Ada"})
@@ -199,7 +198,7 @@ def test_plugin_hello(tmp_path, monkeypatch):
 def test_template_help_cli(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     import importlib
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     importlib.reload(mm)
     importlib.reload(actuator)
     actuator.TEMPLATES = {"greet": {"type": "shell", "cmd": "echo {name}"}}
@@ -212,7 +211,7 @@ def test_template_help_cli(tmp_path, monkeypatch, capsys):
 def test_structured_reflection(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
@@ -227,7 +226,7 @@ def test_auto_critique_and_plugin_list(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     monkeypatch.setenv("ACT_PLUGINS_DIR", "plugins")
     from importlib import reload as _reload
-    import memory_manager as mm
+    import sentientos.memory_manager as mm
     _reload(mm)
     _reload(actuator)
     actuator.WHITELIST = {"shell": ["echo"], "http": [], "timeout": 5}
