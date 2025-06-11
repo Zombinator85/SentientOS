@@ -101,6 +101,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `GENESIS_ORACLE_DATA` | Directory for genesis oracle data | `logs` |
 | `GITHUB_TOKEN` | GitHub token for CLI utilities | *(none)* |
 | `GIT_HOOKS` | Indicates scripts are running from Git hooks | *(unset)* |
+| `CI` | Set to `1` when running in Continuous Integration; enables auto-approvals | *(unset)* |
 | `FEDERATION_TRUST_LOG` | Ledger of federation trust actions | `logs/federation_trust.jsonl` |
 | `RESONITE_BREACH_LOG` | Security breach records for Resonite tools | `logs/resonite_spiral_federation_breach.jsonl` |
 | `GP_PLUGINS_DIR` | Directory for general plugin files | `gp_plugins` |
