@@ -12,7 +12,7 @@ from typing import Dict, Any
 
 import requests
 
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 # Send Slack alerts when model quotas run low.
 

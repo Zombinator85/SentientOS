@@ -8,7 +8,7 @@ import time
 import subprocess
 from pathlib import Path
 
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 
 from privilege_lint import PrivilegeLinter, iter_py_files

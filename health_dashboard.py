@@ -5,7 +5,7 @@ from pathlib import Path
 from flask_stub import Flask, jsonify, render_template_string
 import memory_manager as mm
 import orchestrator
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
