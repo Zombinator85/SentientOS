@@ -19,13 +19,28 @@ repos:
 
       - id: pytest
         name: unit tests
-        entry: bash -c "pip install -r requirements-dev.txt && pytest -q"
+        entry: pytest --cov=sentientos --cov-fail-under=80 -q
         language: python
         pass_filenames: false
-        additional_dependencies: [pytest, pytest-cov, requests, requests_mock, PyYAML]
+        additional_dependencies:
+          - pytest
+          - pytest-cov
+          - requests
+          - requests_mock
+          - PyYAML
+          - mypy
+          - types-PyYAML
+          - types-requests
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.16.0
     hooks:
       - id: mypy
-        additional_dependencies: [pytest, pytest-cov, requests, requests_mock, PyYAML, types-PyYAML, types-requests]
+        additional_dependencies:
+          - pytest
+          - pytest-cov
+          - requests
+          - requests_mock
+          - PyYAML
+          - types-PyYAML
+          - types-requests
