@@ -45,7 +45,7 @@ jobs:
       - name: mypy
         run: mypy sentientos
       - name: pytest
-        run: pytest -q
+        run: pytest --cov=sentientos --cov-fail-under=80 -q
       - name: Env report
         run: plint-env report --json > env.json
       - uses: actions/upload-artifact@v4
