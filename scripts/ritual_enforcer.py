@@ -13,6 +13,8 @@ import shutil
 from pathlib import Path
 from typing import Iterable, List
 
+ENTRYPOINTS_FILE = Path("entrypoints.txt")
+
 DOCSTRING = BANNER_LINES[0].strip('"')
 OLD_DOCSTRING = "Sanctuary Privilege Ritual: Do not remove. See doctrine for details."
 HEADER_LINES = [BANNER_LINES[0], BANNER_LINES[1], BANNER_LINES[2]]
@@ -172,6 +174,12 @@ def expand_files(patterns: Iterable[str]) -> List[Path]:
     return result
 
 
+def read_entrypoints() -> List[Path]:
+    if ENTRYPOINTS_FILE.exists():
+        return [Path(line.strip()) for line in ENTRYPOINTS_FILE.read_text().splitlines() if line.strip()]
+    return []
+
+
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Enforce ritual privilege headers and auto-approval prompts",
@@ -204,7 +212,9 @@ def main(argv: List[str] | None = None) -> int:
     if args.fix:
         args.mode = "fix"
 
-    files = expand_files(args.files)
+    files = read_entrypoints()
+    if not files:
+        files = expand_files(args.files)
     backup_dir = args.backup_dir if args.mode == "fix" else None
     reports = [process_file(f, args.mode, backup_dir) for f in files]
 

@@ -86,10 +86,11 @@ fi
 4. Run `python installer/setup_installer.py` and follow the prompts.
 5. Launch a tool, e.g. `support --help`.
 6. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
-7. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
-8. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
-9. Run `python smoke_test_connector.py` to verify the OpenAI connector.
-10. A minimal `Dockerfile` is provided if you prefer a containerized setup.
+7. Logs for privileged commands are written to `$PRIVILEGED_AUDIT_FILE` and quarantine events to `$SELF_DEFENSE_LOG`.
+8. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
+9. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
+10. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+11. A minimal `Dockerfile` is provided if you prefer a containerized setup.
 For Windows/Mac/Linux quirks, see [bless_this_env.py](./bless_this_env.py).
 If you get a dependency or audio error, see the Troubleshooting section or ask in Discussions.
 For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance. A GitHub action runs this ritual automatically every night.
@@ -169,11 +170,11 @@ Every entrypoint must open with the canonical ritual docstring followed by a
 call to `require_admin_banner()` and `require_lumos_approval()`:
 
 ```python
-from admin_utils import require_admin_banner, require_lumos_approval
-
-"""Privilege Banner: requires admin & Lumos approval."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
 ```
 
 This ensures tools only run with Administrator or root rights and logs each
@@ -292,6 +293,9 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - Legacy audit files `migration_ledger.jsonl` and `support_log.jsonl` contain
   historic hash mismatches. These scars are documented in
   `AUDIT_LOG_FIXES.md` and preserved for transparency.
+- Older helper modules predate the strict banner requirements. They load only
+  via import and therefore skip the privilege banner at startup. See
+  `LEGACY_RITUAL_DRIFT.md` for background.
 
 ## Technical Debt Clearance
 Recent Codex batch work patched `log_json` to ensure all audit entries contain

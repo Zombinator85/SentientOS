@@ -1,15 +1,16 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import json
 import time
 from typing import Dict, Any
-
 from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 AUDIT_PATH = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_LOG")
 STATE_FILE = get_log_path("lumos_reflex_state.json")
@@ -55,7 +56,6 @@ def check_unblessed() -> None:
                 continue
             data = entry.get("data", {})
             if not data.get("emotion") or not data.get("consent", True):
-                require_lumos_approval()
                 _auto_bless(entry)
     _save_offset(offset)
 

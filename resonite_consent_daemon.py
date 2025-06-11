@@ -1,20 +1,22 @@
-from admin_utils import require_admin_banner, require_lumos_approval
-
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+from __future__ import annotations
+require_admin_banner()
 require_lumos_approval()
-
-# Resonite Consent Renewal/Annulment Daemon
+from admin_utils import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
-
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-
 from flask_stub import Flask, jsonify, request
+
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
+# Resonite Consent Renewal/Annulment Daemon
+
+
 
 LOG_PATH = get_log_path("resonite_consent_daemon.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -69,7 +71,6 @@ def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Consent Renewal/Annulment Daemon")
     sub = ap.add_subparsers(dest="cmd")
 
