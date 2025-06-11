@@ -6,6 +6,7 @@ running unattended.
 """
 
 from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 import os
 import sys
