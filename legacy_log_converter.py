@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
 
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 import audit_immutability as ai
 

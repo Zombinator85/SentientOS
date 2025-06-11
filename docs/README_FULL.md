@@ -1018,7 +1018,7 @@ Run `python privilege_lint_cli.py` before submitting any pull request to ensure 
 **Required header template:**
 
 ```python
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
