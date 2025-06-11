@@ -3,7 +3,6 @@ from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
-
 from logging_config import get_log_path
 import argparse
 import asyncio
@@ -24,10 +23,6 @@ from sentient_banner import (
     reset_ritual_state,
     ENTRY_BANNER,
 )
-
-
-
-
 def _parse_emotion(text: str) -> Emotion:
     """Parse emotion string like 'Joy=0.8,Sadness=0.2'"""
     emotions: Emotion = {}

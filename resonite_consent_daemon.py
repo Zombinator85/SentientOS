@@ -3,7 +3,6 @@ from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
-
 from logging_config import get_log_path
 import argparse
 import json
@@ -11,7 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 from flask_stub import Flask, jsonify, request
-
 # Resonite Consent Renewal/Annulment Daemon
 
 

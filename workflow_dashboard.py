@@ -1,15 +1,14 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
 import argparse
 import json
 import os
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict
-
-try:
-    import yaml  # type: ignore  # optional YAML parsing
-except Exception:  # pragma: no cover - optional
-    yaml = None
-
 import workflow_library as wl
 import workflow_controller as wc
 import workflow_review as wr
@@ -18,12 +17,15 @@ import workflow_recommendation as rec
 import review_requests as rr
 import notification
 from sentient_banner import streamlit_banner, streamlit_closing
-from admin_utils import require_admin_banner, require_lumos_approval
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 import ledger
+
+try:
+    import yaml  # type: ignore  # optional YAML parsing
+except Exception:  # pragma: no cover - optional
+    yaml = None
+
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 try:  # optional deps
     import streamlit as st  # type: ignore  # Streamlit dashboard
@@ -94,7 +96,6 @@ def visualize_steps(steps: List[Dict[str, Any]]) -> str:
 
 
 def run_cli(args: argparse.Namespace) -> None:
-    require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if args.list:
         for n in wl.list_templates():
@@ -131,7 +132,6 @@ def run_cli(args: argparse.Namespace) -> None:
 
 
 def run_dashboard() -> None:
-    require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None or pd is None:
         ap = argparse.ArgumentParser(description="Workflow dashboard CLI")
