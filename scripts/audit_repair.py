@@ -1,6 +1,4 @@
 """Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
 from __future__ import annotations
 from __future__ import annotations
 
@@ -106,6 +104,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1":
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
+
+    require_admin_banner()
+    require_lumos_approval()
 
     logs_dir = Path(args.logs_dir)
     prev = "0" * 64

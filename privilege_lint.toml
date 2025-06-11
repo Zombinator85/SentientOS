@@ -1,0 +1,3 @@
+[lint]
+enforce_banner = true
+file_globs = ["*_cli.py", "*_daemon.py", "*_audit.py", "__main__.py"]
