@@ -1,6 +1,8 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
 import json
@@ -8,6 +10,7 @@ import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 import audit_immutability as ai
+
 # enable auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
@@ -38,9 +41,7 @@ def _is_log_file(path: Path) -> bool:
     """Return True if the file looks like a valid audit log."""
     try:
         first = (
-            path.read_text(encoding="utf-8", errors="ignore")
-            .lstrip()
-            .splitlines()[0]
+            path.read_text(encoding="utf-8", errors="ignore").lstrip().splitlines()[0]
         )
     except Exception:
         return False
@@ -48,7 +49,12 @@ def _is_log_file(path: Path) -> bool:
     if path.suffix.lower() in VALID_EXTS:
         return first.startswith("{") and "timestamp" in first and "data" in first
 
-    if not path.suffix and first.startswith("{") and "timestamp" in first and "data" in first:
+    if (
+        not path.suffix
+        and first.startswith("{")
+        and "timestamp" in first
+        and "data" in first
+    ):
         return True
     return False
 
@@ -57,10 +63,10 @@ def _attempt_repair(line: str) -> Optional[str]:
     """Try simple fixes for malformed JSON lines."""
     s = line.strip()
     # remove trailing comma
-    if s.endswith(','):
+    if s.endswith(","):
         s = s[:-1]
-    if not s.endswith('}'):
-        s = s + '}'
+    if not s.endswith("}"):
+        s = s + "}"
     try:
         json.loads(s)
     except Exception:
@@ -140,7 +146,9 @@ def check_file(
                 stats["quarantined"] += 1
                 stats["unrecoverable"] += 1
             continue
-        digest = ai._hash_entry(entry["timestamp"], entry["data"], entry.get("prev_hash", prev))
+        digest = ai._hash_entry(
+            entry["timestamp"], entry["data"], entry.get("prev_hash", prev)
+        )
         current = entry.get("rolling_hash") or entry.get("hash")
         if current != digest:
             errors.append(f"{lineno}: hash mismatch")
@@ -185,9 +193,7 @@ def verify_audits(
     stats: Dict[str, int] = {"fixed": 0, "quarantined": 0, "unrecoverable": 0}
 
     if directory is not None:
-        logs = sorted(
-            p for p in Path(directory).iterdir() if _is_log_file(p)
-        )
+        logs = sorted(p for p in Path(directory).iterdir() if _is_log_file(p))
     else:
         data = _load_config()
         for file in data.keys():
@@ -216,9 +222,15 @@ def main() -> None:  # pragma: no cover - CLI
 
     ap = argparse.ArgumentParser(description="Audit log verifier")
     ap.add_argument("path", nargs="?", help="Log directory or single file")
-    ap.add_argument("--repair", action="store_true", help="attempt to repair malformed lines and chain")
+    ap.add_argument(
+        "--repair",
+        action="store_true",
+        help="attempt to repair malformed lines and chain",
+    )
     ap.add_argument("--auto-repair", action="store_true", help="heal logs then verify")
-    ap.add_argument("--check-only", action="store_true", help="verify without modifying logs")
+    ap.add_argument(
+        "--check-only", action="store_true", help="verify without modifying logs"
+    )
     ap.add_argument(
         "--auto-approve",
         action="store_true",
@@ -228,13 +240,10 @@ def main() -> None:  # pragma: no cover - CLI
     args = ap.parse_args()
 
     auto_env = (
-        args.auto_approve
-        or args.no_input
-        or os.getenv("LUMOS_AUTO_APPROVE") == "1"
+        args.auto_approve or args.no_input or os.getenv("LUMOS_AUTO_APPROVE") == "1"
     )
     if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
-
 
     # STRICT=1 aborts if repairs occur (see docs/ENVIRONMENT.md)
     strict_env = os.getenv("STRICT") == "1"
@@ -308,6 +317,12 @@ def main() -> None:  # pragma: no cover - CLI
         print(
             f"{stats['fixed']} lines fixed, {stats['quarantined']} lines quarantined, {stats['unrecoverable']} unrecoverable"
         )
+    if (
+        stats.get("fixed", 0) == 0
+        and stats.get("quarantined", 0) == 0
+        and stats.get("unrecoverable", 0) == 0
+    ):
+        print("✅ No mismatches.")
     if strict_env and total_fixed:
         print("Strict mode: repairs detected")
         raise SystemExit(1)

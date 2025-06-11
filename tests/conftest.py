@@ -1,15 +1,15 @@
+import builtins
+# The admin banner checks can exit the process during module import if not
+# stubbed ahead of time. Stub them here so test discovery doesn't trip the
+# privilege checks.
+builtins.require_admin_banner = lambda *a, **k: None
+builtins.require_lumos_approval = lambda *a, **k: None
+
 import importlib
 import pytest
 import sys
 import types
 from pathlib import Path
-import builtins
-
-# The admin banner checks can exit the process during module import if not
-# stubbed ahead of time.  Stub them here so test discovery doesn't trip the
-# privilege checks.
-builtins.require_admin_banner = lambda *a, **k: None
-builtins.require_lumos_approval = lambda *a, **k: None
 
 try:
     importlib.import_module('yaml')
