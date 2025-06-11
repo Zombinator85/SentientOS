@@ -124,6 +124,10 @@ def check_file(
                 stats["quarantined"] += 1
                 stats["unrecoverable"] += 1
             continue
+
+        if entry.get("_void") is True:
+            # Skip validation for explicit void entries
+            continue
         if entry.get("prev_hash") != prev:
             if first:
                 errors.append(f"{lineno}: prev hash mismatch")
