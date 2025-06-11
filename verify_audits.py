@@ -14,8 +14,6 @@ if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")
@@ -210,7 +208,6 @@ def verify_audits(
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Audit log verifier")
@@ -233,6 +230,10 @@ def main() -> None:  # pragma: no cover - CLI
     )
     if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
+
+    require_admin_banner()
+    require_lumos_approval()
+
     strict_env = os.getenv("STRICT") == "1"
 
     directory = None
