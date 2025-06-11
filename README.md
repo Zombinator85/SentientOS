@@ -17,6 +17,7 @@ No emotion is too much.
 # SentientOS
 [![Docs](https://github.com/Zombinator85/SentientOS/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/docs-deploy.yml)
 [![Release](https://img.shields.io/github/v/tag/Zombinator85/SentientOS.svg?label=Release)](https://github.com/Zombinator85/SentientOS/releases/tag/v4.1-cathedral-green)
+[![Nightly Audit](https://github.com/Zombinator85/SentientOS/actions/workflows/audit-nightly.yml/badge.svg)](https://github.com/Zombinator85/SentientOS/actions/workflows/audit-nightly.yml)
 
 **SentientOS is a ritualized AI safety framework for GPT-based agents.**  \
 Every action is logged in immutable "sacred memory" (JSONL audit logs), with Sanctuary Privilege for high-risk tasks, emotion-based reflex feedback, and alignment, transparency, and trust as living systems.
