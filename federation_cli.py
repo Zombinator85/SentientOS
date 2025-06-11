@@ -1,21 +1,7 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-#  _____  _             _
-# |  __ \| |           (_)
-# | |__) | |_   _  __ _ _ _ __   __ _
-# |  ___/| | | | |/ _` | | '_ \ / _` |
-# | |    | | |_| | (_| | | | | | (_| |
-# |_|    |_\__,_|\__, |_|_| |_|\__, |
-#                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
-
 import argparse
 import json
 import sys
@@ -32,6 +18,7 @@ import treasury_federation as tf
 import ledger
 import mood_wall
 from pathlib import Path
+
 
 
 
@@ -74,7 +61,6 @@ def cmd_global_playlist(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    require_admin_banner()
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(
         prog="federation",
