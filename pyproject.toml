@@ -79,3 +79,6 @@ follow_imports = "skip"
 
 [tool.privilege_lint]
 required = false
+
+[tool.pytest.ini_options]
+addopts = "--cov=sentientos --cov-fail-under=80"
