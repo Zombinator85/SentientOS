@@ -6,3 +6,4 @@ colorama>=0.4.6
 types-PyYAML==6.0.12
 types-requests==2.31.0.10
 mypy>=1.16.0
+requests-mock>=1.11.0
