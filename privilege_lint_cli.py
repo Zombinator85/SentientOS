@@ -1,5 +1,8 @@
-# ── privilege_lint_cli.py ─────────────────────────────────────────
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
+# ── privilege_lint_cli.py ─────────────────────────────────────────
 
 import ast
 

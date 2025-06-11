@@ -1,16 +1,15 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from __future__ import annotations
 import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
-
 from admin_utils import require_admin_banner, require_lumos_approval
 from scripts.auto_approve import prompt_yes_no
 import argparse
 import os
-
+require_admin_banner()
+require_lumos_approval()
 # Automatically bless audit mismatches found during verification.
 
 BLESSINGS_FILE = Path("SANCTUARY_BLESSINGS.jsonl")
