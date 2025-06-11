@@ -1,31 +1,11 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-#  _____  _             _
-# |  __ \| |           (_)
-# | |__) | |_   _  __ _ _ _ __   __ _
-# |  ___/| | | | |/ _` | | '_ \ / _` |
-# | |    | | |_| | (_| | | | | | (_| |
-# |_|    |_\__,_|\__, |_|_| |_|\__, |
-#                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
-
 from admin_utils import require_admin_banner, require_lumos_approval
-
-
-require_admin_banner()  # enforced
-require_lumos_approval()
-
 import argparse
 import json
 from pathlib import Path
-
 import presence_ledger as pl
 import ledger
 from sentient_banner import (
@@ -36,6 +16,12 @@ from sentient_banner import (
     reset_ritual_state,
     ENTRY_BANNER,
 )
+
+
+
+require_admin_banner()  # enforced
+
+
 
 
 def _parse_emotion(text: str) -> dict:
@@ -55,7 +41,6 @@ def _parse_emotion(text: str) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     sub = parser.add_subparsers(dest="cmd")
 

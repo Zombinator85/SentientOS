@@ -1,12 +1,8 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+from __future__ import annotations
+require_admin_banner()
 require_lumos_approval()
-
 from admin_utils import require_admin_banner, require_lumos_approval
-
-# Cryptographic Ledger Seal & Backup Daemon
-
 import argparse
 import hashlib
 import json
@@ -15,6 +11,12 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from logging_config import get_log_path
+
+require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+
+
+# Cryptographic Ledger Seal & Backup Daemon
+
 
 SEAL_LOG = get_log_path("ledger_seal.jsonl", "LEDGER_SEAL_LOG")
 SEAL_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -42,7 +44,6 @@ def verify_file(path: Path, digest: str) -> bool:
 
 
 def cli() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Ledger seal daemon")
     ap.add_argument("file")
     ap.add_argument("--verify", help="Digest to verify")
