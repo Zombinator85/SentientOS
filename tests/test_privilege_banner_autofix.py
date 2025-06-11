@@ -1,6 +1,7 @@
 import importlib
 import os
 from pathlib import Path
+from admin_utils import require_admin_banner
 
 
 def test_autofix(tmp_path, monkeypatch):
