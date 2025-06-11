@@ -9,9 +9,9 @@ from typing import TYPE_CHECKING
 
 from . import __version__
 
-if TYPE_CHECKING:  # pragma: no cover - placeholder for optional imports
+if TYPE_CHECKING:
+    # Place type-only imports here in the future
     pass
-
 
 def main() -> None:
     """Entry point for the SentientOS package."""
