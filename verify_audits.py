@@ -1,8 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
-
 require_admin_banner()
 require_lumos_approval()
 import json
@@ -10,7 +8,6 @@ import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 import audit_immutability as ai
-
 # enable auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
