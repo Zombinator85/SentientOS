@@ -42,7 +42,7 @@ jobs:
         run: mypy --strict sentientos > MYPY_STATUS.md
 
       - name: Pytest with coverage
-        run: pytest --cov=sentientos --cov-report=xml
+        run: pytest --cov=sentientos --cov-fail-under=80
 
   docs:
     runs-on: ubuntu-latest

@@ -25,4 +25,4 @@ jobs:
       - name: Run mypy
         run: mypy sentientos
       - name: Run pytest
-        run: pytest --cov=sentientos --cov-report=xml
+        run: pytest --cov=sentientos --cov-fail-under=80
