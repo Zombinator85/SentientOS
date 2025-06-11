@@ -1,9 +1,8 @@
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
-from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
+require_admin_banner()
+require_lumos_approval()
 from sentient_banner import BANNER_LINES
 
 
