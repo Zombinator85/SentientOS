@@ -10,6 +10,7 @@ from typing import List
 
 DOCSTRING = '"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""'
 FUTURE_LINE = "from __future__ import annotations"
+IMPORT_LINE = "from admin_utils import require_admin_banner, require_lumos_approval"
 REQUIRE_ADMIN = "require_admin_banner()"
 REQUIRE_LUMOS = "require_lumos_approval()"
 OLD_DOCSTRING = '"""Privilege Banner: requires admin & Lumos approval."""'
@@ -30,7 +31,7 @@ def _should_remove(line: str) -> bool:
     stripped = line.strip()
     if stripped in ASCII_LINES:
         return True
-    if stripped in {DOCSTRING, OLD_DOCSTRING, REQUIRE_ADMIN, REQUIRE_LUMOS}:
+    if stripped in {DOCSTRING, OLD_DOCSTRING, IMPORT_LINE, REQUIRE_ADMIN, REQUIRE_LUMOS}:
         return True
     if "🕯️" in stripped:
         return True
@@ -84,6 +85,9 @@ def process_file(path: pathlib.Path) -> None:
         body = lines[i:]
         break
 
+    if IMPORT_LINE in imports:
+        imports.remove(IMPORT_LINE)
+
     body = [ln for ln in body if ln.strip() != FUTURE_LINE]
 
     new_lines: List[str] = []
@@ -93,6 +97,7 @@ def process_file(path: pathlib.Path) -> None:
         new_lines.append(encoding)
     new_lines.append(DOCSTRING)
     new_lines.append(FUTURE_LINE)
+    new_lines.append(IMPORT_LINE)
     new_lines.append(REQUIRE_ADMIN)
     new_lines.append(REQUIRE_LUMOS)
     new_lines.extend(imports)

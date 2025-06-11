@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
+from scripts.auto_approve import prompt_yes_no
 from logging_config import get_log_path
 import argparse
 import asyncio
@@ -51,7 +52,7 @@ async def _generate(prompt: str, emotion: Emotion, user: str) -> Dict[str, Any]:
 
 def _play(path: str, user: str, share: str | None = None) -> Dict[str, Any]:
     print(f"Playing {path}")
-    feeling = input("Feeling> ").strip()
+    feeling = prompt_yes_no("Feeling> ").strip()
     reported: Emotion = _parse_emotion(feeling)
     entry = ledger.log_music_listen(path, user=user, reported=reported)
     pl.log(user or "anon", "music_played", path)

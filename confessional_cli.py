@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
+from scripts.auto_approve import prompt_yes_no
 import argparse
 import json
 import os
@@ -37,7 +38,7 @@ def cmd_review(args: argparse.Namespace) -> None:
         if ts in reviewed:
             continue
         print(json.dumps(entry, indent=2))
-        note = input("Reflection note (blank to skip)> ").strip()
+        note = prompt_yes_no("Reflection note (blank to skip)> ").strip()
         if not note:
             continue
         crev.log_review(ts or "", args.user, note, status=args.status)
@@ -53,10 +54,10 @@ def cmd_council(args: argparse.Namespace) -> None:
         if crev.council_status(ts) == "resolved":
             continue
         print(json.dumps(entry, indent=2))
-        decision = input("Decision (approve/reject/skip)> ").strip().lower()
+        decision = prompt_yes_no("Decision (approve/reject/skip)> ").strip().lower()
         if decision not in {"approve", "reject"}:
             continue
-        note = input("Council note> ").strip()
+        note = prompt_yes_no("Council note> ").strip()
         crev.log_council_vote(ts, args.user, decision, note)
         print("Vote recorded.")
 

@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
+from scripts.auto_approve import prompt_yes_no
 import argparse
 import json
 import os
@@ -22,7 +23,7 @@ def review_command(args: argparse.Namespace) -> None:
     unresolved = list_unresolved()
     for entry in unresolved:
         print(json.dumps(entry, indent=2))
-        note = input("Penance note (blank to skip)> ").strip()
+        note = prompt_yes_no("Penance note (blank to skip)> ").strip()
         if not note:
             continue
         heresy_review.log_review(entry.get("timestamp", ""), args.user, note)
