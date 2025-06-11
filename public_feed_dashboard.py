@@ -7,7 +7,7 @@ from typing import List, Dict
 import doctrine
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 import ledger
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
