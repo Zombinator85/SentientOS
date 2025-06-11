@@ -1,8 +1,8 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
 import ast
 import argparse
 import datetime
@@ -21,10 +21,6 @@ from privilege_lint.data_rules import validate_json, validate_csv
 from privilege_lint.shebang_rules import validate_shebang, apply_fix as fix_shebang
 from privilege_lint.docstring_rules import validate_docstrings, apply_fix_docstring_stub
 from privilege_lint.license_rules import (
-    validate_license_header,
-    apply_fix_license_header,
-    DEFAULT_HEADER,
-)
 from privilege_lint.cache import LintCache
 from privilege_lint.runner import parallel_validate, DEFAULT_WORKERS
 from privilege_lint.template_rules import validate_template, parse_context
@@ -36,6 +32,10 @@ from privilege_lint.comment_controls import parse_controls, is_disabled
 from privilege_lint.metrics import MetricsCollector
 from privilege_lint.plugins import load_plugins
 from logging_config import get_log_path
+    validate_license_header,
+    apply_fix_license_header,
+    DEFAULT_HEADER,
+)
 # ── privilege_lint_cli.py ─────────────────────────────────────────
 
 

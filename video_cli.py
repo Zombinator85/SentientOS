@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
+from scripts.auto_approve import prompt_yes_no
 import argparse
 import json
 from pathlib import Path
@@ -78,7 +79,7 @@ def main() -> None:
             print_closing_recap()
             recap_shown = True
         elif args.cmd == "play":
-            feeling = input("Feeling> ").strip()
+            feeling = prompt_yes_no("Feeling> ").strip()
             perce = _parse_emotion(feeling)
             entry = ledger.log_video_watch(
                 args.file,

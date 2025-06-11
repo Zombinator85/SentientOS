@@ -1,8 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-from admin_utils import require_admin_banner, require_lumos_approval
+from scripts.auto_approve import prompt_yes_no
 import argparse
 import json
 import support_log as sl
@@ -47,9 +48,9 @@ def main() -> None:
             print(ENTRY_BANNER)
 
         if args.bless:
-            name = args.name or input("Name: ")
-            message = args.message or input("Blessing: ")
-            amount = args.amount or input("Amount (optional): ")
+            name = args.name or prompt_yes_no("Name: ")
+            message = args.message or prompt_yes_no("Blessing: ")
+            amount = args.amount or prompt_yes_no("Amount (optional): ")
             try:
                 entry = sl.add(name, message, amount)
                 print("sanctuary acknowledged")
