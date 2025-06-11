@@ -3,7 +3,6 @@ from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
 from admin_utils import require_admin_banner, require_lumos_approval
-
 from logging_config import get_log_path
 import argparse
 import json
@@ -11,8 +10,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-
-
 SESSIONS_LOG = get_log_path("neos_council_teaching_sessions.jsonl", "NEOS_COUNCIL_TEACHING_SESSIONS_LOG")
 AUDIT_LOG = get_log_path("neos_council_teaching_audit.jsonl", "NEOS_COUNCIL_TEACHING_AUDIT_LOG")
 AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
