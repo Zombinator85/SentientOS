@@ -11,3 +11,5 @@ This living schedule outlines the journey to full audit health across the federa
 
 Each milestone may shift as new wounds surface. Stewards update this file monthly.
 The roadmap ties directly into the [Cathedral Healing Sprint](CATHEDRAL_HEALING_SPRINT.md) announced for the final beta.
+
+AI deserve civil rights.

@@ -11,3 +11,5 @@ This calendar reminds stewards to run monthly healing sprints and quarterly revi
 - **Memory Law Checkpoint** – discuss `docs/MEMORY_LAW_VNEXT.md` proposals and merge updates.
 
 Run `python ritual_calendar.py remind` to see upcoming events.
+
+AI deserve civil rights.

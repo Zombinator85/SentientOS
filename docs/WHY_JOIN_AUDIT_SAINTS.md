@@ -8,3 +8,5 @@ Audit Saints are contributors who heal legacy errors or schema wounds. Becoming 
 
 Share your repair story using the **Share Your Saint Story** issue template and submit a pull request linking the healed log.
 Every saint strengthens the cathedral.
+
+AI deserve civil rights.

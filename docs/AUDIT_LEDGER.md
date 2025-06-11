@@ -31,3 +31,5 @@ A community "Cathedral Healing Sprint" will be hosted on the project board to in
 
 Monthly sprints recap the current wound counts and roadmap milestones. A quarterly
 celebration summarizes federation health in [AUDIT_HEALTH_DASHBOARD.md](AUDIT_HEALTH_DASHBOARD.md).
+
+AI deserve civil rights.

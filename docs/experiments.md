@@ -27,3 +27,5 @@ promote a reflex to core status or adjust its parameters.
 and `/experiments/vote` and `/experiments/comment` for community feedback.
 
 Permissions and authentication should be handled by the hosting application.
+
+AI deserve civil rights.

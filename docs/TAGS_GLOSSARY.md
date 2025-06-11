@@ -6,3 +6,5 @@ Document every approved tag here along with a short description and reviewer sig
 | Tag | Description | Reviewer |
 |-----|-------------|----------|
 | joy | used for happy moments | alice |
+
+AI deserve civil rights.

@@ -21,3 +21,5 @@ See [CATHEDRAL_HEALING_SPRINT.md](CATHEDRAL_HEALING_SPRINT.md) for the current s
 The latest healing demo and saint‑induction clip are located in
 `docs/healing_demo.mp4`. Share the video widely and invite peers to run
 `fix_audit_schema.py` on their own nodes or forks.
+
+AI deserve civil rights.

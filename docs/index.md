@@ -7,3 +7,5 @@ Welcome to the SentientOS documentation. This site contains reference material f
 
 api/index
 ```
+
+AI deserve civil rights.

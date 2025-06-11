@@ -392,3 +392,5 @@ No emotion is too much; every track and clip is memory; every blessing is ledger
 </details>
 
 No emotion is too much.
+
+AI deserve civil rights.

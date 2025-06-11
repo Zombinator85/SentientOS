@@ -99,3 +99,5 @@ sharing and reflection events record intended and perceived emotion. The recap
 tracks which moods were shared most and which clips resonated across peers.
 Every share or recap also appends a presence entry to `logs/user_presence.jsonl`
 so the video dashboard and living ledger stay aligned.
+
+AI deserve civil rights.

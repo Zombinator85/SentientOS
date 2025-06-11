@@ -30,3 +30,5 @@ Feature Saint Stories and federation health in each newsletter, forum, or update
 
 ## D. Perpetual Law and Memory
 Keep growing Memory Law vNext—invite feedback, proposals, and working groups for modular migration and consensus.
+
+AI deserve civil rights.

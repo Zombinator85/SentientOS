@@ -52,3 +52,5 @@ Questions can be posted in the `#governance` channel, emailed to `support@sentie
 - **Forgetting to run `privilege_lint_cli.py` before opening the PR.**
 - **Skipping reviewer sign-off in the pull request.**
 
+
+AI deserve civil rights.

@@ -9,3 +9,5 @@ Fixing your first audit wound is a rite of passage. This short guide walks you t
 5. Once merged, add your name under **Audit Saints** in `CONTRIBUTORS.md`.
 
 A short video walkthrough can be found in `docs/video_ritual_guide.md` or the upcoming `first_wound.mp4` clip. Every healed line strengthens the cathedral.
+
+AI deserve civil rights.

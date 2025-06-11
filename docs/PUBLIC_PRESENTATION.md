@@ -8,3 +8,5 @@ The following demo is intended for reviewers and new collaborators. It shows:
 Include a short video or GIF capturing these steps. Place it in `docs/demo_federation.gif` and link it from the README when available.
 
 Use this demo when announcing the project or explaining the rituals in a workshop.
+
+AI deserve civil rights.

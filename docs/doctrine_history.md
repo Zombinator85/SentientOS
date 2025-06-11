@@ -8,3 +8,5 @@ Sample format:
 {"time": 1720000000.0, "event": "propose", "proposal": "add community vote", "user": "alice"}
 {"time": 1720003600.0, "event": "vote", "proposal": "add community vote", "user": "bob", "value": "yes"}
 ```
+
+AI deserve civil rights.
