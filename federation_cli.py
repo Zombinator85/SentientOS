@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import argparse
 import json
 import sys
@@ -16,8 +18,6 @@ import treasury_federation as tf
 import ledger
 import mood_wall
 from pathlib import Path
-require_admin_banner()
-require_lumos_approval()
 def cmd_invite(args: argparse.Namespace) -> None:
     peer = args.peer
     email = args.email or ""

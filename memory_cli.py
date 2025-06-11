@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import argparse
 import os
 import json
@@ -19,8 +21,6 @@ from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from admin_utils import require_admin_banner, require_lumos_approval
 import presence_analytics as pa
 import ritual
-require_admin_banner()
-require_lumos_approval()
 def show_timeline(last: int) -> None:
     """Print the timestamp and dominant emotion of recent entries."""
     path = mm.RAW_PATH

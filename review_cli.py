@@ -1,5 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 import argparse
 from pathlib import Path
 from admin_utils import require_admin_banner, require_lumos_approval
@@ -7,8 +9,6 @@ from story_studio import load_storyboard, save_storyboard
 import user_profile as up
 import notification
 import re
-require_admin_banner()
-require_lumos_approval()
 def annotate(path: Path, chapter: int, text: str) -> None:
     """Add an annotation to a storyboard chapter and send mention notifications."""
     data = load_storyboard(path)

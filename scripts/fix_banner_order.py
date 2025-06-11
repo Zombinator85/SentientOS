@@ -9,7 +9,6 @@ from typing import List
 
 DOCSTRING = '"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""'
 FUTURE_LINE = "from __future__ import annotations"
-ADMIN_IMPORT = "from admin_utils import require_admin_banner, require_lumos_approval"
 REQUIRE_ADMIN = "require_admin_banner()"
 REQUIRE_LUMOS = "require_lumos_approval()"
 OLD_DOCSTRING = '"""Privilege Banner: requires admin & Lumos approval."""'
@@ -36,7 +35,7 @@ def _should_remove(line: str) -> bool:
         return True
     if REMOVE_PREFIX.search(stripped):
         return True
-    if stripped.startswith("#  _____"):
+    if stripped.startswith("#  _____") or stripped.startswith("# |"):
         return True
     return False
 
@@ -93,9 +92,9 @@ def process_file(path: pathlib.Path) -> None:
         new_lines.append(encoding)
     new_lines.append(DOCSTRING)
     new_lines.append(FUTURE_LINE)
-    new_lines.extend(imports)
     new_lines.append(REQUIRE_ADMIN)
     new_lines.append(REQUIRE_LUMOS)
+    new_lines.extend(imports)
     new_lines.extend(body)
 
     path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
