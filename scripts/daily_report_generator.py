@@ -15,7 +15,7 @@ from typing import Dict, List, Tuple
 import smtplib
 from email.message import EmailMessage
 
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 # Generate daily usage summaries and optionally email them.
 

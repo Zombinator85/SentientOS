@@ -8,7 +8,7 @@ from sentient_banner import (
     streamlit_banner,
     streamlit_closing,
 )
-from admin_utils import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 import ledger
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
