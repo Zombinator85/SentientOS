@@ -1,14 +1,13 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 CHANGELOG = Path("docs/CHANGELOG.md")
 LEDGER = Path("docs/AUDIT_LEDGER.md")
@@ -32,7 +31,6 @@ def append_entry(message: str) -> dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Append changelog and ledger entry")
     ap.add_argument("message", help="summary message")
     args = ap.parse_args()

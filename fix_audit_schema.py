@@ -1,5 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import json
@@ -7,12 +8,10 @@ import datetime
 from logging_config import get_log_dir
 from pathlib import Path
 from typing import Callable, Dict, List
-from admin_utils import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
 Scan audit logs for schema drift and heal missing fields."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 SCHEMA_VERSION = "1.0"
 
@@ -84,7 +83,6 @@ def process_log(path: Path, on_apply: Callable[[], None] | None = None) -> Dict[
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     logs_dir = get_log_dir()
     totals = {"fixed": 0, "flagged": 0, "untouched": 0}
     banner_shown = False

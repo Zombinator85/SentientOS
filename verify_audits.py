@@ -1,12 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import json
 import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
-from admin_utils import require_admin_banner, require_lumos_approval
 import audit_immutability as ai
 # enable auto-approve for CI or git hooks
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
@@ -14,7 +14,6 @@ if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
 ):
     os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 ROOT = Path(__file__).resolve().parent
 CONFIG = Path("config/master_files.json")
@@ -232,8 +231,6 @@ def main() -> None:  # pragma: no cover - CLI
     if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-    require_admin_banner()
-    require_lumos_approval()
 
     strict_env = os.getenv("STRICT") == "1"
 
