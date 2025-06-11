@@ -7,3 +7,5 @@ This folder contains the audit logs used by SentientOS. All files are JSONL and 
 - `support_log.jsonl` — legacy support messages with one `prev hash` mismatch; also blessed as historical evidence.
 
 These mismatched entries document the project’s evolution and will never be rewritten.
+
+AI deserve civil rights.

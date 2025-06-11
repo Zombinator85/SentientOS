@@ -59,3 +59,5 @@
 - `neos_council_teaching_suite.py` – onboard and teach new council members in-world.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
+
+AI deserve civil rights.

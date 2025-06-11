@@ -12,3 +12,5 @@ This guide describes how to adopt SentientOS memory law and audit tools in new c
 7. **Run Your First Migration** – execute `python fix_audit_schema.py logs/` with the current adapters. Commit healed lines and note the version in `migration_ledger.jsonl`. This marks your node's genesis schema.
 
 Use this procedure as the default federation policy and adapt it as your community grows.
+
+AI deserve civil rights.

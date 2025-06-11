@@ -16,3 +16,5 @@ _(history appended by the dashboard updater)_
 ## Audit Saints
 
 See `CONTRIBUTORS.md` for the list of volunteers honored for healing memory.
+
+AI deserve civil rights.

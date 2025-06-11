@@ -162,3 +162,5 @@ The following variables control where SentientOS writes security related logs:
   quarantine events and privilege freezes. By default this is
   `logs/agent_self_defense.jsonl`.
 
+
+AI deserve civil rights.

@@ -11,3 +11,5 @@ memory law and federation logic.
 - Participate in the [Cathedral Healing Sprint](docs/CATHEDRAL_HEALING_SPRINT.md) to sync schemas and celebrate new saints.
 
 Feedback and peer review are welcomed on the GitHub Discussions board.
+
+AI deserve civil rights.

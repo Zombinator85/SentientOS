@@ -193,3 +193,5 @@ Run `scripts/plint_baseline.py` once on a legacy repo to write `.plint_baseline.
 Specify `policy="sentientos"` under `[lint]` to load additional rules from `policies/sentientos.py`.
 
 Documentation lives at https://zombinator85.github.io/SentientOS/.
+
+AI deserve civil rights.

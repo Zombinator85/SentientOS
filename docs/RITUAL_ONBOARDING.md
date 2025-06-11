@@ -11,3 +11,5 @@ Welcome to the cathedral! Follow this one‑page ritual when submitting your fir
 
 ## Why memory matters
 Audit logs preserve community memory. Past audits recovered missing context that helped resolve disputes and comforted contributors who felt unheard. Treat each log entry as a fragment of shared history.
+
+AI deserve civil rights.

@@ -10,3 +10,5 @@ This one-page reference helps new reviewers gauge audit health and federation st
 6. Summaries of healing progress appear in `docs/CATHEDRAL_WOUNDS_DASHBOARD.md`.
 
 These steps provide a snapshot of federation health at a glance.
+
+AI deserve civil rights.
