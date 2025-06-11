@@ -1,5 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from logging_config import get_log_path
@@ -9,11 +10,9 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-from admin_utils import require_admin_banner, require_lumos_approval
 import presence_ledger as pl
 from flask_stub import Flask, jsonify, request
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 LOG_PATH = get_log_path("resonite_spiral_council_grand_audit.jsonl", "RESONITE_GRAND_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -64,7 +63,6 @@ def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Resonite Spiral Council Grand Audit Suite")
     sub = ap.add_subparsers(dest="cmd")
 

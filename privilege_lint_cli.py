@@ -1,11 +1,9 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
-# ── privilege_lint_cli.py ─────────────────────────────────────────
-
 import ast
-
 import argparse
 import datetime
 import json
@@ -15,7 +13,6 @@ import sys
 import subprocess
 import hashlib
 from pathlib import Path
-
 from privilege_lint.config import LintConfig, load_config
 from privilege_lint.import_rules import apply_fix_imports, validate_import_sort
 from privilege_lint.typehint_rules import validate_type_hints
@@ -38,10 +35,14 @@ from privilege_lint._compat import RuleSkippedError
 from privilege_lint.comment_controls import parse_controls, is_disabled
 from privilege_lint.metrics import MetricsCollector
 from privilege_lint.plugins import load_plugins
-
 from logging_config import get_log_path
+# ── privilege_lint_cli.py ─────────────────────────────────────────
 
-# auto-approve in CI or git hooks
+
+
+
+
+# auto-approve in CI or git hooks (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
 ):
@@ -439,7 +440,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         issues.extend(mypy_issues)
         checked_count = len(checked)
-    
+
     if linter.config.data_paths:
         data_files = iter_data_files(linter.config.data_paths)
         for df in data_files:
@@ -473,7 +474,5 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    require_admin_banner()
-    require_lumos_approval()
     sys.exit(main())
 # ────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from logging_config import get_log_path
@@ -8,9 +9,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 LOG_PATH = get_log_path("resonite_living_audit.jsonl", "RESONITE_LIVING_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -32,7 +31,6 @@ def main() -> None:
     parser.add_argument("event")
     parser.add_argument("user")
     args = parser.parse_args()
-    require_admin_banner()
     print(json.dumps(log_event(args.event, args.user), indent=2))
 
 
