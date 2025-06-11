@@ -1,15 +1,11 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 import argparse
 import experiment_tracker as et
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 from admin_utils import require_admin_banner, require_lumos_approval
-
-
-
-
+require_admin_banner()
+require_lumos_approval()
 def main() -> None:
     # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)

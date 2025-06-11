@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-require_admin_banner()
-require_lumos_approval()
 from logging_config import get_log_path
 import argparse
 import json
@@ -10,10 +8,8 @@ from pathlib import Path
 import presence_pulse_api as pulse
 import ledger
 from admin_utils import require_admin_banner, require_lumos_approval
-
-
-
-
+require_admin_banner()
+require_lumos_approval()
 def digest(days: int = 1) -> dict:
     start = datetime.utcnow() - timedelta(days=days)
     sup = ledger.summarize_log(get_log_path("support_log.jsonl"), limit=100)
