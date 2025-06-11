@@ -1,25 +1,12 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-#  _____  _             _
-# |  __ \| |           (_)
-# | |__) | |_   _  __ _ _ _ __   __ _
-# |  ___/| | | | |/ _` | | '_ \ / _` |
-# | |    | | |_| | (_| | | | | | (_| |
-# |_|    |_\__,_|\__, |_|_| |_|\__, |
-#                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
-
 from logging_config import get_log_path
 import time
 from pathlib import Path
 from admin_utils import require_admin_banner, require_lumos_approval
+
 
 LOG_PATH = get_log_path("user_presence.jsonl")
 
@@ -40,7 +27,6 @@ def monitor(period: float = 5.0, window: int = 60) -> None:
 
 
 def main() -> None:
-    require_admin_banner()
     monitor()
 
 
