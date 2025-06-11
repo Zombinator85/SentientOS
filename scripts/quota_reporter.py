@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()
-require_lumos_approval()
-from __future__ import annotations
 from __future__ import annotations
 from admin_utils import require_admin_banner, require_lumos_approval
+require_admin_banner()
+require_lumos_approval()
 import argparse
 import collections
 import datetime as dt
