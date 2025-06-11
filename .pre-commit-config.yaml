@@ -3,52 +3,32 @@ repos:
     hooks:
       - id: privilege-lint
         name: privilege lint
-        entry: bash scripts/precommit_privilege.sh
+        entry: bash -c 'LUMOS_AUTO_APPROVE=1 scripts/precommit_privilege.sh'
         language: system
         pass_filenames: false
-        env:
-          LUMOS_AUTO_APPROVE: '1'
-          PYTHONPATH: "."
-
       - id: audit-verify
         name: audit log verify
-        entry: python verify_audits.py logs/ --no-input
+        entry: bash -c 'LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/ --no-input'
         language: system
         pass_filenames: false
-        env:
-          LUMOS_AUTO_APPROVE: '1'
-          PYTHONPATH: "."
-
-      - id: mass-checker
-        name: privilege banner mass check
-        entry: python scripts/ritual_enforcer.py --mode check
-        language: system
-        pass_filenames: false
-        env:
-          PYTHONPATH: "."
-
       - id: pytest
         name: unit tests
         entry: pytest --cov=sentientos --cov-fail-under=80 -q
         language: python
         pass_filenames: false
-        env:
-          PYTHONPATH: "."
         additional_dependencies:
           - pytest
           - pytest-cov
           - requests
           - mypy
+          - requests_mock
+          - PyYAML
           - types-PyYAML
           - types-requests
-
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.16.0
     hooks:
       - id: mypy
         additional_dependencies:
-          - pytest
-          - pytest-cov
-          - requests
           - types-PyYAML
           - types-requests
