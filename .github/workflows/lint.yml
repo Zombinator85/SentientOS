@@ -22,16 +22,29 @@ jobs:
         with:
           go-version: '1.22'
       - if: matrix.mode == 'core'
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install -e .
       - if: matrix.mode == 'bin-lock'
         run: |
           pip install -r requirements-lock.txt
+          pip install -r requirements-dev.txt
           pip install .
       - if: matrix.mode == 'src-lock-full'
         run: |
           pip install -r requirements-src-lock.txt
+          pip install -r requirements-dev.txt
           pip install .
-      - id: tests
+      - name: privilege_lint
+        run: python privilege_lint_cli.py
+      - name: audit_verify
+        run: python verify_audits.py logs/
+        env:
+          LUMOS_AUTO_APPROVE: '1'
+      - name: mypy
+        run: mypy sentientos
+      - name: pytest
         run: pytest -q
       - name: Env report
         run: plint-env report --json > env.json
