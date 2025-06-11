@@ -1,17 +1,18 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
-
 from datetime import datetime
 import json
 import os
 from pathlib import Path
 from typing import Any
-
 from admin_utils import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
+
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 LOG_PATH = get_log_path("avatar_dreams.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -44,7 +45,6 @@ def run_once(seed: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Autonomous avatar dreaming")

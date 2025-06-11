@@ -1,29 +1,16 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-#  _____  _             _
-# |  __ \| |           (_)
-# | |__) | |_   _  __ _ _ _ __   __ _
-# |  ___/| | | | |/ _` | | '_ \ / _` |
-# | |    | | |_| | (_| | | | | | (_| |
-# |_|    |_\__,_|\__, |_|_| |_|\__, |
-#                  __/ |         __/ |
-#                 |___/         |___/ 
-from __future__ import annotations
-"""Privilege Banner: requires admin & Lumos approval."""
-require_admin_banner()
-require_lumos_approval()
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
-
 from logging_config import get_log_path
 from admin_utils import require_admin_banner, require_lumos_approval
-
-
 import argparse
 import datetime
 import os
 from pathlib import Path
+
+
+
 
 
 LOG_DIR = get_log_path("self_reflections", "REFLECTION_LOG_DIR")
@@ -65,7 +52,6 @@ def search_entries(keyword: str, context: int = 20):
 
 
 def main(argv=None) -> None:
-    require_admin_banner()
     parser = argparse.ArgumentParser(description="Reflection log viewer")
     sub = parser.add_subparsers(dest="cmd")
 
