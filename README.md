@@ -86,10 +86,11 @@ fi
 4. Run `python installer/setup_installer.py` and follow the prompts.
 5. Launch a tool, e.g. `support --help`.
 6. Review the environment variables in [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
-7. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
-8. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
-9. Run `python smoke_test_connector.py` to verify the OpenAI connector.
-10. A minimal `Dockerfile` is provided if you prefer a containerized setup.
+7. Logs for privileged commands are written to `$PRIVILEGED_AUDIT_FILE` and quarantine events to `$SELF_DEFENSE_LOG`.
+8. When updates are available run `update_cathedral.bat` (or the equivalent script on your platform) to pull the latest code and rerun the smoke tests. See [docs/CODEX_UPDATE_PIPELINE.md](docs/CODEX_UPDATE_PIPELINE.md) for details.
+9. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
+10. Run `python smoke_test_connector.py` to verify the OpenAI connector.
+11. A minimal `Dockerfile` is provided if you prefer a containerized setup.
 For Windows/Mac/Linux quirks, see [bless_this_env.py](./bless_this_env.py).
 If you get a dependency or audio error, see the Troubleshooting section or ask in Discussions.
 For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance. A GitHub action runs this ritual automatically every night.
