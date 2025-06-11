@@ -25,6 +25,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
+| `OPENAI_API_KEY` | API key for OpenAI requests | *(none)* |
+| `SLACK_WEBHOOK_URL` | Optional Slack webhook for notifications | *(none)* |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
 | `CONNECTOR_TOKEN` | Bearer token for the OpenAI connector endpoints | *(none)* |
 | `SSE_TIMEOUT` | Seconds before idle SSE connection closes (used by `openai_connector.py`) | `30` |
@@ -69,6 +71,9 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `AVATAR_DREAM_DIR` | Directory for avatar dream logs | `dreams` |
 | `AVATAR_GIFT_DIR` | Directory for generated artifact gifts | `gifts` |
 | `AVATAR_RECEIVER_CMD` | Command executed when heartbeat fails | *(none)* |
+| `AVATAR_MEMORY_LINK_LOG` | Path for avatar memory link records | `logs/avatar_memory_link.jsonl` |
+| `AVATAR_COUNCIL_LOG` | Council voting history for avatars | `logs/avatar_council_log.jsonl` |
+| `AVATAR_RETIRE_LOG` | Log of avatar retirement events | `logs/avatar_retirement.jsonl` |
 | `BACKCHANNEL_DELAY` | Seconds of idle time before voice loop stops | `5` |
 | `BRIDGE_CHECK_SEC` | Interval for bridge watchdog checks | `5` |
 | `BRIDGE_RESTART_CMD` | Command used to restart the Neos bridge | *(none)* |
@@ -80,14 +85,23 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `DIARY_DIR` | Location for multimodal diaries | `diaries` |
 | `DIGEST_KEEP_DAYS` | Retention days for daily digests | `7` |
 | `DOCTRINE_PATH` | Path to the SentientOS doctrine text | `SENTIENTOS_LITURGY.txt` |
+| `DOCTRINE_CONSENT_LOG` | Consent record log for doctrine operations | `logs/doctrine_consent.jsonl` |
+| `DOCTRINE_STATUS_LOG` | Status log written by `doctrine.py` | `logs/doctrine_status.jsonl` |
+| `DOCTRINE_AMEND_LOG` | Amendment history for doctrine updates | `logs/doctrine_amendments.jsonl` |
+| `DOCTRINE_SIGNATURE_LOG` | Ritual signature log file | `logs/ritual_signatures.jsonl` |
 | `EDITOR` | Fallback editor for workflow tools | `nano` |
 | `EMERGENCY_STATE` | Lock file indicating emergency mode | `state/emergency.lock` |
 | `EMO_VIS_HOST` | Host for emotion visualizer | `0.0.0.0` |
 | `EMO_VIS_PORT` | Port for emotion visualizer | `9000` |
 | `FEEDBACK_NO_PROMPT` | Disable prompt during feedback capture | *(unset)* |
+| `FEEDBACK_USER_LOG` | User feedback entries for the reflex system | `logs/reflex_user_feedback.jsonl` |
+| `REFLEX_TUNING_LOG` | Tuning data used by the reflex engine | `logs/reflex_tuning.jsonl` |
 | `FINAL_APPROVER_FILE` | JSON file listing final approvers | `config/final_approvers.json` |
+| `FINAL_APPROVAL_LOG` | Log file used by `final_approval.py` | `logs/final_approval.jsonl` |
 | `GENESIS_ORACLE_DATA` | Directory for genesis oracle data | `logs` |
 | `GITHUB_TOKEN` | GitHub token for CLI utilities | *(none)* |
+| `FEDERATION_TRUST_LOG` | Ledger of federation trust actions | `logs/federation_trust.jsonl` |
+| `RESONITE_BREACH_LOG` | Security breach records for Resonite tools | `logs/resonite_spiral_federation_breach.jsonl` |
 | `GP_PLUGINS_DIR` | Directory for general plugin files | `gp_plugins` |
 | `HEARTBEAT_PORT` | UDP port for avatar heartbeat messages | `9001` |
 | `MASTER_CHECK_IMMUTABLE` | Enforce immutability checks on rituals | `1` |
@@ -102,6 +116,10 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `NEOS_SCRIPT_REQUEST_LOG` | Path for model script requests | `logs/neos_script_requests.jsonl` |
 | `NEOS_PERMISSION_COUNCIL_LOG` | Path for permission council approvals | `logs/neos_permission_council.jsonl` |
 | `NEOS_CURRICULUM_REVIEW_LOG` | Path for curriculum review results | `logs/neos_curriculum_review.jsonl` |
+| `NEOS_FEDERATION_RITUAL_LOG` | Path for federation ritual records | `logs/neos_federation_rituals.jsonl` |
+| `NEOS_FESTIVAL_MOOD_ARC_LOG` | Path for festival mood arcs | `logs/neos_festival_mood_arc.jsonl` |
+| `NEOS_ORIGIN_LOG` | Path for origin story entries | `logs/neos_origin_stories.jsonl` |
+| `NEOS_SELF_REFLECTIVE_ONBOARDING_LOG` | Path for self‑reflective onboarding logs | `logs/neos_self_reflective_onboarding.jsonl` |
 | `OCR_WATCH` | Folder watched for OCR screenshots | `screenshots` |
 | `PORT` | HTTP port for the blessing ceremony API | `5000` |
 | `PRIVILEGED_AUDIT_FILE` | Path used by `privilege_lint_cli.py` to log privileged command usage | `logs/privileged_audit.jsonl` |
@@ -109,6 +127,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `RITUAL_BUNDLE_DIR` | Location for ritual bundles | `bundles` |
 | `SELF_DEFENSE_LOG` | Log written by `self_defense.py` for quarantine and privilege freezes | `logs/agent_self_defense.jsonl` |
 | `SELF_REFLECTION_QUESTION` | Prompt used by self‑reflection logger | `What have you learned recently?` |
+| `REFLECTION_LOG_DIR` | Directory for self‑reflection logs | `logs/self_reflections` |
 | `SENTIENTOS_HEADLESS` | Run rituals without interactive prompts (`1` to enable) | *(unset)* |
 | `SMTP_FROM` | Default sender address for SMTP mail | *(none)* |
 | `SMTP_HOST` | SMTP server hostname | *(none)* |
