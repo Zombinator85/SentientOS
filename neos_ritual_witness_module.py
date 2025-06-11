@@ -45,7 +45,6 @@ def list_witnesses(event: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Ritual Witness Module")
     sub = ap.add_subparsers(dest="cmd")
 

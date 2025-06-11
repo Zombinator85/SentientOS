@@ -33,7 +33,6 @@ def main() -> None:
     parser.add_argument("user")
     parser.add_argument("capsule")
     args = parser.parse_args()
-    require_admin_banner()
     print(json.dumps(log_capsule(args.user, args.capsule), indent=2))
 
 

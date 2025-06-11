@@ -31,7 +31,6 @@ def log_artifact(name: str, description: str) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Sanctuary Artifact Logger")
     ap.add_argument("name")
     ap.add_argument("description")

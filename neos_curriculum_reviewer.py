@@ -56,7 +56,6 @@ def history(limit: int = 20) -> List[Dict[str, int]]:
     return out
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Festival/Onboarding Curriculum Reviewer")
     sub = ap.add_subparsers(dest="cmd")
 

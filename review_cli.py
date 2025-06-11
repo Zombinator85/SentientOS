@@ -2,9 +2,10 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 from pathlib import Path
-from admin_utils import require_admin_banner, require_lumos_approval
 from story_studio import load_storyboard, save_storyboard
 import user_profile as up
 import notification

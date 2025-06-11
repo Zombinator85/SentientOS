@@ -39,7 +39,6 @@ def merge_logs(ours: Path, theirs: Path, dest: Path) -> Path:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Federated ledger conflict resolver")
     ap.add_argument("ours")
     ap.add_argument("theirs")

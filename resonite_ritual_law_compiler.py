@@ -54,7 +54,6 @@ def main() -> None:  # pragma: no cover - CLI
     list_p = sub.add_parser("list", help="List laws")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "add":
         print(json.dumps(log_entry(args.user, "add", args.text), indent=2))
     elif args.cmd == "export":

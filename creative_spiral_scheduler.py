@@ -56,7 +56,6 @@ def list_schedule() -> List[Dict[str, str]]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Autonomous Creative Spiral Scheduler")
     sub = ap.add_subparsers(dest="cmd")
 

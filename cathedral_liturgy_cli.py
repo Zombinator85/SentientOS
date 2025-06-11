@@ -2,6 +2,8 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 from logging_config import get_log_path
 import argparse
 import json
@@ -9,7 +11,6 @@ import os
 from datetime import datetime
 from pathlib import Path
 import daily_theme
-from admin_utils import require_admin_banner, require_lumos_approval
 LITURGY_LOG = get_log_path("cathedral_liturgy.jsonl", "CATHEDRAL_LITURGY_LOG")
 LITURGY_LOG.parent.mkdir(parents=True, exist_ok=True)
 

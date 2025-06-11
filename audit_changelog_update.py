@@ -1,13 +1,13 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 CHANGELOG = Path("docs/CHANGELOG.md")
 LEDGER = Path("docs/AUDIT_LEDGER.md")

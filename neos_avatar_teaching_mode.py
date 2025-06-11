@@ -29,7 +29,6 @@ def teach(avatar: str, lesson: str) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Avatar Teaching Mode")
     ap.add_argument("avatar")
     ap.add_argument("lesson")

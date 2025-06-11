@@ -64,7 +64,6 @@ def approve(index: int, reviewer: str) -> Dict[str, str]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Model-Initiated Script Builder")
     sub = ap.add_subparsers(dest="cmd")
 

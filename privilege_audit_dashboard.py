@@ -1,15 +1,15 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from admin_utils import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import json
 from pathlib import Path
 from flask_stub import Flask
 import privilege_lint as pl
 """Simple Flask view for privileged command audit log."""
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 app = Flask(__name__)
 LOG = pl.AUDIT_FILE

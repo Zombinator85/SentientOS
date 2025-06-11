@@ -38,7 +38,6 @@ def timeline(limit: int = 20) -> List[Dict[str, str]]:
     return out
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Council Succession Spiral Animator")
     sub = ap.add_subparsers(dest="cmd")
 

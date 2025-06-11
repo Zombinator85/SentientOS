@@ -2,13 +2,14 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 from logging_config import get_log_path
 import json
 from pathlib import Path
 import os
 import daily_theme
 import ledger
-from admin_utils import require_admin_banner, require_lumos_approval
 def generate_recap(limit: int = 20) -> dict:
     support = ledger.summarize_log(get_log_path("support_log.jsonl"), limit)
     federation = ledger.summarize_log(get_log_path("federation_log.jsonl"), limit)

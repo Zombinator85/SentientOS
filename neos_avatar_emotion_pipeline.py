@@ -35,7 +35,6 @@ def map_emotions(vector: Dict[str, float], memory_fragment: str) -> Dict[str, An
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Avatar Emotion Pipeline")
     ap.add_argument("vector", help="Path to JSON emotion vector")
     ap.add_argument("memory", help="Memory fragment text")

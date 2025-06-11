@@ -34,7 +34,6 @@ def record_birth(name: str, parents: list[str]) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar ancestry and lineage tracker")

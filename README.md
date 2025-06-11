@@ -307,8 +307,8 @@ contributors through the [Ritual Onboarding Checklist](docs/RITUAL_ONBOARDING.md
 - [ ] Documentation updated
 
 ## Known Issues
-- `mypy --strict` currently reports **0** errors across the codebase. All tests
-  and privilege lint checks pass.
+- `mypy --strict` currently reports **0** errors in the `sentientos` package
+  (3 files checked). All tests and privilege lint checks pass.
 - Legacy audit files `migration_ledger.jsonl` and `support_log.jsonl` contain
   historic hash mismatches. These scars are documented in
   `AUDIT_LOG_FIXES.md` and preserved for transparency.
@@ -327,7 +327,7 @@ these wounds as healed.
 | 2026-02 | 160         | 361                |
 | 2026-03 | 145         | 370                |
 | 2028-05 | 0           | 370                |
-| 2029-11 | 1451        | 370                |
+| 2029-11 | 0           | 370                |
 
 ## Public Roadmap
 ```

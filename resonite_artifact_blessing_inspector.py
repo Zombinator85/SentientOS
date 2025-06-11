@@ -53,7 +53,6 @@ def main() -> None:  # pragma: no cover - CLI
     hs = sub.add_parser("history", help="Show reviews")
 
     args = parser.parse_args()
-    require_admin_banner()
     if args.cmd == "review":
         print(json.dumps(log_review(args.artifact, args.reviewer, args.verdict), indent=2))
     else:

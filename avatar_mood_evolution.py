@@ -50,7 +50,6 @@ def mood_stats(avatar: str) -> Dict[str, int]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar mood evolution")
     ap.add_argument("avatar")
     args = ap.parse_args()

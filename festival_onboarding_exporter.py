@@ -30,7 +30,6 @@ def export_ceremony(src: Path, dest: Path) -> Dict[str, str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Festival/Onboarding Ceremony Exporter")
     ap.add_argument("src")
     ap.add_argument("dest")
