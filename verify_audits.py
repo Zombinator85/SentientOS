@@ -213,6 +213,12 @@ def main() -> None:  # pragma: no cover - CLI
     ap.add_argument("--auto-repair", action="store_true", help="heal logs then verify")
     ap.add_argument("--check-only", action="store_true", help="verify without modifying logs")
     ap.add_argument("--auto-approve", action="store_true", help="skip prompts")
+    ap.add_argument(
+        "--no-input",
+        action="store_true",
+        dest="auto_approve",
+        help="skip prompts (alias)",
+    )
     args = ap.parse_args()
 
     auto_env = args.auto_approve or os.getenv("LUMOS_AUTO_APPROVE") == "1"
