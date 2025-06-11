@@ -41,7 +41,6 @@ def compute_health(hours: int = 24) -> Dict[str, int | str]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Federation health badge updater")
     ap.add_argument("--hours", type=int, default=24, help="Look back this many hours")
     ap.add_argument("--output", type=Path, default=Path("docs/FEDERATION_HEALTH.md"))

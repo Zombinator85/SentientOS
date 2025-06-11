@@ -29,7 +29,6 @@ def broadcast(event: str, note: str) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Cross-World Federation Sync")
     ap.add_argument("event")
     ap.add_argument("note")

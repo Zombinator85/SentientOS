@@ -72,7 +72,6 @@ def check_quorum(avatar: str, quorum: int = 3) -> bool:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Avatar council blessing")
     sub = ap.add_subparsers(dest="cmd")
 

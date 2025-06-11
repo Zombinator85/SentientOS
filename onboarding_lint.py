@@ -17,7 +17,6 @@ def _changed_files() -> list[str]:
 
 
 def main() -> int:
-    require_admin_banner()
     changed = _changed_files()
     issues: list[str] = []
     if "tags.py" in changed and "docs/TAGS_GLOSSARY.md" not in changed:

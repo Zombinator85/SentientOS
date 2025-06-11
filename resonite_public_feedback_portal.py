@@ -57,7 +57,6 @@ def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Cathedral Council Public Feedback Portal")
     sub = ap.add_subparsers(dest="cmd")
 

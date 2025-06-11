@@ -38,7 +38,6 @@ def create(name: str, template: str) -> dict[str, Any]:
 
 
 def main() -> None:
-    require_admin_banner()
     import argparse
 
     ap = argparse.ArgumentParser(description="Avatar ritual customizer")

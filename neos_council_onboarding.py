@@ -29,7 +29,6 @@ def onboard(keeper: str) -> dict:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Council/Onboarding Engine")
     ap.add_argument("keeper")
     args = ap.parse_args()

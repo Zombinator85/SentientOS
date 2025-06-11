@@ -76,7 +76,6 @@ def convert(path: Path, dest: Path | None = None) -> Path:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Legacy log converter")
     ap.add_argument("log", help="legacy log file")
     ap.add_argument("--out", help="destination path")

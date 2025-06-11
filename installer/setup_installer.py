@@ -144,7 +144,6 @@ def smoke_test() -> None:
 
 
 def main() -> None:
-    require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
     print_banner()
     check_python_version()

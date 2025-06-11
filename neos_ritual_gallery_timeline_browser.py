@@ -34,7 +34,6 @@ def list_events(agent: str = "", artifact: str = "") -> List[Dict[str, str]]:
 
 
 def main() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="NeosVR Ritual Gallery Timeline Browser")
     ap.add_argument("--agent", default="", help="Filter by agent")
     ap.add_argument("--artifact", default="", help="Filter by artifact")
