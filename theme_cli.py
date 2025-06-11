@@ -2,9 +2,10 @@
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
+from admin_utils import require_admin_banner, require_lumos_approval
+
 import argparse
 import daily_theme
-from admin_utils import require_admin_banner, require_lumos_approval
 from typing import Optional
 def main() -> None:
     parser = argparse.ArgumentParser(description="Daily theme tool")
