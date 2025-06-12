@@ -1,10 +1,7 @@
-sentientos/privilege.py:10: error: Function is missing a return type annotation  [no-untyped-def]
-sentientos/privilege.py:11: error: Function is missing a type annotation  [no-untyped-def]
-sentientos/privilege.py:13: error: Function is missing a type annotation  [no-untyped-def]
-sentientos/privilege.py:14: error: Module "admin_utils" does not explicitly export attribute "require_admin_banner"  [attr-defined]
-sentientos/privilege.py:14: error: Module "admin_utils" does not explicitly export attribute "require_lumos_approval"  [attr-defined]
-sentientos/privilege.py:21: error: Untyped decorator makes function "require_admin_banner" untyped  [misc]
-sentientos/privilege.py:27: error: Untyped decorator makes function "require_lumos_approval" untyped  [misc]
-admin_utils.py:85: error: Name "require_admin_banner" already defined (possibly by an import)  [no-redef]
-admin_utils.py:139: error: Name "require_lumos_approval" already defined (possibly by an import)  [no-redef]
-Found 9 errors in 2 files (checked 4 source files)
+sentientos/privilege.py:3: error: Module "sentientos.privilege" has no attribute "require_admin_banner"  [attr-defined]
+sentientos/privilege.py:3: error: Module "sentientos.privilege" has no attribute "require_lumos_approval"  [attr-defined]
+admin_utils.py:129: error: No overload variant of "warn" matches argument type "int"  [call-overload]
+admin_utils.py:129: note: Possible overload variants:
+admin_utils.py:129: note:     def warn(message: str, category: type[Warning] | None = ..., stacklevel: int = ..., source: Any | None = ...) -> None
+admin_utils.py:129: note:     def warn(message: Warning, category: Any = ..., stacklevel: int = ..., source: Any | None = ...) -> None
+Found 3 errors in 2 files (checked 5 source files)

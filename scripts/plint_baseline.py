@@ -5,13 +5,12 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import json
 from pathlib import Path
 
-from privilege_lint import PrivilegeLinter, iter_py_files
+from privilege_lint import PrivilegeLinter, iter_py_files  # type: ignore[attr-defined]
 from privilege_lint.runner import parallel_validate
 
 
