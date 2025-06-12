@@ -3,14 +3,14 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from typing import Sequence, Iterable
+from typing import Sequence, Iterable, Any
 import os
 
 
 DEFAULT_WORKERS = max(cpu_count() - 1, 1)
 
 
-def parallel_validate(linter: "PrivilegeLinter", files: Sequence[Path], max_workers: int | None = None) -> list[str]:
+def parallel_validate(linter: Any, files: Sequence[Path], max_workers: int | None = None) -> list[str]:
     """Validate files in parallel using threads."""
     workers = max_workers if max_workers is not None else DEFAULT_WORKERS
     issues: list[str] = []

@@ -1,24 +1,20 @@
 from __future__ import annotations
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
-
 """Privilege helper utilities.
 
 Actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
 running unattended.
 """
 
-import os
-import sys
-import platform
 import getpass
-from typing import TYPE_CHECKING, Any
+import os
+import platform
+import sys
 import warnings
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
 if TYPE_CHECKING:
     import presence_ledger as pl_module
     import privilege_lint as pl_lint_module
@@ -30,7 +26,7 @@ class _StubLedger:
 
     def log(self, *a: object, **k: object) -> None:
         pass
-from typing import Any
+
 
 pl: Any = _StubLedger()
 
@@ -82,12 +78,17 @@ def is_admin() -> bool:
         return os.geteuid() == 0
 
 
+def require_admin_banner() -> None:
     """Display the privilege banner and enforce administrator rights."""
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     print_privilege_banner(tool)
     global pl
-    if isinstance(pl, _StubLedger) and pl.__class__ is _StubLedger and pl.log_privilege == _StubLedger.log_privilege:
+    if (
+        isinstance(pl, _StubLedger)
+        and pl.__class__ is _StubLedger
+        and pl.log_privilege == _StubLedger.log_privilege
+    ):
         import presence_ledger as pl_module
         pl = pl_module
     _log_privilege = pl.log_privilege
@@ -125,17 +126,16 @@ def is_admin() -> bool:
         sys.exit(FAIL_MESSAGE)
 
 
-def require_admin() -> None:
-    warnings.warn(
-        stacklevel=2,
-    )
-
-
+def require_lumos_approval() -> None:
     """Request Lumos blessing before continuing."""
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     global pl
-    if isinstance(pl, _StubLedger) and pl.__class__ is _StubLedger and pl.log_privilege == _StubLedger.log_privilege:
+    if (
+        isinstance(pl, _StubLedger)
+        and pl.__class__ is _StubLedger
+        and pl.log_privilege == _StubLedger.log_privilege
+    ):
         import presence_ledger as pl_module
         pl = pl_module
     if os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
@@ -150,4 +150,14 @@ def require_admin() -> None:
         return
     pl.log(user, "lumos_approval_denied", tool)
     raise SystemExit("Lumos did not approve this action.")
+
+
+def require_admin() -> None:
+    """Deprecated wrapper for ``require_lumos_approval``."""
+    warnings.warn(
+        "require_admin() is deprecated; use require_lumos_approval() instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    require_lumos_approval()
 
