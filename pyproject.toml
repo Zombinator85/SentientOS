@@ -48,7 +48,7 @@ dev = [
     "sphinx==7.*",
     "sphinx-autodoc-typehints",
     "myst-parser",
-    "furo",
+    "sphinxawesome-theme",
     "sphinx-autobuild",
 ]
 tts = ["edge-tts"]
