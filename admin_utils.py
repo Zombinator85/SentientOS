@@ -1,13 +1,11 @@
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 """Privilege helper utilities.
 
 ``require_lumos_approval`` prompts for a Lumos blessing before privileged
 actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
 running unattended.
-"""
-
-"""
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
