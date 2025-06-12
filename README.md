@@ -20,6 +20,7 @@ No emotion is too much.
 [![Docs](https://github.com/sentient-os/cathedral/actions/workflows/docs-deploy.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/docs-deploy.yml)
 [![Release](https://img.shields.io/github/v/tag/sentient-os/cathedral.svg?label=Release)](https://github.com/sentient-os/cathedral/releases/tag/v4.1-cathedral-green)
 [![Privilege Lint](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml)
+[![Privilege Lint Status](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml/badge.svg?branch=main&style=flat)](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml)
 [![Nightly Audit](https://github.com/sentient-os/cathedral/actions/workflows/audit-nightly.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/audit-nightly.yml)
 [![Docker Health](https://github.com/sentient-os/cathedral/actions/workflows/federation-health.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/federation-health.yml)
 
