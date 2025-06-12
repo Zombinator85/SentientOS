@@ -5,24 +5,100 @@ services:
     command: ["python", "-m", "http.server", "5000"]
     ports:
       - "5000:5000"
+    volumes:
+      - ./scripts:/scripts:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
+import time;\n\
+url='http://localhost:5000';\n\
+\n\
+try:\n\
+    urllib.request.urlopen(url)\n\
+    sys.exit(0)\n\
+except Exception:\n\
+    sys.exit(1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   bridge1:
     image: python:3.11-slim
-    command: ["python", "-m", "http.server", "9977"]
+    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:5000 && python -m http.server 9977"]
     ports:
       - "9977:9977"
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      relay:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
+import time;\n\
+url='http://localhost:9977';\n\
+try:\n\
+    urllib.request.urlopen(url)\n\
+    sys.exit(0)\n\
+except Exception:\n\
+    sys.exit(1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   bridge2:
     image: python:3.11-slim
-    command: ["python", "-m", "http.server", "9988"]
+    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:5000 && python -m http.server 9988"]
     ports:
       - "9988:9988"
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      relay:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
+import time;\n\
+url='http://localhost:9988';\n\
+try:\n\
+    urllib.request.urlopen(url)\n\
+    sys.exit(0)\n\
+except Exception:\n\
+    sys.exit(1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   bridge3:
     image: python:3.11-slim
-    command: ["python", "-m", "http.server", "9966"]
+    entrypoint: ["sh", "-c", "python /scripts/wait_for_health.py http://relay:5000 && python -m http.server 9966"]
     ports:
       - "9966:9966"
+    volumes:
+      - ./scripts:/scripts:ro
+    depends_on:
+      relay:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
+import time;\n\
+url='http://localhost:9966';\n\
+try:\n\
+    urllib.request.urlopen(url)\n\
+    sys.exit(0)\n\
+except Exception:\n\
+    sys.exit(1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   ngrok:
     image: ngrok/ngrok:alpine
     command: ["version"]
     ports:
       - "4040:4040"
       - "4041:4041"
+    volumes:
+      - ./scripts:/scripts:ro
+    healthcheck:
+      test: ["CMD", "ngrok", "version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
