@@ -1,4 +1,8 @@
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+require_admin_banner()  # Enforced by doctrine
+require_lumos_approval()
 
 from importlib import reload
 import json
@@ -7,15 +11,9 @@ import sys
 from pathlib import Path
 from logging_config import get_log_path
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 import openai_connector
 from flask_stub import Request
 from typing import Any
-
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced by doctrine
-require_lumos_approval()
 
 
 def _setup() -> tuple[Any, Path]:
