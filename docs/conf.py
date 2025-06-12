@@ -13,7 +13,10 @@ extensions = [
     'myst_parser',
 ]
 
-html_theme = 'furo'
+html_theme = 'sphinxawesome_theme'
+
+# Enable basic search with the Sphinx Awesome theme
+extensions.append('sphinxawesome_theme.highlighting')
 
 source_suffix = {
     '.rst': 'restructuredtext',
