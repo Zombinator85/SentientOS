@@ -3,7 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import tomllib
-import yaml  # type: ignore[import-untyped]
+try:  # optional dependency for YAML config files
+    import yaml  # type: ignore[import-untyped]
+except Exception:  # pragma: no cover - fallback when PyYAML is missing
+    yaml = None
+    import sys
+    print(
+        "Warning: optional dependency PyYAML missing; YAML configs will be ignored",
+        file=sys.stderr,
+    )
 
 
 @dataclass
@@ -51,6 +59,8 @@ _DEFAULT = LintConfig(
 def _load_file(path: Path) -> dict:
     if path.suffix == ".toml":
         return tomllib.loads(path.read_text(encoding="utf-8"))
+    if yaml is None:
+        return {}
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 
 
