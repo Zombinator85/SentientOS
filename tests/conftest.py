@@ -1,16 +1,21 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+# noqa: D100 - all tests share this setup module
 from __future__ import annotations
 import sys
 from pathlib import Path
+import builtins
 
 # Ensure the repository root is on sys.path before importing project modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Stub privilege checks before importing modules that may call them on import
+builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
+builtins.require_lumos_approval = lambda *a, **k: None  # type: ignore[attr-defined]
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-import builtins
 # The admin banner checks can exit the process during module import if not
 # stubbed ahead of time. Stub them here so test discovery doesn't trip the
 # privilege checks.
@@ -18,7 +23,6 @@ import builtins
 import importlib
 import pytest
 import types
-from pathlib import Path
 
 try:
     importlib.import_module('yaml')
