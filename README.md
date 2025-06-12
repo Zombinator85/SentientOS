@@ -316,6 +316,11 @@ helm template sentientos ./helm
 The chart deploys the relay, three bridges, an ngrok sidecar, a ConfigMap for `.env`,
 an Ingress for `/relay`, and a ServiceMonitor.
 
+## Operations
+Day-to-day log management can be automated using `logrotate`. A sample
+configuration is provided in [docs/logrotate.conf](docs/logrotate.conf). It rotates
+JSONL logs daily, compresses old files with gzip, and keeps a week of history.
+
 ## Cathedral Steward
 See [STEWARD.md](docs/STEWARD.md) for the steward role description and monthly
 responsibilities. They maintain [`AUDIT_LOG.md`](docs/AUDIT_LOG.md) and guide new
