@@ -1,18 +1,29 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+
 from __future__ import annotations
+
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
+
 """Build artifacts and publish package and Docker image.
 
 On real runs this also generates ``sbom.json`` and ``docker_digests.txt``
 which are attached to the GitHub release.
 """
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
+
 import argparse
 import os
 import re
 import subprocess
 from pathlib import Path
 from typing import Any
+
+
+def run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    print(" ".join(cmd))
+    return subprocess.run(cmd, check=True, **kwargs)
 
 
 def latest_changelog(path: Path) -> str:
@@ -22,11 +33,6 @@ def latest_changelog(path: Path) -> str:
         start = matches[-1].start()
         return text[start:].strip()
     return text.strip()
-
-
-def run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-    print(" ".join(cmd))
-    return subprocess.run(cmd, check=True, **kwargs)
 
 
 def main(argv: list[str] | None = None) -> int:
