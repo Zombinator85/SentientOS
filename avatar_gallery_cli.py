@@ -1,4 +1,10 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+avatar_gallery_cli.py — CLI tool to display the avatar invocation gallery.
+
+Usage:
+    python -m scripts.avatar_gallery_cli --help
+"""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 

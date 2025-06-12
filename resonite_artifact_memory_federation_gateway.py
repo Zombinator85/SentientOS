@@ -30,13 +30,11 @@ def log_exchange(action: str, artifact: str, peer: str) -> dict:
 
 
 def export_artifact(path: str, peer: str) -> None:
-    require_admin_banner()
     entry = log_exchange("export", path, peer)
     print(json.dumps(entry, indent=2))
 
 
 def import_artifact(path: str, peer: str) -> None:
-    require_admin_banner()
     entry = log_exchange("import", path, peer)
     print(json.dumps(entry, indent=2))
 

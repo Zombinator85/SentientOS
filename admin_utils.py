@@ -6,6 +6,7 @@ from __future__ import annotations
 
 Actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
 running unattended.
+See ``docs/ENVIRONMENT.md`` for configuration details.
 """
 
 import getpass
