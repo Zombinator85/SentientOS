@@ -4,7 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import argparse
@@ -13,6 +12,8 @@ import shutil
 from pathlib import Path
 
 from sentient_banner import BANNER_LINES
+
+IMPORT_LINE = "from sentientos.privilege import require_admin_banner, require_lumos_approval"
 
 # CLI tool to inject the SentientOS privilege banner into Python files.
 
