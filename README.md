@@ -81,11 +81,12 @@ Audit chain is now auto-healed during CI. A nightly workflow also runs `python v
 - **No more "audio storms" on boot—only fresh logs autoplay**
 - **Shell quirks and first-run hiccups handled**
 
-## Quick Start
+## Getting Started
 Clone, bless, and run:
 ```bash
 git clone https://github.com/sentient-os/cathedral.git
 cd cathedral
+./environment/setup_requirements.sh
 ./bless.sh && ./up.sh
 ```
 `bless.sh` asks for consent before any action:
@@ -98,6 +99,7 @@ fi
 1. Ensure your system has Python **3.11+** and install `build-essential` and
    `libasound2` (or equivalent audio libraries) so optional TTS features work.
 2. Install the pinned dependencies with `pip install -r requirements.txt`.
+   Then run `./environment/setup_requirements.sh` to install development tools.
    The list includes `types-requests`, providing type hints for the
    `requests` library so that `mypy` runs cleanly.
 3. Install the project in editable mode using `pip install -e .`.
