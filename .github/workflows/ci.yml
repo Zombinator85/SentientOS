@@ -11,6 +11,11 @@ jobs:
       docker:
         image: docker:dind
         options: --privileged
+        ports:
+          - 2375:2375
+    env:
+      DOCKER_HOST: tcp://localhost:2375
+      DOCKER_TLS_CERTDIR: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -55,6 +60,9 @@ jobs:
 
       - name: Start Docker services
         run: docker compose --project-name sentientos-ci up --build -d
+
+      - name: Wait for service health
+        run: python scripts/wait_for_health.py --url http://localhost:5000/status --max-wait 60
 
       - name: Mypy strict check
         run: mypy --strict sentientos > MYPY_STATUS.md
