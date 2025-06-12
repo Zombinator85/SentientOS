@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import os
 import hashlib
@@ -13,10 +19,6 @@ import doctrine  # Assume doctrine.py is importable
 import relationship_log as rl
 import headless_log as hl
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = Path(os.getenv("MASTER_CONFIG", ROOT / "config" / "master_files.json")).resolve()
 REFUSAL_LOG = get_log_path("refusal_audit.jsonl", "REFUSAL_LOG")

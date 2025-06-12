@@ -1,10 +1,12 @@
-from flask_stub import Flask, jsonify, request
-import experiment_tracker as et
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()
 require_lumos_approval()
+from flask_stub import Flask, jsonify, request
+import experiment_tracker as et
+
 
 app = Flask(__name__)
 
@@ -39,6 +41,4 @@ def experiments_comment() -> object:
 
 
 if __name__ == '__main__':
-    require_admin_banner()
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     app.run(port=5002)

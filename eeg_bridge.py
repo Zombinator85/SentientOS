@@ -1,9 +1,11 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()
 require_lumos_approval()
+
+
 
 # EEG bridge for real or emulated headsets.
 #
@@ -40,7 +42,6 @@ class EEGBridge:
     """Stream EEG samples from a headset or synthetic source."""
 
     def __init__(self, board_id: Optional[int] = None) -> None:
-        require_admin_banner()
         self.board_id = board_id
         self.headless = is_headless() or BoardShim is None
         if not self.headless and board_id is not None:

@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import os
 import sys
@@ -24,7 +26,6 @@ def test_eeg_emulator(tmp_path, monkeypatch):
     monkeypatch.setenv("EEG_LOG", str(eeg_log))
     monkeypatch.setenv("EEG_FEATURE_LOG", str(feat_log))
     import eeg_emulator
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     reload(eeg_emulator)
     eeg_emulator.run(duration=0.1, interval=0.05)
     assert eeg_log.exists() and feat_log.exists()
@@ -39,7 +40,6 @@ def test_haptics_and_bio(tmp_path, monkeypatch):
     monkeypatch.setenv("BIO_LOG", str(b_log))
     import haptics_bridge
     import bio_bridge
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     reload(haptics_bridge)
     reload(bio_bridge)
     haptics_bridge.HapticsBridge().read_event()

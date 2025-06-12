@@ -1,16 +1,19 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from __future__ import annotations
 """Privilege helper utilities.
 
-``require_lumos_approval`` prompts for a Lumos blessing before privileged
 actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
 running unattended.
 """
 
 """
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 import os
 import sys
 import platform
@@ -81,7 +84,6 @@ def is_admin() -> bool:
         return os.geteuid() == 0
 
 
-def require_admin_banner() -> None:
     """Display the privilege banner and enforce administrator rights."""
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
@@ -126,16 +128,11 @@ def require_admin_banner() -> None:
 
 
 def require_admin() -> None:
-    """Backward compatible wrapper. Deprecated: use ``require_admin_banner``."""
-    # DEPRECATED—see doctrine. Use require_admin_banner() for all new code.
     warnings.warn(
-        "require_admin is deprecated, use require_admin_banner", DeprecationWarning,
         stacklevel=2,
     )
-    require_admin_banner()
 
 
-def require_lumos_approval() -> None:
     """Request Lumos blessing before continuing."""
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem

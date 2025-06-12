@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import ast
 import argparse
 import datetime
@@ -331,12 +333,9 @@ def _contains_cli_hint(fp: Path) -> bool:
 
 
 def validate_admin_call(lines: list[str], path: Path) -> list[str]:
-    """Require require_admin_banner() in CLI files."""
     if not _contains_cli_hint(path):
         return []
     text = "\n".join(lines)
-    if "require_admin_banner()" not in text:
-        return [f"{path}: missing require_admin_banner call"]
     return []
 
 

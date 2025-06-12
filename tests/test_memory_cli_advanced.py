@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import os
 import sys
@@ -19,8 +21,6 @@ import admin_utils
 
 def test_tail_follow(monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
-    monkeypatch.setattr(admin_utils, "require_lumos_approval", lambda: None)
     Path("logs").mkdir(exist_ok=True)
     Path("logs/memory.jsonl").write_text("{}\n")
     called = []
@@ -34,8 +34,6 @@ def test_tail_follow(monkeypatch):
 def test_list_since(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
-    monkeypatch.setattr(admin_utils, "require_lumos_approval", lambda: None)
     raw = Path(os.environ["SENTIENTOS_LOG_DIR"]) / "memory" / "raw"
     raw.mkdir(parents=True)
     (raw / "a.json").write_text(json.dumps({"timestamp": "2024-01-01T00:00:00", "text": "old"}))

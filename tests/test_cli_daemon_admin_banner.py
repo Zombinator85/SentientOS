@@ -4,8 +4,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
+
 import importlib
 import argparse
 import os
@@ -63,7 +64,6 @@ DAEMON_MODULES = {
 @pytest.mark.parametrize("mod_name", CLI_MODULES)
 def test_cli_requires_admin(monkeypatch, mod_name):
     calls = []
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: calls.append(True))
     mod = importlib.import_module(mod_name)
     if mod_name == "heartbeat_monitor_cli":
         monkeypatch.setattr(mod, "monitor", lambda *a, **k: (_ for _ in ()).throw(SystemExit))
@@ -81,7 +81,6 @@ def test_cli_requires_admin(monkeypatch, mod_name):
 @pytest.mark.parametrize("mod_name, func_name", DAEMON_MODULES.items())
 def test_daemon_requires_admin(monkeypatch, mod_name, func_name):
     calls = []
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: calls.append(True))
     mod = importlib.import_module(mod_name)
     if mod_name == "resonite_presence_festival_spiral_diff_daemon":
         monkeypatch.setattr(argparse.ArgumentParser, "parse_args", lambda *a, **k: argparse.Namespace(world_a='a', world_b='b', user='u'))

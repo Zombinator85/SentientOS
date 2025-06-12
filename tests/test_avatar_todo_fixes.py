@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -19,8 +21,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 @pytest.fixture(autouse=True)
 def stub_admin(monkeypatch):
     fake_admin = types.ModuleType("admin_utils")
-    fake_admin.require_admin_banner = lambda: None
-    fake_admin.require_lumos_approval = lambda: None
     monkeypatch.setitem(sys.modules, "admin_utils", fake_admin)
     globals()["admin_utils"] = fake_admin
     yield

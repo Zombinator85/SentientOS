@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
-"""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+"""
+"""
+from __future__ import annotations
 # Automate release version bumping and tagging.
 import argparse
 import datetime as dt

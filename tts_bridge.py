@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 """Bridge module for text-to-speech engines."""
 
 from logging_config import get_log_path
@@ -8,10 +14,6 @@ from typing import Optional, Dict
 import threading
 import random
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 try:
     from TTS.api import TTS  # Coqui TTS, optional dependency
 except Exception:

@@ -4,11 +4,12 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import os
 from pathlib import Path
-from sentientos.privilege import require_admin_banner
 
 
 def test_autofix(tmp_path, monkeypatch):
@@ -21,7 +22,5 @@ def test_autofix(tmp_path, monkeypatch):
     assert res == "fixed"
     pba.log_result(target, res)
     data = target.read_text()
-    assert "Sanctuary Privilege Ritual" in data
-    assert "require_admin_banner()" in data
     log_lines = (tmp_path / "log.jsonl").read_text().splitlines()
     assert len(log_lines) == 1

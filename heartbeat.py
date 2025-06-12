@@ -1,12 +1,14 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import time
 import requests
 from datetime import datetime, UTC
 from emotions import empty_emotion_vector
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 RELAY_URL = "http://localhost:5000/relay"
 SECRET = "lumos_april_bridge_secure"
 MODEL = "openai/gpt-4o"

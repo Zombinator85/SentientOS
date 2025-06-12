@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import argparse
 import os
 import sys
@@ -13,7 +15,6 @@ import review_requests as rr
 import final_approval
 from sentient_banner import print_banner, print_closing
 def main() -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description="Policy/reflex suggestions")
     parser.add_argument(
         "--final-approvers",

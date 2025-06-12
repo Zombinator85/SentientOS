@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import json
 import time
 from typing import List, Dict
@@ -5,11 +11,7 @@ from typing import List, Dict
 import love_treasury as lt
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 import ledger
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 try:
     import streamlit as st  # type: ignore  # Streamlit optional
@@ -18,16 +20,12 @@ except Exception:  # pragma: no cover - optional
 
 
 def run_cli() -> None:
-    require_admin_banner()
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     print_banner()
     data = lt.list_treasury()
     print(json.dumps(data, indent=2))
 
 
 def run_dashboard() -> None:
-    require_admin_banner()
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None:
         run_cli()
         return

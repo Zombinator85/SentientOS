@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -38,7 +40,6 @@ def test_compile_and_gallery(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("NEOS_LOREBOOK_LOG", str(log))
 
     importlib.reload(nlw)
-    monkeypatch.setattr(nlw, "require_admin_banner", lambda: None)
 
     # compile lorebook
     monkeypatch.setattr(sys, "argv", ["nlw", "compile", str(out)])
