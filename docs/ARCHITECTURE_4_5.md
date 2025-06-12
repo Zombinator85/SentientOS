@@ -2,6 +2,8 @@
 
 SentientOS 4.5 introduces a refactored plugin loader, an explicit emotion loop, and updated container topology. This document summarizes those core pieces of infrastructure.
 
+<img src="ARCHITECTURE_4_5.svg" alt="Architecture 4.5 diagram" />
+
 ## Plugin Loader
 
 The plugin loader scans the `gp_plugins` directory for Python modules. Each module exposes a `register` hook that receives the `register_plugin` callback from `plugin_framework.py`. When loaded, plugins are validated for Sanctuary Privilege banners before activation. The loader tracks plugin health and supports dynamic reloads to minimize downtime.
