@@ -1,0 +1,2 @@
+"""SentientOS plugin package."""
+
