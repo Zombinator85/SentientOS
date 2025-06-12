@@ -1,9 +1,11 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()
 require_lumos_approval()
+
+
 
 # Synthetic EEG stream for testing pipelines.
 #
@@ -20,7 +22,6 @@ from eeg_features import analyze_sample
 
 def run(duration: float = 2.0, interval: float = 0.5) -> None:
     """Stream synthetic EEG events for ``duration`` seconds."""
-    require_admin_banner()
     bridge = EEGBridge()
     end = time.time() + duration
     while time.time() < end:

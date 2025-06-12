@@ -4,8 +4,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
+
 import sys
 import os
 from importlib import reload
@@ -34,7 +35,6 @@ def test_cli_main(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("REFLECTION_LOG_DIR", str(log_dir))
     from importlib import reload
     reload(rlc)
-    monkeypatch.setattr(rlc, "require_admin_banner", lambda: None)
     monkeypatch.setattr(sys, "argv", ["rlc", "--last", "1"])
     rlc.main()
     out = capsys.readouterr().out

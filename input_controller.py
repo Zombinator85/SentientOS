@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import os
 import json
@@ -6,10 +12,6 @@ import uuid
 from pathlib import Path
 from typing import Callable, Dict, Any, Optional, List, TYPE_CHECKING
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 if TYPE_CHECKING:  # pragma: no cover - for type hints
     from policy_engine import PolicyEngine
 

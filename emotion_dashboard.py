@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import os
 import json
@@ -28,11 +34,7 @@ except Exception:  # pragma: no cover - optional
     st = None
 
 import ledger
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 import reflex_manager as rm
 from reflex_rules import bridge_restart_check, daily_digest_action
@@ -74,8 +76,6 @@ def run_dashboard(
     feedback_rules: Optional[str] = None,
 ) -> None:
     """Launch the SentientOS Streamlit dashboard, with optional feedback layer."""
-    require_admin_banner()
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None or pd is None:
         print("Streamlit or pandas not available. Install dependencies to run dashboard.")
         return

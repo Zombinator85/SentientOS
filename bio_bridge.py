@@ -1,9 +1,11 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()
 require_lumos_approval()
+
+
 
 # Biosignal integration bridge.
 #
@@ -29,7 +31,6 @@ LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 def read_biosignals() -> Dict[str, float]:
     """Return the latest biosignal measurements."""
-    require_admin_banner()
     # Real implementations would pull from BLE/USB APIs
     heart_rate = random.randint(60, 90)
     gsr = random.random()

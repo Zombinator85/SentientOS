@@ -1,5 +1,10 @@
-from cathedral_const import PUBLIC_LOG, log_json as cathedral_log_json
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
+from cathedral_const import PUBLIC_LOG, log_json as cathedral_log_json
 from logging_config import get_log_path
 import argparse
 import hashlib
@@ -11,9 +16,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 # Paths
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 ROOT = Path(__file__).resolve().parent
 DOCTRINE_PATH = Path(os.getenv("DOCTRINE_PATH", ROOT / "SENTIENTOS_LITURGY.txt"))
 CONSENT_LOG = get_log_path("doctrine_consent.jsonl", "DOCTRINE_CONSENT_LOG")

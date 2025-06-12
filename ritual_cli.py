@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import argparse
 import json
 import os
@@ -34,7 +36,6 @@ def cmd_timeline(args) -> None:
 
 
 def main() -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(prog="ritual", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 

@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 from logging_config import get_log_path
 import os
@@ -52,7 +54,6 @@ def test_music_cli_generate(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(jukebox_integration.JukeboxIntegration, "generate_music", fake_gen)
     monkeypatch.setattr(ledger, "log_music", lambda *a, **k: {"ok": True})
     monkeypatch.setattr(pl, "log", lambda *a, **k: None)
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     calls = {"snap": 0, "recap": 0}
     monkeypatch.setattr(sb, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
     monkeypatch.setattr(sb, "print_closing_recap", lambda: calls.__setitem__("recap", calls["recap"] + 1))
@@ -84,7 +85,6 @@ def test_music_cli_recap(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setattr(Path, "exists", fake_exists)
     monkeypatch.setattr(Path, "read_text", fake_read_text)
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr(sys, "argv", ["music_cli.py", "recap", "--emotion", "--limit", "1"])
     importlib.reload(music_cli)
     music_cli.main()
@@ -98,7 +98,6 @@ def test_music_cli_play(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setattr(ledger, "log_music_listen", lambda *a, **k: {"ok": True})
     monkeypatch.setattr(pl, "log", lambda *a, **k: None)
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr("builtins.input", lambda prompt="": "Happy=1.0")
     calls = {"snap": 0, "recap": 0}
     monkeypatch.setattr(sb, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
@@ -167,7 +166,6 @@ def test_music_cli_share(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(ledger, "log_music_share", lambda *a, **k: {"shared": True})
     monkeypatch.setattr(ledger, "log_federation", lambda *a, **k: {"federated": True})
     monkeypatch.setattr(pl, "log", lambda *a, **k: None)
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr("builtins.input", lambda prompt="": "Joy=1.0")
     calls = {"snap": 0, "recap": 0}
     monkeypatch.setattr(sb, "print_snapshot_banner", lambda: calls.__setitem__("snap", calls["snap"] + 1))
@@ -181,7 +179,6 @@ def test_music_cli_share(monkeypatch, tmp_path, capsys):
 
 
 def test_music_cli_wall_global(monkeypatch, capsys):
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr(mood_wall, "peers_from_federation", lambda: ["p1", "p2"])
     logged = []
     monkeypatch.setattr(ledger, "log_mood_blessing", lambda u, r, e, p: logged.append(r) or {"ok": True})
@@ -196,7 +193,6 @@ def test_music_cli_wall_global(monkeypatch, capsys):
 
 
 def test_playlist_explanation(monkeypatch, capsys):
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr(mood_wall, "load_wall", lambda n=100: [{"mood": ["Hope"]}]*2)
     monkeypatch.setattr(mood_wall, "top_moods", lambda events: {"Hope": len(events)})
     monkeypatch.setattr(mood_wall, "latest_blessing_for", lambda m: {"sender": "Ada"})

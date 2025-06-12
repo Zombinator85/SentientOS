@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import argparse
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -6,10 +12,6 @@ import matplotlib.pyplot as plt  # type: ignore  # matplotlib optional
 import presence_pulse_api as pulse
 
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 def plot_pulse(hours: int = 24) -> Path:
     intervals = [i for i in range(hours)]
     values = []

@@ -1,14 +1,15 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import argparse
 import json
 import reflection_stream as rs
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 def main(argv=None):
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     sub = parser.add_subparsers(dest="cmd")
     log = sub.add_parser("log", help="Show recent reflection events")

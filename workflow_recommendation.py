@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import datetime
 from typing import Any, Dict, List
 
@@ -7,10 +13,6 @@ import reflection_stream as rs
 import review_requests as rr
 
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 def recommend_workflows(analytics_data: Dict[str, Any]) -> List[str]:
     suggestions: List[str] = []
     usage = analytics_data.get("usage", {})

@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -36,7 +38,6 @@ def test_gallery_filter(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("AVATAR_ARTIFACT_LOG", str(artifact))
     monkeypatch.setenv("ARTIFACT_GALLERY_LOG", str(gallery))
 
-    monkeypatch.setattr(admin_utils, "require_admin_banner", _mute_admin_banner)
     importlib.reload(aag)
 
     monkeypatch.setattr(sys, "argv", ["gallery", "--creator", "ava"])

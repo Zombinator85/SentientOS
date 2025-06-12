@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
@@ -63,7 +65,6 @@ def cmd_attest(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(
         prog="treasury",
         description=f"SentientOS Treasury CLI\n{ENTRY_BANNER}"

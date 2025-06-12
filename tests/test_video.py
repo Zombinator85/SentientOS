@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import json
 import os
@@ -47,7 +49,6 @@ def test_presence_video(monkeypatch, tmp_path):
 def test_video_cli_create(monkeypatch, tmp_path, capsys):
     video = tmp_path / "clip.mp4"
     video.write_bytes(b"data")
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr(sys, "argv", [
         "video_cli.py", "create", str(video), "Clip", "--prompt", "hi", "--emotion", "Joy=1.0"
     ])
@@ -83,7 +84,6 @@ def test_video_cli_share(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(ledger, "log_video_share", lambda *a, **k: {"shared": True})
     monkeypatch.setattr(ledger, "log_federation", lambda *a, **k: {"federated": True})
     monkeypatch.setattr(pl, "log", lambda *a, **k: None)
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     monkeypatch.setattr("builtins.input", lambda prompt="": "Joy=1.0")
     monkeypatch.setattr(sys, "argv", ["video_cli.py", "play", str(video), "--share", "ally"])
     import video_cli

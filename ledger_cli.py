@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 from scripts.auto_approve import prompt_yes_no
 from logging_config import get_log_path
 import argparse
@@ -39,7 +41,6 @@ def cmd_summary(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(
         prog="ledger",
         description=ENTRY_BANNER,
