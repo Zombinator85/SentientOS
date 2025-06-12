@@ -3,7 +3,11 @@ from __future__ import annotations
 """Optional text-to-speech bridge using edge-tts."""
 
 import asyncio
+import logging
 import sys
+import warnings
+
+logger = logging.getLogger(__name__)
 
 try:
     from edge_tts import Communicate  # optional HTTP client
@@ -14,13 +18,13 @@ except Exception:
 async def say(text: str, voice: str = "en-US-GuyNeural") -> None:
     """Speak ``text`` asynchronously if edge-tts is available."""
     if Communicate is None:
-        print("[TTS disabled] edge-tts is not installed.", file=sys.stderr)
+        warnings.warn("[TTS disabled] edge-tts is not installed.")
         return
     try:
         comm = Communicate(text=text, voice=voice)
         await comm.save("/tmp/tts_output.mp3")
     except Exception as exc:
-        print(f"[TTS error] {exc}", file=sys.stderr)
+        logger.error("[TTS error] %s", exc)
 
 
 def say_sync(text: str, voice: str = "en-US-GuyNeural") -> None:

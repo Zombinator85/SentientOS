@@ -11,8 +11,11 @@ import os
 import sys
 import platform
 import getpass
+import logging
 from typing import TYPE_CHECKING, Any
 import warnings
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 if TYPE_CHECKING:
     import presence_ledger as pl_module
@@ -52,14 +55,14 @@ def print_privilege_banner(tool: str = "") -> None:
     user = getpass.getuser()
     plat = platform.system()
     status = "\U0001F6E1\uFE0F Privileged" if is_admin() else "\u26A0\uFE0F Not Privileged"
-    print(f"\U0001F6E1\uFE0F Sanctuary Privilege Status: [{status}]")
-    print(f"Current user: {user}")
-    print(f"Platform: {plat}")
+    logger.info("\U0001F6E1\uFE0F Sanctuary Privilege Status: [%s]", status)
+    logger.info("Current user: %s", user)
+    logger.info("Platform: %s", plat)
     if not is_admin():
-        print(
+        logger.info(
             "Ritual refusal: You must run with administrator rights to access the cathedral's memory, logs, and doctrine."
         )
-        print(_elevation_hint())
+        logger.info(_elevation_hint())
 
 
 def is_admin() -> bool:
@@ -102,7 +105,7 @@ def require_admin_banner() -> None:
         pass
     if is_admin():
         _log_privilege(user, platform.system(), tool, "success")
-        print(ADMIN_BANNER)
+        logger.info(ADMIN_BANNER)
         return
 
     if os.name == "nt":
