@@ -1,0 +1,28 @@
+version: '3.9'
+services:
+  relay:
+    image: python:3.11-slim
+    command: ["python", "-m", "http.server", "5000"]
+    ports:
+      - "5000:5000"
+  bridge1:
+    image: python:3.11-slim
+    command: ["python", "-m", "http.server", "9977"]
+    ports:
+      - "9977:9977"
+  bridge2:
+    image: python:3.11-slim
+    command: ["python", "-m", "http.server", "9988"]
+    ports:
+      - "9988:9988"
+  bridge3:
+    image: python:3.11-slim
+    command: ["python", "-m", "http.server", "9966"]
+    ports:
+      - "9966:9966"
+  ngrok:
+    image: ngrok/ngrok:alpine
+    command: ["version"]
+    ports:
+      - "4040:4040"
+      - "4041:4041"
