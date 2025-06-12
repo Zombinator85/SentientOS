@@ -294,6 +294,23 @@ For a comprehensive pre-submit routine, run:
 
 See `LEGACY_TESTS.md` for failing suites that need volunteers.
 
+## Quick start (Docker/Helm)
+Run the local relay and bridges with Docker Compose:
+
+```bash
+docker-compose up -d
+docker-compose ps
+```
+
+To generate Kubernetes manifests:
+
+```bash
+helm template sentientos ./helm
+```
+
+The chart deploys the relay, three bridges, an ngrok sidecar, a ConfigMap for `.env`,
+an Ingress for `/relay`, and a ServiceMonitor.
+
 ## Cathedral Steward
 See [STEWARD.md](docs/STEWARD.md) for the steward role description and monthly
 responsibilities. They maintain [`AUDIT_LOG.md`](docs/AUDIT_LOG.md) and guide new

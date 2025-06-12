@@ -1,0 +1,11 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sentientos
+spec:
+  selector:
+    matchLabels:
+      app: relay
+  endpoints:
+    - port: http
+      path: /metrics

@@ -1,0 +1,15 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: relay
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /relay
+            pathType: Prefix
+            backend:
+              service:
+                name: relay
+                port:
+                  number: {{ .Values.relayPort }}
