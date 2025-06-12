@@ -7,8 +7,20 @@ on:
 jobs:
   self-check:
     runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: docker-build-cache-${{ github.sha }}
+          restore-keys: |
+            docker-build-cache-
 
       - uses: actions/setup-python@v5
         with:
@@ -37,6 +49,9 @@ jobs:
         run: python verify_audits.py logs/
         env:
           LUMOS_AUTO_APPROVE: '1'
+
+      - name: Start Docker services
+        run: docker compose --project-name sentientos-ci up --build -d
 
       - name: Mypy strict check
         run: mypy --strict sentientos > MYPY_STATUS.md
