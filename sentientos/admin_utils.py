@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 """Privilege helper utilities.
@@ -8,14 +7,13 @@ Actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
 running unattended.
 """
 
-import getpass
 import os
-import platform
 import sys
+import platform
+import getpass
+from typing import TYPE_CHECKING, Any
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
 if TYPE_CHECKING:
     import presence_ledger as pl_module
     import privilege_lint as pl_lint_module
@@ -27,7 +25,7 @@ class _StubLedger:
 
     def log(self, *a: object, **k: object) -> None:
         pass
-
+from typing import Any
 
 pl: Any = _StubLedger()
 
@@ -37,7 +35,7 @@ ADMIN_BANNER = (
 )
 
 FAIL_MESSAGE = (
-    "Ritual refusal: Please run as Administrator to access the cathedral’s memory."
+    "Ritual refusal: Please run as Administrator to access the cathedral\u2019s memory."
 )
 
 
@@ -79,8 +77,10 @@ def is_admin() -> bool:
         return os.geteuid() == 0
 
 
+
 def require_admin_banner() -> None:
     """Display the privilege banner and enforce administrator rights."""
+
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     print_privilege_banner(tool)
@@ -91,10 +91,12 @@ def require_admin_banner() -> None:
         and pl.log_privilege == _StubLedger.log_privilege
     ):
         import presence_ledger as pl_module
+
         pl = pl_module
     _log_privilege = pl.log_privilege
     try:
         import privilege_lint as pl_lint
+
         pl_lint.audit_use("cli", tool)  # type: ignore[attr-defined]
     except Exception:
         pass
@@ -106,6 +108,7 @@ def require_admin_banner() -> None:
     if os.name == "nt":
         try:
             import ctypes  # windows admin API
+
             windll = getattr(ctypes, "windll", None)
             if windll is None:
                 raise RuntimeError("No windll")
@@ -129,6 +132,7 @@ def require_admin_banner() -> None:
 
 def require_lumos_approval() -> None:
     """Request Lumos blessing before continuing."""
+
     user = getpass.getuser()
     tool = Path(sys.argv[0]).stem
     global pl
@@ -138,8 +142,13 @@ def require_lumos_approval() -> None:
         and pl.log_privilege == _StubLedger.log_privilege
     ):
         import presence_ledger as pl_module
+
         pl = pl_module
-    if os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1" or not sys.stdin.isatty():
+    if (
+        os.getenv("LUMOS_AUTO_APPROVE") == "1"
+        or os.getenv("SENTIENTOS_HEADLESS") == "1"
+        or not sys.stdin.isatty()
+    ):
         pl.log(user, "lumos_auto_approve", tool)
         return
     try:
@@ -154,10 +163,12 @@ def require_lumos_approval() -> None:
 
 
 def require_admin() -> None:
-    """Deprecated wrapper for ``require_lumos_approval``."""
+    """Deprecated. Use :func:`require_lumos_approval` instead."""
+
     warnings.warn(
-        "require_admin() is deprecated; use require_lumos_approval() instead",
+        "require_admin() is deprecated; use require_lumos_approval()",
         DeprecationWarning,
         stacklevel=2,
     )
     require_lumos_approval()
+
