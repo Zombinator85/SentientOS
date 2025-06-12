@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import os
 import requests
 import time
@@ -5,10 +11,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 from emotions import empty_emotion_vector
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 load_dotenv()
 
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")

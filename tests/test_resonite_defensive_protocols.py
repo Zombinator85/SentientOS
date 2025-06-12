@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -24,7 +26,6 @@ def test_emergency_posture_engine(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(eng, "STATE_FILE", tmp_path / "state.txt")
 
     calls = []
-    monkeypatch.setattr(eng, "require_admin_banner", lambda: calls.append(True))
     monkeypatch.setattr(sys, "argv", ["eng", "activate", "threat"])
     eng.main()
     capsys.readouterr()
@@ -47,7 +48,6 @@ def test_federation_breach_analyzer(tmp_path, monkeypatch, capsys):
     importlib.reload(ba)
 
     calls = []
-    monkeypatch.setattr(ba, "require_admin_banner", lambda: calls.append(True))
     logged = []
     monkeypatch.setattr(pl, "log", lambda *a, **k: logged.append(a))
 
@@ -71,7 +71,6 @@ def test_resilience_monitor(tmp_path, monkeypatch, capsys):
     importlib.reload(rm)
 
     calls = []
-    monkeypatch.setattr(rm, "require_admin_banner", lambda: calls.append(True))
     monkeypatch.setattr(sys, "argv", ["rm", "record", "signal", "--detail", "ok"])
     rm.main()
     capsys.readouterr()

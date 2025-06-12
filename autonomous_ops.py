@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import json
 import time
@@ -7,11 +13,7 @@ from typing import Any, Dict, List
 import experiment_tracker as et
 import reflex_manager as rm
 from api import actuator
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 DATA_STREAMS = [
     get_log_path("emotion.jsonl"),
@@ -86,8 +88,6 @@ def analyze_events(events: List[Dict[str, Any]]) -> None:
 
 
 def run_loop(interval: float = 60.0) -> None:
-    require_admin_banner()
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     manager = rm.get_default_manager() or rm.ReflexManager()
     rm.set_default_manager(manager)
     manager.start()

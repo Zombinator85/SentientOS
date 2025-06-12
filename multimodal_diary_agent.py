@@ -1,10 +1,12 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 """Multimodal Reflection/Diary Agent
 
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 from __future__ import annotations
 from logging_config import get_log_path
 
@@ -37,7 +39,6 @@ def compile_entry(sources: List[Path]) -> Path:
 
 
 def cli() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Multimodal diary agent")
     ap.add_argument("sources", nargs="*")
     args = ap.parse_args()

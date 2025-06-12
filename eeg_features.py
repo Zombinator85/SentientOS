@@ -1,9 +1,11 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()
 require_lumos_approval()
+
+
 
 # EEG feature extraction helpers.
 #
@@ -29,7 +31,6 @@ LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 def analyze_sample(sample: Dict[str, object]) -> Dict[str, object]:
     """Return cognitive state estimates for a raw EEG sample."""
-    require_admin_banner()
     bands = sample.get("band_power", {}) if isinstance(sample, dict) else {}
     focus = float(bands.get("beta", random.random()))
     drowsy = float(bands.get("theta", random.random()))

@@ -1,9 +1,11 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()
 require_lumos_approval()
+
+
 
 # Haptic device bridge.
 #
@@ -38,7 +40,6 @@ class HapticsBridge:
     """Interface to haptic devices via serial or mock."""
 
     def __init__(self, port: Optional[str] = None) -> None:
-        require_admin_banner()
         self.headless = is_headless() or serial is None
         if not self.headless and port:
             try:

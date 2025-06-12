@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import json
 import time
 from urllib import request
@@ -8,12 +14,8 @@ from sentient_banner import (
     streamlit_banner,
     streamlit_closing,
 )
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 import ledger
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 try:
     import streamlit as st  # type: ignore  # optional dashboard
@@ -63,7 +65,6 @@ def run_dashboard(server: str) -> None:
 
 
 def main():
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     import argparse
     parser = argparse.ArgumentParser(description="Presence dashboard")
     parser.add_argument("server")

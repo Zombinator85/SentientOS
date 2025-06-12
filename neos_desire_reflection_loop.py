@@ -1,10 +1,12 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""  # plint: disable=banner-order
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
+from __future__ import annotations
 from logging_config import get_log_path
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 import argparse
 import json
@@ -42,7 +44,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def run_loop(interval: float = 60.0) -> None:
-    require_admin_banner()
     while True:
         # Placeholder: real implementation would scan VR state
         time.sleep(interval)

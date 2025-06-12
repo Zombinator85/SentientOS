@@ -1,10 +1,12 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 """Law Sentinel & Automated Doctrine Watchdog
 
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 from __future__ import annotations
 from logging_config import get_log_path
 
@@ -42,7 +44,6 @@ def watch(interval: float) -> None:  # pragma: no cover - runtime loop
 
 
 def cli() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Law sentinel")
     ap.add_argument("--watch", type=float, help="Watch interval")
     args = ap.parse_args()

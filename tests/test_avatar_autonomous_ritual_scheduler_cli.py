@@ -4,8 +4,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
+
 import os
 import sys
 import importlib
@@ -25,7 +26,6 @@ def test_avatar_autonomous_scheduler_cli(tmp_path, monkeypatch):
     importlib.reload(ars)
 
     calls = []
-    monkeypatch.setattr(ars, "require_admin_banner", lambda: calls.append(True))
     monkeypatch.setattr(sys, "argv", ["ars", "request", "Bob", "dance"])
     ars.main()
     assert calls and calls[-1] is True

@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import os
 import threading
 import queue
@@ -9,10 +15,6 @@ from mic_bridge import recognize_from_mic
 from tts_bridge import speak_async, stop, adapt_persona, backchannel
 import emotion_memory as em
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 VOICE_MODEL = os.getenv("VOICE_MODEL", "openai/gpt-4o")

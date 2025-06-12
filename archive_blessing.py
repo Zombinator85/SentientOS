@@ -1,9 +1,11 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from logging_config import get_log_path
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+from logging_config import get_log_path
 
 import argparse
 import datetime
@@ -17,7 +19,6 @@ from typing import Dict, List
 import audit_immutability as ai
 from log_utils import append_json, read_json
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 LOG_PATH = get_log_path("archive_blessing.jsonl", "ARCHIVE_BLESSING_LOG")
 ARCHIVE_DIR = Path(os.getenv("ARCHIVE_DIR", "archives"))

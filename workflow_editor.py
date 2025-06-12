@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 
 
 from logging_config import get_log_path
@@ -8,11 +14,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 try:
     import yaml  # type: ignore  # optional YAML support
@@ -118,7 +120,6 @@ def edit_loop(path: Path, policy: str | None = None) -> None:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     ap = argparse.ArgumentParser(description=ENTRY_BANNER)
     ap.add_argument("path")
     ap.add_argument("--policy")

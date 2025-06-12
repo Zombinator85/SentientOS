@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import argparse
 from pathlib import Path
 from story_studio import load_storyboard, save_storyboard
@@ -50,7 +52,6 @@ def main() -> None:
     # Lazily import banner utilities to avoid circular imports.
     from sentient_banner import print_banner, print_closing
 
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     parser = argparse.ArgumentParser()
     parser.add_argument("storyboard")
     parser.add_argument("--annotate")
