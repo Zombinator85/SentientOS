@@ -51,6 +51,7 @@ dev = [
     "furo",
     "sphinx-autobuild",
 ]
+tts = ["edge-tts"]
 
 [project.scripts]
 support = "support_cli:main"
