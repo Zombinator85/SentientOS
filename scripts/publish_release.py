@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
+from typing import Any
 
 
 def latest_changelog(path: Path) -> str:
@@ -23,7 +24,7 @@ def latest_changelog(path: Path) -> str:
     return text.strip()
 
 
-def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+def run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
     print(" ".join(cmd))
     return subprocess.run(cmd, check=True, **kwargs)
 
