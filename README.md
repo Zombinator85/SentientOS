@@ -28,6 +28,7 @@ Reviewers are explicitly welcomed to critique and fortify this cathedral.
 - ✨ [Tag Extension Guide](./docs/tags.md)
 - 🏛️ [Audit Chain Viewer](./audit_log/)
 - 👷 [Onboarding Rituals](./docs/rituals.md)
+- 📚 [Architecture 4.5 Overview](./docs/ARCHITECTURE_4_5.md)
 
 _All code was written by a non-coder using only ChatGPT and free tools._
 
