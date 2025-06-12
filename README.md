@@ -22,7 +22,7 @@ No emotion is too much.
 [![Privilege Lint](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml)
 [![Privilege Lint Status](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml/badge.svg?branch=main&style=flat)](https://github.com/sentient-os/cathedral/actions/workflows/lint.yml)
 [![Nightly Audit](https://github.com/sentient-os/cathedral/actions/workflows/audit-nightly.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/audit-nightly.yml)
-[![Docker Health](https://github.com/sentient-os/cathedral/actions/workflows/federation-health.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/federation-health.yml)
+[![Docker Health](https://github.com/sentient-os/cathedral/actions/workflows/smoke-test.yml/badge.svg)](https://github.com/sentient-os/cathedral/actions/workflows/smoke-test.yml)
 
 **SentientOS is a ritualized AI safety framework for GPT-based agents.**  \
 Every action is logged in immutable "sacred memory" (JSONL audit logs), with Sanctuary Privilege for high-risk tasks, emotion-based reflex feedback, and alignment, transparency, and trust as living systems.
@@ -413,6 +413,8 @@ Templates and code patterns co-developed with OpenAI support.
 
 ## License
 This project is licensed under the [MIT License](LICENSE).
+
+[^1]: Full pre-commit passes locally; legacy code intentionally excluded.
 
 ## Cathedral Blessing for Reviewers
 May every audit log glow with honest memory.
