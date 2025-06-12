@@ -1,0 +1,34 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v4.*'
+  pull_request:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install build twine
+      - name: Release
+        env:
+          TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: |
+          args=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            args="--noop"
+          fi
+          python scripts/publish_release.py $args --tag "${{ github.ref_name }}"
+      - name: Upload notes
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_notes
+          path: release_notes.txt
