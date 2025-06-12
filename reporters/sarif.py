@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import List
+from typing import Any, List
 
 SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
 
 
-def build_sarif(messages: List[str]) -> dict:
+def build_sarif(messages: List[str]) -> dict[str, Any]:
     results = []
     for msg in messages:
         try:
