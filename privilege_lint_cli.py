@@ -27,7 +27,11 @@ from privilege_lint.license_rules import (
     DEFAULT_HEADER,
 )
 from privilege_lint.cache import LintCache
-from privilege_lint.runner import parallel_validate, DEFAULT_WORKERS
+from privilege_lint.runner import (
+    parallel_validate,
+    DEFAULT_WORKERS,
+    iter_data_files,
+)
 from privilege_lint.template_rules import validate_template, parse_context
 from privilege_lint.security_rules import validate_security
 from privilege_lint.js_rules import validate_js
@@ -112,7 +116,8 @@ def validate_banner_order(lines: list[str], path: Path, banner_lines: list[str])
             raise IndexError
         for node in mod.body:
             if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
-                doc_end = node.end_lineno - 1
+                end_lineno = node.end_lineno or 0
+                doc_end = end_lineno - 1
                 break
     except IndexError:
         doc_end = None
@@ -281,7 +286,8 @@ class PrivilegeLinter:
                 for node in mod.body:
                     if isinstance(node, ast.Expr) and isinstance(node.value, ast.Str):
                         doc_start = node.lineno - 1
-                        doc_end = node.end_lineno - 1
+                        end_lineno = node.end_lineno or 0
+                        doc_end = end_lineno - 1
                         break
         except Exception:
             doc_start = doc_end = None
@@ -295,7 +301,7 @@ class PrivilegeLinter:
                     remove_idx.append(i)
             for i in reversed(remove_idx):
                 lines.pop(i)
-            if move_lines:
+            if move_lines and doc_end is not None:
                 doc_end = doc_end - len([i for i in remove_idx if i <= doc_end])
                 insert_pos = doc_end + 1
                 for off, line in enumerate(move_lines):
