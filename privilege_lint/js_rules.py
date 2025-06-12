@@ -4,16 +4,22 @@ import re
 from pathlib import Path
 from typing import List
 
+from typing import cast
 from ._compat import RuleSkippedError, safe_import
 
 esprima = safe_import("pyesprima", stub={"parseScript": None})
 
 
-def _parse(path: Path):
+def _parse(path: Path) -> object | None:
     if getattr(esprima, "parseScript", None) is None:
         raise RuleSkippedError("missing dependency")
     try:
-        return esprima.parseScript(path.read_text(encoding="utf-8"), tolerant=True)
+        return cast(
+            object,
+            esprima.parseScript(  # type: ignore[attr-defined]  # justified: optional dependency may lack stubs
+                path.read_text(encoding="utf-8"), tolerant=True
+            ),
+        )
     except Exception:
         return None
 

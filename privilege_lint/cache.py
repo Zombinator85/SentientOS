@@ -20,7 +20,7 @@ class LintCache:
         self.enabled = enabled
         self.cfg_hash = _cfg_hash(cfg)
         self.path = root / CACHE_NAME
-        self.data: dict[str, dict] = {}
+        self.data: dict[str, dict[str, object]] = {}
         if enabled and self.path.exists():
             try:
                 self.data = json.loads(self.path.read_text())
