@@ -19,7 +19,7 @@ from pathlib import Path
 import autonomous_audit as aa
 
 try:
-    import requests  # type: ignore  # HTTP requests
+    import requests  # type: ignore[import-untyped]  # optional HTTP client
 except Exception:  # pragma: no cover - fallback when requests isn't installed
     requests = None
 
