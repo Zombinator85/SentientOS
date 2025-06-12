@@ -1,7 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
 require_admin_banner()
 require_lumos_approval()
 import json
@@ -9,7 +8,6 @@ import datetime
 from logging_config import get_log_dir
 from pathlib import Path
 from typing import Callable, Dict, List
-
 """Scan audit logs for schema drift and heal missing fields."""
 
 SCHEMA_VERSION = "1.0"
