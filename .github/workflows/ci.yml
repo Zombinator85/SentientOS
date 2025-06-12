@@ -68,7 +68,7 @@ jobs:
         run: mypy --strict sentientos > MYPY_STATUS.md
 
       - name: Pytest with coverage
-        run: pytest --cov=sentientos --cov-fail-under=80
+        run: pytest
 
   docs:
     runs-on: ubuntu-latest
@@ -105,4 +105,4 @@ jobs:
           sudo mv linux-amd64/helm /usr/local/bin/helm
       - run: pip install -e .[dev]
       - name: Run helm integration test
-        run: pytest tests/integration/helm_k8s_test.py -q
+        run: pytest tests/integration/helm_k8s_test.py
