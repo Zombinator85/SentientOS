@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml  # optional YAML dependency
+import yaml  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
 
 # Switch models based on remaining quotas and configured fallbacks.
 

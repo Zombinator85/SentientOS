@@ -10,7 +10,7 @@ import sys
 import time
 from typing import Optional
 
-import requests
+import requests  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
 
 
 def wait_for(url: str, timeout: float = 60.0, interval: float = 2.0) -> None:
