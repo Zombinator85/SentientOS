@@ -44,11 +44,13 @@ def validate_import_sort(lines: list[str], path: Path, project_root: Path) -> li
     return []
 
 
-def apply_fix_imports(lines: list[str], project_root: Path, dry_run: bool = False) -> list[str]:
+def apply_fix_imports(
+    lines: list[str], project_root: Path, dry_run: bool = False
+) -> list[str] | bool:
     start, end, imports = _gather_imports(lines)
     if start == -1:
         return imports if dry_run else False
-    groups = {0: [], 1: [], 2: []}
+    groups: dict[int, list[str]] = {0: [], 1: [], 2: []}
     for line in imports:
         if not line.strip():
             continue
