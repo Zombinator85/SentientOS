@@ -7,9 +7,9 @@ require_lumos_approval()
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List
+from typing import Any
 
-import yaml  # type: ignore[import-untyped]  # optional YAML dependency
+import yaml  # optional YAML dependency
 
 # Switch models based on remaining quotas and configured fallbacks.
 
@@ -17,9 +17,9 @@ USAGE_FILE = Path("usage_monitor.jsonl")
 OUTPUT_FILE = Path("current_model.json")
 
 
-def load_usage(path: Path) -> Dict[str, dict]:
+def load_usage(path: Path) -> dict[str, dict[str, Any]]:
     """Load the latest usage entry per model."""
-    data: Dict[str, dict] = {}
+    data: dict[str, dict[str, Any]] = {}
     if not path.exists():
         return data
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -31,7 +31,7 @@ def load_usage(path: Path) -> Dict[str, dict]:
     return data
 
 
-def pick_model(chain: List[str], usage: Dict[str, dict], buffer: float = 0.15) -> str:
+def pick_model(chain: list[str], usage: dict[str, dict[str, Any]], buffer: float = 0.15) -> str:
     """Return the first model in chain with enough remaining quota."""
     best = chain[0]
     best_ratio = -1.0

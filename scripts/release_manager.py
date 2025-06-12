@@ -18,8 +18,9 @@ from pathlib import Path
 
 try:
     import tomllib
-except Exception:  # Python <3.11
-    import tomli as tomllib  # type: ignore[import-not-found,no-redef]  # fallback for Python <3.11
+except ModuleNotFoundError:  # Python <3.11
+    import tomli
+    tomllib = tomli
 
 PYPROJECT = Path("pyproject.toml")
 CHANGELOG = Path("docs/CHANGELOG.md")
