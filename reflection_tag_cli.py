@@ -1,10 +1,8 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 from logging_config import get_log_path
 import argparse
 import json
