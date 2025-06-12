@@ -25,7 +25,6 @@ def log_step(user: str, step: str) -> dict:
 
 
 def run_spiral(user: str) -> None:
-    require_admin_banner()
     steps = [
         "declare_intent",
         "council_invocation",
