@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install build twine
+      - run: pip install build twine cyclonedx-bom
       - name: Release
         env:
           TEST_PYPI_TOKEN: ${{ secrets.TEST_PYPI_TOKEN }}
@@ -26,9 +26,44 @@ jobs:
             args="--noop"
           fi
           python scripts/publish_release.py $args --tag "${{ github.ref_name }}"
+      - name: Generate SBOM
+        if: github.event_name != 'pull_request'
+        run: cyclonedx-py requirements requirements.txt --output-format JSON -o sbom.json
+      - name: Capture Docker digest
+        if: github.event_name != 'pull_request'
+        run: |
+          image="ghcr.io/${{ github.repository }}:${{ github.ref_name }}"
+          docker inspect --format='{{index .RepoDigests 0}}' "$image" > docker_digests.txt
+      - name: Upload wheel
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheel
+          path: dist/*.whl
       - name: Upload notes
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: release_notes
           path: release_notes.txt
+      - name: Upload SBOM
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom.json
+      - name: Upload docker digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker_digests
+          path: docker_digests.txt
+      - name: Create GitHub Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.txt
+          files: |
+            dist/*.whl
+            sbom.json
+            docker_digests.txt
