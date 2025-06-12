@@ -67,6 +67,11 @@ trust = "trust_cli:main"
 video = "video_cli:main"
 plint-env = "scripts.plint_env:main"
 
+[project.entry-points."sentientos.plugins"]
+telegram-bot = "telegram_bot"
+webhook-status-monitor = "webhook_status_monitor"
+bridge-watchdog = "bridge_watchdog"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["sentientos", "api"]
