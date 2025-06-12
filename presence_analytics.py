@@ -1,15 +1,17 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import json
 import datetime
 from pathlib import Path
 from typing import Any, Dict, List, TypedDict, cast
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 import support_log as sl
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH: Path = MEMORY_DIR / "raw"
@@ -200,7 +202,6 @@ def suggest_improvements(analytics_data: AnalyticsData) -> List[str]:
 
 
 def main() -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     import argparse
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     parser.add_argument("cmd", choices=["analytics", "trends", "suggest"])

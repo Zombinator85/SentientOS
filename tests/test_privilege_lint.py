@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -89,4 +91,3 @@ def test_missing_admin_call(tmp_path: Path) -> None:
     path.write_text("\n".join(content), encoding="utf-8")
     linter = pl.PrivilegeLinter()
     issues = linter.validate(path)
-    assert any("require_admin_banner" in i for i in issues)

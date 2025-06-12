@@ -1,9 +1,13 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import builtins
 # The admin banner checks can exit the process during module import if not
 # stubbed ahead of time. Stub them here so test discovery doesn't trip the
 # privilege checks.
-builtins.require_admin_banner = lambda *a, **k: None
-builtins.require_lumos_approval = lambda *a, **k: None
 
 import importlib
 import pytest
@@ -34,8 +38,6 @@ for name in ['pyesprima', 'sarif_om']:
 
 
 def pytest_configure(config):
-    builtins.require_admin_banner = lambda *a, **k: None
-    builtins.require_lumos_approval = lambda *a, **k: None
     config.addinivalue_line('markers', 'requires_node: skip if node missing')
     config.addinivalue_line('markers', 'requires_go: skip if go missing')
     config.addinivalue_line('markers', 'requires_dmypy: skip if dmypy missing')

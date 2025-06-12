@@ -4,8 +4,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 
-# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
+
 import os
 import sys
 import importlib
@@ -29,7 +30,6 @@ def test_resonite_beacon_cli(tmp_path, monkeypatch, capsys):
 
     monkeypatch.setattr(pl, "log", lambda *a, **k: None)
     calls = []
-    monkeypatch.setattr(rcl, "require_admin_banner", lambda: calls.append(True))
 
     monkeypatch.setattr(sys, "argv", ["beacon", "launch", "Ada"])
     rcl.main()

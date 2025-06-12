@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -23,7 +25,6 @@ def test_bell_of_pause_cli(tmp_path, monkeypatch, capsys):
     importlib.reload(rbp)
 
     calls = []
-    monkeypatch.setattr(rbp, "require_admin_banner", lambda: calls.append(True))
 
     monkeypatch.setattr(sys, "argv", ["bell", "pause", "maintenance", "WorldA"])
     rbp.main()

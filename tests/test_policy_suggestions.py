@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -17,7 +19,6 @@ import admin_utils
 def setup_env(tmp_path, monkeypatch):
     monkeypatch.setenv("REVIEW_REQUESTS_FILE", str(tmp_path / "req.jsonl"))
     monkeypatch.setenv("SUGGESTION_AUDIT_FILE", str(tmp_path / "audit.jsonl"))
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: None)
     importlib.reload(rr)
 
 

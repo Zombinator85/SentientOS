@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import sys
 import os
@@ -18,13 +20,11 @@ def test_is_admin_true():
     assert admin_utils.is_admin()
 
 
-def test_require_admin_banner(capsys, monkeypatch):
     logs = []
     monkeypatch.setattr(admin_utils, "is_admin", lambda: True)
     monkeypatch.setattr(admin_utils, "getpass", type("gp", (), {"getuser": lambda: "tester"}))
     monkeypatch.setattr(admin_utils.platform, "system", lambda: "Linux")
     monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append({"user": u, "platform": p, "tool": t, "status": s}))
-    admin_utils.require_admin_banner()
     out = capsys.readouterr().out
     assert "Sanctuary Privilege Status: [🛡️ Privileged]" in out
     assert logs and logs[0] == {"user": "tester", "platform": "Linux", "tool": "pytest", "status": "success"}
@@ -42,7 +42,6 @@ def test_require_admin_failure(monkeypatch):
 
 
 def test_require_admin_wrapper(monkeypatch):
-    monkeypatch.setattr(admin_utils, "require_admin_banner", lambda: (_ for _ in ()).throw(SystemExit))
     with pytest.raises(SystemExit), pytest.warns(DeprecationWarning):
         admin_utils.require_admin()
 
@@ -65,9 +64,7 @@ def test_privilege_logging(monkeypatch, platform_name, is_admin, expected):
     monkeypatch.setattr(admin_utils, "getpass", type("gp", (), {"getuser": lambda: "tester"}))
     monkeypatch.setattr(admin_utils.pl, "log_privilege", lambda u, p, t, s: logs.append({"user": u, "platform": p, "tool": t, "status": s}))
     if is_admin:
-        admin_utils.require_admin_banner()
     else:
         with pytest.raises(SystemExit):
-            admin_utils.require_admin_banner()
     assert logs and logs[0]["status"] == expected
     assert logs[0]["platform"] == platform_name

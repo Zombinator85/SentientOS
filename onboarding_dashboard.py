@@ -1,13 +1,15 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 import os
 from pathlib import Path
 import streamlit as st
 from sentient_banner import streamlit_banner, streamlit_closing
 import ledger
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 ENV_FILE = Path(__file__).resolve().parent / '.env'
 
@@ -24,8 +26,6 @@ def load_env() -> dict:
 
 
 def launch():
-    require_admin_banner()
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     env = load_env()
     st.title('SentientOS Onboarding')
     streamlit_banner(st)

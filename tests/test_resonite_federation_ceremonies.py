@@ -4,6 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
+
 
 import importlib
 import json
@@ -21,7 +23,6 @@ def test_handshake_auditor_cli(tmp_path, monkeypatch, capsys):
     importlib.reload(hsa)
 
     calls = []
-    monkeypatch.setattr(hsa, "require_admin_banner", lambda: calls.append(True))
     monkeypatch.setattr(sys, "argv", ["hsa", "handshake", "A", "B", "success"])
     hsa.main()
     capsys.readouterr()
@@ -44,7 +45,6 @@ def test_handshake_verifier_cli(tmp_path, monkeypatch, capsys):
     importlib.reload(hsv)
 
     calls = []
-    monkeypatch.setattr(hsv, "require_admin_banner", lambda: calls.append(True))
     monkeypatch.setattr(sys, "argv", ["hsv", "verify", "A", "B", "sig"])
     hsv.main()
     capsys.readouterr()

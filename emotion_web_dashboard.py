@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 """Lightweight Flask dashboard for emotion vector via UDP."""
 import json
 import socket
@@ -5,11 +11,7 @@ import threading
 import time
 from typing import List
 from flask_stub import Flask, jsonify, send_file
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 
 app = Flask(__name__)
 
@@ -65,7 +67,6 @@ setInterval(refresh,1000);
 
 
 def run() -> None:
-    require_admin_banner()
     threading.Thread(target=_listener, daemon=True).start()
     app.run(port=5005)
 

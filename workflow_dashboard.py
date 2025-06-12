@@ -1,8 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+from __future__ import annotations
 import argparse
 import json
 import os
@@ -25,7 +27,6 @@ except Exception:  # pragma: no cover - optional
     yaml = None
 
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 
 try:  # optional deps
     import streamlit as st  # type: ignore  # Streamlit dashboard
@@ -96,7 +97,6 @@ def visualize_steps(steps: List[Dict[str, Any]]) -> str:
 
 
 def run_cli(args: argparse.Namespace) -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if args.list:
         for n in wl.list_templates():
             print(n)
@@ -132,7 +132,6 @@ def run_cli(args: argparse.Namespace) -> None:
 
 
 def run_dashboard() -> None:
-    # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
     if st is None or pd is None:
         ap = argparse.ArgumentParser(description="Workflow dashboard CLI")
         ap.add_argument("--list", action="store_true")

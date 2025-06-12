@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 """CLI to correlate confession and blessing logs."""
 
 from logging_config import get_log_path
@@ -5,10 +11,6 @@ import json
 from pathlib import Path
 from typing import List
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 CONFESSION_FILE = get_log_path("confessional_log.jsonl")
 BLESS_FILE = get_log_path("support_log.jsonl")
 

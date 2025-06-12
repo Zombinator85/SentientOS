@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import os
 import json
@@ -8,10 +14,6 @@ import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Callable, cast, Any
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 _speak_async: Optional[Callable[..., threading.Thread]]
 try:
     from tts_bridge import speak_async as _speak_async

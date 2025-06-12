@@ -1,11 +1,13 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import time
 from pathlib import Path
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 CONFESSION_FILE = get_log_path("confessional_log.jsonl")
 HERESY_FILE = get_log_path("heresy_log.jsonl")
 PAUSE_LOG = get_log_path("moment_of_pause.log")

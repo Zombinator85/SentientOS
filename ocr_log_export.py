@@ -1,3 +1,9 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 from logging_config import get_log_path
 import csv
 import datetime
@@ -6,10 +12,6 @@ import os
 from pathlib import Path
 
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 OCR_LOG = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 
 
