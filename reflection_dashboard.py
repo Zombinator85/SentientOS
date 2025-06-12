@@ -1,10 +1,15 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
+
+reflection_dashboard.py — Dashboard to review reflection and trust logs.
+
+Usage:
+    python -m scripts.reflection_dashboard --help
+"""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-"""Reflection dashboard for reviewing past actions."""
 
 import argparse
 import json
