@@ -13,7 +13,7 @@ repos:
         pass_filenames: false
       - id: pytest
         name: unit tests
-        entry: pytest -q
+        entry: pytest
         language: python
         pass_filenames: false
         additional_dependencies:
