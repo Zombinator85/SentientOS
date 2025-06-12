@@ -36,7 +36,6 @@ def log_query(user: str, artifact: str) -> None:
 
 
 def explore(user: str, artifact: str) -> None:
-    require_admin_banner()
     log_query(user, artifact)
     data = query(artifact)
     if data:

@@ -60,7 +60,6 @@ def onboard(info: Dict[str, Any]) -> None:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Join a SentientOS federation")
     ap.add_argument("--name", help="node name")
     ap.add_argument("--schema", help="node schema version")

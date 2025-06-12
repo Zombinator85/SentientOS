@@ -80,7 +80,6 @@ def migrate_file(path: Path) -> Dict[str, int]:
 
 
 def main() -> None:  # pragma: no cover - CLI
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Upgrade data files to latest schema")
     ap.add_argument("target", help="File or directory to migrate")
     args = ap.parse_args()
