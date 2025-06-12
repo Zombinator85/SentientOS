@@ -20,6 +20,8 @@ import emotion_memory as em
 # Optional upgrade: use simple embedding vectors instead of bag-of-words
 USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
 
+# Root folder for persistent memory fragments. The ``MEMORY_DIR`` environment
+# variable is described in ``docs/ENVIRONMENT.md``.
 MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
