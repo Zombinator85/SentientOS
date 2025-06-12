@@ -30,13 +30,11 @@ def log_patch(artifact: str, action: str, user: str) -> dict:
 
 
 def heal(artifact: str, user: str) -> None:
-    require_admin_banner()
     entry = log_patch(artifact, "heal", user)
     print(json.dumps(entry, indent=2))
 
 
 def rollback(artifact: str, user: str) -> None:
-    require_admin_banner()
     entry = log_patch(artifact, "rollback", user)
     print(json.dumps(entry, indent=2))
 

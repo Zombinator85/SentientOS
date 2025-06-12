@@ -43,7 +43,6 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 def run_loop(interval: float = 60.0) -> None:
-    require_admin_banner()
     while True:
         # Placeholder: real implementation would scan world state for issues
         time.sleep(interval)
