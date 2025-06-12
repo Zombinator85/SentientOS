@@ -1,7 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
 require_admin_banner()
 require_lumos_approval()
 import ast
@@ -40,9 +39,6 @@ from logging_config import get_log_path
 # ── privilege_lint_cli.py ─────────────────────────────────────────
 
 
-
-
-
 # auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
@@ -75,6 +71,19 @@ def get_banner(lines: list[str], banner_lines: list[str]) -> int | None:
     idx = 0
     while idx < len(lines) and lines[idx].startswith(("#!", "# -*-")):
         idx += 1
+
+    if idx < len(lines):
+        stripped = lines[idx].lstrip()
+        if stripped.startswith(('"""', "'''")):
+            quote = stripped[:3]
+            idx += 1
+            while idx < len(lines) and not lines[idx].rstrip().endswith(quote):
+                idx += 1
+            if idx < len(lines):
+                idx += 1
+            while idx < len(lines) and not lines[idx].strip():
+                idx += 1
+
     if len(lines) - idx < len(banner_lines):
         return None
     for off, text in enumerate(banner_lines):
@@ -83,7 +92,9 @@ def get_banner(lines: list[str], banner_lines: list[str]) -> int | None:
     return idx + len(banner_lines) - 1
 
 
-def validate_banner_order(lines: list[str], path: Path, banner_lines: list[str]) -> list[str]:
+def validate_banner_order(
+    lines: list[str], path: Path, banner_lines: list[str]
+) -> list[str]:
     """Ensure banner→future→docstring→imports order for CLI files."""
     if not _contains_cli_hint(path):
         return []
@@ -165,11 +176,18 @@ def audit_use(tool: str, cmd: str) -> None:
 
 
 class PrivilegeLinter:
-    def __init__(self, config: LintConfig | None = None, project_root: Path | None = None, metrics: MetricsCollector | None = None) -> None:
+    def __init__(
+        self,
+        config: LintConfig | None = None,
+        project_root: Path | None = None,
+        metrics: MetricsCollector | None = None,
+    ) -> None:
         self.project_root = project_root or Path.cwd()
         self.config = config or load_config(self.project_root)
         self.metrics = metrics or MetricsCollector()
-        self.cache = LintCache(self.project_root, self.config, enabled=self.config.cache)
+        self.cache = LintCache(
+            self.project_root, self.config, enabled=self.config.cache
+        )
         self.plugins = load_plugins()
         if self.config.policy:
             from policies import load_policy
@@ -188,7 +206,11 @@ class PrivilegeLinter:
             self.baseline = set()
         if self.config.banner_file:
             try:
-                self.banner = Path(self.config.banner_file).read_text(encoding="utf-8").splitlines()
+                self.banner = (
+                    Path(self.config.banner_file)
+                    .read_text(encoding="utf-8")
+                    .splitlines()
+                )
             except Exception:
                 self.banner = DEFAULT_BANNER_ASCII
         else:
@@ -219,13 +241,15 @@ class PrivilegeLinter:
             issues.extend(filtered)
 
         if self.config.enforce_banner:
-            add('banner-order', validate_banner_order(lines, file_path, self.banner))
-            add('admin-call', validate_admin_call(lines, file_path))
+            add("banner-order", validate_banner_order(lines, file_path, self.banner))
+            add("admin-call", validate_admin_call(lines, file_path))
         if self.config.enforce_import_sort:
-            add('import-sort', validate_import_sort(lines, file_path, self.project_root))
+            add(
+                "import-sort", validate_import_sort(lines, file_path, self.project_root)
+            )
         if self.config.enforce_type_hints:
             add(
-                'type-hint',
+                "type-hint",
                 validate_type_hints(
                     lines,
                     file_path,
@@ -234,15 +258,25 @@ class PrivilegeLinter:
                 ),
             )
         if self.config.shebang_require:
-            add('shebang', validate_shebang(file_path, self.config.shebang_require))
+            add("shebang", validate_shebang(file_path, self.config.shebang_require))
         if self.config.docstrings_enforce:
-            add('docstring', validate_docstrings(lines, file_path, self.config.docstring_style))
+            add(
+                "docstring",
+                validate_docstrings(lines, file_path, self.config.docstring_style),
+            )
         if self.license_header:
-            add('license', validate_license_header(lines, file_path, self.license_header))
-        if self.config.templates_enabled and file_path.suffix in {'.j2', '.hbs', '.jinja'}:
+            add(
+                "license",
+                validate_license_header(lines, file_path, self.license_header),
+            )
+        if self.config.templates_enabled and file_path.suffix in {
+            ".j2",
+            ".hbs",
+            ".jinja",
+        }:
             ctx = self.config.templates_context or parse_context(lines)
-            add('template', validate_template(file_path, ctx))
-        if self.config.security_enabled and file_path.suffix == '.py':
+            add("template", validate_template(file_path, ctx))
+        if self.config.security_enabled and file_path.suffix == ".py":
             sec = validate_security(lines, file_path)
             for name, msgs in sec.items():
                 add(name, msgs)
@@ -259,7 +293,9 @@ class PrivilegeLinter:
         banner_end = get_banner(lines, self.banner)
         if banner_end is None:
             insert_at = 0
-            while insert_at < len(lines) and lines[insert_at].startswith(("#!", "# -*-")):
+            while insert_at < len(lines) and lines[insert_at].startswith(
+                ("#!", "# -*-")
+            ):
                 insert_at += 1
             lines[insert_at:insert_at] = self.banner
             banner_end = insert_at + len(self.banner) - 1
@@ -304,9 +340,16 @@ class PrivilegeLinter:
         if self.config.enforce_import_sort:
             apply_fix_imports(lines, self.project_root)
 
-        changed = apply_fix_license_header(lines, file_path, self.license_header) or lines != original
+        changed = (
+            apply_fix_license_header(lines, file_path, self.license_header)
+            or lines != original
+        )
 
-        out_path = file_path if self.config.fix_overwrite else file_path.with_name(file_path.name + ".fixed")
+        out_path = (
+            file_path
+            if self.config.fix_overwrite
+            else file_path.with_name(file_path.name + ".fixed")
+        )
         if changed:
             out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -326,7 +369,7 @@ def _contains_cli_hint(fp: Path) -> bool:
         text = fp.read_text(encoding="utf-8")
     except Exception:
         return False
-    if "__name__ == \"__main__\"" in text:
+    if '__name__ == "__main__"' in text:
         return True
     return "argparse" in text
 
@@ -363,7 +406,11 @@ def iter_ext_files(paths: list[str], exts: set[str]) -> list[Path]:
         path = Path(p)
         if path.is_dir():
             for root, dirs, files in os.walk(path):
-                dirs[:] = [d for d in dirs if d not in {"tests", "venv", "__pycache__", "node_modules"}]
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if d not in {"tests", "venv", "__pycache__", "node_modules"}
+                ]
                 for f in files:
                     if any(f.endswith(e) for e in exts):
                         result.append(Path(root) / f)
@@ -377,11 +424,19 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
     ap.add_argument("--fix", action="store_true", help="Rewrite files in place")
     ap.add_argument("--quiet", action="store_true", help="Suppress output")
-    ap.add_argument("--max-workers", type=int, default=None, help="Worker count for parallel scan")
-    ap.add_argument("--show-hints", action="store_true", help="Print type hint violations in quiet mode")
+    ap.add_argument(
+        "--max-workers", type=int, default=None, help="Worker count for parallel scan"
+    )
+    ap.add_argument(
+        "--show-hints",
+        action="store_true",
+        help="Print type hint violations in quiet mode",
+    )
     ap.add_argument("--no-cache", action="store_true", help="Disable cache")
     ap.add_argument("--mypy", action="store_true", help="Force full mypy run")
-    ap.add_argument("--report-json", type=str, default=None, help="Write metrics JSON report")
+    ap.add_argument(
+        "--report-json", type=str, default=None, help="Write metrics JSON report"
+    )
     ap.add_argument("--sarif", type=str, default=None, help="Write SARIF report")
     args = ap.parse_args(argv)
 
@@ -390,7 +445,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_cache:
         linter.cache.enabled = False
     files = iter_py_files(args.paths)
-    js_files = iter_ext_files(args.paths, {".js", ".ts"}) if linter.config.js_enabled else []
+    js_files = (
+        iter_ext_files(args.paths, {".js", ".ts"}) if linter.config.js_enabled else []
+    )
     go_files = iter_ext_files(args.paths, {".go"}) if linter.config.go_enabled else []
     check_files = []
     for f in files + js_files + go_files:
@@ -411,13 +468,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Fixed {fixed} files")
         return 0
 
-    issues = parallel_validate(linter, [f for f in check_files if f.suffix == '.py'], args.max_workers)
-    other_files = [f for f in check_files if f.suffix in {'.js', '.ts', '.go'}]
+    issues = parallel_validate(
+        linter, [f for f in check_files if f.suffix == ".py"], args.max_workers
+    )
+    other_files = [f for f in check_files if f.suffix in {".js", ".ts", ".go"}]
     for f in other_files:
         try:
-            if f.suffix in {'.js', '.ts'}:
+            if f.suffix in {".js", ".ts"}:
                 issues.extend(validate_js(f, linter.license_header))
-            elif f.suffix == '.go':
+            elif f.suffix == ".go":
                 issues.extend(validate_go(f, linter.license_header))
         except RuleSkippedError:
             pass
@@ -453,10 +512,15 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join(sorted(issues)))
         return 1
 
-    stamp_src = linter.cache.cfg_hash + subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"]).decode().strip()
+    stamp_src = (
+        linter.cache.cfg_hash
+        + subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"]).decode().strip()
+    )
     stamp = hashlib.sha1(stamp_src.encode()).hexdigest()
     (Path(".git") / ".privilege_lint.gitcache").write_text(stamp)
-    report_path = args.report_json or ("plint_metrics.json" if linter.config.report_json else None)
+    report_path = args.report_json or (
+        "plint_metrics.json" if linter.config.report_json else None
+    )
     if report_path:
         metrics.write_json(Path(report_path))
     sarif_path = args.sarif or ("plint.sarif" if linter.config.sarif else None)
