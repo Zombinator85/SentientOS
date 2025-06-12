@@ -7,7 +7,7 @@ import tomllib
 
 yaml: Any | None
 try:  # optional dependency for YAML config files
-    import yaml as _yaml
+    import yaml as _yaml  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
     yaml = _yaml
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
     yaml = None
