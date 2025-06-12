@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 try:
-    import pandas as pd  # type: ignore  # pandas optional
-    import streamlit as st  # type: ignore  # Streamlit dashboard
+    import pandas as pd  # type: ignore[import-untyped]  # pandas optional
+    import streamlit as st  # type: ignore[import-untyped]  # Streamlit dashboard
 except Exception:  # pragma: no cover - optional
     pd = None
     st = None

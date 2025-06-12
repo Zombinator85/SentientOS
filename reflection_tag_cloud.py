@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 
 try:
-    from wordcloud import WordCloud  # type: ignore  # wordcloud optional
+    from wordcloud import WordCloud  # type: ignore[import-untyped]  # wordcloud optional
 except Exception:  # pragma: no cover - optional
     WordCloud = None
 

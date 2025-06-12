@@ -17,7 +17,7 @@ from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 
 
 try:
-    import yaml  # type: ignore  # optional YAML support
+    import yaml  # type: ignore[import-untyped]  # optional YAML support
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 

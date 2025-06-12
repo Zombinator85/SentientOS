@@ -14,7 +14,7 @@ import ledger
 
 
 try:
-    import streamlit as st  # type: ignore  # Streamlit optional
+    import streamlit as st  # type: ignore[import-untyped]  # Streamlit optional
 except Exception:  # pragma: no cover - optional
     st = None
 

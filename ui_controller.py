@@ -16,12 +16,12 @@ if TYPE_CHECKING:  # pragma: no cover
     from policy_engine import PolicyEngine
 
 try:
-    from pywinauto.application import Application  # type: ignore  # Windows UI automation
+    from pywinauto.application import Application  # type: ignore[import-untyped]  # Windows UI automation
 except Exception:  # pragma: no cover - optional dependency
     Application = None
 
 try:
-    import uiautomation as auto  # type: ignore  # uiautomation lacks stubs
+    import uiautomation as auto  # type: ignore[import-untyped]  # uiautomation lacks stubs
 except Exception:  # pragma: no cover - optional dependency
     auto = None
 

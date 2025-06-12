@@ -19,12 +19,12 @@ import ledger
 
 
 try:
-    import pandas as pd  # type: ignore  # pandas optional
+    import pandas as pd  # type: ignore[import-untyped]  # pandas optional
 except Exception:  # pragma: no cover - optional
     pd = None
 
 try:
-    import streamlit as st  # type: ignore  # Streamlit dashboard
+    import streamlit as st  # type: ignore[import-untyped]  # Streamlit dashboard
 except Exception:  # pragma: no cover - optional
     st = None
 

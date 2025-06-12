@@ -19,7 +19,7 @@ from pathlib import Path
 try:
     import tomllib
 except Exception:  # Python <3.11
-    import tomli as tomllib  # type: ignore
+    import tomli as tomllib  # type: ignore[import-not-found]
 
 
 PYPROJECT = Path("pyproject.toml")

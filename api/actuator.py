@@ -19,12 +19,12 @@ from pathlib import Path
 import autonomous_audit as aa
 
 try:
-    import requests  # type: ignore  # HTTP requests
+    import requests  # type: ignore[import-untyped]  # HTTP requests
 except Exception:  # pragma: no cover - fallback when requests isn't installed
     requests = None
 
 try:
-    import yaml  # type: ignore  # YAML config
+    import yaml  # type: ignore[import-untyped]  # YAML config
 except Exception:  # pragma: no cover - fallback when PyYAML isn't installed
     yaml = None
 import ast

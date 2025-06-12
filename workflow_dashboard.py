@@ -22,15 +22,15 @@ from sentient_banner import streamlit_banner, streamlit_closing
 import ledger
 
 try:
-    import yaml  # type: ignore  # optional YAML parsing
+    import yaml  # type: ignore[import-untyped]  # optional YAML parsing
 except Exception:  # pragma: no cover - optional
     yaml = None
 
 
 
 try:  # optional deps
-    import streamlit as st  # type: ignore  # Streamlit dashboard
-    import pandas as pd  # type: ignore  # pandas for tables
+    import streamlit as st  # type: ignore[import-untyped]  # Streamlit dashboard
+    import pandas as pd  # type: ignore[import-untyped]  # pandas for tables
     import graphviz
 except Exception:  # pragma: no cover - optional
     st = None

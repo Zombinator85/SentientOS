@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
 try:
-    import yaml  # type: ignore  # optional YAML support
+    import yaml  # type: ignore[import-untyped]  # optional YAML support
 except Exception:  # pragma: no cover - optional
     yaml = None
 

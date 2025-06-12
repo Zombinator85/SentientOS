@@ -11,7 +11,7 @@ from typing import Any, Dict, List, TypedDict, cast
 
 
 try:
-    import streamlit as st  # type: ignore  # optional Streamlit dashboard
+    import streamlit as st  # type: ignore[import-untyped]  # optional Streamlit dashboard
 except Exception:  # pragma: no cover - optional
     st = None
 
