@@ -1,0 +1,13 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1000
+GameObject:
+  m_Name: BlendShapeSlider
+  m_Component:
+  - component: {fileID: 1001}
+  - component: {fileID: 1002}
+--- !u!114 &1002
+MonoBehaviour:
+  m_Script: {fileID: 11500000, guid: 0000000000000000d000000000000000, type: 3}
+  skinnedMesh: {fileID: 0}
+  slider: {fileID: 0}

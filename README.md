@@ -156,6 +156,7 @@ Additional guides:
 - [docs/CODEX_CUSTOM_CONNECTOR.md](docs/CODEX_CUSTOM_CONNECTOR.md) – OpenAI connector configuration and troubleshooting
 - [docs/CONNECTOR_TROUBLESHOOTING.md](docs/CONNECTOR_TROUBLESHOOTING.md) – connector FAQ
 - [docs/DEPLOYMENT_CLOUD.md](docs/DEPLOYMENT_CLOUD.md) – Docker, Render, and Railway instructions
+- [docs/Assets/SentientOSAvatar](docs/Assets/SentientOSAvatar) – Unity blend-shape slider demo
 
 ## First-Time Contributors
 See [docs/onboarding_demo.gif](docs/onboarding_demo.gif) for a short walkthrough.
