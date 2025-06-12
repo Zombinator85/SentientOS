@@ -1,5 +1,9 @@
 from __future__ import annotations
-"""Publish package and Docker image to test registries."""
+"""Build artifacts and publish package and Docker image.
+
+On real runs this also generates ``sbom.json`` and ``docker_digests.txt``
+which are attached to the GitHub release.
+"""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
@@ -19,9 +23,9 @@ def latest_changelog(path: Path) -> str:
     return text.strip()
 
 
-def run(cmd: list[str]) -> None:
+def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     print(" ".join(cmd))
-    subprocess.run(cmd, check=True)
+    return subprocess.run(cmd, check=True, **kwargs)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -60,6 +64,22 @@ def main(argv: list[str] | None = None) -> int:
             os.environ.get("GHCR_PAT", ""),
         ])
         run(["docker", "push", image])
+        run([
+            "cyclonedx-py",
+            "requirements",
+            "requirements.txt",
+            "--output-format",
+            "JSON",
+            "-o",
+            "sbom.json",
+        ])
+        with open("docker_digests.txt", "w", encoding="utf-8") as fh:
+            run([
+                "docker",
+                "inspect",
+                "--format={{index .RepoDigests 0}}",
+                image,
+            ], stdout=fh)
     else:
         print("Skipping docker push (--noop)")
 
