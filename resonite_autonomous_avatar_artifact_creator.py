@@ -31,7 +31,6 @@ def log_creation(kind: str, name: str, user: str) -> dict:
 
 
 def create(kind: str, name: str, user: str) -> None:
-    require_admin_banner()
     entry = log_creation(kind, name, user)
     print(json.dumps(entry, indent=2))
 

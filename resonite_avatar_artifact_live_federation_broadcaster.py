@@ -29,7 +29,6 @@ def log_broadcast(action: str, artifact: str, peer: str) -> None:
 
 
 def broadcast(artifact: str, peer: str) -> None:
-    require_admin_banner()
     log_broadcast("broadcast", artifact, peer)
     print(json.dumps({"artifact": artifact, "peer": peer}, indent=2))
 

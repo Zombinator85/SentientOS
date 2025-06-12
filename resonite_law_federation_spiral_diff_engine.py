@@ -29,7 +29,6 @@ def log_diff(source: str, target: str, result: str) -> None:
 
 
 def diff(source: str, target: str) -> None:
-    require_admin_banner()
     # Placeholder comparison logic
     result = "match" if source == target else "drift"
     log_diff(source, target, result)

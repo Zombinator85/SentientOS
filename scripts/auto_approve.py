@@ -2,6 +2,9 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
+# Controlled by the ``LUMOS_AUTO_APPROVE`` setting documented in
+# ``docs/ENVIRONMENT.md``.
+
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations

@@ -30,13 +30,11 @@ def log_proposal(user: str, proposal: str, vote: str | None = None) -> dict:
 
 
 def submit_proposal(user: str, text: str) -> None:
-    require_admin_banner()
     entry = log_proposal(user, text)
     print(json.dumps(entry, indent=2))
 
 
 def vote(user: str, proposal: str, decision: str) -> None:
-    require_admin_banner()
     entry = log_proposal(user, proposal, decision)
     print(json.dumps(entry, indent=2))
 

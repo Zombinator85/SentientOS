@@ -25,7 +25,6 @@ def log_story(title: str, content: str) -> dict:
 
 
 def narrate(title: str, content: str) -> None:
-    require_admin_banner()
     entry = log_story(title, content)
     print(json.dumps(entry, indent=2))
 

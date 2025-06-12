@@ -75,7 +75,6 @@ def status(agent: str) -> AgentState:
 
 
 def cli() -> None:
-    require_admin_banner()
     print("Self defense actions logged to", LOG_FILE)
 
 if __name__ == "__main__":
