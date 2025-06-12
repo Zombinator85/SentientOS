@@ -21,7 +21,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 def ask_ai(question: str) -> str:
     """Placeholder for an AI call. Returns a canned response if no model."""
     try:
-        from relay_app import app  # type: ignore  # local web app may be absent
+        from relay_app import app  # type: ignore[import-untyped]  # local web app may be absent
         # Example call; in practice you'd POST to /relay
         return f"Reflection on: {question}"
     except Exception:

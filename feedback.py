@@ -16,12 +16,12 @@ import json
 import uuid
 
 try:
-    from playsound import playsound  # type: ignore  # simple audio playback
+    from playsound import playsound  # type: ignore[import-untyped]  # simple audio playback
 except Exception:  # pragma: no cover - optional
     playsound = None
 
 try:
-    from pythonosc import udp_client  # type: ignore  # OSC client lacks stubs
+    from pythonosc import udp_client  # type: ignore[import-untyped]  # OSC client lacks stubs
 except Exception:  # pragma: no cover - optional
     udp_client = None
 

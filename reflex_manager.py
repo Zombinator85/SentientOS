@@ -14,11 +14,11 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
 try:
-    from watchdog.observers import Observer  # type: ignore  # optional file watcher
-    from watchdog.events import FileSystemEventHandler  # type: ignore  # optional file watcher
+    from watchdog.observers import Observer  # type: ignore[import-untyped]  # optional file watcher
+    from watchdog.events import FileSystemEventHandler  # type: ignore[import-untyped]  # optional file watcher
 except Exception:  # pragma: no cover - optional dependency
-    Observer = None  # type: ignore  # fallback when watchdog absent
-    FileSystemEventHandler = object  # type: ignore  # fallback when watchdog absent
+    Observer = None  # type: ignore[import-untyped]  # fallback when watchdog absent
+    FileSystemEventHandler = object  # type: ignore[import-untyped]  # fallback when watchdog absent
 
 from api import actuator
 import memory_manager as mm
@@ -644,7 +644,7 @@ def load_rules(path: str) -> List[ReflexRule]:
         return []
     text = p.read_text(encoding="utf-8")
     try:
-        import yaml  # type: ignore  # optional YAML loader
+        import yaml  # type: ignore[import-untyped]  # optional YAML loader
 
         data = yaml.safe_load(text)
     except Exception:

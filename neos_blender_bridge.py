@@ -18,9 +18,9 @@ LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 BLENDER_DIR.mkdir(parents=True, exist_ok=True)
 
 try:
-    import bpy  # type: ignore  # Blender API lacks stubs
+    import bpy  # type: ignore[import-untyped]  # Blender API lacks stubs
 except Exception:  # pragma: no cover - environment may lack Blender
-    bpy = None  # type: ignore  # Blender unavailable
+    bpy = None  # type: ignore[import-untyped]  # Blender unavailable
 
 
 def export_cube(name: str) -> Path:

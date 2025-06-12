@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Any, Tuple
 
 try:
-    import yaml  # type: ignore  # optional YAML dependency
+    import yaml  # type: ignore[import-untyped]  # optional YAML dependency
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 import ast
@@ -26,7 +26,7 @@ from ritual import check_master_files
 try:
     from policy_engine import PolicyEngine
 except Exception:  # pragma: no cover - optional dependency
-    PolicyEngine = None  # type: ignore  # policy engine optional
+    PolicyEngine = None  # type: ignore[import-untyped]  # policy engine optional
 
 MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 EVENT_PATH = MEMORY_DIR / "events.jsonl"

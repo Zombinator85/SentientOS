@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 
 try:  # optional speech output
-    import tts_bridge  # type: ignore  # internal TTS bridge
+    import tts_bridge  # type: ignore[import-untyped]  # internal TTS bridge
 except Exception:  # pragma: no cover - optional
-    tts_bridge = None  # type: ignore  # disable speech
+    tts_bridge = None  # type: ignore[import-untyped]  # disable speech
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 

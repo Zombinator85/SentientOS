@@ -11,8 +11,8 @@ import os
 from pathlib import Path
 
 try:
-    from PIL import Image  # type: ignore  # Pillow missing stubs
-    import numpy as np  # type: ignore  # numpy optional for heatmap
+    from PIL import Image  # type: ignore[import-untyped]  # Pillow missing stubs
+    import numpy as np  # type: ignore[import-untyped]  # numpy optional for heatmap
 except Exception:  # pragma: no cover - optional
     Image = None
     np = None
