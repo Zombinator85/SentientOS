@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List
 
 try:
-    from pythonosc import udp_client  # type: ignore[import-untyped]
+    from pythonosc import udp_client
 except Exception:  # pragma: no cover - optional
     udp_client = None
 
