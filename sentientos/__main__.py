@@ -19,4 +19,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI invocation
-    main()
+    from sentientos.cli import main as cli_main
+    cli_main()
