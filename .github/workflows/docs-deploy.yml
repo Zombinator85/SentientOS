@@ -13,6 +13,7 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .[dev]
       - run: make docs
+      - run: sphinx-build -b linkcheck -W docs docs/_build/linkcheck
       - name: Upload docs
         uses: actions/upload-pages-artifact@v2
         with:

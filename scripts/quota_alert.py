@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 
-import requests  # type: ignore[import-untyped]  # optional HTTP client
+import requests  # optional HTTP client
 
 # Send Slack alerts when model quotas run low.
 

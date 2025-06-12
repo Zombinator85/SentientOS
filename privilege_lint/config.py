@@ -4,9 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import tomllib
-yaml: Any
+
+yaml: Any | None
 try:  # optional dependency for YAML config files
-    import yaml
+    import yaml as _yaml
+    yaml = _yaml
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
     yaml = None
     import sys
