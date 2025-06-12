@@ -97,7 +97,10 @@ def require_admin_banner() -> None:
     try:
         import privilege_lint as pl_lint
 
-        pl_lint.audit_use("cli", tool)  # type: ignore[attr-defined]
+        pl_lint.audit_use(
+            "cli",
+            tool,
+        )  # type: ignore[attr-defined]  # runtime plugin may lack stubs
     except Exception:
         pass
     if is_admin():
