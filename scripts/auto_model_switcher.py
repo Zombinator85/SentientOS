@@ -9,9 +9,7 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-import yaml
-
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+import yaml  # type: ignore[import-untyped]
 
 # Switch models based on remaining quotas and configured fallbacks.
 

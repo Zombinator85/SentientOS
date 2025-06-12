@@ -10,7 +10,6 @@ running unattended.
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 """
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 import os
 import sys
 import platform

@@ -10,9 +10,7 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 
-import requests
-
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+import requests  # type: ignore[import-untyped]
 
 # Send Slack alerts when model quotas run low.
 

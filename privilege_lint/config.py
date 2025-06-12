@@ -24,7 +24,7 @@ class LintConfig:
     cache: bool = True
     mypy_enabled: bool = False
     mypy_strict: bool = True
-    data_paths: list[str] = None  # to be replaced after load_config
+    data_paths: list[str] | None = None  # to be replaced after load_config
     data_check_json: bool = False
     data_check_csv: bool = False
     templates_enabled: bool = False

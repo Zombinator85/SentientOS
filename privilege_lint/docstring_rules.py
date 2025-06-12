@@ -23,7 +23,7 @@ def validate_docstrings(lines: list[str], path: Path, style: str) -> list[str]:
     issues: list[str] = []
 
     def check(node: ast.AST, name: str) -> None:
-        doc = ast.get_docstring(node)
+        doc = ast.get_docstring(node)  # type: ignore[arg-type]
         lineno = getattr(node, "lineno", 1)
         if not doc:
             issues.append(f"{path}:{lineno} missing docstring")

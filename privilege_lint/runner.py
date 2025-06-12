@@ -3,11 +3,14 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from multiprocessing import cpu_count
 from pathlib import Path
-from typing import Sequence, Iterable
+from typing import Sequence, Iterable, TYPE_CHECKING
 import os
 
 
 DEFAULT_WORKERS = max(cpu_count() - 1, 1)
+
+if TYPE_CHECKING:
+    from privilege_lint_cli import PrivilegeLinter
 
 
 def parallel_validate(linter: "PrivilegeLinter", files: Sequence[Path], max_workers: int | None = None) -> list[str]:

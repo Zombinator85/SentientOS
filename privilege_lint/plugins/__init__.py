@@ -10,11 +10,11 @@ Plugin = Callable[[Path, LintConfig], List[str]]
 
 
 def load_plugins() -> List[Plugin]:
-    eps = entry_points().get("privilege_lint.plugins", [])
+    eps = list(entry_points().get("privilege_lint.plugins", []))  # type: ignore[call-arg]
     plugins: List[Plugin] = []
     for ep in eps:
         try:
-            obj = ep.load()
+            obj = ep.load()  # type: ignore[attr-defined]
             if callable(obj):
                 plugins.append(obj)
         except Exception:
