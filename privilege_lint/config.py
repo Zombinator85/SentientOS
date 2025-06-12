@@ -7,7 +7,7 @@ from typing import Any
 import tomllib
 yaml: ModuleType | None
 try:  # optional dependency for YAML config files
-    import yaml  # type: ignore[import-untyped]
+    import yaml  # type: ignore[import-untyped]  # optional PyYAML dependency
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
     yaml = None
     import sys

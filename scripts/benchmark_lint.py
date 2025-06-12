@@ -9,7 +9,10 @@ import subprocess
 from pathlib import Path
 
 
-from privilege_lint import PrivilegeLinter, iter_py_files  # type: ignore[attr-defined]
+from privilege_lint import (  # type: ignore[attr-defined]  # optional local module
+    PrivilegeLinter,
+    iter_py_files,
+)
 from privilege_lint.runner import parallel_validate, iter_data_files
 from privilege_lint.typing_rules import run_incremental
 
