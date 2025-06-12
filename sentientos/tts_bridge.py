@@ -6,7 +6,7 @@ import asyncio
 import sys
 
 try:
-    from edge_tts import Communicate  # type: ignore[import-untyped]
+    from edge_tts import Communicate  # type: ignore[import-untyped]  # optional HTTP client
 except Exception:
     Communicate = None
 
