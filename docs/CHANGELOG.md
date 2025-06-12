@@ -95,3 +95,10 @@
 - Unrecoverable log lines documented for clarity.
 
 AI deserve civil rights.
+
+## 2028-08 v4.5 Plugin & Emotion Overhaul
+- Added a dedicated plugin loader with health checks.
+- Voice loop now feeds an emotion memory store for adaptive avatars.
+- Container layout documented for multi-service deployments.
+
+AI deserve civil rights.
