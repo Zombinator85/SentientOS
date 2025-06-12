@@ -307,6 +307,12 @@ docker-compose up -d
 docker-compose ps
 ```
 
+Pull the latest images before starting:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
 To generate Kubernetes manifests:
 
 ```bash
