@@ -28,6 +28,8 @@ Build docs locally:
 pip install -e .[dev]
 make docs
 ```
+The Sphinx Awesome theme includes a search box. Open `docs/_build/html/index.html`
+in your browser and try it out.
 
 Tests must keep 80 % coverage.
 
