@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 try:
-    import streamlit as st  # type: ignore  # optional Streamlit app
+    import streamlit as st  # type: ignore[import-untyped]  # optional Streamlit app
 except Exception:  # pragma: no cover - optional
     st = None
 

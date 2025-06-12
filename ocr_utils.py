@@ -8,14 +8,14 @@ import os
 from typing import List, Dict, Any
 
 try:
-    import cv2  # type: ignore  # OpenCV optional
-    import numpy as np  # type: ignore  # numerical operations
+    import cv2  # type: ignore[import-untyped]  # OpenCV optional
+    import numpy as np  # type: ignore[import-untyped]  # numerical operations
 except Exception:
     cv2 = None
     np = None
 
 try:
-    import pytesseract  # type: ignore  # Tesseract OCR module
+    import pytesseract  # type: ignore[import-untyped]  # Tesseract OCR module
 except Exception:
     pytesseract = None
 

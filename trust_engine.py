@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 import difflib
 
 try:
-    import yaml  # type: ignore  # optional YAML parser
+    import yaml  # type: ignore[import-untyped]  # optional YAML parser
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 

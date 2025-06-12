@@ -28,8 +28,8 @@ from typing import Dict, List, Optional
 from utils import is_headless
 
 try:  # optional dependencies
-    import mne  # type: ignore  # optional EEG dependency
-    from brainflow.board_shim import BoardShim  # type: ignore  # optional EEG dependency
+    import mne  # type: ignore[import-untyped]  # optional EEG dependency
+    from brainflow.board_shim import BoardShim  # type: ignore[import-untyped]  # optional EEG dependency
 except Exception:  # pragma: no cover - optional
     mne = None
     BoardShim = None
