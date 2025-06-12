@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import requests  # optional HTTP client
+import requests  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
 
 # Monitor OpenAI model usage and log remaining quotas.
 
