@@ -14,9 +14,9 @@ from typing import Dict, List, Optional
 
 import ledger
 try:
-    import requests  # type: ignore  # HTTP client optional
+    import requests  # type: ignore[import-untyped]  # HTTP client optional
 except Exception:  # pragma: no cover - optional
-    requests = None  # type: ignore  # offline mode
+    requests = None  # type: ignore[import-untyped]  # offline mode
 
 LOG = get_log_path("music_log.jsonl")
 

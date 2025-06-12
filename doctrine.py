@@ -190,11 +190,11 @@ def enforce_runtime() -> None:
 
 
 try:
-    from watchdog.observers import Observer  # type: ignore  # optional file watcher
-    from watchdog.events import FileSystemEventHandler  # type: ignore  # optional file watcher
+    from watchdog.observers import Observer  # type: ignore[import-untyped]  # optional file watcher
+    from watchdog.events import FileSystemEventHandler  # type: ignore[import-untyped]  # optional file watcher
 except Exception:  # pragma: no cover - optional dependency
-    Observer = None  # type: ignore  # watchdog not installed
-    FileSystemEventHandler = object  # type: ignore  # placeholder
+    Observer = None  # type: ignore[import-untyped]  # watchdog not installed
+    FileSystemEventHandler = object  # type: ignore[import-untyped]  # placeholder
 
 
 def start_watchdog(callback: Callable[[str], None]) -> Optional[object]:
