@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 import tomllib
+yaml: ModuleType | None
 try:  # optional dependency for YAML config files
     import yaml  # type: ignore[import-untyped]
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
@@ -32,7 +35,7 @@ class LintConfig:
     cache: bool = True
     mypy_enabled: bool = False
     mypy_strict: bool = True
-    data_paths: list[str] = None  # to be replaced after load_config
+    data_paths: list[str] | None = None  # to be replaced after load_config
     data_check_json: bool = False
     data_check_csv: bool = False
     templates_enabled: bool = False
