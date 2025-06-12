@@ -1,5 +1,8 @@
 # Changelog
 
+## 2025-06-12: 4.5-cathedral-immaculate
+
+
 ## 2025-09 Cathedral Upgrades
 - Hardened audit verification and cleanup scripts
 - Rolling hash integrity checks across logs
