@@ -1,6 +1,7 @@
 # Environment Variables
 
 SentientOS tools read configuration from `.env`. Copy `.env.example` to `.env` and update the values as needed.
+Every variable shown below also appears in `.env.example` with the same default value.
 The table below explains each variable and its default behavior.
 
 ### Generating a Secure `CONNECTOR_TOKEN`
