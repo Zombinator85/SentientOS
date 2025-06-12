@@ -124,7 +124,6 @@ def list_nodes() -> Dict[str, Node]:
     return _load_nodes()
 
 def cli() -> None:
-    require_admin_banner()
     ap = argparse.ArgumentParser(description="Federation Trust Protocol")
     sub = ap.add_subparsers(dest="cmd")
 

@@ -28,7 +28,6 @@ def log_event(event: str, data: dict) -> None:
 
 
 def run_dashboard() -> None:
-    require_admin_banner()
     if st is None:
         print("Streamlit not installed.")
         return
