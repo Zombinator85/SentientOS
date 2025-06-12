@@ -12,13 +12,15 @@ import importlib
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 import tomllib
 
 
 def load_extras() -> dict[str, list[str]]:
     data = tomllib.loads(Path('pyproject.toml').read_text())
-    return data.get('project', {}).get('optional-dependencies', {})
+    extras = data.get('project', {}).get('optional-dependencies', {})
+    return cast(dict[str, list[str]], extras)
 
 
 def _check_installed(packages: list[str]) -> list[str]:

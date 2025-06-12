@@ -4,8 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import tomllib
+
+yaml: Any | None
 try:  # optional dependency for YAML config files
-    import yaml  # type: ignore[import-untyped]  # justified: optional PyYAML dependency
+    import yaml as _yaml
+    yaml = _yaml
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
     yaml = None
     import sys
