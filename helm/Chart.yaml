@@ -1,0 +1,4 @@
+apiVersion: v2
+name: sentientos
+version: 0.1.0
+description: Helm chart for SentientOS relay and bridges
