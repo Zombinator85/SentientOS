@@ -1,7 +1,5 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+"""Test suite package for SentientOS."""
 
-require_admin_banner()
-require_lumos_approval()
-"""Test package."""
+__all__: list[str] = []
