@@ -19,7 +19,7 @@ from pathlib import Path
 try:
     import tomllib
 except Exception:  # Python <3.11
-    import tomli as tomllib  # type: ignore[import-not-found]  # fallback for Python <3.11
+    import tomli as tomllib  # type: ignore[import-not-found,no-redef]  # fallback for Python <3.11
 
 PYPROJECT = Path("pyproject.toml")
 CHANGELOG = Path("docs/CHANGELOG.md")

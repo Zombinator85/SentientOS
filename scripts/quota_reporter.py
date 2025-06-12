@@ -17,7 +17,7 @@ import os
 import time
 from logging_config import get_log_path
 
-import requests
+import requests  # type: ignore[import-untyped]  # optional HTTP client
 
 from scripts.auto_approve import prompt_yes_no
 

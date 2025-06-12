@@ -12,9 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import requests
-
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+import requests  # type: ignore[import-untyped]  # optional HTTP client
 
 # Monitor OpenAI model usage and log remaining quotas.
 

@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from types import ModuleType
 from typing import Any
+from types import ModuleType
 import tomllib
-yaml: ModuleType | None
 try:  # optional dependency for YAML config files
     import yaml  # type: ignore[import-untyped]  # optional PyYAML dependency
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
-    yaml = None
+    yaml = None  # type: ignore[assignment]
     import sys
     print(
         "Warning: optional dependency PyYAML missing; YAML configs will be ignored",
