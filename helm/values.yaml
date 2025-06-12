@@ -1,0 +1,13 @@
+relayPort: 5000
+bridges:
+  - name: bridge1
+    port: 9977
+  - name: bridge2
+    port: 9988
+  - name: bridge3
+    port: 9966
+ngrokPorts:
+  - 4040
+  - 4041
+image: python:3.11-slim
+ngrokImage: ngrok/ngrok:alpine
