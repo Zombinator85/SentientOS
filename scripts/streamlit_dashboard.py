@@ -7,7 +7,7 @@ require_lumos_approval()
 import json
 from datetime import date
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, cast
 
 import pandas as pd
 import streamlit as st
@@ -58,7 +58,10 @@ def load_current_model(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            return cast(Dict[str, Any], data)
+        return {}
     except json.JSONDecodeError:
         return {}
 

@@ -10,7 +10,7 @@ import os
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import smtplib
 from email.message import EmailMessage
@@ -20,9 +20,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 # Generate daily usage summaries and optionally email them.
 
 
-def load_usage(path: Path, since: datetime) -> Dict[str, List[dict]]:
+def load_usage(path: Path, since: datetime) -> dict[str, list[dict[str, Any]]]:
     """Load usage records within the timeframe grouped by model."""
-    result: Dict[str, List[dict]] = defaultdict(list)
+    result: dict[str, list[dict[str, Any]]] = defaultdict(list)
     if not path.exists():
         return result
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -36,7 +36,7 @@ def load_usage(path: Path, since: datetime) -> Dict[str, List[dict]]:
     return result
 
 
-def compute_stats(records: List[dict]) -> Tuple[int, float, str]:
+def compute_stats(records: list[dict[str, Any]]) -> tuple[int, float, str]:
     """Return total used, low water pct, and peak hour."""
     if not records:
         return 0, 1.0, "N/A"
@@ -58,7 +58,7 @@ def compute_stats(records: List[dict]) -> Tuple[int, float, str]:
     return total_used, low_pct, peak
 
 
-def build_report(data: Dict[str, List[dict]]) -> str:
+def build_report(data: dict[str, list[dict[str, Any]]]) -> str:
     """Create a markdown report from usage data."""
     lines = ["# Daily Usage Report", ""]
     lines.append("| Model | Messages Used | Peak Hour (UTC) | Low Water % | Recommendation |")
