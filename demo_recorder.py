@@ -13,12 +13,25 @@ model replies.
 """
 
 import datetime as _dt
+import os
+import subprocess
+import sys
 import threading
 import time
-import subprocess
-from pathlib import Path
-from typing import List, Dict, Any
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+DEMO_DIR = Path("demos")
+
+
+@dataclass
+class DemoInfo:
+    path: Path
+    timestamp: float
+    size: int
+    duration: Optional[str] = None
 
 try:  # optional screenshot libraries
     import mss
@@ -100,7 +113,7 @@ class DemoRecorder:
             if save_path is None:
                 self._turn_id += 1
                 ext = '.wav' if tts_bridge.ENGINE_TYPE in {'bark', 'coqui'} else '.mp3'
-                demo_dir = Path('demos') / 'audio' / self.cycle_id
+                demo_dir = DEMO_DIR / 'audio' / self.cycle_id
                 demo_dir.mkdir(parents=True, exist_ok=True)
                 save_path = str(demo_dir / f"{self._turn_id}{ext}")
             path = self._orig_speak(text, voice=voice, save_path=save_path, emotions=emotions)
@@ -125,7 +138,7 @@ class DemoRecorder:
         if not self.frames:
             raise RuntimeError("no frames recorded")
         timestamp = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        out_dir = Path("demos")
+        out_dir = DEMO_DIR
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{timestamp}.mp4"
         work = Path(f".demo_{timestamp}")
@@ -176,9 +189,109 @@ class DemoRecorder:
         return out_path
 
 
+def _probe_duration(path: Path) -> Optional[str]:
+    cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(path),
+    ]
+    try:
+        out = subprocess.check_output(cmd, text=True).strip()
+        seconds = float(out)
+        return str(_dt.timedelta(seconds=int(seconds)))
+    except Exception:
+        return None
+
+
+def _scan_demos() -> List[DemoInfo]:
+    DEMO_DIR.mkdir(parents=True, exist_ok=True)
+    demos: List[DemoInfo] = []
+    for fp in DEMO_DIR.iterdir():
+        if not fp.is_file():
+            continue
+        stat = fp.stat()
+        demos.append(
+            DemoInfo(
+                path=fp,
+                timestamp=stat.st_mtime,
+                size=stat.st_size,
+                duration=_probe_duration(fp),
+            )
+        )
+    demos.sort(key=lambda d: d.timestamp, reverse=True)
+    return demos
+
+
+def _refresh_demos() -> None:
+    global _DEMO_INFOS
+    if _DEMO_LIST is None:
+        return
+    _DEMO_LIST.delete(0, tk.END)
+    _DEMO_INFOS = _scan_demos()
+    for info in _DEMO_INFOS:
+        dt_str = _dt.datetime.fromtimestamp(info.timestamp).strftime("%Y-%m-%d %H:%M")
+        size_kb = info.size // 1024
+        dur = info.duration or "?"
+        _DEMO_LIST.insert(tk.END, f"{info.path.name} | {dt_str} | {size_kb} KB | {dur}")
+
+
+def _on_select(event=None) -> None:
+    global _SELECTED
+    if _DEMO_LIST is None:
+        return
+    sel = _DEMO_LIST.curselection()
+    _SELECTED = _DEMO_INFOS[sel[0]] if sel else None
+
+
+def _launch(path: Path) -> None:
+    try:
+        if os.name == "nt":
+            os.startfile(path)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except Exception as exc:
+        if _STATUS is not None:
+            _STATUS.set(str(exc))
+
+
+def _play_demo() -> None:
+    if _SELECTED is None:
+        return
+    _launch(_SELECTED.path)
+
+
+def _open_folder() -> None:
+    if _SELECTED is None:
+        return
+    _launch(_SELECTED.path.parent)
+
+
+def _delete_demo() -> None:
+    global _SELECTED
+    if _SELECTED is None:
+        return
+    try:
+        _SELECTED.path.unlink()
+    except Exception as exc:
+        if _STATUS is not None:
+            _STATUS.set(str(exc))
+    _SELECTED = None
+    _refresh_demos()
+
+
 _GUI: tk.Tk | None = None
 _STATUS: tk.StringVar | None = None
 _REC: DemoRecorder | None = None
+_DEMO_LIST: tk.Listbox | None = None
+_DEMO_INFOS: List[DemoInfo] = []
+_SELECTED: Optional[DemoInfo] = None
 
 
 def _find_last_demo() -> Path | None:
@@ -268,6 +381,25 @@ def _setup_gui() -> None:
     tk.Button(_GUI, text="Stop", command=on_stop).pack(fill="x")
     tk.Button(_GUI, text="Export", command=on_export).pack(fill="x")
     tk.Button(_GUI, text="\u25B6 Preview Last Demo", command=on_preview).pack(fill="x")
+
+    browser_frame = tk.Frame(_GUI)
+    listbox = tk.Listbox(browser_frame, width=60)
+    listbox.pack(side="left", fill="both", expand=True)
+    scroll = tk.Scrollbar(browser_frame, command=listbox.yview)
+    scroll.pack(side="right", fill="y")
+    listbox.config(yscrollcommand=scroll.set)
+    browser_frame.pack(fill="both", expand=True)
+
+    btn_row = tk.Frame(_GUI)
+    tk.Button(btn_row, text="\u25B6 Play", command=_play_demo).pack(side="left")
+    tk.Button(btn_row, text="\U0001F4C1 Open Folder", command=_open_folder).pack(side="left")
+    tk.Button(btn_row, text="\U0001F5D1 Delete", command=_delete_demo).pack(side="left")
+    btn_row.pack(fill="x")
+
+    global _DEMO_LIST
+    _DEMO_LIST = listbox
+    _refresh_demos()
+    _DEMO_LIST.bind("<<ListboxSelect>>", _on_select)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual demo
