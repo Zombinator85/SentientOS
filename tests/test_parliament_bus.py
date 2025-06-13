@@ -38,3 +38,15 @@ def test_multi_pub_sub() -> None:
         assert r2 == all_turns
 
     asyncio.run(runner())
+
+
+def test_turn_emotion() -> None:
+    async def runner() -> None:
+        bus = ParliamentBus()
+        turn = Turn("A", "hi", emotion="joy")
+        await bus.publish(turn)
+        async for t in bus.subscribe():
+            assert t.emotion == "joy"
+            break
+
+    asyncio.run(runner())

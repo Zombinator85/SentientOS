@@ -41,3 +41,14 @@ def test_adapt_persona():
     tb.DEFAULT_VOICE = 'def'
     tb.adapt_persona({'Sadness': 0.5})
     assert tb.CURRENT_PERSONA == 'alt'
+
+
+def test_speak_turn(monkeypatch):
+    monkeypatch.setenv('TTS_ENGINE', 'edge-tts')
+    monkeypatch.setitem(sys.modules, 'edge_tts', None)
+    monkeypatch.setenv('SENTIENTOS_HEADLESS', '1')
+    import tts_bridge as tb
+    reload(tb)
+    from sentientos.parliament_bus import Turn
+    turn = Turn('assistant', 'hello', emotion='joy')
+    assert tb.speak_turn(turn) is None
