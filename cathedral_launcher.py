@@ -1,5 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
@@ -15,7 +16,6 @@ import webbrowser
 from typing import Optional
 
 from logging_config import get_log_path
-
 
 MIN_VERSION = (3, 11)
 LOG_PATH = get_log_path("cathedral_launcher.log")
