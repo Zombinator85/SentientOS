@@ -7,9 +7,10 @@ require_lumos_approval()
 """Execute a local Python function via the actuator framework."""
 from importlib import import_module
 from api.actuator import BaseActuator
+import plugin_framework as pf
 
 
-def register(reg):
+def register(gui: "CathedralGUI") -> None:
     class PyCallActuator(BaseActuator):
         def execute(self, intent):
             target = intent.get("func")
@@ -22,4 +23,4 @@ def register(reg):
             kwargs = intent.get("kwargs", {})
             return {"result": func(*args, **kwargs)}
 
-    reg("pycall", PyCallActuator())
+    pf.register_plugin("pycall", PyCallActuator())

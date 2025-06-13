@@ -11,10 +11,13 @@ used in the test-suite to demonstrate plugin discovery.
 """
 
 from api.actuator import BaseActuator
+import plugin_framework as pf
 
-def register(reg):
+
+def register(gui: "CathedralGUI") -> None:
     class HelloActuator(BaseActuator):
         def execute(self, intent):
             name = intent.get('name', 'world')
             return {'hello': name}
-    reg('hello', HelloActuator())
+
+    pf.register_plugin('hello', HelloActuator())
