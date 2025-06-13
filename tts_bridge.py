@@ -227,13 +227,19 @@ EMOTION_STYLES = {
     "sadness": {"style": "sad"},
 }
 
+EMOTION_VOICES = {
+    "joy": DEFAULT_VOICE,
+    "anger": ALT_VOICE or DEFAULT_VOICE,
+    "sadness": ALT_VOICE or DEFAULT_VOICE,
+}
+
 
 def speak_turn(turn: "Turn") -> Optional[str]:
     """Speak a :class:`Turn` using its emotion tag for style."""
     emotion = (turn.emotion or "").lower()
     mapping = EMOTION_STYLES.get(emotion, {})
     style = mapping.get("style")
-    voice = DEFAULT_VOICE
+    voice = EMOTION_VOICES.get(emotion, DEFAULT_VOICE)
     return speak(turn.text, voice=voice, emotions=None, style=style)
 
 def stop() -> None:
