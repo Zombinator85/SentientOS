@@ -39,6 +39,7 @@ BANNER_LINES = [
 ]
 
 import admin_utils
+import os
 from datetime import datetime
 import json
 
@@ -59,7 +60,7 @@ def print_banner() -> None:
 from typing import Any
 
 # Track the currently active persona profile for GUI footers
-CURRENT_PROFILE = os.getenv("SENTIENTOS_PROFILE", "default")
+CURRENT_PROFILE: str = os.getenv("SENTIENTOS_PROFILE", "default")
 
 
 def set_current_profile(name: str) -> None:

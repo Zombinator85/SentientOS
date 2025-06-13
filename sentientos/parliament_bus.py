@@ -17,6 +17,7 @@ class Turn:
 
     speaker: str
     text: str
+    emotion: str | None = None
     audio_path: str | None = None
 
 

@@ -15,11 +15,11 @@ from typing import Any, Iterable, Dict
 from gui_stub import CathedralGUI
 
 try:  # optional watchdog dependency
-    from watchdog.observers import Observer  # type: ignore[import-untyped]
-    from watchdog.events import FileSystemEventHandler  # type: ignore[import-untyped]
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
 except Exception:  # pragma: no cover - optional dependency
-    Observer = None  # type: ignore[assignment]
-    FileSystemEventHandler = object  # type: ignore[assignment]
+    Observer = None
+    FileSystemEventHandler = object
 
 import argparse
 from importlib.metadata import entry_points
@@ -56,14 +56,14 @@ class PluginLoader:
         if Observer is None:
             return
 
-        class Handler(FileSystemEventHandler):
+        class Handler(FileSystemEventHandler):  # type: ignore[misc]
             def __init__(self, outer: "PluginLoader") -> None:
                 self.outer = outer
 
-            def on_modified(self, event) -> None:  # type: ignore[override]
+            def on_modified(self, event: object) -> None:
                 self.outer._handle(event)
 
-            def on_created(self, event) -> None:  # type: ignore[override]
+            def on_created(self, event: object) -> None:
                 self.outer._handle(event)
 
         self.observer = Observer()
@@ -75,8 +75,8 @@ class PluginLoader:
             self.observer.stop()
             self.observer.join()
 
-    def _handle(self, event) -> None:
-        path = Path(event.src_path)
+    def _handle(self, event: object) -> None:
+        path = Path(getattr(event, "src_path"))
         if path.suffix == ".py":
             self._load_plugin(path.stem)
 
@@ -95,7 +95,7 @@ class PluginLoader:
                     raise ImportError(mod_name)
                 mod = importlib.util.module_from_spec(spec)
                 sys.modules[mod_name] = mod
-                spec.loader.exec_module(mod)  # type: ignore[arg-type]
+                spec.loader.exec_module(mod)
 
             if self.trusted_only and not getattr(mod, "TRUSTED", True):
                 self.errors[name] = "untrusted"
@@ -116,12 +116,12 @@ class PluginLoader:
     def _refresh(self) -> None:
         if hasattr(self.gui, "update"):
             try:
-                self.gui.update()  # type: ignore[call-arg]
+                self.gui.update()
             except Exception:
                 pass
         elif hasattr(self.gui, "refresh"):
             try:
-                self.gui.refresh()  # type: ignore[call-arg]
+                self.gui.refresh()
             except Exception:
                 pass
 
@@ -131,9 +131,9 @@ class PluginLoader:
     def error_log(self) -> Dict[str, str]:
         return dict(self.errors)
 
-def set_trusted_only(self, value: bool) -> None:
-    self.trusted_only = value
-    self._load_existing()
+    def set_trusted_only(self, value: bool) -> None:
+        self.trusted_only = value
+        self._load_existing()
 
 
 class PluginPanel:
@@ -146,13 +146,13 @@ class PluginPanel:
         self._mode = None
         self.control = None
         try:  # prefer Flet if available
-            import flet as ft  # type: ignore[import-untyped]
+            import flet as ft
             self._mode = "flet"
             self._ft = ft
             self.plugin_list = ft.Column()
             self.error_list = ft.Column()
             self.toggle = ft.Checkbox(label="Trusted only", value=True)
-            self.toggle.on_change = self._toggle  # type: ignore[attr-defined]
+            self.toggle.on_change = self._toggle
             self.control = ft.Column([
                 ft.Text("Plugins"),
                 self.plugin_list,
@@ -168,7 +168,7 @@ class PluginPanel:
                     QListWidget,
                     QLabel,
                     QCheckBox,
-                )  # type: ignore[import-untyped]
+                )
 
                 self._mode = "pyside"
                 self.widget = QWidget()
@@ -188,7 +188,7 @@ class PluginPanel:
                 self._mode = "none"
         self.refresh()
 
-    def _toggle(self, *args) -> None:
+    def _toggle(self, *args: object) -> None:
         if self._mode == "flet":
             self.loader.set_trusted_only(self.toggle.value)
         elif self._mode == "pyside":
