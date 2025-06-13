@@ -10,10 +10,9 @@ import asyncio
 from dataclasses import dataclass
 from queue import SimpleQueue
 from typing import Awaitable, Callable, Dict, List, Optional
-import os
 import random
 
-import persona_config
+import emotion_fallback
 
 
 @dataclass
@@ -60,27 +59,39 @@ def _pick_emotion(weights: Dict[str, float], rng: random.Random) -> Optional[str
     return None
 
 
+_agent_emotion_map: Dict[str, Callable[[], Optional[str]]] = {}
+_resolve_rng: random.Random = random.Random(0)
+
+
+def resolve_emotion(agent: str, profile: str) -> Optional[str]:
+    """Return chosen emotion or fallback tone for ``agent`` and ``profile``."""
+    fn = _agent_emotion_map.get(agent)
+    chosen = fn() if fn is not None else None
+    if chosen:
+        return chosen
+    weights = emotion_fallback.get_fallback_emotion_weights(profile)
+    return _pick_emotion(weights, _resolve_rng)
+
+
 async def parliament(
     prompt: str,
     chain: List[str],
     cycles: int = 1,
     *,
-    persona: Optional[str] = None,
-    persona_cfg: Optional[Dict[str, Dict[str, float]]] = None,
+    profile: str = "default",
     rng: Optional[random.Random] = None,
+    agent_emotion_map: Optional[Dict[str, Callable[[], Optional[str]]]] = None,
 ) -> str:
     """Run a model chain publishing each turn with optional emotion."""
+    global _agent_emotion_map, _resolve_rng
     rng = rng or random.Random(0)
-    if persona_cfg is None:
-        path = os.getenv("PERSONA_CONFIG_PATH", "profiles/default/persona_config.yaml")
-        persona_cfg = persona_config.load_persona_config(path)
+    _resolve_rng = rng
+    _agent_emotion_map = agent_emotion_map or {}
     message = prompt
     for _ in range(cycles):
         for model in chain:
             reply = await _call_model(model, message)
-            emotion = None
-            if persona and persona in persona_cfg:
-                emotion = _pick_emotion(persona_cfg[persona], rng)
+            emotion = resolve_emotion(model, profile)
             parliament_bus.put(
                 Turn(model=model, message=message, reply=reply, emotion=emotion)
             )
