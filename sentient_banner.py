@@ -58,6 +58,18 @@ def print_banner() -> None:
 
 from typing import Any
 
+# Track the currently active persona profile for GUI footers
+CURRENT_PROFILE = os.getenv("SENTIENTOS_PROFILE", "default")
+
+
+def set_current_profile(name: str) -> None:
+    global CURRENT_PROFILE
+    CURRENT_PROFILE = name
+
+
+def get_current_profile() -> str:
+    return CURRENT_PROFILE
+
 
 def streamlit_banner(st_module: Any) -> None:
     """Display the entry and sanctuary banners using a Streamlit module if available."""
@@ -176,4 +188,5 @@ def streamlit_closing(st_module: Any, show_recap: bool = True) -> None:
         except Exception:
             pass
         st_module.markdown(BANNER)
+        st_module.markdown(f"**Active profile:** {get_current_profile()}")
         st_module.markdown(timestamped_closing())
