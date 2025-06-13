@@ -14,8 +14,10 @@ from typing import AsyncGenerator
 @dataclass
 class Turn:
     """Represents a speaker turn on the parliament floor."""
+
     speaker: str
     text: str
+    audio_path: str | None = None
 
 
 class ParliamentBus:
