@@ -78,7 +78,7 @@ def ensure_log_dir() -> Path:
 
 def check_gpu() -> bool:
     try:
-        import torch  # type: ignore
+        import torch
         has = torch.cuda.is_available()
         log(f"gpu_available={has}")
         return bool(has)
