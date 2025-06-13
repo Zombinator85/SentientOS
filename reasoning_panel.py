@@ -81,6 +81,7 @@ class ReasoningPanel(ft.UserControl):  # type: ignore[misc]
             tile = ft.ListTile(
                 title=ft.Text(f"{turn.get('turn_id')}: {turn.get('agent')}"),
                 subtitle=ft.Text(str(turn.get('timestamp'))),
+                trailing=ft.Text(str(turn.get('emotion') or "")),
                 on_click=lambda e, t=turn: self._show_detail(t),
             )
             self.timeline.controls.append(tile)
