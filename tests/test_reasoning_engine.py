@@ -29,14 +29,14 @@ def test_parliament(monkeypatch):
     # clear bus
     while not re.parliament_bus.empty():
         re.parliament_bus.get()
-    result = asyncio.run(re.parliament("a", ["a", "b"], cycles=2))
+    result = asyncio.run(re.parliament("a", ["a", "b"], profile="default"))
     turns = []
     while not re.parliament_bus.empty():
         turns.append(re.parliament_bus.get())
-    assert result == "a1212"
-    assert len(turns) == 4
+    assert result == "a12"
+    assert len(turns) == 2
     assert turns[0].model == "a" and turns[0].reply == "a1"
-    assert turns[-1].model == "b" and turns[-1].reply == "a1212"
+    assert turns[-1].model == "b" and turns[-1].reply == "a12"
 
 
 def test_persona_emotion(tmp_path, monkeypatch):
@@ -53,7 +53,6 @@ def test_persona_emotion(tmp_path, monkeypatch):
         re.parliament(
             "x",
             ["a"],
-            cycles=1,
             profile="test",
             agent_emotion_map=None,
             rng=rng,
