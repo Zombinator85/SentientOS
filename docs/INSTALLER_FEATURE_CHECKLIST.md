@@ -31,6 +31,10 @@ The 4.5 series launcher was smoke tested on Windows 11, macOS 14, and Ubuntu 22.
 * Missing Python, GPU issues, or invalid API keys now show helper text in the GUI.
 * `RELAY_LOG_LEVEL` controls INFO/DEBUG output for the relay.
 * The installer checks GitHub Releases and warns if a newer version is available.
+* Latest smoke test results:
+  * Windows 11 – pass
+  * macOS 14 – pass
+  * Ubuntu 22.04 – pass
 
 ## Canonical Codex Entry
 The one‑click installer deploys the full Cathedral stack:
