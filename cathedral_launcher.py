@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 from sentientos import __version__
+
 require_admin_banner()
 require_lumos_approval()
 
@@ -30,13 +31,40 @@ def log(msg: str) -> None:
         f.write(msg + "\n")
 
 
-def check_gpu() -> bool:
-    """Return True if a GPU is available via torch."""
+def check_self_update() -> None:
+    """Check GitHub Releases for a newer version."""
+    repo_api = "https://api.github.com/repos/OpenAI/SentientOS/releases/latest"
     try:
-        import torch  # type: ignore[import-untyped]
-        return torch.cuda.is_available()
-    except Exception:
+        resp = requests.get(repo_api, timeout=5)
+        resp.raise_for_status()
+        latest = resp.json().get("tag_name", "")
+        if latest and latest != __version__:
+            print(f"Update available: {latest} (current {__version__})")
+            log(f"update_available:{latest}")
+        else:
+            log("up_to_date")
+    except Exception as e:  # pragma: no cover - network dependent
+        log(f"update_check_failed:{e}")
+
+
+def check_gpu() -> bool:
+    try:
+        import torch  # type: ignore
+        has = torch.cuda.is_available()
+        log(f"gpu_available={has}")
+        return bool(has)
+    except Exception as exc:
+        log(f"gpu_check_failed: {exc}")
         return False
+
+
+def prompt_cloud_inference(env_path: Path) -> None:
+    text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    if "MIXTRAL_CLOUD_ONLY=1" in text:
+        return
+    resp = input("GPU not detected. Use cloud inference? [y/N] ")
+    if resp.strip().lower() in {"y", "yes"}:
+        enable_cloud_only(env_path)
 
 
 def check_python_version() -> bool:
@@ -87,24 +115,12 @@ def ensure_log_dir() -> Path:
     return path
 
 
-def check_self_update() -> None:
-    """Check GitHub Releases for a newer version."""
-    repo_api = "https://api.github.com/repos/OpenAI/SentientOS/releases/latest"
-    try:
-        resp = requests.get(repo_api, timeout=5)
-        resp.raise_for_status()
-        latest = resp.json().get("tag_name", "")
-        if latest and latest != __version__:
-            print(f"Update available: {latest} (current {__version__})")
-            log(f"update_available:{latest}")
-        else:
-            log("up_to_date")
-    except Exception as e:  # pragma: no cover - network dependent
-        log(f"update_check_failed:{e}")
-
-
 def check_ollama() -> bool:
-    return shutil.which("ollama") is not None
+    if shutil.which("ollama") is not None:
+        return True
+    print("Ollama binary not found. Install from https://ollama.com")
+    log("Ollama binary missing")
+    return False
 
 
 def install_ollama() -> None:
@@ -112,6 +128,8 @@ def install_ollama() -> None:
     if system in {"linux", "darwin"}:
         cmd = "curl -fsSL https://ollama.com/install.sh | sh"
         subprocess.call(cmd, shell=True)
+    elif system == "windows":
+        subprocess.call("winget install Ollama.Ollama -s winget", shell=True)
     else:
         print("Please install Ollama from https://ollama.com")
         log("Ollama missing")
@@ -121,8 +139,16 @@ def pull_mixtral_model() -> bool:
     try:
         subprocess.check_call(["ollama", "pull", "mixtral"])
         return True
-    except Exception:
-        return False
+    except FileNotFoundError:
+        print("Cannot pull Mixtral model: ollama not found")
+        log("mixtral pull failed: ollama missing")
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to pull Mixtral model: {exc}")
+        log("mixtral pull failed")
+    except Exception as exc:  # pragma: no cover - unexpected
+        print(f"Unexpected error pulling Mixtral model: {exc}")
+        log("mixtral pull unexpected")
+    return False
 
 
 def enable_cloud_only(env_path: Path) -> None:
@@ -165,12 +191,13 @@ def main(argv: Optional[list[str]] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    ensure_env_file()
+    env_path = ensure_env_file()
     ensure_log_dir()
     if args.check_updates:
         check_self_update()
         return 0
     check_self_update()
+
     if not check_python_version():
         return 1
     ensure_pip()
@@ -181,19 +208,37 @@ def main(argv: Optional[list[str]] | None = None) -> int:
         print(f"Dependency installation failed: {exc}")
         log("pip install failed")
 
+    if not check_gpu():
+        prompt_cloud_inference(env_path)
+
     if not check_ollama():
         install_ollama()
-    if check_ollama():
+
+    ollama_ok = check_ollama()
+    if ollama_ok and check_gpu():
         if not pull_mixtral_model():
-            enable_cloud_only(Path(".env"))
+            enable_cloud_only(env_path)
             print("Using Mixtral cloud-only mode")
     else:
-        log("Ollama unavailable")
+        enable_cloud_only(env_path)
+        if not ollama_ok:
+            log("Ollama unavailable")
 
     launch_background(["ollama", "serve"])
+
+    relay_script = Path("sentientos_relay.py")
+    if not relay_script.exists():
+        relay_script = Path("relay_app.py")
+
     env = os.environ.copy()
     env["RELAY_LOG_LEVEL"] = args.log_level
-    launch_background([sys.executable, "relay_app.py"], env=env)
+    launch_background([sys.executable, str(relay_script)], env=env)
+
+    for bridge in ["bio_bridge.py", "tts_bridge.py", "haptics_bridge.py"]:
+        path = Path(bridge)
+        if path.exists():
+            launch_background([sys.executable, bridge])
+
     webbrowser.open("http://localhost:8501")
     print("Cathedral Launcher complete.")
     return 0
