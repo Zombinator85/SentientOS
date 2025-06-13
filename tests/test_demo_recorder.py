@@ -35,3 +35,17 @@ def test_demo_recorder_basic(tmp_path, monkeypatch):
     rec.stop()
     out = rec.export()
     assert out.name.endswith('.mp4')
+
+
+def test_demo_recorder_running_property(tmp_path, monkeypatch):
+    rec = dr_mod.DemoRecorder()
+
+    monkeypatch.setattr(rec, '_capture_screen', lambda: tmp_path / 'f.png')
+    monkeypatch.setattr(tts_bridge, 'speak', lambda *a, **k: str(tmp_path / 'a.mp3'))
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **k: None)
+
+    assert not rec.running
+    rec.start()
+    assert rec.running
+    rec.stop()
+    assert not rec.running

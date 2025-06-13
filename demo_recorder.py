@@ -21,6 +21,16 @@ from pathlib import Path
 from typing import List, Dict, Any
 import uuid
 
+try:
+    import sounddevice as sd  # type: ignore[import-untyped]
+except Exception:  # pragma: no cover - optional audio dependency
+    sd = None  # type: ignore
+
+try:
+    import numpy as np  # type: ignore[import-untyped]
+except Exception:  # pragma: no cover - optional dependency
+    np = None  # type: ignore
+
 try:  # optional screenshot libraries
     import mss
 except Exception:  # pragma: no cover - optional dependency
@@ -52,6 +62,11 @@ class DemoRecorder:
         self._running = False
         self._thread: threading.Thread | None = None
         self._orig_speak = tts_bridge.speak
+
+    @property
+    def running(self) -> bool:
+        """Return ``True`` while recording is active."""
+        return self._running
 
 
     def _capture_screen(self) -> Path:
@@ -168,25 +183,80 @@ class DemoRecorder:
 _GUI: tk.Tk | None = None
 _STATUS: tk.StringVar | None = None
 _REC: DemoRecorder | None = None
+_METER_VAR: tk.BooleanVar | None = None
+_AUDIO_LEVEL: tk.DoubleVar | None = None
+_METER_THREAD: threading.Thread | None = None
+_METER_RUNNING = False
+
+
+def _meter_loop() -> None:
+    """Update audio level every 100ms while recording."""
+    global _METER_RUNNING
+    if sd is None or np is None or _AUDIO_LEVEL is None:
+        return
+    try:
+        rate = int(sd.query_devices(None, 'input')['default_samplerate'])
+    except Exception:
+        rate = 44100
+    block = int(rate * 0.1)
+    try:
+        with sd.InputStream(channels=1, samplerate=rate, blocksize=block) as stream:
+            while _METER_RUNNING:
+                data, _ = stream.read(block)
+                level = float(np.sqrt(np.mean(np.square(data))))
+                if _GUI is not None:
+                    _GUI.after(0, _AUDIO_LEVEL.set, min(level * 10.0, 1.0))
+    except Exception:
+        pass
+    finally:
+        _METER_RUNNING = False
+
+
+def _start_meter() -> None:
+    global _METER_THREAD, _METER_RUNNING
+    if _METER_RUNNING or _METER_VAR is None or not _METER_VAR.get():
+        return
+    if sd is None or np is None:
+        return
+    _METER_RUNNING = True
+    _METER_THREAD = threading.Thread(target=_meter_loop, daemon=True)
+    _METER_THREAD.start()
+
+
+def _stop_meter() -> None:
+    global _METER_RUNNING, _METER_THREAD
+    if not _METER_RUNNING:
+        return
+    _METER_RUNNING = False
+    if _METER_THREAD is not None:
+        _METER_THREAD.join()
+    _METER_THREAD = None
+    if _AUDIO_LEVEL is not None:
+        _AUDIO_LEVEL.set(0.0)
 
 
 def _setup_gui() -> None:
-    global _GUI, _STATUS, _REC
+    global _GUI, _STATUS, _REC, _METER_VAR, _AUDIO_LEVEL
     if tk is None:
         return
     _GUI = tk.Tk()
     _GUI.title("Demo Recorder")
     _STATUS = tk.StringVar(value="Idle")
     _REC = DemoRecorder()
+    _METER_VAR = tk.BooleanVar(value=False)
+    _AUDIO_LEVEL = tk.DoubleVar(value=0.0)
 
     def on_record():
         assert _REC is not None and _STATUS is not None
         _REC.start()
+        if _METER_VAR.get():
+            _start_meter()
         _STATUS.set("Recording")
 
     def on_stop():
         assert _REC is not None and _STATUS is not None
         _REC.stop()
+        _stop_meter()
         _STATUS.set("Stopped")
 
     def on_export():
@@ -197,7 +267,35 @@ def _setup_gui() -> None:
         except Exception as exc:
             _STATUS.set(str(exc))
 
+    meter = None
+    if tk is not None:
+        try:
+            from tkinter import ttk
+            meter = ttk.Progressbar(
+                _GUI,
+                orient="horizontal",
+                mode="determinate",
+                maximum=1.0,
+                variable=_AUDIO_LEVEL,
+            )
+        except Exception:  # pragma: no cover - tkinter optional
+            meter = None
+
+    def toggle_meter() -> None:
+        if meter is None:
+            return
+        if _METER_VAR.get():
+            meter.pack(fill="x")
+            if _REC.running:
+                _start_meter()
+        else:
+            meter.pack_forget()
+            _stop_meter()
+
     tk.Label(_GUI, textvariable=_STATUS).pack()
+    tk.Checkbutton(_GUI, text="Show Meter", variable=_METER_VAR, command=toggle_meter).pack(fill="x")
+    if meter is not None:
+        meter.pack_forget()
     tk.Button(_GUI, text="Record", command=on_record).pack(fill="x")
     tk.Button(_GUI, text="Stop", command=on_stop).pack(fill="x")
     tk.Button(_GUI, text="Export", command=on_export).pack(fill="x")
