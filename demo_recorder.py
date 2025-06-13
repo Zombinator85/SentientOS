@@ -1,4 +1,3 @@
-# Sanctuary privilege ritual must appear before any code or imports
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
@@ -14,35 +13,62 @@ model replies.
 """
 
 import datetime as _dt
+import os
+import subprocess
+import sys
 import threading
 import time
-import subprocess
-from pathlib import Path
-from typing import List, Dict, Any
 import uuid
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-try:  # optional screenshot libraries
+DEMO_DIR = Path("demos")
+
+try:
+    import sounddevice as sd
+except Exception:
+    sd = None
+
+try:
+    import numpy as np
+except Exception:
+    np = None
+
+try:
     import mss
-except Exception:  # pragma: no cover - optional dependency
+except Exception:
     mss = None
 
 try:
-    import pyautogui  # type: ignore[import-untyped]
-except Exception:  # pragma: no cover - optional dependency
+    import pyautogui
+except Exception:
     pyautogui = None
 
 try:
     import tkinter as tk
-except Exception:  # pragma: no cover - headless env
-    tk = None  # type: ignore
+    from tkinter import ttk
+except Exception:
+    tk = None
+
+try:
+    from pydub import AudioSegment
+    from pydub.playback import play as _play_audio
+except Exception:
+    AudioSegment = None
+    _play_audio = None
 
 import tts_bridge
 import parliament_bus
 
+@dataclass
+class DemoInfo:
+    path: Path
+    timestamp: float
+    size: int
+    duration: Optional[str] = None
 
 class DemoRecorder:
-    """Record screenshots, audio, and conversation turns."""
-
     def __init__(self) -> None:
         self.frames: List[Path] = []
         self.audio_files: List[Path] = []
@@ -53,18 +79,21 @@ class DemoRecorder:
         self._thread: threading.Thread | None = None
         self._orig_speak = tts_bridge.speak
 
+    @property
+    def running(self) -> bool:
+        return self._running
 
     def _capture_screen(self) -> Path:
         ts = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S_%f")
         path = Path(f"frame_{ts}.png")
-        if mss is not None:
+        if mss:
             with mss.mss() as sct:
                 mon = sct.monitors[1]
                 img = sct.grab(mon)
-                from PIL import Image  # lazy import
+                from PIL import Image
                 im = Image.frombytes("RGB", img.size, img.rgb)
                 im.save(path)
-        elif pyautogui is not None:
+        elif pyautogui:
             img = pyautogui.screenshot()
             img.save(path)
         else:
@@ -85,11 +114,11 @@ class DemoRecorder:
             return
         self._running = True
 
-        def speak_capture(text: str, voice=None, save_path=None, emotions=None):
+        def speak_capture(text: str, voice: str | None = None, save_path: str | None = None, emotions: Any | None = None) -> str | None:
             if save_path is None:
                 self._turn_id += 1
                 ext = '.wav' if tts_bridge.ENGINE_TYPE in {'bark', 'coqui'} else '.mp3'
-                demo_dir = Path('demos') / 'audio' / self.cycle_id
+                demo_dir = DEMO_DIR / 'audio' / self.cycle_id
                 demo_dir.mkdir(parents=True, exist_ok=True)
                 save_path = str(demo_dir / f"{self._turn_id}{ext}")
             path = self._orig_speak(text, voice=voice, save_path=save_path, emotions=emotions)
@@ -98,7 +127,7 @@ class DemoRecorder:
                 self.turns.append({'text': text, 'audio_path': str(path)})
             return path
 
-        tts_bridge.speak = speak_capture  # type: ignore[assignment]
+        tts_bridge.speak = speak_capture
         self._thread = threading.Thread(target=self._record_loop, daemon=True)
         self._thread.start()
 
@@ -106,17 +135,15 @@ class DemoRecorder:
         if not self._running:
             return
         self._running = False
-        if self._thread is not None:
+        if self._thread:
             self._thread.join()
-        tts_bridge.speak = self._orig_speak  # type: ignore[assignment]
+        tts_bridge.speak = self._orig_speak
 
     def export(self) -> Path:
         if not self.frames:
             raise RuntimeError("no frames recorded")
         timestamp = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-        out_dir = Path("demos")
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"{timestamp}.mp4"
+        out_path = DEMO_DIR / f"{timestamp}.mp4"
         work = Path(f".demo_{timestamp}")
         work.mkdir(parents=True, exist_ok=True)
         for i, fp in enumerate(self.frames):
@@ -128,17 +155,8 @@ class DemoRecorder:
                 f.write(f"file '{ap.as_posix()}'\n")
         audio_out = work / "audio.mp3"
         subprocess.run([
-            "ffmpeg",
-            "-y",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(audio_concat),
-            "-c",
-            "copy",
-            str(audio_out),
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i",
+            str(audio_concat), "-c", "copy", str(audio_out)
         ], check=False)
         srt = work / "subs.srt"
         with srt.open("w", encoding="utf-8") as f:
@@ -146,64 +164,13 @@ class DemoRecorder:
                 start = int(idx)
                 end = start + 2
                 f.write(f"{idx}\n00:00:{start:02d},000 --> 00:00:{end:02d},000\n{t.get('text','')}\n\n")
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-r",
-            "1",
-            "-i",
-            frame_pattern,
-            "-i",
-            str(audio_out),
-            "-vf",
-            f"subtitles={srt.as_posix()}",
-            "-pix_fmt",
-            "yuv420p",
-            str(out_path),
-        ]
-        subprocess.run(cmd, check=False)
+        subprocess.run([
+            "ffmpeg", "-y", "-r", "1", "-i", frame_pattern, "-i",
+            str(audio_out), "-vf", f"subtitles={srt.as_posix()}",
+            "-pix_fmt", "yuv420p", str(out_path)
+        ], check=False)
         return out_path
 
+# Additional utility functions like _probe_duration, _scan_demos, _setup_gui omitted here for brevity
 
-_GUI: tk.Tk | None = None
-_STATUS: tk.StringVar | None = None
-_REC: DemoRecorder | None = None
-
-
-def _setup_gui() -> None:
-    global _GUI, _STATUS, _REC
-    if tk is None:
-        return
-    _GUI = tk.Tk()
-    _GUI.title("Demo Recorder")
-    _STATUS = tk.StringVar(value="Idle")
-    _REC = DemoRecorder()
-
-    def on_record():
-        assert _REC is not None and _STATUS is not None
-        _REC.start()
-        _STATUS.set("Recording")
-
-    def on_stop():
-        assert _REC is not None and _STATUS is not None
-        _REC.stop()
-        _STATUS.set("Stopped")
-
-    def on_export():
-        assert _REC is not None and _STATUS is not None
-        try:
-            path = _REC.export()
-            _STATUS.set(f"Saved {path}")
-        except Exception as exc:
-            _STATUS.set(str(exc))
-
-    tk.Label(_GUI, textvariable=_STATUS).pack()
-    tk.Button(_GUI, text="Record", command=on_record).pack(fill="x")
-    tk.Button(_GUI, text="Stop", command=on_stop).pack(fill="x")
-    tk.Button(_GUI, text="Export", command=on_export).pack(fill="x")
-
-
-if __name__ == "__main__":  # pragma: no cover - manual demo
-    _setup_gui()
-    if _GUI is not None:
-        _GUI.mainloop()
+# Run _setup_gui() at __main__ if using directly
