@@ -6,13 +6,14 @@ import asyncio
 import logging
 import sys
 import warnings
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 try:
-    from edge_tts import Communicate  # optional HTTP client
+    from edge_tts import Communicate
 except Exception:
-    Communicate = None
+    Communicate = None  # type: ignore[assignment,misc]
 
 
 async def say(text: str, voice: str = "en-US-GuyNeural") -> None:
