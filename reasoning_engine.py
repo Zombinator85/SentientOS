@@ -59,7 +59,7 @@ def _pick_emotion(weights: Dict[str, float], rng: random.Random) -> Optional[str
     return None
 
 
-_agent_emotion_map: Dict[str, Callable[[], Optional[str]]] = {}
+_agent_emotion_map: Dict[str, Callable[[], str]] = {}
 _resolve_rng: random.Random = random.Random(0)
 
 
@@ -76,24 +76,20 @@ def resolve_emotion(agent: str, profile: str) -> Optional[str]:
 async def parliament(
     prompt: str,
     chain: List[str],
-    cycles: int = 1,
-    *,
-    profile: str = "default",
+    profile: str,
+    agent_emotion_map: Optional[Dict[str, Callable[[], str]]] = None,
     rng: Optional[random.Random] = None,
-    agent_emotion_map: Optional[Dict[str, Callable[[], Optional[str]]]] = None,
 ) -> str:
     """Run a model chain publishing each turn with optional emotion."""
     global _agent_emotion_map, _resolve_rng
-    rng = rng or random.Random(0)
-    _resolve_rng = rng
+    _resolve_rng = rng or random.Random(0)
     _agent_emotion_map = agent_emotion_map or {}
     message = prompt
-    for _ in range(cycles):
-        for model in chain:
-            reply = await _call_model(model, message)
-            emotion = resolve_emotion(model, profile)
-            parliament_bus.put(
-                Turn(model=model, message=message, reply=reply, emotion=emotion)
-            )
-            message = reply
+    for model in chain:
+        reply = await _call_model(model, message)
+        emotion = resolve_emotion(model, profile)
+        parliament_bus.put(
+            Turn(model=model, message=message, reply=reply, emotion=emotion),
+        )
+        message = reply
     return message
