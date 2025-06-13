@@ -75,8 +75,32 @@ def ensure_log_dir() -> Path:
     return path
 
 
+def check_gpu() -> bool:
+    try:
+        import torch  # type: ignore
+        has = torch.cuda.is_available()
+        log(f"gpu_available={has}")
+        return bool(has)
+    except Exception as exc:
+        log(f"gpu_check_failed: {exc}")
+        return False
+
+
+def prompt_cloud_inference(env_path: Path) -> None:
+    text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    if "MIXTRAL_CLOUD_ONLY=1" in text:
+        return
+    resp = input("GPU not detected. Use cloud inference? [y/N] ")
+    if resp.strip().lower() in {"y", "yes"}:
+        enable_cloud_only(env_path)
+
+
 def check_ollama() -> bool:
-    return shutil.which("ollama") is not None
+    if shutil.which("ollama") is not None:
+        return True
+    print("Ollama binary not found. Install from https://ollama.com")
+    log("Ollama binary missing")
+    return False
 
 
 def install_ollama() -> None:
@@ -93,8 +117,16 @@ def pull_mixtral_model() -> bool:
     try:
         subprocess.check_call(["ollama", "pull", "mixtral"])
         return True
-    except Exception:
-        return False
+    except FileNotFoundError:
+        print("Cannot pull Mixtral model: ollama not found")
+        log("mixtral pull failed: ollama missing")
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to pull Mixtral model: {exc}")
+        log("mixtral pull failed")
+    except Exception as exc:  # pragma: no cover - unexpected
+        print(f"Unexpected error pulling Mixtral model: {exc}")
+        log("mixtral pull unexpected")
+    return False
 
 
 def enable_cloud_only(env_path: Path) -> None:
@@ -118,7 +150,7 @@ def launch_background(cmd: list[str], stdout: Optional[int] = subprocess.DEVNULL
 
 
 def main() -> int:
-    ensure_env_file()
+    env_path = ensure_env_file()
     ensure_log_dir()
     if not check_python_version():
         return 1
@@ -130,11 +162,14 @@ def main() -> int:
         print(f"Dependency installation failed: {exc}")
         log("pip install failed")
 
+    if not check_gpu():
+        prompt_cloud_inference(env_path)
+
     if not check_ollama():
         install_ollama()
     if check_ollama():
         if not pull_mixtral_model():
-            enable_cloud_only(Path(".env"))
+            enable_cloud_only(env_path)
             print("Using Mixtral cloud-only mode")
     else:
         log("Ollama unavailable")
