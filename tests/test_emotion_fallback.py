@@ -100,4 +100,5 @@ def test_gui_observer(monkeypatch):
         except asyncio.CancelledError:
             pass
     asyncio.run(run())
+    assert panel.tone_heading.value == "Current Tone"
     assert panel.timeline.controls[0].trailing.value == "joy"
