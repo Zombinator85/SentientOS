@@ -79,7 +79,7 @@ def create_profile(name: str) -> Path:
         (dest / '.env').write_text('', encoding='utf-8')
         (dest / 'config.yaml').write_text('name: ' + name, encoding='utf-8')
         (dest / 'fallback_emotion.yaml').write_text(
-            'Joy: 0.6\nOptimism: 0.4\n',
+            'analytical: 0.4\ncurious: 0.6\n',
             encoding='utf-8',
         )
     return dest
