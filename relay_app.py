@@ -19,7 +19,8 @@ from api import actuator
 import memory_manager as mm
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
+log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 

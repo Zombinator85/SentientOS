@@ -23,6 +23,15 @@ This checklist describes everything the installer sets up and how to verify that
 6. Run `update_cathedral.bat` and verify it pulls the latest code and reruns tests.
 7. Confirm new logs include `timestamp` and `data` fields automatically.
 
+## Launcher & GUI Verification
+The 4.5 series launcher was smoke tested on Windows 11, macOS 14, and Ubuntu 22.04.
+
+* Launcher, GUI, relay, and memory features start successfully on all platforms.
+* Model, key, and persona switching work without restarting the app.
+* Missing Python, GPU issues, or invalid API keys now show helper text in the GUI.
+* `RELAY_LOG_LEVEL` controls INFO/DEBUG output for the relay.
+* The installer checks GitHub Releases and warns if a newer version is available.
+
 ## Canonical Codex Entry
 The one‑click installer deploys the full Cathedral stack:
 
