@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+from sentientos import __version__
 
 require_admin_banner()
 require_lumos_approval()
@@ -14,7 +15,9 @@ import shutil
 import venv
 from pathlib import Path
 import webbrowser
-from typing import Optional
+from typing import Optional, Dict
+import argparse
+import requests
 
 from logging_config import get_log_path
 
@@ -26,6 +29,42 @@ def log(msg: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(msg + "\n")
+
+
+def check_self_update() -> None:
+    """Check GitHub Releases for a newer version."""
+    repo_api = "https://api.github.com/repos/OpenAI/SentientOS/releases/latest"
+    try:
+        resp = requests.get(repo_api, timeout=5)
+        resp.raise_for_status()
+        latest = resp.json().get("tag_name", "")
+        if latest and latest != __version__:
+            print(f"Update available: {latest} (current {__version__})")
+            log(f"update_available:{latest}")
+        else:
+            log("up_to_date")
+    except Exception as e:  # pragma: no cover - network dependent
+        log(f"update_check_failed:{e}")
+
+
+def check_gpu() -> bool:
+    try:
+        import torch  # type: ignore
+        has = torch.cuda.is_available()
+        log(f"gpu_available={has}")
+        return bool(has)
+    except Exception as exc:
+        log(f"gpu_check_failed: {exc}")
+        return False
+
+
+def prompt_cloud_inference(env_path: Path) -> None:
+    text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    if "MIXTRAL_CLOUD_ONLY=1" in text:
+        return
+    resp = input("GPU not detected. Use cloud inference? [y/N] ")
+    if resp.strip().lower() in {"y", "yes"}:
+        enable_cloud_only(env_path)
 
 
 def check_python_version() -> bool:
@@ -74,26 +113,6 @@ def ensure_log_dir() -> Path:
     path = get_log_path("dummy").parent
     path.mkdir(parents=True, exist_ok=True)
     return path
-
-
-def check_gpu() -> bool:
-    try:
-        import torch  # type: ignore
-        has = torch.cuda.is_available()
-        log(f"gpu_available={has}")
-        return bool(has)
-    except Exception as exc:
-        log(f"gpu_check_failed: {exc}")
-        return False
-
-
-def prompt_cloud_inference(env_path: Path) -> None:
-    text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    if "MIXTRAL_CLOUD_ONLY=1" in text:
-        return
-    resp = input("GPU not detected. Use cloud inference? [y/N] ")
-    if resp.strip().lower() in {"y", "yes"}:
-        enable_cloud_only(env_path)
 
 
 def check_ollama() -> bool:
@@ -148,13 +167,37 @@ def enable_cloud_only(env_path: Path) -> None:
     log("Enabled Mixtral cloud-only mode")
 
 
-def launch_background(cmd: list[str], stdout: Optional[int] = subprocess.DEVNULL) -> subprocess.Popen[bytes]:
-    return subprocess.Popen(cmd, stdout=stdout, stderr=stdout)
+def launch_background(
+    cmd: list[str],
+    stdout: Optional[int] = subprocess.DEVNULL,
+    env: Optional[Dict[str, str]] = None,
+) -> subprocess.Popen[bytes]:
+    """Launch *cmd* in the background with optional environment."""
+    return subprocess.Popen(cmd, stdout=stdout, stderr=stdout, env=env)
 
 
-def main() -> int:
+def main(argv: Optional[list[str]] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="SentientOS Launcher")
+    parser.add_argument(
+        "--log-level",
+        choices=["INFO", "DEBUG"],
+        default="INFO",
+        help="Relay log verbosity",
+    )
+    parser.add_argument(
+        "--check-updates",
+        action="store_true",
+        help="Check GitHub for new releases and exit",
+    )
+    args = parser.parse_args(argv)
+
     env_path = ensure_env_file()
     ensure_log_dir()
+    if args.check_updates:
+        check_self_update()
+        return 0
+    check_self_update()
+
     if not check_python_version():
         return 1
     ensure_pip()
@@ -182,10 +225,14 @@ def main() -> int:
             log("Ollama unavailable")
 
     launch_background(["ollama", "serve"])
+
     relay_script = Path("sentientos_relay.py")
     if not relay_script.exists():
         relay_script = Path("relay_app.py")
-    launch_background([sys.executable, str(relay_script)])
+
+    env = os.environ.copy()
+    env["RELAY_LOG_LEVEL"] = args.log_level
+    launch_background([sys.executable, str(relay_script)], env=env)
 
     for bridge in ["bio_bridge.py", "tts_bridge.py", "haptics_bridge.py"]:
         path = Path(bridge)
