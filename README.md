@@ -118,6 +118,10 @@ fi
 10. Run `python smoke_test_connector.py` to verify the OpenAI connector.
 11. A minimal `Dockerfile` is provided if you prefer a containerized setup.
 12. Use `launch_all_final.bat` on Windows or `./launch_all_final.sh` on Linux/macOS to run the full cathedral launcher. Errors are logged to `launch_all_final.log`.
+
+### Launcher Scripts
+`launch_all_final.bat` and `launch_all_final.sh` both invoke `python cathedral_launcher.py` and append all output to `launch_all_final.log`. Run them from the project root to start the full system.
+
 For Windows/Mac/Linux quirks, see [bless_this_env.py](./bless_this_env.py).
 If you get a dependency or audio error, see the Troubleshooting section or ask in Discussions.
 For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance. A GitHub action runs this ritual automatically every night.
