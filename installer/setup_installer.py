@@ -15,6 +15,8 @@ import subprocess
 from pathlib import Path
 
 from sentient_banner import print_banner, print_closing
+from sentientos import __version__
+import requests
 from logging_config import get_log_dir
 from cathedral_const import PUBLIC_LOG, log_json
 
@@ -25,6 +27,23 @@ ENV_EXAMPLE = REPO_ROOT / '.env.example'
 ENV_FILE = REPO_ROOT / '.env'
 SAMPLES_DIR = REPO_ROOT / 'installer' / 'example_data'
 INSTALL_LOG = get_log_dir() / 'installer.log'
+
+
+def check_self_update() -> None:
+    """Check GitHub Releases for a newer version."""
+    repo_api = (
+        "https://api.github.com/repos/OpenAI/SentientOS/releases/latest"
+    )
+    try:
+        resp = requests.get(repo_api, timeout=5)
+        resp.raise_for_status()
+        latest = resp.json().get("tag_name", "")
+        if latest and latest != __version__:
+            print(f"Update available: {latest} (current {__version__})")
+        _log("update_check", "ok", latest)
+    except Exception as e:  # pragma: no cover - network dependent
+        print(f"Update check failed: {e}")
+        _log("update_check", "failed", str(e))
 
 
 def _log(event: str, status: str, note: str = "") -> None:
@@ -146,6 +165,7 @@ def main() -> None:
 
     print_banner()
     check_python_version()
+    check_self_update()
     ensure_logs()
     print('SentientOS setup starting...')
     install_dependencies()

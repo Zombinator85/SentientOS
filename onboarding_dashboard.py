@@ -5,6 +5,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import os
+import sys
 from pathlib import Path
 import streamlit as st
 from sentient_banner import streamlit_banner, streamlit_closing
@@ -25,11 +26,25 @@ def load_env() -> dict:
     return env
 
 
+def show_help(env: dict) -> None:
+    """Display environment help messages."""
+    if not env.get("OPENAI_API_KEY"):
+        st.error("OPENAI_API_KEY missing. Please edit the .env file.")
+    try:
+        import torch  # type: ignore[import-untyped]
+        if not torch.cuda.is_available():
+            st.warning("GPU not detected. The system may run slowly.")
+    except Exception as e:
+        st.warning(f"GPU check failed: {e}")
+    st.info(f"Python version: {sys.version.split()[0]}")
+
+
 def launch():
     env = load_env()
     st.title('SentientOS Onboarding')
     streamlit_banner(st)
     ledger.streamlit_widget(st)
+    show_help(env)
     st.write('Active models:')
     st.json({k: v for k, v in env.items() if k.endswith('_MODEL')})
     handle = env.get('USER_HANDLE', 'anonymous')
