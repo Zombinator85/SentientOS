@@ -11,14 +11,22 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 import threading
 import random
+import asyncio
+from sentientos.parliament_bus import Turn
 
 try:
     from TTS.api import TTS  # Coqui TTS, optional dependency
 except Exception:
     TTS = None
+
+try:  # optional edge-tts dependency
+    from edge_tts import Communicate as EdgeCommunicate  # type: ignore[import-untyped]
+except Exception:
+    EdgeCommunicate = None
+Communicate: Any = EdgeCommunicate
 
 try:
     import requests  # type: ignore[import-untyped]  # used for ElevenLabs
@@ -51,6 +59,7 @@ HEADLESS = is_headless()
 ELEVEN_KEY = os.getenv("ELEVEN_API_KEY")
 ELEVEN_VOICE = os.getenv("ELEVEN_VOICE", "Rachel")
 BARK_SPEAKER = os.getenv("BARK_SPEAKER", "v2/en_speaker_6")
+EDGE_VOICE = os.getenv("EDGE_VOICE", "en-US-GuyNeural")
 
 if ENGINE_TYPE == "coqui" and TTS is not None:
     COQUI_MODEL = os.getenv("TTS_COQUI_MODEL", "tts_models/en/vctk/vits")
@@ -65,6 +74,10 @@ elif ENGINE_TYPE == "bark" and generate_audio is not None and not HEADLESS:
     ENGINE = "bark"
     DEFAULT_VOICE = BARK_SPEAKER
     ALT_VOICE = BARK_SPEAKER
+elif ENGINE_TYPE == "edge-tts" and Communicate is not None and not HEADLESS:
+    ENGINE = "edge-tts"
+    DEFAULT_VOICE = EDGE_VOICE
+    ALT_VOICE = EDGE_VOICE
 elif pyttsx3 is not None and not HEADLESS:
     ENGINE = pyttsx3.init()
     VOICES = ENGINE.getProperty("voices")
@@ -96,6 +109,7 @@ def speak(
     voice: Optional[str] = None,
     save_path: Optional[str] = None,
     emotions: Optional[Dict[str, float]] = None,
+    style: Optional[str] = None,
 ) -> Optional[str]:
     """Synthesize text to speech and optionally save to a file."""
     if HEADLESS:
@@ -160,6 +174,12 @@ def speak(
         else:
             from scipy.io.wavfile import write as wavwrite  # type: ignore[import-untyped]  # scipy optional for bark
             wavwrite(save_path, 22050, audio_arr)
+    elif ENGINE_TYPE == "edge-tts" and Communicate is not None:
+        async def _edge_run() -> None:
+            comm = Communicate(text=text, voice=chosen_voice, style=style)
+            await comm.save(save_path)
+
+        asyncio.run(_edge_run())
     elif ENGINE_TYPE == "pyttsx3":
         ENGINE.save_to_file(text, save_path)
         ENGINE.say(text)
@@ -182,9 +202,10 @@ def speak_async(
     voice: Optional[str] = None,
     save_path: Optional[str] = None,
     emotions: Optional[Dict[str, float]] = None,
+    style: Optional[str] = None,
 ) -> threading.Thread:
     """Speak in a background thread."""
-    t = threading.Thread(target=speak, args=(text,), kwargs={"voice": voice, "save_path": save_path, "emotions": emotions})
+    t = threading.Thread(target=speak, args=(text,), kwargs={"voice": voice, "save_path": save_path, "emotions": emotions, "style": style})
     t.start()
     return t
 
@@ -198,6 +219,22 @@ def backchannel(emotions: Optional[Dict[str, float]] = None) -> Optional[threadi
         return None
     cue = random.choice(PARALINGUISTIC)
     return speak_async(cue, emotions=emotions)
+
+
+EMOTION_STYLES = {
+    "joy": {"style": "cheerful"},
+    "anger": {"style": "angry"},
+    "sadness": {"style": "sad"},
+}
+
+
+def speak_turn(turn: "Turn") -> Optional[str]:
+    """Speak a :class:`Turn` using its emotion tag for style."""
+    emotion = (turn.emotion or "").lower()
+    mapping = EMOTION_STYLES.get(emotion, {})
+    style = mapping.get("style")
+    voice = DEFAULT_VOICE
+    return speak(turn.text, voice=voice, emotions=None, style=style)
 
 def stop() -> None:
     """Stop current speech playback if supported."""
