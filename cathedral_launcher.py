@@ -1,77 +1,150 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 
 import os
+import platform
+import subprocess
+import sys
 import shutil
+import venv
 from pathlib import Path
+import webbrowser
+from typing import Optional
+
+from logging_config import get_log_path
+
+MIN_VERSION = (3, 11)
+LOG_PATH = get_log_path("cathedral_launcher.log")
 
 
-ENV_FILE = Path(".env")
-ENV_EXAMPLE = Path(".env.example")
+def log(msg: str) -> None:
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LOG_PATH.open("a", encoding="utf-8") as f:
+        f.write(msg + "\n")
 
 
-def check_gpu() -> bool:
-    """Return True if torch reports a CUDA capable device."""
+def check_python_version() -> bool:
+    if sys.version_info < MIN_VERSION:
+        log("Python 3.11+ required")
+        print("Python 3.11+ is required")
+        return False
+    return True
+
+
+def ensure_pip() -> None:
     try:
-        import torch  # pragma: no cover - optional dependency
-        return bool(getattr(torch, "cuda", None) and torch.cuda.is_available())
+        subprocess.check_call([sys.executable, "-m", "pip", "--version"], stdout=subprocess.DEVNULL)
+    except subprocess.CalledProcessError:
+        subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
+
+
+def ensure_virtualenv() -> None:
+    if sys.prefix == sys.base_prefix and os.getenv("VIRTUAL_ENV") is None:
+        venv_dir = Path(".venv")
+        log("Creating virtual environment")
+        venv.create(venv_dir, with_pip=True)
+        print(f"Virtual environment created at {venv_dir}")
+
+
+def install_requirements() -> None:
+    req = Path("requirements.txt")
+    if req.exists():
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(req)])
+
+
+def ensure_env_file() -> Path:
+    env = Path(".env")
+    if not env.exists():
+        example = Path(".env.example")
+        if example.exists():
+            env.write_text(example.read_text())
+        else:
+            env.touch()
+        log("Created .env from example")
+    return env
+
+
+def ensure_log_dir() -> Path:
+    path = get_log_path("dummy").parent
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def check_ollama() -> bool:
+    return shutil.which("ollama") is not None
+
+
+def install_ollama() -> None:
+    system = platform.system().lower()
+    if system in {"linux", "darwin"}:
+        cmd = "curl -fsSL https://ollama.com/install.sh | sh"
+        subprocess.call(cmd, shell=True)
+    else:
+        print("Please install Ollama from https://ollama.com")
+        log("Ollama missing")
+
+
+def pull_mixtral_model() -> bool:
+    try:
+        subprocess.check_call(["ollama", "pull", "mixtral"])
+        return True
     except Exception:
         return False
 
 
-def _update_env(key: str, value: str, env_path: Path = ENV_FILE) -> None:
-    """Set or update a key=value pair in the given .env file."""
+def enable_cloud_only(env_path: Path) -> None:
+    lines: list[str] = []
     if env_path.exists():
         lines = env_path.read_text(encoding="utf-8").splitlines()
-    elif ENV_EXAMPLE.exists():
-        lines = ENV_EXAMPLE.read_text(encoding="utf-8").splitlines()
-    else:
-        lines = []
     updated = False
-    for i, ln in enumerate(lines):
-        if ln.startswith(key + "="):
-            lines[i] = f"{key}={value}"
+    for i, line in enumerate(lines):
+        if line.startswith("MIXTRAL_CLOUD_ONLY"):
+            lines[i] = "MIXTRAL_CLOUD_ONLY=1"
             updated = True
             break
     if not updated:
-        lines.append(f"{key}={value}")
-    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        lines.append("MIXTRAL_CLOUD_ONLY=1")
+    env_path.write_text("\n".join(lines))
+    log("Enabled Mixtral cloud-only mode")
 
 
-def ensure_binary(name: str) -> None:
-    """Raise FileNotFoundError if binary is missing."""
-    if shutil.which(name) is None:
-        raise FileNotFoundError(f"Required binary '{name}' not found in PATH")
+def launch_background(cmd: list[str], stdout: Optional[int] = subprocess.DEVNULL) -> subprocess.Popen[bytes]:
+    return subprocess.Popen(cmd, stdout=stdout, stderr=stdout)
 
 
-def ensure_model(path: str) -> None:
-    """Raise FileNotFoundError if the model path is set but missing."""
-    if path and not Path(path).exists():
-        raise FileNotFoundError(f"Required model not found: {path}")
+def main() -> int:
+    ensure_env_file()
+    ensure_log_dir()
+    if not check_python_version():
+        return 1
+    ensure_pip()
+    ensure_virtualenv()
+    try:
+        install_requirements()
+    except subprocess.CalledProcessError as exc:
+        print(f"Dependency installation failed: {exc}")
+        log("pip install failed")
 
+    if not check_ollama():
+        install_ollama()
+    if check_ollama():
+        if not pull_mixtral_model():
+            enable_cloud_only(Path(".env"))
+            print("Using Mixtral cloud-only mode")
+    else:
+        log("Ollama unavailable")
 
-def main() -> None:  # pragma: no cover - CLI
-    gpu = check_gpu()
-    mode = os.getenv("INFERENCE_MODE")
-    if not gpu and not mode:
-        choice = input(
-            "GPU not detected. Use cloud inference instead? [y/N] "
-        ).strip().lower()
-        mode = "cloud" if choice.startswith("y") else "local"
-        _update_env("INFERENCE_MODE", mode)
-    elif gpu and not mode:
-        mode = "local"
-        _update_env("INFERENCE_MODE", mode)
-    print(f"GPU available: {gpu}. Inference mode: {mode or 'unspecified'}")
-
-    # Ensure core dependencies
-    ensure_binary("ffmpeg")
-    ensure_model(os.getenv("LOCAL_MODEL_PATH", ""))
+    launch_background(["ollama", "serve"])
+    launch_background([sys.executable, "relay_app.py"])
+    webbrowser.open("http://localhost:8501")
+    print("Cathedral Launcher complete.")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
