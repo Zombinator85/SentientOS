@@ -18,6 +18,7 @@ class ReasoningPanel(ft.UserControl):  # type: ignore[misc]
     def __init__(self, bus: ParliamentBus) -> None:
         super().__init__()
         self.bus = bus
+        self.tone_heading = ft.Text("Current Tone")
         self.timeline = ft.ListView(spacing=5, expand=True, auto_scroll=True)
         self.detail = ft.TextField(multiline=True, read_only=True, expand=True)
         self.canvas = Canvas(visible=False, expand=True)
@@ -33,7 +34,7 @@ class ReasoningPanel(ft.UserControl):  # type: ignore[misc]
             self.export_btn,
         ], expand=True)
         return ft.Row([
-            ft.Container(self.timeline, width=250),
+            ft.Container(ft.Column([self.tone_heading, self.timeline]), width=250),
             right,
         ], expand=True)
 
