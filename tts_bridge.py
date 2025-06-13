@@ -9,6 +9,7 @@ require_lumos_approval()
 from logging_config import get_log_path
 import os
 import time
+import uuid
 from pathlib import Path
 from typing import Optional, Dict
 import threading
@@ -40,6 +41,9 @@ from utils import is_headless
 
 AUDIO_DIR = get_log_path("audio", "AUDIO_LOG_DIR")
 AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+
+_CYCLE_ID = uuid.uuid4().hex
+_TURN_ID = 0
 
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
 HEADLESS = is_headless()
@@ -125,9 +129,13 @@ def speak(
         ENGINE.setProperty("rate", rate)
     # Coqui doesn't take rate directly, but we can modulate speed in kwargs below
 
+    global _TURN_ID
     if save_path is None:
-        ts = time.strftime("%Y%m%d-%H%M%S")
-        save_path = str(AUDIO_DIR / f"tts_{ts}.mp3")
+        _TURN_ID += 1
+        ext = ".wav" if ENGINE_TYPE in {"bark", "coqui"} else ".mp3"
+        demo_dir = Path("demos") / "audio" / _CYCLE_ID
+        demo_dir.mkdir(parents=True, exist_ok=True)
+        save_path = str(demo_dir / f"{_TURN_ID}{ext}")
 
     if ENGINE_TYPE == "coqui" and TTS is not None:
         speed = rate / 150.0
