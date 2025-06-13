@@ -1,6 +1,7 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 
-"""Simple plugin loader for SentientOS with live reloading."""
+# Simple plugin loader for SentientOS with live reloading.
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
@@ -11,45 +12,67 @@ import importlib.util
 import sys
 import time
 from pathlib import Path
-from typing import Any, Iterable, Dict
-from gui_stub import CathedralGUI
-
-try:  # optional watchdog dependency
-    from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
-except Exception:  # pragma: no cover - optional dependency
-    Observer = None
-    FileSystemEventHandler = object
+from types import ModuleType
+from typing import Iterable, Protocol, TYPE_CHECKING
 
 import argparse
 from importlib.metadata import entry_points
 
+from gui_stub import CathedralGUI
+
+# Optional watchdog support
+class FileSystemEvent:
+    def __init__(self, src_path: str) -> None:
+        self.src_path = src_path
+
+class FileSystemEventHandler:
+    def on_modified(self, event: FileSystemEvent) -> None: pass
+    def on_created(self, event: FileSystemEvent) -> None: pass
+
+Observer: type[ObserverProto] | None = None
+
+if not TYPE_CHECKING:
+    try:
+        from watchdog.events import FileSystemEvent as WDFileSystemEvent
+        from watchdog.events import FileSystemEventHandler as WDHandler
+        from watchdog.observers import Observer as WDObserver
+
+        FileSystemEvent = WDFileSystemEvent  # type: ignore[assignment]
+        FileSystemEventHandler = WDHandler  # type: ignore[assignment]
+        Observer = WDObserver  # type: ignore[assignment]
+    except Exception:
+        Observer = None
+
+
+class ObserverProto(Protocol):
+    def schedule(self, handler: FileSystemEventHandler, path: str, recursive: bool = False) -> object: ...
+    def start(self) -> None: ...
+    def stop(self) -> None: ...
+    def join(self, timeout: float | None = None) -> None: ...
+
 
 class PluginBus:
     """Minimal bus collecting registered plugins."""
-
     def __init__(self) -> None:
-        self.plugins: dict[str, Any] = {}
+        self.plugins: dict[str, ModuleType] = {}
 
-    def register(self, name: str, plugin: Any) -> None:
-        """Register a plugin under ``name``."""
+    def register(self, name: str, plugin: ModuleType) -> None:
         self.plugins[name] = plugin
 
 
 class PluginLoader:
     """Watch a plugins directory and load modules on changes."""
 
-    def __init__(self, gui: "CathedralGUI", directory: str = "plugins") -> None:
+    def __init__(self, gui: CathedralGUI, directory: str = "plugins") -> None:
         self.gui = gui
         self.directory = Path(directory)
         self.bus = PluginBus()
-        self.modules: Dict[str, Any] = {}
-        self.errors: Dict[str, str] = {}
+        self.modules: dict[str, ModuleType] = {}
+        self.errors: dict[str, str] = {}
         self.trusted_only = True
-        self.observer: Observer | None = None
+        self.observer: ObserverProto | None = None
         self._start()
 
-    # watcher setup
     def _start(self) -> None:
         self.directory.mkdir(exist_ok=True)
         self._load_existing()
@@ -57,13 +80,13 @@ class PluginLoader:
             return
 
         class Handler(FileSystemEventHandler):  # type: ignore[misc]
-            def __init__(self, outer: "PluginLoader") -> None:
+            def __init__(self, outer: PluginLoader) -> None:
                 self.outer = outer
 
-            def on_modified(self, event: object) -> None:
+            def on_modified(self, event: FileSystemEvent) -> None:
                 self.outer._handle(event)
 
-            def on_created(self, event: object) -> None:
+            def on_created(self, event: FileSystemEvent) -> None:
                 self.outer._handle(event)
 
         self.observer = Observer()
@@ -75,8 +98,8 @@ class PluginLoader:
             self.observer.stop()
             self.observer.join()
 
-    def _handle(self, event: object) -> None:
-        path = Path(getattr(event, "src_path"))
+    def _handle(self, event: FileSystemEvent) -> None:
+        path = Path(event.src_path)
         if path.suffix == ".py":
             self._load_plugin(path.stem)
 
@@ -108,7 +131,7 @@ class PluginLoader:
                 self.errors.pop(name, None)
             else:
                 self.errors[name] = "missing register()"
-        except Exception as e:  # pragma: no cover - load failures
+        except Exception as e:
             self.errors[name] = str(e)
 
         self._refresh()
@@ -116,19 +139,19 @@ class PluginLoader:
     def _refresh(self) -> None:
         if hasattr(self.gui, "update"):
             try:
-                self.gui.update()
+                getattr(self.gui, "update")()
             except Exception:
                 pass
         elif hasattr(self.gui, "refresh"):
             try:
-                self.gui.refresh()
+                getattr(self.gui, "refresh")()
             except Exception:
                 pass
 
     def active_plugins(self) -> list[str]:
         return list(self.modules.keys())
 
-    def error_log(self) -> Dict[str, str]:
+    def error_log(self) -> dict[str, str]:
         return dict(self.errors)
 
     def set_trusted_only(self, value: bool) -> None:
@@ -143,16 +166,16 @@ class PluginPanel:
         self.loader = loader
         self.gui = loader.gui
 
-        self._mode = None
-        self.control = None
-        try:  # prefer Flet if available
+        self._mode: str | None = None
+        self.control: object | None = None
+        try:
             import flet as ft
             self._mode = "flet"
             self._ft = ft
             self.plugin_list = ft.Column()
             self.error_list = ft.Column()
             self.toggle = ft.Checkbox(label="Trusted only", value=True)
-            self.toggle.on_change = self._toggle
+            setattr(self.toggle, "on_change", self._toggle)
             self.control = ft.Column([
                 ft.Text("Plugins"),
                 self.plugin_list,
@@ -163,11 +186,7 @@ class PluginPanel:
         except Exception:
             try:
                 from PySide6.QtWidgets import (
-                    QWidget,
-                    QVBoxLayout,
-                    QListWidget,
-                    QLabel,
-                    QCheckBox,
+                    QWidget, QVBoxLayout, QListWidget, QLabel, QCheckBox
                 )
 
                 self._mode = "pyside"
@@ -186,9 +205,10 @@ class PluginPanel:
                 self.control = self.widget
             except Exception:
                 self._mode = "none"
+
         self.refresh()
 
-    def _toggle(self, *args: object) -> None:
+    def _toggle(self, *_: object) -> None:
         if self._mode == "flet":
             self.loader.set_trusted_only(self.toggle.value)
         elif self._mode == "pyside":
@@ -212,7 +232,6 @@ class PluginPanel:
 
 
 def load_plugins(bus: PluginBus, *, load: bool = True) -> Iterable[str]:
-    """Locate plugins and optionally load them."""
     eps = entry_points(group="sentientos.plugins")
     names = [ep.name for ep in eps]
     if not load:
@@ -224,7 +243,6 @@ def load_plugins(bus: PluginBus, *, load: bool = True) -> Iterable[str]:
             if callable(reg):
                 reg(bus)
         except Exception:
-            # Ignore load failures
             continue
     return names
 
@@ -254,5 +272,5 @@ def main(argv: list[str] | None = None) -> None:
         loader.stop()
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entry
+if __name__ == "__main__":  # pragma: no cover
     main()

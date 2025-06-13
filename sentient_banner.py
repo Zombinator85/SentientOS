@@ -38,6 +38,7 @@ BANNER_LINES = [
     "# 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.",
 ]
 
+import os
 import admin_utils
 import os
 from datetime import datetime
