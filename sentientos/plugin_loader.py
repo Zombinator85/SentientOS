@@ -79,7 +79,7 @@ class PluginLoader:
         if Observer is None:
             return
 
-        class Handler(FileSystemEventHandler):  # type: ignore[misc]
+        class Handler(FileSystemEventHandler):
             def __init__(self, outer: PluginLoader) -> None:
                 self.outer = outer
 

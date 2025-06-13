@@ -9,7 +9,7 @@ import os
 from queue import SimpleQueue
 import random
 from pathlib import Path
-import persona_config
+import emotion_fallback
 
 import reasoning_engine as re
 
@@ -41,9 +41,10 @@ def test_parliament(monkeypatch):
 
 def test_persona_emotion(tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
-    cfg = tmp_path / "persona.yaml"
-    cfg.write_text("test:\n  joy: 1.0\n")
-    data = persona_config.load_persona_config(cfg)
+    cfg_dir = tmp_path / "profiles" / "test"
+    cfg_dir.mkdir(parents=True)
+    cfg = cfg_dir / "fallback_emotion.yaml"
+    cfg.write_text("joy: 1.0\n")
     re.register_model("a", model_a)
     while not re.parliament_bus.empty():
         re.parliament_bus.get()
@@ -53,8 +54,8 @@ def test_persona_emotion(tmp_path, monkeypatch):
             "x",
             ["a"],
             cycles=1,
-            persona="test",
-            persona_cfg=data,
+            profile="test",
+            agent_emotion_map=None,
             rng=rng,
         )
     )

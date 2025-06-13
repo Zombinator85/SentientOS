@@ -60,7 +60,7 @@ def switch_profile(name: str) -> None:
     mem_dir = PROFILES_DIR / name / 'memory'
     os.environ['MEMORY_DIR'] = str(mem_dir.resolve())
     os.environ['CONFIG_PATH'] = str((PROFILES_DIR / name / 'config.yaml').resolve())
-    os.environ['PERSONA_CONFIG_PATH'] = str((PROFILES_DIR / name / 'persona_config.yaml').resolve())
+    os.environ['FALLBACK_EMOTION_PATH'] = str((PROFILES_DIR / name / 'fallback_emotion.yaml').resolve())
     _write_current(name)
     sb.set_current_profile(name)
     flush_agents()
@@ -78,8 +78,8 @@ def create_profile(name: str) -> Path:
         (dest / 'memory').mkdir(parents=True, exist_ok=True)
         (dest / '.env').write_text('', encoding='utf-8')
         (dest / 'config.yaml').write_text('name: ' + name, encoding='utf-8')
-        (dest / 'persona_config.yaml').write_text(
-            'hopeful:\n  Joy: 0.6\n  Optimism: 0.4\nanalytical:\n  Curiosity: 0.5\n  Confident: 0.5\nfiery:\n  Anger: 0.7\n  Enthusiasm: 0.3\n',
+        (dest / 'fallback_emotion.yaml').write_text(
+            'Joy: 0.6\nOptimism: 0.4\n',
             encoding='utf-8',
         )
     return dest
