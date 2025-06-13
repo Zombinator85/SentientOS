@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
 
@@ -108,6 +109,8 @@ def install_ollama() -> None:
     if system in {"linux", "darwin"}:
         cmd = "curl -fsSL https://ollama.com/install.sh | sh"
         subprocess.call(cmd, shell=True)
+    elif system == "windows":
+        subprocess.call("winget install Ollama.Ollama -s winget", shell=True)
     else:
         print("Please install Ollama from https://ollama.com")
         log("Ollama missing")
@@ -167,15 +170,28 @@ def main() -> int:
 
     if not check_ollama():
         install_ollama()
-    if check_ollama():
+
+    ollama_ok = check_ollama()
+    if ollama_ok and check_gpu():
         if not pull_mixtral_model():
             enable_cloud_only(env_path)
             print("Using Mixtral cloud-only mode")
     else:
-        log("Ollama unavailable")
+        enable_cloud_only(env_path)
+        if not ollama_ok:
+            log("Ollama unavailable")
 
     launch_background(["ollama", "serve"])
-    launch_background([sys.executable, "relay_app.py"])
+    relay_script = Path("sentientos_relay.py")
+    if not relay_script.exists():
+        relay_script = Path("relay_app.py")
+    launch_background([sys.executable, str(relay_script)])
+
+    for bridge in ["bio_bridge.py", "tts_bridge.py", "haptics_bridge.py"]:
+        path = Path(bridge)
+        if path.exists():
+            launch_background([sys.executable, bridge])
+
     webbrowser.open("http://localhost:8501")
     print("Cathedral Launcher complete.")
     return 0

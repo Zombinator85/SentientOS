@@ -1,4 +1,5 @@
 #!/bin/bash
+# Calls cathedral_launcher.py and logs output to launch_all_final.log
 
 LOGFILE="$(dirname "$0")/launch_all_final.log"
 
