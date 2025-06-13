@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 try:
     from edge_tts import Communicate
 except Exception:
-    Communicate = None  # type: ignore[assignment,misc]
+    Communicate = None
 
 
 async def say(text: str, voice: str = "en-US-GuyNeural") -> None:
