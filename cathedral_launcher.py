@@ -115,6 +115,27 @@ def ensure_log_dir() -> Path:
     return path
 
 
+def check_gpu() -> bool:
+    """Return True if a GPU is available via torch."""
+    try:
+        import torch  # type: ignore[import-untyped]
+        has = torch.cuda.is_available()
+        log(f"gpu_available={has}")
+        return bool(has)
+    except Exception as exc:
+        log(f"gpu_check_failed: {exc}")
+        return False
+
+
+def prompt_cloud_inference(env_path: Path) -> None:
+    """Prompt user to enable cloud inference if no GPU is found."""
+    text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
+    if "MIXTRAL_CLOUD_ONLY=1" in text:
+        return
+    resp = input("GPU not detected. Use cloud inference? [y/N] ")
+    if resp.strip().lower() in {"y", "yes"}:
+        enable_cloud_only(env_path)
+
 def check_ollama() -> bool:
     if shutil.which("ollama") is not None:
         return True
