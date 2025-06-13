@@ -2008,6 +2008,22 @@ No agent shall act in secret.
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/audit_repair.jsonl
 ```
+```
+- Name: GitHubBridge
+  Type: Service
+  Roles: Issue Manager, Pull Requester
+  Privileges: log, read, write
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/github_actions.jsonl
+```
+```
+- Name: GitHubDashboard
+  Type: Dashboard
+  Roles: GitHub Control Panel
+  Privileges: log, display
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/github_actions.jsonl
+```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
