@@ -9,18 +9,21 @@ import sys
 from pathlib import Path
 import streamlit as st
 from sentient_banner import streamlit_banner, streamlit_closing
+import profile_manager as pm
 from sentientos import __version__
 import ledger
 import requests
 
 
-ENV_FILE = Path(__file__).resolve().parent / '.env'
+def env_file() -> Path:
+    return pm.PROFILES_DIR / pm.get_current_profile() / '.env'
 
 
 def load_env() -> dict:
     env = {}
-    if ENV_FILE.exists():
-        with open(ENV_FILE) as f:
+    fp = env_file()
+    if fp.exists():
+        with open(fp) as f:
             for line in f:
                 if '=' in line and not line.strip().startswith('#'):
                     k, v = line.strip().split('=', 1)
@@ -57,9 +60,26 @@ def check_updates() -> str:
         return f"Update check failed: {e}"
 
 
-def launch():
-    env = load_env()
+def launch() -> None:
+    profiles = pm.list_profiles()
+    current = pm.get_current_profile()
     st.title('SentientOS Onboarding')
+    selected = st.selectbox('Persona Profile', profiles, index=profiles.index(current) if current in profiles else 0)
+    new_name = st.text_input('Create profile', key='new_profile_name')
+    if st.button('Create', key='create_profile') and new_name:
+        pm.create_profile(new_name)
+        profiles = pm.list_profiles()
+        selected = new_name
+        pm.switch_profile(selected)
+        st.session_state.active_profile = selected
+        st.experimental_rerun()
+    if 'active_profile' not in st.session_state:
+        st.session_state.active_profile = current
+    if selected != st.session_state.active_profile:
+        pm.switch_profile(selected)
+        st.session_state.active_profile = selected
+        st.experimental_rerun()
+    env = load_env()
     streamlit_banner(st)
     ledger.streamlit_widget(st)
     show_help(env)
