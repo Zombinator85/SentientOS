@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
 
 import importlib
-import sys
 import os
+import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -15,26 +16,34 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import cathedral_launcher as cl
 
 
-def test_placeholder(monkeypatch):
-    # Simulate torch with GPU
+def test_check_gpu(monkeypatch):
     class Torch:
         class cuda:
             @staticmethod
             def is_available() -> bool:
                 return True
-    monkeypatch.setitem(sys.modules, 'torch', Torch)
+
+    monkeypatch.setitem(sys.modules, "torch", Torch)
     importlib.reload(cl)
     assert cl.check_gpu()
 
-    # Simulate torch without GPU
     class TorchNo:
         class cuda:
             @staticmethod
             def is_available() -> bool:
                 return False
-    monkeypatch.setitem(sys.modules, 'torch', TorchNo)
+
+    monkeypatch.setitem(sys.modules, "torch", TorchNo)
     importlib.reload(cl)
     assert not cl.check_gpu()
+
+
+def test_check_python_version(monkeypatch):
+    vinfo = sys.version_info
+    monkeypatch.setattr(sys, "version_info", (3, 10, 0))
+    assert not cl.check_python_version()
+    monkeypatch.setattr(sys, "version_info", vinfo)
+    assert cl.check_python_version()
 
 
 def test_env_file_created(tmp_path, monkeypatch):
