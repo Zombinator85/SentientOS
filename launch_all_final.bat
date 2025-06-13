@@ -1,4 +1,5 @@
 @echo off
+REM Calls cathedral_launcher.py and logs output to launch_all_final.log
 setlocal
 set LOGFILE=%~dp0launch_all_final.log
 set SCRIPT_DIR=%~dp0
