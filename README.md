@@ -301,6 +301,18 @@ For a comprehensive pre-submit routine, run:
 
 See `LEGACY_TESTS.md` for failing suites that need volunteers.
 
+## Cathedral Launcher
+Run `cathedral_launcher.py` to start the local relay and dashboard. The launcher
+checks your Python version, creates `.env` and `logs/` if missing, installs
+dependencies, verifies Ollama, and pulls the Mixtral model when possible.
+
+```bash
+python cathedral_launcher.py
+```
+
+If your hardware cannot host Mixtral, the launcher sets `MIXTRAL_CLOUD_ONLY=1`
+in `.env` and uses cloud inference.
+
 ## Quick start (Docker/Helm)
 Run the local relay and bridges with Docker Compose:
 
