@@ -9,8 +9,8 @@ require_lumos_approval()
 """GUI demo recorder for SentientOS.
 
 Captures screenshots every second, TTS audio, and conversation turns from
-:mod:`sentientos.parliament_bus`. Exported recordings include burned-in
-subtitles from model replies.
+:mod:`parliament_bus`. Exported recordings include burned-in subtitles from
+model replies.
 """
 
 import datetime as _dt
@@ -19,6 +19,7 @@ import time
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any
+import uuid
 
 try:  # optional screenshot libraries
     import mss
@@ -36,7 +37,7 @@ except Exception:  # pragma: no cover - headless env
     tk = None  # type: ignore
 
 import tts_bridge
-from sentientos import parliament_bus
+import parliament_bus
 
 
 class DemoRecorder:
@@ -46,13 +47,12 @@ class DemoRecorder:
         self.frames: List[Path] = []
         self.audio_files: List[Path] = []
         self.turns: List[Dict[str, Any]] = []
+        self.cycle_id: str = uuid.uuid4().hex
+        self._turn_id = 0
         self._running = False
         self._thread: threading.Thread | None = None
         self._orig_speak = tts_bridge.speak
-        parliament_bus.subscribe(self._on_turn)
 
-    def _on_turn(self, data: Dict[str, Any]) -> None:
-        self.turns.append({"timestamp": time.time(), **data})
 
     def _capture_screen(self) -> Path:
         ts = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S_%f")
@@ -86,9 +86,16 @@ class DemoRecorder:
         self._running = True
 
         def speak_capture(text: str, voice=None, save_path=None, emotions=None):
+            if save_path is None:
+                self._turn_id += 1
+                ext = '.wav' if tts_bridge.ENGINE_TYPE in {'bark', 'coqui'} else '.mp3'
+                demo_dir = Path('demos') / 'audio' / self.cycle_id
+                demo_dir.mkdir(parents=True, exist_ok=True)
+                save_path = str(demo_dir / f"{self._turn_id}{ext}")
             path = self._orig_speak(text, voice=voice, save_path=save_path, emotions=emotions)
             if path:
                 self.audio_files.append(Path(path))
+                self.turns.append({'text': text, 'audio_path': str(path)})
             return path
 
         tts_bridge.speak = speak_capture  # type: ignore[assignment]
