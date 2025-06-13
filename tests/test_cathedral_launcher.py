@@ -9,6 +9,7 @@ require_lumos_approval()
 import importlib
 import os
 import sys
+import subprocess
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -17,6 +18,7 @@ import cathedral_launcher as cl
 
 
 def test_check_gpu(monkeypatch):
+    # Simulate torch with GPU
     class Torch:
         class cuda:
             @staticmethod
@@ -27,6 +29,7 @@ def test_check_gpu(monkeypatch):
     importlib.reload(cl)
     assert cl.check_gpu()
 
+    # Simulate torch without GPU
     class TorchNo:
         class cuda:
             @staticmethod
@@ -36,6 +39,33 @@ def test_check_gpu(monkeypatch):
     monkeypatch.setitem(sys.modules, "torch", TorchNo)
     importlib.reload(cl)
     assert not cl.check_gpu()
+
+
+def test_prompt_cloud_inference(monkeypatch, tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("EXAMPLE=1")
+    monkeypatch.setattr("builtins.input", lambda prompt="": "y")
+    cl.prompt_cloud_inference(env)
+    assert "MIXTRAL_CLOUD_ONLY=1" in env.read_text()
+
+    # second call should not prompt again
+    monkeypatch.setattr("builtins.input", lambda prompt="": (_ for _ in ()).throw(Exception("asked")))
+    cl.prompt_cloud_inference(env)
+    assert env.read_text().count("MIXTRAL_CLOUD_ONLY") == 1
+
+
+def test_check_ollama(monkeypatch, capsys):
+    monkeypatch.setattr(cl.shutil, "which", lambda name: None)
+    assert not cl.check_ollama()
+    out = capsys.readouterr().out
+    assert "Ollama binary not found" in out
+
+
+def test_pull_mixtral_model(monkeypatch, capsys):
+    monkeypatch.setattr(subprocess, "check_call", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
+    assert not cl.pull_mixtral_model()
+    out = capsys.readouterr().out
+    assert "ollama not found" in out
 
 
 def test_check_python_version(monkeypatch):
