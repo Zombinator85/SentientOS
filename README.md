@@ -117,6 +117,7 @@ fi
 9. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
 10. Run `python smoke_test_connector.py` to verify the OpenAI connector.
 11. A minimal `Dockerfile` is provided if you prefer a containerized setup.
+12. Use `launch_all_final.bat` on Windows or `./launch_all_final.sh` on Linux/macOS to run the full cathedral launcher. Errors are logged to `launch_all_final.log`.
 For Windows/Mac/Linux quirks, see [bless_this_env.py](./bless_this_env.py).
 If you get a dependency or audio error, see the Troubleshooting section or ask in Discussions.
 For CI or reviewers: run ./nightly_ritual.sh to confirm ritual, audit, and type compliance. A GitHub action runs this ritual automatically every night.
@@ -300,6 +301,18 @@ For a comprehensive pre-submit routine, run:
 ```
 
 See `LEGACY_TESTS.md` for failing suites that need volunteers.
+
+## Cathedral Launcher
+Run `cathedral_launcher.py` to start the local relay and dashboard. The launcher
+checks your Python version, creates `.env` and `logs/` if missing, installs
+dependencies, verifies Ollama, and pulls the Mixtral model when possible.
+
+```bash
+python cathedral_launcher.py
+```
+
+If your hardware cannot host Mixtral, the launcher sets `MIXTRAL_CLOUD_ONLY=1`
+in `.env` and uses cloud inference.
 
 ## Quick start (Docker/Helm)
 Run the local relay and bridges with Docker Compose:
