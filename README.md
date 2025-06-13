@@ -304,15 +304,18 @@ See `LEGACY_TESTS.md` for failing suites that need volunteers.
 
 ## Cathedral Launcher
 Run `cathedral_launcher.py` to start the local relay and dashboard. The launcher
-checks your Python version, creates `.env` and `logs/` if missing, installs
-dependencies, verifies Ollama, and pulls the Mixtral model when possible.
+checks your Python version, ensures `pip` and a virtual environment exist,
+verifies or installs Ollama, and pulls the Mixtral model when a CUDA GPU is
+available. `.env` and `logs/` are created automatically.
 
 ```bash
 python cathedral_launcher.py
 ```
 
 If your hardware cannot host Mixtral, the launcher sets `MIXTRAL_CLOUD_ONLY=1`
-in `.env` and uses cloud inference.
+in `.env` and uses cloud inference. It launches `ollama serve`,
+`sentientos_relay.py` (or `relay_app.py`), optional bridges, and then opens the
+dashboard in your browser.
 
 ## Quick start (Docker/Helm)
 Run the local relay and bridges with Docker Compose:
