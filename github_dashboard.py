@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 
 try:
-    import streamlit as st  # type: ignore[import-untyped]
+    import streamlit as st
 except Exception:  # pragma: no cover - optional
     st = None
 
@@ -29,9 +29,14 @@ def run_app() -> None:
 
     model = st.text_input("Model name", "default")
     token = st.text_input("Token", type="password")
-    if st.button("Save Token") and token:
-        bridge.set_token(model, token)
-        st.success("Token saved")
+    scopes = st.text_input("Required Scopes", "repo")
+    if st.button("Test & Save") and token:
+        try:
+            bridge.set_token(model, token, scopes=[s.strip() for s in scopes.split(',') if s.strip()])
+        except Exception as e:
+            st.error(str(e))
+        else:
+            st.success("Token saved")
 
     read_scope = st.checkbox("Allow read", value=True)
     write_scope = st.checkbox("Allow write")
