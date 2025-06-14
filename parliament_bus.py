@@ -1,11 +1,18 @@
-"""Async event bus for reasoning turns."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 
 import asyncio
 import json
 from pathlib import Path
 from typing import Any, AsyncGenerator
 import uuid
+
+"""Async event bus for reasoning turns."""
 
 
 class ParliamentBus:
