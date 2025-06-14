@@ -1,0 +1,12 @@
+hopeful:
+  color: "#FFD580"
+  face: "smile_soft"
+angry:
+  color: "#FF0000"
+  face: "frown_deep"
+sad:
+  color: "#2020FF"
+  face: "sad"
+neutral:
+  color: "#FFFFFF"
+  face: "neutral"
