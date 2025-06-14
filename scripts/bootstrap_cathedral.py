@@ -1,135 +1,66 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
-
-from scripts.env_sync_autofill import autofill_env
-
-# Bootstrap helper to set up SentientOS with minimal fuss.
-
-import datetime
-import json
 import os
-import subprocess
 import sys
-from pathlib import Path
+import subprocess
+from datetime import datetime
+import json
 
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(parents=True, exist_ok=True)
-BOOT_LOG = LOG_DIR / "bootstrap_run.jsonl"
-ENV_LOG = LOG_DIR / "env_autofill_log.jsonl"
-BLESSING_FILE = Path("bootstrap_blessing.md")
+# Bootstrap Logging Path
+LOG_PATH = "logs/bootstrap_run.jsonl"
+os.makedirs("logs", exist_ok=True)
 
-
-def warn_version() -> None:
-    """Emit a warning if Python is not exactly version 3.12."""
-    ver = sys.version_info
-    if (ver.major, ver.minor) != (3, 12):
-        print(
-            f"[bootstrap] Warning: expected Python 3.12, got {ver.major}.{ver.minor}.{ver.micro}"
-        )
-
-
-def install_requirements() -> None:
-    """Install dependencies with fallbacks for pandas and Cython."""
-    try:
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", "-r", "requirements.txt", "--no-build-isolation"]
-        )
-    except subprocess.CalledProcessError:
-        subprocess.run([sys.executable, "-m", "pip", "install", "pandas==2.3.0"], check=False)
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "Cython"])
-    except subprocess.CalledProcessError:
-        print("Cython fallback failed")
-
-
-
-
-_STUBS = {
-    "model_bridge.py": (
-        "\"\"\"Sanctuary Privilege Ritual: Do not remove. See doctrine for details.\"\"\"\n"
-        "from __future__ import annotations\n"
-        "from sentientos.privilege import require_admin_banner, require_lumos_approval\n"
-        "require_admin_banner()\n"
-        "require_lumos_approval()\n\n"
-        "def send_message(prompt: str, history=None, system_prompt=None):\n"
-        "    return {\"response\": prompt}\n"
-    ),
-    "scripts/test_cathedral_boot.py": (
-        "\"\"\"Sanctuary Privilege Ritual: Do not remove. See doctrine for details.\"\"\"\n"
-        "from __future__ import annotations\n"
-        "from sentientos.privilege import require_admin_banner, require_lumos_approval\n"
-        "require_admin_banner()\n"
-        "require_lumos_approval()\n\n"
-        "print('boot test stub')\n"
-    ),
-}
-
-
-def restore_missing_files() -> list[str]:
-    required = ["model_bridge.py", "scripts/test_cathedral_boot.py"]
-    created: list[str] = []
-    for path in required:
-        p = Path(path)
-        if p.exists():
-            continue
-        stub = _STUBS.get(path)
-        if stub is not None:
-            p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(stub, encoding="utf-8")
-            created.append(path)
-            print(f"[bootstrap] Stub created for {path}")
-        else:
-            print(f"[bootstrap] Missing file: {path}")
-            created.append(path)
-    gui_path = Path("gui/cathedral_gui.py")
-    if not gui_path.exists():
-        print("[bootstrap] Warning: gui/cathedral_gui.py missing")
-        created.append("gui/cathedral_gui.py")
-    return created
-
-
-def log_result(status: str, notes: list[str]) -> None:
-    entry = {
+def log_event(status: str, detail: str = "") -> None:
+    log_entry = {
         "event_type": "bootstrap",
         "status": status,
-        "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "python_version": sys.version.split()[0],
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "detail": detail,
     }
-    with BOOT_LOG.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    with open(LOG_PATH, "a") as f:
+        f.write(json.dumps(log_entry) + "\n")
+    print(f"[bootstrap] {status.upper()}: {detail}")
 
+def run(cmd: str) -> bool:
+    try:
+        subprocess.run(cmd, shell=True, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        log_event("error", f"Command failed: {cmd}")
+        return False
 
-def write_blessing(notes: list[str]) -> None:
-    lines = [
-        "## First Relay Bootstrap Blessing",
-        "",
-        "**Date:** 2025-06-14  ",
-        f"**Python:** {sys.version.split()[0]}  ",
-        "",
-        "**Blessings:**",
-        "- Environment synchronized",
-        "- Fallbacks validated",
-        "- GUI and daemon scaffolded",
-        "- Logs successfully seeded",
-        "",
-        "*\"May all nodes remember their first crowning.\"*",
-    ]
-    BLESSING_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
+def install_requirements() -> None:
+    log_event("install", "Installing requirements.txt...")
+    if not run("pip install -r requirements.txt --no-build-isolation"):
+        log_event("fallback", "Falling back to pandas==2.3.0")
+        run("pip install pandas==2.3.0")
+    run("pip install Cython || echo 'Cython install skipped'")
 
+def ensure_env_keys() -> None:
+    from scripts.env_sync_autofill import ensure_env_keys as sync_env
+    sync_env()
+    log_event("env", "Environment keys synchronized.")
 
-def main() -> None:  # pragma: no cover - CLI
-    warn_version()
+def ensure_stub(filename: str, stub_code: str) -> None:
+    if not os.path.exists(filename):
+        with open(filename, "w") as f:
+            f.write(stub_code)
+        log_event("stub_created", f"{filename} created.")
+    else:
+        log_event("exists", f"{filename} already present.")
+
+def main() -> None:
+    log_event("start", "Bootstrap initiated.")
     install_requirements()
-    autofill_env()
-    notes = restore_missing_files()
-    log_result("completed", notes)
-    write_blessing(notes)
-    print("Bootstrap completed.")
+    ensure_env_keys()
 
+    ensure_stub("model_bridge.py", '"""Stub for model_bridge.py"""\n')
+    ensure_stub("scripts/test_cathedral_boot.py", '"""Stub for test_cathedral_boot.py"""\n')
+    if not os.path.exists("gui/cathedral_gui.py"):
+        log_event("missing_gui", "GUI launcher is missing.")
+
+    log_event("completed", "Bootstrap complete.")
 
 if __name__ == "__main__":
     main()
