@@ -17,8 +17,16 @@ python -m gui.cathedral_gui
 ```
 
 ### ⚙️ CLI Launch
+Run the cross-platform launcher to start the full cathedral stack.
+
+#### Windows
+```bat
+run_cathedral.bat
+```
+
+#### macOS & Linux
 ```bash
-launch_sentientos.bat
+./run_cathedral.sh
 ```
 
 ### 🛠️ Bundled Launcher
