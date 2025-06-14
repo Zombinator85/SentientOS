@@ -33,7 +33,7 @@ The standalone GUI `cathedral_gui.py` allows editing `.env`, testing prompts, an
 
 (Screenshot omitted due to binary file restrictions.)
 
-The new **● Record** button captures screen demos to `demos/YYYY-MM-DD-HHMM.mp4` with burned-in subtitles. ![Demo GIF](docs/demo_recorder.gif)
+The new **● Record** button captures screen demos to `demos/YYYY-MM-DD-HHMM.mp4` with burned-in subtitles.
 
 ### ⚙️ CLI Launch
 Run the cross-platform launcher to start the full cathedral stack.
