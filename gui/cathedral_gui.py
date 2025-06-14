@@ -30,6 +30,13 @@ try:
 except Exception:  # pragma: no cover - optional
     Tk = None  # type: ignore
 
+try:
+    import demo_recorder  # type: ignore
+except Exception:  # pragma: no cover - optional
+    demo_recorder = None  # type: ignore[misc]
+
+_RECORDER: Optional[demo_recorder.DemoRecorder] | None = None  # type: ignore[attr-defined]
+
 
 _API_PROC: Optional[subprocess.Popen[str]] = None
 _BRIDGE_PROC: Optional[subprocess.Popen[str]] = None
@@ -89,6 +96,21 @@ def run_streamlit() -> None:
     if st.button("Launch/Reconnect"):
         launch_processes()
 
+    if st.button("\u25cf Record"):
+        global _RECORDER
+        if demo_recorder is None:
+            st.error("Recorder unavailable")
+        else:
+            if _RECORDER is None or not _RECORDER.running:
+                _RECORDER = demo_recorder.DemoRecorder()
+                _RECORDER.start()
+                _LOGS.append("Recording started")
+            else:
+                _RECORDER.stop()
+                path = _RECORDER.export()
+                _LOGS.append(f"Saved {path}")
+                st.success(f"Saved {path}")
+
     status = fetch_status()
     st.write(f"Uptime: {status.get('uptime')}")
     st.write(f"Heartbeat: {status.get('last_heartbeat')}")
@@ -119,6 +141,24 @@ def run_tkinter() -> None:  # pragma: no cover - interactive fallback
         root.after(2000, refresh)
 
     Button(root, text="Launch/Reconnect", command=launch_processes).pack()
+    if demo_recorder is not None:
+        rec = demo_recorder.DemoRecorder()
+        rec_btn = Button(root, text="\u25cf Record")
+
+        def toggle() -> None:
+            if rec.running:
+                rec.stop()
+                path = rec.export()
+                rec_btn.config(text="\u25cf Record")
+                _LOGS.append(f"Saved {path}")
+                lbl.config(text=f"Saved {path.name}")
+            else:
+                rec.start()
+                rec_btn.config(text="Stop")
+                lbl.config(text="Recording…")
+
+        rec_btn.config(command=toggle)
+        rec_btn.pack()
     refresh()
     root.mainloop()
 
