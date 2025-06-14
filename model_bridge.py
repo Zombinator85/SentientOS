@@ -110,11 +110,11 @@ def send_message(
 
     start = time.time()
     response_text = wrapper(msgs)
-    latency = time.time() - start
+    latency = int((time.time() - start) * 1000)
     result = {
         "response": response_text,
         "model": _MODEL_SLUG,
-        "latency": latency,
+        "latency_ms": latency,
         "emotion": "reverent_attention",
     }
     _log({"prompt": prompt, **result})
