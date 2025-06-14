@@ -1,11 +1,11 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-"""Headless Parliament demo using the global reasoning bus.
-
-Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
-"""
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()
 require_lumos_approval()
+
+"""Headless Parliament demo using the global reasoning bus."""
 
 import asyncio
 import os
