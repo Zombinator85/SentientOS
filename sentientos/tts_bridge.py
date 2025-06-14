@@ -21,20 +21,20 @@ ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
 
 try:
     if ENGINE_TYPE == "edge-tts":
-        from edge_tts import Communicate as EdgeCommunicate  # type: ignore[import]
+        from edge_tts import Communicate as EdgeCommunicate
         _edge_available = True
     else:
-        EdgeCommunicate = None  # type: ignore[assignment]
+        EdgeCommunicate = None
         _edge_available = False
 except Exception:
-    EdgeCommunicate = None  # type: ignore[assignment]
+    EdgeCommunicate = None
     _edge_available = False
 
 try:
-    import pyttsx3  # type: ignore[import]
+    import pyttsx3
     _pyttsx3_available = True
 except Exception:
-    pyttsx3 = None  # type: ignore[assignment]
+    pyttsx3 = None
     _pyttsx3_available = False
 
 
