@@ -87,6 +87,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `AVATAR_MEMORY_LINK_LOG` | Path for avatar memory link records | `logs/avatar_memory_link.jsonl` |
 | `AVATAR_COUNCIL_LOG` | Council voting history for avatars | `logs/avatar_council_log.jsonl` |
 | `AVATAR_RETIRE_LOG` | Log of avatar retirement events | `logs/avatar_retirement.jsonl` |
+| `AVATAR_RELIC_LOG` | Path for avatar relic entries | `logs/avatar_relics.jsonl` |
+| `AVATAR_REFLECTION_LOG` | Path for avatar mood reflections | `logs/avatar_reflection.jsonl` |
 | `BACKCHANNEL_DELAY` | Seconds of idle time before voice loop stops | `5` |
 | `BRIDGE_CHECK_SEC` | Interval for bridge watchdog checks | `5` |
 | `BRIDGE_RESTART_CMD` | Command used to restart the Neos bridge | *(none)* |
@@ -167,6 +169,12 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `WEBHOOK_CHECK_SEC` | Seconds between webhook status checks | `60` |
 | `WORKFLOW_REVIEW_DIR` | Directory for submitted workflow reviews | `workflows/review` |
 | `WAIT_TIMEOUT` | Seconds to wait for service health checks | `60` |
+| `EXPERIMENT_TRUST_SCORING` | Enable trust scoring prototype (`1` to enable) | *(unset)* |
+| `TRUST_SCORE_LOG` | Path for trust score logs | `logs/trust_scores.jsonl` |
+| `EXPERIMENT_PRESENCE_ANALYTICS` | Enable presence analytics logging (`1` to enable) | *(unset)* |
+| `PRESENCE_ANALYTICS_LOG` | Path for presence analytics logs | `logs/presence_analytics.jsonl` |
+| `EXPERIMENT_SELF_HEAL_PLUGIN` | Enable self-healing plugin (`1` to enable) | *(unset)* |
+| `SELF_HEAL_PLUGIN_LOG` | Path for self-healing plugin log | `logs/self_heal_plugin.jsonl` |
 
 ### Audit and Self‑Defense Logs
 
