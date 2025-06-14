@@ -15,6 +15,8 @@ BASE_URL = os.getenv("RELAY_URL", "http://localhost:5000")
 LOG_PATH = Path(os.getenv("RELAY_LOG", "logs/relay_log.jsonl"))
 BRIDGE_LOG = Path(os.getenv("MODEL_BRIDGE_LOG", "logs/model_bridge_log.jsonl"))
 
+STATUS_PATH = Path(os.getenv("CATHEDRAL_STATUS", "cathedral_status.json"))
+
 __test__ = False
 
 
@@ -53,6 +55,20 @@ def check_status() -> bool:
     )
 
 
+def check_gui() -> bool:
+    try:
+        import importlib
+        import workflow_dashboard
+        importlib.reload(workflow_dashboard)
+        return True
+    except Exception:
+        try:
+            import cathedral_gui
+            return True
+        except Exception:
+            return False
+
+
 def last_model_response() -> str | None:
     if not BRIDGE_LOG.exists():
         return None
@@ -64,24 +80,44 @@ def last_model_response() -> str | None:
         return None
 
 
-def main() -> None:
-    checks = {
+def run_checks() -> dict[str, bool]:
+    return {
         "sse": check_sse(),
         "ingest": check_ingest(),
         "status": check_status(),
+        "log": check_log(),
+        "gui": check_gui(),
     }
-    ok = all(checks.values()) and check_log()
-    if ok:
-        print("Cathedral boot checks passed")
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Test Cathedral boot sequence")
+    parser.add_argument("--json", action="store_true", help="print JSON summary")
+    args = parser.parse_args(argv)
+
+    checks = run_checks()
+    ok = all(checks.values())
+
+    STATUS_PATH.write_text(json.dumps({"results": checks, "ok": ok}, indent=2))
+
+    if args.json:
+        print(json.dumps({"results": checks, "ok": ok}))
     else:
-        print("Cathedral boot checks failed:")
-        for name, result in checks.items():
-            if not result:
-                print(f" - {name} failed")
-    resp = last_model_response()
-    if resp:
-        print("Last model reply:", resp[:80])
+        if ok:
+            print("Cathedral boot checks passed")
+        else:
+            print("Cathedral boot checks failed:")
+            for name, result in checks.items():
+                if not result:
+                    print(f" - {name} failed")
+        resp = last_model_response()
+        if resp:
+            print("Last model reply:", resp[:80])
+
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
