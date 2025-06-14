@@ -52,21 +52,18 @@ Run `python scripts/build_docs.py` to build the documentation site. Ensure `mypy
 Use `mkdocs serve` to preview docs locally.
 
 ### CI Workflow
-CI also runs mypy and docs build along with tests:
+Every pull request runs these checks. The build fails if any of them report
+errors:
 
 ```yaml
-- name: Enforce privilege rituals
-  run: python scripts/ritual_enforcer.py --mode fix
 - name: Privilege lint
-  run: LUMOS_AUTO_APPROVE=1 python privilege_lint.py
-- name: Run tests
-  run: pytest -q
-- name: Verify audits
-  run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
+  run: python privilege_lint.py
+- name: Run pytest
+  run: pytest
 - name: Type check
   run: mypy --strict
-- name: Build Docs
-  run: python scripts/build_docs.py
+- name: Verify audits
+  run: python verify_audits.py logs/
 ```
 
 ## Ritual Etiquette
