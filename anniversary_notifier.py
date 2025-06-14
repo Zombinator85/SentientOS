@@ -1,19 +1,19 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
+
 """Anniversary notifier that logs cathedral anniversaries."""
 
 from logging_config import get_log_path
 import os
-import json
 import datetime
+from pathlib import Path
 
 from cathedral_const import log_json
-from pathlib import Path
 
 
 ANNIVERSARY = os.getenv("CATHEDRAL_BIRTH", "2023-01-01")

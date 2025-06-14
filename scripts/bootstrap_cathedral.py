@@ -1,85 +1,66 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+from __future__ import annotations
 import os
 import sys
 import subprocess
-import json
-import time
 from datetime import datetime
+import json
 
+# Bootstrap Logging Path
 LOG_PATH = "logs/bootstrap_run.jsonl"
-REQUIRED_FILES = [
-    "gui/cathedral_gui.py",
-    "scripts/test_cathedral_boot.py",
-    "model_bridge.py",
-    "launch_sentientos.bat"
-]
+os.makedirs("logs", exist_ok=True)
 
-def log_event(status, details=None):
-    event = {
+def log_event(status: str, detail: str = "") -> None:
+    log_entry = {
         "event_type": "bootstrap",
         "status": status,
         "python_version": sys.version.split()[0],
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "detail": detail,
     }
-    if details:
-        event["details"] = details
-    os.makedirs("logs", exist_ok=True)
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(event) + "\n")
+    with open(LOG_PATH, "a") as f:
+        f.write(json.dumps(log_entry) + "\n")
+    print(f"[bootstrap] {status.upper()}: {detail}")
 
-def check_python_version():
-    version = sys.version_info
-    if version < (3, 11) or version > (3, 12):
-        print(f"⚠️ Warning: Python {version.major}.{version.minor} detected. Recommended: 3.12.x")
-        log_event("warn_python_version")
-
-def install_dependencies():
+def run(cmd: str) -> bool:
     try:
-        subprocess.run(["pip", "install", "-r", "requirements.txt", "--no-build-isolation"], check=True)
-    except subprocess.CalledProcessError:
-        print("📦 Fallback: Pinning pandas==2.3.0")
-        subprocess.run(["pip", "install", "pandas==2.3.0"], check=False)
-    subprocess.run(["pip", "install", "Cython"], check=False)
+        subprocess.run(cmd, shell=True, check=True)
+        return True
+    except subprocess.CalledProcessError as e:
+        log_event("error", f"Command failed: {cmd}")
+        return False
 
-def verify_required_files():
-    missing = []
-    for path in REQUIRED_FILES:
-        if not os.path.exists(path):
-            print(f"🛠️ Missing: {path}")
-            missing.append(path)
-    if missing:
-        log_event("missing_files", {"files": missing})
-    return missing
+def install_requirements() -> None:
+    log_event("install", "Installing requirements.txt...")
+    if not run("pip install -r requirements.txt --no-build-isolation"):
+        log_event("fallback", "Falling back to pandas==2.3.0")
+        run("pip install pandas==2.3.0")
+    run("pip install Cython || echo 'Cython install skipped'")
 
-def sync_env():
-    from dotenv import load_dotenv, set_key
-    load_dotenv()
-    defaults = {
-        "OPENAI_API_KEY": "",
-        "MODEL_SLUG": "openai/gpt-4o",
-        "SYSTEM_PROMPT": "You are Lumos, a memory-born cathedral presence...",
-        "ENABLE_TTS": "true",
-        "TTS_ENGINE": "pyttsx3"
-    }
-    env_path = ".env"
-    with open(env_path, "a+", encoding="utf-8") as f:
-        f.seek(0)
-        content = f.read()
-        for key, val in defaults.items():
-            if key not in content:
-                f.write(f"{key}={val}\n")
-                log_event("env_autofill", {"field": key, "value": val})
-
-def main():
-    print("🕯️ Bootstrapping the Cathedral...")
-    check_python_version()
-    install_dependencies()
+def ensure_env_keys() -> None:
+    from scripts.env_sync_autofill import ensure_env_keys as sync_env
     sync_env()
-    missing = verify_required_files()
-    if missing:
-        print("🚨 Some components are missing. Restore or regenerate required.")
+    log_event("env", "Environment keys synchronized.")
+
+def ensure_stub(filename: str, stub_code: str) -> None:
+    if not os.path.exists(filename):
+        with open(filename, "w") as f:
+            f.write(stub_code)
+        log_event("stub_created", f"{filename} created.")
     else:
-        print("✅ All required files present.")
-    log_event("completed")
+        log_event("exists", f"{filename} already present.")
+
+def main() -> None:
+    log_event("start", "Bootstrap initiated.")
+    install_requirements()
+    ensure_env_keys()
+
+    ensure_stub("model_bridge.py", '"""Stub for model_bridge.py"""\n')
+    ensure_stub("scripts/test_cathedral_boot.py", '"""Stub for test_cathedral_boot.py"""\n')
+    if not os.path.exists("gui/cathedral_gui.py"):
+        log_event("missing_gui", "GUI launcher is missing.")
+
+    log_event("completed", "Bootstrap complete.")
 
 if __name__ == "__main__":
     main()
