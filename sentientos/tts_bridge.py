@@ -1,5 +1,5 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-
 """Optional text-to-speech bridge using edge-tts."""
 
 import asyncio

@@ -1,4 +1,5 @@
-"""Entry point for running SentientOS helper scripts."""
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+# Entry point for running SentientOS helper scripts.
 from __future__ import annotations
 
 from .new_cli import main
