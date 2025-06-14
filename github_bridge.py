@@ -5,75 +5,72 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 
-"""GitHub API bridge using ghapi with encrypted token storage."""
+"""GitHub API bridge using ghapi with keyring token storage and scope validation."""
 
 from logging_config import get_log_path
-from typing import Any, Dict, Optional
-from pathlib import Path
+from typing import Any, Dict, Iterable, Optional, cast
 import json
-import os
 
 try:
-    from ghapi.all import GhApi  # type: ignore[import-untyped]
+    from ghapi.all import GhApi
 except Exception:  # pragma: no cover - optional dependency
-    GhApi = None  # type: ignore[misc]
+    GhApi = None
 
+keyring: Optional[Any]
 try:
-    from cryptography.fernet import Fernet  # type: ignore[import-untyped]
+    import keyring as _keyring
+    keyring = _keyring
 except Exception:  # pragma: no cover - optional dependency
-    Fernet = None  # type: ignore[misc]
+    keyring = None
 
 LOG_FILE = get_log_path("github_actions.jsonl", "GITHUB_ACTION_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-TOKEN_FILE = get_log_path("github_tokens.enc", "GITHUB_TOKEN_FILE")
-KEY_FILE = get_log_path("github_tokens.key", "GITHUB_TOKEN_KEY_FILE")
+
+KEYRING_SERVICE = "sentientos.github"
 
 
 class GitHubBridge:
-    """Lightweight wrapper around ghapi with encrypted token storage."""
+    """Lightweight wrapper around ghapi with keyring token storage."""
 
-    def __init__(self, *, token_file: Path = TOKEN_FILE, key_file: Path = KEY_FILE) -> None:
-        self.token_file = Path(token_file)
-        self.key_file = Path(key_file)
-        self.cipher = self._load_cipher()
-        self.tokens: Dict[str, str] = self._load_tokens()
+    def __init__(self, *, service: str = KEYRING_SERVICE) -> None:
+        self.service = service
         self._apis: Dict[str, Any] = {}
 
     # -- Token handling -------------------------------------------------
-    def _load_cipher(self) -> Optional[Fernet]:
-        if Fernet is None:
+    def _token_for(self, model: str) -> str | None:
+        if keyring is None:
             return None
-        if self.key_file.exists():
-            key = self.key_file.read_bytes()
-        else:
-            key = Fernet.generate_key()
-            self.key_file.write_bytes(key)
-        return Fernet(key)
+        return cast(Optional[str], keyring.get_password(self.service, model))
 
-    def _load_tokens(self) -> Dict[str, str]:
-        if not self.token_file.exists() or self.cipher is None:
-            return {}
+    def _save_token(self, model: str, token: str) -> None:
+        if keyring is not None:
+            keyring.set_password(self.service, model, token)
+
+    def _check_scopes(self, token: str) -> list[str]:
+        if GhApi is None:
+            return []
+        api = GhApi(token=token)
         try:
-            data = self.cipher.decrypt(self.token_file.read_bytes())
-            return json.loads(data.decode("utf-8"))
+            api.users.get_authenticated()
         except Exception:
-            return {}
+            return []
+        hdr = getattr(api, "recv_hdrs", {}).get("X-OAuth-Scopes", "")
+        return [s.strip() for s in hdr.split(",") if s.strip()]
 
-    def _save_tokens(self) -> None:
-        if self.cipher is None:
-            return
-        data = json.dumps(self.tokens).encode("utf-8")
-        enc = self.cipher.encrypt(data)
-        self.token_file.write_bytes(enc)
-
-    def set_token(self, model: str, token: str) -> None:
-        """Store encrypted token for a model."""
-        self.tokens[model] = token
-        self._save_tokens()
+    def set_token(self, model: str, token: str, scopes: Iterable[str] | None = None) -> None:
+        """Validate and store a token for a model in the system keyring."""
+        required = set(scopes or [])
+        if required:
+            avail = set(self._check_scopes(token))
+            missing = sorted(required - avail)
+            if missing:
+                raise ValueError(f"Token missing scopes: {', '.join(missing)}")
+        self._save_token(model, token)
+        self._apis.pop(model, None)
 
     def _api(self, model: str) -> Any:
-        token = self.tokens.get(model)
-        if token is None:
+        token = self._token_for(model)
+        if not token:
             raise RuntimeError(f"Token for {model} not set")
         api = self._apis.get(model)
         if api is None:
