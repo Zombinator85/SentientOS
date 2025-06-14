@@ -20,9 +20,12 @@ import argparse
 import requests
 
 from logging_config import get_log_path
+from cathedral_const import PUBLIC_LOG, log_json
+import tkinter.messagebox as messagebox
 
 MIN_VERSION = (3, 11)
 LOG_PATH = get_log_path("cathedral_launcher.log")
+UPDATES_DIR = Path(".updates")
 
 
 def log(msg: str) -> None:
@@ -43,6 +46,116 @@ def check_self_update() -> None:
             log(f"update_available:{latest}")
         else:
             log("up_to_date")
+    except Exception as e:  # pragma: no cover - network dependent
+        log(f"update_check_failed:{e}")
+
+
+def _download(url: str, dest: Path) -> None:
+    resp = requests.get(url, timeout=10)
+    resp.raise_for_status()
+    dest.write_bytes(resp.content)
+
+
+def install_update(src: Path, tag: str) -> None:
+    backup = UPDATES_DIR / f"backup_{__version__}"
+    if backup.exists():
+        shutil.rmtree(backup)
+    backup.mkdir(parents=True, exist_ok=True)
+    for item in Path(".").iterdir():
+        if item.name == ".updates":
+            continue
+        dest = backup / item.name
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+    for item in src.iterdir():
+        dest = Path(item.name)
+        if item.is_dir():
+            shutil.copytree(item, dest, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, dest)
+    log_json(PUBLIC_LOG, {"event": "update_installed", "data": {"version": tag}})
+
+
+def rollback_update(version: str) -> None:
+    backup = UPDATES_DIR / f"backup_{version}"
+    if not backup.exists():
+        messagebox.showerror("Rollback failed", "Backup missing")
+        log_json(
+            PUBLIC_LOG,
+            {"event": "rollback_failed", "data": {"version": version}},
+        )
+        return
+    for item in Path(".").iterdir():
+        if item.name == ".updates":
+            continue
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+    for item in backup.iterdir():
+        dest = Path(item.name)
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+    log_json(
+        PUBLIC_LOG,
+        {"event": "rollback_complete", "data": {"version": version}},
+    )
+
+
+def check_updates() -> None:
+    repo_api = "https://api.github.com/repos/OpenAI/SentientOS/releases/latest"
+    try:
+        resp = requests.get(repo_api, timeout=5)
+        resp.raise_for_status()
+        data = resp.json()
+        tag = data.get("tag_name", "")
+        if not tag or tag == __version__:
+            log("up_to_date")
+            return
+        assets = data.get("assets", [])
+        archive_url = ""
+        sig_url = ""
+        for a in assets:
+            name = a.get("name", "")
+            if name.endswith(".tar.gz"):
+                archive_url = a.get("browser_download_url", "")
+            if name.endswith(".asc") or name.endswith(".sig"):
+                sig_url = a.get("browser_download_url", "")
+        if not archive_url or not sig_url:
+            log_json(
+                PUBLIC_LOG,
+                {"event": "update_verify_failed", "data": {"version": tag}},
+            )
+            return
+        update_dir = UPDATES_DIR / tag
+        update_dir.mkdir(parents=True, exist_ok=True)
+        archive = update_dir / archive_url.split("/")[-1]
+        sig = update_dir / sig_url.split("/")[-1]
+        _download(archive_url, archive)
+        _download(sig_url, sig)
+        res = subprocess.run(
+            ["gpg", "--verify", str(sig), str(archive)],
+            capture_output=True,
+        )
+        if res.returncode != 0:
+            log_json(
+                PUBLIC_LOG,
+                {"event": "update_verify_failed", "data": {"version": tag}},
+            )
+            return
+        shutil.unpack_archive(str(archive), update_dir)
+        log_json(
+            PUBLIC_LOG,
+            {"event": "update_downloaded", "data": {"version": tag}},
+        )
+        if messagebox.askyesno("Install Update", f"Install version {tag}?"):
+            install_update(update_dir, tag)
+            if messagebox.askyesno("Rollback", "Restore previous version?"):
+                rollback_update(__version__)
     except Exception as e:  # pragma: no cover - network dependent
         log(f"update_check_failed:{e}")
 
@@ -214,9 +327,9 @@ def main(argv: Optional[list[str]] | None = None) -> int:
     env_path = ensure_env_file()
     ensure_log_dir()
     if args.check_updates:
-        check_self_update()
+        check_updates()
         return 0
-    check_self_update()
+    check_updates()
 
     if not check_python_version():
         return 1
