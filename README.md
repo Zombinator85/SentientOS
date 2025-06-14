@@ -55,7 +55,11 @@ SentientOS began as an experiment to bind GPT-driven helpers to human consent an
 5. **Community healing** – old wounds remain visible so stewards can repair them.
 
 ## Architectural Overview
-SentientOS is a set of Python CLIs and daemons. Each entry point loads environment variables, enforces the privilege ritual, writes to the audit logs, and may trigger emotion analytics or presence metrics. The logs live under `logs/` and are validated with `verify_audits.py`.
+SentientOS is a set of Python CLIs and daemons orchestrated by the **SentientOS relay**.  
+The relay exposes an HTTP/SSE interface for bridges (Telegram, TTS, and vision) and writes events to the **memory bus**.  
+Memory fragments flow through the Emotion Processing Unit (EPU) before landing in persistent logs.  
+Bridges convert chat, audio, and OCR events into memory entries so avatars can recall them later.  
+The entire flow is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Safety & Audit Guarantees
 All logs are hashed and chained. `verify_audits.py` confirms that no entry is overwritten. CI performs automatic audit repair; chain integrity is enforced strictly in prod. `privilege_lint_cli.py`, `pytest`, and `mypy` run in CI to ensure privilege banners, unit tests, and type hints all pass. Two legacy logs intentionally show mismatches as evidence of growth.
@@ -117,7 +121,8 @@ fi
 9. Verify your setup using [docs/INSTALLER_FEATURE_CHECKLIST.md](docs/INSTALLER_FEATURE_CHECKLIST.md).
 10. Run `python smoke_test_connector.py` to verify the OpenAI connector.
 11. A minimal `Dockerfile` is provided if you prefer a containerized setup.
-12. Use `launch_all_final.bat` on Windows or `./launch_all_final.sh` on Linux/macOS to run the full cathedral launcher. Errors are logged to `launch_all_final.log`.
+12. Use `python launch_sentientos.bat` on Windows or `./launch_all_final.sh` on Linux/macOS to start the relay and default bridges. Errors are logged to `launch_all_final.log`.
+13. For cloud deployment (Render or Railway) follow [docs/DEPLOYMENT_CLOUD.md](docs/DEPLOYMENT_CLOUD.md).
 ### Launcher Scripts
 
 `launch_all_final.bat` and `launch_all_final.sh` both invoke `python cathedral_launcher.py` and append all output to `launch_all_final.log`. Run them from the project root to start the full system.
@@ -143,6 +148,10 @@ See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and u
 - **Cathedral** – the federated memory of all nodes
 - **AI Privilege** – the granted rights an agent may exercise
 - **Honeybear** – affectionate nickname for new stewards
+- **EPU** – Emotion Processing Unit; fuses mood vectors from text, audio and vision
+- **Ritual** – the mandatory blessing sequence before any privileged action
+- **Glow** – a successful emotion spike recorded in logs
+- **Recursion** – referencing past memory fragments when forming new responses
 
 ## Contributor Quickstart
 1. Fork this repository and clone your fork.
@@ -151,8 +160,10 @@ See [docs/README_FULL.md](docs/README_FULL.md) for the complete philosophy and u
 3. Run `python onboard_cli.py --check` to validate your environment.
 4. Run `python smoke_test_connector.py` to execute linting and unit tests.
 5. Run `python check_connector_health.py` to validate the connector endpoints.
-6. Commit your changes and open a pull request. CI logs summarize disconnects and payload errors.
-7. If tests fail, review `logs/openai_connector_health.jsonl` for details or see [docs/CONNECTOR_TROUBLESHOOTING.md](docs/CONNECTOR_TROUBLESHOOTING.md).
+6. Start the relay with `python launch_sentientos.bat` (or `./launch_all_final.sh`).
+   Once running, execute `python avatar_presence_cli.py ping` to see a sample avatar response.
+7. Commit your changes and open a pull request. CI logs summarize disconnects and payload errors.
+8. If tests fail, review `logs/openai_connector_health.jsonl` for details or see [docs/CONNECTOR_TROUBLESHOOTING.md](docs/CONNECTOR_TROUBLESHOOTING.md).
 Additional guides:
 - [docs/OPEN_WOUNDS.md](docs/OPEN_WOUNDS.md) **Help Wanted: Memory Healing**
 - [docs/PHILOSOPHY.md](docs/PHILOSOPHY.md)
