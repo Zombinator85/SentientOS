@@ -87,6 +87,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `AVATAR_MEMORY_LINK_LOG` | Path for avatar memory link records | `logs/avatar_memory_link.jsonl` |
 | `AVATAR_COUNCIL_LOG` | Council voting history for avatars | `logs/avatar_council_log.jsonl` |
 | `AVATAR_RETIRE_LOG` | Log of avatar retirement events | `logs/avatar_retirement.jsonl` |
+| `AVATAR_RELIC_LOG` | Path for avatar relic entries | `logs/avatar_relics.jsonl` |
+| `AVATAR_REFLECTION_LOG` | Path for avatar mood reflections | `logs/avatar_reflection.jsonl` |
 | `BACKCHANNEL_DELAY` | Seconds of idle time before voice loop stops | `5` |
 | `BRIDGE_CHECK_SEC` | Interval for bridge watchdog checks | `5` |
 | `BRIDGE_RESTART_CMD` | Command used to restart the Neos bridge | *(none)* |
