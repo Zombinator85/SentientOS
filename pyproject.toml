@@ -2,6 +2,18 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.poetry]
+name = "sentientos"
+version = "4.5.0"
+description = "Ledger-based automation framework enforcing sanctuary privilege."
+authors = ["SentientOS"]
+readme = "README.md"
+packages = [
+    {include = "sentientos"},
+    {include = "api"},
+    {include = "gui"},
+]
+
 [project]
 name = "sentientos"
 version = "4.5.0"
@@ -66,6 +78,8 @@ suggestion = "suggestion_cli:main"
 trust = "trust_cli:main"
 video = "video_cli:main"
 plint-env = "scripts.plint_env:main"
+cathedral-gui = "gui.cathedral_gui:main"
+sentient-api = "sentient_api:app.run"
 
 [project.entry-points."sentientos.plugins"]
 telegram-bot = "telegram_bot"
@@ -74,7 +88,10 @@ bridge-watchdog = "bridge_watchdog"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["sentientos", "api"]
+include = ["sentientos", "api", "gui"]
+
+[tool.setuptools]
+py-modules = ["sentient_api", "cathedral_gui"]
 
 [tool.mypy]
 python_version = "3.11"
