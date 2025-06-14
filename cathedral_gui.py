@@ -34,6 +34,7 @@ from urllib.parse import urlparse
 from emotions import EMOTIONS
 
 import parliament_bus
+import plugin_bus
 from parliament_selector import ModelSelector
 
 ENV_PATH = Path(".env")
@@ -81,6 +82,15 @@ class RelayGUI:
 
         parliament_tab = Frame(nb)
         nb.add(parliament_tab, text="Parliament")
+
+        plugins_tab = Frame(nb)
+        nb.add(plugins_tab, text="Plugins")
+        self.plugin_list = Listbox(plugins_tab)
+        self.plugin_list.pack(fill="both", expand=True, padx=2, pady=2)
+        self.panels_frame = Frame(plugins_tab)
+        self.panels_frame.pack(fill="both", expand=True, padx=2, pady=2)
+        self.plugin_bus = plugin_bus.PluginBus(self)
+        threading.Thread(target=lambda: asyncio.run(self.plugin_bus.watch_plugins()), daemon=True).start()
 
         Label(relay_tab, text="OpenAI API Key").grid(row=0, column=0, sticky="w")
         self.key_var = StringVar(value=os.getenv("OPENAI_API_KEY", ""))
@@ -188,6 +198,15 @@ class RelayGUI:
         self.output.insert(END, msg + "\n")
         self.output.see(END)
         self.output.configure(state="disabled")
+
+    def add_panel(self, panel: Frame) -> None:
+        panel.pack(in_=self.panels_frame, fill="both", expand=True)
+        self.refresh_plugins()
+
+    def refresh_plugins(self) -> None:
+        self.plugin_list.delete(0, END)
+        for name in sorted(self.plugin_bus.modules):
+            self.plugin_list.insert(END, name)
 
     def edit_env(self) -> None:  # pragma: no cover - interactive
         editor = os.getenv("EDITOR", "nano")

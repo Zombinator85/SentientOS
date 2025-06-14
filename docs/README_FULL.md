@@ -612,8 +612,10 @@ python plugins_cli.py disable wave_hand
 python plugins_cli.py enable wave_hand
 python plugins_cli.py reload       # live reload
 ```
-In headless mode plug-ins simulate actions but still log to the trust engine.
-No secrets are present in this repo.
+GUI plug-ins go in the `plugins/` directory. They are reloaded automatically by
+`plugin_bus.watch_plugins()` whenever a file changes. In headless mode plug-ins
+simulate actions but still log to the trust engine. No secrets are present in
+this repo.
 Copy .env.example to .env and fill in your credentials before running.
 
 Storybook Demo Generator
