@@ -272,6 +272,7 @@ class RelayGUI:
             out_lines.append(f"{k}={env[k]}")
         ENV_PATH.write_text("\n".join(out_lines))
         load_dotenv(ENV_PATH, override=True)
+        pm.switch_profile(self.profile_var.get())
 
     def start_relay(self) -> None:
         if self.proc:
