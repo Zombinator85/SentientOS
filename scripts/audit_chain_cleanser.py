@@ -1,4 +1,5 @@
 from __future__ import annotations
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 import sys
 from pathlib import Path
 
