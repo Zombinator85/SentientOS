@@ -8,10 +8,9 @@ require_lumos_approval()
 import importlib
 import sys
 import types
+import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import os
 
 
 class _StreamlitStub:
