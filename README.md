@@ -15,6 +15,9 @@ python scripts/bootstrap_cathedral.py
 ```bash
 python -m gui.cathedral_gui
 ```
+The standalone GUI `cathedral_gui.py` allows editing `.env`, testing prompts, and exporting logs. It includes dropdowns for model selection and an emotion selector.
+
+(Screenshot omitted due to binary file restrictions.)
 
 ### ⚙️ CLI Launch
 Run the cross-platform launcher to start the full cathedral stack.

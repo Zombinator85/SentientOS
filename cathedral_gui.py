@@ -26,6 +26,12 @@ from tkinter import (
     END,
 )
 from tkinter import ttk
+import tkinter.messagebox as messagebox
+from typing import Tuple
+
+from urllib.parse import urlparse
+
+from emotions import EMOTIONS
 
 import parliament_bus
 from parliament_selector import ModelSelector
@@ -34,10 +40,27 @@ ENV_PATH = Path(".env")
 load_dotenv(ENV_PATH)
 
 MODEL_OPTIONS = [
+    "mixtral",
     "openai/gpt-4o",
-    "huggingface/mixtral",
-    "local/deepseek",
+    "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
 ]
+
+EMOTION_CHOICES = EMOTIONS[:8]
+
+
+def validate_settings(model: str, api_key: str, endpoint: str) -> Tuple[bool, str]:
+    """Return (True, '') if settings valid else (False, reason)."""
+    if not endpoint.startswith("http"):
+        return False, "Endpoint must start with http"
+    if model.startswith("openai/") and not api_key:
+        return False, "OPENAI_API_KEY required for OpenAI models"
+    if model not in MODEL_OPTIONS:
+        return False, "Unsupported model"
+    try:
+        urlparse(endpoint)
+    except Exception:
+        return False, "Invalid URL"
+    return True, ""
 
 
 class RelayGUI:
@@ -45,6 +68,10 @@ class RelayGUI:
         self.root = root
         self.root.title("SentientOS Cathedral GUI")
         self.proc: subprocess.Popen[str] | None = None
+        self.bridge_proc: subprocess.Popen[str] | None = None
+
+        self.status_lbl = Label(root, text="Relay stopped")
+        self.status_lbl.pack(anchor="w")
 
         nb = ttk.Notebook(root)
         nb.pack(fill="both", expand=True)
@@ -59,23 +86,39 @@ class RelayGUI:
         self.key_var = StringVar(value=os.getenv("OPENAI_API_KEY", ""))
         Entry(relay_tab, textvariable=self.key_var, width=40).grid(row=0, column=1, sticky="we")
 
-        Label(relay_tab, text="Model").grid(row=1, column=0, sticky="w")
-        self.model_var = StringVar(value=os.getenv("MODEL_SLUG", MODEL_OPTIONS[0]))
-        OptionMenu(relay_tab, self.model_var, *MODEL_OPTIONS).grid(row=1, column=1, sticky="we")
+        Label(relay_tab, text="Relay Endpoint").grid(row=1, column=0, sticky="w")
+        self.url_var = StringVar(value=os.getenv("RELAY_URL", "http://localhost:5000/relay"))
+        Entry(relay_tab, textvariable=self.url_var, width=40).grid(row=1, column=1, sticky="we")
 
-        Label(relay_tab, text="System Prompt").grid(row=2, column=0, sticky="nw")
+        Label(relay_tab, text="Model").grid(row=2, column=0, sticky="w")
+        self.model_var = StringVar(value=os.getenv("MODEL_SLUG", MODEL_OPTIONS[0]))
+        OptionMenu(relay_tab, self.model_var, *MODEL_OPTIONS).grid(row=2, column=1, sticky="we")
+
+        Label(relay_tab, text="Emotion").grid(row=3, column=0, sticky="w")
+        self.emotion_var = StringVar(value=EMOTION_CHOICES[0])
+        OptionMenu(relay_tab, self.emotion_var, *EMOTION_CHOICES).grid(row=3, column=1, sticky="we")
+
+        Label(relay_tab, text="System Prompt").grid(row=4, column=0, sticky="nw")
         self.prompt_txt = Text(relay_tab, height=4, width=50)
-        self.prompt_txt.grid(row=2, column=1, sticky="we")
+        self.prompt_txt.grid(row=4, column=1, sticky="we")
         self.prompt_txt.insert("1.0", os.getenv("SYSTEM_PROMPT", ""))
 
-        Button(relay_tab, text="Save", command=self.save).grid(row=3, column=0, pady=4)
+        self.prompt_entry = Text(relay_tab, height=2, width=50)
+        self.prompt_entry.grid(row=5, column=1, sticky="we")
+        Label(relay_tab, text="Test Prompt").grid(row=5, column=0, sticky="nw")
+        Button(relay_tab, text="Send", command=self.send_test).grid(row=5, column=2, padx=2)
+
+        Button(relay_tab, text="Save", command=self.save).grid(row=6, column=0, pady=4)
         self.start_btn = Button(relay_tab, text="Start Relay", command=self.start_relay)
-        self.start_btn.grid(row=3, column=1, sticky="w", pady=4)
+        self.start_btn.grid(row=6, column=1, sticky="w", pady=4)
         self.stop_btn = Button(relay_tab, text="Stop Relay", command=self.stop_relay, state="disabled")
-        self.stop_btn.grid(row=3, column=1, sticky="e", pady=4)
+        self.stop_btn.grid(row=6, column=1, sticky="e", pady=4)
+        Button(relay_tab, text="Edit .env", command=self.edit_env).grid(row=6, column=2, padx=2)
+        Button(relay_tab, text="Regenerate Config", command=self.sync_env).grid(row=7, column=0, columnspan=2, sticky="we")
+        Button(relay_tab, text="Export Logs", command=self.export_logs).grid(row=7, column=2, padx=2)
 
         console = Frame(relay_tab)
-        console.grid(row=4, column=0, columnspan=2, sticky="nsew")
+        console.grid(row=8, column=0, columnspan=3, sticky="nsew")
         self.output = Text(console, height=12, state="disabled")
         self.output.pack(side="left", fill="both", expand=True)
         sb = Scrollbar(console, command=self.output.yview)
@@ -83,7 +126,7 @@ class RelayGUI:
         self.output.config(yscrollcommand=sb.set)
 
         relay_tab.grid_columnconfigure(1, weight=1)
-        relay_tab.grid_rowconfigure(4, weight=1)
+        relay_tab.grid_rowconfigure(8, weight=1)
 
         # parliament tab widgets
         self.selector = ModelSelector(MODEL_OPTIONS)
@@ -126,17 +169,60 @@ class RelayGUI:
         asyncio.run(parliament_bus.bus.publish(data))
         self.log("Parliament request sent.")
 
+    def send_test(self) -> None:
+        prompt = self.prompt_entry.get("1.0", END).strip()
+        ok, msg = validate_settings(self.model_var.get(), self.key_var.get(), self.url_var.get())
+        if not ok:
+            messagebox.showerror("Invalid settings", msg)
+            return
+        try:
+            import model_bridge
+
+            result = model_bridge.send_message(prompt, emotion=self.emotion_var.get(), emit=False)
+            self.log("Response: " + result.get("response", ""))
+        except Exception as e:  # pragma: no cover - runtime issues
+            self.log(f"Error: {e}")
+
     def log(self, msg: str) -> None:
         self.output.configure(state="normal")
         self.output.insert(END, msg + "\n")
         self.output.see(END)
         self.output.configure(state="disabled")
 
+    def edit_env(self) -> None:  # pragma: no cover - interactive
+        editor = os.getenv("EDITOR", "nano")
+        subprocess.Popen([editor, str(ENV_PATH)])
+
+    def sync_env(self) -> None:
+        try:
+            subprocess.run(["python", "scripts/env_sync_autofill.py"], check=True)
+            self.log("Config regenerated")
+        except Exception as e:
+            self.log(f"Config generation failed: {e}")
+
+    def export_logs(self) -> None:
+        import zipfile
+
+        dest = Path("logs_export.zip")
+        with zipfile.ZipFile(dest, "w") as z:
+            for path in Path("logs").rglob("*"):
+                if path.is_file():
+                    z.write(path)
+            for path in Path(os.getenv("MEMORY_DIR", "logs/memory")).rglob("*"):
+                if path.is_file():
+                    z.write(path)
+        self.log(f"Logs exported to {dest}")
+
     def save(self) -> None:
+        ok, msg = validate_settings(self.model_var.get(), self.key_var.get(), self.url_var.get())
+        if not ok:
+            messagebox.showerror("Invalid settings", msg)
+            return
         env = {
             "OPENAI_API_KEY": self.key_var.get(),
             "MODEL_SLUG": self.model_var.get(),
             "SYSTEM_PROMPT": self.prompt_txt.get("1.0", END).strip(),
+            "RELAY_URL": self.url_var.get(),
         }
         lines = []
         if ENV_PATH.exists():
@@ -169,8 +255,17 @@ class RelayGUI:
             stderr=subprocess.STDOUT,
             text=True,
         )
+        if not self.bridge_proc:
+            self.bridge_proc = subprocess.Popen(
+                ["python", "model_bridge.py"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            threading.Thread(target=self._stream_output_bridge, daemon=True).start()
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
+        self.status_lbl.config(text="Relay running")
         threading.Thread(target=self._stream_output, daemon=True).start()
 
     def _stream_output(self) -> None:
@@ -181,11 +276,23 @@ class RelayGUI:
             self.log(line.rstrip())
         self.stop_relay()
 
+    def _stream_output_bridge(self) -> None:
+        assert self.bridge_proc is not None
+        if self.bridge_proc.stdout is None:
+            return
+        for line in self.bridge_proc.stdout:
+            self.log("[bridge] " + line.rstrip())
+
     def stop_relay(self) -> None:
         if self.proc:
             self.proc.terminate()
             self.proc = None
             self.log("Relay stopped.")
+        if self.bridge_proc:
+            self.bridge_proc.terminate()
+            self.bridge_proc = None
+            self.log("Bridge stopped.")
+        self.status_lbl.config(text="Relay stopped")
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
 
