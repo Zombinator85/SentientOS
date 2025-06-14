@@ -1,3 +1,4 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 """Emit dominant emotion over OSC from distilled memory logs."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
