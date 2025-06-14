@@ -23,6 +23,6 @@ jobs:
         env:
           LUMOS_AUTO_APPROVE: '1'
       - name: Run mypy
-        run: mypy sentientos
+        run: mypy --strict
       - name: Run pytest
         run: pytest

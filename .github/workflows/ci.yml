@@ -68,7 +68,7 @@ jobs:
         run: python scripts/wait_for_health.py --url http://localhost:5000/status --max-wait 60
 
       - name: Mypy strict check
-        run: mypy --strict sentientos > MYPY_STATUS.md
+        run: mypy --strict > MYPY_STATUS.md
 
       - name: Pytest with coverage
         run: pytest
