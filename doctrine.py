@@ -1,9 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 from cathedral_const import PUBLIC_LOG, log_json as cathedral_log_json
 from logging_config import get_log_path
 import argparse
@@ -282,6 +279,9 @@ def public_feed(n: int = 5) -> List[Dict[str, Any]]:
 CLI_DESC = "Doctrine management and ritual utilities"
 
 def main() -> None:
+    require_admin_banner()
+    require_lumos_approval()
+
     p = argparse.ArgumentParser(description=CLI_DESC)
     p.add_argument("--watch", action="store_true", help="Watch master files for changes")
     sub = p.add_subparsers(dest="cmd")
