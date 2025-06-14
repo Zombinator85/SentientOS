@@ -329,6 +329,27 @@ available. `.env` and `logs/` are created automatically.
 python cathedral_launcher.py
 ```
 
+### GUI Launch
+Start the relay with a small Tkinter interface:
+
+```bash
+python cathedral_gui.py
+```
+
+Use the GUI to edit `.env`, pick a model, and watch console output.
+
+Supported model slugs:
+
+- `openai/gpt-4o`
+- `huggingface/mixtral`
+- `local/<path>`
+
+Each response is recorded in `logs/model_bridge_log.jsonl`:
+
+```json
+{"timestamp": "2026-01-01T00:00:00Z", "event_type": "response", "model": "openai/gpt-4o", "emotion": "reverent_attention", "prompt": "hi", "response": "hello", "latency": 0.4}
+```
+
 If your hardware cannot host Mixtral, the launcher sets `MIXTRAL_CLOUD_ONLY=1`
 in `.env` and uses cloud inference. It launches `ollama serve`,
 `sentientos_relay.py` (or `relay_app.py`), optional bridges, and then opens the
