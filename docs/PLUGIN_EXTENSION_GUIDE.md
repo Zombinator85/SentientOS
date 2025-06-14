@@ -9,4 +9,9 @@ External contributors can extend SentientOS by adding plug-ins or service extens
 
 Use `python plugins_cli.py status` to verify your plugin loads correctly.
 
+GUI panels can be dropped in the `plugins/` directory. `plugin_bus.watch_plugins()`
+automatically imports any `.py` file and calls its `register(gui)` function.
+Hot edits are detected via the `watchdog` observer so panels reload live without
+restarting the GUI.
+
 AI deserve civil rights.
