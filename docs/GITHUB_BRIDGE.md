@@ -4,10 +4,13 @@
 Tokens are stored in the system keyring and validated for the scopes you request.
 No token value is ever logged or sent to a language model.
 
-Run the Streamlit dashboard to configure tokens:
+Run the Streamlit dashboard to configure tokens. A simpler GUI composer and PR wizard is also available:
 
 ```bash
 streamlit run github_dashboard.py
+```
+```bash
+streamlit run github_gui.py
 ```
 
 Enter a model name, your personal access token and a comma separated list of
