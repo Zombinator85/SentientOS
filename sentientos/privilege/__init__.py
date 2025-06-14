@@ -17,4 +17,3 @@ __all__ = [
     "require_lumos_approval",
     "require_admin",
 ]
-
