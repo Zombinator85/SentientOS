@@ -1,4 +1,10 @@
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
+
 import os
 import shutil
 from pathlib import Path
@@ -6,8 +12,13 @@ from typing import Dict, List
 import orchestrator
 import sentient_banner as sb
 
+# Profiles live under this directory. Each profile contains a `.env`, `memory/`,
+# and `config.yaml` file.
 PROFILES_DIR = Path('profiles')
 CURRENT_FILE = PROFILES_DIR / '.current'
+# Mirror of `.current` persisted in the user's home directory so the last
+# profile is remembered across runs.
+HOME_CURRENT = Path.home() / '.sentientos_profile'
 TEMPLATE_DIR = PROFILES_DIR / 'template'
 
 
@@ -17,14 +28,21 @@ def list_profiles() -> List[str]:
 
 
 def get_current_profile() -> str:
-    if CURRENT_FILE.exists():
-        return CURRENT_FILE.read_text().strip() or 'default'
+    for path in (CURRENT_FILE, HOME_CURRENT):
+        if path.exists():
+            name = path.read_text().strip()
+            if name:
+                return name
     names = list_profiles()
     return names[0] if names else 'default'
 
 
 def _write_current(name: str) -> None:
     CURRENT_FILE.write_text(name)
+    try:
+        HOME_CURRENT.write_text(name)
+    except Exception:
+        pass
 
 
 def load_env(profile: str) -> Dict[str, str]:
@@ -75,11 +93,12 @@ def create_profile(name: str) -> Path:
         shutil.copytree(TEMPLATE_DIR, dest)
     else:
         dest.mkdir(parents=True)
-        (dest / 'memory').mkdir(parents=True, exist_ok=True)
-        (dest / '.env').write_text('', encoding='utf-8')
-        (dest / 'config.yaml').write_text('name: ' + name, encoding='utf-8')
-        (dest / 'fallback_emotion.yaml').write_text(
-            'analytical: 0.4\ncurious: 0.6\n',
-            encoding='utf-8',
-        )
+    # Ensure required files exist
+    (dest / 'memory').mkdir(parents=True, exist_ok=True)
+    (dest / '.env').write_text('', encoding='utf-8')
+    (dest / 'config.yaml').write_text('name: ' + name, encoding='utf-8')
+    (dest / 'fallback_emotion.yaml').write_text(
+        'analytical: 0.4\ncurious: 0.6\n',
+        encoding='utf-8',
+    )
     return dest
