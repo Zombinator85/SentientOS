@@ -10,6 +10,8 @@ import networkx as nx
 from flet.canvas import Canvas, Circle, Line
 
 from parliament_bus import ParliamentBus, bus
+from sentientos.parliament_bus import Turn
+from reason_graph import build_graph
 
 
 class ReasoningPanel(ft.UserControl):  # type: ignore[misc]
@@ -50,26 +52,34 @@ class ReasoningPanel(ft.UserControl):  # type: ignore[misc]
         if e.control.value and self.turns:
             self._draw_graph(self.turns[-1])
 
-    def _draw_graph(self, turn: dict[str, Any]) -> None:
-        data = turn.get("graph")
+    def _draw_graph(self, _turn: dict[str, Any]) -> None:
         self.canvas.controls.clear()
-        if not data:
+        # Convert stored turns to ``Turn`` objects for graph building
+        conv = [
+            Turn(
+                speaker=t.get("agent", ""),
+                text=str(t.get("text") or t.get("message") or ""),
+                emotion=t.get("emotion"),
+            )
+            for t in self.turns
+        ]
+        g = build_graph(conv)
+        if g.number_of_nodes() == 0:
             self.canvas.update()
             return
-        g = nx.DiGraph()
-        for node in data.get("nodes", []):
-            g.add_node(node["id"])
-        for edge in data.get("edges", []):
-            g.add_edge(edge["source"], edge["target"])
         pos = nx.spring_layout(g, seed=42)
         w, h = 400, 400
-        for u, v in g.edges():
+        Tooltip = getattr(ft, "Tooltip", None)
+        for u, v, data in g.edges(data=True):
             x1, y1 = pos[u]
             x2, y2 = pos[v]
-            self.canvas.controls.append(Line(w * x1, h * y1, w * x2, h * y2))
+            line = Line(w * x1, h * y1, w * x2, h * y2)
+            tip = f"{data.get('tokens', 0)} tok / {data.get('latency_ms', 0)} ms"
+            self.canvas.controls.append(Tooltip(tip, line) if Tooltip else line)
         for n in g.nodes():
             x, y = pos[n]
-            self.canvas.controls.append(Circle(w * x, h * y, 8))
+            circ = Circle(w * x, h * y, 8)
+            self.canvas.controls.append(Tooltip(str(n), circ) if Tooltip else circ)
         self.canvas.update()
 
     async def _on_export(self, e: ft.ControlEvent) -> None:
