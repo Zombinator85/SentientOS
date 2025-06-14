@@ -1,6 +1,6 @@
 # Environment Variables
 
-SentientOS tools read configuration from `.env`. Copy `.env.example` to `.env` and update the values as needed.
+SentientOS tools read configuration from `.env`. Run `python .env.sync.autofill.py` to seed the file or copy `.env.example` and update the values as needed.
 Every variable shown below also appears in `.env.example` with the same default value.
 The table below explains each variable and its default behavior.
 
