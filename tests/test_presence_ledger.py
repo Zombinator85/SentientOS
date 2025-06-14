@@ -38,6 +38,7 @@ def test_recent_privilege_attempts(tmp_path, monkeypatch):
 def test_log_privilege(tmp_path, monkeypatch):
     path = tmp_path / "user_presence.jsonl"
     monkeypatch.setenv("USER_PRESENCE_LOG", str(path))
+    monkeypatch.setenv("PRESENCE_BRIDGE", "test")
     import importlib
     importlib.reload(pl)
     pl.log_privilege("tester", "Linux", "tool", "success")
@@ -47,6 +48,7 @@ def test_log_privilege(tmp_path, monkeypatch):
     assert info["platform"] == "Linux"
     assert info["tool"] == "tool"
     assert info["status"] == "success"
+    assert info["bridge"] == "test"
 
 
 def test_music_stats(tmp_path, monkeypatch):

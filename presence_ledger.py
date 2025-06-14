@@ -15,6 +15,9 @@ from log_utils import append_json
 LEDGER_PATH: Path = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+# Bridge metadata for presence entries
+BRIDGE_NAME = os.getenv("PRESENCE_BRIDGE", os.getenv("BRIDGE", "cli"))
+
 
 class StatsSummary(TypedDict):
     events: Dict[str, int]
@@ -41,19 +44,20 @@ class RecapData(TypedDict):
     milestones: List[str]
 
 
-def log(user: str, event: str, note: str = "") -> None:
+def log(user: str, event: str, note: str = "", bridge: str | None = None) -> None:
     """Record a general presence event."""
     entry = {
         "time": datetime.utcnow().isoformat(),
         "user": user,
         "event": event,
         "note": note,
+        "bridge": bridge or BRIDGE_NAME,
     }
     append_json(LEDGER_PATH, entry)
 
 
 def log_privilege(
-    user: str, platform: str, tool: str, status: str
+    user: str, platform: str, tool: str, status: str, bridge: str | None = None
 ) -> None:
     """Record a privilege check attempt."""
     entry = {
@@ -63,6 +67,7 @@ def log_privilege(
         "user": user,
         "platform": platform,
         "tool": tool,
+        "bridge": bridge or BRIDGE_NAME,
     }
     append_json(LEDGER_PATH, entry)
 
