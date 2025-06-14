@@ -22,11 +22,15 @@ launch_sentientos.bat
 ```
 
 ### 🛠️ Bundled Launcher
-Build a standalone executable with:
+Create packaged executables for your platform:
 ```bash
-python scripts/package_launcher.py
+# Windows
+python scripts/package_launcher.py --platform windows
+
+# macOS (attempts notarization if APPLE_ID and APPLE_PASSWORD are set)
+python scripts/package_launcher.py --platform mac
 ```
-The binary is placed in `dist/` and runs without a Python install.
+The binaries are placed in `dist/` and run without a Python install.
 
 ### 📡 Endpoints
 | Route   | Purpose                |
