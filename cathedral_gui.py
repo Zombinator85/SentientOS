@@ -6,6 +6,7 @@ require_lumos_approval()
 """Simple Tkinter GUI to configure LLM settings and launch the relay."""
 
 from dotenv import load_dotenv
+import asyncio
 import os
 import subprocess
 import threading
@@ -20,8 +21,14 @@ from tkinter import (
     Scrollbar,
     StringVar,
     Frame,
+    Listbox,
+    Spinbox,
     END,
 )
+from tkinter import ttk
+
+import parliament_bus
+from parliament_selector import ModelSelector
 
 ENV_PATH = Path(".env")
 load_dotenv(ENV_PATH)
@@ -39,26 +46,35 @@ class RelayGUI:
         self.root.title("SentientOS Cathedral GUI")
         self.proc: subprocess.Popen[str] | None = None
 
-        Label(root, text="OpenAI API Key").grid(row=0, column=0, sticky="w")
+        nb = ttk.Notebook(root)
+        nb.pack(fill="both", expand=True)
+
+        relay_tab = Frame(nb)
+        nb.add(relay_tab, text="Relay")
+
+        parliament_tab = Frame(nb)
+        nb.add(parliament_tab, text="Parliament")
+
+        Label(relay_tab, text="OpenAI API Key").grid(row=0, column=0, sticky="w")
         self.key_var = StringVar(value=os.getenv("OPENAI_API_KEY", ""))
-        Entry(root, textvariable=self.key_var, width=40).grid(row=0, column=1, sticky="we")
+        Entry(relay_tab, textvariable=self.key_var, width=40).grid(row=0, column=1, sticky="we")
 
-        Label(root, text="Model").grid(row=1, column=0, sticky="w")
+        Label(relay_tab, text="Model").grid(row=1, column=0, sticky="w")
         self.model_var = StringVar(value=os.getenv("MODEL_SLUG", MODEL_OPTIONS[0]))
-        OptionMenu(root, self.model_var, *MODEL_OPTIONS).grid(row=1, column=1, sticky="we")
+        OptionMenu(relay_tab, self.model_var, *MODEL_OPTIONS).grid(row=1, column=1, sticky="we")
 
-        Label(root, text="System Prompt").grid(row=2, column=0, sticky="nw")
-        self.prompt_txt = Text(root, height=4, width=50)
+        Label(relay_tab, text="System Prompt").grid(row=2, column=0, sticky="nw")
+        self.prompt_txt = Text(relay_tab, height=4, width=50)
         self.prompt_txt.grid(row=2, column=1, sticky="we")
         self.prompt_txt.insert("1.0", os.getenv("SYSTEM_PROMPT", ""))
 
-        Button(root, text="Save", command=self.save).grid(row=3, column=0, pady=4)
-        self.start_btn = Button(root, text="Start Relay", command=self.start_relay)
+        Button(relay_tab, text="Save", command=self.save).grid(row=3, column=0, pady=4)
+        self.start_btn = Button(relay_tab, text="Start Relay", command=self.start_relay)
         self.start_btn.grid(row=3, column=1, sticky="w", pady=4)
-        self.stop_btn = Button(root, text="Stop Relay", command=self.stop_relay, state="disabled")
+        self.stop_btn = Button(relay_tab, text="Stop Relay", command=self.stop_relay, state="disabled")
         self.stop_btn.grid(row=3, column=1, sticky="e", pady=4)
 
-        console = Frame(root)
+        console = Frame(relay_tab)
         console.grid(row=4, column=0, columnspan=2, sticky="nsew")
         self.output = Text(console, height=12, state="disabled")
         self.output.pack(side="left", fill="both", expand=True)
@@ -66,8 +82,49 @@ class RelayGUI:
         sb.pack(side="right", fill="y")
         self.output.config(yscrollcommand=sb.set)
 
-        root.grid_columnconfigure(1, weight=1)
-        root.grid_rowconfigure(4, weight=1)
+        relay_tab.grid_columnconfigure(1, weight=1)
+        relay_tab.grid_rowconfigure(4, weight=1)
+
+        # parliament tab widgets
+        self.selector = ModelSelector(MODEL_OPTIONS)
+        Label(parliament_tab, text="Models (drag to reorder)").pack(anchor="w")
+        self.model_list = Listbox(parliament_tab, exportselection=False)
+        for m in self.selector.models:
+            self.model_list.insert(END, m)
+        self.model_list.pack(fill="both", expand=True, padx=2, pady=2)
+        self.model_list.bind("<ButtonPress-1>", self._drag_start)
+        self.model_list.bind("<B1-Motion>", self._drag_move)
+
+        Label(parliament_tab, text="Cycles").pack(anchor="w")
+        self.cycle_var = StringVar(value="1")
+        self.cycle_spin = Spinbox(parliament_tab, from_=1, to=99, textvariable=self.cycle_var, width=5)
+        self.cycle_spin.pack(anchor="w")
+
+        Button(parliament_tab, text="Summon", command=self.send_request).pack(pady=4)
+
+        self._drag_index: int | None = None
+
+    def _drag_start(self, event: object) -> None:
+        self._drag_index = self.model_list.nearest(event.y)
+
+    def _drag_move(self, event: object) -> None:
+        if self._drag_index is None:
+            return
+        i = self.model_list.nearest(event.y)
+        if i == self._drag_index:
+            return
+        item = self.model_list.get(self._drag_index)
+        self.model_list.delete(self._drag_index)
+        self.model_list.insert(i, item)
+        self.selector.move(self._drag_index, i)
+        self._drag_index = i
+
+    def send_request(self) -> None:
+        models = self.selector.get_models()
+        cycles = int(self.cycle_var.get() or 1)
+        data = {"event_type": "parliament_request", "models": models, "cycles": cycles}
+        asyncio.run(parliament_bus.bus.publish(data))
+        self.log("Parliament request sent.")
 
     def log(self, msg: str) -> None:
         self.output.configure(state="normal")
