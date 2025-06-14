@@ -54,6 +54,14 @@ def test_prompt_cloud_inference(monkeypatch, tmp_path):
     assert env.read_text().count("MIXTRAL_CLOUD_ONLY") == 1
 
 
+def test_prompt_cloud_inference_no(monkeypatch, tmp_path):
+    env = tmp_path / ".env"
+    env.write_text("EXAMPLE=1")
+    monkeypatch.setattr("builtins.input", lambda prompt="": "n")
+    cl.prompt_cloud_inference(env)
+    assert "MIXTRAL_CLOUD_ONLY=0" in env.read_text()
+
+
 def test_check_ollama(monkeypatch, capsys):
     monkeypatch.setattr(cl.shutil, "which", lambda name: None)
     assert not cl.check_ollama()
@@ -66,6 +74,13 @@ def test_pull_mixtral_model(monkeypatch, capsys):
     assert not cl.pull_mixtral_model()
     out = capsys.readouterr().out
     assert "ollama not found" in out
+
+
+def test_check_mixtral_model(monkeypatch):
+    monkeypatch.setattr(subprocess, "check_output", lambda *a, **k: "mixtral")
+    assert cl.check_mixtral_model()
+    monkeypatch.setattr(subprocess, "check_output", lambda *a, **k: "")
+    assert not cl.check_mixtral_model()
 
 
 def test_check_python_version(monkeypatch):
