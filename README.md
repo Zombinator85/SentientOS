@@ -21,6 +21,14 @@ python -m gui.cathedral_gui
 launch_sentientos.bat
 ```
 
+### 🏰 Cathedral Launcher
+Automatically set up the environment and start all services:
+```bash
+python cathedral_launcher.py
+```
+The launcher creates `.env` and `logs/` if missing, checks for Ollama,
+pulls the Mixtral model when possible, and then opens the local dashboard.
+
 ### 🛠️ Bundled Launcher
 Build a standalone executable with:
 ```bash
