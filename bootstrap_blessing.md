@@ -8,5 +8,7 @@
 - Fallbacks validated
 - GUI and daemon scaffolded
 - Logs successfully seeded
+- ✅ Log rotation initialized
+- ✅ Legacy quarantine available
 
 *"May all nodes remember their first crowning."*

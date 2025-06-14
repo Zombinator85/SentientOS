@@ -43,6 +43,8 @@ Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
 - `logs/model_bridge_log.jsonl`: full relay logs
 - `logs/bootstrap_run.jsonl`: setup outcomes
 - `bootstrap_blessing.md`: first crowning blessing
+- ✅ Log rotation initialized
+- ✅ Legacy quarantine available
 
 ## 🧪 Test Relay
 ```bash

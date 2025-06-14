@@ -34,6 +34,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `LOG_STDOUT` | Mirror connector logs to stdout (`1` to enable, `openai_connector.py`) | `0` |
 | `LOG_COLLECTOR_URL` | Optional URL for posting logs (`openai_connector.py`) | *(none)* |
 | `SENTIENTOS_LOG_DIR` | Base directory for all log files (`logging_config`) | `logs` |
+| `MAX_LOG_SIZE_MB` | Rotate log when size exceeds this many megabytes | `10` |
+| `LOG_ROTATE_WEEKLY` | Rotate logs every seven days if true | `true` |
 | `LUMOS_AUTO_APPROVE` | Set to `1` to automatically bless privileged commands (`admin_utils`) | *(unset)* |
 | `OPENAI_CONNECTOR_LOG` | Path to the connector log file used by `openai_connector.py` | `logs/openai_connector.jsonl` |
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
