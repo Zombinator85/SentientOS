@@ -21,6 +21,13 @@ python -m gui.cathedral_gui
 launch_sentientos.bat
 ```
 
+### 🛠️ Bundled Launcher
+Build a standalone executable with:
+```bash
+python scripts/package_launcher.py
+```
+The binary is placed in `dist/` and runs without a Python install.
+
 ### 📡 Endpoints
 | Route   | Purpose                |
 | ------- | ---------------------- |
