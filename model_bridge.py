@@ -1,3 +1,4 @@
+# Sanctuary privilege ritual must appear before any code or imports
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
@@ -12,10 +13,16 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+_GUI_BUS: Any | None
+try:
+    from parliament_bus import bus as _GUI_BUS
+except Exception:  # pragma: no cover - optional dependency
+    _GUI_BUS = None
 
 try:
-    import openai  # type: ignore
+    import openai
 except Exception:  # pragma: no cover - optional dependency
     openai = None
 
@@ -43,7 +50,26 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
 
         def _call(msgs: List[Dict[str, str]]) -> str:
             resp = openai.ChatCompletion.create(model=model, messages=msgs)
-            return resp.choices[0].message.content  # type: ignore[attr-defined]
+            return str(resp.choices[0].message.content)
+
+    elif provider == "mixtral":
+        import requests
+
+        url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+
+        def _call(msgs: List[Dict[str, str]]) -> str:
+            resp = requests.post(
+                f"{url}/api/chat",
+                json={"model": model, "messages": msgs},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, dict):
+                msg = data.get("message") or data.get("choices", [{}])[0].get("message")
+                if isinstance(msg, dict) and "content" in msg:
+                    return str(msg["content"])
+            return json.dumps(data)
 
     elif provider == "huggingface":
         import requests
@@ -72,11 +98,11 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
                 import importlib.util
 
                 spec = importlib.util.spec_from_file_location("local_model", path)
-                mod = importlib.util.module_from_spec(spec)
-                assert spec.loader is not None
-                spec.loader.exec_module(mod)
-                if hasattr(mod, "generate"):
-                    return str(mod.generate(msgs[-1]["content"]))
+                if spec and spec.loader:
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    if hasattr(mod, "generate"):
+                        return str(mod.generate(msgs[-1]["content"]))
             return "[local] " + msgs[-1]["content"]
 
     _WRAPPER = _call
@@ -96,6 +122,9 @@ def send_message(
     prompt: str,
     history: Optional[List[Dict[str, str]]] | None = None,
     system_prompt: str | None = None,
+    *,
+    emotion: str = "reverent_attention",
+    emit: bool = True,
 ) -> Dict[str, object]:
     """Send ``prompt`` to the active model and return a result dict."""
     wrapper = load_model()
@@ -115,7 +144,24 @@ def send_message(
         "response": response_text,
         "model": _MODEL_SLUG,
         "latency_ms": latency,
-        "emotion": "reverent_attention",
+        "emotion": emotion,
     }
-    _log({"prompt": prompt, **result})
+    entry = {"prompt": prompt, **result}
+    _log(entry)
+
+    if emit and _GUI_BUS is not None:
+        try:
+            import asyncio
+
+            async def _pub() -> None:
+                await _GUI_BUS.publish(entry)
+
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(_pub())
+            except RuntimeError:
+                asyncio.run(_pub())
+        except Exception:
+            pass
+
     return result
