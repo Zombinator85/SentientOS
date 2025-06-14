@@ -62,11 +62,19 @@ def last_model_response() -> str | None:
 
 
 def main() -> None:
-    ok = check_ingest() and check_log() and check_status() and check_sse()
+    checks = {
+        "sse": check_sse(),
+        "ingest": check_ingest(),
+        "status": check_status(),
+    }
+    ok = all(checks.values()) and check_log()
     if ok:
         print("Cathedral boot checks passed")
     else:
-        print("Cathedral boot checks failed")
+        print("Cathedral boot checks failed:")
+        for name, result in checks.items():
+            if not result:
+                print(f" - {name} failed")
     resp = last_model_response()
     if resp:
         print("Last model reply:", resp[:80])
