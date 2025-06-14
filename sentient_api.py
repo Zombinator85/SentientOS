@@ -28,6 +28,8 @@ _last_heartbeat = 0
 
 LOG_PATH = Path(os.getenv("RELAY_LOG", "logs/relay_log.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+if not LOG_PATH.exists():
+    LOG_PATH.touch()
 
 
 @app.post("/ingest")
