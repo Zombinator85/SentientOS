@@ -1,33 +1,37 @@
 @echo off
 setlocal
 chcp 65001 > nul
+title SentientOS Cathedral Launcher
 
 set SCRIPT_DIR=%~dp0
-set LOGFILE=%SCRIPT_DIR%logs\launch_sentientos.log
-if not exist "%SCRIPT_DIR%logs" mkdir "%SCRIPT_DIR%logs"
+cd /d %SCRIPT_DIR%
 
-REM Optional: activate virtualenv
+REM Ensure logs directory exists
+if not exist "%SCRIPT_DIR%logs" mkdir "%SCRIPT_DIR%logs"
+set LOGFILE=%SCRIPT_DIR%logs\launch_sentientos.log
+
+echo ~F Activating virtual environment (if exists)...
 if exist "%SCRIPT_DIR%venv\Scripts\activate.bat" (
     call "%SCRIPT_DIR%venv\Scripts\activate.bat"
 )
 
-REM Optional: install requirements
+REM Optionally install requirements
 if exist "%SCRIPT_DIR%requirements.txt" (
-    pip install -r "%SCRIPT_DIR%requirements.txt"
+    echo ~R Installing dependencies...
+    pip install -r requirements.txt
 )
 
-REM Handle GUI mode unless explicitly skipped
-if "%1"=="--nogui" goto NOGUI
+echo ~@ Starting SentientOS Relay (Flask)...
+start cmd /k python scripts\sentient_api.py
 
-if exist "%SCRIPT_DIR%cathedral_gui.py" (
-    echo [%date% %time%] Starting GUI >> "%LOGFILE%"
-    start "Cathedral GUI" cmd /k python "%SCRIPT_DIR%cathedral_gui.py" >> "%LOGFILE%" 2>&1
-    goto END
-)
+echo ~D Starting Heartbeat (optional)...
+REM Uncomment if you want to start heartbeat daemon:
+REM start cmd /k python scripts\heartbeat_mixtral.py
 
-:NOGUI
-echo [%date% %time%] Starting fallback relay >> "%LOGFILE%"
-start "SentientOS Relay" cmd /k python "%SCRIPT_DIR%sentient_api.py" >> "%LOGFILE%" 2>&1
+echo ~\ Starting Memory Digest Builder (optional)...
+REM Uncomment if you want to stream memory logs into digest:
+REM start cmd /k python scripts\digest_builder.py
 
-:END
-endlocal
+echo ~Y Cathedral boot sequence initiated. All relays glowing.
+pause
+
