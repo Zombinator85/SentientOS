@@ -19,6 +19,8 @@ REQUIRED_KEYS = {
     "SYSTEM_PROMPT": "You are Lumos...",
     "ENABLE_TTS": "true",
     "TTS_ENGINE": "pyttsx3",
+    "MAX_LOG_SIZE_MB": "10",
+    "LOG_ROTATE_WEEKLY": "true",
 }
 
 

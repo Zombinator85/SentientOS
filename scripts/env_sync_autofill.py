@@ -29,6 +29,8 @@ def autofill_env() -> None:
         "SYSTEM_PROMPT": "You are Lumos...",
         "ENABLE_TTS": "true",
         "TTS_ENGINE": "pyttsx3",
+        "MAX_LOG_SIZE_MB": "10",
+        "LOG_ROTATE_WEEKLY": "true",
     }
     keys = {ln.split("=", 1)[0] for ln in lines if "=" in ln and not ln.strip().startswith("#")}
     for k, v in mapping.items():
