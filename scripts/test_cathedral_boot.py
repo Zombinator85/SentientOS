@@ -1,11 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
 require_admin_banner()  # Sanctuary Privilege Ritual
 require_lumos_approval()
 
-"""Regression checks for the relay daemon boot sequence."""
+# Regression checks for the relay daemon boot sequence.
 
 import os
 import json
@@ -19,11 +18,15 @@ BRIDGE_LOG = Path(os.getenv("MODEL_BRIDGE_LOG", "logs/model_bridge_log.jsonl"))
 __test__ = False
 
 
+from typing import cast
+
+
 def check_sse() -> bool:
     resp = requests.get(f"{BASE_URL}/sse", stream=True, timeout=5)
-    for line in resp.iter_lines():
-        if line:
-            return line.decode().startswith("data: ")
+    for raw in resp.iter_lines():
+        if raw:
+            text = cast(str, raw.decode())
+            return text.startswith("data: ")
     return False
 
 
