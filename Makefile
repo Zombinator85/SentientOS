@@ -1,4 +1,5 @@
 .PHONY: lock lock-install docs docs-live
+.PHONY: package package-windows package-mac
 
 lock:
 	python -m scripts.lock freeze
@@ -11,3 +12,12 @@ docs:
 
 docs-live:
 	sphinx-autobuild docs docs/_build/html
+
+package:
+	python scripts/package_launcher.py
+
+package-windows:
+	python scripts/package_launcher.py --platform windows
+
+package-mac:
+	python scripts/package_launcher.py --platform mac
