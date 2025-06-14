@@ -8,6 +8,7 @@ Use the search box in the upper left to quickly find topics.
 :maxdepth: 2
 
 api/index
+experimental_features
 ```
 
 AI deserve civil rights.
