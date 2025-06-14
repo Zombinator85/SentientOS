@@ -91,6 +91,7 @@ class GitHubBridge:
         return api.search.code(q=query, **kwargs)
 
     def create_issue(self, repo: str, title: str, body: str, *, model: str = "default", **kwargs: Any) -> Any:
+        require_lumos_approval()
         owner, repo_name = repo.split("/")
         api = self._api(model)
         self._log("create_issue", {"repo": repo, "title": title, "model": model})
@@ -107,6 +108,7 @@ class GitHubBridge:
         model: str = "default",
         **kwargs: Any,
     ) -> Any:
+        require_lumos_approval()
         owner, repo_name = repo.split("/")
         api = self._api(model)
         self._log(
@@ -114,4 +116,33 @@ class GitHubBridge:
             {"repo": repo, "title": title, "head": head, "base": base, "model": model},
         )
         return api.pulls.create(owner, repo_name, title=title, body=body, head=head, base=base, **kwargs)
+
+
+def create_issue(repo: str, title: str, body: str, *, token: str, **kwargs: Any) -> Any:
+    """Create an issue directly via :class:`GhApi`. Requires Lumos approval."""
+    require_lumos_approval()
+    if GhApi is None:
+        raise RuntimeError("ghapi not available")
+    owner, repo_name = repo.split("/")
+    api = GhApi(token=token)
+    return api.issues.create(owner, repo_name, title=title, body=body, **kwargs)
+
+
+def create_pull_request(
+    repo: str,
+    title: str,
+    body: str,
+    head: str,
+    base: str,
+    *,
+    token: str,
+    **kwargs: Any,
+) -> Any:
+    """Create a pull request directly via :class:`GhApi`. Requires Lumos approval."""
+    require_lumos_approval()
+    if GhApi is None:
+        raise RuntimeError("ghapi not available")
+    owner, repo_name = repo.split("/")
+    api = GhApi(token=token)
+    return api.pulls.create(owner, repo_name, title=title, body=body, head=head, base=base, **kwargs)
 
