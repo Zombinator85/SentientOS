@@ -87,3 +87,19 @@ def test_api_calls(monkeypatch: pytest.MonkeyPatch) -> None:
     bridge.create_pr("o/r", "t", "b", "h", "base")
     kinds = [c[0] for c in dummy.called]
     assert kinds == ["search", "issue", "pr"]
+
+
+def test_standalone_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    dummy = DummyApi()
+    monkeypatch.setitem(sys.modules, "ghapi.all", type("M", (), {"GhApi": lambda token=None: dummy}))
+    reload(gb)
+    gb.create_issue("o/r", "t", "b", token="tok")
+    gb.create_pull_request("o/r", "t", "b", "h", "base", token="tok")
+    assert dummy.called == [
+        ("issue", ("o", "r"), {"title": "t", "body": "b"}),
+        (
+            "pr",
+            ("o", "r"),
+            {"title": "t", "body": "b", "head": "h", "base": "base"},
+        ),
+    ]
