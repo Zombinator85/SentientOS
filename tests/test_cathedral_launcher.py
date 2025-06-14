@@ -88,3 +88,27 @@ def test_log_dir_created(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     path = cl.ensure_log_dir()
     assert path.exists()
+
+
+def test_log_written(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    target = tmp_path / "launcher.log"
+    monkeypatch.setattr(cl, "LOG_PATH", target)
+    cl.log("hello")
+    assert target.read_text().strip() == "hello"
+
+
+def test_ensure_virtualenv(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "prefix", "/usr")
+    monkeypatch.setattr(sys, "base_prefix", "/usr")
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    called = {}
+
+    def fake_create(path, *, with_pip=True):
+        called["path"] = path
+        called["with_pip"] = with_pip
+
+    monkeypatch.setattr(cl.venv, "create", fake_create)
+    cl.ensure_virtualenv()
+    assert called["path"] == tmp_path / ".venv"
