@@ -28,6 +28,7 @@ from tkinter import (
 from tkinter import ttk
 import tkinter.messagebox as messagebox
 from typing import Tuple
+import profile_manager as pm
 
 from urllib.parse import urlparse
 
@@ -73,6 +74,11 @@ class RelayGUI:
 
         self.status_lbl = Label(root, text="Relay stopped")
         self.status_lbl.pack(anchor="w")
+
+        # Profile selection dropdown in the top bar
+        profiles = pm.list_profiles()
+        self.profile_var = StringVar(value=pm.get_current_profile())
+        OptionMenu(root, self.profile_var, *profiles, command=self._on_profile).pack(anchor="e")
 
         nb = ttk.Notebook(root)
         nb.pack(fill="both", expand=True)
@@ -192,6 +198,10 @@ class RelayGUI:
             self.log("Response: " + result.get("response", ""))
         except Exception as e:  # pragma: no cover - runtime issues
             self.log(f"Error: {e}")
+
+    def _on_profile(self, name: str) -> None:
+        pm.switch_profile(name)
+        self.profile_var.set(name)
 
     def log(self, msg: str) -> None:
         self.output.configure(state="normal")
