@@ -37,7 +37,7 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .[dev]
       - name: privilege_lint
-        run: python privilege_lint_cli.py
+        run: python privilege_lint.py
       - name: audit_verify
         run: python verify_audits.py logs/
         env:

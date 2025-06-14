@@ -51,7 +51,7 @@ jobs:
         run: pre-commit run --all-files
 
       - name: Privilege lint
-        run: python privilege_lint_cli.py
+        run: python privilege_lint.py
 
       - name: Verify audits
         run: python verify_audits.py logs/
