@@ -51,7 +51,7 @@ jobs:
         run: pre-commit run --all-files
 
       - name: Privilege lint
-        run: python privilege_lint_cli.py
+        run: python privilege_lint.py
 
       - name: Verify audits
         run: python verify_audits.py logs/
@@ -65,7 +65,7 @@ jobs:
         run: python scripts/wait_for_health.py --url http://localhost:5000/status --max-wait 60
 
       - name: Mypy strict check
-        run: mypy --strict sentientos > MYPY_STATUS.md
+        run: mypy --strict > MYPY_STATUS.md
 
       - name: Pytest with coverage
         run: pytest
