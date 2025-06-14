@@ -17,6 +17,7 @@ LOG_DIR = Path("logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 BOOT_LOG = LOG_DIR / "bootstrap_run.jsonl"
 ENV_LOG = LOG_DIR / "env_autofill_log.jsonl"
+BLESSING_FILE = Path("bootstrap_blessing.md")
 
 
 def warn_version() -> None:
@@ -91,42 +92,69 @@ def autofill_env() -> None:
             f.write(json.dumps(entry) + "\n")
 
 
-def check_files() -> list[str]:
+_STUBS = {
+    "model_bridge.py": """from __future__ import annotations\n\n"
+    "def send_message(prompt: str, history=None):\n    return {\"response\": prompt}\n""",
+    "cathedral_gui.py": """from __future__ import annotations\n\nprint(\"GUI stub active\")\n""",
+}
+
+
+def restore_missing_files() -> list[str]:
     required = [
-        "gui/cathedral_gui.py",
+        "cathedral_gui.py",
         "scripts/test_cathedral_boot.py",
         "model_bridge.py",
         "launch_sentientos.bat",
     ]
-    missing = []
+    created: list[str] = []
     for path in required:
-        if not Path(path).exists():
-            missing.append(path)
-    if missing:
-        print("[bootstrap] Missing files detected:")
-        for m in missing:
-            print(f" - {m}")
-        print("Restore from templates if needed.")
-    return missing
+        p = Path(path)
+        if p.exists():
+            continue
+        stub = _STUBS.get(path)
+        if stub is not None:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(stub, encoding="utf-8")
+            created.append(path)
+            print(f"[bootstrap] Stub created for {path}")
+        else:
+            print(f"[bootstrap] Missing file: {path}")
+            created.append(path)
+    return created
 
 
-def log_result(status: str) -> None:
+def log_result(status: str, notes: list[str]) -> None:
     entry = {
         "event_type": "bootstrap",
         "status": status,
         "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
         "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+        "details": notes,
     }
     with BOOT_LOG.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
+
+
+def write_blessing(notes: list[str]) -> None:
+    timestamp = datetime.datetime.utcnow().isoformat() + "Z"
+    lines = [
+        "## Bootstrap Blessing",
+        "",
+        f"**Timestamp:** {timestamp}",
+        f"**Python:** {sys.version.split()[0]}",
+        "**Summary:**",
+    ]
+    lines.extend(f"- {n}" for n in notes or ["All files present"])
+    BLESSING_FILE.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def main() -> None:  # pragma: no cover - CLI
     warn_version()
     install_requirements()
     autofill_env()
-    check_files()
-    log_result("completed")
+    notes = restore_missing_files()
+    log_result("completed", notes)
+    write_blessing(notes)
     print("Bootstrap completed.")
 
 

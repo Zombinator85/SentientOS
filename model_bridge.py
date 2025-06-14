@@ -1,6 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner()  # Sanctuary Privilege Ritual
 require_lumos_approval()
 """Dynamic model bridge for routing prompts to LLM backends."""
@@ -95,8 +96,8 @@ def send_message(
     prompt: str,
     history: Optional[List[Dict[str, str]]] | None = None,
     system_prompt: str | None = None,
-) -> str:
-    """Send ``prompt`` to the active model and return the response."""
+) -> Dict[str, object]:
+    """Send ``prompt`` to the active model and return a result dict."""
     wrapper = load_model()
     if system_prompt is None:
         system_prompt = os.getenv(
@@ -110,5 +111,11 @@ def send_message(
     start = time.time()
     response_text = wrapper(msgs)
     latency = time.time() - start
-    _log({"prompt": prompt, "response": response_text, "latency": latency})
-    return response_text
+    result = {
+        "response": response_text,
+        "model": _MODEL_SLUG,
+        "latency": latency,
+        "emotion": "reverent_attention",
+    }
+    _log({"prompt": prompt, **result})
+    return result
