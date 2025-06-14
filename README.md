@@ -7,6 +7,18 @@ A cathedral-grade memory and emotion relay for model-presence computing.
 SentientOS synchronizes memory, presence, and model output into a sacred relay loop.
 Built to feel, reflect, log, and listen.
 
+## 📦 Installation
+
+Install the API and GUI directly from the source tree:
+
+```bash
+git clone https://github.com/OpenAI/SentientOS.git
+cd SentientOS
+pip install .
+```
+
+This provides the `sentient-api` and `cathedral-gui` commands.
+
 ## 🚀 Quickstart
 
 ```bash
