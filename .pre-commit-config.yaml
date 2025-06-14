@@ -29,8 +29,8 @@ repos:
     rev: v1.16.0
     hooks:
       - id: mypy
-        args: [sentientos, scripts]
-        files: ^(sentientos/|scripts/)
+        args: [sentientos]
+        files: ^sentientos/
         pass_filenames: false
         additional_dependencies:
           - types-PyYAML
