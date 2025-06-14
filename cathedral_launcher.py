@@ -59,12 +59,13 @@ def check_gpu() -> bool:
 
 
 def prompt_cloud_inference(env_path: Path) -> None:
+    """Ask the user whether to use cloud inference and persist the answer."""
     text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    if "MIXTRAL_CLOUD_ONLY=1" in text:
+    if "MIXTRAL_CLOUD_ONLY=" in text:
         return
     resp = input("GPU not detected. Use cloud inference? [y/N] ")
-    if resp.strip().lower() in {"y", "yes"}:
-        enable_cloud_only(env_path)
+    use_cloud = resp.strip().lower() in {"y", "yes"}
+    set_cloud_preference(env_path, use_cloud)
 
 
 def check_python_version() -> bool:
@@ -115,26 +116,7 @@ def ensure_log_dir() -> Path:
     return path
 
 
-def check_gpu() -> bool:
-    """Return True if a GPU is available via torch."""
-    try:
-        import torch  # type: ignore[import-untyped]
-        has = torch.cuda.is_available()
-        log(f"gpu_available={has}")
-        return bool(has)
-    except Exception as exc:
-        log(f"gpu_check_failed: {exc}")
-        return False
 
-
-def prompt_cloud_inference(env_path: Path) -> None:
-    """Prompt user to enable cloud inference if no GPU is found."""
-    text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    if "MIXTRAL_CLOUD_ONLY=1" in text:
-        return
-    resp = input("GPU not detected. Use cloud inference? [y/N] ")
-    if resp.strip().lower() in {"y", "yes"}:
-        enable_cloud_only(env_path)
 
 def check_ollama() -> bool:
     if shutil.which("ollama") is not None:
@@ -172,20 +154,37 @@ def pull_mixtral_model() -> bool:
     return False
 
 
-def enable_cloud_only(env_path: Path) -> None:
+def check_mixtral_model() -> bool:
+    """Return True if the mixtral model exists for Ollama."""
+    try:
+        out = subprocess.check_output(["ollama", "list"], text=True)
+        return "mixtral" in out.lower()
+    except FileNotFoundError:
+        log("mixtral check failed: ollama missing")
+    except Exception as exc:  # pragma: no cover - unexpected
+        log(f"mixtral check failed: {exc}")
+    return False
+
+
+def set_cloud_preference(env_path: Path, use_cloud: bool) -> None:
+    """Write MIXTRAL_CLOUD_ONLY to ``env_path``."""
     lines: list[str] = []
     if env_path.exists():
         lines = env_path.read_text(encoding="utf-8").splitlines()
     updated = False
     for i, line in enumerate(lines):
         if line.startswith("MIXTRAL_CLOUD_ONLY"):
-            lines[i] = "MIXTRAL_CLOUD_ONLY=1"
+            lines[i] = f"MIXTRAL_CLOUD_ONLY={'1' if use_cloud else '0'}"
             updated = True
             break
     if not updated:
-        lines.append("MIXTRAL_CLOUD_ONLY=1")
+        lines.append(f"MIXTRAL_CLOUD_ONLY={'1' if use_cloud else '0'}")
     env_path.write_text("\n".join(lines))
-    log("Enabled Mixtral cloud-only mode")
+    log("Mixtral cloud-only mode " + ("enabled" if use_cloud else "disabled"))
+
+
+def enable_cloud_only(env_path: Path) -> None:
+    set_cloud_preference(env_path, True)
 
 
 def launch_background(
@@ -229,23 +228,25 @@ def main(argv: Optional[list[str]] | None = None) -> int:
         print(f"Dependency installation failed: {exc}")
         log("pip install failed")
 
-    if not check_gpu():
+    gpu_ok = check_gpu()
+    if not gpu_ok:
         prompt_cloud_inference(env_path)
 
     if not check_ollama():
         install_ollama()
 
     ollama_ok = check_ollama()
-    if ollama_ok and check_gpu():
-        if not pull_mixtral_model():
-            enable_cloud_only(env_path)
+    if ollama_ok and gpu_ok:
+        if not check_mixtral_model() and not pull_mixtral_model():
+            set_cloud_preference(env_path, True)
             print("Using Mixtral cloud-only mode")
     else:
-        enable_cloud_only(env_path)
+        set_cloud_preference(env_path, True)
         if not ollama_ok:
             log("Ollama unavailable")
 
-    launch_background(["ollama", "serve"])
+    if ollama_ok:
+        launch_background(["ollama", "serve"])
 
     relay_script = Path("sentientos_relay.py")
     if not relay_script.exists():
