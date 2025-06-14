@@ -81,6 +81,14 @@ Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
 python scripts/test_cathedral_boot.py
 ```
 
+## 🏛️ Parliament Demo
+Run a short headless demonstration and record it as an MP4:
+
+```bash
+SENTIENTOS_HEADLESS=1 python scripts/demo_parliament.py
+```
+The output file is stored in the `demos/` directory.
+
 ### 🕯️ Blessing Example
 ```json
 {

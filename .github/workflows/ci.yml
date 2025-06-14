@@ -70,6 +70,24 @@ jobs:
       - name: Pytest with coverage
         run: pytest
 
+      - name: Run parliament demo
+        run: |
+          mkdir -p demos
+          SENTIENTOS_HEADLESS=1 python scripts/demo_parliament.py
+          ls -t demos/*.mp4 | tail -n +4 | xargs -r rm --
+
+      - name: Upload demos
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo
+          path: demos/*.mp4
+
+      - name: Remove old demo artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api repos/${{ github.repository }}/actions/artifacts --paginate -q '.artifacts | sort_by(.created_at) | reverse | map(select(.name=="demo")) | .[3:] | .[].id' | xargs -r -I{} gh api repos/${{ github.repository }}/actions/artifacts/{} -X DELETE
+
   docs:
     runs-on: ubuntu-latest
     steps:
