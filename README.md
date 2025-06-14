@@ -29,6 +29,7 @@ launch_sentientos.bat
 | `/status` | Uptime + log summary  |
 
 ### 🔧 Environment (.env)
+Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
 | Key             | Example                 |
 | --------------- | ----------------------- |
 | OPENAI_API_KEY  | sk-...                  |

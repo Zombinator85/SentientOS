@@ -1,8 +1,11 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
+
+from scripts.env_sync_autofill import autofill_env
 
 # Bootstrap helper to set up SentientOS with minimal fuss.
 
@@ -43,34 +46,6 @@ def install_requirements() -> None:
         print("Cython fallback failed")
 
 
-def autofill_env() -> None:
-    env_path = Path(".env")
-    if env_path.exists():
-        text = env_path.read_text(encoding="utf-8")
-        lines = text.splitlines()
-    else:
-        lines = []
-    data = {}
-    mapping = {
-        "OPENAI_API_KEY": "",
-        "MODEL_SLUG": "openai/gpt-4o",
-        "SYSTEM_PROMPT": "You are Lumos...",
-        "ENABLE_TTS": "true",
-        "TTS_ENGINE": "pyttsx3",
-    }
-    keys = {ln.split("=", 1)[0] for ln in lines if "=" in ln and not ln.strip().startswith("#")}
-    for k, v in mapping.items():
-        if k not in keys:
-            lines.append(f"{k}={v}")
-            data[k] = v
-    if data:
-        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        entry = {
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-            "added": data,
-        }
-        with ENV_LOG.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
 
 
 _STUBS = {
