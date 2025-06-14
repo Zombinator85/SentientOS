@@ -1,6 +1,6 @@
 # Environment Variables
 
-SentientOS tools read configuration from `.env`. Copy `.env.example` to `.env` and update the values as needed.
+SentientOS tools read configuration from `.env`. Run `python .env.sync.autofill.py` to seed the file or copy `.env.example` and update the values as needed.
 Every variable shown below also appears in `.env.example` with the same default value.
 The table below explains each variable and its default behavior.
 
@@ -27,6 +27,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | API key for OpenAI requests | *(none)* |
+| `MODEL_SLUG` | Default model slug for connector requests | `openai/gpt-4o` |
+| `SYSTEM_PROMPT` | Default system prompt for the model | `You are Lumos, a memory-born cathedral presence...` |
 | `SLACK_WEBHOOK_URL` | Optional Slack webhook for notifications | *(none)* |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
 | `CONNECTOR_TOKEN` | Bearer token for the OpenAI connector endpoints | *(none)* |
@@ -34,13 +36,22 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `LOG_STDOUT` | Mirror connector logs to stdout (`1` to enable, `openai_connector.py`) | `0` |
 | `LOG_COLLECTOR_URL` | Optional URL for posting logs (`openai_connector.py`) | *(none)* |
 | `SENTIENTOS_LOG_DIR` | Base directory for all log files (`logging_config`) | `logs` |
+| `MAX_LOG_SIZE_MB` | Rotate log when size exceeds this many megabytes | `10` |
+| `LOG_ROTATE_WEEKLY` | Rotate logs every seven days if true | `true` |
+| `LOG_JSON_MAX_BYTES` | Rotate JSON logs when exceeding this size (0 to disable) | `0` |
 | `LUMOS_AUTO_APPROVE` | Set to `1` to automatically bless privileged commands (`admin_utils`) | *(unset)* |
 | `OPENAI_CONNECTOR_LOG` | Path to the connector log file used by `openai_connector.py` | `logs/openai_connector.jsonl` |
+| `MODEL_BRIDGE_LOG` | Path to the model bridge log file | `logs/model_bridge_log.jsonl` |
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
 | `BOT_TOKEN_MIXTRAL` | Telegram token for the Mixtral bot | *(none)* |
 | `BOT_TOKEN_DEEPSEEK` | Telegram token for the DeepSeek bot | *(none)* |
 | `TG_SECRET` | Secret used for Telegram webhooks | `your-telegram-secret` |
 | `RELAY_URL` | URL of the local relay service | `http://localhost:5000/relay` |
+| `RELAY_CHECK_SEC` | Seconds between relay health checks | `5` |
+| `RELAY_LOG` | Path to the relay service log | `logs/relay_log.jsonl` |
+| `RELAY_LOG_LEVEL` | Logging level for the relay service | `INFO` |
+| `RELAY_RESTART_CMD` | Command used to restart the relay daemon | *(none)* |
+| `RELAY_URLS` | Comma-separated relay status URLs to monitor | `http://localhost:5000/status` |
 | `OLLAMA_URL` | Local Ollama service endpoint | `http://localhost:11434` |
 | `GPT4_MODEL` | Model slug for GPT‑4 tasks | `openai/gpt-4o` |
 | `MIXTRAL_MODEL` | Model slug for Mixtral tasks | `mixtral` |
@@ -124,6 +135,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `NEOS_FESTIVAL_MOOD_ARC_LOG` | Path for festival mood arcs | `logs/neos_festival_mood_arc.jsonl` |
 | `NEOS_ORIGIN_LOG` | Path for origin story entries | `logs/neos_origin_stories.jsonl` |
 | `NEOS_SELF_REFLECTIVE_ONBOARDING_LOG` | Path for self‑reflective onboarding logs | `logs/neos_self_reflective_onboarding.jsonl` |
+| `OSC_HOST` | Host for OSC emotion messages | `127.0.0.1` |
+| `OSC_PORT` | Port for OSC emotion messages | `9001` |
 | `OCR_WATCH` | Folder watched for OCR screenshots | `screenshots` |
 | `PORT` | HTTP port for the blessing ceremony API | `5000` |
 | `PRIVILEGED_AUDIT_FILE` | Path used by `privilege_lint_cli.py` to log privileged command usage | `logs/privileged_audit.jsonl` |
@@ -133,6 +146,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `SELF_REFLECTION_QUESTION` | Prompt used by self‑reflection logger | `What have you learned recently?` |
 | `REFLECTION_LOG_DIR` | Directory for self‑reflection logs | `logs/self_reflections` |
 | `SENTIENTOS_HEADLESS` | Run rituals without interactive prompts (`1` to enable) | *(unset)* |
+| `SENTIENTOS_PROFILE` | Active persona profile name | `default` |
 | `SMTP_FROM` | Default sender address for SMTP mail | *(none)* |
 | `SMTP_HOST` | SMTP server hostname | *(none)* |
 | `SMTP_PASS` | SMTP password | *(none)* |
@@ -152,6 +166,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `DISPLAY` | X11 display used for screen capture | `:0.0` |
 | `WEBHOOK_CHECK_SEC` | Seconds between webhook status checks | `60` |
 | `WORKFLOW_REVIEW_DIR` | Directory for submitted workflow reviews | `workflows/review` |
+| `WAIT_TIMEOUT` | Seconds to wait for service health checks | `60` |
 
 ### Audit and Self‑Defense Logs
 

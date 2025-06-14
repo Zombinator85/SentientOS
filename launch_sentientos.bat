@@ -1,23 +1,37 @@
 @echo off
-chcp 65001 >nul
+setlocal
+chcp 65001 > nul
 title SentientOS Cathedral Launcher
-cd /d %~dp0
 
-echo 🔆 Activating virtual environment (if exists)...
-if exist venv (
-    call venv\Scripts\activate.bat
+set SCRIPT_DIR=%~dp0
+cd /d %SCRIPT_DIR%
+
+REM Ensure logs directory exists
+if not exist "%SCRIPT_DIR%logs" mkdir "%SCRIPT_DIR%logs"
+set LOGFILE=%SCRIPT_DIR%logs\launch_sentientos.log
+
+echo ~F Activating virtual environment (if exists)...
+if exist "%SCRIPT_DIR%venv\Scripts\activate.bat" (
+    call "%SCRIPT_DIR%venv\Scripts\activate.bat"
 )
 
-echo 🚀 Starting SentientOS Relay (Flask)...
+REM Optionally install requirements
+if exist "%SCRIPT_DIR%requirements.txt" (
+    echo ~R Installing dependencies...
+    pip install -r requirements.txt
+)
+
+echo ~@ Starting SentientOS Relay (Flask)...
 start cmd /k python scripts\sentient_api.py
 
-echo 🔄 Starting Heartbeat (optional)...
+echo ~D Starting Heartbeat (optional)...
 REM Uncomment if you want to start heartbeat daemon:
 REM start cmd /k python scripts\heartbeat_mixtral.py
 
-echo 📜 Starting Memory Digest Builder (optional)...
+echo ~\ Starting Memory Digest Builder (optional)...
 REM Uncomment if you want to stream memory logs into digest:
 REM start cmd /k python scripts\digest_builder.py
 
-echo 💙 Cathedral boot sequence initiated. All relays glowing.
+echo ~Y Cathedral boot sequence initiated. All relays glowing.
 pause
+
