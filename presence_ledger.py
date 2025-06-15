@@ -14,6 +14,8 @@ from log_utils import append_json
 
 LEDGER_PATH: Path = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
 LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
+PRESENCE_LOG: Path = get_log_path("presence_log.jsonl", "PRESENCE_LOG")
+PRESENCE_LOG.parent.mkdir(parents=True, exist_ok=True)
 
 # Bridge metadata for presence entries
 BRIDGE_NAME = os.getenv("PRESENCE_BRIDGE", os.getenv("BRIDGE", "cli"))
@@ -54,6 +56,7 @@ def log(user: str, event: str, note: str = "", bridge: str | None = None) -> Non
         "bridge": bridge or BRIDGE_NAME,
     }
     append_json(LEDGER_PATH, entry)
+    append_json(PRESENCE_LOG, entry)
 
 
 def log_privilege(
@@ -70,6 +73,7 @@ def log_privilege(
         "bridge": bridge or BRIDGE_NAME,
     }
     append_json(LEDGER_PATH, entry)
+    append_json(PRESENCE_LOG, entry)
 
 
 def history(user: str, limit: int = 20) -> List[Dict[str, str]]:

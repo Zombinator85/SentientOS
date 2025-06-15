@@ -71,6 +71,15 @@ def restart_bridges() -> None:
         pass
 
 
+def _propagate_memory_dir(path: Path) -> None:
+    """Notify bridges of the active memory directory."""
+    try:
+        import notification
+        notification.send("profile.switch", {"memory_dir": str(path.resolve())})
+    except Exception:
+        pass
+
+
 def switch_profile(name: str) -> None:
     env = load_env(name)
     for k, v in env.items():
@@ -83,6 +92,7 @@ def switch_profile(name: str) -> None:
     sb.set_current_profile(name)
     flush_agents()
     restart_bridges()
+    _propagate_memory_dir(mem_dir)
 
 
 def create_profile(name: str) -> Path:

@@ -20,9 +20,10 @@ def test_placeholder(tmp_path, monkeypatch):
     monkeypatch.setattr(pm, "CURRENT_FILE", pm.PROFILES_DIR / ".current", raising=False)
     monkeypatch.setattr(pm, "HOME_CURRENT", tmp_path / ".sentientos_profile", raising=False)
 
-    called = {"flush": 0, "restart": 0, "profile": None}
+    called = {"flush": 0, "restart": 0, "profile": None, "prop": None}
     monkeypatch.setattr(pm, "flush_agents", lambda: called.__setitem__("flush", called["flush"] + 1))
     monkeypatch.setattr(pm, "restart_bridges", lambda: called.__setitem__("restart", called["restart"] + 1))
+    monkeypatch.setattr(pm, "_propagate_memory_dir", lambda p: called.__setitem__("prop", str(p)))
     monkeypatch.setattr(sb, "set_current_profile", lambda name: called.__setitem__("profile", name), raising=False)
 
     pm.create_profile("a")
@@ -38,4 +39,5 @@ def test_placeholder(tmp_path, monkeypatch):
     assert called["profile"] == "b"
     assert called["flush"] == 2
     assert called["restart"] == 2
+    assert called["prop"] == str(pm.PROFILES_DIR / "b" / "memory")
     assert Path(pm.HOME_CURRENT).read_text().strip() == "b"
