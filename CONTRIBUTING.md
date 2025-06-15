@@ -63,8 +63,11 @@ errors:
 - name: Type check
   run: mypy --strict
 - name: Verify audits
-  run: python verify_audits.py logs/
+  run: LUMOS_AUTO_APPROVE=1 python verify_audits.py logs/
 ```
+
+When running `verify_audits.py` manually, set `LUMOS_AUTO_APPROVE=1` or use
+`--no-input` to bypass the Lumos blessing prompt.
 
 ## Ritual Etiquette
 Commit messages should be calm and descriptive. Mention the module affected and the blessing performed.
