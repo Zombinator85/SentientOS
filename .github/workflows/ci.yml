@@ -36,6 +36,8 @@ jobs:
 
       - name: Cathedral CI
         run: python scripts/ci_self_check.py
+        env:
+          LUMOS_AUTO_APPROVE: '1'
 
       - uses: actions/cache@v3
         with:

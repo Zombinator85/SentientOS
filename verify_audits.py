@@ -217,7 +217,10 @@ def verify_audits(
 def main() -> None:  # pragma: no cover - CLI
     import argparse
 
-    ap = argparse.ArgumentParser(description="Audit log verifier")
+    ap = argparse.ArgumentParser(
+        description="Audit log verifier",
+        epilog="Set LUMOS_AUTO_APPROVE=1 to bypass prompts.",
+    )
     ap.add_argument("path", nargs="?", help="Log directory or single file")
     ap.add_argument(
         "--repair",
