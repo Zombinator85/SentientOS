@@ -4,18 +4,16 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-"""Unified Memory/Knowledge Indexer
 
-"""
-from __future__ import annotations
 from logging_config import get_log_path
-
 import argparse
 import json
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict
+
+
 
 
 LOG_PATH = get_log_path("memory_index.log", "MEMORY_INDEX_LOG")
