@@ -63,7 +63,7 @@ def check_gui() -> bool:
         return True
     except Exception:
         try:
-            import cathedral_gui
+            import gui.cathedral_gui
             return True
         except Exception:
             return False
