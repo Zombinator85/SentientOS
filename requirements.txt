@@ -23,6 +23,6 @@ requests>=2.31,<3
 sounddevice>=0.4,<1
 SpeechRecognition>=3,<4
 streamlit>=1,<2
-TTS>=0.14,<1
+# TTS>=0.14,<1  # Coqui TTS requires Python <3.12
 types-requests>=2.32
 watchdog>=2,<3
