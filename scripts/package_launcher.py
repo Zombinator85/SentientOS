@@ -119,7 +119,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Bundle cathedral launcher")
     parser.add_argument(
         "--platform",
-        choices=["auto", "windows", "mac"],
+        choices=["auto", "windows", "mac", "linux"],
         default="auto",
         help="Target platform",
     )
