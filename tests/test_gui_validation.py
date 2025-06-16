@@ -3,7 +3,7 @@ import types
 
 sys.modules.setdefault('dotenv', types.SimpleNamespace(load_dotenv=lambda *a, **k: None))
 
-from cathedral_gui import validate_settings, MODEL_OPTIONS
+from gui.cathedral_gui import validate_settings, MODEL_OPTIONS
 
 def test_openai_requires_key():
     ok, msg = validate_settings("openai/gpt-4o", "", "http://x")
