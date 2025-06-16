@@ -15,7 +15,7 @@ import platform
 import sys
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     import presence_ledger as pl_module
@@ -76,8 +76,10 @@ def is_admin() -> bool:
             return bool(windll.shell32.IsUserAnAdmin())
         except Exception:
             return False
-    else:
-        return os.geteuid() == 0
+    geteuid: Callable[[], int] | None = getattr(os, "geteuid", None)
+    if geteuid is not None:
+        return geteuid() == 0
+    return False
 
 
 def require_admin_banner() -> None:
