@@ -8,7 +8,7 @@ require_lumos_approval()
 import types
 import importlib
 
-import cathedral_gui as cg
+import gui.cathedral_gui as cg
 import profile_manager as pm
 
 

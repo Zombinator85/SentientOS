@@ -91,7 +91,7 @@ where = ["."]
 include = ["sentientos", "api", "gui"]
 
 [tool.setuptools]
-py-modules = ["sentient_api", "cathedral_gui"]
+py-modules = ["sentient_api"]
 
 [tool.mypy]
 python_version = "3.11"
