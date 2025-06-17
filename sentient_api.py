@@ -127,6 +127,13 @@ def epu_state() -> object:
     return jsonify(_state.state())
 
 
+def start_cathedral() -> None:
+    """Launch the relay API server."""
+    port = int(os.getenv("PORT", "5000"))
+    print(f"~@ SentientOS now listening on port {port}.")
+    app.run(host="0.0.0.0", port=port)
+
+
 if __name__ == "__main__":  # pragma: no cover - manual
     import argparse
 
@@ -145,8 +152,6 @@ if __name__ == "__main__":  # pragma: no cover - manual
             f.write(f"[{ts}] Debug mode enabled.\n")
 
     if blessing_prompt():
-        port = int(os.getenv("PORT", "5000"))
-        print(f"~@ SentientOS now listening on port {port}.")
-        app.run(host="0.0.0.0", port=port)
+        start_cathedral()
     else:
         raise SystemExit("Lumos did not approve this action.")
