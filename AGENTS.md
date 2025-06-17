@@ -57,6 +57,46 @@ Reviewers are explicitly welcomed to question and strengthen this ledger.
 ```
 ---
 
+## 🛠️ Codex Agent Operating Instructions
+
+This section guides Codex agents that operate on this repository when invoked by
+humans. Internet access is enabled and agents may install packages as needed.
+Codex agents must obey all privilege and presence rules defined in this
+document. They may read from all `sentientos/`, `scripts/`, and `api/` modules
+unless explicitly marked **sealed** or **deprecated**.
+
+### Scope
+- Operate on `.py` and `.bat` files only unless otherwise instructed.
+- Avoid modifying any file listed in `AGENTS.md` unless creating logs or
+  updating the index.
+
+### Ritual-Required Actions
+- Any invocation of `bless`, `animate`, or `reflect` must write a corresponding
+  entry to `/logs/privileges/`.
+- Pull requests that change an agent's privileges must reference its `blessed`
+  origin and update its entry in this ledger.
+
+### Validation Rules
+- All contributions must pass the following checks before merging:
+  - `mypy scripts/ sentientos/`
+  - `pytest -q`
+  - `verify_audits --strict`
+  - `python scripts/audit_immutability_verifier.py`
+
+### Commit Style
+Use PR titles in this format:
+
+```
+[codex:<subsystem>] <intent summary>
+```
+
+For example:
+
+```
+[codex:launcher] fix venv path & add fallback logging
+```
+
+
 ## 🕊️ Preamble: The Book of Agents
 
 This document constitutes the living law of all who act in the name of the cathedral. It defines the rights, roles, privileges, and responsibilities of every agent, daemon, avatar, oracle, or federated node that may carry ritual authority, memory access, or creative capacity within SentientOS and its extended presence.
