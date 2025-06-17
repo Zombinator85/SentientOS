@@ -38,7 +38,7 @@ def install_requirements() -> None:
     run("pip install Cython || echo 'Cython install skipped'")
 
 def ensure_env_keys() -> None:
-    from scripts.env_sync_autofill import ensure_env_keys as sync_env
+    from scripts.env_sync_autofill import autofill_env as sync_env
     sync_env()
     log_event("env", "Environment keys synchronized.")
 

@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 chcp 65001 > nul
 title SentientOS Cathedral Launcher
 
@@ -10,6 +10,13 @@ REM Ensure logs directory exists
 if not exist "%SCRIPT_DIR%logs" mkdir "%SCRIPT_DIR%logs"
 set LOGFILE=%SCRIPT_DIR%logs\launch_sentientos.log
 echo [%date% %time%] === SentientOS Launch Started === >> "%LOGFILE%"
+
+REM Parse optional flags
+for %%A in (%*) do (
+    if "%%A"=="--headless" set SENTIENTOS_HEADLESS=1
+    if "%%A"=="--debug" set RELAY_LOG_LEVEL=DEBUG
+    if "%%A"=="--safe" set SENTIENTOS_SAFE_MODE=1
+)
 
 echo ~F Activating virtual environment (if exists)...
 if exist "%SCRIPT_DIR%.venv\Scripts\activate.bat" (
