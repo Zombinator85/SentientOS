@@ -237,16 +237,22 @@ def main() -> None:  # pragma: no cover - CLI
         help="skip prompts (deprecated, use --no-input)",
     )
     ap.add_argument("--no-input", action="store_true", help="skip prompts")
+    ap.add_argument("--strict", action="store_true", help="abort if repairs occur")
     args = ap.parse_args()
 
     auto_env = (
-        args.auto_approve or args.no_input or os.getenv("LUMOS_AUTO_APPROVE") == "1"
+        args.auto_approve
+        or args.no_input
+        or args.strict
+        or os.getenv("LUMOS_AUTO_APPROVE") == "1"
     )
     if auto_env:
         os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
     # STRICT=1 aborts if repairs occur (see docs/ENVIRONMENT.md)
-    strict_env = os.getenv("STRICT") == "1"
+    strict_env = args.strict or os.getenv("STRICT") == "1"
+    if args.strict:
+        os.environ["STRICT"] = "1"
 
     directory = None
     if args.path:
