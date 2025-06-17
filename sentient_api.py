@@ -35,6 +35,10 @@ if not LOG_PATH.exists():
 BLESSING_LOG_PATH = Path(os.getenv("BLESSING_LOG", "logs/blessings.jsonl"))
 BLESSING_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+# Shared launcher log used by launch_sentientos.bat
+LAUNCH_LOG_PATH = Path(os.getenv("LAUNCH_LOG", "logs/launch_sentientos.log"))
+LAUNCH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 
 def blessing_prompt() -> bool:
     """Prompt for manual blessing and log the response."""
@@ -46,6 +50,9 @@ def blessing_prompt() -> bool:
         entry = {"timestamp": datetime.utcnow().isoformat(), "event": "manual_bless"}
         with open(BLESSING_LOG_PATH, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(LAUNCH_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] Blessing acknowledged.\n")
         return True
     return False
 

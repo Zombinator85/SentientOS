@@ -9,6 +9,7 @@ cd /d %SCRIPT_DIR%
 REM Ensure logs directory exists
 if not exist "%SCRIPT_DIR%logs" mkdir "%SCRIPT_DIR%logs"
 set LOGFILE=%SCRIPT_DIR%logs\launch_sentientos.log
+set LAUNCH_LOG=%LOGFILE%
 echo [%date% %time%] === SentientOS Launch Started === >> "%LOGFILE%"
 
 REM Parse optional flags
