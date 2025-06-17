@@ -2,9 +2,8 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
 import json
+import logging
 
 
 class Request:
@@ -31,6 +30,7 @@ class Response:
 class Flask:
     def __init__(self, name):
         self.view_funcs = {}
+        self.logger = logging.getLogger(name)
 
     def route(self, path, methods=None):
         def decorator(func):

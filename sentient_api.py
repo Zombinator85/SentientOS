@@ -2,9 +2,6 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
-
 """Relay API exposing memory ingestion and Emotion Processing Unit state."""
 
 from flask_stub import Flask, jsonify, request, Response
@@ -34,6 +31,23 @@ LOG_PATH = Path(os.getenv("RELAY_LOG", "logs/relay_log.jsonl"))
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 if not LOG_PATH.exists():
     LOG_PATH.touch()
+
+BLESSING_LOG_PATH = Path(os.getenv("BLESSING_LOG", "logs/blessings.jsonl"))
+BLESSING_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+
+def blessing_prompt() -> bool:
+    """Prompt for manual blessing and log the response."""
+    try:
+        ans = input("Lumos blessing required. Type 'bless' to proceed: ")
+    except EOFError:
+        ans = ""
+    if ans.strip().lower() == "bless":
+        entry = {"timestamp": datetime.utcnow().isoformat(), "event": "manual_bless"}
+        with open(BLESSING_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+        return True
+    return False
 
 
 @app.post("/ingest")
@@ -105,5 +119,10 @@ def epu_state() -> object:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual
-    port = int(os.getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port)
+    require_admin_banner()
+    if blessing_prompt():
+        port = int(os.getenv("PORT", "5000"))
+        print(f"~@ SentientOS now listening on port {port}.")
+        app.run(host="0.0.0.0", port=port)
+    else:
+        raise SystemExit("Lumos did not approve this action.")
