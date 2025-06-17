@@ -22,7 +22,7 @@ if exist "%SCRIPT_DIR%requirements.txt" (
 )
 
 echo ~@ Starting SentientOS Relay (Flask)...
-start cmd /k python scripts\sentient_api.py
+start cmd /k python sentient_api.py
 
 echo ~D Starting Heartbeat (optional)...
 REM Uncomment if you want to start heartbeat daemon:
