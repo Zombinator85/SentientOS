@@ -9,7 +9,7 @@ require_lumos_approval()
 import os
 import json
 from pathlib import Path
-import requests
+import requests  # type: ignore[import]
 
 BASE_URL = os.getenv("RELAY_URL", "http://localhost:5000")
 LOG_PATH = Path(os.getenv("RELAY_LOG", "logs/relay_log.jsonl"))

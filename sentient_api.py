@@ -10,6 +10,7 @@ require_lumos_approval()
 from flask_stub import Flask, jsonify, request, Response
 import os
 import json
+import logging
 import time
 import itertools
 from datetime import datetime
@@ -20,6 +21,9 @@ import epu_core
 
 
 app = Flask(__name__)
+log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
+app.logger.setLevel(getattr(logging, log_level, logging.INFO))
+SAFE_MODE = os.getenv("SENTIENTOS_SAFE_MODE") == "1"
 _state = epu_core.EmotionState()
 
 _start_time = time.time()
@@ -41,7 +45,8 @@ def ingest() -> object:
     emotion = data.get("emotion", "serene_awe")
     emotions = {emotion: 1.0} if isinstance(emotion, str) else {}
     _state.update(emotions)
-    mm.append_memory(text, emotions=emotions)
+    if not SAFE_MODE:
+        mm.append_memory(text, emotions=emotions)
 
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -54,7 +59,8 @@ def ingest() -> object:
 
     global _last_heartbeat
     _last_heartbeat = next(_tick_counter)
-    return jsonify({"status": "ok"})
+    status_msg = "ok" if not SAFE_MODE else "ok (safe mode)"
+    return jsonify({"status": status_msg})
 
 
 @app.get("/sse")
@@ -87,6 +93,7 @@ def status() -> object:
             "last_heartbeat": f"Tick {_last_heartbeat}",
             "log_size_bytes": log_size,
             "active_endpoints": ["/sse", "/ingest", "/status"],
+            "safe_mode": SAFE_MODE,
         }
     )
 
