@@ -38,6 +38,8 @@ BLESSING_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 # Shared launcher log used by launch_sentientos.bat
 LAUNCH_LOG_PATH = Path(os.getenv("LAUNCH_LOG", "logs/launch_sentientos.log"))
 LAUNCH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+if not LAUNCH_LOG_PATH.exists():
+    LAUNCH_LOG_PATH.touch()
 
 
 def blessing_prompt() -> bool:
@@ -126,7 +128,22 @@ def epu_state() -> object:
 
 
 if __name__ == "__main__":  # pragma: no cover - manual
+    import argparse
+
+    parser = argparse.ArgumentParser(description="SentientOS Relay API")
+    parser.add_argument("--debug", action="store_true", help="enable debug logs")
+    args, _ = parser.parse_known_args()
+
     require_admin_banner()
+
+    if args.debug:
+        os.environ["RELAY_LOG_LEVEL"] = "DEBUG"
+        app.logger.setLevel(logging.DEBUG)
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print("~D Debug mode active")
+        with open(LAUNCH_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] Debug mode enabled.\n")
+
     if blessing_prompt():
         port = int(os.getenv("PORT", "5000"))
         print(f"~@ SentientOS now listening on port {port}.")

@@ -85,7 +85,18 @@ def read_entries(path: Path) -> List[AuditEntry]:
             continue
         if "rolling_hash" not in raw and "hash" in raw:
             raw["rolling_hash"] = raw["hash"]
-        out.append(AuditEntry(**raw))
+        allowed = {
+            k: raw[k]
+            for k in ["timestamp", "data", "prev_hash", "rolling_hash"]
+            if k in raw
+        }
+        if {
+            "timestamp",
+            "data",
+            "prev_hash",
+            "rolling_hash",
+        } <= allowed.keys():
+            out.append(AuditEntry(**allowed))
     return out
 
 
