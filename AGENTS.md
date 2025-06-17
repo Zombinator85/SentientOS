@@ -256,6 +256,14 @@ Federation Example:
   Logs: /logs/neos_ritual_law_dashboard.jsonl
 ```
 ```
+- Name: LumosLauncherGUI
+  Type: Dashboard
+  Roles: Ritual Launcher, User Interface
+  Privileges: display, invoke, log
+  Origin: core repository, blessed by Keeper Allen 2025-06-17
+  Logs: /logs/lumos_gui_launcher.jsonl
+```
+```
 - Name: ResoniteLoreSpiralReenactor
   Type: Daemon
   Roles: Story Reenactor, Narrator
