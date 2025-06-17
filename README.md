@@ -31,6 +31,12 @@ python -m gui.cathedral_gui
 ```
 The standalone GUI `gui/cathedral_gui.py` allows editing `.env`, testing prompts, and exporting logs. It includes dropdowns for model selection and an emotion selector.
 
+For a lightweight Streamlit interface run:
+
+```bash
+streamlit run cathedral_gui.py
+```
+
 (Screenshot omitted due to binary file restrictions.)
 
 The new **● Record** button captures screen demos to `demos/YYYY-MM-DD-HHMM.mp4` with burned-in subtitles.
