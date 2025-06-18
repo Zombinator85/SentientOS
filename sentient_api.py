@@ -134,21 +134,7 @@ def start_cathedral() -> None:
     app.run(host="0.0.0.0", port=5000)
 
 
-if __name__ == "__main__":  # pragma: no cover - manual
-    import argparse
-
-    parser = argparse.ArgumentParser(description="SentientOS Relay API")
-    parser.add_argument("--debug", action="store_true", help="enable debug logs")
-    args, _ = parser.parse_known_args()
-
-    if args.debug:
-        os.environ["RELAY_LOG_LEVEL"] = "DEBUG"
-        app.logger.setLevel(logging.DEBUG)
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print("~D Debug mode active")
-        with open(LAUNCH_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(f"[{ts}] Debug mode enabled.\n")
-
+if __name__ == "__main__":
     if blessing_prompt():
         start_cathedral()
     else:
