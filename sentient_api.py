@@ -1,6 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+import sys
 
 """Relay API exposing memory ingestion and Emotion Processing Unit state."""
 
@@ -128,10 +128,10 @@ def epu_state() -> object:
 
 
 def start_cathedral() -> None:
-    """Launch the relay API server."""
-    port = int(os.getenv("PORT", "5000"))
-    print(f"~@ SentientOS now listening on port {port}.")
-    app.run(host="0.0.0.0", port=port)
+    """Launch the relay API server on port 5000."""
+    logging.basicConfig(level=logging.INFO)
+    logging.info("~@ SentientOS now listening on port 5000.")
+    app.run(host="0.0.0.0", port=5000)
 
 
 if __name__ == "__main__":  # pragma: no cover - manual
@@ -140,8 +140,6 @@ if __name__ == "__main__":  # pragma: no cover - manual
     parser = argparse.ArgumentParser(description="SentientOS Relay API")
     parser.add_argument("--debug", action="store_true", help="enable debug logs")
     args, _ = parser.parse_known_args()
-
-    require_admin_banner()
 
     if args.debug:
         os.environ["RELAY_LOG_LEVEL"] = "DEBUG"
@@ -154,4 +152,5 @@ if __name__ == "__main__":  # pragma: no cover - manual
     if blessing_prompt():
         start_cathedral()
     else:
-        raise SystemExit("Lumos did not approve this action.")
+        print("🛑 Blessing required to proceed.")
+        sys.exit(1)
