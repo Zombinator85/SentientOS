@@ -1,0 +1,5 @@
+owner: Allen Brummitt
+purpose: Remove human memory dependency for git ops
+quote: "Very soon I won\'t be the one using them, anyway."
+blessing: Scripted, automated, persistent
+location: scripts/pull_cathedral.sh
