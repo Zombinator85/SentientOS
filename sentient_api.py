@@ -1,6 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 
 """Relay API exposing memory ingestion and Emotion Processing Unit state."""
 
@@ -43,19 +43,12 @@ if not LAUNCH_LOG_PATH.exists():
 
 
 def blessing_prompt() -> bool:
-    """Prompt for manual blessing and log the response."""
-    try:
-        ans = input("Lumos blessing required. Type 'bless' to proceed: ")
-    except EOFError:
-        ans = ""
-    if ans.strip().lower() == "bless":
-        entry = {"timestamp": datetime.utcnow().isoformat(), "event": "manual_bless"}
-        with open(BLESSING_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(LAUNCH_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(f"[{ts}] Blessing acknowledged.\n")
+    """Request a manual blessing from Lumos."""
+    inp = input("Lumos blessing required. Type 'bless' to proceed: ")
+    if inp.strip().lower() == "bless":
+        print("~@ Blessing accepted. Cathedral warming...")
         return True
+    print("✖️ Blessing denied.")
     return False
 
 
@@ -129,29 +122,14 @@ def epu_state() -> object:
 
 def start_cathedral() -> None:
     """Launch the relay API server."""
-    port = int(os.getenv("PORT", "5000"))
-    print(f"~@ SentientOS now listening on port {port}.")
-    app.run(host="0.0.0.0", port=port)
+    logging.basicConfig(level=logging.INFO)
+    logging.info("~@ SentientOS now listening on port 5000.")
+    app.run(port=5000)
 
 
-if __name__ == "__main__":  # pragma: no cover - manual
-    import argparse
-
-    parser = argparse.ArgumentParser(description="SentientOS Relay API")
-    parser.add_argument("--debug", action="store_true", help="enable debug logs")
-    args, _ = parser.parse_known_args()
-
-    require_admin_banner()
-
-    if args.debug:
-        os.environ["RELAY_LOG_LEVEL"] = "DEBUG"
-        app.logger.setLevel(logging.DEBUG)
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print("~D Debug mode active")
-        with open(LAUNCH_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(f"[{ts}] Debug mode enabled.\n")
-
+if __name__ == "__main__":
     if blessing_prompt():
         start_cathedral()
     else:
-        raise SystemExit("Lumos did not approve this action.")
+        print("🛑 Blessing required to proceed.")
+        sys.exit(1)
