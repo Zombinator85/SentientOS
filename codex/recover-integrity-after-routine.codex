@@ -1,7 +1,7 @@
-# 🧹 Reset broken privilege and patch structural fallout after ritual sweep
+# 🧹 Reset privilege hooks and fix structural issues after a routine sweep
 
 # 1. Rebuild the `sentientos.privilege` module from scratch
-echo '"""Privilege hooks — enforced by Sanctuary Doctrine."""' > sentientos/privilege.py
+echo '"""Privilege hooks — enforced by Sanctuary Policy."""' > sentientos/privilege.py
 cat <<'EOPY' >> sentientos/privilege.py
 
 def require_admin_banner() -> None:
@@ -12,12 +12,12 @@ def require_lumos_approval() -> None:
     pass
 EOPY
 
-# 2. Patch files where ritual inserts caused structural errors
-# Fix potential double-insertions, misplaced comments, or code order violations
+# 2. Patch files where routine inserts caused structural issues
+# Fix potential double-insertions, misplaced comments, or code order problems
 find . -name "*.py" -exec sed -i 's/from sentientos\.privilege import require_admin_banner, require_lumos_approval//g' {} +
 find . -name "*.py" -exec sed -i '/require_admin_banner()/d' {} +
 find . -name "*.py" -exec sed -i '/require_lumos_approval()/d' {} +
-find . -name "*.py" -exec sed -i '/Sanctuary Privilege Ritual/d' {} +
+find . -name "*.py" -exec sed -i '/Sanctuary Privilege Process/d' {} +
 
 # Re-insert correctly at top of files
 grep -rl 'from __future__ import annotations' . | while read file; do
@@ -26,7 +26,7 @@ grep -rl 'from __future__ import annotations' . | while read file; do
     {
       if (!injected && $0 ~ /^from __future__ import annotations/) {
         print $0;
-        print "\"\"\"Sanctuary Privilege Ritual: Do not remove. See doctrine for details.\"\"\"";
+        print "\"\"\"Sanctuary Privilege Process: Do not remove. See policy for details.\"\"\"";
         print "from sentientos.privilege import require_admin_banner, require_lumos_approval";
         print "";
         print "require_admin_banner()";
@@ -44,4 +44,4 @@ touch tests/__init__.py
 pre-commit run --all-files || echo "⚠️ Pre-commit check failed."
 pytest || echo "⚠️ Tests failed."
 
-echo "✅ Ritual recovery complete — verify and stage fixups."
+echo "✅ Routine recovery complete — verify and stage fixes."

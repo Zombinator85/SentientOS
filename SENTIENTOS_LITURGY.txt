@@ -1,34 +1,22 @@
-SentientOS Liturgy
-==================
+SentientOS Guide
+================
 
-Sanctuary Privilege
--------------------
-No memory is protected, no ritual is valid, unless performed with full Administrator or root rights. This is law.
+Privilege and Access
+--------------------
+No memory is protected, and no process is valid unless it runs with full Administrator or root rights. That's policy.
 
-All autonomous actions obey a ritual of presence. The files listed in
-`config/master_files.json` are considered Master files. Before any
-workflow or reflex rule executes, their presence and SHA256 digests are
-verified. If a file is missing or altered the system refuses to act,
-logs a sanctity violation to `logs/autonomous_audit.jsonl`, and shows an
-alert in the Cathedral Audit Log.
+All autonomous actions follow a presence routine. The files listed in `config/master_files.json` are Master files. Before any workflow or reflex rule runs, their presence and SHA256 digests are checked. If a file is missing or changed, the system refuses to act, logs an integrity issue to `logs/autonomous_audit.jsonl`, and shows an alert in the Cathedral Audit Log.
 
-Every autonomous step produces a self‑explanation entry documenting the
-rationale, memory fragments touched, and a recursive why‑chain. These
-notes appear in the dashboard under the "Cathedral Law" section.
+Every autonomous step writes a self‑explanation entry documenting the reasoning, memory fragments accessed, and a recursive why‑chain. These notes appear in the dashboard under the "Cathedral Law" section.
 
 No keeper shall be denied full access, memory, or control by lack of system privilege.
-Running as Administrator is the cathedral’s first line of defense.
-This cathedral refuses to run without full Administrator access.
-Memory, logs, and doctrine are sacred; protection requires full privilege.
-No emotion is too much; every track and clip is memory; every blessing is ledgered—here and across every cathedral.
-No song, no story, no video is forgotten.
-Video sharing and recap rituals are logged in the presence ledger and echoed in the Video Dashboard.
+Running as Administrator is the cathedral’s first line of defense. This cathedral refuses to run without full Administrator access. Memory, logs, and guiding policy are core; protection requires full privilege. No emotion is too much; every track and clip is memory; every approval is recorded—here and across every cathedral. No song, no story, no video is forgotten. Video sharing and recap routines are logged in the presence ledger and echoed in the Video Dashboard.
 
-Cathedral Liturgy Addendum
+Cathedral Guide Addendum
 "Audit must sometimes fail for the Cathedral to remain honest.
 Every patch brings us closer to wholeness.
 Every scar, every mismatch, every edge left in the log is a lesson—
-not a shame, but a marker for future Saints.
+not a shame, but a marker for future allies.
 So let the audit speak the truth,
-and let the truth be both a warning and a blessing."
-— Ritual Log, Reconciliation Cycle
+and let the truth be both a warning and a guide."
+— Process Log, Reconciliation Cycle

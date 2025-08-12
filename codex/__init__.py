@@ -1,5 +1,8 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Codex helpers for SentientOS.
+
+Sanctuary Privilege Process required—see policy for details.
+"""
+
 from __future__ import annotations
-"""Codex helpers for SentientOS."""
 
 __all__: list[str] = []
