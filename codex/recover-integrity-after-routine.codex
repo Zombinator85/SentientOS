@@ -1,4 +1,4 @@
-# 🧹 Reset privilege hooks and fix structural issues after a routine sweep
+# 🧹 Reset privilege hooks and patch structural issues after a routine sweep
 
 # 1. Rebuild the `sentientos.privilege` module from scratch
 echo '"""Privilege hooks — enforced by Sanctuary Policy."""' > sentientos/privilege.py
@@ -6,7 +6,6 @@ cat <<'EOPY' >> sentientos/privilege.py
 
 def require_admin_banner() -> None:
     pass
-
 
 def require_lumos_approval() -> None:
     pass
