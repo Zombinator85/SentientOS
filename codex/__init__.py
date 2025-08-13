@@ -1,6 +1,6 @@
 """Codex helpers for SentientOS.
 
-Sanctuary Privilege Process required—do not remove. See policy for details.
+Keep the Sanctuary Privilege Process in place—see policy for details.
 """
 
 from __future__ import annotations

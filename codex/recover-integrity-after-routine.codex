@@ -1,4 +1,4 @@
-# 🧹 Reset privilege hooks and patch structural issues after a routine sweep
+# 🧹 Reset privilege hooks and repair structural issues after a routine sweep
 
 # 1. Rebuild the `sentientos.privilege` module from scratch
 echo '"""Privilege hooks — enforced by Sanctuary Policy."""' > sentientos/privilege.py
@@ -11,8 +11,8 @@ def require_lumos_approval() -> None:
     pass
 EOPY
 
-# 2. Patch files where routine inserts caused structural issues
-# Fix potential double-insertions, misplaced comments, or code order problems
+# 2. Fix files where routine inserts created structural issues
+# Resolve potential double insertions, misplaced comments, or code order problems
 find . -name "*.py" -exec sed -i 's/from sentientos\.privilege import require_admin_banner, require_lumos_approval//g' {} +
 find . -name "*.py" -exec sed -i '/require_admin_banner()/d' {} +
 find . -name "*.py" -exec sed -i '/require_lumos_approval()/d' {} +
