@@ -6,5 +6,6 @@
   "logs/migration_ledger.jsonl": "571e20f48d7e7c4cdc16e466147286ab106daa5730e08956d1410293e9618353",
   "logs/privileged_audit.jsonl": "4b8ff104c6a894413ea41fea77a1970c7a541d5da42d061240ec661458d5419e",
   "logs/support_log.jsonl": "0d7cdecca184fbf080fece2662a50ce106ca0b4fbad1f9f474113d2604988e5b",
-  "logs/user_presence.jsonl": "00944aa305e99e0bcf413759c139a865dd354a8deffcd31c8d2ee6eda2bccc4b"
+  "logs/user_presence.jsonl": "00944aa305e99e0bcf413759c139a865dd354a8deffcd31c8d2ee6eda2bccc4b",
+  "config/wdm.yaml": "5e4706687a54a9960501b586d020ecbd4edfce0177b8b8ba50138c5de363121b"
 }
