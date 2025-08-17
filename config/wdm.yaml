@@ -1,0 +1,32 @@
+enabled: true
+mode: opportunistic_queued
+max_rounds: 2
+initiation:
+  respond_first: true
+  daily_quota: 8
+  per_endpoint_quota: 3
+  triggers:
+    - low_confidence_high_impact
+    - conflicting_sources
+    - user_request
+    - watchlist_topic
+allowlist:
+  - id: openai
+    adapter: openai_live
+    enabled: true
+  - id: deepseek
+    adapter: deepseek_live
+    enabled: true
+  - id: mistral
+    adapter: mistral_live
+    enabled: true
+privacy:
+  redact_secrets: true
+  strip_pii: true
+logging:
+  jsonl_path: "logs/wdm/"
+  include_raw: true
+  include_summary: true
+limits:
+  per_turn_seconds: 20
+  per_dialogue_seconds: 120
