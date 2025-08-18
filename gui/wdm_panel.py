@@ -49,6 +49,7 @@ def render() -> None:
         presence_path = out.get("presence_path")
         if presence_path:
             st.write(f"[presence log]({presence_path})")
+            st.write("[presence stream](/presence/stream)")
         if cheers:
             cheers_log = cfg.get("activation", {}).get("cheers_channel", "logs/wdm/cheers.jsonl")
             st.write(f"[cheers log]({cheers_log})")

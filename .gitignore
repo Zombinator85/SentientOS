@@ -18,6 +18,7 @@ logs/
 !logs/migration_ledger.jsonl
 !logs/wdm_summaries.jsonl
 !logs/presence.jsonl
+!logs/presence_stream.jsonl
 !logs/README.md
 *.log
 
@@ -31,6 +32,7 @@ audio_logs/*
 backups/
 logs/*.jsonl
 !logs/presence.jsonl
+!logs/presence_stream.jsonl
 site/
 .privilege_lint.cache
 .privilege_lint.gitcache
