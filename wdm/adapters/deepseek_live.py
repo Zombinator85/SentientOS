@@ -1,6 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
 require_admin_banner(); require_lumos_approval()
 
 import os, json, time
@@ -24,4 +25,3 @@ class DeepSeekAdapter:
 
     def critique(self, text: str) -> str:
         return self._call(f"Critique: {text}") or f"[deepseek_live-critique-fallback] {text}"
-
