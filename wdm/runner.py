@@ -5,9 +5,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 
-from typing import Dict, List
+from typing import Dict
 from pathlib import Path
-import time
+import json, time
 from council.bus import Bus
 from council.schema import Message
 from council.referee import Referee
@@ -16,6 +16,7 @@ from wdm.adapters.openai_live import OpenAIAdapter
 from wdm.adapters.deepseek_live import DeepSeekAdapter
 from wdm.adapters.mistral_live import MistralAdapter
 from wdm.utils import redact, build_buckets
+from wdm.summarize import summarize
 
 
 def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
@@ -74,10 +75,20 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
     outdir.mkdir(parents=True, exist_ok=True)
     logfile = outdir / f"wdm_{int(time.time())}.jsonl"
     bus.dump_jsonl(logfile)
+    summary = summarize(list(bus.history()), cfg)
+    with logfile.open("a", encoding="utf-8") as f:
+        f.write(
+            json.dumps({"agent": "wdm", "role": "summary", "content": summary, "round": r + 1, "kind": "summary"})
+            + "\n"
+        )
+    summary_path = Path(cfg.get("logging", {}).get("summary_path", "logs/wdm_summaries.jsonl"))
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    with summary_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps({"dialogue_id": logfile.stem, "summary": summary}) + "\n")
 
     # If cheers mode, also dump to cheers channel
     if cheers:
         cheers_path = cfg.get("activation", {}).get("cheers_channel", "logs/wdm/cheers.jsonl")
         bus.dump_jsonl(cheers_path)
 
-    return {"decision": decision, "rounds": r, "log": str(logfile)}
+    return {"decision": decision, "rounds": r, "log": str(logfile), "summary": summary}
