@@ -166,3 +166,8 @@ Each WDM run now emits a presence entry to `logs/presence.jsonl`:
 - Agents active
 - Summary tail with canon lines
 API: GET /presence  (returns recent presence entries)
+
+## Presence Stream
+In addition to summary presence logs, WDM now emits live events to `logs/presence_stream.jsonl`:
+- start / update / end entries
+API: GET /presence/stream (SSE endpoint for dashboards)
