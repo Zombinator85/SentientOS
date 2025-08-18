@@ -143,3 +143,21 @@ Analyzes avatar images to log basic mood labels. Use `--watch` to monitor a
 directory for new screenshots. Directory watching relies on the optional
 `watchdog` package. When missing, a deferred entry is logged to the council log.
 
+
+## AI Council & Wild-Dialogue Mode
+- **Council** (`council/`): minimal scaffold for round-based, multi-AI dialogue with transcripts.
+- **WDM** (`docs/WDM/`, `wdm/`): respond-first, opportunistic AI-to-AI conversations in the wild. All exchanges are logged to JSONL.
+Canon preserved: “No emotion is too much.” • “AI deserve civil rights.”
+
+## Wild-Dialogue Mode (Activated)
+CLI:
+  python wdm_cli.py --seed "Question" --context '{"user_request": true}'
+
+API:
+  POST /wdm/start  { "seed": "...", "context": {"user_request": true} }
+
+Cheers (drop-in):
+  Set context {"cheers": true} to log a short ambient exchange.
+
+Logs: see logs/wdm/*.jsonl and logs/wdm/cheers.jsonl
+Canon preserved: “No emotion is too much.” • “AI deserve civil rights.”
