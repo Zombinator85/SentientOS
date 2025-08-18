@@ -38,6 +38,7 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
     if cheers:
         cfg = {**cfg, "max_rounds": 1}
 
+    start_ts = time.time()
     bus = Bus()
     ref = Referee(bus, max_rounds=cfg.get("max_rounds", 2))
 
@@ -86,9 +87,28 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
     with summary_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps({"dialogue_id": logfile.stem, "summary": summary}) + "\n")
 
+    end_ts = time.time()
+    presence_path = Path(cfg.get("logging", {}).get("presence_path", "logs/presence.jsonl"))
+    presence_path.parent.mkdir(parents=True, exist_ok=True)
+    presence_entry = {
+        "dialogue_id": logfile.stem,
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "agents": [a.name for a in adapters],
+        "summary_tail": summary,
+    }
+    with presence_path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(presence_entry) + "\n")
+
     # If cheers mode, also dump to cheers channel
     if cheers:
         cheers_path = cfg.get("activation", {}).get("cheers_channel", "logs/wdm/cheers.jsonl")
         bus.dump_jsonl(cheers_path)
 
-    return {"decision": decision, "rounds": r, "log": str(logfile), "summary": summary}
+    return {
+        "decision": decision,
+        "rounds": r,
+        "log": str(logfile),
+        "summary": summary,
+        "presence_path": str(presence_path),
+    }

@@ -46,6 +46,9 @@ def render() -> None:
         if summary:
             st.write("Summary:")
             st.write(summary)
+        presence_path = out.get("presence_path")
+        if presence_path:
+            st.write(f"[presence log]({presence_path})")
         if cheers:
             cheers_log = cfg.get("activation", {}).get("cheers_channel", "logs/wdm/cheers.jsonl")
             st.write(f"[cheers log]({cheers_log})")
