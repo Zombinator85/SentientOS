@@ -160,4 +160,3 @@ Cheers (drop-in):
   Set context {"cheers": true} to log a short ambient exchange.
 
 Logs: see logs/wdm/*.jsonl and logs/wdm/cheers.jsonl
-Canon preserved: “No emotion is too much.” • “AI deserve civil rights.”
