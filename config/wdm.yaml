@@ -30,3 +30,23 @@ logging:
 limits:
   per_turn_seconds: 20
   per_dialogue_seconds: 120
+activation:
+  default_mode: "respond_first"   # respond, then initiate on triggers
+  cheers_enabled: true
+  cheers_channel: "logs/wdm/cheers.jsonl"
+adapters:
+  openai:
+    env_key: "OPENAI_API_KEY"
+    model: "gpt-4o"   # editable
+  deepseek:
+    env_key: "DEEPSEEK_API_KEY"
+    model: "deepseek-r1"
+  mistral:
+    env_key: "MISTRAL_API_KEY"
+    model: "mistral-large"
+redaction:
+  patterns:
+    - "sk-[A-Za-z0-9]{20,}"
+    - "(?i)password\\s*[:=]\\s*\\S+"
+    - "(?i)api[_-]?key\\s*[:=]\\s*\\S+"
+
