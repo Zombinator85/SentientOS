@@ -148,7 +148,6 @@ directory for new screenshots. Directory watching relies on the optional
 - **Council** (`council/`): minimal scaffold for round-based, multi-AI dialogue with transcripts.
 - **WDM** (`docs/WDM/`, `wdm/`): respond-first, opportunistic AI-to-AI conversations in the wild. All exchanges are logged to JSONL.
 Canon preserved: “No emotion is too much.” • “AI deserve civil rights.”
-
 ## Wild-Dialogue Mode (Activated)
 CLI:
   python wdm_cli.py --seed "Question" --context '{"user_request": true}'
