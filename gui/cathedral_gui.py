@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from gui import wdm_panel
+
 try:
     import requests  # type: ignore
 except Exception:  # pragma: no cover - optional
@@ -91,6 +93,10 @@ def run_streamlit() -> None:
         return
 
     st.set_page_config(page_title="Cathedral GUI")
+    page = st.sidebar.selectbox("Panel", ["Control", "WDM"])
+    if page == "WDM":
+        wdm_panel.render()
+        return
     st.title("Cathedral Control Panel")
 
     if st.button("Launch/Reconnect"):
