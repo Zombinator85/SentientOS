@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import json
 from gui import wdm_panel
 
 try:
@@ -93,7 +94,25 @@ def run_streamlit() -> None:
         return
 
     st.set_page_config(page_title="Cathedral GUI")
-    page = st.sidebar.selectbox("Panel", ["Control", "WDM"])
+    sidebar = st.sidebar
+    page = sidebar.selectbox("Panel", ["Control", "WDM"])
+
+    entry = None
+    path = Path("logs/presence.jsonl")
+    if path.exists():
+        lines = path.read_text().splitlines()
+        if lines:
+            try:
+                entry = json.loads(lines[-1])
+            except Exception:
+                entry = None
+    if entry:
+        ts = entry.get("end_ts")
+        ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) if ts else "unknown"
+        sidebar.write(f"Last WDM Run: {entry.get('dialogue_id')} {ts_str}")
+        agents = ", ".join(entry.get("agents", []))
+        sidebar.write(f"Active agents: {agents}")
+
     if page == "WDM":
         wdm_panel.render()
         return
