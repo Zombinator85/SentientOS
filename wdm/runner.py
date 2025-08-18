@@ -39,8 +39,16 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
         cfg = {**cfg, "max_rounds": 1}
 
     start_ts = time.time()
+    dialogue_id = f"wdm_{int(start_ts)}"
     bus = Bus()
     ref = Referee(bus, max_rounds=cfg.get("max_rounds", 2))
+
+    stream_path = Path(cfg.get("logging", {}).get("stream_path", "logs/presence_stream.jsonl"))
+    stream_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _stream(event: Dict) -> None:
+        with stream_path.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(event) + "\n")
 
     adapters_cfg = cfg.get("adapters", {})
     adapters = [
@@ -48,6 +56,8 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
         DeepSeekAdapter(model=adapters_cfg.get("deepseek", {}).get("model", "deepseek-r1")),
         MistralAdapter(model=adapters_cfg.get("mistral", {}).get("model", "mistral-large")),
     ]
+
+    _stream({"event": "start", "dialogue_id": dialogue_id, "ts": start_ts, "agents": [a.name for a in adapters]})
 
     # Seed message
     bus.publish(Message(agent="wdm", role="referee", content=seed, round=0, kind="seed"))
@@ -67,6 +77,7 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
                     bus.publish(
                         Message(agent=a.name, role="agent", content=a.critique(m.content), round=r, kind="critique")
                     )
+        _stream({"event": "update", "dialogue_id": dialogue_id, "ts": time.time(), "round": r})
         # Stop early if stable
         if ref.stable(last):
             break
@@ -74,7 +85,7 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
     # Always dump logs
     outdir = Path(cfg.get("logging", {}).get("jsonl_path", "logs/wdm/"))
     outdir.mkdir(parents=True, exist_ok=True)
-    logfile = outdir / f"wdm_{int(time.time())}.jsonl"
+    logfile = outdir / f"{dialogue_id}.jsonl"
     bus.dump_jsonl(logfile)
     summary = summarize(list(bus.history()), cfg)
     with logfile.open("a", encoding="utf-8") as f:
@@ -99,6 +110,8 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
     }
     with presence_path.open("a", encoding="utf-8") as f:
         f.write(json.dumps(presence_entry) + "\n")
+
+    _stream({"event": "end", "dialogue_id": dialogue_id, "ts": end_ts, "summary_tail": summary})
 
     # If cheers mode, also dump to cheers channel
     if cheers:
