@@ -11,11 +11,13 @@ dist/
 
 # Logs
 logs/
+!logs/
 !logs/support_log.jsonl
 !logs/federation_log.jsonl
 !logs/user_presence.jsonl
 !logs/migration_ledger.jsonl
 !logs/wdm_summaries.jsonl
+!logs/presence.jsonl
 !logs/README.md
 *.log
 
@@ -28,6 +30,7 @@ audio_logs/*
 !audio_logs/.gitkeep
 backups/
 logs/*.jsonl
+!logs/presence.jsonl
 site/
 .privilege_lint.cache
 .privilege_lint.gitcache

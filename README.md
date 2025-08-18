@@ -159,3 +159,10 @@ Cheers (drop-in):
   Set context {"cheers": true} to log a short ambient exchange.
 
 Logs: see logs/wdm/*.jsonl and logs/wdm/cheers.jsonl
+
+## Presence Layer
+Each WDM run now emits a presence entry to `logs/presence.jsonl`:
+- Dialogue ID + timestamps
+- Agents active
+- Summary tail with canon lines
+API: GET /presence  (returns recent presence entries)
