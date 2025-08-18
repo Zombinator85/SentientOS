@@ -42,6 +42,10 @@ def render() -> None:
         log = out.get("log")
         if log:
             st.write(f"[log]({log})")
+        summary = out.get("summary")
+        if summary:
+            st.write("Summary:")
+            st.write(summary)
         if cheers:
             cheers_log = cfg.get("activation", {}).get("cheers_channel", "logs/wdm/cheers.jsonl")
             st.write(f"[cheers log]({cheers_log})")
