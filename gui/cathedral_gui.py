@@ -113,6 +113,26 @@ def run_streamlit() -> None:
         agents = ", ".join(entry.get("agents", []))
         sidebar.write(f"Active agents: {agents}")
 
+    active_start = None
+    stream_path = Path("logs/presence_stream.jsonl")
+    if stream_path.exists():
+        state: Dict[str, float] = {}
+        for line in stream_path.read_text().splitlines():
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            did = ev.get("dialogue_id")
+            if ev.get("event") == "start" and did:
+                state[did] = ev.get("ts", 0.0)
+            elif ev.get("event") == "end" and did in state:
+                state.pop(did, None)
+        if state:
+            active_start = sorted(state.values())[0]
+    if active_start is not None:
+        elapsed = int(time.time() - active_start)
+        sidebar.write(f"Active now ({elapsed}s)")
+
     if page == "WDM":
         wdm_panel.render()
         return

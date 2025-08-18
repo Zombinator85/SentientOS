@@ -1,0 +1,3 @@
+{"event": "start", "dialogue_id": "wdm_0", "ts": 0.0, "agents": ["openai_live","deepseek_live"]}
+{"event": "update", "dialogue_id": "wdm_0", "ts": 2.0, "round": 1}
+{"event": "end", "dialogue_id": "wdm_0", "ts": 3.0, "summary_tail": "...canon..."}
