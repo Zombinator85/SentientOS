@@ -171,3 +171,12 @@ API: GET /presence  (returns recent presence entries)
 In addition to summary presence logs, WDM now emits live events to `logs/presence_stream.jsonl`:
 - start / update / end entries
 API: GET /presence/stream (SSE endpoint for dashboards)
+
+## Federation Presence
+SentientOS can now pull heartbeat and presence data from multiple nodes into `logs/federation_log.jsonl`.
+
+Configure peers in `config/federation.yaml`.
+
+Run `python scripts/federation_puller.py`.
+
+API: GET `/federation`
