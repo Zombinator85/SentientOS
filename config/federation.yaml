@@ -1,0 +1,3 @@
+peers:
+  - url: "http://node1.local:8000/presence"
+  - url: "http://node2.local:8000/presence"
