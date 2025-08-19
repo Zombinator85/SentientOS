@@ -133,6 +133,22 @@ def run_streamlit() -> None:
         elapsed = int(time.time() - active_start)
         sidebar.write(f"Active now ({elapsed}s)")
 
+    fed_path = Path("logs/federation_log.jsonl")
+    if fed_path.exists():
+        lines = fed_path.read_text().splitlines()
+        if lines:
+            sidebar.subheader("Federated Presence")
+            for line in lines[-5:][::-1]:
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                ts = entry.get("end_ts") or entry.get("start_ts")
+                ts_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts)) if ts else "unknown"
+                agents = ", ".join(entry.get("agents", []))
+                src = entry.get("source", "unknown")
+                sidebar.write(f"[{src}] {entry.get('dialogue_id')} ({agents}) {ts_str}")
+
     if page == "WDM":
         wdm_panel.render()
         return
