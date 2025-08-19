@@ -133,6 +133,26 @@ def run_streamlit() -> None:
         elapsed = int(time.time() - active_start)
         sidebar.write(f"Active now ({elapsed}s)")
 
+    fed_stream_path = Path("logs/federation_stream.jsonl")
+    fed_state: dict[str, float] = {}
+    fed_active_start: float | None = None
+    if fed_stream_path.exists():
+        for line in fed_stream_path.read_text().splitlines():
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            did = ev.get("dialogue_id")
+            if ev.get("event") == "start" and did:
+                fed_state[did] = ev.get("ts", 0.0)
+            elif ev.get("event") == "end" and did in fed_state:
+                fed_state.pop(did, None)
+        if fed_state:
+            fed_active_start = sorted(fed_state.values())[0]
+    if fed_active_start is not None:
+        fed_elapsed = int(time.time() - fed_active_start)
+        sidebar.write(f"Federated Active Now ({fed_elapsed}s)")
+
     fed_path = Path("logs/federation_log.jsonl")
     if fed_path.exists():
         lines = fed_path.read_text().splitlines()

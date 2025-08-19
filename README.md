@@ -180,3 +180,10 @@ Configure peers in `config/federation.yaml`.
 Run `python scripts/federation_puller.py`.
 
 API: GET `/federation`
+
+## Federation Stream
+SentientOS now supports live federation streams across nodes.
+- Run `python scripts/federation_stream_relay.py`
+- Stream log: `logs/federation_stream.jsonl`
+- API: GET `/federation/stream`
+- GUI: sidebar shows “Federated Active Now”
