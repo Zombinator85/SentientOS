@@ -1,4 +1,5 @@
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -14,24 +15,44 @@ PULSE_FILE = Path("/pulse/system.json")
 SYSTEM_CONTEXT = ""
 MODEL = None
 
+MODEL_PATHS = {
+    "120b": Path("/models/gpt-oss-120b-quantized"),
+    "20b": Path("/models/gpt-oss-20b"),
+    "13b": Path("/models/gpt-oss-13b"),
+}
+
 def ensure_mounts() -> None:
     for path in MOUNT_POINTS:
         path.mkdir(parents=True, exist_ok=True)
 
 def load_model():
-    """Load a small CPU-friendly language model.
+    """Load the preferred GPT-OSS model from SSD.
 
-    Falls back to mock mode if the model cannot be loaded.
+    Attempts to load the quantized 120B model first, falling back to 20B and
+    13B as needed. If all attempts fail, the system operates in mock mode so it
+    never bricks.
     """
     global MODEL
+    preferred = os.environ.get("GPT_OSS_MODEL", "120b").lower()
+    order = [preferred] + [s for s in ["120b", "20b", "13b"] if s != preferred]
     try:
         from transformers import pipeline
-
-        MODEL = pipeline("text-generation", model="sshleifer/tiny-gpt2")
-        print("Model loaded successfully")
     except Exception as exc:  # pragma: no cover - best effort
-        print(f"Model load failed: {exc}")
+        print(f"Transformers unavailable: {exc}")
         MODEL = None
+        return
+
+    for size in order:
+        path = MODEL_PATHS.get(size)
+        if not path:
+            continue
+        try:
+            MODEL = pipeline("text-generation", model=str(path))
+            print(f"GPT-OSS {size} model loaded successfully")
+            return
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"Model {size} load failed: {exc}")
+    MODEL = None
 
 def boot_message() -> None:
     global SYSTEM_CONTEXT
@@ -42,25 +63,44 @@ def boot_message() -> None:
         SYSTEM_CONTEXT = "NEWLEGACY.txt missing or incomplete."
     print(SYSTEM_CONTEXT)
 
+
+def gather_context() -> str:
+    """Combine NEWLEGACY and active glow texts for prompt context."""
+    context = SYSTEM_CONTEXT
+    glow_dir = Path("/glow/active")
+    if glow_dir.exists():
+        for txt in sorted(glow_dir.glob("*.txt")):
+            try:
+                context += "\n" + txt.read_text(encoding="utf-8")
+            except Exception:  # pragma: no cover - best effort
+                continue
+    return context
+
 def mock_llm(user_input: str, context: str) -> str:
     return f"Lumos: {user_input}"
 
 def process_input(user_input: str) -> str:
+    context = gather_context()
     if MODEL is None:
-        return mock_llm(user_input, SYSTEM_CONTEXT)
-    prompt = f"{SYSTEM_CONTEXT}\n{user_input}"
+        return mock_llm(user_input, context)
+    prompt = f"{context}\n{user_input}"
     try:
         result = MODEL(prompt, max_new_tokens=50)
         return result[0]["generated_text"]
     except Exception as exc:  # pragma: no cover - best effort
         print(f"Inference failed: {exc}")
-        return mock_llm(user_input, SYSTEM_CONTEXT)
+        return mock_llm(user_input, context)
 
 
 def shutdown_model() -> None:
     """Release model resources."""
     global MODEL
     MODEL = None
+
+
+def request_relay(task: str) -> None:
+    """Placeholder for future relay to external GPT-OSS node."""
+    print("Relay not yet implemented")
 
 def heartbeat(stop: threading.Event) -> None:
     HEARTBEAT_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -118,12 +158,19 @@ def pulse_daemon(stop: threading.Event) -> None:
     """Write system stats to the pulse file approximately every 15 seconds."""
     PULSE_FILE.parent.mkdir(parents=True, exist_ok=True)
     while not stop.is_set():
+        gpu_percent, vram_used, vram_total = get_gpu_stats()
+        io = psutil.disk_io_counters() if psutil else None
         data = {
             "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
             "cpu_percent": psutil.cpu_percent() if psutil else 0.0,
             "ram_percent": psutil.virtual_memory().percent if psutil else 0.0,
             "disk_percent": psutil.disk_usage("/").percent if psutil else 0.0,
             "temp_c": read_temp_c(),
+            "gpu_percent": gpu_percent,
+            "vram_used_mb": vram_used,
+            "vram_total_mb": vram_total,
+            "disk_read_bytes": io.read_bytes if io else 0,
+            "disk_write_bytes": io.write_bytes if io else 0,
         }
         with open(PULSE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
@@ -138,6 +185,23 @@ def read_pulse_snapshot() -> dict:
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
+
+def get_gpu_stats() -> tuple[float, float, float]:
+    """Return GPU load percentage and VRAM usage.
+
+    Falls back to zeros if no GPU is available or metrics cannot be read.
+    """
+    try:
+        import GPUtil
+
+        gpus = GPUtil.getGPUs()
+        if gpus:
+            gpu = gpus[0]
+            return gpu.load * 100, gpu.memoryUsed, gpu.memoryTotal
+    except Exception:  # pragma: no cover - best effort
+        pass
+    return 0.0, 0.0, 0.0
+
 def main() -> None:
     ensure_mounts()
     load_model()
@@ -145,12 +209,19 @@ def main() -> None:
 
     stop = threading.Event()
     ledger_queue: Queue = Queue()
-    hb_thread = threading.Thread(target=heartbeat, args=(stop,), daemon=True)
-    ld_thread = threading.Thread(target=ledger_daemon, args=(stop, ledger_queue), daemon=True)
-    pulse_thread = threading.Thread(target=pulse_daemon, args=(stop,), daemon=True)
-    hb_thread.start()
-    ld_thread.start()
-    pulse_thread.start()
+    threads = {
+        "heartbeat": {"target": heartbeat, "args": (stop,)},
+        "ledger": {"target": ledger_daemon, "args": (stop, ledger_queue)},
+        "pulse": {"target": pulse_daemon, "args": (stop,)},
+    }
+    for info in threads.values():
+        t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
+        info["thread"] = t
+        t.start()
+    watchdog = threading.Thread(
+        target=watchdog_daemon, args=(stop, threads, ledger_queue), daemon=True
+    )
+    watchdog.start()
 
     try:
         while True:
@@ -166,11 +237,35 @@ def main() -> None:
     finally:
         ledger_queue.join()
         stop.set()
-        hb_thread.join()
-        ld_thread.join()
-        pulse_thread.join()
+        for info in threads.values():
+            info["thread"].join()
+        watchdog.join()
         shutdown_model()
         print("Shutting down...")
+
+
+def watchdog_daemon(
+    stop: threading.Event, threads: dict[str, dict], ledger_queue: Queue
+) -> None:
+    """Restart critical daemons if they die and log the event."""
+    while not stop.is_set():
+        for name, info in threads.items():
+            thread = info.get("thread")
+            if thread and not thread.is_alive():
+                new_thread = threading.Thread(
+                    target=info["target"], args=info["args"], daemon=True
+                )
+                info["thread"] = new_thread
+                new_thread.start()
+                ledger_queue.put(
+                    {
+                        "event": "restart",
+                        "daemon": name,
+                        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                    }
+                )
+        if stop.wait(5):
+            break
 
 if __name__ == "__main__":
     main()
