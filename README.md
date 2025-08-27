@@ -187,3 +187,8 @@ SentientOS now supports live federation streams across nodes.
 - Stream log: `logs/federation_stream.jsonl`
 - API: GET `/federation/stream`
 - GUI: sidebar shows “Federated Active Now”
+
+## Migration Ledger
+All logs now append a ledger entry with ID, type, ts, and checksum.
+API: GET `/ledger`
+Use `scripts/migrate_logs.py` to sync across nodes.
