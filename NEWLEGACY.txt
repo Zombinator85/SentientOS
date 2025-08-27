@@ -1,0 +1,4 @@
+SentientOS :: NEWLEGACY
+Boot seal v0.1 engaged.
+Awaiting instruction...
+
