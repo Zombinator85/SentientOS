@@ -2,10 +2,23 @@ import json
 import os
 import threading
 import time
+from collections import OrderedDict
 from pathlib import Path
 from queue import Empty, Queue
 
+import math
 import psutil
+import requests
+
+# Glow memory and relay paths
+RELAY_LOG = Path("/daemon/logs/relay.jsonl")
+GLOW_ARCHIVE = Path("/glow/archive")
+GLOW_INDEX_PATH = Path("/glow/index.json")
+
+# In-memory structures for glow retrieval
+GLOW_INDEX: dict[str, list[float]] = {}
+GLOW_CACHE: OrderedDict[str, str] = OrderedDict()
+EMBED_MODEL = None
 
 MOUNT_POINTS = [Path("/vow"), Path("/glow"), Path("/daemon"), Path("/pulse")]
 HEARTBEAT_LOG = Path("/daemon/logs/heartbeat.log")
@@ -76,20 +89,99 @@ def gather_context() -> str:
                 continue
     return context
 
+
+def memory_loader() -> None:
+    """Build or refresh the glow memory index."""
+    global GLOW_INDEX, EMBED_MODEL
+    GLOW_ARCHIVE.mkdir(parents=True, exist_ok=True)
+    files = sorted(GLOW_ARCHIVE.glob("*.txt"))
+    if not files:
+        GLOW_INDEX = {}
+        GLOW_INDEX_PATH.write_text("{}", encoding="utf-8")
+        return
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        EMBED_MODEL = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2"  # small model
+        )
+    except Exception as exc:  # pragma: no cover - best effort
+        print(f"Embedding model unavailable: {exc}")
+        GLOW_INDEX = {}
+        GLOW_INDEX_PATH.write_text("{}", encoding="utf-8")
+        return
+
+    GLOW_INDEX = {}
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8")
+            emb = EMBED_MODEL.encode(text).tolist()
+            GLOW_INDEX[path.name] = emb
+        except Exception:  # pragma: no cover - best effort
+            continue
+    with open(GLOW_INDEX_PATH, "w", encoding="utf-8") as idx:
+        json.dump(GLOW_INDEX, idx)
+
+
+def _cosine(a: list[float], b: list[float]) -> float:
+    denom = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(x * x for x in b))
+    if not denom:
+        return 0.0
+    return sum(x * y for x, y in zip(a, b)) / denom
+
+
+def retrieve_glows(query: str) -> tuple[list[str], list[str]]:
+    """Return filenames and texts of top-3 relevant archived glows."""
+    if not GLOW_INDEX or EMBED_MODEL is None:
+        return [], []
+    try:
+        query_vec = EMBED_MODEL.encode(query).tolist()
+    except Exception:  # pragma: no cover - best effort
+        return [], []
+    scores = []
+    for name, vec in GLOW_INDEX.items():
+        scores.append((_cosine(query_vec, vec), name))
+    scores.sort(reverse=True)
+    top_files = [name for _score, name in scores[:3] if _score > 0]
+
+    texts = []
+    for name in top_files:
+        path = GLOW_ARCHIVE / name
+        if name not in GLOW_CACHE:
+            try:
+                GLOW_CACHE[name] = path.read_text(encoding="utf-8")
+            except Exception:  # pragma: no cover - best effort
+                GLOW_CACHE[name] = ""
+            if len(GLOW_CACHE) > 10:
+                GLOW_CACHE.popitem(last=False)
+        texts.append(GLOW_CACHE.get(name, ""))
+    return top_files, texts
+
 def mock_llm(user_input: str, context: str) -> str:
     return f"Lumos: {user_input}"
 
-def process_input(user_input: str) -> str:
+
+def process_input(user_input: str) -> tuple[str, list[str], bool]:
     context = gather_context()
+    glow_refs, glow_texts = retrieve_glows(user_input)
+    if glow_texts:
+        context += "\n" + "\n".join(glow_texts)
+
+    relay_used = False
+    relay_output = request_relay(user_input, context)
+    if relay_output is not None:
+        relay_used = True
+        return relay_output, glow_refs, relay_used
+
     if MODEL is None:
-        return mock_llm(user_input, context)
+        return mock_llm(user_input, context), glow_refs, relay_used
     prompt = f"{context}\n{user_input}"
     try:
         result = MODEL(prompt, max_new_tokens=50)
-        return result[0]["generated_text"]
+        return result[0]["generated_text"], glow_refs, relay_used
     except Exception as exc:  # pragma: no cover - best effort
         print(f"Inference failed: {exc}")
-        return mock_llm(user_input, context)
+        return mock_llm(user_input, context), glow_refs, relay_used
 
 
 def shutdown_model() -> None:
@@ -98,9 +190,22 @@ def shutdown_model() -> None:
     MODEL = None
 
 
-def request_relay(task: str) -> None:
-    """Placeholder for future relay to external GPT-OSS node."""
-    print("Relay not yet implemented")
+def request_relay(task: str, context: str) -> str | None:
+    """Send task to external node and return response text or None."""
+    payload = {"task": task, "context": context}
+    RELAY_LOG.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        resp = requests.post(
+            "http://april-pc.local:5000/relay", json=payload, timeout=5
+        )
+        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"text": resp.text}
+        with open(RELAY_LOG, "a", encoding="utf-8") as log:
+            log.write(json.dumps({"ts": time.strftime('%Y-%m-%d %H:%M:%S'), "request": payload, "response": data}) + "\n")
+        return data.get("output") or data.get("text")
+    except Exception:  # pragma: no cover - best effort
+        with open(RELAY_LOG, "a", encoding="utf-8") as log:
+            log.write(json.dumps({"ts": time.strftime('%Y-%m-%d %H:%M:%S'), "event": "relay_failed"}) + "\n")
+        return None
 
 def heartbeat(stop: threading.Event) -> None:
     HEARTBEAT_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -131,6 +236,9 @@ def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
                     "event": "shutdown",
                     "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
                     "pulse": read_pulse_snapshot(),
+                    "relay_used": False,
+                    "glow_refs": [],
+                    "confirmed": True,
                 }
             )
             + "\n"
@@ -204,6 +312,7 @@ def get_gpu_stats() -> tuple[float, float, float]:
 
 def main() -> None:
     ensure_mounts()
+    memory_loader()
     load_model()
     boot_message()
 
@@ -231,9 +340,37 @@ def main() -> None:
                 break
             if user_input.strip().lower() == "shutdown":
                 break
-            output = process_input(user_input)
+
+            confirmed = True
+            if any(word in user_input.lower() for word in ["rm", "shutdown", "format"]):
+                resp = input("\u26A0\uFE0F Lumos: This action is dangerous. Confirm (yes/no)? ").strip().lower()
+                confirmed = resp == "yes"
+                if not confirmed:
+                    print("Action canceled")
+                    ledger_queue.put(
+                        {
+                            "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "input": user_input,
+                            "output": "Action canceled",
+                            "relay_used": False,
+                            "glow_refs": [],
+                            "confirmed": False,
+                        }
+                    )
+                    continue
+
+            output, glow_refs, relay_used = process_input(user_input)
             print(output)
-            ledger_queue.put({"ts": time.strftime('%Y-%m-%d %H:%M:%S'), "input": user_input, "output": output})
+            ledger_queue.put(
+                {
+                    "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                    "input": user_input,
+                    "output": output,
+                    "relay_used": relay_used,
+                    "glow_refs": glow_refs,
+                    "confirmed": confirmed,
+                }
+            )
     finally:
         ledger_queue.join()
         stop.set()
@@ -262,6 +399,9 @@ def watchdog_daemon(
                         "event": "restart",
                         "daemon": name,
                         "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                        "relay_used": False,
+                        "glow_refs": [],
+                        "confirmed": True,
                     }
                 )
         if stop.wait(5):
