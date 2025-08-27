@@ -17,6 +17,7 @@ from wdm.adapters.deepseek_live import DeepSeekAdapter
 from wdm.adapters.mistral_live import MistralAdapter
 from wdm.utils import redact, build_buckets
 from wdm.summarize import summarize
+from migration_ledger import record_ledger
 
 
 def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
@@ -88,15 +89,22 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
     logfile = outdir / f"{dialogue_id}.jsonl"
     bus.dump_jsonl(logfile)
     summary = summarize(list(bus.history()), cfg)
+    summary_entry = {
+        "agent": "wdm",
+        "role": "summary",
+        "content": summary,
+        "round": r + 1,
+        "kind": "summary",
+    }
     with logfile.open("a", encoding="utf-8") as f:
-        f.write(
-            json.dumps({"agent": "wdm", "role": "summary", "content": summary, "round": r + 1, "kind": "summary"})
-            + "\n"
-        )
+        line = json.dumps(summary_entry)
+        f.write(line + "\n")
     summary_path = Path(cfg.get("logging", {}).get("summary_path", "logs/wdm_summaries.jsonl"))
     summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_line = json.dumps({"dialogue_id": logfile.stem, "summary": summary})
     with summary_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps({"dialogue_id": logfile.stem, "summary": summary}) + "\n")
+        f.write(summary_line + "\n")
+    record_ledger(logfile.stem, "summary", str(summary_path), summary_line)
 
     end_ts = time.time()
     presence_path = Path(cfg.get("logging", {}).get("presence_path", "logs/presence.jsonl"))
@@ -109,7 +117,9 @@ def run_wdm(seed: str, context: Dict, cfg: Dict) -> Dict:
         "summary_tail": summary,
     }
     with presence_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(presence_entry) + "\n")
+        presence_line = json.dumps(presence_entry)
+        f.write(presence_line + "\n")
+    record_ledger(logfile.stem, "presence", str(presence_path), presence_line)
 
     _stream({"event": "end", "dialogue_id": dialogue_id, "ts": end_ts, "summary_tail": summary})
 
