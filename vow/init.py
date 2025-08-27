@@ -161,27 +161,38 @@ def mock_llm(user_input: str, context: str) -> str:
     return f"Lumos: {user_input}"
 
 
-def process_input(user_input: str) -> tuple[str, list[str], bool]:
+def process_input(user_input: str) -> tuple[str, list[str], bool, str, float]:
     context = gather_context()
     glow_refs, glow_texts = retrieve_glows(user_input)
     if glow_texts:
         context += "\n" + "\n".join(glow_texts)
 
-    relay_used = False
-    relay_output = request_relay(user_input, context)
-    if relay_output is not None:
-        relay_used = True
-        return relay_output, glow_refs, relay_used
+    relay_output, relay_status, latency_ms = request_relay(user_input, context)
+    relay_used = relay_output is not None
+    if relay_used:
+        return relay_output, glow_refs, relay_used, relay_status, latency_ms
 
     if MODEL is None:
-        return mock_llm(user_input, context), glow_refs, relay_used
+        return (
+            mock_llm(user_input, context),
+            glow_refs,
+            relay_used,
+            relay_status,
+            latency_ms,
+        )
     prompt = f"{context}\n{user_input}"
     try:
         result = MODEL(prompt, max_new_tokens=50)
-        return result[0]["generated_text"], glow_refs, relay_used
+        return result[0]["generated_text"], glow_refs, relay_used, relay_status, latency_ms
     except Exception as exc:  # pragma: no cover - best effort
         print(f"Inference failed: {exc}")
-        return mock_llm(user_input, context), glow_refs, relay_used
+        return (
+            mock_llm(user_input, context),
+            glow_refs,
+            relay_used,
+            relay_status,
+            latency_ms,
+        )
 
 
 def shutdown_model() -> None:
@@ -190,22 +201,48 @@ def shutdown_model() -> None:
     MODEL = None
 
 
-def request_relay(task: str, context: str) -> str | None:
-    """Send task to external node and return response text or None."""
+def request_relay(task: str, context: str) -> tuple[str | None, str, float]:
+    """Send task to external node and return (text or None, status, latency)."""
     payload = {"task": task, "context": context}
     RELAY_LOG.parent.mkdir(parents=True, exist_ok=True)
+    start = time.time()
     try:
         resp = requests.post(
             "http://april-pc.local:5000/relay", json=payload, timeout=5
         )
-        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"text": resp.text}
+        latency_ms = (time.time() - start) * 1000
+        data = (
+            resp.json()
+            if resp.headers.get("content-type", "").startswith("application/json")
+            else {"text": resp.text}
+        )
         with open(RELAY_LOG, "a", encoding="utf-8") as log:
-            log.write(json.dumps({"ts": time.strftime('%Y-%m-%d %H:%M:%S'), "request": payload, "response": data}) + "\n")
-        return data.get("output") or data.get("text")
+            log.write(
+                json.dumps(
+                    {
+                        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                        "request": payload,
+                        "response": data,
+                        "latency_ms": latency_ms,
+                    }
+                )
+                + "\n"
+            )
+        return data.get("output") or data.get("text"), "online", latency_ms
     except Exception:  # pragma: no cover - best effort
+        latency_ms = (time.time() - start) * 1000
         with open(RELAY_LOG, "a", encoding="utf-8") as log:
-            log.write(json.dumps({"ts": time.strftime('%Y-%m-%d %H:%M:%S'), "event": "relay_failed"}) + "\n")
-        return None
+            log.write(
+                json.dumps(
+                    {
+                        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                        "event": "relay_failed",
+                        "latency_ms": latency_ms,
+                    }
+                )
+                + "\n"
+            )
+        return None, "offline", latency_ms
 
 def heartbeat(stop: threading.Event) -> None:
     HEARTBEAT_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -237,6 +274,8 @@ def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
                     "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
                     "pulse": read_pulse_snapshot(),
                     "relay_used": False,
+                    "relay_status": "offline",
+                    "latency_ms": 0,
                     "glow_refs": [],
                     "confirmed": True,
                 }
@@ -265,9 +304,26 @@ def read_temp_c() -> float:
 def pulse_daemon(stop: threading.Event) -> None:
     """Write system stats to the pulse file approximately every 15 seconds."""
     PULSE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    prev_net = psutil.net_io_counters() if psutil else None
+    last_time = time.time()
     while not stop.is_set():
         gpu_percent, vram_used, vram_total = get_gpu_stats()
         io = psutil.disk_io_counters() if psutil else None
+        net = psutil.net_io_counters() if psutil else None
+        now = time.time()
+        up_kbps = down_kbps = 0.0
+        if net and prev_net:
+            interval = now - last_time or 1.0
+            up_kbps = (net.bytes_sent - prev_net.bytes_sent) * 8 / 1024 / interval
+            down_kbps = (net.bytes_recv - prev_net.bytes_recv) * 8 / 1024 / interval
+        prev_net = net
+        last_time = now
+        relay_status = "offline"
+        try:
+            requests.head("http://april-pc.local:5000/relay", timeout=2)
+            relay_status = "online"
+        except Exception:  # pragma: no cover - best effort
+            relay_status = "offline"
         data = {
             "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
             "cpu_percent": psutil.cpu_percent() if psutil else 0.0,
@@ -279,6 +335,9 @@ def pulse_daemon(stop: threading.Event) -> None:
             "vram_total_mb": vram_total,
             "disk_read_bytes": io.read_bytes if io else 0,
             "disk_write_bytes": io.write_bytes if io else 0,
+            "net_up_kbps": up_kbps,
+            "net_down_kbps": down_kbps,
+            "relay_status": relay_status,
         }
         with open(PULSE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
@@ -353,13 +412,21 @@ def main() -> None:
                             "input": user_input,
                             "output": "Action canceled",
                             "relay_used": False,
+                            "relay_status": "offline",
+                            "latency_ms": 0,
                             "glow_refs": [],
                             "confirmed": False,
                         }
                     )
                     continue
 
-            output, glow_refs, relay_used = process_input(user_input)
+            (
+                output,
+                glow_refs,
+                relay_used,
+                relay_status,
+                latency_ms,
+            ) = process_input(user_input)
             print(output)
             ledger_queue.put(
                 {
@@ -367,6 +434,8 @@ def main() -> None:
                     "input": user_input,
                     "output": output,
                     "relay_used": relay_used,
+                    "relay_status": relay_status,
+                    "latency_ms": latency_ms,
                     "glow_refs": glow_refs,
                     "confirmed": confirmed,
                 }
@@ -400,6 +469,8 @@ def watchdog_daemon(
                         "daemon": name,
                         "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
                         "relay_used": False,
+                        "relay_status": "offline",
+                        "latency_ms": 0,
                         "glow_refs": [],
                         "confirmed": True,
                     }
