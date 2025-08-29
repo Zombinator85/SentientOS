@@ -10,3 +10,8 @@ confirmation_rules:
   - rm
   - shutdown
   - format
+codex_auto_apply: false
+codex_interval: 3600
+codex_confirm_patterns:
+  - /vow/
+  - NEWLEGACY.txt
