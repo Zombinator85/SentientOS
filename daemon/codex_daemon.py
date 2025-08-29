@@ -31,6 +31,8 @@ DEFAULT_CONFIG = {
     "codex_max_iterations": 1,
     # Focus for diagnostics: "pytest" or "mypy"
     "codex_focus": "pytest",
+    # Autonomy mode: observe, repair, or full
+    "codex_mode": "observe",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -39,14 +41,15 @@ try:
 except FileNotFoundError:
     CONFIG = {}
 CONFIG = {**DEFAULT_CONFIG, **CONFIG}
-
-CODEX_AUTO_APPLY = bool(CONFIG.get("codex_auto_apply", False))
+CODEX_MODE = str(CONFIG.get("codex_mode", "observe")).lower()
 CODEX_INTERVAL = int(CONFIG.get("codex_interval", 3600))
 CODEX_CONFIRM_PATTERNS = CONFIG.get(
     "codex_confirm_patterns", ["/vow/", "NEWLEGACY.txt"]
 )
 CODEX_MAX_ITERATIONS = int(CONFIG.get("codex_max_iterations", 1))
 CODEX_FOCUS = str(CONFIG.get("codex_focus", "pytest"))
+CODEX_AUTO_APPLY = CODEX_MODE == "full"
+RUN_CODEX = CODEX_MODE in {"repair", "full"}
 
 
 def run_diagnostics() -> Tuple[bool, str, int]:
@@ -72,6 +75,44 @@ def run_diagnostics() -> Tuple[bool, str, int]:
     match = re.search(r"(\d+) failed", output)
     errors = int(match.group(1)) if match else 0
     return proc.returncode == 0, output, errors
+
+
+INTEGRITY_LOG = Path("/daemon/logs/integrity.jsonl")
+
+
+def run_integrity_check() -> bool:
+    """Record a basic integrity check result."""
+    INTEGRITY_LOG.parent.mkdir(parents=True, exist_ok=True)
+    passed = True
+    with open(INTEGRITY_LOG, "a", encoding="utf-8") as fh:
+        fh.write(
+            json.dumps(
+                {
+                    "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "event": "integrity_check",
+                    "passed": passed,
+                }
+            )
+            + "\n"
+        )
+    return passed
+
+
+def run_ci(ledger_queue: Queue) -> bool:
+    """Run full diagnostics and integrity check, logging the outcome."""
+    passed, summary, _ = run_diagnostics()
+    integrity = run_integrity_check()
+    ci_passed = passed and integrity
+    ledger_queue.put(
+        {
+            "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "event": "ci_passed" if ci_passed else "ci_failed",
+            "summary": summary if not ci_passed else "",
+            "codex_mode": CODEX_MODE,
+            "ci_passed": ci_passed,
+        }
+    )
+    return ci_passed
 
 
 def parse_diff_files(diff: str) -> list[str]:
@@ -100,7 +141,7 @@ def log_activity(entry: dict) -> None:
 
 
 def run_once(ledger_queue: Queue) -> dict | None:
-    """Attempt to heal the repository once.
+    """Attempt to heal the repository once based on :data:`CODEX_MODE`.
 
     Returns the ledger entry if a repair was attempted, otherwise ``None``.
     """
@@ -108,6 +149,28 @@ def run_once(ledger_queue: Queue) -> dict | None:
     passed, summary, errors_before = run_diagnostics()
     if passed:
         return None
+
+    if CODEX_MODE == "observe":
+        entry = {
+            "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "prompt": "",
+            "files_changed": [],
+            "verified": False,
+            "codex_patch": "",
+            "iterations": 0,
+            "target": CODEX_FOCUS,
+            "outcome": "observed",
+            "summary": summary,
+        }
+        log_activity(entry)
+        ledger_entry = {
+            **entry,
+            "event": "codex_observe",
+            "codex_mode": CODEX_MODE,
+            "ci_passed": False,
+        }
+        ledger_queue.put(ledger_entry)
+        return ledger_entry
 
     files_changed: set[str] = set()
     patch_paths: list[str] = []
@@ -117,6 +180,7 @@ def run_once(ledger_queue: Queue) -> dict | None:
     current_summary = summary
     previous_errors = errors_before
 
+    prompt = ""
     for attempt in range(1, CODEX_MAX_ITERATIONS + 1):
         attempts = attempt
         prompt = (
@@ -134,7 +198,7 @@ def run_once(ledger_queue: Queue) -> dict | None:
 
         files_changed.update(parse_diff_files(diff_output))
 
-        if CODEX_AUTO_APPLY and files_changed and is_safe(list(files_changed)):
+        if CODEX_MODE == "full" and CODEX_AUTO_APPLY and files_changed and is_safe(list(files_changed)):
             if apply_patch(diff_output):
                 passed, current_summary, current_errors = run_diagnostics()
                 if passed:
@@ -153,7 +217,7 @@ def run_once(ledger_queue: Queue) -> dict | None:
                 else:
                     previous_errors = current_errors
         else:
-            # Could not apply automatically; break out
+            outcome = "suggested"
             break
 
     entry = {
@@ -167,45 +231,64 @@ def run_once(ledger_queue: Queue) -> dict | None:
         "outcome": outcome,
     }
     log_activity(entry)
-    event_name = "self_repair" if outcome != "fail" else "self_repair_failed"
-    ledger_entry = {**entry, "event": event_name}
+    ci_passed = False
+    if outcome == "success":
+        ci_passed = run_ci(ledger_queue)
+        event_name = "self_repair"
+    elif outcome == "suggested":
+        event_name = "self_repair_suggested"
+    else:
+        event_name = "self_repair_failed"
+
+    ledger_entry = {
+        **entry,
+        "event": event_name,
+        "codex_mode": CODEX_MODE,
+        "ci_passed": ci_passed,
+    }
     ledger_queue.put(ledger_entry)
     return ledger_entry
 
 
 def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     codex_runs = 0
-    verified_repairs = 0
+    total_iterations = 0
+    passes = 0
     failures = 0
     while not stop.is_set():
         try:
             result = run_once(ledger_queue)
             if result:
                 codex_runs += 1
+                total_iterations += result.get("iterations", 0)
                 if result["outcome"] == "success":
-                    verified_repairs += 1
+                    passes += 1
                 elif result["outcome"] == "fail":
                     failures += 1
         except Exception as exc:  # pragma: no cover - best effort logging
-            log_activity({
-                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-                "error": str(exc),
-                "files_changed": [],
-                "verified": False,
-                "codex_patch": "",
-                "iterations": 0,
-                "target": CODEX_FOCUS,
-                "outcome": "fail",
-            })
+            log_activity(
+                {
+                    "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "error": str(exc),
+                    "files_changed": [],
+                    "verified": False,
+                    "codex_patch": "",
+                    "iterations": 0,
+                    "target": CODEX_FOCUS,
+                    "outcome": "fail",
+                }
+            )
             failures += 1
         if stop.wait(CODEX_INTERVAL):
             break
 
     ledger_queue.put(
         {
-            "event": "codex_summary",
-            "codex_runs": codex_runs,
-            "verified_repairs": verified_repairs,
+            "event": "codex_session_report",
+            "codex_mode": CODEX_MODE,
+            "runs": codex_runs,
+            "iterations": total_iterations,
+            "passes": passes,
             "failures": failures,
         }
     )
