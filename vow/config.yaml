@@ -1,0 +1,12 @@
+model_path: /models
+fallback_order:
+  - "120b"
+  - "20b"
+  - "13b"
+  - "mock"
+prune_retention_days: 30
+sync_interval: 300
+confirmation_rules:
+  - rm
+  - shutdown
+  - format
