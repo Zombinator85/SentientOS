@@ -7,19 +7,24 @@ from pathlib import Path
 from queue import Empty, Queue
 
 import base64
+import hashlib
 import math
 import psutil
 import requests
+import shutil
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
 GLOW_ARCHIVE = Path("/glow/archive")
-GLOW_INDEX_PATH = Path("/glow/index.json")
+GLOW_SUMMARIES = Path("/glow/summaries")
+GLOW_DEEP_ARCHIVE = Path("/glow/deep_archive")
+GLOW_REF_PATH = Path("/glow/index.json")
+GLOW_INDEX_PATH = Path("/glow/embed_index.json")
 
 # In-memory structures for glow retrieval
-GLOW_INDEX: dict[str, list[float]] = {}
+GLOW_INDEX: dict[str, dict] = {}
 GLOW_CACHE: OrderedDict[str, str] = OrderedDict()
 EMBED_MODEL = None
 
@@ -40,6 +45,7 @@ REMOTE_PUBLIC_KEY_FILE = KEY_DIR / "remote_public.key"
 SIGNING_KEY: SigningKey | None = None
 VERIFY_KEY: VerifyKey | None = None
 REMOTE_VERIFY_KEY: VerifyKey | None = None
+PRUNE_COUNT = 0
 
 SYSTEM_CONTEXT = ""
 MODEL = None
@@ -92,6 +98,25 @@ def verify_entry(entry: dict, signature: str) -> bool:
             json.dumps(entry, sort_keys=True).encode("utf-8"),
             base64.b64decode(signature),
         )
+        return True
+    except BadSignatureError:
+        return False
+
+
+def sign_text(text: str) -> str:
+    """Sign arbitrary text and return a base64 signature."""
+    if SIGNING_KEY is None:
+        return ""
+    sig = SIGNING_KEY.sign(text.encode("utf-8")).signature
+    return base64.b64encode(sig).decode("ascii")
+
+
+def verify_text(text: str, signature: str) -> bool:
+    """Verify text signature using the remote public key."""
+    if REMOTE_VERIFY_KEY is None or not signature:
+        return False
+    try:
+        REMOTE_VERIFY_KEY.verify(text.encode("utf-8"), base64.b64decode(signature))
         return True
     except BadSignatureError:
         return False
@@ -165,11 +190,7 @@ def memory_loader() -> None:
     """Build or refresh the glow memory index."""
     global GLOW_INDEX, EMBED_MODEL
     GLOW_ARCHIVE.mkdir(parents=True, exist_ok=True)
-    files = sorted(GLOW_ARCHIVE.glob("*.txt"))
-    if not files:
-        GLOW_INDEX = {}
-        GLOW_INDEX_PATH.write_text("{}", encoding="utf-8")
-        return
+    GLOW_SUMMARIES.mkdir(parents=True, exist_ok=True)
     try:
         from sentence_transformers import SentenceTransformer
 
@@ -182,14 +203,40 @@ def memory_loader() -> None:
         GLOW_INDEX_PATH.write_text("{}", encoding="utf-8")
         return
 
+    refs: dict[str, dict] = {}
+    if GLOW_REF_PATH.exists():
+        try:
+            refs = json.loads(GLOW_REF_PATH.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover - best effort
+            refs = {}
+
     GLOW_INDEX = {}
-    for path in files:
+    # Archived glows via summaries
+    for orig, meta in refs.items():
+        summary_name = meta.get("summary")
+        if not summary_name:
+            continue
+        path = GLOW_SUMMARIES / summary_name
         try:
             text = path.read_text(encoding="utf-8")
             emb = EMBED_MODEL.encode(text).tolist()
-            GLOW_INDEX[path.name] = emb
+            GLOW_INDEX[orig] = {
+                "vector": emb,
+                "archived": True,
+                "summary": summary_name,
+            }
         except Exception:  # pragma: no cover - best effort
             continue
+
+    # Active glows
+    for path in sorted(GLOW_ARCHIVE.glob("*.txt")):
+        try:
+            text = path.read_text(encoding="utf-8")
+            emb = EMBED_MODEL.encode(text).tolist()
+            GLOW_INDEX[path.name] = {"vector": emb, "archived": False}
+        except Exception:  # pragma: no cover - best effort
+            continue
+
     with open(GLOW_INDEX_PATH, "w", encoding="utf-8") as idx:
         json.dump(GLOW_INDEX, idx)
 
@@ -210,14 +257,27 @@ def retrieve_glows(query: str) -> tuple[list[str], list[str]]:
     except Exception:  # pragma: no cover - best effort
         return [], []
     scores = []
-    for name, vec in GLOW_INDEX.items():
-        scores.append((_cosine(query_vec, vec), name))
+    for name, meta in GLOW_INDEX.items():
+        vec = meta.get("vector")
+        if vec:
+            scores.append((_cosine(query_vec, vec), name))
     scores.sort(reverse=True)
     top_files = [name for _score, name in scores[:3] if _score > 0]
 
+    force = None
+    for token in query.split():
+        if token.startswith("archive:"):
+            force = token.split(":", 1)[1]
+
     texts = []
     for name in top_files:
-        path = GLOW_ARCHIVE / name
+        meta = GLOW_INDEX.get(name, {})
+        if force == name and meta.get("archived"):
+            path = GLOW_DEEP_ARCHIVE / name
+        elif meta.get("archived"):
+            path = GLOW_SUMMARIES / meta.get("summary", name)
+        else:
+            path = GLOW_ARCHIVE / name
         if name not in GLOW_CACHE:
             try:
                 GLOW_CACHE[name] = path.read_text(encoding="utf-8")
@@ -230,6 +290,21 @@ def retrieve_glows(query: str) -> tuple[list[str], list[str]]:
 
 def mock_llm(user_input: str, context: str) -> str:
     return f"Lumos: {user_input}"
+
+
+def summarize_glow(text: str) -> str:
+    """Generate a short summary for archived glows."""
+    prompt = f"Summarize the following text:\n{text[:4000]}"
+    summary, status, _lat = request_relay(prompt, "")
+    if summary:
+        return summary
+    if MODEL is not None:
+        try:
+            result = MODEL(prompt, max_new_tokens=60)
+            return result[0]["generated_text"]
+        except Exception:  # pragma: no cover - best effort
+            pass
+    return text[:200]
 
 
 def process_input(user_input: str) -> tuple[str, list[str], bool, str, float]:
@@ -333,6 +408,8 @@ def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
             if stop.is_set():
                 break
             continue
+        entry.setdefault("pruned", False)
+        entry.setdefault("summary_refs", [])
         entry["pulse"] = read_pulse_snapshot()
         entry["synced"] = "push_only"
         write_signed(entry)
@@ -346,6 +423,8 @@ def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
         "latency_ms": 0,
         "glow_refs": [],
         "confirmed": True,
+        "pruned": False,
+        "summary_refs": [],
         "synced": "push_only",
     }
     write_signed(shutdown_entry)
@@ -444,6 +523,62 @@ def get_gpu_stats() -> tuple[float, float, float]:
     return 0.0, 0.0, 0.0
 
 
+def prune_daemon(
+    stop: threading.Event, ledger_queue: Queue, max_age_days: int = 30
+) -> None:
+    """Summarize and archive old glow files."""
+    global PRUNE_COUNT
+    while not stop.is_set():
+        cutoff = time.time() - max_age_days * 86400
+        for path in list(GLOW_ARCHIVE.glob("*.txt")):
+            try:
+                if path.stat().st_mtime >= cutoff:
+                    continue
+                text = path.read_text(encoding="utf-8")
+                summary = summarize_glow(text)
+                GLOW_SUMMARIES.mkdir(parents=True, exist_ok=True)
+                summary_name = f"{path.stem}.summary.txt"
+                summary_path = GLOW_SUMMARIES / summary_name
+                summary_path.write_text(summary, encoding="utf-8")
+                sig = sign_text(summary)
+                (summary_path.with_suffix(".sig")).write_text(sig, encoding="utf-8")
+                checksum = hashlib.sha256(text.encode("utf-8")).hexdigest()
+                GLOW_DEEP_ARCHIVE.mkdir(parents=True, exist_ok=True)
+                dest = GLOW_DEEP_ARCHIVE / path.name
+                shutil.move(str(path), dest)
+                refs = {}
+                if GLOW_REF_PATH.exists():
+                    try:
+                        refs = json.loads(GLOW_REF_PATH.read_text(encoding="utf-8"))
+                    except Exception:  # pragma: no cover - best effort
+                        refs = {}
+                refs[path.name] = {"summary": summary_name, "checksum": checksum}
+                GLOW_REF_PATH.write_text(json.dumps(refs), encoding="utf-8")
+                verified = verify_text(summary, sig)
+                ledger_queue.put(
+                    {
+                        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                        "event": "pruned",
+                        "file": path.name,
+                        "summary_file": summary_name,
+                        "verified": verified,
+                        "relay_used": False,
+                        "relay_status": "offline",
+                        "latency_ms": 0,
+                        "glow_refs": [],
+                        "confirmed": True,
+                        "pruned": True,
+                        "summary_refs": [summary_name],
+                        "synced": "push_only",
+                    }
+                )
+                PRUNE_COUNT += 1
+            except Exception:  # pragma: no cover - best effort
+                continue
+        if stop.wait(3600):
+            break
+
+
 def sync_glow() -> bool:
     """Upload unsynced glow files to the relay server."""
     synced: list[str] = []
@@ -540,14 +675,35 @@ def pull_sync_glow() -> None:
     files = data.get("files", [])
     new_last = last
     GLOW_ARCHIVE.mkdir(parents=True, exist_ok=True)
+    GLOW_SUMMARIES.mkdir(parents=True, exist_ok=True)
     for item in files:
         name = item.get("name")
         ts = float(item.get("ts", 0.0))
         content = item.get("content", "")
+        signature = item.get("signature", "")
         path = GLOW_ARCHIVE / name
         local_ts = path.stat().st_mtime if path.exists() else 0.0
-        if ts >= local_ts:
+        if ts >= local_ts and verify_text(content, signature):
             path.write_text(content, encoding="utf-8")
+        summary_content = item.get("summary")
+        summary_sig = item.get("summary_sig", "")
+        if summary_content:
+            summary_name = f"{Path(name).stem}.summary.txt"
+            summary_path = GLOW_SUMMARIES / summary_name
+            if verify_text(summary_content, summary_sig):
+                summary_path.write_text(summary_content, encoding="utf-8")
+                (summary_path.with_suffix(".sig")).write_text(summary_sig, encoding="utf-8")
+                refs = {}
+                if GLOW_REF_PATH.exists():
+                    try:
+                        refs = json.loads(GLOW_REF_PATH.read_text(encoding="utf-8"))
+                    except Exception:  # pragma: no cover - best effort
+                        refs = {}
+                refs[name] = {
+                    "summary": summary_name,
+                    "checksum": item.get("checksum", ""),
+                }
+                GLOW_REF_PATH.write_text(json.dumps(refs), encoding="utf-8")
         new_last = max(new_last, ts)
     GLOW_PULL_STATE.write_text(str(new_last), encoding="utf-8")
 
@@ -585,6 +741,8 @@ def pull_sync_ledger(queue: Queue) -> None:
                     "latency_ms": 0,
                     "glow_refs": [],
                     "confirmed": True,
+                    "pruned": False,
+                    "summary_refs": [],
                     "synced": "push_only",
                 }
             )
@@ -635,6 +793,7 @@ def main() -> None:
         "pulse": {"target": pulse_daemon, "args": (stop,)},
         "sync": {"target": sync_daemon, "args": (stop,)},
         "pull_sync": {"target": pull_sync_daemon, "args": (stop, ledger_queue)},
+        "prune": {"target": prune_daemon, "args": (stop, ledger_queue)},
     }
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
@@ -670,6 +829,8 @@ def main() -> None:
                             "latency_ms": 0,
                             "glow_refs": [],
                             "confirmed": False,
+                            "pruned": False,
+                            "summary_refs": [],
                             "synced": "push_only",
                         }
                     )
@@ -693,6 +854,8 @@ def main() -> None:
                     "latency_ms": latency_ms,
                     "glow_refs": glow_refs,
                     "confirmed": confirmed,
+                    "pruned": False,
+                    "summary_refs": [],
                     "synced": "push_only",
                 }
             )
@@ -702,6 +865,21 @@ def main() -> None:
         for info in threads.values():
             info["thread"].join()
         watchdog.join()
+        write_signed(
+            {
+                "event": "prune_report",
+                "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "count": PRUNE_COUNT,
+                "relay_used": False,
+                "relay_status": "offline",
+                "latency_ms": 0,
+                "glow_refs": [],
+                "confirmed": True,
+                "pruned": False,
+                "summary_refs": [],
+                "synced": "push_only",
+            }
+        )
         success = sync_once()
         write_signed(
             {
@@ -713,6 +891,8 @@ def main() -> None:
                 "latency_ms": 0,
                 "glow_refs": [],
                 "confirmed": True,
+                "pruned": False,
+                "summary_refs": [],
                 "synced": "push_only",
             }
         )
@@ -726,6 +906,8 @@ def main() -> None:
             "latency_ms": 0,
             "glow_refs": [],
             "confirmed": True,
+            "pruned": False,
+            "summary_refs": [],
             "synced": "push_only",
         }
         write_signed(summary)
@@ -756,6 +938,8 @@ def watchdog_daemon(
                         "latency_ms": 0,
                         "glow_refs": [],
                         "confirmed": True,
+                        "pruned": False,
+                        "summary_refs": [],
                         "synced": "push_only",
                     }
                 )
