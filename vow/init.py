@@ -56,6 +56,7 @@ DEFAULT_CONFIG = {
     "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt"],
     "codex_max_iterations": 1,
     "codex_focus": "pytest",
+    "codex_mode": "observe",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -990,22 +991,53 @@ def main() -> None:
 
 
 def watchdog_daemon(
-    stop: threading.Event, threads: dict[str, dict], ledger_queue: Queue
+    stop: threading.Event,
+    threads: dict[str, dict],
+    ledger_queue: Queue,
+    max_restarts: int = 3,
+    cooldown: int = 60,
 ) -> None:
-    """Restart critical daemons if they die and log the event."""
+    """Restart critical daemons if they die and log the event.
+
+    After ``max_restarts`` within ``cooldown`` seconds, further restarts are
+    paused to prevent runaway loops.
+    """
+    history: dict[str, list[float]] = {}
     while not stop.is_set():
         for name, info in threads.items():
             thread = info.get("thread")
             if thread and not thread.is_alive():
+                now = time.time()
+                times = [t for t in history.get(name, []) if now - t < cooldown]
+                if len(times) >= max_restarts:
+                    history[name] = times
+                    ledger_queue.put(
+                        {
+                            "event": "daemon_cooldown",
+                            "target": name,
+                            "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                            "relay_used": False,
+                            "relay_status": "offline",
+                            "latency_ms": 0,
+                            "glow_refs": [],
+                            "confirmed": True,
+                            "pruned": False,
+                            "summary_refs": [],
+                            "synced": "push_only",
+                        }
+                    )
+                    continue
                 new_thread = threading.Thread(
                     target=info["target"], args=info["args"], daemon=True
                 )
                 info["thread"] = new_thread
                 new_thread.start()
+                times.append(now)
+                history[name] = times
                 ledger_queue.put(
                     {
-                        "event": "restart",
-                        "daemon": name,
+                        "event": "daemon_restart",
+                        "target": name,
                         "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
                         "relay_used": False,
                         "relay_status": "offline",

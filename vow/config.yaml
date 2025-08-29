@@ -15,3 +15,4 @@ codex_interval: 3600
 codex_confirm_patterns:
   - /vow/
   - NEWLEGACY.txt
+codex_mode: observe
