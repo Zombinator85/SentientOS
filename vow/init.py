@@ -23,7 +23,9 @@ EMBED_MODEL = None
 MOUNT_POINTS = [Path("/vow"), Path("/glow"), Path("/daemon"), Path("/pulse")]
 HEARTBEAT_LOG = Path("/daemon/logs/heartbeat.log")
 LEDGER_LOG = Path("/daemon/logs/ledger.jsonl")
+LEDGER_SYNC_STATE = Path("/daemon/logs/ledger.sync")
 PULSE_FILE = Path("/pulse/system.json")
+GLOW_SYNC_STATE = Path("/glow/archive/sync.json")
 
 SYSTEM_CONTEXT = ""
 MODEL = None
@@ -255,34 +257,30 @@ def heartbeat(stop: threading.Event) -> None:
 
 def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
     LEDGER_LOG.parent.mkdir(parents=True, exist_ok=True)
-    with open(LEDGER_LOG, "a", encoding="utf-8") as log:
-        while True:
-            try:
-                entry = queue.get(timeout=0.5)
-            except Empty:
-                if stop.is_set():
-                    break
-                continue
-            entry["pulse"] = read_pulse_snapshot()
+    while True:
+        try:
+            entry = queue.get(timeout=0.5)
+        except Empty:
+            if stop.is_set():
+                break
+            continue
+        entry["pulse"] = read_pulse_snapshot()
+        with open(LEDGER_LOG, "a", encoding="utf-8") as log:
             log.write(json.dumps(entry) + "\n")
-            log.flush()
-            queue.task_done()
-        log.write(
-            json.dumps(
-                {
-                    "event": "shutdown",
-                    "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
-                    "pulse": read_pulse_snapshot(),
-                    "relay_used": False,
-                    "relay_status": "offline",
-                    "latency_ms": 0,
-                    "glow_refs": [],
-                    "confirmed": True,
-                }
-            )
-            + "\n"
-        )
-        log.flush()
+        queue.task_done()
+    shutdown_entry = {
+        "event": "shutdown",
+        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+        "pulse": read_pulse_snapshot(),
+        "relay_used": False,
+        "relay_status": "offline",
+        "latency_ms": 0,
+        "glow_refs": [],
+        "confirmed": True,
+        "synced": False,
+    }
+    with open(LEDGER_LOG, "a", encoding="utf-8") as log:
+        log.write(json.dumps(shutdown_entry) + "\n")
 
 
 def read_temp_c() -> float:
@@ -306,6 +304,9 @@ def pulse_daemon(stop: threading.Event) -> None:
     PULSE_FILE.parent.mkdir(parents=True, exist_ok=True)
     prev_net = psutil.net_io_counters() if psutil else None
     last_time = time.time()
+    last_ping = 0.0
+    relay_latency_ms = 0.0
+    relay_status = "offline"
     while not stop.is_set():
         gpu_percent, vram_used, vram_total = get_gpu_stats()
         io = psutil.disk_io_counters() if psutil else None
@@ -318,12 +319,16 @@ def pulse_daemon(stop: threading.Event) -> None:
             down_kbps = (net.bytes_recv - prev_net.bytes_recv) * 8 / 1024 / interval
         prev_net = net
         last_time = now
-        relay_status = "offline"
-        try:
-            requests.head("http://april-pc.local:5000/relay", timeout=2)
-            relay_status = "online"
-        except Exception:  # pragma: no cover - best effort
-            relay_status = "offline"
+        if now - last_ping >= 30:
+            ping_start = time.time()
+            try:
+                requests.get("http://april-pc.local:5000/ping", timeout=2)
+                relay_status = "online"
+                relay_latency_ms = (time.time() - ping_start) * 1000
+            except Exception:  # pragma: no cover - best effort
+                relay_status = "offline"
+                relay_latency_ms = 0.0
+            last_ping = now
         data = {
             "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
             "cpu_percent": psutil.cpu_percent() if psutil else 0.0,
@@ -338,6 +343,7 @@ def pulse_daemon(stop: threading.Event) -> None:
             "net_up_kbps": up_kbps,
             "net_down_kbps": down_kbps,
             "relay_status": relay_status,
+            "relay_latency_ms": relay_latency_ms,
         }
         with open(PULSE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
@@ -369,6 +375,83 @@ def get_gpu_stats() -> tuple[float, float, float]:
         pass
     return 0.0, 0.0, 0.0
 
+
+def sync_glow() -> bool:
+    """Upload unsynced glow files to the relay server."""
+    synced: list[str] = []
+    if GLOW_SYNC_STATE.exists():
+        try:
+            synced = json.loads(GLOW_SYNC_STATE.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover - best effort
+            synced = []
+    changed = False
+    GLOW_ARCHIVE.mkdir(parents=True, exist_ok=True)
+    for path in sorted(GLOW_ARCHIVE.glob("*.txt")):
+        if path.name in synced:
+            continue
+        try:
+            with open(path, "rb") as f:
+                files = {"file": (path.name, f, "text/plain")}
+                requests.post(
+                    "http://april-pc.local:5000/sync/glow",
+                    files=files,
+                    timeout=5,
+                )
+            synced.append(path.name)
+            changed = True
+        except Exception:  # pragma: no cover - best effort
+            return False
+    if changed:
+        GLOW_SYNC_STATE.write_text(json.dumps(synced), encoding="utf-8")
+    return True
+
+
+def sync_ledger() -> bool:
+    """Upload unsynced ledger entries and mark them synced locally."""
+    if not LEDGER_LOG.exists():
+        return True
+    lines = LEDGER_LOG.read_text(encoding="utf-8").splitlines()
+    last = 0
+    if LEDGER_SYNC_STATE.exists():
+        try:
+            last = int(LEDGER_SYNC_STATE.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover - best effort
+            last = 0
+    if last >= len(lines):
+        return True
+    payload = "\n".join(lines[last:])
+    try:
+        requests.post(
+            "http://april-pc.local:5000/sync/ledger",
+            data=payload,
+            timeout=5,
+        )
+        for i in range(last, len(lines)):
+            try:
+                obj = json.loads(lines[i])
+                obj["synced"] = True
+                lines[i] = json.dumps(obj)
+            except Exception:  # pragma: no cover - best effort
+                continue
+        LEDGER_LOG.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        LEDGER_SYNC_STATE.write_text(str(len(lines)), encoding="utf-8")
+        return True
+    except Exception:  # pragma: no cover - best effort
+        return False
+
+
+def sync_once() -> bool:
+    glow_ok = sync_glow()
+    ledger_ok = sync_ledger()
+    return glow_ok and ledger_ok
+
+
+def sync_daemon(stop: threading.Event) -> None:
+    while not stop.is_set():
+        sync_once()
+        if stop.wait(300):
+            break
+
 def main() -> None:
     ensure_mounts()
     memory_loader()
@@ -381,6 +464,7 @@ def main() -> None:
         "heartbeat": {"target": heartbeat, "args": (stop,)},
         "ledger": {"target": ledger_daemon, "args": (stop, ledger_queue)},
         "pulse": {"target": pulse_daemon, "args": (stop,)},
+        "sync": {"target": sync_daemon, "args": (stop,)},
     }
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
@@ -416,6 +500,7 @@ def main() -> None:
                             "latency_ms": 0,
                             "glow_refs": [],
                             "confirmed": False,
+                            "synced": False,
                         }
                     )
                     continue
@@ -438,6 +523,7 @@ def main() -> None:
                     "latency_ms": latency_ms,
                     "glow_refs": glow_refs,
                     "confirmed": confirmed,
+                    "synced": False,
                 }
             )
     finally:
@@ -446,6 +532,25 @@ def main() -> None:
         for info in threads.values():
             info["thread"].join()
         watchdog.join()
+        success = sync_once()
+        with open(LEDGER_LOG, "a", encoding="utf-8") as log:
+            log.write(
+                json.dumps(
+                    {
+                        "event": "final_sync",
+                        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                        "success": success,
+                        "relay_used": False,
+                        "relay_status": "offline",
+                        "latency_ms": 0,
+                        "glow_refs": [],
+                        "confirmed": True,
+                        "synced": False,
+                    }
+                )
+                + "\n"
+            )
+        sync_once()
         shutdown_model()
         print("Shutting down...")
 
@@ -473,6 +578,7 @@ def watchdog_daemon(
                         "latency_ms": 0,
                         "glow_refs": [],
                         "confirmed": True,
+                        "synced": False,
                     }
                 )
         if stop.wait(5):
