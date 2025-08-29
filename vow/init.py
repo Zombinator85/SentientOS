@@ -15,6 +15,7 @@ import shutil
 import yaml
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
+from daemon.codex_daemon import run_loop as codex_daemon
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
@@ -50,6 +51,9 @@ DEFAULT_CONFIG = {
     "prune_retention_days": 30,
     "sync_interval": 300,
     "confirmation_rules": ["rm", "shutdown", "format"],
+    "codex_auto_apply": False,
+    "codex_interval": 3600,
+    "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt"],
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -846,6 +850,7 @@ def main() -> None:
         "sync": {"target": sync_daemon, "args": (stop,)},
         "pull_sync": {"target": pull_sync_daemon, "args": (stop, ledger_queue)},
         "prune": {"target": prune_daemon, "args": (stop, ledger_queue, PRUNE_RETENTION_DAYS)},
+        "codex": {"target": codex_daemon, "args": (stop, ledger_queue)},
     }
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
