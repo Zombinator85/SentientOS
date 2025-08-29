@@ -54,6 +54,8 @@ DEFAULT_CONFIG = {
     "codex_auto_apply": False,
     "codex_interval": 3600,
     "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt"],
+    "codex_max_iterations": 1,
+    "codex_focus": "pytest",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
