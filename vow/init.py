@@ -6,9 +6,12 @@ from collections import OrderedDict
 from pathlib import Path
 from queue import Empty, Queue
 
+import base64
 import math
 import psutil
 import requests
+from nacl.exceptions import BadSignatureError
+from nacl.signing import SigningKey, VerifyKey
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
@@ -26,6 +29,17 @@ LEDGER_LOG = Path("/daemon/logs/ledger.jsonl")
 LEDGER_SYNC_STATE = Path("/daemon/logs/ledger.sync")
 PULSE_FILE = Path("/pulse/system.json")
 GLOW_SYNC_STATE = Path("/glow/archive/sync.json")
+GLOW_PULL_STATE = Path("/glow/archive/pull.json")
+LEDGER_PULL_STATE = Path("/daemon/logs/ledger.pull")
+SIGNATURES_LOG = Path("/vow/signatures.jsonl")
+KEY_DIR = Path("/vow/keys")
+PRIVATE_KEY_FILE = KEY_DIR / "ed25519_private.key"
+PUBLIC_KEY_FILE = KEY_DIR / "ed25519_public.key"
+REMOTE_PUBLIC_KEY_FILE = KEY_DIR / "remote_public.key"
+
+SIGNING_KEY: SigningKey | None = None
+VERIFY_KEY: VerifyKey | None = None
+REMOTE_VERIFY_KEY: VerifyKey | None = None
 
 SYSTEM_CONTEXT = ""
 MODEL = None
@@ -35,6 +49,61 @@ MODEL_PATHS = {
     "20b": Path("/models/gpt-oss-20b"),
     "13b": Path("/models/gpt-oss-13b"),
 }
+
+
+def init_keys() -> None:
+    """Load or generate the Ed25519 keypair."""
+    global SIGNING_KEY, VERIFY_KEY, REMOTE_VERIFY_KEY
+    KEY_DIR.mkdir(parents=True, exist_ok=True)
+    if PRIVATE_KEY_FILE.exists():
+        SIGNING_KEY = SigningKey(PRIVATE_KEY_FILE.read_bytes())
+    else:
+        SIGNING_KEY = SigningKey.generate()
+        PRIVATE_KEY_FILE.write_bytes(SIGNING_KEY.encode())
+        PUBLIC_KEY_FILE.write_bytes(SIGNING_KEY.verify_key.encode())
+    VERIFY_KEY = SIGNING_KEY.verify_key
+    try:
+        REMOTE_VERIFY_KEY = VerifyKey(REMOTE_PUBLIC_KEY_FILE.read_bytes())
+    except Exception:  # pragma: no cover - best effort
+        REMOTE_VERIFY_KEY = None
+
+
+def sign_entry(entry: dict) -> str:
+    """Sign the given entry and record the signature."""
+    if SIGNING_KEY is None:
+        return ""
+    msg = json.dumps(entry, sort_keys=True).encode("utf-8")
+    sig = SIGNING_KEY.sign(msg).signature
+    sig_b64 = base64.b64encode(sig).decode("ascii")
+    SIGNATURES_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with open(SIGNATURES_LOG, "a", encoding="utf-8") as log:
+        log.write(
+            json.dumps({"ts": entry.get("ts"), "signature": sig_b64}) + "\n"
+        )
+    return sig_b64
+
+
+def verify_entry(entry: dict, signature: str) -> bool:
+    """Verify an entry signature using the remote public key."""
+    if REMOTE_VERIFY_KEY is None or not signature:
+        return False
+    try:
+        REMOTE_VERIFY_KEY.verify(
+            json.dumps(entry, sort_keys=True).encode("utf-8"),
+            base64.b64decode(signature),
+        )
+        return True
+    except BadSignatureError:
+        return False
+
+
+def write_signed(entry: dict) -> None:
+    """Sign and persist a ledger entry."""
+    sig = sign_entry(entry)
+    entry["signature"] = sig
+    entry["verified"] = True
+    with open(LEDGER_LOG, "a", encoding="utf-8") as log:
+        log.write(json.dumps(entry) + "\n")
 
 def ensure_mounts() -> None:
     for path in MOUNT_POINTS:
@@ -265,8 +334,8 @@ def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
                 break
             continue
         entry["pulse"] = read_pulse_snapshot()
-        with open(LEDGER_LOG, "a", encoding="utf-8") as log:
-            log.write(json.dumps(entry) + "\n")
+        entry["synced"] = "push_only"
+        write_signed(entry)
         queue.task_done()
     shutdown_entry = {
         "event": "shutdown",
@@ -277,10 +346,9 @@ def ledger_daemon(stop: threading.Event, queue: Queue) -> None:
         "latency_ms": 0,
         "glow_refs": [],
         "confirmed": True,
-        "synced": False,
+        "synced": "push_only",
     }
-    with open(LEDGER_LOG, "a", encoding="utf-8") as log:
-        log.write(json.dumps(shutdown_entry) + "\n")
+    write_signed(shutdown_entry)
 
 
 def read_temp_c() -> float:
@@ -419,7 +487,18 @@ def sync_ledger() -> bool:
             last = 0
     if last >= len(lines):
         return True
-    payload = "\n".join(lines[last:])
+    to_send: list[str] = []
+    for line in lines[last:]:
+        try:
+            obj = json.loads(line)
+            if obj.get("synced") == "push_only":
+                to_send.append(line)
+        except Exception:  # pragma: no cover - best effort
+            continue
+    if not to_send:
+        LEDGER_SYNC_STATE.write_text(str(len(lines)), encoding="utf-8")
+        return True
+    payload = "\n".join(to_send)
     try:
         requests.post(
             "http://april-pc.local:5000/sync/ledger",
@@ -429,8 +508,9 @@ def sync_ledger() -> bool:
         for i in range(last, len(lines)):
             try:
                 obj = json.loads(lines[i])
-                obj["synced"] = True
-                lines[i] = json.dumps(obj)
+                if obj.get("synced") == "push_only":
+                    obj["synced"] = "both"
+                    lines[i] = json.dumps(obj)
             except Exception:  # pragma: no cover - best effort
                 continue
         LEDGER_LOG.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -438,6 +518,86 @@ def sync_ledger() -> bool:
         return True
     except Exception:  # pragma: no cover - best effort
         return False
+
+
+def pull_sync_glow() -> None:
+    """Fetch new glow files from the relay server."""
+    last = 0.0
+    if GLOW_PULL_STATE.exists():
+        try:
+            last = float(GLOW_PULL_STATE.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover - best effort
+            last = 0.0
+    try:
+        resp = requests.get(
+            "http://april-pc.local:5000/sync/pull/glow",
+            params={"since": last},
+            timeout=5,
+        )
+        data = resp.json()
+    except Exception:  # pragma: no cover - best effort
+        return
+    files = data.get("files", [])
+    new_last = last
+    GLOW_ARCHIVE.mkdir(parents=True, exist_ok=True)
+    for item in files:
+        name = item.get("name")
+        ts = float(item.get("ts", 0.0))
+        content = item.get("content", "")
+        path = GLOW_ARCHIVE / name
+        local_ts = path.stat().st_mtime if path.exists() else 0.0
+        if ts >= local_ts:
+            path.write_text(content, encoding="utf-8")
+        new_last = max(new_last, ts)
+    GLOW_PULL_STATE.write_text(str(new_last), encoding="utf-8")
+
+
+def pull_sync_ledger(queue: Queue) -> None:
+    """Fetch new ledger entries from the relay server."""
+    last = ""
+    if LEDGER_PULL_STATE.exists():
+        last = LEDGER_PULL_STATE.read_text(encoding="utf-8").strip()
+    try:
+        resp = requests.get(
+            "http://april-pc.local:5000/sync/pull/ledger",
+            params={"since": last},
+            timeout=5,
+        )
+        data = resp.json()
+    except Exception:  # pragma: no cover - best effort
+        return
+    lines = data.get("lines", [])
+    new_last = last
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except Exception:  # pragma: no cover - best effort
+            continue
+        sig = entry.pop("signature", "")
+        verified = verify_entry(entry, sig)
+        if not verified:
+            queue.put(
+                {
+                    "event": "integrity_failure",
+                    "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                    "relay_used": False,
+                    "relay_status": "offline",
+                    "latency_ms": 0,
+                    "glow_refs": [],
+                    "confirmed": True,
+                    "synced": "push_only",
+                }
+            )
+            continue
+        entry["signature"] = sig
+        entry["synced"] = "pull_only"
+        entry["verified"] = verified
+        with open(LEDGER_LOG, "a", encoding="utf-8") as log:
+            log.write(json.dumps(entry) + "\n")
+        ts = entry.get("ts", "")
+        if ts > new_last:
+            new_last = ts
+    LEDGER_PULL_STATE.write_text(str(new_last), encoding="utf-8")
 
 
 def sync_once() -> bool:
@@ -452,8 +612,17 @@ def sync_daemon(stop: threading.Event) -> None:
         if stop.wait(300):
             break
 
+
+def pull_sync_daemon(stop: threading.Event, queue: Queue) -> None:
+    while not stop.is_set():
+        pull_sync_glow()
+        pull_sync_ledger(queue)
+        if stop.wait(300):
+            break
+
 def main() -> None:
     ensure_mounts()
+    init_keys()
     memory_loader()
     load_model()
     boot_message()
@@ -465,6 +634,7 @@ def main() -> None:
         "ledger": {"target": ledger_daemon, "args": (stop, ledger_queue)},
         "pulse": {"target": pulse_daemon, "args": (stop,)},
         "sync": {"target": sync_daemon, "args": (stop,)},
+        "pull_sync": {"target": pull_sync_daemon, "args": (stop, ledger_queue)},
     }
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
@@ -500,7 +670,7 @@ def main() -> None:
                             "latency_ms": 0,
                             "glow_refs": [],
                             "confirmed": False,
-                            "synced": False,
+                            "synced": "push_only",
                         }
                     )
                     continue
@@ -523,7 +693,7 @@ def main() -> None:
                     "latency_ms": latency_ms,
                     "glow_refs": glow_refs,
                     "confirmed": confirmed,
-                    "synced": False,
+                    "synced": "push_only",
                 }
             )
     finally:
@@ -533,24 +703,32 @@ def main() -> None:
             info["thread"].join()
         watchdog.join()
         success = sync_once()
-        with open(LEDGER_LOG, "a", encoding="utf-8") as log:
-            log.write(
-                json.dumps(
-                    {
-                        "event": "final_sync",
-                        "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
-                        "success": success,
-                        "relay_used": False,
-                        "relay_status": "offline",
-                        "latency_ms": 0,
-                        "glow_refs": [],
-                        "confirmed": True,
-                        "synced": False,
-                    }
-                )
-                + "\n"
-            )
+        write_signed(
+            {
+                "event": "final_sync",
+                "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "success": success,
+                "relay_used": False,
+                "relay_status": "offline",
+                "latency_ms": 0,
+                "glow_refs": [],
+                "confirmed": True,
+                "synced": "push_only",
+            }
+        )
         sync_once()
+        summary = {
+            "event": "shutdown_summary",
+            "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+            "last_sync_success": success,
+            "relay_used": False,
+            "relay_status": "offline",
+            "latency_ms": 0,
+            "glow_refs": [],
+            "confirmed": True,
+            "synced": "push_only",
+        }
+        write_signed(summary)
         shutdown_model()
         print("Shutting down...")
 
@@ -578,7 +756,7 @@ def watchdog_daemon(
                         "latency_ms": 0,
                         "glow_refs": [],
                         "confirmed": True,
-                        "synced": False,
+                        "synced": "push_only",
                     }
                 )
         if stop.wait(5):

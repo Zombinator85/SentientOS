@@ -135,6 +135,62 @@ async def sync_ledger(request: Request) -> dict:
     return {"status": "ok", "lines": len(lines)}
 
 
+@app.get("/sync/pull/glow")
+async def pull_glow(since: float = 0.0) -> dict:
+    dest = Path("/glow/archive")
+    dest.mkdir(parents=True, exist_ok=True)
+    files = []
+    for path in sorted(dest.glob("*.txt")):
+        mtime = path.stat().st_mtime
+        if mtime > since:
+            files.append(
+                {
+                    "name": path.name,
+                    "ts": mtime,
+                    "content": path.read_text(encoding="utf-8"),
+                }
+            )
+    with open(LOG_PATH, "a", encoding="utf-8") as log:
+        log.write(
+            json.dumps(
+                {
+                    "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                    "event": "pull_glow",
+                    "files": len(files),
+                }
+            )
+            + "\n"
+        )
+    return {"files": files}
+
+
+@app.get("/sync/pull/ledger")
+async def pull_ledger(since: str = "") -> dict:
+    dest = Path("/daemon/logs/relay_ledger.jsonl")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    lines: list[str] = []
+    if dest.exists():
+        for line in dest.read_text(encoding="utf-8").splitlines():
+            try:
+                obj = json.loads(line)
+            except Exception:  # pragma: no cover - best effort
+                continue
+            if obj.get("ts", "") > since:
+                lines.append(json.dumps(obj))
+    with open(LOG_PATH, "a", encoding="utf-8") as log:
+        log.write(
+            json.dumps(
+                {
+                    "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                    "event": "pull_ledger",
+                    "lines": len(lines),
+                }
+            )
+            + "\n"
+        )
+    return {"lines": lines}
+
+
 if __name__ == "__main__":
     import uvicorn
 
