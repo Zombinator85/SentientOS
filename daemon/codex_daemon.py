@@ -16,10 +16,15 @@ from typing import Tuple
 
 import yaml
 import re
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import DiffLexer
+import urllib.request
 
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
 # Directory for storing Codex patches
 CODEX_PATCH_DIR = Path("/glow/codex_suggestions/")
+CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
 
 # Config handling ----------------------------------------------------------
 CONFIG_FILE = Path("/vow/config.yaml")
@@ -33,6 +38,8 @@ DEFAULT_CONFIG = {
     "codex_focus": "pytest",
     # Autonomy mode: observe, repair, or full
     "codex_mode": "observe",
+    # Notification targets for verified repairs
+    "codex_notify": [],
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -50,6 +57,7 @@ CODEX_MAX_ITERATIONS = int(CONFIG.get("codex_max_iterations", 1))
 CODEX_FOCUS = str(CONFIG.get("codex_focus", "pytest"))
 CODEX_AUTO_APPLY = CODEX_MODE == "full"
 RUN_CODEX = CODEX_MODE in {"repair", "full"}
+CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 
 
 def run_diagnostics() -> Tuple[bool, str, int]:
@@ -140,6 +148,30 @@ def log_activity(entry: dict) -> None:
         fh.write(json.dumps(entry) + "\n")
 
 
+def send_notifications(entry: dict) -> None:
+    """Send repair summaries to configured targets."""
+    if not CODEX_NOTIFY or entry.get("verified") is not True:
+        return
+    summary = {
+        "ts": entry.get("ts"),
+        "files_changed": entry.get("files_changed", []),
+        "iterations": entry.get("iterations", 0),
+        "ci_passed": entry.get("ci_passed", False),
+    }
+    data = json.dumps(summary).encode("utf-8")
+    for target in CODEX_NOTIFY:
+        if target == "stdout":
+            print(json.dumps(summary))
+        else:
+            try:  # pragma: no cover - best effort
+                req = urllib.request.Request(
+                    target, data=data, headers={"Content-Type": "application/json"}
+                )
+                urllib.request.urlopen(req, timeout=5)
+            except Exception:
+                continue
+
+
 def run_once(ledger_queue: Queue) -> dict | None:
     """Attempt to heal the repository once based on :data:`CODEX_MODE`.
 
@@ -174,6 +206,7 @@ def run_once(ledger_queue: Queue) -> dict | None:
 
     files_changed: set[str] = set()
     patch_paths: list[str] = []
+    patch_html = ""
     verified: bool | str = False
     outcome = "fail"
     attempts = 0
@@ -194,7 +227,14 @@ def run_once(ledger_queue: Queue) -> dict | None:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         patch_path = CODEX_PATCH_DIR / f"patch_{timestamp}.diff"
         patch_path.write_text(diff_output, encoding="utf-8")
+        try:
+            html_content = highlight(diff_output, DiffLexer(), HtmlFormatter(full=False, noclasses=True))
+        except Exception:  # pragma: no cover - best effort
+            html_content = f"<pre>{diff_output}</pre>"
+        patch_html_path = CODEX_PATCH_DIR / f"patch_{timestamp}.html"
+        patch_html_path.write_text(html_content, encoding="utf-8")
         patch_paths.append(patch_path.as_posix().lstrip("/"))
+        patch_html = patch_html_path.as_posix().lstrip("/")
 
         files_changed.update(parse_diff_files(diff_output))
 
@@ -220,17 +260,6 @@ def run_once(ledger_queue: Queue) -> dict | None:
             outcome = "suggested"
             break
 
-    entry = {
-        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "prompt": prompt,
-        "files_changed": list(files_changed),
-        "verified": verified,
-        "codex_patch": patch_paths[-1] if patch_paths else "",
-        "iterations": attempts,
-        "target": CODEX_FOCUS,
-        "outcome": outcome,
-    }
-    log_activity(entry)
     ci_passed = False
     if outcome == "success":
         ci_passed = run_ci(ledger_queue)
@@ -240,13 +269,28 @@ def run_once(ledger_queue: Queue) -> dict | None:
     else:
         event_name = "self_repair_failed"
 
+    entry = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "prompt": prompt,
+        "files_changed": list(files_changed),
+        "verified": verified,
+        "codex_patch": patch_paths[-1] if patch_paths else "",
+        "codex_patch_html": patch_html,
+        "iterations": attempts,
+        "target": CODEX_FOCUS,
+        "outcome": outcome,
+        "ci_passed": ci_passed,
+    }
+    log_activity(entry)
+
     ledger_entry = {
         **entry,
         "event": event_name,
         "codex_mode": CODEX_MODE,
-        "ci_passed": ci_passed,
+        "dashboard": True,
     }
     ledger_queue.put(ledger_entry)
+    send_notifications(ledger_entry)
     return ledger_entry
 
 
@@ -255,6 +299,19 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     total_iterations = 0
     passes = 0
     failures = 0
+    
+    def write_session() -> None:
+        CODEX_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+        session = {
+            "runs": codex_runs,
+            "iterations": total_iterations,
+            "passes": passes,
+            "failures": failures,
+            "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        CODEX_SESSION_FILE.write_text(json.dumps(session), encoding="utf-8")
+
+    write_session()
     while not stop.is_set():
         try:
             result = run_once(ledger_queue)
@@ -265,6 +322,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
                     passes += 1
                 elif result["outcome"] == "fail":
                     failures += 1
+                write_session()
         except Exception as exc:  # pragma: no cover - best effort logging
             log_activity(
                 {
@@ -282,6 +340,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
         if stop.wait(CODEX_INTERVAL):
             break
 
+    write_session()
     ledger_queue.put(
         {
             "event": "codex_session_report",
@@ -290,5 +349,16 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
             "iterations": total_iterations,
             "passes": passes,
             "failures": failures,
+        }
+    )
+    ledger_queue.put(
+        {
+            "event": "codex_dashboard_report",
+            "codex_mode": CODEX_MODE,
+            "runs": codex_runs,
+            "iterations": total_iterations,
+            "passes": passes,
+            "failures": failures,
+            "dashboard": True,
         }
     )
