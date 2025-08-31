@@ -25,6 +25,10 @@ CODEX_LOG = Path("/daemon/logs/codex.jsonl")
 # Directory for storing Codex patches
 CODEX_PATCH_DIR = Path("/glow/codex_suggestions/")
 CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
+CODEX_REQUEST_DIR = Path("/glow/codex_requests/")
+CODEX_REASONING_DIR = Path("/daemon/logs/codex_reasoning/")
+
+PRIVILEGED_PATTERNS = ["/vow/", "init.py", "privilege.py"]
 
 # Config handling ----------------------------------------------------------
 CONFIG_FILE = Path("/vow/config.yaml")
@@ -36,7 +40,7 @@ DEFAULT_CONFIG = {
     "codex_max_iterations": 1,
     # Focus for diagnostics: "pytest" or "mypy"
     "codex_focus": "pytest",
-    # Autonomy mode: observe, repair, or full
+    # Autonomy mode: observe, repair, full, or expand
     "codex_mode": "observe",
     # Notification targets for verified repairs
     "codex_notify": [],
@@ -56,7 +60,7 @@ CODEX_CONFIRM_PATTERNS = CONFIG.get(
 CODEX_MAX_ITERATIONS = int(CONFIG.get("codex_max_iterations", 1))
 CODEX_FOCUS = str(CONFIG.get("codex_focus", "pytest"))
 CODEX_AUTO_APPLY = CODEX_MODE == "full"
-RUN_CODEX = CODEX_MODE in {"repair", "full"}
+RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
 CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 
 
@@ -170,6 +174,86 @@ def send_notifications(entry: dict) -> None:
                 urllib.request.urlopen(req, timeout=5)
             except Exception:
                 continue
+
+
+def load_ethics() -> str:
+    """Combine NEWLEGACY and current vows for Codex prompts."""
+    legacy = ""
+    try:
+        legacy = Path("NEWLEGACY.txt").read_text(encoding="utf-8")
+    except Exception:
+        pass
+    vows = ""
+    vow_dir = Path("/vow")
+    if vow_dir.exists():
+        for vf in sorted(vow_dir.glob("*")):
+            try:
+                vows += vf.read_text(encoding="utf-8") + "\n"
+            except Exception:
+                continue
+    return f"{legacy}\n{vows}".strip()
+
+
+def requires_confirm(files: list[str]) -> bool:
+    """Return True if any path is privileged."""
+    return any(any(p in f for p in PRIVILEGED_PATTERNS) for f in files)
+
+
+def confirm_patch() -> bool:
+    resp = input("Patch touches privileged files. Apply? [y/N]: ").strip().lower()
+    return resp in {"y", "yes"}
+
+
+def process_request(task_file: Path, ledger_queue: Queue) -> dict:
+    """Handle a single expansion request file."""
+    task = task_file.read_text(encoding="utf-8").strip()
+    task_file.unlink()
+    prefix = load_ethics()
+    prompt = f"{prefix}\n{task}\nOutput a unified diff."
+    proc = subprocess.run(["codex", "exec", prompt], capture_output=True, text=True)
+    diff_output = proc.stdout
+    CODEX_PATCH_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    patch_path = CODEX_PATCH_DIR / f"expand_{timestamp}.diff"
+    patch_path.write_text(diff_output, encoding="utf-8")
+    CODEX_REASONING_DIR.mkdir(parents=True, exist_ok=True)
+    trace_path = CODEX_REASONING_DIR / f"trace_{timestamp}.json"
+    trace_path.write_text(
+        json.dumps({
+            "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "prompt": prompt,
+            "response": diff_output,
+        }),
+        encoding="utf-8",
+    )
+    files_changed = parse_diff_files(diff_output)
+    confirmed = True
+    if requires_confirm(files_changed):
+        confirmed = confirm_patch()
+    verified = False
+    if confirmed and files_changed and apply_patch(diff_output):
+        verified = run_ci(ledger_queue)
+    entry = {
+        "event": "self_expand",
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "task": task,
+        "files_created": files_changed,
+        "verified": verified,
+        "confirmed": confirmed,
+        "reasoning_trace": trace_path.as_posix().lstrip("/"),
+    }
+    log_activity({
+        "ts": entry["ts"],
+        "prompt": prompt,
+        "files_changed": files_changed,
+        "verified": verified,
+        "codex_patch": patch_path.as_posix().lstrip("/"),
+        "iterations": 1,
+        "target": "expand",
+        "outcome": "success" if verified else "fail",
+    })
+    ledger_queue.put({**entry, "codex_mode": CODEX_MODE})
+    return entry
 
 
 def run_once(ledger_queue: Queue) -> dict | None:
@@ -314,15 +398,29 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     write_session()
     while not stop.is_set():
         try:
-            result = run_once(ledger_queue)
-            if result:
-                codex_runs += 1
-                total_iterations += result.get("iterations", 0)
-                if result["outcome"] == "success":
-                    passes += 1
-                elif result["outcome"] == "fail":
-                    failures += 1
-                write_session()
+            result = None
+            if CODEX_MODE == "expand":
+                CODEX_REQUEST_DIR.mkdir(parents=True, exist_ok=True)
+                requests = sorted(CODEX_REQUEST_DIR.glob("*"))
+                if requests:
+                    result = process_request(requests[0], ledger_queue)
+                    codex_runs += 1
+                    total_iterations += 1
+                    if result.get("verified"):
+                        passes += 1
+                    else:
+                        failures += 1
+                    write_session()
+            else:
+                result = run_once(ledger_queue)
+                if result:
+                    codex_runs += 1
+                    total_iterations += result.get("iterations", 0)
+                    if result["outcome"] == "success":
+                        passes += 1
+                    elif result["outcome"] == "fail":
+                        failures += 1
+                    write_session()
         except Exception as exc:  # pragma: no cover - best effort logging
             log_activity(
                 {
