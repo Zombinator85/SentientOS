@@ -6,7 +6,11 @@ import json
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, File, Request, UploadFile
+from fastapi import FastAPI, File, Request, UploadFile, HTTPException
+from fastapi.responses import HTMLResponse
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import DiffLexer
 from pydantic import BaseModel
 
 require_admin_banner()
@@ -41,6 +45,10 @@ def load_model() -> None:
 load_model()
 
 LOG_PATH = Path("relay_logs.jsonl")
+CODEX_LOG = Path("/daemon/logs/codex.jsonl")
+CODEX_PATCH_DIR = Path("/glow/codex_suggestions/")
+LEDGER_LOG = Path("/daemon/logs/ledger.jsonl")
+CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
 app = FastAPI()
 
 
@@ -189,6 +197,84 @@ async def pull_ledger(since: str = "") -> dict:
             + "\n"
         )
     return {"lines": lines}
+
+
+def _ledger_map() -> dict:
+    mapping: dict[str, tuple[int, dict]] = {}
+    if LEDGER_LOG.exists():
+        for idx, line in enumerate(LEDGER_LOG.read_text(encoding="utf-8").splitlines(), 1):
+            try:
+                obj = json.loads(line)
+            except Exception:  # pragma: no cover - best effort
+                continue
+            ts = obj.get("ts")
+            if ts:
+                mapping[ts] = (idx, obj)
+    return mapping
+
+
+@app.get("/codex/status")
+def codex_status(limit: int = 5) -> dict:
+    ledger_map = _ledger_map()
+    repairs: list[dict] = []
+    if CODEX_LOG.exists():
+        lines = CODEX_LOG.read_text(encoding="utf-8").splitlines()
+        for line in reversed(lines):
+            if len(repairs) >= limit:
+                break
+            try:
+                entry = json.loads(line)
+            except Exception:  # pragma: no cover - best effort
+                continue
+            if not entry.get("codex_patch"):
+                continue
+            patch_path = Path("/") / entry["codex_patch"]
+            diff = ""
+            if patch_path.exists():
+                diff = patch_path.read_text(encoding="utf-8")
+            ts = entry.get("ts", "")
+            ledger_link = ""
+            ci_passed = entry.get("ci_passed", False)
+            if ts in ledger_map:
+                line_no, ledger_entry = ledger_map[ts]
+                ledger_link = f"ledger.jsonl#{line_no}"
+                ci_passed = ledger_entry.get("ci_passed", ci_passed)
+            repairs.append(
+                {
+                    "ts": ts,
+                    "iterations": entry.get("iterations", 0),
+                    "codex_patch": entry.get("codex_patch", ""),
+                    "codex_patch_html": entry.get("codex_patch_html", ""),
+                    "patch_id": Path(entry.get("codex_patch", "")).stem,
+                    "diff": diff,
+                    "ci_passed": ci_passed,
+                    "ledger_link": ledger_link,
+                }
+            )
+    return {"repairs": repairs}
+
+
+@app.get("/codex/session")
+def codex_session() -> dict:
+    if CODEX_SESSION_FILE.exists():
+        try:
+            return json.loads(CODEX_SESSION_FILE.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover - best effort
+            pass
+    return {"runs": 0, "iterations": 0, "passes": 0, "failures": 0}
+
+
+@app.get("/codex/patch/{patch_id}")
+def codex_patch(patch_id: str) -> HTMLResponse:
+    path_html = CODEX_PATCH_DIR / f"{patch_id}.html"
+    if path_html.exists():
+        return HTMLResponse(path_html.read_text(encoding="utf-8"))
+    path_diff = CODEX_PATCH_DIR / f"{patch_id}.diff"
+    if not path_diff.exists():
+        raise HTTPException(status_code=404, detail="Patch not found")
+    diff = path_diff.read_text(encoding="utf-8")
+    html = highlight(diff, DiffLexer(), HtmlFormatter(full=True))
+    return HTMLResponse(html)
 
 
 if __name__ == "__main__":

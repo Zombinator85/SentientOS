@@ -38,6 +38,7 @@ PULSE_FILE = Path("/pulse/system.json")
 GLOW_SYNC_STATE = Path("/glow/archive/sync.json")
 GLOW_PULL_STATE = Path("/glow/archive/pull.json")
 LEDGER_PULL_STATE = Path("/daemon/logs/ledger.pull")
+CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
 SIGNATURES_LOG = Path("/vow/signatures.jsonl")
 KEY_DIR = Path("/vow/keys")
 PRIVATE_KEY_FILE = KEY_DIR / "ed25519_private.key"
@@ -57,6 +58,7 @@ DEFAULT_CONFIG = {
     "codex_max_iterations": 1,
     "codex_focus": "pytest",
     "codex_mode": "observe",
+    "codex_notify": [],
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -984,6 +986,29 @@ def main() -> None:
                 "pruned": False,
                 "summary_refs": [],
                 "synced": "push_only",
+            }
+        )
+        try:
+            stats = json.loads(CODEX_SESSION_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            stats = {"runs": 0, "iterations": 0, "passes": 0, "failures": 0}
+        write_signed(
+            {
+                "event": "codex_dashboard_report",
+                "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
+                "runs": stats.get("runs", 0),
+                "iterations": stats.get("iterations", 0),
+                "passes": stats.get("passes", 0),
+                "failures": stats.get("failures", 0),
+                "relay_used": False,
+                "relay_status": "offline",
+                "latency_ms": 0,
+                "glow_refs": [],
+                "confirmed": True,
+                "pruned": False,
+                "summary_refs": [],
+                "synced": "push_only",
+                "dashboard": True,
             }
         )
         shutdown_model()

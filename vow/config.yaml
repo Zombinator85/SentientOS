@@ -16,3 +16,4 @@ codex_confirm_patterns:
   - /vow/
   - NEWLEGACY.txt
 codex_mode: observe
+codex_notify: []
