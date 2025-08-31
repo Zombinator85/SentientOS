@@ -30,7 +30,14 @@ GLOW_INDEX: dict[str, dict] = {}
 GLOW_CACHE: OrderedDict[str, str] = OrderedDict()
 EMBED_MODEL = None
 
-MOUNT_POINTS = [Path("/vow"), Path("/glow"), Path("/daemon"), Path("/pulse")]
+MOUNT_POINTS = [
+    Path("/vow"),
+    Path("/glow"),
+    Path("/daemon"),
+    Path("/pulse"),
+    Path("/glow/codex_requests"),
+    Path("/daemon/logs/codex_reasoning"),
+]
 HEARTBEAT_LOG = Path("/daemon/logs/heartbeat.log")
 LEDGER_LOG = Path("/daemon/logs/ledger.jsonl")
 LEDGER_SYNC_STATE = Path("/daemon/logs/ledger.sync")
@@ -54,7 +61,7 @@ DEFAULT_CONFIG = {
     "confirmation_rules": ["rm", "shutdown", "format"],
     "codex_auto_apply": False,
     "codex_interval": 3600,
-    "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt"],
+    "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"],
     "codex_max_iterations": 1,
     "codex_focus": "pytest",
     "codex_mode": "observe",
