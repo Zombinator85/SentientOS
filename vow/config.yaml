@@ -15,5 +15,7 @@ codex_interval: 3600
 codex_confirm_patterns:
   - /vow/
   - NEWLEGACY.txt
-codex_mode: observe
+  - init.py
+  - privilege.py
+codex_mode: observe  # observe | repair | full | expand
 codex_notify: []
