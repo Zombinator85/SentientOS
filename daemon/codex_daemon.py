@@ -22,20 +22,21 @@ from pygments.lexers import DiffLexer
 import urllib.request
 
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
-# Directory for storing Codex patches
-CODEX_PATCH_DIR = Path("/glow/codex_suggestions/")
+# Directory for storing Codex suggestion patches
+CODEX_SUGGEST_DIR = Path("/glow/codex_suggestions/")
+CODEX_PATCH_DIR = CODEX_SUGGEST_DIR  # backward compatibility
 CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
 CODEX_REQUEST_DIR = Path("/glow/codex_requests/")
 CODEX_REASONING_DIR = Path("/daemon/logs/codex_reasoning/")
 
-PRIVILEGED_PATTERNS = ["/vow/", "init.py", "privilege.py"]
+PRIVILEGED_PATTERNS = ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"]
 
 # Config handling ----------------------------------------------------------
 CONFIG_FILE = Path("/vow/config.yaml")
 DEFAULT_CONFIG = {
     "codex_auto_apply": False,
     "codex_interval": 3600,
-    "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt"],
+    "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"],
     # Maximum Codex fix attempts per cycle
     "codex_max_iterations": 1,
     # Focus for diagnostics: "pytest" or "mypy"
@@ -55,11 +56,11 @@ CONFIG = {**DEFAULT_CONFIG, **CONFIG}
 CODEX_MODE = str(CONFIG.get("codex_mode", "observe")).lower()
 CODEX_INTERVAL = int(CONFIG.get("codex_interval", 3600))
 CODEX_CONFIRM_PATTERNS = CONFIG.get(
-    "codex_confirm_patterns", ["/vow/", "NEWLEGACY.txt"]
+    "codex_confirm_patterns", ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"]
 )
 CODEX_MAX_ITERATIONS = int(CONFIG.get("codex_max_iterations", 1))
 CODEX_FOCUS = str(CONFIG.get("codex_focus", "pytest"))
-CODEX_AUTO_APPLY = CODEX_MODE == "full"
+CODEX_AUTO_APPLY = CODEX_MODE in {"repair", "full"}
 RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
 CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 
@@ -133,6 +134,11 @@ def parse_diff_files(diff: str) -> list[str]:
         if line.startswith("+++ b/"):
             files.append(line[6:])
     return files
+
+
+def parse_failing_tests(output: str) -> list[str]:
+    """Extract failing test identifiers from pytest output."""
+    return re.findall(r"FAILED (\S+)", output)
 
 
 def is_safe(files: list[str]) -> bool:
@@ -257,12 +263,9 @@ def process_request(task_file: Path, ledger_queue: Queue) -> dict:
 
 
 def run_once(ledger_queue: Queue) -> dict | None:
-    """Attempt to heal the repository once based on :data:`CODEX_MODE`.
+    """Execute a single Codex self-repair cycle."""
 
-    Returns the ledger entry if a repair was attempted, otherwise ``None``.
-    """
-
-    passed, summary, errors_before = run_diagnostics()
+    passed, summary, _ = run_diagnostics()
     if passed:
         return None
 
@@ -288,94 +291,96 @@ def run_once(ledger_queue: Queue) -> dict | None:
         ledger_queue.put(ledger_entry)
         return ledger_entry
 
-    files_changed: set[str] = set()
-    patch_paths: list[str] = []
-    patch_html = ""
-    verified: bool | str = False
-    outcome = "fail"
-    attempts = 0
-    current_summary = summary
-    previous_errors = errors_before
+    failing_tests = parse_failing_tests(summary)
+    prompt = (
+        "Fix the following issues in SentientOS based on pytest output:\n"
+        f"{summary}\n"
+        "Output a unified diff."
+    )
+    proc = subprocess.run(["codex", "exec", prompt], capture_output=True, text=True)
+    diff_output = proc.stdout
 
-    prompt = ""
-    for attempt in range(1, CODEX_MAX_ITERATIONS + 1):
-        attempts = attempt
-        prompt = (
-            "Fix the following issues in SentientOS. Pytest/mypy outputs:\n"
-            f"{current_summary}\n"
-            "Please resolve so all tests and type checks pass. Output a unified diff."
-        )
-        proc = subprocess.run(["codex", "exec", prompt], capture_output=True, text=True)
-        diff_output = proc.stdout
-        CODEX_PATCH_DIR.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        patch_path = CODEX_PATCH_DIR / f"patch_{timestamp}.diff"
-        patch_path.write_text(diff_output, encoding="utf-8")
-        try:
-            html_content = highlight(diff_output, DiffLexer(), HtmlFormatter(full=False, noclasses=True))
-        except Exception:  # pragma: no cover - best effort
-            html_content = f"<pre>{diff_output}</pre>"
-        patch_html_path = CODEX_PATCH_DIR / f"patch_{timestamp}.html"
-        patch_html_path.write_text(html_content, encoding="utf-8")
-        patch_paths.append(patch_path.as_posix().lstrip("/"))
-        patch_html = patch_html_path.as_posix().lstrip("/")
+    CODEX_SUGGEST_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    patch_path = CODEX_SUGGEST_DIR / f"patch_{timestamp}.diff"
+    patch_path.write_text(diff_output, encoding="utf-8")
 
-        files_changed.update(parse_diff_files(diff_output))
+    CODEX_REASONING_DIR.mkdir(parents=True, exist_ok=True)
+    trace_path = CODEX_REASONING_DIR / f"trace_{timestamp}.json"
+    trace_path.write_text(
+        json.dumps(
+            {
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "prompt": prompt,
+                "response": diff_output,
+                "tests_failed": failing_tests,
+            }
+        ),
+        encoding="utf-8",
+    )
 
-        if CODEX_MODE == "full" and CODEX_AUTO_APPLY and files_changed and is_safe(list(files_changed)):
-            if apply_patch(diff_output):
-                passed, current_summary, current_errors = run_diagnostics()
-                if passed:
-                    subprocess.run(["git", "add", "-A"], check=False)
-                    subprocess.run(
-                        ["git", "commit", "-m", "[codex:self_repair]"],
-                        check=False,
-                    )
-                    verified = True
-                    outcome = "success"
-                    break
-                if CODEX_FOCUS == "mypy" and current_errors < previous_errors:
-                    verified = "partial"
-                    previous_errors = current_errors
-                    outcome = "partial"
-                else:
-                    previous_errors = current_errors
-        else:
-            outcome = "suggested"
-            break
+    files_changed = parse_diff_files(diff_output)
+    confirmed = is_safe(files_changed)
 
-    ci_passed = False
-    if outcome == "success":
-        ci_passed = run_ci(ledger_queue)
-        event_name = "self_repair"
-    elif outcome == "suggested":
-        event_name = "self_repair_suggested"
-    else:
-        event_name = "self_repair_failed"
-
-    entry = {
+    suggestion_entry = {
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "prompt": prompt,
-        "files_changed": list(files_changed),
-        "verified": verified,
-        "codex_patch": patch_paths[-1] if patch_paths else "",
-        "codex_patch_html": patch_html,
-        "iterations": attempts,
-        "target": CODEX_FOCUS,
-        "outcome": outcome,
-        "ci_passed": ci_passed,
-    }
-    log_activity(entry)
-
-    ledger_entry = {
-        **entry,
-        "event": event_name,
+        "event": "self_repair_suggested",
+        "tests_failed": failing_tests,
+        "patch_file": patch_path.as_posix().lstrip("/"),
+        "codex_patch": patch_path.as_posix().lstrip("/"),
+        "files_changed": files_changed,
+        "confirmed": confirmed,
         "codex_mode": CODEX_MODE,
-        "dashboard": True,
+        "iterations": 1,
+        "outcome": "suggested" if confirmed else "halted",
+        "target": CODEX_FOCUS,
+        "verified": False,
     }
-    ledger_queue.put(ledger_entry)
-    send_notifications(ledger_entry)
-    return ledger_entry
+    log_activity({**suggestion_entry, "prompt": prompt})
+    ledger_queue.put(suggestion_entry)
+
+    if not confirmed or not files_changed:
+        return suggestion_entry
+
+    if not apply_patch(diff_output):
+        fail_entry = {
+            **suggestion_entry,
+            "event": "self_repair_failed",
+            "reason": "patch_apply_failed",
+            "outcome": "fail",
+        }
+        log_activity(fail_entry)
+        ledger_queue.put(fail_entry)
+        return fail_entry
+
+    tests_passed, new_summary, _ = run_diagnostics()
+    if tests_passed:
+        subprocess.run(["git", "add", "-A"], check=False)
+        subprocess.run(
+            ["git", "commit", "-m", "[codex:self_repair] auto-patch applied"],
+            check=False,
+        )
+        success_entry = {
+            **suggestion_entry,
+            "event": "self_repair",
+            "verified": True,
+            "outcome": "success",
+            "ci_passed": True,
+        }
+        log_activity(success_entry)
+        ledger_queue.put(success_entry)
+        send_notifications(success_entry)
+        return success_entry
+
+    fail_entry = {
+        **suggestion_entry,
+        "event": "self_repair_failed",
+        "reason": new_summary,
+        "outcome": "fail",
+    }
+    log_activity(fail_entry)
+    ledger_queue.put(fail_entry)
+    return fail_entry
 
 
 def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
