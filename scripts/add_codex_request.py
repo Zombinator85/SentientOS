@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +18,10 @@ def main() -> None:
     queue_dir = Path("/glow/codex_requests")
     queue_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    (queue_dir / f"task_{ts}.txt").write_text(task, encoding="utf-8")
+    spec = {"task": task}
+    (queue_dir / f"queue_{ts}.json").write_text(
+        json.dumps(spec), encoding="utf-8"
+    )
     print(f"queued: {task}")
 
 

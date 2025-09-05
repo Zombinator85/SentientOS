@@ -55,6 +55,26 @@ def log_federation(peer: str, email: str = "", message: str = "Federation sync")
     return _append(get_log_path("federation_log.jsonl"), entry)
 
 
+def log_self_expand(
+    task: str,
+    files_created: List[str],
+    verified: bool,
+    confirmed: bool,
+    reasoning_trace: str,
+) -> Dict[str, Any]:
+    """Record a Codex self expansion event."""
+    entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "event": "self_expand",
+        "task": task,
+        "files_created": files_created,
+        "verified": verified,
+        "confirmed": confirmed,
+        "reasoning_trace": reasoning_trace,
+    }
+    return _append(get_log_path("codex_expand_log.jsonl"), entry)
+
+
 def log_music_event(
     event: str,
     file_path: str,
