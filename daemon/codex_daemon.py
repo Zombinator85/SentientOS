@@ -212,52 +212,77 @@ def confirm_patch() -> bool:
 
 def process_request(task_file: Path, ledger_queue: Queue) -> dict:
     """Handle a single expansion request file."""
-    task = task_file.read_text(encoding="utf-8").strip()
+    spec = json.loads(task_file.read_text(encoding="utf-8"))
     task_file.unlink()
+    task = spec.get("task", "")
     prefix = load_ethics()
-    prompt = f"{prefix}\n{task}\nOutput a unified diff."
+    prompt = (
+        f"{prefix}\n{task}\n"
+        "Respond with a JSON object mapping file paths to file contents."
+    )
     proc = subprocess.run(["codex", "exec", prompt], capture_output=True, text=True)
-    diff_output = proc.stdout
-    CODEX_PATCH_DIR.mkdir(parents=True, exist_ok=True)
+    response = proc.stdout.strip()
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    patch_path = CODEX_PATCH_DIR / f"expand_{timestamp}.diff"
-    patch_path.write_text(diff_output, encoding="utf-8")
+    CODEX_PATCH_DIR.mkdir(parents=True, exist_ok=True)
+    patch_path = CODEX_PATCH_DIR / f"expand_{timestamp}.json"
+    patch_path.write_text(response, encoding="utf-8")
     CODEX_REASONING_DIR.mkdir(parents=True, exist_ok=True)
     trace_path = CODEX_REASONING_DIR / f"trace_{timestamp}.json"
     trace_path.write_text(
-        json.dumps({
-            "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "prompt": prompt,
-            "response": diff_output,
-        }),
+        json.dumps(
+            {
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "prompt": prompt,
+                "response": response,
+            }
+        ),
         encoding="utf-8",
     )
-    files_changed = parse_diff_files(diff_output)
-    confirmed = True
-    if requires_confirm(files_changed):
-        confirmed = confirm_patch()
+    try:
+        files_dict = json.loads(response) if response else {}
+    except json.JSONDecodeError:
+        files_dict = {}
+    files_created = list(files_dict.keys())
+    confirmed = not requires_confirm(files_created)
     verified = False
-    if confirmed and files_changed and apply_patch(diff_output):
+    if confirmed and files_dict:
+        for fp, content in files_dict.items():
+            path = Path(fp)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
         verified = run_ci(ledger_queue)
+        if verified:
+            subprocess.run(["git", "add", *files_created], check=False)
+            subprocess.run(
+                [
+                    "git",
+                    "commit",
+                    "-m",
+                    f"[codex:self_expand] {task}",
+                ],
+                check=False,
+            )
     entry = {
         "event": "self_expand",
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
         "task": task,
-        "files_created": files_changed,
+        "files_created": files_created,
         "verified": verified,
         "confirmed": confirmed,
         "reasoning_trace": trace_path.as_posix().lstrip("/"),
     }
-    log_activity({
-        "ts": entry["ts"],
-        "prompt": prompt,
-        "files_changed": files_changed,
-        "verified": verified,
-        "codex_patch": patch_path.as_posix().lstrip("/"),
-        "iterations": 1,
-        "target": "expand",
-        "outcome": "success" if verified else "fail",
-    })
+    log_activity(
+        {
+            "ts": entry["ts"],
+            "prompt": prompt,
+            "files_changed": files_created,
+            "verified": verified,
+            "codex_patch": patch_path.as_posix().lstrip("/"),
+            "iterations": 1,
+            "target": "expand",
+            "outcome": "success" if verified else "fail",
+        }
+    )
     ledger_queue.put({**entry, "codex_mode": CODEX_MODE})
     return entry
 

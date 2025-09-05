@@ -64,7 +64,7 @@ DEFAULT_CONFIG = {
     "codex_confirm_patterns": ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"],
     "codex_max_iterations": 1,
     "codex_focus": "pytest",
-    "codex_mode": "observe",
+    "codex_mode": "observe",  # observe | repair | full | expand
     "codex_notify": [],
 }
 try:
