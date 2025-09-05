@@ -16,6 +16,7 @@ import yaml
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 from daemon.codex_daemon import run_loop as codex_daemon
+from daemon.thermal_daemon import run_loop as thermal_daemon
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
@@ -868,6 +869,8 @@ def main() -> None:
     }
     if RUN_CODEX:
         threads["codex"] = {"target": codex_daemon, "args": (stop, ledger_queue)}
+    if CODEX_MODE in {"full", "expand"}:
+        threads["thermal"] = {"target": thermal_daemon, "args": (stop, ledger_queue)}
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
         info["thread"] = t
