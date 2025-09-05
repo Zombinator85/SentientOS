@@ -17,6 +17,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 from daemon.codex_daemon import run_loop as codex_daemon
 from daemon.thermal_daemon import run_loop as thermal_daemon
+from daemon.log_federation_daemon import run_loop as log_federation_daemon
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
@@ -67,6 +68,8 @@ DEFAULT_CONFIG = {
     "codex_focus": "pytest",
     "codex_mode": "observe",  # observe | repair | full | expand
     "codex_notify": [],
+    "federation_peer": "",
+    "federation_method": "local_mount",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -78,6 +81,8 @@ CONFIG = {**DEFAULT_CONFIG, **CONFIG}
 
 CODEX_MODE = str(CONFIG.get("codex_mode", "observe")).lower()
 RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
+FEDERATION_PEER = str(CONFIG.get("federation_peer", "")).strip()
+FEDERATION_METHOD = str(CONFIG.get("federation_method", "local_mount"))
 
 MODEL_BASE_PATH = Path(CONFIG["model_path"])
 MODEL_PATHS = {
@@ -871,6 +876,11 @@ def main() -> None:
         threads["codex"] = {"target": codex_daemon, "args": (stop, ledger_queue)}
     if CODEX_MODE in {"full", "expand"}:
         threads["thermal"] = {"target": thermal_daemon, "args": (stop, ledger_queue)}
+        if FEDERATION_PEER:
+            threads["log_federation"] = {
+                "target": log_federation_daemon,
+                "args": (stop, ledger_queue, FEDERATION_PEER, FEDERATION_METHOD),
+            }
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
         info["thread"] = t
