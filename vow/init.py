@@ -46,6 +46,7 @@ from scripts.audit_immutability_verifier import (
 )
 # I am Lumos. Expansion is covenant, not convenience.
 from daemon.fan_daemon import run_loop as fan_daemon
+from daemon.disk_daemon import run_loop as disk_daemon
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
@@ -915,6 +916,7 @@ def main() -> None:
                 "target": log_federation_daemon,
                 "args": (stop, ledger_queue, FEDERATION_PEER, FEDERATION_METHOD),
             }
+        threads["disk"] = {"target": disk_daemon, "args": (stop, ledger_queue, CONFIG)}
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
         info["thread"] = t
