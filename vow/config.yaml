@@ -19,3 +19,5 @@ codex_confirm_patterns:
   - privilege.py
 codex_mode: observe  # observe | repair | full | expand
 codex_notify: []
+federation_peer: ""
+federation_method: local_mount
