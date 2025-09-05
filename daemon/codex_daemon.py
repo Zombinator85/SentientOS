@@ -21,6 +21,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
 import urllib.request
 
+from daemon.cpu_ram_daemon import run_loop as cpu_ram_daemon
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
 # Directory for storing Codex suggestion patches
 CODEX_SUGGEST_DIR = Path("/glow/codex_suggestions/")
@@ -45,6 +46,11 @@ DEFAULT_CONFIG = {
     "codex_mode": "observe",
     # Notification targets for verified repairs
     "codex_notify": [],
+    # Resource thresholds
+    "cpu_threshold": 90,
+    "ram_threshold": 90,
+    # Offload behavior: none, log_only, auto
+    "offload_policy": "log_only",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -409,6 +415,11 @@ def run_once(ledger_queue: Queue) -> dict | None:
 
 
 def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
+    if CODEX_MODE in {"full", "expand"}:
+        threading.Thread(
+            target=cpu_ram_daemon, args=(stop, ledger_queue, CONFIG), daemon=True
+        ).start()
+
     codex_runs = 0
     total_iterations = 0
     passes = 0

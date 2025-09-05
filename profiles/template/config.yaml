@@ -1,2 +1,5 @@
 name: Template
 model_controls_emotion: false
+cpu_threshold: 90
+ram_threshold: 90
+offload_policy: log_only
