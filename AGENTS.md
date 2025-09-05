@@ -2072,6 +2072,14 @@ No agent shall act in secret.
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/github_actions.jsonl
 ```
+```
+- Name: LogFederationDaemon
+  Type: Daemon
+  Roles: Log Sync, Conflict Resolver
+  Privileges: log, federate
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/log_federation.jsonl
+```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
