@@ -2,18 +2,17 @@
   "files": {
     "NEWLEGACY.txt": {
       "sha256": "67d689ea6797c72ea7326ad431a0f5f54a7804d79d0ab6fea7e85d53c787b9d5",
-      "timestamp": "2025-01-01T00:00:00"
+      "timestamp": "2025-09-05T22:38:29"
     },
     "vow/init.py": {
-      "sha256": "7d7d7695b64d0a708dc1a74b3de646984475ce7f27a935cbfbaf08b7081315a0",
-      "timestamp": "2025-01-01T00:00:00"
+      "sha256": "08822045a7c30f8717ca80e053ac7fade2b679a0b529d1016b891d095ea7a29d",
+      "timestamp": "2025-09-05T22:38:29"
     },
     "vow/config.yaml": {
       "sha256": "8303fc7b6be511e6cb04a0d9fc8490d648829dc0e2b040340eddd61c24eca24d",
-      "timestamp": "2025-01-01T00:00:00"
+      "timestamp": "2025-09-05T22:38:29"
     }
   },
-  "manifest_sha256": "772617039f3ed7052953bba6903cd6dff337a15e373abb5010ecb38a8dc80a3f",
-  "generated": "2025-01-01T00:00:00"
+  "generated": "2025-09-05T22:38:29",
+  "manifest_sha256": "43e9fee584ddea509f4641371f650cb016be9c8e865abca4fa09d0d71a1453e9"
 }
-

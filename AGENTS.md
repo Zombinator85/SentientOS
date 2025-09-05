@@ -2088,6 +2088,14 @@ No agent shall act in secret.
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/fan_daemon.jsonl
 ```
+```
+- Name: DiskUsageDaemon
+  Type: Daemon
+  Roles: Disk Monitor, Pruner
+  Privileges: log, prune
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/disk_daemon.jsonl
+```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
