@@ -75,6 +75,9 @@ except FileNotFoundError:
     CONFIG = {}
 CONFIG = {**DEFAULT_CONFIG, **CONFIG}
 
+CODEX_MODE = str(CONFIG.get("codex_mode", "observe")).lower()
+RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
+
 MODEL_BASE_PATH = Path(CONFIG["model_path"])
 MODEL_PATHS = {
     "120b": MODEL_BASE_PATH / "gpt-oss-120b-quantized",
@@ -862,8 +865,9 @@ def main() -> None:
         "sync": {"target": sync_daemon, "args": (stop,)},
         "pull_sync": {"target": pull_sync_daemon, "args": (stop, ledger_queue)},
         "prune": {"target": prune_daemon, "args": (stop, ledger_queue, PRUNE_RETENTION_DAYS)},
-        "codex": {"target": codex_daemon, "args": (stop, ledger_queue)},
     }
+    if RUN_CODEX:
+        threads["codex"] = {"target": codex_daemon, "args": (stop, ledger_queue)}
     for info in threads.values():
         t = threading.Thread(target=info["target"], args=info["args"], daemon=True)
         info["thread"] = t
