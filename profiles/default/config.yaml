@@ -3,3 +3,6 @@ model_controls_emotion: false
 cpu_threshold: 90
 ram_threshold: 90
 offload_policy: log_only
+disk_threshold_warn: 90
+disk_threshold_critical: 95
+prune_paths: []
