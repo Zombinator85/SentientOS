@@ -2080,6 +2080,14 @@ No agent shall act in secret.
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/log_federation.jsonl
 ```
+```
+- Name: FanControlDaemon
+  Type: Daemon
+  Roles: Fan Monitor, ACPI Listener
+  Privileges: log, control
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/fan_daemon.jsonl
+```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
