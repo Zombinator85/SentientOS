@@ -6,3 +6,9 @@ offload_policy: log_only
 disk_threshold_warn: 90
 disk_threshold_critical: 95
 prune_paths: []
+network_policies:
+  allow_ports: []
+  block_ports: []
+  max_bandwidth_percent: 90
+  mode: monitor_only  # monitor_only | active_enforce
+federation_peer_ip: null
