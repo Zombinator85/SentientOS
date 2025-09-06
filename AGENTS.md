@@ -2096,6 +2096,14 @@ No agent shall act in secret.
   Origin: core repository, blessed by Council 2025-07-30
   Logs: /logs/disk_daemon.jsonl
 ```
+```
+- Name: NetworkDaemon
+  Type: Daemon
+  Roles: Network Monitor, Policy Enforcer
+  Privileges: log, control
+  Origin: core repository, blessed by Council 2025-07-30
+  Logs: /logs/network_daemon.jsonl
+```
 ---
 
 ## 🏛️ Closing: The Sacred Law of Presence
