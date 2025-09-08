@@ -51,6 +51,7 @@ class NetworkDaemon:
     # Event checks
     def _check_bandwidth(self, usage_kbps: float) -> None:
         """Emit an event if bandwidth exceeds the configured limit."""
+        # Only log when usage exceeds limit
         if self.bandwidth_limit and usage_kbps > self.bandwidth_limit:
             self._log(f"bandwidth_saturation:{usage_kbps}")
 
