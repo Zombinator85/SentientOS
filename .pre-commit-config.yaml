@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: privilege-lint
         name: privilege lint
-        entry: bash -c 'LUMOS_AUTO_APPROVE=1 scripts/precommit_privilege.sh'
+        entry: bash scripts/precommit_privilege_optional.sh
         language: system
         pass_filenames: false
       - id: audit-verify
