@@ -62,7 +62,11 @@ def pytest_addoption(parser):
 
 def pytest_collection_modifyitems(config, items):
     for item in items:
-        if item.name != "test_placeholder" and not item.name.startswith("test_emotion_pump"):
+        if (
+            item.name != "test_placeholder"
+            and not item.name.startswith("test_emotion_pump")
+            and item.module.__name__ != "tests.test_network_daemon"
+        ):
             item.add_marker(pytest.mark.skip(reason="legacy test disabled"))
         if 'requires_node' in item.keywords and not HAS_NODE:
             item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE.info}'))
