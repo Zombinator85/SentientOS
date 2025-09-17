@@ -21,6 +21,8 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
 import urllib.request
 
+from sentientos.daemons import pulse_bus
+
 from daemon.cpu_ram_daemon import run_loop as cpu_ram_daemon
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
 # Directory for storing Codex suggestion patches
@@ -69,6 +71,9 @@ CODEX_FOCUS = str(CONFIG.get("codex_focus", "pytest"))
 CODEX_AUTO_APPLY = CODEX_MODE in {"repair", "full"}
 RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
 CODEX_NOTIFY = CONFIG.get("codex_notify", [])
+
+CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required"}
+_SELF_REPAIR_LOCK = threading.Lock()
 
 
 def run_diagnostics() -> Tuple[bool, str, int]:
@@ -132,6 +137,14 @@ def run_ci(ledger_queue: Queue) -> bool:
         }
     )
     return ci_passed
+
+
+def self_repair_check(ledger_queue: Queue | None = None) -> dict | None:
+    """Trigger an immediate Codex self-repair cycle."""
+
+    queue = ledger_queue if ledger_queue is not None else Queue()
+    with _SELF_REPAIR_LOCK:
+        return run_once(queue)
 
 
 def parse_diff_files(diff: str) -> list[str]:
@@ -420,11 +433,17 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
             target=cpu_ram_daemon, args=(stop, ledger_queue, CONFIG), daemon=True
         ).start()
 
+    pulse_subscription: pulse_bus.PulseSubscription | None = None
+
+    def _pulse_handler(event: dict) -> None:
+        if event.get("event_type") in CRITICAL_PULSE_EVENTS:
+            self_repair_check(ledger_queue)
+
     codex_runs = 0
     total_iterations = 0
     passes = 0
     failures = 0
-    
+
     def write_session() -> None:
         CODEX_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
         session = {
@@ -436,68 +455,73 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
         }
         CODEX_SESSION_FILE.write_text(json.dumps(session), encoding="utf-8")
 
-    write_session()
-    while not stop.is_set():
-        try:
-            result = None
-            if CODEX_MODE == "expand":
-                CODEX_REQUEST_DIR.mkdir(parents=True, exist_ok=True)
-                requests = sorted(CODEX_REQUEST_DIR.glob("*"))
-                if requests:
-                    result = process_request(requests[0], ledger_queue)
-                    codex_runs += 1
-                    total_iterations += 1
-                    if result.get("verified"):
-                        passes += 1
-                    else:
-                        failures += 1
-                    write_session()
-            else:
-                result = run_once(ledger_queue)
-                if result:
-                    codex_runs += 1
-                    total_iterations += result.get("iterations", 0)
-                    if result["outcome"] == "success":
-                        passes += 1
-                    elif result["outcome"] == "fail":
-                        failures += 1
-                    write_session()
-        except Exception as exc:  # pragma: no cover - best effort logging
-            log_activity(
-                {
-                    "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "error": str(exc),
-                    "files_changed": [],
-                    "verified": False,
-                    "codex_patch": "",
-                    "iterations": 0,
-                    "target": CODEX_FOCUS,
-                    "outcome": "fail",
-                }
-            )
-            failures += 1
-        if stop.wait(CODEX_INTERVAL):
-            break
+    try:
+        pulse_subscription = pulse_bus.subscribe(_pulse_handler)
+        write_session()
+        while not stop.is_set():
+            try:
+                result = None
+                if CODEX_MODE == "expand":
+                    CODEX_REQUEST_DIR.mkdir(parents=True, exist_ok=True)
+                    requests = sorted(CODEX_REQUEST_DIR.glob("*"))
+                    if requests:
+                        result = process_request(requests[0], ledger_queue)
+                        codex_runs += 1
+                        total_iterations += 1
+                        if result.get("verified"):
+                            passes += 1
+                        else:
+                            failures += 1
+                        write_session()
+                else:
+                    result = run_once(ledger_queue)
+                    if result:
+                        codex_runs += 1
+                        total_iterations += result.get("iterations", 0)
+                        if result["outcome"] == "success":
+                            passes += 1
+                        elif result["outcome"] == "fail":
+                            failures += 1
+                        write_session()
+            except Exception as exc:  # pragma: no cover - best effort logging
+                log_activity(
+                    {
+                        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        "error": str(exc),
+                        "files_changed": [],
+                        "verified": False,
+                        "codex_patch": "",
+                        "iterations": 0,
+                        "target": CODEX_FOCUS,
+                        "outcome": "fail",
+                    }
+                )
+                failures += 1
+            if stop.wait(CODEX_INTERVAL):
+                break
 
-    write_session()
-    ledger_queue.put(
-        {
-            "event": "codex_session_report",
-            "codex_mode": CODEX_MODE,
-            "runs": codex_runs,
-            "iterations": total_iterations,
-            "passes": passes,
-            "failures": failures,
-        }
-    )
-    ledger_queue.put(
-        {
-            "event": "codex_dashboard_report",
-            "codex_mode": CODEX_MODE,
-            "runs": codex_runs,
-            "iterations": total_iterations,
-            "passes": passes,
-            "failures": failures,
-            "dashboard": True,
-        }
-    )
+        write_session()
+        ledger_queue.put(
+            {
+                "event": "codex_session_report",
+                "codex_mode": CODEX_MODE,
+                "runs": codex_runs,
+                "iterations": total_iterations,
+                "passes": passes,
+                "failures": failures,
+            }
+        )
+        ledger_queue.put(
+            {
+                "event": "codex_dashboard_report",
+                "codex_mode": CODEX_MODE,
+                "runs": codex_runs,
+                "iterations": total_iterations,
+                "passes": passes,
+                "failures": failures,
+                "dashboard": True,
+            }
+        )
+    finally:
+        if pulse_subscription is not None:
+            pulse_subscription.unsubscribe()
