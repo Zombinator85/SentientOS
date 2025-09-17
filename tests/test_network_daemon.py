@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from network_daemon import NetworkDaemon
+from sentientos.daemons import pulse_bus
 
 
 LEDGER_PATH = Path("/daemon/logs/codex.jsonl")
@@ -33,6 +34,15 @@ def clean_ledger():
     yield
     with suppress(FileNotFoundError):
         LEDGER_PATH.unlink()
+
+
+@pytest.fixture(autouse=True)
+def reset_pulse_bus():
+    """Provide a clean pulse bus for each test."""
+
+    pulse_bus.reset()
+    yield
+    pulse_bus.reset()
 
 
 @pytest.fixture
@@ -140,6 +150,15 @@ def test_policy_violation_generates_ledger_entry(make_daemon):
     assert entry["action"] == "block"
     assert "port=23" in entry["policy"]
 
+    events = pulse_bus.pending_events()
+    enforcement_events = [evt for evt in events if evt["event_type"] == "enforcement"]
+    port_events = [evt for evt in events if evt["event_type"] == "port_violation"]
+
+    assert enforcement_events, "Pulse bus should receive enforcement events"
+    assert port_events, "Pulse bus should receive port violation events"
+    assert enforcement_events[0]["payload"] == entry
+    assert port_events[0]["payload"]["policy"].startswith("port=23")
+
 
 def test_enforcement_mode_toggle_suppresses_ledger(make_daemon):
     """Observe-only mode should not write enforcement events to the ledger."""
@@ -150,6 +169,11 @@ def test_enforcement_mode_toggle_suppresses_ledger(make_daemon):
     daemon._check_federation(False)
 
     assert _read_ledger() == []
+
+    events = pulse_bus.pending_events()
+    event_types = {event["event_type"] for event in events}
+    assert {"port_violation", "bandwidth_saturation", "resync_required"} <= event_types
+    assert "enforcement" not in event_types
 
 
 def test_multiple_violations_logged_independently(make_daemon):
@@ -166,3 +190,10 @@ def test_multiple_violations_logged_independently(make_daemon):
     assert actions.count("block") == 1
     assert "throttle" in actions
     assert "resync" in actions
+
+    events = pulse_bus.pending_events()
+    event_types = {event["event_type"] for event in events}
+    assert {"port_violation", "bandwidth_saturation", "resync_required", "enforcement"} <= event_types
+
+    enforcement_payloads = [event["payload"] for event in events if event["event_type"] == "enforcement"]
+    assert enforcement_payloads == entries
