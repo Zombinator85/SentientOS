@@ -9,7 +9,7 @@ import json
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue
 from typing import Tuple
@@ -74,6 +74,23 @@ CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 
 CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required"}
 _SELF_REPAIR_LOCK = threading.Lock()
+
+
+def _load_last_session_timestamp() -> datetime | None:
+    try:
+        data = json.loads(CODEX_SESSION_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError:
+        return None
+    ts = data.get("ts")
+    if not isinstance(ts, str):
+        return None
+    try:
+        parsed = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=timezone.utc)
 
 
 def run_diagnostics() -> Tuple[bool, str, int]:
@@ -443,6 +460,12 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     total_iterations = 0
     passes = 0
     failures = 0
+
+    last_run = _load_last_session_timestamp()
+    if last_run is not None:
+        for event in pulse_bus.replay(last_run):
+            if event.get("event_type") in CRITICAL_PULSE_EVENTS:
+                self_repair_check(ledger_queue)
 
     def write_session() -> None:
         CODEX_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)

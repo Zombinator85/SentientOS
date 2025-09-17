@@ -1,16 +1,140 @@
-"""In-memory event bus allowing daemons to broadcast live pulse updates."""
+"""In-memory pulse bus with persistent, signed history."""
 
 from __future__ import annotations
 
+import base64
 import copy
+import json
+import logging
+import os
+import re
 from collections import deque
+from datetime import datetime, timezone
+from pathlib import Path
 from threading import Lock
-from typing import Callable, Deque, Dict, Iterable, List
+from typing import Callable, Deque, Dict, Iterable, Iterator, List
+
+from nacl.exceptions import BadSignatureError
+from nacl.signing import SigningKey, VerifyKey
 
 PulseEvent = Dict[str, object]
 EventHandler = Callable[[PulseEvent], None]
 
+logger = logging.getLogger(__name__)
+
 _REQUIRED_FIELDS = {"timestamp", "source_daemon", "event_type", "payload"}
+
+_HISTORY_ROOT_ENV = "PULSE_HISTORY_ROOT"
+_SIGNING_KEY_ENV = "PULSE_SIGNING_KEY"
+_VERIFY_KEY_ENV = "PULSE_VERIFY_KEY"
+
+_DEFAULT_HISTORY_ROOT = Path("/glow/pulse_history")
+_DEFAULT_SIGNING_KEY = Path("/vow/keys/ed25519_private.key")
+_DEFAULT_VERIFY_KEY = Path("/vow/keys/ed25519_public.key")
+
+_HISTORY_FILENAME = re.compile(r"pulse_(\d{4}-\d{2}-\d{2})\.jsonl$")
+
+
+def _history_root() -> Path:
+    return Path(os.getenv(_HISTORY_ROOT_ENV, str(_DEFAULT_HISTORY_ROOT)))
+
+
+def _signing_key_path() -> Path:
+    return Path(os.getenv(_SIGNING_KEY_ENV, str(_DEFAULT_SIGNING_KEY)))
+
+
+def _verify_key_path() -> Path:
+    return Path(os.getenv(_VERIFY_KEY_ENV, str(_DEFAULT_VERIFY_KEY)))
+
+
+def _ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _parse_timestamp(value: str) -> datetime:
+    text = str(value)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return datetime.fromtimestamp(0, tz=timezone.utc)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _event_day(timestamp: str) -> str:
+    return _parse_timestamp(timestamp).date().isoformat()
+
+
+def _serialize_for_signature(event: PulseEvent) -> bytes:
+    payload = copy.deepcopy(event)
+    payload.pop("signature", None)
+    return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+class _SignatureManager:
+    def __init__(self) -> None:
+        self._signing_key: SigningKey | None = None
+        self._verify_key: VerifyKey | None = None
+
+    def reset(self) -> None:
+        self._signing_key = None
+        self._verify_key = None
+
+    def sign(self, event: PulseEvent) -> str:
+        signing_key = self._load_signing_key()
+        signature = signing_key.sign(_serialize_for_signature(event)).signature
+        return base64.b64encode(signature).decode("ascii")
+
+    def verify(self, event: PulseEvent) -> bool:
+        signature = event.get("signature")
+        if not isinstance(signature, str) or not signature:
+            return False
+        verify_key = self._load_verify_key()
+        if verify_key is None:
+            return False
+        try:
+            verify_key.verify(
+                _serialize_for_signature(event),
+                base64.b64decode(signature),
+            )
+            return True
+        except BadSignatureError:
+            return False
+
+    def _load_signing_key(self) -> SigningKey:
+        if self._signing_key is not None:
+            return self._signing_key
+        key_path = _signing_key_path()
+        try:
+            data = key_path.read_bytes()
+        except FileNotFoundError as exc:  # pragma: no cover - misconfiguration
+            raise RuntimeError(
+                f"Pulse signing key missing at {key_path}. "
+                "Provision the integrity envelope key before publishing events."
+            ) from exc
+        self._signing_key = SigningKey(data)
+        self._verify_key = self._signing_key.verify_key
+        return self._signing_key
+
+    def _load_verify_key(self) -> VerifyKey | None:
+        if self._verify_key is not None:
+            return self._verify_key
+        verify_path = _verify_key_path()
+        if verify_path.exists():
+            self._verify_key = VerifyKey(verify_path.read_bytes())
+            return self._verify_key
+        try:
+            return self._load_signing_key().verify_key
+        except RuntimeError:  # pragma: no cover - surfaces missing key early
+            return None
+
+
+_SIGNATURE_MANAGER = _SignatureManager()
 
 
 class PulseSubscription:
@@ -36,7 +160,7 @@ class PulseSubscription:
 
 
 class _PulseBus:
-    """Simple publish/subscribe bus backed by an in-memory queue."""
+    """Publish/subscribe bus with append-only persisted history."""
 
     def __init__(self) -> None:
         self._events: Deque[PulseEvent] = deque()
@@ -47,12 +171,20 @@ class _PulseBus:
         """Publish ``event`` to all subscribers after validation."""
 
         normalized = self._normalize_event(event)
+        signature = _SIGNATURE_MANAGER.sign(normalized)
+        normalized["signature"] = signature
+        self._persist_event(normalized)
         with self._lock:
-            self._events.append(normalized)
+            self._events.append(copy.deepcopy(normalized))
             subscribers = list(self._subscribers)
         for handler in subscribers:
             handler(copy.deepcopy(normalized))
         return copy.deepcopy(normalized)
+
+    def replay(self, since: datetime | None = None) -> Iterator[PulseEvent]:
+        cutoff = _ensure_utc(since) if since is not None else None
+        for path in self._history_files(cutoff):
+            yield from self._replay_file(path, cutoff)
 
     def subscribe(self, handler: EventHandler) -> PulseSubscription:
         """Register ``handler`` and replay pending events immediately."""
@@ -91,10 +223,69 @@ class _PulseBus:
             self._events.clear()
             self._subscribers.clear()
 
+    def _persist_event(self, event: PulseEvent) -> None:
+        history_root = _history_root()
+        history_root.mkdir(parents=True, exist_ok=True)
+        filename = history_root / f"pulse_{_event_day(str(event['timestamp']))}.jsonl"
+        with filename.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event, sort_keys=True) + "\n")
+
+    def _history_files(self, cutoff: datetime | None) -> List[Path]:
+        root = _history_root()
+        if not root.exists():
+            return []
+        files = sorted(path for path in root.glob("pulse_*.jsonl") if path.is_file())
+        if cutoff is None:
+            return files
+        cutoff_date = cutoff.date()
+        filtered: List[Path] = []
+        for path in files:
+            match = _HISTORY_FILENAME.match(path.name)
+            if not match:
+                continue
+            try:
+                file_date = datetime.fromisoformat(match.group(1)).date()
+            except ValueError:
+                continue
+            if file_date < cutoff_date:
+                continue
+            filtered.append(path)
+        return filtered
+
+    def _replay_file(
+        self, path: Path, cutoff: datetime | None
+    ) -> Iterator[PulseEvent]:
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        logger.warning("Skipping malformed pulse history entry in %s", path)
+                        continue
+                    if not isinstance(event, dict):
+                        continue
+                    if cutoff is not None:
+                        event_ts = _parse_timestamp(str(event.get("timestamp", "")))
+                        if event_ts < cutoff:
+                            continue
+                    if not _SIGNATURE_MANAGER.verify(event):
+                        logger.warning(
+                            "Pulse history signature mismatch for entry in %s", path
+                        )
+                        continue
+                    yield copy.deepcopy(event)
+        except FileNotFoundError:  # pragma: no cover - file removed concurrently
+            return
+
     def _normalize_event(self, event: PulseEvent) -> PulseEvent:
         if not isinstance(event, dict):
             raise TypeError("Pulse events must be dictionaries")
         normalized = copy.deepcopy(event)
+        normalized.pop("signature", None)
         missing = _REQUIRED_FIELDS - normalized.keys()
         if missing:
             missing_list = ", ".join(sorted(missing))
@@ -123,6 +314,12 @@ def publish(event: PulseEvent) -> PulseEvent:
     return _BUS.publish(event)
 
 
+def replay(since: datetime | None = None) -> Iterator[PulseEvent]:
+    """Replay verified events from persistent history."""
+
+    return _BUS.replay(since)
+
+
 def subscribe(handler: EventHandler) -> PulseSubscription:
     """Subscribe ``handler`` to receive future pulse events."""
 
@@ -141,18 +338,27 @@ def consume_events(count: int | None = None) -> List[PulseEvent]:
     return _BUS.consume(count)
 
 
+def verify(event: PulseEvent) -> bool:
+    """Verify the signature of a pulse event."""
+
+    return _SIGNATURE_MANAGER.verify(event)
+
+
 def reset() -> None:
-    """Clear all queued events and registered subscribers."""
+    """Clear queued events and drop cached signing keys."""
 
     _BUS.reset()
+    _SIGNATURE_MANAGER.reset()
 
 
 __all__ = [
     "PulseEvent",
     "PulseSubscription",
     "publish",
+    "replay",
     "subscribe",
     "pending_events",
     "consume_events",
+    "verify",
     "reset",
 ]
