@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List
 
+from sentientos.daemons import pulse_bus
+
 
 class NetworkDaemon:
     """A lightweight network daemon for testing purposes.
@@ -74,6 +76,48 @@ class NetworkDaemon:
             "source": source,
             "description": description,
         }
+
+    def _create_ledger_event(
+        self, interface: str, policy: str, action: str, detail: str | None
+    ) -> Dict[str, object]:
+        """Build a structured payload mirroring Codex ledger entries."""
+
+        event: Dict[str, object] = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "interface": interface,
+            "policy": policy,
+            "action": action,
+        }
+        if detail is not None:
+            event["detail"] = detail
+        return event
+
+    def _policy_payload_from_rule(
+        self, interface: str, rule: Dict[str, object], detail: str | None
+    ) -> Dict[str, object]:
+        """Convert a policy rule into a ledger-style payload."""
+
+        description = str(rule.get("description", "")).strip()
+        action = str(rule.get("action", "observe"))
+        if not description:
+            value = rule.get("value", "?")
+            rule_type = rule.get("type", "rule")
+            description = f"{rule_type}={value}:{action}"
+        return self._create_ledger_event(interface, description, action, detail)
+
+    def _publish_pulse_event(self, event_type: str, payload: Dict[str, object]) -> None:
+        """Publish a pulse event carrying ``payload`` to subscribers."""
+
+        timestamp = payload.get("timestamp")
+        if not isinstance(timestamp, str):
+            timestamp = str(timestamp)
+        event = {
+            "timestamp": timestamp,
+            "source_daemon": "network",
+            "event_type": event_type,
+            "payload": dict(payload),
+        }
+        pulse_bus.publish(event)
 
     def _load_policy_rules(self, policies: dict) -> List[Dict[str, object]]:
         """Normalise policy definitions from configuration."""
@@ -155,7 +199,7 @@ class NetworkDaemon:
         """Simulate enforcement and emit a ledger event when enabled."""
 
         if not self.enforcement_enabled:
-            return
+            return None
 
         action = str(rule.get("action", "observe"))
         policy_description = str(rule.get("description", "unknown_policy"))
@@ -163,21 +207,16 @@ class NetworkDaemon:
         self._log(
             f"enforcement:{interface}:{policy_description}:{action}{detail_message}"
         )
-        self._emit_ledger_event(interface, policy_description, action, detail)
+        payload = self._emit_ledger_event(interface, policy_description, action, detail)
+        self._publish_pulse_event("enforcement", payload)
+        return payload
 
     def _emit_ledger_event(
         self, interface: str, policy: str, action: str, detail: str | None
     ) -> None:
         """Append an enforcement record to the Codex ledger sink."""
 
-        event = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "interface": interface,
-            "policy": policy,
-            "action": action,
-        }
-        if detail is not None:
-            event["detail"] = detail
+        event = self._create_ledger_event(interface, policy, action, detail)
 
         try:
             self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
@@ -186,6 +225,7 @@ class NetworkDaemon:
         except Exception:
             # Ledger failures should not interrupt daemon behaviour.
             pass
+        return event
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -206,10 +246,24 @@ class NetworkDaemon:
         """Emit an event if bandwidth exceeds the configured limit."""
 
         matches = self._match_rules("bandwidth", usage_kbps)
-        if matches or (self.bandwidth_limit and usage_kbps > self.bandwidth_limit):
+        exceeded = self.bandwidth_limit and usage_kbps > self.bandwidth_limit
+        if matches or exceeded:
+            detail = f"usage_kbps={usage_kbps}"
             self._log(f"bandwidth_saturation:{usage_kbps}")
-        for rule in matches:
-            self._maybe_enforce(interface, rule, f"usage_kbps={usage_kbps}")
+            if matches:
+                for rule in matches:
+                    payload = self._policy_payload_from_rule(interface, rule, detail)
+                    self._publish_pulse_event("bandwidth_saturation", payload)
+                    self._maybe_enforce(interface, rule, detail)
+            elif exceeded:
+                rule = self._build_rule(
+                    "bandwidth",
+                    float(self.bandwidth_limit or usage_kbps),
+                    "observe",
+                    source="bandwidth_limit",
+                )
+                payload = self._policy_payload_from_rule(interface, rule, detail)
+                self._publish_pulse_event("bandwidth_saturation", payload)
 
     def _check_ports(self, open_ports: Iterable[int], interface: str = "unknown") -> None:
         """Inspect open ports and emit events for unexpected or blocked ones."""
@@ -219,19 +273,26 @@ class NetworkDaemon:
                 primary_action = str(matches[0].get("action"))
                 event = "blocked_port" if primary_action == "block" else "port_policy_violation"
                 self._log(f"{event}:{port}")
+                detail = f"port={port}"
                 for rule in matches:
-                    self._maybe_enforce(interface, rule, f"port={port}")
+                    payload = self._policy_payload_from_rule(interface, rule, detail)
+                    self._publish_pulse_event("port_violation", payload)
+                    self._maybe_enforce(interface, rule, detail)
                 continue
 
             if port in self.blocked_ports:
                 self._log(f"blocked_port:{port}")
-                self._maybe_enforce(
-                    interface,
-                    self._build_rule("port", port, "block", source="blocked_ports"),
-                    f"port={port}",
-                )
+                detail = f"port={port}"
+                rule = self._build_rule("port", port, "block", source="blocked_ports")
+                payload = self._policy_payload_from_rule(interface, rule, detail)
+                self._publish_pulse_event("port_violation", payload)
+                self._maybe_enforce(interface, rule, detail)
             elif port not in self.allowed_ports:
                 self._log(f"unexpected_port:{port}")
+                detail = f"port={port}"
+                rule = self._build_rule("port", port, "observe", source="unexpected_port")
+                payload = self._policy_payload_from_rule(interface, rule, detail)
+                self._publish_pulse_event("port_violation", payload)
 
     def _check_federation(self, reachable: bool, interface: str = "federation_link") -> None:
         """Mark resync if federation peer is unreachable."""
@@ -241,8 +302,11 @@ class NetworkDaemon:
             matches = self._match_rules("federation", self._resync_rule["value"])
             if not matches:
                 matches = [self._resync_rule]
+            detail = "peer_unreachable"
             for rule in matches:
-                self._maybe_enforce(interface, rule, "peer_unreachable")
+                payload = self._policy_payload_from_rule(interface, rule, detail)
+                self._publish_pulse_event("resync_required", payload)
+                self._maybe_enforce(interface, rule, detail)
 
     def _check_uptime(self, status: Dict[str, bool], now: float) -> None:
         """Track interface uptime and emit events when threshold exceeded."""
