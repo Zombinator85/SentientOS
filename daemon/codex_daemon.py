@@ -101,8 +101,8 @@ class _CriticalFailureMonitor:
         self._threshold = 3
         self._window = timedelta(minutes=5)
         self._cooldown = timedelta(minutes=5)
-        self._events: dict[str, deque[datetime]] = defaultdict(deque)
-        self._last_request: dict[str, datetime] = {}
+        self._events: dict[tuple[str, str], deque[datetime]] = defaultdict(deque)
+        self._last_request: dict[tuple[str, str], datetime] = {}
 
     def reset(self) -> None:
         self._events.clear()
@@ -123,8 +123,10 @@ class _CriticalFailureMonitor:
             if action == "restart_daemon":
                 return
 
+        peer = str(event.get("source_peer", "local")) or "local"
         event_time = self._parse_time(event.get("timestamp"))
-        history = self._events[source]
+        key = (peer, source)
+        history = self._events[key]
         history.append(event_time)
         cutoff = event_time - self._window
         while history and history[0] < cutoff:
@@ -133,13 +135,15 @@ class _CriticalFailureMonitor:
         if len(history) < self._threshold:
             return
 
-        last_request = self._last_request.get(source)
+        last_request = self._last_request.get(key)
         if last_request and event_time - last_request < self._cooldown:
             return
 
         reason = self._build_reason(event)
-        self._publish_restart_request(source, reason)
-        self._last_request[source] = event_time
+        scope = "federated" if peer not in {"", "local"} else "local"
+        target_peer = peer if scope == "federated" else None
+        self._publish_restart_request(source, reason, scope=scope, target_peer=target_peer)
+        self._last_request[key] = event_time
 
     def _parse_time(self, value: object) -> datetime:
         if isinstance(value, str) and value:
@@ -167,12 +171,23 @@ class _CriticalFailureMonitor:
         base = f"codex_detected_repeated_failures:{event_type}"
         return f"{base}:{detail}" if detail else base
 
-    def _publish_restart_request(self, daemon_name: str, reason: str) -> None:
+    def _publish_restart_request(
+        self,
+        daemon_name: str,
+        reason: str,
+        *,
+        scope: str,
+        target_peer: str | None = None,
+    ) -> None:
         payload = {
             "action": "restart_daemon",
             "daemon": daemon_name,
+            "daemon_name": daemon_name,
             "reason": reason,
+            "scope": scope,
         }
+        if target_peer and target_peer not in {"", "local"}:
+            payload["target_peer"] = target_peer
         pulse_bus.publish(
             {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
