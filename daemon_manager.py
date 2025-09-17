@@ -13,6 +13,11 @@ from typing import Any, Callable, Dict
 
 from sentientos.daemons import pulse_bus
 
+try:  # pragma: no cover - optional federation support during import
+    from sentientos.daemons import pulse_federation
+except Exception:  # pragma: no cover - fallback when federation unavailable
+    pulse_federation = None  # type: ignore[assignment]
+
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +72,17 @@ class _DaemonManager:
             logger.debug("Registered daemon '%s'", name)
             return replace(record.status)
 
-    def restart(self, name: str, *, reason: str | None = None) -> bool:
+    def restart(
+        self,
+        name: str,
+        *,
+        reason: str | None = None,
+        requested_by: str | None = None,
+        scope: str | None = None,
+    ) -> bool:
         reason_text = self._normalize_reason(reason)
+        scope_value = self._normalize_scope(scope)
+        initiator = self._normalize_peer(requested_by)
         self._ensure_subscription()
 
         with self._lock:
@@ -128,8 +142,24 @@ class _DaemonManager:
             else:
                 record.instance = previous_instance if not stop_success else None
 
-        self._log_restart(name, reason_text, outcome, error_detail, timestamp)
-        self._publish_restart_event(name, reason_text, outcome, error_detail, timestamp)
+        self._log_restart(
+            name,
+            reason_text,
+            outcome,
+            error_detail,
+            timestamp,
+            initiator,
+            scope_value,
+        )
+        self._publish_restart_event(
+            name,
+            reason_text,
+            outcome,
+            error_detail,
+            timestamp,
+            initiator,
+            scope_value,
+        )
 
         return success
 
@@ -180,10 +210,40 @@ class _DaemonManager:
         )
         if not target:
             return
+        scope_value = payload.get("scope")
+        scope = self._normalize_scope(scope_value)
+        source_peer = self._normalize_peer(event.get("source_peer"))
+
+        if scope == "federated":
+            if source_peer in {"", "local"}:
+                # Local node is asking peers to restart themselves; ignore locally.
+                return
+            if not self._is_trusted_peer(source_peer):
+                logger.warning(
+                    "Rejected federated restart for '%s' from untrusted peer '%s'",
+                    target,
+                    source_peer,
+                )
+                return
+            if not pulse_bus.verify(event):
+                logger.warning(
+                    "Rejected federated restart for '%s' due to invalid signature",
+                    target,
+                )
+                return
+            requester = source_peer
+        else:
+            requester = "local"
+
         reason_value = payload.get("reason") or event.get("event_type")
         reason_text = self._normalize_reason(reason_value)
         try:
-            self.restart(str(target), reason=reason_text)
+            self.restart(
+                str(target),
+                reason=reason_text,
+                requested_by=requester,
+                scope=scope,
+            )
         except KeyError:
             logger.warning(
                 "Received restart request for unregistered daemon '%s'", target
@@ -196,12 +256,16 @@ class _DaemonManager:
         outcome: str,
         error: str | None,
         timestamp: datetime,
+        initiator: str,
+        scope: str,
     ) -> None:
         entry = {
             "timestamp": timestamp.isoformat(),
             "daemon": name,
             "reason": reason,
             "outcome": outcome,
+            "scope": scope,
+            "source_peer": initiator,
         }
         if error:
             entry["error"] = error
@@ -219,11 +283,16 @@ class _DaemonManager:
         outcome: str,
         error: str | None,
         timestamp: datetime,
+        initiator: str,
+        scope: str,
     ) -> None:
         payload: Dict[str, Any] = {
+            "daemon_name": name,
             "daemon": name,
             "reason": reason,
             "outcome": outcome,
+            "scope": scope,
+            "requested_by": initiator,
         }
         if error:
             payload["error"] = error
@@ -275,6 +344,31 @@ class _DaemonManager:
             return "unspecified"
         return str(reason)
 
+    def _normalize_scope(self, scope: Any) -> str:
+        if isinstance(scope, str) and scope.strip().lower() == "federated":
+            return "federated"
+        return "local"
+
+    def _normalize_peer(self, peer: Any) -> str:
+        if isinstance(peer, str):
+            value = peer.strip()
+            return value or "local"
+        if peer is None:
+            return "local"
+        return str(peer)
+
+    def _is_trusted_peer(self, peer: str) -> bool:
+        if not peer or peer == "local":
+            return False
+        if pulse_federation is None:
+            return False
+        try:
+            if not pulse_federation.is_enabled():
+                return False
+            return peer in pulse_federation.peers()
+        except Exception:  # pragma: no cover - defensive fallback
+            return False
+
 
 _MANAGER = _DaemonManager()
 
@@ -287,10 +381,21 @@ def register(
     return _MANAGER.register(name, start_fn, stop_fn)
 
 
-def restart(name: str, *, reason: str | None = None) -> bool:
+def restart(
+    name: str,
+    *,
+    reason: str | None = None,
+    requested_by: str | None = None,
+    scope: str | None = None,
+) -> bool:
     """Restart a registered daemon and return whether it succeeded."""
 
-    return _MANAGER.restart(name, reason=reason)
+    return _MANAGER.restart(
+        name,
+        reason=reason,
+        requested_by=requested_by,
+        scope=scope,
+    )
 
 
 def status(name: str) -> DaemonStatus:

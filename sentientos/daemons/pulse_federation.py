@@ -11,7 +11,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Any, Iterable, List, Mapping, Sequence, cast
 
 import requests
 from nacl.exceptions import BadSignatureError
@@ -277,8 +277,14 @@ def _http_post(url: str, *, json: pulse_bus.PulseEvent, timeout: int) -> None:
     requests.post(url, json=json, timeout=timeout)
 
 
-def _http_get(url: str, *, params: dict[str, object], timeout: int):
-    return requests.get(url, params=params, timeout=timeout)
+def _http_get(
+    url: str, *, params: Mapping[str, object], timeout: int
+) -> requests.Response:
+    return requests.get(
+        url,
+        params=cast(Mapping[str, Any], params),
+        timeout=timeout,
+    )
 
 
 __all__ = [
