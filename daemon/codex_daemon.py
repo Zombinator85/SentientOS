@@ -9,7 +9,8 @@ import json
 import subprocess
 import threading
 import time
-from datetime import datetime, timezone
+from collections import defaultdict, deque
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from queue import Queue
 from typing import Tuple
@@ -74,6 +75,101 @@ CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 
 CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required", "integrity_violation"}
 _SELF_REPAIR_LOCK = threading.Lock()
+
+
+class _CriticalFailureMonitor:
+    def __init__(self) -> None:
+        self._threshold = 3
+        self._window = timedelta(minutes=5)
+        self._cooldown = timedelta(minutes=5)
+        self._events: dict[str, deque[datetime]] = defaultdict(deque)
+        self._last_request: dict[str, datetime] = {}
+
+    def reset(self) -> None:
+        self._events.clear()
+        self._last_request.clear()
+
+    def record(self, event: dict[str, object]) -> None:
+        priority = str(event.get("priority", "info")).lower()
+        if priority != "critical":
+            return
+
+        source = str(event.get("source_daemon", "")).strip()
+        if not source or source in {"codex", "daemon_manager"}:
+            return
+
+        payload = event.get("payload")
+        if isinstance(payload, dict):
+            action = str(payload.get("action", "")).lower()
+            if action == "restart_daemon":
+                return
+
+        event_time = self._parse_time(event.get("timestamp"))
+        history = self._events[source]
+        history.append(event_time)
+        cutoff = event_time - self._window
+        while history and history[0] < cutoff:
+            history.popleft()
+
+        if len(history) < self._threshold:
+            return
+
+        last_request = self._last_request.get(source)
+        if last_request and event_time - last_request < self._cooldown:
+            return
+
+        reason = self._build_reason(event)
+        self._publish_restart_request(source, reason)
+        self._last_request[source] = event_time
+
+    def _parse_time(self, value: object) -> datetime:
+        if isinstance(value, str) and value:
+            text = value
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            try:
+                parsed = datetime.fromisoformat(text)
+            except ValueError:
+                pass
+            else:
+                if parsed.tzinfo is None:
+                    return parsed.replace(tzinfo=timezone.utc)
+                return parsed.astimezone(timezone.utc)
+        return datetime.now(timezone.utc)
+
+    def _build_reason(self, event: dict[str, object]) -> str:
+        event_type = str(event.get("event_type", "unknown"))
+        payload = event.get("payload")
+        detail: str | None = None
+        if isinstance(payload, dict):
+            detail_value = payload.get("detail") or payload.get("reason")
+            if detail_value:
+                detail = str(detail_value)
+        base = f"codex_detected_repeated_failures:{event_type}"
+        return f"{base}:{detail}" if detail else base
+
+    def _publish_restart_request(self, daemon_name: str, reason: str) -> None:
+        payload = {
+            "action": "restart_daemon",
+            "daemon": daemon_name,
+            "reason": reason,
+        }
+        pulse_bus.publish(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source_daemon": "codex",
+                "event_type": "restart_request",
+                "priority": "critical",
+                "payload": payload,
+            }
+        )
+
+
+CRITICAL_FAILURE_MONITOR = _CriticalFailureMonitor()
+
+
+def reset_failure_monitor() -> None:
+    CRITICAL_FAILURE_MONITOR.reset()
 
 
 def _load_last_session_timestamp() -> datetime | None:
@@ -453,6 +549,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     pulse_subscription: pulse_bus.PulseSubscription | None = None
 
     def _pulse_handler(event: dict) -> None:
+        CRITICAL_FAILURE_MONITOR.record(event)
         if str(event.get("priority", "info")).lower() != "critical":
             return
         if event.get("event_type") in CRITICAL_PULSE_EVENTS:
@@ -466,6 +563,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     last_run = _load_last_session_timestamp()
     if last_run is not None:
         for event in pulse_bus.replay(last_run):
+            CRITICAL_FAILURE_MONITOR.record(event)
             if str(event.get("priority", "info")).lower() != "critical":
                 continue
             if event.get("event_type") in CRITICAL_PULSE_EVENTS:

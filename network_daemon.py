@@ -8,9 +8,10 @@ collecting emitted events in memory for inspection.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from collections import deque
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Deque, Dict, Iterable, List
 
 from sentientos.daemons import pulse_bus
 
@@ -48,6 +49,9 @@ class NetworkDaemon:
         self._iface_uptime: Dict[str, float] = {}
         self._iface_event_emitted: Dict[str, bool] = {}
         self._last_checked: float | None = None
+        self._enforcement_window = timedelta(minutes=5)
+        self._enforcement_events: Deque[datetime] = deque()
+        self._last_restart_request: datetime | None = None
 
     # ------------------------------------------------------------------
     # Policy helpers
@@ -216,6 +220,7 @@ class NetworkDaemon:
         )
         payload = self._emit_ledger_event(interface, policy_description, action, detail)
         self._publish_pulse_event("enforcement", payload, priority="critical")
+        self._record_enforcement_cycle(policy_description, detail)
         return payload
 
     def _emit_ledger_event(
@@ -233,6 +238,40 @@ class NetworkDaemon:
             # Ledger failures should not interrupt daemon behaviour.
             pass
         return event
+
+    def _record_enforcement_cycle(
+        self, policy: str, detail: str | None
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        self._enforcement_events.append(now)
+        cutoff = now - self._enforcement_window
+        while self._enforcement_events and self._enforcement_events[0] < cutoff:
+            self._enforcement_events.popleft()
+        if len(self._enforcement_events) < 3:
+            return
+        if self._last_restart_request and now - self._last_restart_request < self._enforcement_window:
+            return
+        reason = f"enforcement_loop:{policy}" if policy else "enforcement_loop"
+        self._publish_restart_request(reason, detail)
+        self._last_restart_request = now
+
+    def _publish_restart_request(self, reason: str, detail: str | None) -> None:
+        payload = {
+            "action": "restart_daemon",
+            "daemon": "network",
+            "reason": reason,
+        }
+        if detail:
+            payload["detail"] = detail
+        pulse_bus.publish(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "source_daemon": "network",
+                "event_type": "restart_request",
+                "priority": "critical",
+                "payload": payload,
+            }
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
