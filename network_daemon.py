@@ -8,7 +8,7 @@ collecting emitted events in memory for inspection.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 
 class NetworkDaemon:
@@ -30,9 +30,13 @@ class NetworkDaemon:
         self.bandwidth_limit = float(policies.get("bandwidth_limit", 0))
         self.peer_ip = config.get("federation_peer_ip")
         self.log_dir = Path(config.get("log_dir", "."))
+        self.uptime_threshold = float(config.get("uptime_threshold", 300))
 
         self.events: List[str] = []
         self.resync_queued = False
+        self._iface_uptime: Dict[str, float] = {}
+        self._iface_event_emitted: Dict[str, bool] = {}
+        self._last_checked: float | None = None
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -68,4 +72,30 @@ class NetworkDaemon:
         if not reachable:
             self.resync_queued = True
             self._log("federation_link_down")
+
+    def _check_uptime(self, status: Dict[str, bool], now: float) -> None:
+        """Track interface uptime and emit events when threshold exceeded."""
+        if self._last_checked is None:
+            self._last_checked = now
+            for iface, is_up in status.items():
+                self._iface_uptime.setdefault(iface, 0.0)
+                self._iface_event_emitted.setdefault(iface, False)
+            return
+
+        delta = now - self._last_checked
+        for iface, is_up in status.items():
+            uptime = self._iface_uptime.get(iface, 0.0)
+            if is_up:
+                uptime += delta
+                if (
+                    uptime >= self.uptime_threshold
+                    and not self._iface_event_emitted.get(iface, False)
+                ):
+                    self._log(f"uptime_event:{iface}:{int(uptime)}")
+                    self._iface_event_emitted[iface] = True
+            else:
+                uptime = 0.0
+                self._iface_event_emitted[iface] = False
+            self._iface_uptime[iface] = uptime
+        self._last_checked = now
 
