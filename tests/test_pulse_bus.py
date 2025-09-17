@@ -61,7 +61,9 @@ def test_multiple_subscribers_receive_events():
     pulse_bus.publish(published)
 
     assert direct_events and direct_events[0]["event_type"] == "heartbeat"
+    assert direct_events[0]["priority"] == "info"
     assert integrity.received_events and integrity.received_events[0]["event_type"] == "heartbeat"
+    assert integrity.received_events[0]["priority"] == "info"
     integrity.stop()
 
 
@@ -71,6 +73,7 @@ def test_events_persist_until_consumed():
 
     pending = pulse_bus.pending_events()
     assert pending and pending[0]["event_type"] == "persist_test"
+    assert pending[0]["priority"] == "info"
 
     consumed = pulse_bus.consume_events()
     assert consumed == pending
@@ -97,4 +100,6 @@ def test_network_daemon_publishes_to_pulse(base_config):
     assert enforcement_events[0]["source_daemon"] == "network"
     assert enforcement_events[0]["payload"] == ledger_entries[0]
     assert "port=23" in enforcement_events[0]["payload"]["policy"]
+    assert enforcement_events[0]["priority"] == "critical"
     assert port_events[0]["payload"]["policy"].startswith("port=23")
+    assert port_events[0]["priority"] == "info"

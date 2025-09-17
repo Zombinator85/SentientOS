@@ -23,6 +23,8 @@ EventHandler = Callable[[PulseEvent], None]
 logger = logging.getLogger(__name__)
 
 _REQUIRED_FIELDS = {"timestamp", "source_daemon", "event_type", "payload"}
+_VALID_PRIORITIES = {"info", "warning", "critical"}
+_DEFAULT_PRIORITY = "info"
 
 _HISTORY_ROOT_ENV = "PULSE_HISTORY_ROOT"
 _SIGNING_KEY_ENV = "PULSE_SIGNING_KEY"
@@ -137,12 +139,20 @@ class _SignatureManager:
 _SIGNATURE_MANAGER = _SignatureManager()
 
 
+class _Subscriber:
+    __slots__ = ("handler", "priorities")
+
+    def __init__(self, handler: EventHandler, priorities: frozenset[str] | None) -> None:
+        self.handler = handler
+        self.priorities = priorities
+
+
 class PulseSubscription:
     """Represents a registered handler on the :mod:`pulse_bus`."""
 
-    def __init__(self, bus: "_PulseBus", handler: EventHandler) -> None:
+    def __init__(self, bus: "_PulseBus", subscriber: _Subscriber) -> None:
         self._bus = bus
-        self._handler = handler
+        self._subscriber = subscriber
         self._active = True
 
     @property
@@ -155,7 +165,7 @@ class PulseSubscription:
         """Detach the underlying handler from the pulse bus."""
 
         if self._active:
-            self._bus._unsubscribe(self._handler)
+            self._bus._unsubscribe(self._subscriber)
             self._active = False
 
 
@@ -164,7 +174,7 @@ class _PulseBus:
 
     def __init__(self) -> None:
         self._events: Deque[PulseEvent] = deque()
-        self._subscribers: List[EventHandler] = []
+        self._subscribers: List[_Subscriber] = []
         self._lock = Lock()
 
     def publish(self, event: PulseEvent) -> PulseEvent:
@@ -175,10 +185,12 @@ class _PulseBus:
         normalized["signature"] = signature
         self._persist_event(normalized)
         with self._lock:
-            self._events.append(copy.deepcopy(normalized))
+            stored = copy.deepcopy(normalized)
+            self._events.append(stored)
             subscribers = list(self._subscribers)
-        for handler in subscribers:
-            handler(copy.deepcopy(normalized))
+        for subscriber in subscribers:
+            if self._should_deliver(normalized, subscriber):
+                subscriber.handler(copy.deepcopy(normalized))
         return copy.deepcopy(normalized)
 
     def replay(self, since: datetime | None = None) -> Iterator[PulseEvent]:
@@ -186,18 +198,37 @@ class _PulseBus:
         for path in self._history_files(cutoff):
             yield from self._replay_file(path, cutoff)
 
-    def subscribe(self, handler: EventHandler) -> PulseSubscription:
-        """Register ``handler`` and replay pending events immediately."""
+    def subscribe(
+        self, handler: EventHandler, priorities: Iterable[str] | None = None
+    ) -> PulseSubscription:
+        """Register ``handler`` and replay pending events immediately.
+
+        Parameters
+        ----------
+        handler:
+            Callable invoked for each delivered pulse event.
+        priorities:
+            Optional iterable of accepted priority levels. When provided,
+            only events whose ``priority`` matches one of these levels will be
+            delivered to ``handler``.
+        """
 
         if not callable(handler):  # pragma: no cover - defensive branch
             raise TypeError("Pulse handlers must be callable")
 
+        priority_filter = self._normalize_priorities(priorities)
+        subscriber = _Subscriber(handler, priority_filter)
+
         with self._lock:
-            self._subscribers.append(handler)
-            replay = [copy.deepcopy(evt) for evt in self._events]
+            self._subscribers.append(subscriber)
+            replay = [
+                copy.deepcopy(evt)
+                for evt in self._events
+                if self._should_deliver(evt, subscriber)
+            ]
         for event in replay:
             handler(event)
-        return PulseSubscription(self, handler)
+        return PulseSubscription(self, subscriber)
 
     def pending_events(self) -> List[PulseEvent]:
         """Return a snapshot of queued events without consuming them."""
@@ -298,11 +329,52 @@ class _PulseBus:
             normalized["timestamp"] = str(timestamp)
         normalized["source_daemon"] = str(normalized["source_daemon"])
         normalized["event_type"] = str(normalized["event_type"])
+        priority_value = normalized.get("priority", _DEFAULT_PRIORITY)
+        if isinstance(priority_value, str):
+            priority_value = priority_value.lower()
+        else:
+            priority_value = str(priority_value).lower()
+        if priority_value not in _VALID_PRIORITIES:
+            valid = ", ".join(sorted(_VALID_PRIORITIES))
+            raise ValueError(
+                f"Pulse event priority must be one of: {valid}"
+            )
+        normalized["priority"] = priority_value
         return normalized
 
-    def _unsubscribe(self, handler: EventHandler) -> None:
+    def _unsubscribe(self, subscriber: _Subscriber) -> None:
         with self._lock:
-            self._subscribers = [h for h in self._subscribers if h is not handler]
+            self._subscribers = [
+                registered for registered in self._subscribers if registered is not subscriber
+            ]
+
+    def _normalize_priorities(
+        self, priorities: Iterable[str] | None
+    ) -> frozenset[str] | None:
+        if priorities is None:
+            return None
+        if isinstance(priorities, str):
+            values = [priorities]
+        else:
+            values = list(priorities)
+        normalized: set[str] = set()
+        for value in values:
+            if not isinstance(value, str):
+                raise TypeError("Pulse subscription priorities must be strings")
+            priority = value.lower()
+            if priority not in _VALID_PRIORITIES:
+                valid = ", ".join(sorted(_VALID_PRIORITIES))
+                raise ValueError(
+                    f"Pulse subscription priorities must be within: {valid}"
+                )
+            normalized.add(priority)
+        return frozenset(normalized)
+
+    def _should_deliver(self, event: PulseEvent, subscriber: _Subscriber) -> bool:
+        if subscriber.priorities is None:
+            return True
+        priority = str(event.get("priority", _DEFAULT_PRIORITY)).lower()
+        return priority in subscriber.priorities
 
 
 _BUS = _PulseBus()
@@ -320,10 +392,21 @@ def replay(since: datetime | None = None) -> Iterator[PulseEvent]:
     return _BUS.replay(since)
 
 
-def subscribe(handler: EventHandler) -> PulseSubscription:
-    """Subscribe ``handler`` to receive future pulse events."""
+def subscribe(
+    handler: EventHandler, priorities: Iterable[str] | None = None
+) -> PulseSubscription:
+    """Subscribe ``handler`` to receive future pulse events.
 
-    return _BUS.subscribe(handler)
+    Parameters
+    ----------
+    handler:
+        Callable invoked for each delivered pulse event.
+    priorities:
+        Optional iterable of priority levels to filter delivered events. When
+        omitted, the subscriber receives all events regardless of priority.
+    """
+
+    return _BUS.subscribe(handler, priorities)
 
 
 def pending_events() -> List[PulseEvent]:
