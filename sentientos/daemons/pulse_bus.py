@@ -75,6 +75,7 @@ def _event_day(timestamp: str) -> str:
 def _serialize_for_signature(event: PulseEvent) -> bytes:
     payload = copy.deepcopy(event)
     payload.pop("signature", None)
+    payload.pop("source_peer", None)
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
@@ -181,8 +182,33 @@ class _PulseBus:
         """Publish ``event`` to all subscribers after validation."""
 
         normalized = self._normalize_event(event)
+        normalized["source_peer"] = str(normalized.get("source_peer", "local"))
         signature = _SIGNATURE_MANAGER.sign(normalized)
         normalized["signature"] = signature
+        self._persist_event(normalized)
+        with self._lock:
+            stored = copy.deepcopy(normalized)
+            self._events.append(stored)
+            subscribers = list(self._subscribers)
+        for subscriber in subscribers:
+            if self._should_deliver(normalized, subscriber):
+                subscriber.handler(copy.deepcopy(normalized))
+        return copy.deepcopy(normalized)
+
+    def ingest(
+        self, event: PulseEvent, *, source_peer: str | None = None
+    ) -> PulseEvent:
+        if not isinstance(event, dict):
+            raise TypeError("Pulse events must be dictionaries")
+        normalized = self._normalize_event(event)
+        signature = event.get("signature")
+        if not isinstance(signature, str) or not signature:
+            raise ValueError("Federated pulse events require a signature")
+        normalized["signature"] = signature
+        if source_peer is not None:
+            normalized["source_peer"] = str(source_peer)
+        else:
+            normalized["source_peer"] = str(normalized.get("source_peer", "remote"))
         self._persist_event(normalized)
         with self._lock:
             stored = copy.deepcopy(normalized)
@@ -386,6 +412,12 @@ def publish(event: PulseEvent) -> PulseEvent:
     return _BUS.publish(event)
 
 
+def ingest(event: PulseEvent, *, source_peer: str | None = None) -> PulseEvent:
+    """Ingest a pre-signed pulse event from a remote peer."""
+
+    return _BUS.ingest(event, source_peer=source_peer)
+
+
 def replay(since: datetime | None = None) -> Iterator[PulseEvent]:
     """Replay verified events from persistent history."""
 
@@ -424,6 +456,14 @@ def consume_events(count: int | None = None) -> List[PulseEvent]:
 def verify(event: PulseEvent) -> bool:
     """Verify the signature of a pulse event."""
 
+    source_peer = event.get("source_peer")
+    if source_peer not in (None, "local"):
+        try:
+            from . import pulse_federation
+        except ImportError:  # pragma: no cover - optional federation support
+            return False
+        return pulse_federation.verify_remote_signature(event, str(source_peer))
+
     return _SIGNATURE_MANAGER.verify(event)
 
 
@@ -442,6 +482,7 @@ __all__ = [
     "subscribe",
     "pending_events",
     "consume_events",
+    "ingest",
     "verify",
     "reset",
 ]

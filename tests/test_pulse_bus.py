@@ -38,7 +38,8 @@ def base_config(tmp_path):
                 {"bandwidth": 1000, "action": "throttle"},
             ],
         },
-        "federation_peer_ip": "192.0.2.10",
+        "federation_enabled": True,
+        "federation_peers": ["192.0.2.10"],
         "log_dir": tmp_path,
     }
 
@@ -62,8 +63,10 @@ def test_multiple_subscribers_receive_events():
 
     assert direct_events and direct_events[0]["event_type"] == "heartbeat"
     assert direct_events[0]["priority"] == "info"
+    assert direct_events[0]["source_peer"] == "local"
     assert integrity.received_events and integrity.received_events[0]["event_type"] == "heartbeat"
     assert integrity.received_events[0]["priority"] == "info"
+    assert integrity.received_events[0]["source_peer"] == "local"
     integrity.stop()
 
 
@@ -74,6 +77,7 @@ def test_events_persist_until_consumed():
     pending = pulse_bus.pending_events()
     assert pending and pending[0]["event_type"] == "persist_test"
     assert pending[0]["priority"] == "info"
+    assert pending[0]["source_peer"] == "local"
 
     consumed = pulse_bus.consume_events()
     assert consumed == pending
@@ -101,5 +105,7 @@ def test_network_daemon_publishes_to_pulse(base_config):
     assert enforcement_events[0]["payload"] == ledger_entries[0]
     assert "port=23" in enforcement_events[0]["payload"]["policy"]
     assert enforcement_events[0]["priority"] == "critical"
+    assert enforcement_events[0]["source_peer"] == "local"
     assert port_events[0]["payload"]["policy"].startswith("port=23")
     assert port_events[0]["priority"] == "info"
+    assert port_events[0]["source_peer"] == "local"

@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from . import monitoring_daemon, pulse_bus
+from . import monitoring_daemon, pulse_bus, pulse_federation
 
-__all__ = ["pulse_bus", "monitoring_daemon"]
+__all__ = ["pulse_bus", "pulse_federation", "monitoring_daemon"]

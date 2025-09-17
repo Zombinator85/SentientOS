@@ -6,6 +6,7 @@ require_admin_banner()
 require_lumos_approval()
 
 import json
+import logging
 import subprocess
 import threading
 import time
@@ -22,7 +23,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
 import urllib.request
 
-from sentientos.daemons import pulse_bus
+from sentientos.daemons import pulse_bus, pulse_federation
 
 from daemon.cpu_ram_daemon import run_loop as cpu_ram_daemon
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
@@ -34,6 +35,10 @@ CODEX_REQUEST_DIR = Path("/glow/codex_requests/")
 CODEX_REASONING_DIR = Path("/daemon/logs/codex_reasoning/")
 
 PRIVILEGED_PATTERNS = ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"]
+
+logger = logging.getLogger(__name__)
+
+FEDERATION_REPLAY_MINUTES = 15
 
 # Config handling ----------------------------------------------------------
 CONFIG_FILE = Path("/vow/config.yaml")
@@ -54,13 +59,23 @@ DEFAULT_CONFIG = {
     "ram_threshold": 90,
     # Offload behavior: none, log_only, auto
     "offload_policy": "log_only",
+    # Federation propagation defaults
+    "federation_enabled": False,
+    "federation_peers": [],
 }
 try:
-    CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
-    if not isinstance(CONFIG, dict):
-        CONFIG = {}
-except FileNotFoundError:
+    safe_load = yaml.safe_load  # type: ignore[attr-defined]
+except AttributeError:
     CONFIG = {}
+else:
+    try:
+        CONFIG = safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
+        if not isinstance(CONFIG, dict):
+            CONFIG = {}
+    except FileNotFoundError:
+        CONFIG = {}
+    except Exception:  # pragma: no cover - malformed config treated as empty
+        CONFIG = {}
 CONFIG = {**DEFAULT_CONFIG, **CONFIG}
 CODEX_MODE = str(CONFIG.get("codex_mode", "observe")).lower()
 CODEX_INTERVAL = int(CONFIG.get("codex_interval", 3600))
@@ -72,6 +87,10 @@ CODEX_FOCUS = str(CONFIG.get("codex_focus", "pytest"))
 CODEX_AUTO_APPLY = CODEX_MODE in {"repair", "full"}
 RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
 CODEX_NOTIFY = CONFIG.get("codex_notify", [])
+FEDERATION_ENABLED = bool(CONFIG.get("federation_enabled", False))
+FEDERATION_PEERS = CONFIG.get("federation_peers", [])
+
+pulse_federation.configure(enabled=FEDERATION_ENABLED, peers=FEDERATION_PEERS)
 
 CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required", "integrity_violation"}
 _SELF_REPAIR_LOCK = threading.Lock()
@@ -561,6 +580,11 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     failures = 0
 
     last_run = _load_last_session_timestamp()
+    if pulse_federation.is_enabled():
+        try:
+            pulse_federation.request_recent_events(FEDERATION_REPLAY_MINUTES)
+        except Exception:  # pragma: no cover - federation failures best-effort
+            logger.warning("Unable to replay federated pulse history", exc_info=True)
     if last_run is not None:
         for event in pulse_bus.replay(last_run):
             CRITICAL_FAILURE_MONITOR.record(event)
