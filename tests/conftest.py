@@ -85,6 +85,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_pulse_priority",
         "tests.test_pulse_federation",
         "tests.test_daemon_manager",
+        "tests.test_federated_restart",
     }
     for item in items:
         if (

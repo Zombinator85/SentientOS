@@ -103,8 +103,9 @@ def test_pulse_triggered_restart_logs_and_emits():
         "priority": "critical",
         "payload": {
             "action": "restart_daemon",
-            "daemon": "beta",
+            "daemon_name": "beta",
             "reason": "pulse_request",
+            "scope": "local",
         },
     }
     pulse_bus.publish(event)
@@ -119,14 +120,19 @@ def test_pulse_triggered_restart_logs_and_emits():
     assert ledger_entries[-1]["daemon"] == "beta"
     assert ledger_entries[-1]["reason"] == "pulse_request"
     assert ledger_entries[-1]["outcome"] == "success"
+    assert ledger_entries[-1]["scope"] == "local"
+    assert ledger_entries[-1]["source_peer"] == "local"
 
     restart_events = [
         evt
         for evt in pulse_bus.pending_events()
-        if evt["event_type"] == "daemon_restart" and evt["payload"]["daemon"] == "beta"
+        if evt["event_type"] == "daemon_restart"
+        and evt["payload"]["daemon_name"] == "beta"
     ]
     assert restart_events, "Manager should emit daemon_restart pulse event"
     assert restart_events[-1]["payload"]["outcome"] == "success"
+    assert restart_events[-1]["payload"]["scope"] == "local"
+    assert restart_events[-1]["payload"]["requested_by"] == "local"
     assert restart_events[-1]["priority"] == "info"
 
 
@@ -152,7 +158,8 @@ def test_codex_triggers_restart_request_after_repeated_criticals():
     assert restart_requests, "Codex should publish restart request"
     payload = restart_requests[-1]["payload"]
     assert payload["action"] == "restart_daemon"
-    assert payload["daemon"] == "network"
+    assert payload["daemon_name"] == "network"
+    assert payload["scope"] == "local"
     assert "codex_detected_repeated_failures" in payload["reason"]
 
 
@@ -188,7 +195,10 @@ def test_restart_failure_is_logged_without_crash():
     restart_events = [
         evt
         for evt in pulse_bus.pending_events()
-        if evt["event_type"] == "daemon_restart" and evt["payload"]["daemon"] == "gamma"
+        if evt["event_type"] == "daemon_restart"
+        and evt["payload"]["daemon_name"] == "gamma"
     ]
     assert restart_events[-1]["payload"]["outcome"] == "failure"
+    assert restart_events[-1]["payload"]["scope"] == "local"
+    assert restart_events[-1]["payload"]["requested_by"] == "local"
     assert restart_events[-1]["priority"] == "critical"
