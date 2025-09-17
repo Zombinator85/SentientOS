@@ -11,4 +11,6 @@ network_policies:
   block_ports: []
   max_bandwidth_percent: 90
   mode: monitor_only  # monitor_only | active_enforce
+federation_enabled: false
+federation_peers: []
 federation_peer_ip: null

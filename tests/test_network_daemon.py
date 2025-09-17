@@ -59,7 +59,8 @@ def base_config(tmp_path):
                 {"bandwidth": 1000, "action": "throttle"},
             ],
         },
-        "federation_peer_ip": "192.0.2.10",
+        "federation_enabled": True,
+        "federation_peers": ["192.0.2.10"],
         "log_dir": tmp_path,
     }
 
@@ -114,6 +115,7 @@ def test_federation_resync_trigger(daemon):
         evt["event_type"] == "resync_required" and evt["priority"] == "critical"
         for evt in events
     )
+    assert all(evt.get("source_peer") == "local" for evt in events)
 
 
 def test_no_uptime_event_below_threshold(daemon):
@@ -170,6 +172,8 @@ def test_policy_violation_generates_ledger_entry(make_daemon):
     assert port_events[0]["payload"]["policy"].startswith("port=23")
     assert all(evt["priority"] == "critical" for evt in enforcement_events)
     assert all(evt["priority"] == "info" for evt in port_events)
+    assert all(evt.get("source_peer") == "local" for evt in enforcement_events)
+    assert all(evt.get("source_peer") == "local" for evt in port_events)
 
 
 def test_enforcement_mode_toggle_suppresses_ledger(make_daemon):

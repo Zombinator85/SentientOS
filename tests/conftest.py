@@ -83,6 +83,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_network_daemon",
         "tests.test_pulse_persistence",
         "tests.test_pulse_priority",
+        "tests.test_pulse_federation",
         "tests.test_daemon_manager",
     }
     for item in items:

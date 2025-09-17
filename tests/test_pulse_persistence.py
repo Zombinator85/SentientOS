@@ -48,6 +48,7 @@ def test_event_persisted_with_signature() -> None:
     stored = entries[0]
     assert stored["signature"] == published["signature"]
     assert stored["priority"] == "info"
+    assert stored["source_peer"] == "local"
     assert pulse_bus.verify(stored) is True
 
 
@@ -75,6 +76,7 @@ def test_replay_returns_events_in_chronological_order() -> None:
 
     replayed = list(pulse_bus.replay())
     assert [evt["event_type"] for evt in replayed] == ["first", "second", "third"]
+    assert all(evt.get("source_peer") == "local" for evt in replayed)
     assert all(pulse_bus.verify(evt) for evt in replayed)
 
 
@@ -88,6 +90,7 @@ def test_replay_since_filters_events() -> None:
     replayed = list(pulse_bus.replay(since=since))
 
     assert [evt["event_type"] for evt in replayed] == ["late", "next"]
+    assert all(evt.get("source_peer") == "local" for evt in replayed)
 
 
 def test_history_survives_reset() -> None:
@@ -98,3 +101,4 @@ def test_history_survives_reset() -> None:
 
     replayed = list(pulse_bus.replay())
     assert replayed and replayed[0]["event_type"] == "survive"
+    assert replayed[0]["source_peer"] == "local"
