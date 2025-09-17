@@ -30,6 +30,7 @@ except Exception:
     sys.modules['yaml'] = types.ModuleType('yaml')
 
 from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
+from nacl.signing import SigningKey
 
 
 sys.modules['requests'] = types.ModuleType('requests')
@@ -60,12 +61,30 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.fixture(autouse=True)
+def configure_pulse_environment(tmp_path, monkeypatch):
+    history_dir = tmp_path / "pulse_history"
+    history_dir.mkdir(parents=True, exist_ok=True)
+    key_dir = tmp_path / "pulse_keys"
+    key_dir.mkdir(parents=True, exist_ok=True)
+    signing_key = SigningKey.generate()
+    private_key = key_dir / "ed25519_private.key"
+    public_key = key_dir / "ed25519_public.key"
+    private_key.write_bytes(signing_key.encode())
+    public_key.write_bytes(signing_key.verify_key.encode())
+    monkeypatch.setenv("PULSE_HISTORY_ROOT", str(history_dir))
+    monkeypatch.setenv("PULSE_SIGNING_KEY", str(private_key))
+    monkeypatch.setenv("PULSE_VERIFY_KEY", str(public_key))
+    yield
+
+
 def pytest_collection_modifyitems(config, items):
+    allowed_modules = {"tests.test_network_daemon", "tests.test_pulse_persistence"}
     for item in items:
         if (
             item.name != "test_placeholder"
             and not item.name.startswith("test_emotion_pump")
-            and item.module.__name__ != "tests.test_network_daemon"
+            and item.module.__name__ not in allowed_modules
         ):
             item.add_marker(pytest.mark.skip(reason="legacy test disabled"))
         if 'requires_node' in item.keywords and not HAS_NODE:

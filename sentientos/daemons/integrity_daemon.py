@@ -14,6 +14,7 @@ class IntegrityDaemon:
     def __init__(self) -> None:
         self.received_events: List[dict] = []
         self.messages: List[str] = []
+        self.invalid_events: List[dict] = []
         self._subscription: pulse_bus.PulseSubscription | None = pulse_bus.subscribe(
             self._handle_event
         )
@@ -22,7 +23,13 @@ class IntegrityDaemon:
         self.received_events.append(event)
         message = json.dumps(event, sort_keys=True)
         self.messages.append(message)
-        print(f"[IntegrityDaemon] {message}")
+        if pulse_bus.verify(event):
+            print(f"[IntegrityDaemon] {message}")
+            return
+        warning = f"INVALID SIGNATURE: {message}"
+        self.invalid_events.append(event)
+        self.messages.append(warning)
+        print(f"[IntegrityDaemon] {warning}")
 
     def stop(self) -> None:
         """Unsubscribe from the pulse bus."""
