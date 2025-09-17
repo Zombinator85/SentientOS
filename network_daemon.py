@@ -25,8 +25,11 @@ class NetworkDaemon:
         Configuration dictionary. Relevant keys:
         ``network_policies`` may include ``allowed_ports``, ``blocked_ports``,
         ``bandwidth_limit`` (kbps) and structured ``rules`` for enforcement.
-        ``federation_peer_ip`` and ``log_dir`` configure detection logging
-        while ``enforcement_enabled`` toggles ledger-backed enforcement.
+        ``federation_peers`` provides the list of reachable nodes for
+        federation and ``federation_enabled`` toggles whether reachability
+        monitoring should enqueue resync requests. ``log_dir`` configures
+        detection logging and ``enforcement_enabled`` toggles ledger-backed
+        enforcement.
     """
 
     def __init__(self, config: dict) -> None:
@@ -35,7 +38,19 @@ class NetworkDaemon:
         self.blocked_ports = set(policies.get("blocked_ports", []))
         self.bandwidth_limit = float(policies.get("bandwidth_limit", 0))
         self.policy_rules = self._load_policy_rules(policies)
-        self.peer_ip = config.get("federation_peer_ip")
+        raw_peers = config.get("federation_peers")
+        if isinstance(raw_peers, str):
+            peer_list = [raw_peers]
+        else:
+            peer_list = list(raw_peers or [])
+        legacy_peer = config.get("federation_peer_ip")
+        if legacy_peer:
+            legacy_peer_str = str(legacy_peer)
+            if legacy_peer_str and legacy_peer_str not in peer_list:
+                peer_list.append(legacy_peer_str)
+        self.federation_enabled = bool(config.get("federation_enabled", False))
+        self.federation_peers = [str(peer) for peer in peer_list if str(peer)]
+        self.peer_ip = self.federation_peers[0] if self.federation_peers else None
         self.log_dir = Path(config.get("log_dir", "."))
         self.uptime_threshold = float(config.get("uptime_threshold", 300))
         self.enforcement_enabled = bool(config.get("enforcement_enabled", False))

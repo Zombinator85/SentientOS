@@ -117,6 +117,18 @@ def run_loop(
     mode = str(policies.get("mode", "monitor_only"))
     enforce = mode != "monitor_only"
     policy_flag = pulse_dir / "network_policy"
+    federation_enabled = bool(config.get("federation_enabled", False))
+    raw_peers = config.get("federation_peers")
+    if isinstance(raw_peers, str):
+        peer_list = [raw_peers]
+    else:
+        peer_list = list(raw_peers or [])
+    legacy_peer = config.get("federation_peer_ip")
+    if legacy_peer:
+        legacy_peer_str = str(legacy_peer)
+        if legacy_peer_str and legacy_peer_str not in peer_list:
+            peer_list.append(legacy_peer_str)
+    federation_peers = [str(peer) for peer in peer_list if str(peer)]
 
     interfaces, prev_counters, open_ports = _get_net_info()
     seen_ports = set(open_ports.keys()) | allow_ports | block_ports
@@ -173,10 +185,12 @@ def run_loop(
             }
         )
 
-        peer = config.get("federation_peer_ip")
-        if peer and not _ping(str(peer)):
-            ledger_queue.put({"event": "federation_link_down", "peer": peer})
-            _enqueue_resync(fed_dir)
+        if federation_enabled:
+            for peer in federation_peers:
+                if peer and not _ping(peer):
+                    ledger_queue.put({"event": "federation_link_down", "peer": peer})
+                    _enqueue_resync(fed_dir)
+                    break
 
         if stop.wait(poll_interval):
             break
