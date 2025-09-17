@@ -90,6 +90,11 @@ def test_bandwidth_event_emits(daemon):
 
     daemon._check_bandwidth(1500)
     assert any("bandwidth_saturation" in e for e in daemon.events)
+    events = pulse_bus.pending_events()
+    assert any(
+        evt["event_type"] == "bandwidth_saturation" and evt["priority"] == "warning"
+        for evt in events
+    )
 
 
 def test_unexpected_port_block(daemon):
@@ -104,6 +109,11 @@ def test_federation_resync_trigger(daemon):
 
     daemon._check_federation(False)
     assert daemon.resync_queued is True
+    events = pulse_bus.pending_events()
+    assert any(
+        evt["event_type"] == "resync_required" and evt["priority"] == "critical"
+        for evt in events
+    )
 
 
 def test_no_uptime_event_below_threshold(daemon):
@@ -158,6 +168,8 @@ def test_policy_violation_generates_ledger_entry(make_daemon):
     assert port_events, "Pulse bus should receive port violation events"
     assert enforcement_events[0]["payload"] == entry
     assert port_events[0]["payload"]["policy"].startswith("port=23")
+    assert all(evt["priority"] == "critical" for evt in enforcement_events)
+    assert all(evt["priority"] == "info" for evt in port_events)
 
 
 def test_enforcement_mode_toggle_suppresses_ledger(make_daemon):
@@ -174,6 +186,9 @@ def test_enforcement_mode_toggle_suppresses_ledger(make_daemon):
     event_types = {event["event_type"] for event in events}
     assert {"port_violation", "bandwidth_saturation", "resync_required"} <= event_types
     assert "enforcement" not in event_types
+    priorities = {event["event_type"]: event["priority"] for event in events}
+    assert priorities["bandwidth_saturation"] == "warning"
+    assert priorities["resync_required"] == "critical"
 
 
 def test_multiple_violations_logged_independently(make_daemon):
@@ -197,3 +212,7 @@ def test_multiple_violations_logged_independently(make_daemon):
 
     enforcement_payloads = [event["payload"] for event in events if event["event_type"] == "enforcement"]
     assert enforcement_payloads == entries
+    priority_map = {event["event_type"]: event["priority"] for event in events}
+    assert priority_map["enforcement"] == "critical"
+    assert priority_map["resync_required"] == "critical"
+    assert priority_map["bandwidth_saturation"] == "warning"

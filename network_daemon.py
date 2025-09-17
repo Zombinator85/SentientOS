@@ -105,7 +105,13 @@ class NetworkDaemon:
             description = f"{rule_type}={value}:{action}"
         return self._create_ledger_event(interface, description, action, detail)
 
-    def _publish_pulse_event(self, event_type: str, payload: Dict[str, object]) -> None:
+    def _publish_pulse_event(
+        self,
+        event_type: str,
+        payload: Dict[str, object],
+        *,
+        priority: str = "info",
+    ) -> None:
         """Publish a pulse event carrying ``payload`` to subscribers."""
 
         timestamp = payload.get("timestamp")
@@ -116,6 +122,7 @@ class NetworkDaemon:
             "source_daemon": "network",
             "event_type": event_type,
             "payload": dict(payload),
+            "priority": priority,
         }
         pulse_bus.publish(event)
 
@@ -208,7 +215,7 @@ class NetworkDaemon:
             f"enforcement:{interface}:{policy_description}:{action}{detail_message}"
         )
         payload = self._emit_ledger_event(interface, policy_description, action, detail)
-        self._publish_pulse_event("enforcement", payload)
+        self._publish_pulse_event("enforcement", payload, priority="critical")
         return payload
 
     def _emit_ledger_event(
@@ -253,7 +260,9 @@ class NetworkDaemon:
             if matches:
                 for rule in matches:
                     payload = self._policy_payload_from_rule(interface, rule, detail)
-                    self._publish_pulse_event("bandwidth_saturation", payload)
+                    self._publish_pulse_event(
+                        "bandwidth_saturation", payload, priority="warning"
+                    )
                     self._maybe_enforce(interface, rule, detail)
             elif exceeded:
                 rule = self._build_rule(
@@ -263,7 +272,9 @@ class NetworkDaemon:
                     source="bandwidth_limit",
                 )
                 payload = self._policy_payload_from_rule(interface, rule, detail)
-                self._publish_pulse_event("bandwidth_saturation", payload)
+                self._publish_pulse_event(
+                    "bandwidth_saturation", payload, priority="warning"
+                )
 
     def _check_ports(self, open_ports: Iterable[int], interface: str = "unknown") -> None:
         """Inspect open ports and emit events for unexpected or blocked ones."""
@@ -305,7 +316,9 @@ class NetworkDaemon:
             detail = "peer_unreachable"
             for rule in matches:
                 payload = self._policy_payload_from_rule(interface, rule, detail)
-                self._publish_pulse_event("resync_required", payload)
+                self._publish_pulse_event(
+                    "resync_required", payload, priority="critical"
+                )
                 self._maybe_enforce(interface, rule, detail)
 
     def _check_uptime(self, status: Dict[str, bool], now: float) -> None:
@@ -328,6 +341,12 @@ class NetworkDaemon:
                 ):
                     self._log(f"uptime_event:{iface}:{int(uptime)}")
                     self._iface_event_emitted[iface] = True
+                    payload = {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "interface": iface,
+                        "uptime_seconds": int(uptime),
+                    }
+                    self._publish_pulse_event("uptime_event", payload, priority="info")
             else:
                 uptime = 0.0
                 self._iface_event_emitted[iface] = False
