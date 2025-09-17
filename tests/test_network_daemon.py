@@ -35,3 +35,31 @@ def test_federation_resync_trigger(daemon):
     daemon._check_federation(False)
     assert daemon.resync_queued is True
 
+
+def test_no_uptime_event_below_threshold(daemon):
+    """Interfaces below threshold should not emit uptime events."""
+    daemon._check_uptime({"eth0": True}, 0)
+    daemon._check_uptime({"eth0": True}, 299)
+    assert not any("uptime_event" in e for e in daemon.events)
+
+
+def test_uptime_event_triggers_once(daemon):
+    """An uptime event fires once when threshold is crossed."""
+    daemon._check_uptime({"eth0": True}, 0)
+    daemon._check_uptime({"eth0": True}, 301)
+    daemon._check_uptime({"eth0": True}, 400)
+    events = [e for e in daemon.events if e.startswith("uptime_event")]
+    assert len(events) == 1 and "eth0" in events[0]
+
+
+def test_multiple_interfaces_tracked_independently(daemon):
+    """Each interface maintains its own uptime tracking."""
+    daemon._check_uptime({"eth0": True, "wlan0": True}, 0)
+    daemon._check_uptime({"eth0": True, "wlan0": False}, 301)
+    daemon._check_uptime({"eth0": True, "wlan0": False}, 400)
+    daemon._check_uptime({"eth0": True, "wlan0": True}, 400)
+    daemon._check_uptime({"eth0": True, "wlan0": True}, 701)
+    events = [e for e in daemon.events if e.startswith("uptime_event")]
+    assert len([e for e in events if "eth0" in e]) == 1
+    assert len([e for e in events if "wlan0" in e]) == 1
+
