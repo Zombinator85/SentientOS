@@ -41,11 +41,13 @@ def test_event_persisted_with_signature() -> None:
     published = pulse_bus.publish(_build_event(ts, event_type="persist", value=1))
 
     assert "signature" in published and published["signature"]
+    assert published["priority"] == "info"
 
     entries = _history_entries()
     assert len(entries) == 1
     stored = entries[0]
     assert stored["signature"] == published["signature"]
+    assert stored["priority"] == "info"
     assert pulse_bus.verify(stored) is True
 
 
