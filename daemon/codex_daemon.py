@@ -72,7 +72,7 @@ CODEX_AUTO_APPLY = CODEX_MODE in {"repair", "full"}
 RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
 CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 
-CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required"}
+CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required", "integrity_violation"}
 _SELF_REPAIR_LOCK = threading.Lock()
 
 
@@ -453,6 +453,8 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     pulse_subscription: pulse_bus.PulseSubscription | None = None
 
     def _pulse_handler(event: dict) -> None:
+        if str(event.get("priority", "info")).lower() != "critical":
+            return
         if event.get("event_type") in CRITICAL_PULSE_EVENTS:
             self_repair_check(ledger_queue)
 
@@ -464,6 +466,8 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     last_run = _load_last_session_timestamp()
     if last_run is not None:
         for event in pulse_bus.replay(last_run):
+            if str(event.get("priority", "info")).lower() != "critical":
+                continue
             if event.get("event_type") in CRITICAL_PULSE_EVENTS:
                 self_repair_check(ledger_queue)
 
@@ -479,7 +483,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
         CODEX_SESSION_FILE.write_text(json.dumps(session), encoding="utf-8")
 
     try:
-        pulse_subscription = pulse_bus.subscribe(_pulse_handler)
+        pulse_subscription = pulse_bus.subscribe(_pulse_handler, priorities=["critical"])
         write_session()
         while not stop.is_set():
             try:

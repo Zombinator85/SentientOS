@@ -79,7 +79,11 @@ def configure_pulse_environment(tmp_path, monkeypatch):
 
 
 def pytest_collection_modifyitems(config, items):
-    allowed_modules = {"tests.test_network_daemon", "tests.test_pulse_persistence"}
+    allowed_modules = {
+        "tests.test_network_daemon",
+        "tests.test_pulse_persistence",
+        "tests.test_pulse_priority",
+    }
     for item in items:
         if (
             item.name != "test_placeholder"
