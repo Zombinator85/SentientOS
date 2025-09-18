@@ -9,16 +9,20 @@ import os
 import re
 import threading
 from collections import Counter, deque
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Deque, Dict, Iterable, List, Mapping, Sequence, cast
+from urllib.parse import parse_qs, urlparse
 
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
 
 from logging_config import get_log_path
 from log_utils import append_json
+
+from sentientos import pulse_query
 
 from . import pulse_bus
 
@@ -44,6 +48,128 @@ class AnomalyThreshold:
     limit: int
     window: timedelta
     name: str = "threshold"
+
+
+class _QueryHTTPServer(ThreadingHTTPServer):
+    """HTTP server that exposes read-only monitoring query endpoints."""
+
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def __init__(
+        self,
+        server_address: tuple[str, int],
+        handler_class: type[BaseHTTPRequestHandler],
+        *,
+        daemon: "MonitoringDaemon",
+        allow_queries: bool,
+    ) -> None:
+        super().__init__(server_address, handler_class)
+        self.query_daemon = daemon
+        self.allow_queries = allow_queries
+
+
+class _QueryRequestHandler(BaseHTTPRequestHandler):
+    """Handle HTTP queries for pulse events and monitoring metrics."""
+
+    server_version = "MonitoringQuery/1.0"
+
+    def do_GET(self) -> None:  # pragma: no cover - exercised via integration tests
+        server = cast(_QueryHTTPServer, self.server)
+        parsed = urlparse(self.path)
+        if parsed.path == "/query/events":
+            self._handle_events(server, parsed.query)
+            return
+        if parsed.path == "/query/metrics":
+            self._handle_metrics(server, parsed.query)
+            return
+        self._respond_json(404, {"error": "not_found"})
+
+    def _handle_events(self, server: _QueryHTTPServer, query: str) -> None:
+        if not server.allow_queries:
+            self._respond_json(403, {"error": "query_disabled"})
+            return
+        params = parse_qs(query)
+        filters = self._extract_filters(params)
+        try:
+            since = self._determine_since(params)
+        except ValueError as exc:
+            self._respond_json(400, {"error": str(exc)})
+            return
+        try:
+            events = pulse_query.query_events(since, filters, requester="http")
+        except ValueError as exc:
+            self._respond_json(400, {"error": str(exc)})
+            return
+        except Exception:  # pragma: no cover - defensive logging
+            logger.exception("HTTP events query failed")
+            self._respond_json(500, {"error": "internal_error"})
+            return
+        payload = {
+            "since": since.isoformat(),
+            "filters": filters,
+            "count": len(events),
+            "events": events,
+        }
+        self._respond_json(200, payload)
+
+    def _handle_metrics(self, server: _QueryHTTPServer, query: str) -> None:
+        if not server.allow_queries:
+            self._respond_json(403, {"error": "query_disabled"})
+            return
+        params = parse_qs(query)
+        filters = self._extract_filters(params)
+        window = self._determine_window(params)
+        try:
+            metrics = pulse_query.query_metrics(window, filters, requester="http")
+        except ValueError as exc:
+            self._respond_json(400, {"error": str(exc)})
+            return
+        except Exception:  # pragma: no cover - defensive logging
+            logger.exception("HTTP metrics query failed")
+            self._respond_json(500, {"error": "internal_error"})
+            return
+        self._respond_json(200, metrics)
+
+    def _extract_filters(self, params: Dict[str, List[str]]) -> Dict[str, str]:
+        filters: Dict[str, str] = {}
+        priority = params.get("priority")
+        if priority and priority[-1]:
+            filters["priority"] = priority[-1]
+        daemon_values = params.get("source_daemon") or params.get("daemon")
+        if daemon_values and daemon_values[-1]:
+            filters["source_daemon"] = daemon_values[-1]
+        event_type = params.get("event_type")
+        if event_type and event_type[-1]:
+            filters["event_type"] = event_type[-1]
+        return filters
+
+    def _determine_since(self, params: Dict[str, List[str]]) -> datetime:
+        since_values = params.get("since")
+        if since_values and since_values[-1]:
+            return pulse_query.parse_iso_timestamp(since_values[-1])
+        last_values = params.get("last")
+        window_text = last_values[-1] if last_values and last_values[-1] else "1h"
+        delta = pulse_query.parse_window(window_text)
+        return datetime.now(timezone.utc) - delta
+
+    def _determine_window(self, params: Dict[str, List[str]]) -> str:
+        window_values = params.get("window")
+        if window_values and window_values[-1]:
+            return window_values[-1]
+        last_values = params.get("last")
+        return last_values[-1] if last_values and last_values[-1] else "1h"
+
+    def _respond_json(self, status: int, payload: Mapping[str, object]) -> None:
+        body = json.dumps(payload, sort_keys=True).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:  # pragma: no cover - noisy handler
+        logger.debug("QueryHTTP %s - %s", self.address_string(), format % args)
 
 
 class _SnapshotSigner:
@@ -140,6 +266,7 @@ class MonitoringDaemon:
         anomaly_thresholds: Sequence[AnomalyThreshold] | None = None,
         snapshot_interval: timedelta | None = None,
         snapshot_cache_size: int = 128,
+        query_http_config: Mapping[str, object] | None = None,
     ) -> None:
         self.events: List[dict[str, object]] = []
         self.messages: List[str] = []
@@ -154,6 +281,11 @@ class MonitoringDaemon:
         self._pending_anomalies: List[AnomalyRecord] = []
         self._anomaly_state: Dict[tuple[str, str, float], datetime] = {}
         self._snapshots_cache: Deque[Snapshot] = deque(maxlen=snapshot_cache_size)
+        self._http_server: _QueryHTTPServer | None = None
+        self._http_thread: threading.Thread | None = None
+        self._http_enabled = False
+        self._http_host: str | None = None
+        self._http_port: int | None = None
 
         self._windows = {
             label.strip().lower(): delta
@@ -191,6 +323,8 @@ class MonitoringDaemon:
                 daemon=True,
             )
             self._snapshot_thread.start()
+
+        self._start_http_interface(query_http_config)
 
     # ------------------------------------------------------------------
     # Pulse handling
@@ -256,7 +390,68 @@ class MonitoringDaemon:
         self._stop_event.set()
         if self._snapshot_thread and self._snapshot_thread.is_alive():
             self._snapshot_thread.join(timeout=1)
+        self._stop_http_interface()
         self._signer.reset()
+
+    def _start_http_interface(self, config: Mapping[str, object] | None) -> None:
+        if config is None:
+            return
+        host_value = config.get("query_http_host", "127.0.0.1")
+        host = str(host_value).strip() or "127.0.0.1"
+        try:
+            port = int(config.get("query_http_port", 0))
+        except (TypeError, ValueError):
+            port = 0
+        enabled = bool(config.get("query_http_enabled"))
+        try:
+            server = _QueryHTTPServer(
+                (host, port),
+                _QueryRequestHandler,
+                daemon=self,
+                allow_queries=enabled,
+            )
+        except OSError:
+            logger.exception("Failed to bind query HTTP interface on %s:%s", host, port)
+            return
+        self._http_server = server
+        self._http_enabled = enabled
+        self._http_host = host
+        self._http_port = int(server.server_address[1])
+        self._http_thread = threading.Thread(
+            target=server.serve_forever,
+            name="MonitoringQueryHTTP",
+            daemon=True,
+        )
+        self._http_thread.start()
+
+    def _stop_http_interface(self) -> None:
+        server = self._http_server
+        if server is None:
+            return
+        self._http_server = None
+        try:
+            server.shutdown()
+        except Exception:  # pragma: no cover - best effort shutdown
+            logger.debug("Error shutting down query HTTP server", exc_info=True)
+        server.server_close()
+        if self._http_thread and self._http_thread.is_alive():
+            self._http_thread.join(timeout=1)
+        self._http_thread = None
+        self._http_enabled = False
+        self._http_host = None
+        self._http_port = None
+
+    @property
+    def query_http_port(self) -> int | None:
+        return self._http_port
+
+    @property
+    def query_http_host(self) -> str | None:
+        return self._http_host
+
+    @property
+    def query_http_enabled(self) -> bool:
+        return self._http_enabled and self._http_server is not None
 
     def current_metrics(self) -> Dict[str, Any]:
         """Return the latest aggregated metrics without persisting."""
