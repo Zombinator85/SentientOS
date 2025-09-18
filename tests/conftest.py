@@ -67,14 +67,25 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     history_dir.mkdir(parents=True, exist_ok=True)
     key_dir = tmp_path / "pulse_keys"
     key_dir.mkdir(parents=True, exist_ok=True)
+    monitoring_dir = tmp_path / "glow" / "monitoring"
+    monitoring_dir.mkdir(parents=True, exist_ok=True)
+
     signing_key = SigningKey.generate()
     private_key = key_dir / "ed25519_private.key"
     public_key = key_dir / "ed25519_public.key"
     private_key.write_bytes(signing_key.encode())
     public_key.write_bytes(signing_key.verify_key.encode())
+
     monkeypatch.setenv("PULSE_HISTORY_ROOT", str(history_dir))
     monkeypatch.setenv("PULSE_SIGNING_KEY", str(private_key))
     monkeypatch.setenv("PULSE_VERIFY_KEY", str(public_key))
+    monkeypatch.delenv("MONITORING_METRICS_PATH", raising=False)
+
+    from sentientos import pulse_query as pulse_query_module
+
+    monkeypatch.setattr(pulse_query_module, "_PULSE_HISTORY_ROOT", history_dir)
+    monkeypatch.setattr(pulse_query_module, "_METRICS_PATH", monitoring_dir / "metrics.jsonl")
+    monkeypatch.setattr(pulse_query_module, "_VERIFY_KEY", None)
     yield
 
 
@@ -86,6 +97,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_pulse_federation",
         "tests.test_daemon_manager",
         "tests.test_federated_restart",
+        "tests.test_pulse_query",
     }
     for item in items:
         if (
