@@ -75,6 +75,9 @@ DEFAULT_CONFIG = {
     # Federation propagation defaults
     "federation_enabled": False,
     "federation_peers": [],
+    # Federation predictive handling
+    "federated_auto_apply": False,
+    "federation_peer_name": "",
 }
 try:
     safe_load = yaml.safe_load  # type: ignore[attr-defined]
@@ -102,8 +105,17 @@ RUN_CODEX = CODEX_MODE in {"repair", "full", "expand"}
 CODEX_NOTIFY = CONFIG.get("codex_notify", [])
 FEDERATION_ENABLED = bool(CONFIG.get("federation_enabled", False))
 FEDERATION_PEERS = CONFIG.get("federation_peers", [])
-
 pulse_federation.configure(enabled=FEDERATION_ENABLED, peers=FEDERATION_PEERS)
+
+LOCAL_PEER_NAME = (
+    str(
+        CONFIG.get("federation_peer_name")
+        or os.getenv("FEDERATION_PEER_NAME", "local")
+    ).strip()
+    or "local"
+)
+FEDERATED_AUTO_APPLY = bool(CONFIG.get("federated_auto_apply", False))
+
 
 CRITICAL_PULSE_EVENTS = {"enforcement", "resync_required", "integrity_violation"}
 _SELF_REPAIR_LOCK = threading.Lock()
@@ -378,11 +390,25 @@ class _PredictiveRepairManager:
         source_daemon = str(anomaly.get("source_daemon", "")).strip()
         if not source_daemon:
             return
+        target_peer = str(event.get("source_peer", "local")) or "local"
         if not self._should_trigger(anomaly):
             return
         analysis = self._analyze_history(source_daemon, anomaly)
-        logger.info("Codex predictive analysis triggered for %s", source_daemon)
-        self._suggest_patch(source_daemon, anomaly, analysis, ledger_queue)
+        if target_peer not in {"", "local"}:
+            logger.info(
+                "Codex predictive analysis triggered for %s on peer %s",
+                source_daemon,
+                target_peer,
+            )
+        else:
+            logger.info("Codex predictive analysis triggered for %s", source_daemon)
+        self._suggest_patch(
+            source_daemon,
+            anomaly,
+            analysis,
+            ledger_queue,
+            target_peer=None if target_peer in {"", "local"} else target_peer,
+        )
 
     def _should_trigger(self, anomaly: Mapping[str, object]) -> bool:
         observed = _to_int(anomaly.get("observed"))
@@ -480,6 +506,8 @@ class _PredictiveRepairManager:
         anomaly: Mapping[str, object],
         analysis: dict[str, object] | None,
         ledger_queue: Queue,
+        *,
+        target_peer: str | None = None,
     ) -> None:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         analysis_window = _format_window(_to_int(anomaly.get("window_seconds")))
@@ -505,7 +533,11 @@ class _PredictiveRepairManager:
         diff_output = proc.stdout
 
         CODEX_SUGGEST_DIR.mkdir(parents=True, exist_ok=True)
-        patch_path = CODEX_SUGGEST_DIR / f"predictive_{timestamp}.diff"
+        if target_peer:
+            sanitized_peer = re.sub(r"[^a-zA-Z0-9_.-]", "_", target_peer)
+            patch_path = CODEX_SUGGEST_DIR / f"predictive_{sanitized_peer}_{timestamp}.diff"
+        else:
+            patch_path = CODEX_SUGGEST_DIR / f"predictive_{timestamp}.diff"
         files_changed = parse_diff_files(diff_output)
         blocked = bool(files_changed and requires_confirm(files_changed))
         if blocked:
@@ -535,6 +567,7 @@ class _PredictiveRepairManager:
                 "analysis_window": analysis_window,
                 "triggering_anomaly": anomaly,
                 "pattern_summary": summary_text,
+                "target_peer": target_peer or "local",
             }
         )
 
@@ -549,11 +582,38 @@ class _PredictiveRepairManager:
                 "status": "suggested",
                 "files_changed": files_changed,
                 "pattern_summary": summary_text,
+                "target_peer": target_peer or "local",
             }
         )
 
+        if target_peer and diff_to_apply:
+            _publish_predictive_event(
+                status="suggested",
+                source_peer=LOCAL_PEER_NAME,
+                target_peer=target_peer,
+                target_daemon=daemon_name,
+                anomaly_pattern=summary_text,
+                patch_path=patch_ref,
+                patch_diff=diff_to_apply,
+                anomaly=anomaly,
+                files_changed=files_changed,
+                analysis_window=analysis_window,
+            )
+            _log_federated_event(
+                ledger_queue,
+                timestamp=suggestion_ts,
+                status="suggested",
+                source_peer=LOCAL_PEER_NAME,
+                target_daemon=daemon_name,
+                anomaly=anomaly,
+                anomaly_pattern=summary_text,
+                patch_path=patch_ref,
+                target_peer=target_peer,
+            )
+
         if (
             diff_to_apply
+            and not target_peer
             and CODEX_MODE == "expand"
             and files_changed
             and is_safe(files_changed)
@@ -613,6 +673,224 @@ def log_activity(entry: dict) -> None:
     with open(CODEX_LOG, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry) + "\n")
 
+
+_PEER_PATCH_SANITIZE = re.compile(r"[^0-9]")
+
+
+def _peer_patch_filename(timestamp: str) -> str:
+    cleaned = _PEER_PATCH_SANITIZE.sub("", timestamp or "")
+    if not cleaned:
+        cleaned = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    return f"peer_{cleaned}.diff"
+
+
+def _log_federated_event(
+    ledger_queue: Queue,
+    *,
+    timestamp: str,
+    status: str,
+    source_peer: str,
+    target_daemon: str,
+    anomaly: Mapping[str, object] | object | None,
+    anomaly_pattern: str,
+    patch_path: str,
+    target_peer: str | None = None,
+    verification_result: bool | None = None,
+    note: str | None = None,
+) -> None:
+    entry: dict[str, object] = {
+        "ts": timestamp,
+        "event": "federated_predictive_event",
+        "status": status,
+        "source_peer": source_peer,
+        "target_peer": target_peer or "",
+        "target_daemon": target_daemon,
+        "anomaly_pattern": anomaly_pattern,
+        "triggering_anomaly": anomaly,
+        "patch_path": patch_path,
+    }
+    if verification_result is not None:
+        entry["verification_result"] = bool(verification_result)
+    if note:
+        entry["note"] = note
+    ledger_queue.put(entry)
+
+
+def _publish_predictive_event(
+    *,
+    status: str,
+    source_peer: str,
+    target_peer: str,
+    target_daemon: str,
+    anomaly_pattern: str,
+    patch_path: str,
+    patch_diff: str | None,
+    anomaly: Mapping[str, object] | object | None,
+    files_changed: list[str] | None,
+    analysis_window: str,
+) -> None:
+    payload: dict[str, object] = {
+        "source_peer": source_peer,
+        "target_peer": target_peer,
+        "target_daemon": target_daemon,
+        "anomaly_pattern": anomaly_pattern,
+        "patch_path": patch_path,
+        "status": status,
+        "analysis_window": analysis_window,
+        "triggering_anomaly": anomaly,
+    }
+    if patch_diff:
+        payload["patch_diff"] = patch_diff
+    if files_changed:
+        payload["files_changed"] = files_changed
+    pulse_bus.publish(
+        {
+            "timestamp": datetime.utcnow().isoformat(),
+            "source_daemon": "CodexDaemon",
+            "event_type": "predictive_suggestion",
+            "priority": "info",
+            "payload": payload,
+        }
+    )
+
+
+def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Queue) -> None:
+    if str(event.get("event_type", "")) != "predictive_suggestion":
+        return
+    payload = event.get("payload")
+    if not isinstance(payload, Mapping):
+        return
+    origin_peer = str(event.get("source_peer", "local")) or "local"
+    if origin_peer in {"", "local"}:
+        return
+    status = str(payload.get("status", "")).lower()
+    if status not in {"suggested", "applied"}:
+        return
+    target_peer_value = payload.get("target_peer") or payload.get("target_node")
+    target_peer = str(target_peer_value).strip() if target_peer_value else ""
+    if target_peer and target_peer not in {"local", LOCAL_PEER_NAME}:
+        return
+    target_daemon = str(payload.get("target_daemon", "")).strip()
+    anomaly_pattern = str(payload.get("anomaly_pattern", "")).strip()
+    anomaly = payload.get("triggering_anomaly")
+    patch_diff = payload.get("patch_diff")
+    event_timestamp = str(event.get("timestamp", ""))
+    ledger_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    target_label = target_peer or LOCAL_PEER_NAME
+    patch_path_hint = str(payload.get("patch_path", "")).strip()
+
+    if status == "applied":
+        _log_federated_event(
+            ledger_queue,
+            timestamp=ledger_ts,
+            status="applied",
+            source_peer=origin_peer,
+            target_daemon=target_daemon,
+            anomaly=anomaly,
+            anomaly_pattern=anomaly_pattern,
+            patch_path=patch_path_hint,
+            target_peer=target_label,
+        )
+        return
+
+    if not isinstance(patch_diff, str) or not patch_diff.strip():
+        _log_federated_event(
+            ledger_queue,
+            timestamp=ledger_ts,
+            status="rejected",
+            source_peer=origin_peer,
+            target_daemon=target_daemon,
+            anomaly=anomaly,
+            anomaly_pattern=anomaly_pattern,
+            patch_path=patch_path_hint,
+            target_peer=target_label,
+            note="Empty predictive patch payload",
+        )
+        return
+
+    files_changed = parse_diff_files(patch_diff)
+    if files_changed and (not is_safe(files_changed) or requires_confirm(files_changed)):
+        _log_federated_event(
+            ledger_queue,
+            timestamp=ledger_ts,
+            status="rejected",
+            source_peer=origin_peer,
+            target_daemon=target_daemon,
+            anomaly=anomaly,
+            anomaly_pattern=anomaly_pattern,
+            patch_path="",
+            target_peer=target_label,
+            note="Predictive patch touched privileged paths",
+        )
+        return
+
+    CODEX_SUGGEST_DIR.mkdir(parents=True, exist_ok=True)
+    patch_file = CODEX_SUGGEST_DIR / _peer_patch_filename(event_timestamp)
+    patch_file.write_text(patch_diff, encoding="utf-8")
+    patch_ref = patch_file.as_posix().lstrip("/")
+
+    _log_federated_event(
+        ledger_queue,
+        timestamp=ledger_ts,
+        status="suggested",
+        source_peer=origin_peer,
+        target_daemon=target_daemon,
+        anomaly=anomaly,
+        anomaly_pattern=anomaly_pattern,
+        patch_path=patch_ref,
+        target_peer=target_label,
+    )
+
+    if not FEDERATED_AUTO_APPLY:
+        return
+
+    if not files_changed:
+        return
+
+    if not is_safe(files_changed) or requires_confirm(files_changed):
+        return
+
+    if not apply_patch(patch_diff):
+        _log_federated_event(
+            ledger_queue,
+            timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+            status="rejected",
+            source_peer=LOCAL_PEER_NAME,
+            target_daemon=target_daemon,
+            anomaly=anomaly,
+            anomaly_pattern=anomaly_pattern,
+            patch_path=patch_ref,
+            target_peer=target_label,
+            note="Failed to apply predictive patch",
+        )
+        return
+
+    verified = run_ci(ledger_queue)
+    apply_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    _log_federated_event(
+        ledger_queue,
+        timestamp=apply_ts,
+        status="applied",
+        source_peer=LOCAL_PEER_NAME,
+        target_daemon=target_daemon,
+        anomaly=anomaly,
+        anomaly_pattern=anomaly_pattern,
+        patch_path=patch_ref,
+        target_peer=target_label,
+        verification_result=verified,
+    )
+    _publish_predictive_event(
+        status="applied",
+        source_peer=LOCAL_PEER_NAME,
+        target_peer=target_label,
+        target_daemon=target_daemon,
+        anomaly_pattern=anomaly_pattern,
+        patch_path=patch_ref,
+        patch_diff=patch_diff,
+        anomaly=anomaly,
+        files_changed=files_changed,
+        analysis_window=str(payload.get("analysis_window", "")),
+    )
 
 def send_notifications(entry: dict) -> None:
     """Send repair summaries to configured targets."""
@@ -872,6 +1150,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
 
     pulse_subscription: pulse_bus.PulseSubscription | None = None
     monitor_subscription: pulse_bus.PulseSubscription | None = None
+    predictive_subscription: pulse_bus.PulseSubscription | None = None
     predictive_manager = _PredictiveRepairManager()
 
     def _monitor_handler(event: dict) -> None:
@@ -892,6 +1171,9 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
             return
         if event_type in CRITICAL_PULSE_EVENTS:
             self_repair_check(ledger_queue)
+
+    def _predictive_handler(event: dict) -> None:
+        _process_predictive_suggestion(event, ledger_queue)
 
     codex_runs = 0
     total_iterations = 0
@@ -929,6 +1211,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
     try:
         pulse_subscription = pulse_bus.subscribe(_pulse_handler, priorities=["critical"])
         monitor_subscription = pulse_bus.subscribe(_monitor_handler)
+        predictive_subscription = pulse_bus.subscribe(_predictive_handler)
         write_session()
         while not stop.is_set():
             try:
@@ -999,3 +1282,5 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
             monitor_subscription.unsubscribe()
         if pulse_subscription is not None:
             pulse_subscription.unsubscribe()
+        if predictive_subscription is not None:
+            predictive_subscription.unsubscribe()
