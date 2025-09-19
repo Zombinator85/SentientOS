@@ -7,21 +7,22 @@ require_lumos_approval()
 
 import json
 import logging
+import os
+import re
 import subprocess
 import threading
 import time
+import urllib.request
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from queue import Queue
-from typing import Tuple
+from typing import Iterable, Mapping, Tuple
 
 import yaml
-import re
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
-import urllib.request
 
 from sentientos.daemons import pulse_bus, pulse_federation
 
@@ -33,8 +34,20 @@ CODEX_PATCH_DIR = CODEX_SUGGEST_DIR  # backward compatibility
 CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
 CODEX_REQUEST_DIR = Path("/glow/codex_requests/")
 CODEX_REASONING_DIR = Path("/daemon/logs/codex_reasoning/")
+MONITORING_METRICS_PATH = Path(
+    os.getenv(
+        "MONITORING_METRICS_PATH",
+        str(Path(os.getenv("MONITORING_GLOW_ROOT", "/glow/monitoring")) / "metrics.jsonl"),
+    )
+)
 
 PRIVILEGED_PATTERNS = ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"]
+
+PREDICTIVE_SAFETY_CONTEXT = (
+    "Safety Context: Maintain SentientOS safeguards. Do not modify /vow, NEWLEGACY, "
+    "or other privileged files. Focus on adaptive, well-tested improvements that respect "
+    "monitoring transparency."
+)
 
 logger = logging.getLogger(__name__)
 
@@ -301,6 +314,283 @@ def parse_diff_files(diff: str) -> list[str]:
             files.append(line[6:])
     return files
 
+
+def _to_int(value: object) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _format_window(seconds: int) -> str:
+    if seconds <= 0:
+        return "unknown"
+    if seconds % 3600 == 0:
+        hours = seconds // 3600
+        return f"{hours}h"
+    if seconds % 60 == 0:
+        minutes = seconds // 60
+        return f"{minutes}m"
+    return f"{seconds}s"
+
+
+def _load_metrics_snapshots(limit: int = 25) -> list[dict[str, object]]:
+    path = MONITORING_METRICS_PATH
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            lines = handle.readlines()
+    except FileNotFoundError:
+        logger.debug("Monitoring metrics file missing at %s", path)
+        return []
+    snapshots: list[dict[str, object]] = []
+    for entry in lines[-limit:]:
+        text = entry.strip()
+        if not text:
+            continue
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            logger.debug("Skipping malformed metrics entry")
+            continue
+        if isinstance(data, dict):
+            snapshots.append(data)
+    return snapshots
+
+
+class _PredictiveRepairManager:
+    def __init__(self) -> None:
+        self._latest_summary: dict[str, object] | None = None
+
+    def record_summary(self, event: dict[str, object]) -> None:
+        payload = event.get("payload")
+        if isinstance(payload, dict):
+            self._latest_summary = {
+                "timestamp": str(event.get("timestamp", "")),
+                "payload": dict(payload),
+            }
+
+    def handle_alert(self, event: dict[str, object], ledger_queue: Queue) -> None:
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            return
+        anomaly = dict(payload)
+        anomaly.setdefault("timestamp", str(event.get("timestamp", "")))
+        source_daemon = str(anomaly.get("source_daemon", "")).strip()
+        if not source_daemon:
+            return
+        if not self._should_trigger(anomaly):
+            return
+        analysis = self._analyze_history(source_daemon, anomaly)
+        logger.info("Codex predictive analysis triggered for %s", source_daemon)
+        self._suggest_patch(source_daemon, anomaly, analysis, ledger_queue)
+
+    def _should_trigger(self, anomaly: Mapping[str, object]) -> bool:
+        observed = _to_int(anomaly.get("observed"))
+        threshold = _to_int(anomaly.get("threshold"))
+        if observed <= 0 or threshold <= 0:
+            return False
+        if observed < threshold:
+            return False
+        if max(observed, threshold) < 5:
+            return False
+        return True
+
+    def _analyze_history(
+        self, daemon_name: str, anomaly: Mapping[str, object]
+    ) -> dict[str, object] | None:
+        snapshots = _load_metrics_snapshots()
+        if not snapshots:
+            return None
+
+        total_windows = 0
+        elevated_windows = 0
+        preferred_window: str | None = None
+        anomaly_snapshots = 0
+        event_type = str(anomaly.get("event_type", ""))
+
+        for snapshot in snapshots:
+            windows = snapshot.get("windows")
+            if not isinstance(windows, Mapping):
+                continue
+            for label, metrics in windows.items():
+                metrics_map = metrics if isinstance(metrics, Mapping) else {}
+                per_daemon = metrics_map.get("per_daemon")
+                if not isinstance(per_daemon, Mapping):
+                    continue
+                data = per_daemon.get(daemon_name)
+                if not isinstance(data, Mapping):
+                    continue
+                total = _to_int(data.get("total"))
+                priority_counts = data.get("priority")
+                warnings = 0
+                if isinstance(priority_counts, Mapping):
+                    warnings = _to_int(priority_counts.get("warning")) + _to_int(
+                        priority_counts.get("critical")
+                    )
+                if total <= 0:
+                    continue
+                total_windows += 1
+                ratio = warnings / total if total else 0.0
+                if ratio >= 0.5:
+                    elevated_windows += 1
+                    preferred_window = str(label)
+
+        for snapshot in snapshots:
+            anomalies = snapshot.get("anomalies")
+            if not isinstance(anomalies, Iterable):
+                continue
+            for candidate in anomalies:
+                if not isinstance(candidate, Mapping):
+                    continue
+                if str(candidate.get("source_daemon", "")) != daemon_name:
+                    continue
+                candidate_type = str(candidate.get("event_type", ""))
+                if event_type and candidate_type and candidate_type != event_type:
+                    continue
+                anomaly_snapshots += 1
+                break
+
+        if total_windows == 0 and anomaly_snapshots == 0:
+            return None
+
+        percentage = (elevated_windows / total_windows * 100) if total_windows else 0.0
+        parts: list[str] = []
+        if total_windows:
+            parts.append(
+                f"{percentage:.1f}% of monitoring windows ({elevated_windows}/{total_windows}) "
+                f"show warning or critical trends for {daemon_name}."
+            )
+        if anomaly_snapshots:
+            parts.append(
+                f"{anomaly_snapshots} verified snapshots recorded matching anomalies."
+            )
+        summary = " ".join(parts) if parts else f"No recent metrics for {daemon_name}."
+        return {
+            "summary": summary,
+            "percentage": percentage,
+            "total_windows": total_windows,
+            "elevated_windows": elevated_windows,
+            "anomaly_snapshots": anomaly_snapshots,
+            "preferred_window": preferred_window,
+        }
+
+    def _suggest_patch(
+        self,
+        daemon_name: str,
+        anomaly: Mapping[str, object],
+        analysis: dict[str, object] | None,
+        ledger_queue: Queue,
+    ) -> None:
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        analysis_window = _format_window(_to_int(anomaly.get("window_seconds")))
+        summary_text = (
+            str(analysis.get("summary")) if analysis is not None else f"No historical metrics for {daemon_name}."
+        )
+        safety_sections = []
+        ethics = load_ethics()
+        if ethics:
+            safety_sections.append(ethics)
+        safety_sections.append(PREDICTIVE_SAFETY_CONTEXT)
+        safety_text = "\n".join(safety_sections)
+        prompt = (
+            f"{safety_text}\n"
+            "You are assisting CodexDaemon with predictive self-repair.\n"
+            f"Focus on resilient mitigations for {daemon_name}.\n"
+            f"Anomaly details: {json.dumps(anomaly, sort_keys=True)}\n"
+            f"Historical pattern: {summary_text}\n"
+            "Suggest code changes that add adaptive thresholds, backoff logic, or richer logging while "
+            "respecting safety policies. Respond with a unified diff."
+        )
+        proc = subprocess.run(["codex", "exec", prompt], capture_output=True, text=True)
+        diff_output = proc.stdout
+
+        CODEX_SUGGEST_DIR.mkdir(parents=True, exist_ok=True)
+        patch_path = CODEX_SUGGEST_DIR / f"predictive_{timestamp}.diff"
+        files_changed = parse_diff_files(diff_output)
+        blocked = bool(files_changed and requires_confirm(files_changed))
+        if blocked:
+            patch_path.write_text(
+                "# Predictive patch rejected: attempted to modify privileged files.\n",
+                encoding="utf-8",
+            )
+            files_changed = []
+            diff_to_apply = ""
+        else:
+            patch_path.write_text(diff_output, encoding="utf-8")
+            diff_to_apply = diff_output
+
+        suggestion_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+        patch_ref = patch_path.as_posix().lstrip("/")
+
+        log_activity(
+            {
+                "ts": suggestion_ts,
+                "prompt": prompt,
+                "files_changed": files_changed,
+                "verified": False,
+                "codex_patch": patch_ref,
+                "iterations": 1,
+                "target": "predictive",
+                "outcome": "suggested" if diff_to_apply else "blocked",
+                "analysis_window": analysis_window,
+                "triggering_anomaly": anomaly,
+                "pattern_summary": summary_text,
+            }
+        )
+
+        ledger_queue.put(
+            {
+                "ts": suggestion_ts,
+                "event": "self_predict_suggested",
+                "codex_mode": CODEX_MODE,
+                "triggering_anomaly": anomaly,
+                "analysis_window": analysis_window,
+                "patch_file": patch_ref,
+                "status": "suggested",
+                "files_changed": files_changed,
+                "pattern_summary": summary_text,
+            }
+        )
+
+        if (
+            diff_to_apply
+            and CODEX_MODE == "expand"
+            and files_changed
+            and is_safe(files_changed)
+            and not requires_confirm(files_changed)
+        ):
+            applied = apply_patch(diff_to_apply)
+            verified = False
+            if applied:
+                verified = run_ci(ledger_queue)
+                ledger_queue.put(
+                    {
+                        "ts": suggestion_ts,
+                        "event": "self_predict_applied",
+                        "codex_mode": CODEX_MODE,
+                        "triggering_anomaly": anomaly,
+                        "analysis_window": analysis_window,
+                        "patch_file": patch_ref,
+                        "status": "applied",
+                        "verification_result": bool(verified),
+                        "files_changed": files_changed,
+                    }
+                )
+                log_activity(
+                    {
+                        "ts": suggestion_ts,
+                        "prompt": prompt,
+                        "files_changed": files_changed,
+                        "verified": bool(verified),
+                        "codex_patch": patch_ref,
+                        "iterations": 1,
+                        "target": "predictive",
+                        "outcome": "success" if verified else "fail",
+                        "analysis_window": analysis_window,
+                        "triggering_anomaly": anomaly,
+                        "pattern_summary": summary_text,
+                    }
+                )
 
 def parse_failing_tests(output: str) -> list[str]:
     """Extract failing test identifiers from pytest output."""
@@ -581,12 +871,26 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
         ).start()
 
     pulse_subscription: pulse_bus.PulseSubscription | None = None
+    monitor_subscription: pulse_bus.PulseSubscription | None = None
+    predictive_manager = _PredictiveRepairManager()
+
+    def _monitor_handler(event: dict) -> None:
+        source = str(event.get("source_daemon", ""))
+        if source != "MonitoringDaemon":
+            return
+        event_type = str(event.get("event_type", ""))
+        if event_type == "monitor_summary":
+            predictive_manager.record_summary(event)
+        elif event_type == "monitor_alert":
+            predictive_manager.handle_alert(event, ledger_queue)
 
     def _pulse_handler(event: dict) -> None:
         CRITICAL_FAILURE_MONITOR.record(event)
-        if str(event.get("priority", "info")).lower() != "critical":
+        priority = str(event.get("priority", "info")).lower()
+        event_type = str(event.get("event_type", ""))
+        if priority != "critical":
             return
-        if event.get("event_type") in CRITICAL_PULSE_EVENTS:
+        if event_type in CRITICAL_PULSE_EVENTS:
             self_repair_check(ledger_queue)
 
     codex_runs = 0
@@ -602,10 +906,13 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
             logger.warning("Unable to replay federated pulse history", exc_info=True)
     if last_run is not None:
         for event in pulse_bus.replay(last_run):
+            _monitor_handler(event)
             CRITICAL_FAILURE_MONITOR.record(event)
-            if str(event.get("priority", "info")).lower() != "critical":
+            priority = str(event.get("priority", "info")).lower()
+            event_type = str(event.get("event_type", ""))
+            if priority != "critical":
                 continue
-            if event.get("event_type") in CRITICAL_PULSE_EVENTS:
+            if event_type in CRITICAL_PULSE_EVENTS:
                 self_repair_check(ledger_queue)
 
     def write_session() -> None:
@@ -621,6 +928,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
 
     try:
         pulse_subscription = pulse_bus.subscribe(_pulse_handler, priorities=["critical"])
+        monitor_subscription = pulse_bus.subscribe(_monitor_handler)
         write_session()
         while not stop.is_set():
             try:
@@ -687,5 +995,7 @@ def run_loop(stop: threading.Event, ledger_queue: Queue) -> None:
             }
         )
     finally:
+        if monitor_subscription is not None:
+            monitor_subscription.unsubscribe()
         if pulse_subscription is not None:
             pulse_subscription.unsubscribe()
