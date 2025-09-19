@@ -99,6 +99,8 @@ DEFAULT_CONFIG = {
     "codex_notify": [],
     "federation_peer": "",
     "federation_method": "local_mount",
+    "federated_auto_apply": False,
+    "federation_peer_name": "",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
