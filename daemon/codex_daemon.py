@@ -42,6 +42,9 @@ MONITORING_METRICS_PATH = Path(
 )
 
 PRIVILEGED_PATTERNS = ["/vow/", "NEWLEGACY.txt", "init.py", "privilege.py"]
+OFF_LIMIT_PATTERNS = ["/vow/", "NEWLEGACY.txt"]
+_VEIL_METADATA_SUFFIX = ".veil.json"
+_PATCH_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 PREDICTIVE_SAFETY_CONTEXT = (
     "Safety Context: Maintain SentientOS safeguards. Do not modify /vow, NEWLEGACY, "
@@ -539,8 +542,9 @@ class _PredictiveRepairManager:
         else:
             patch_path = CODEX_SUGGEST_DIR / f"predictive_{timestamp}.diff"
         files_changed = parse_diff_files(diff_output)
-        blocked = bool(files_changed and requires_confirm(files_changed))
-        if blocked:
+        off_limits = bool(files_changed and touches_off_limits(files_changed))
+        needs_confirmation = bool(files_changed and requires_veil(files_changed))
+        if off_limits:
             patch_path.write_text(
                 "# Predictive patch rejected: attempted to modify privileged files.\n",
                 encoding="utf-8",
@@ -568,6 +572,7 @@ class _PredictiveRepairManager:
                 "triggering_anomaly": anomaly,
                 "pattern_summary": summary_text,
                 "target_peer": target_peer or "local",
+                "requires_confirmation": needs_confirmation,
             }
         )
 
@@ -583,6 +588,7 @@ class _PredictiveRepairManager:
                 "files_changed": files_changed,
                 "pattern_summary": summary_text,
                 "target_peer": target_peer or "local",
+                "requires_confirmation": needs_confirmation,
             }
         )
 
@@ -617,7 +623,7 @@ class _PredictiveRepairManager:
             and CODEX_MODE == "expand"
             and files_changed
             and is_safe(files_changed)
-            and not requires_confirm(files_changed)
+            and not needs_confirmation
         ):
             applied = apply_patch(diff_to_apply)
             verified = False
@@ -652,6 +658,25 @@ class _PredictiveRepairManager:
                     }
                 )
 
+        if (
+            diff_to_apply
+            and not target_peer
+            and CODEX_MODE == "expand"
+            and files_changed
+            and needs_confirmation
+        ):
+            _register_veil_request(
+                ledger_queue,
+                patch_path=patch_path,
+                patch_ref=patch_ref,
+                scope="local",
+                anomaly_pattern=summary_text,
+                files_changed=files_changed,
+                requires_confirmation=True,
+                target_peer=None,
+                source_peer=LOCAL_PEER_NAME,
+            )
+
 def parse_failing_tests(output: str) -> list[str]:
     """Extract failing test identifiers from pytest output."""
     return re.findall(r"FAILED (\S+)", output)
@@ -672,6 +697,258 @@ def log_activity(entry: dict) -> None:
     CODEX_LOG.parent.mkdir(parents=True, exist_ok=True)
     with open(CODEX_LOG, "a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry) + "\n")
+
+
+def _veil_metadata_path(patch_path: Path) -> Path:
+    base = patch_path.with_suffix("")
+    return base.with_suffix(_VEIL_METADATA_SUFFIX)
+
+
+def _register_veil_request(
+    ledger_queue: Queue,
+    *,
+    patch_path: Path,
+    patch_ref: str,
+    scope: str,
+    anomaly_pattern: str,
+    files_changed: list[str],
+    requires_confirmation: bool,
+    target_peer: str | None,
+    source_peer: str | None,
+) -> dict[str, object]:
+    """Persist veil metadata, log the ledger entry, and publish the pulse."""
+
+    patch_id = Path(patch_ref).stem or patch_path.stem
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    metadata = {
+        "patch_id": patch_id,
+        "patch_path": patch_ref,
+        "scope": scope,
+        "anomaly_pattern": anomaly_pattern,
+        "requires_confirmation": bool(requires_confirmation),
+        "status": "pending",
+        "files_changed": list(files_changed),
+        "source_peer": (source_peer or ""),
+        "target_peer": (target_peer or ""),
+        "timestamp": timestamp,
+        "codex_mode": CODEX_MODE,
+    }
+    metadata_path = _veil_metadata_path(patch_path)
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(json.dumps(metadata, sort_keys=True), encoding="utf-8")
+
+    ledger_entry: dict[str, object] = {
+        "ts": timestamp,
+        "event": "veil_pending",
+        "codex_mode": CODEX_MODE,
+        "patch_file": patch_ref,
+        "patch_id": patch_id,
+        "scope": scope,
+        "requires_confirmation": bool(requires_confirmation),
+        "files_changed": list(files_changed),
+        "anomaly_pattern": anomaly_pattern,
+        "source_peer": source_peer or "",
+        "target_peer": target_peer or "",
+    }
+    ledger_queue.put(ledger_entry)
+
+    log_activity({**metadata, "event": "veil_pending", "ts": timestamp})
+
+    payload: dict[str, object] = {
+        "patch_id": patch_id,
+        "patch_path": patch_ref,
+        "scope": scope,
+        "anomaly_pattern": anomaly_pattern,
+        "requires_confirmation": bool(requires_confirmation),
+        "files_changed": list(files_changed),
+        "source_peer": source_peer or "",
+        "target_peer": target_peer or "",
+    }
+    pulse_bus.publish(
+        {
+            "timestamp": datetime.utcnow().isoformat(),
+            "source_daemon": "CodexDaemon",
+            "event_type": "veil_request",
+            "priority": "warning",
+            "payload": payload,
+        }
+    )
+    return metadata
+
+
+def _normalize_patch_id(patch_id: str) -> str:
+    text = str(patch_id).strip()
+    if not text:
+        raise ValueError("patch_id is required")
+    if "/" in text or "\\" in text or ".." in text:
+        raise ValueError("patch_id contains invalid path separators")
+    if not _PATCH_ID_PATTERN.fullmatch(text):
+        raise ValueError("patch_id contains unsupported characters")
+    return text
+
+
+def _load_veil_record(patch_id: str) -> tuple[Path, dict[str, object]]:
+    normalized = _normalize_patch_id(patch_id)
+    metadata_path = CODEX_SUGGEST_DIR / f"{normalized}{_VEIL_METADATA_SUFFIX}"
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"No veil metadata found for patch {normalized}")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Veil metadata for {normalized} is corrupted") from exc
+    if not isinstance(metadata, dict):
+        raise ValueError("Veil metadata must be a JSON object")
+    return metadata_path, metadata
+
+
+def _resolve_patch_path(patch_ref: str) -> Path:
+    text = str(patch_ref).strip()
+    if not text:
+        raise ValueError("veil metadata missing patch_path")
+    candidate = Path(text)
+    if not candidate.is_absolute():
+        candidate = Path("/") / text
+    resolved = candidate.resolve(strict=False)
+    suggest_root = CODEX_SUGGEST_DIR.resolve(strict=False)
+    if resolved == suggest_root or suggest_root in resolved.parents:
+        return resolved
+    raise PermissionError("Veil patch path escapes the suggestion directory")
+
+
+def load_veil_metadata(patch_id: str) -> dict[str, object]:
+    """Return stored metadata for a veil-protected patch."""
+
+    _, metadata = _load_veil_record(patch_id)
+    return metadata
+
+
+def _publish_veil_resolution(
+    event_type: str, metadata: Mapping[str, object], extra: Mapping[str, object]
+) -> None:
+    payload: dict[str, object] = {
+        "patch_id": metadata.get("patch_id", ""),
+        "patch_path": metadata.get("patch_path", ""),
+        "scope": metadata.get("scope", ""),
+        "anomaly_pattern": metadata.get("anomaly_pattern", ""),
+        "requires_confirmation": metadata.get("requires_confirmation", True),
+        "source_peer": metadata.get("source_peer", ""),
+        "target_peer": metadata.get("target_peer", ""),
+    }
+    for key, value in extra.items():
+        payload[key] = value
+    priority = "info" if event_type == "veil_confirmed" else "warning"
+    pulse_bus.publish(
+        {
+            "timestamp": datetime.utcnow().isoformat(),
+            "source_daemon": "CodexDaemon",
+            "event_type": event_type,
+            "priority": priority,
+            "payload": payload,
+        }
+    )
+
+
+def confirm_veil_patch(patch_id: str) -> dict[str, object]:
+    """Apply a veil-protected patch and log the confirmation."""
+
+    metadata_path, metadata = _load_veil_record(patch_id)
+    status = str(metadata.get("status", "pending")).lower()
+    if status != "pending":
+        raise ValueError(f"Patch {patch_id} is not pending confirmation")
+
+    files_changed_raw = metadata.get("files_changed", [])
+    files_changed = [str(path) for path in files_changed_raw if isinstance(path, str)]
+    if touches_off_limits(files_changed):
+        raise PermissionError("Off-limit patches cannot be confirmed")
+
+    patch_ref = str(metadata.get("patch_path", "")).strip()
+    patch_file = _resolve_patch_path(patch_ref)
+    if not patch_file.exists():
+        raise FileNotFoundError(f"Patch file missing for {patch_id}")
+
+    diff = patch_file.read_text(encoding="utf-8")
+    applied = apply_patch(diff)
+    ci_passed = False
+    if applied:
+        ci_passed = bool(run_ci(Queue()))
+
+    resolved_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    metadata.update(
+        {
+            "status": "confirmed" if applied else "failed",
+            "resolved_at": resolved_ts,
+            "applied": bool(applied),
+            "ci_passed": bool(ci_passed),
+        }
+    )
+    metadata_path.write_text(json.dumps(metadata, sort_keys=True), encoding="utf-8")
+
+    log_activity(
+        {
+            "ts": resolved_ts,
+            "event": "veil_confirmed",
+            "patch_id": metadata.get("patch_id", patch_id),
+            "patch_file": patch_ref,
+            "scope": metadata.get("scope", ""),
+            "applied": bool(applied),
+            "ci_passed": bool(ci_passed),
+            "source_peer": metadata.get("source_peer", ""),
+            "target_peer": metadata.get("target_peer", ""),
+            "anomaly_pattern": metadata.get("anomaly_pattern", ""),
+        }
+    )
+
+    extra_payload = {"applied": bool(applied), "ci_passed": bool(ci_passed)}
+    if not applied:
+        extra_payload["error"] = "apply_failed"
+    _publish_veil_resolution("veil_confirmed", metadata, extra_payload)
+
+    result = {
+        "patch_id": metadata.get("patch_id", patch_id),
+        "applied": bool(applied),
+        "ci_passed": bool(ci_passed),
+    }
+    if not applied:
+        result["error"] = "apply_failed"
+    return result
+
+
+def reject_veil_patch(patch_id: str) -> dict[str, object]:
+    """Reject a veil-protected patch and record the decision."""
+
+    metadata_path, metadata = _load_veil_record(patch_id)
+    status = str(metadata.get("status", "pending")).lower()
+    if status != "pending":
+        raise ValueError(f"Patch {patch_id} is not pending confirmation")
+
+    patch_ref = str(metadata.get("patch_path", "")).strip()
+    patch_file = _resolve_patch_path(patch_ref)
+    if patch_file.exists():
+        try:
+            patch_file.unlink()
+        except OSError:
+            pass
+
+    resolved_ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    metadata.update({"status": "rejected", "resolved_at": resolved_ts})
+    metadata_path.write_text(json.dumps(metadata, sort_keys=True), encoding="utf-8")
+
+    log_activity(
+        {
+            "ts": resolved_ts,
+            "event": "veil_rejected",
+            "patch_id": metadata.get("patch_id", patch_id),
+            "patch_file": patch_ref,
+            "scope": metadata.get("scope", ""),
+            "source_peer": metadata.get("source_peer", ""),
+            "target_peer": metadata.get("target_peer", ""),
+            "anomaly_pattern": metadata.get("anomaly_pattern", ""),
+        }
+    )
+
+    _publish_veil_resolution("veil_rejected", metadata, {"decision": "rejected"})
+
+    return {"patch_id": metadata.get("patch_id", patch_id), "status": "rejected"}
 
 
 _PEER_PATCH_SANITIZE = re.compile(r"[^0-9]")
@@ -697,6 +974,7 @@ def _log_federated_event(
     target_peer: str | None = None,
     verification_result: bool | None = None,
     note: str | None = None,
+    requires_confirmation: bool | None = None,
 ) -> None:
     entry: dict[str, object] = {
         "ts": timestamp,
@@ -713,6 +991,8 @@ def _log_federated_event(
         entry["verification_result"] = bool(verification_result)
     if note:
         entry["note"] = note
+    if requires_confirmation is not None:
+        entry["requires_confirmation"] = bool(requires_confirmation)
     ledger_queue.put(entry)
 
 
@@ -809,7 +1089,9 @@ def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Qu
         return
 
     files_changed = parse_diff_files(patch_diff)
-    if files_changed and (not is_safe(files_changed) or requires_confirm(files_changed)):
+    off_limits = bool(files_changed and touches_off_limits(files_changed))
+    needs_confirmation = bool(files_changed and requires_veil(files_changed))
+    if off_limits:
         _log_federated_event(
             ledger_queue,
             timestamp=ledger_ts,
@@ -839,6 +1121,7 @@ def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Qu
         anomaly_pattern=anomaly_pattern,
         patch_path=patch_ref,
         target_peer=target_label,
+        requires_confirmation=needs_confirmation,
     )
 
     if not FEDERATED_AUTO_APPLY:
@@ -847,7 +1130,21 @@ def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Qu
     if not files_changed:
         return
 
-    if not is_safe(files_changed) or requires_confirm(files_changed):
+    if needs_confirmation:
+        _register_veil_request(
+            ledger_queue,
+            patch_path=patch_file,
+            patch_ref=patch_ref,
+            scope="federated",
+            anomaly_pattern=anomaly_pattern,
+            files_changed=files_changed,
+            requires_confirmation=True,
+            target_peer=target_label,
+            source_peer=origin_peer,
+        )
+        return
+
+    if not is_safe(files_changed):
         return
 
     if not apply_patch(patch_diff):
@@ -935,8 +1232,26 @@ def load_ethics() -> str:
 
 
 def requires_confirm(files: list[str]) -> bool:
-    """Return True if any path is privileged."""
-    return any(any(p in f for p in PRIVILEGED_PATTERNS) for f in files)
+    """Return True if any path is privileged or requires confirmation."""
+    patterns = set(PRIVILEGED_PATTERNS) | set(CODEX_CONFIRM_PATTERNS)
+    return any(any(pattern in f for pattern in patterns) for f in files)
+
+
+def touches_off_limits(files: list[str]) -> bool:
+    """Return True when a patch touches strictly forbidden locations."""
+    return any(any(pattern in f for pattern in OFF_LIMIT_PATTERNS) for f in files)
+
+
+def requires_veil(files: list[str]) -> bool:
+    """Return True when confirmation veil is required for these paths."""
+    if not files:
+        return False
+    confirm_patterns = (set(PRIVILEGED_PATTERNS) | set(CODEX_CONFIRM_PATTERNS)) - set(
+        OFF_LIMIT_PATTERNS
+    )
+    if not confirm_patterns:
+        return False
+    return any(any(pattern in f for pattern in confirm_patterns) for f in files)
 
 
 def confirm_patch() -> bool:

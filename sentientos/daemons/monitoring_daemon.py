@@ -273,6 +273,7 @@ class MonitoringDaemon:
         self.warning_events: List[dict[str, object]] = []
         self.critical_events: List[dict[str, object]] = []
         self.federated_restarts: List[dict[str, object]] = []
+        self.veil_pending: Dict[str, dict[str, object]] = {}
         self.anomalies: List[AnomalyRecord] = []
 
         self._signer = _SnapshotSigner()
@@ -372,6 +373,7 @@ class MonitoringDaemon:
             )
             self._prune_history(timestamp)
             triggered = self._evaluate_anomalies(timestamp)
+            self._update_veil_state(event)
 
         for anomaly in triggered:
             self._publish_alert(anomaly)
@@ -466,11 +468,13 @@ class MonitoringDaemon:
                 for label, delta in self._windows.items()
             }
             anomalies = list(self.anomalies)
+            pending = list(self.veil_pending.values())
         return {
             "timestamp": now.isoformat(),
             "overall": overall,
             "windows": windows,
             "anomalies": anomalies,
+            "veil_pending": pending,
         }
 
     def persist_snapshot(self) -> dict[str, object]:
@@ -486,12 +490,14 @@ class MonitoringDaemon:
             }
             anomalies = list(self._pending_anomalies)
             self._pending_anomalies.clear()
+            pending = list(self.veil_pending.values())
 
         payload: Snapshot = {
             "timestamp": now.isoformat(),
             "overall": overall,
             "windows": windows,
             "anomalies": anomalies,
+            "veil_pending": pending,
         }
         signature = self._signer.sign(payload)
         snapshot: Snapshot = dict(payload)
@@ -532,6 +538,7 @@ class MonitoringDaemon:
             "summary": summary,
             "anomalies": anomalies,
             "verified_snapshots": [latest["timestamp"]],
+            "veil_pending": cast(List[dict[str, object]], latest.get("veil_pending", [])),
         }
 
     # ------------------------------------------------------------------
@@ -561,6 +568,7 @@ class MonitoringDaemon:
                     "overall": payload["overall"],
                     "windows": payload["windows"],
                     "anomalies": payload["anomalies"],
+                    "veil_pending": payload.get("veil_pending", []),
                 },
             }
         )
@@ -803,6 +811,32 @@ class MonitoringDaemon:
                 "payload": alert_entry,
             }
         )
+
+    def _update_veil_state(self, event: Mapping[str, object]) -> None:
+        event_type = str(event.get("event_type", "")).lower()
+        if event_type not in {"veil_request", "veil_confirmed", "veil_rejected"}:
+            return
+        payload = event.get("payload")
+        if not isinstance(payload, Mapping):
+            payload = {}
+        patch_id = str(payload.get("patch_id", "")).strip()
+        if not patch_id:
+            return
+        if event_type == "veil_request":
+            entry = {
+                "patch_id": patch_id,
+                "patch_path": payload.get("patch_path", ""),
+                "scope": payload.get("scope", ""),
+                "anomaly_pattern": payload.get("anomaly_pattern", ""),
+                "requires_confirmation": bool(payload.get("requires_confirmation", True)),
+                "source_peer": payload.get("source_peer", event.get("source_peer", "")),
+                "target_peer": payload.get("target_peer", ""),
+                "timestamp": event.get("timestamp", ""),
+                "source_daemon": event.get("source_daemon", ""),
+            }
+            self.veil_pending[patch_id] = entry
+        else:
+            self.veil_pending.pop(patch_id, None)
 
     # ------------------------------------------------------------------
     # Utility helpers
