@@ -98,6 +98,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_daemon_manager",
         "tests.test_federated_restart",
         "tests.test_pulse_query",
+        "tests.test_codex_veil",
     }
     for item in items:
         if (
