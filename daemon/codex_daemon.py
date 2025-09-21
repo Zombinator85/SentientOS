@@ -625,10 +625,22 @@ class _PredictiveRepairManager:
             and is_safe(files_changed)
             and not needs_confirmation
         ):
-            applied = apply_patch(diff_to_apply)
+            patch_label = patch_ref or f"predictive_{suggestion_ts}"
+            patch_result = _call_apply_patch(diff_to_apply, label=patch_label)
+            archived_diff = patch_result.get("archived_diff")
+            restored_repo = patch_result.get("restored_repo")
+            failure_reason = patch_result.get("failure_reason")
             verified = False
-            if applied:
-                verified = run_ci(ledger_queue)
+            if patch_result["applied"]:
+                verified = bool(run_ci(ledger_queue))
+                if not verified:
+                    failure_reason = "ci_failed"
+                    archived_diff = archived_diff or _archive_failed_diff(
+                        diff_to_apply, label=patch_label, stage="ci"
+                    )
+                    if not restored_repo:
+                        restored_repo = _restore_repository()
+            if patch_result["applied"] and verified:
                 ledger_queue.put(
                     {
                         "ts": suggestion_ts,
@@ -638,7 +650,7 @@ class _PredictiveRepairManager:
                         "analysis_window": analysis_window,
                         "patch_file": patch_ref,
                         "status": "applied",
-                        "verification_result": bool(verified),
+                        "verification_result": True,
                         "files_changed": files_changed,
                     }
                 )
@@ -647,14 +659,47 @@ class _PredictiveRepairManager:
                         "ts": suggestion_ts,
                         "prompt": prompt,
                         "files_changed": files_changed,
-                        "verified": bool(verified),
+                        "verified": True,
                         "codex_patch": patch_ref,
                         "iterations": 1,
                         "target": "predictive",
-                        "outcome": "success" if verified else "fail",
+                        "outcome": "success",
                         "analysis_window": analysis_window,
                         "triggering_anomaly": anomaly,
                         "pattern_summary": summary_text,
+                    }
+                )
+            else:
+                failure_entry = {
+                    "ts": suggestion_ts,
+                    "event": "self_predict_failed",
+                    "codex_mode": CODEX_MODE,
+                    "triggering_anomaly": anomaly,
+                    "analysis_window": analysis_window,
+                    "patch_file": patch_ref,
+                    "status": "failed",
+                    "files_changed": files_changed,
+                    "failure_reason": failure_reason,
+                    "restored_repo": bool(restored_repo),
+                    "archived_diff": archived_diff,
+                }
+                ledger_queue.put(failure_entry)
+                log_activity(
+                    {
+                        "ts": suggestion_ts,
+                        "prompt": prompt,
+                        "files_changed": files_changed,
+                        "verified": False,
+                        "codex_patch": patch_ref,
+                        "iterations": 1,
+                        "target": "predictive",
+                        "outcome": "fail",
+                        "analysis_window": analysis_window,
+                        "triggering_anomaly": anomaly,
+                        "pattern_summary": summary_text,
+                        "failure_reason": failure_reason,
+                        "restored_repo": bool(restored_repo),
+                        "archived_diff": archived_diff,
                     }
                 )
 
@@ -688,7 +733,64 @@ def is_safe(files: list[str]) -> bool:
     )
 
 
-def apply_patch(diff: str) -> bool:
+_LABEL_SANITIZER = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+def _sanitize_label(label: str | None, *, fallback: str) -> str:
+    base = str(label or "").strip()
+    if not base:
+        base = fallback
+    sanitized = _LABEL_SANITIZER.sub("_", base)
+    sanitized = sanitized.strip("._-") or fallback
+    return sanitized
+
+
+def _archive_failed_diff(
+    diff: str,
+    *,
+    label: str | None = None,
+    stage: str = "apply",
+) -> str | None:
+    text = diff.strip()
+    if not text:
+        return None
+    CODEX_SUGGEST_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    sanitized = _sanitize_label(label, fallback="codex")
+    filename = f"failed_{sanitized}_{stage}_{timestamp}.diff"
+    archive_path = CODEX_SUGGEST_DIR / filename
+    archive_path.write_text(diff, encoding="utf-8")
+    return archive_path.as_posix().lstrip("/")
+
+
+def _restore_repository() -> bool:
+    reset = subprocess.run(["git", "reset", "--hard"], check=False, capture_output=True)
+    clean = subprocess.run(["git", "clean", "-fd"], check=False, capture_output=True)
+    return reset.returncode == 0 and clean.returncode == 0
+
+
+def _call_apply_patch(diff: str, *, label: str | None = None) -> dict[str, object]:
+    result: dict[str, object] = {
+        "applied": False,
+        "archived_diff": None,
+        "restored_repo": None,
+        "failure_reason": None,
+    }
+    try:
+        applied = apply_patch(diff, label=label)
+    except TypeError:
+        applied = apply_patch(diff)
+    result["applied"] = bool(applied)
+    if result["applied"]:
+        return result
+
+    result["failure_reason"] = "apply_failed"
+    result["archived_diff"] = _archive_failed_diff(diff, label=label, stage="apply")
+    result["restored_repo"] = _restore_repository()
+    return result
+
+
+def apply_patch(diff: str, *, label: str | None = None) -> bool:
     proc = subprocess.run(["patch", "-p0"], input=diff, text=True)
     return proc.returncode == 0
 
@@ -867,18 +969,34 @@ def confirm_veil_patch(patch_id: str) -> dict[str, object]:
         raise FileNotFoundError(f"Patch file missing for {patch_id}")
 
     diff = patch_file.read_text(encoding="utf-8")
-    applied = apply_patch(diff)
+    patch_label = metadata.get("patch_id", patch_id)
+    patch_result = _call_apply_patch(diff, label=str(patch_label))
+    archived_diff = patch_result.get("archived_diff")
+    restored_repo = patch_result.get("restored_repo")
+    failure_reason = patch_result.get("failure_reason")
+    applied = bool(patch_result["applied"])
     ci_passed = False
     if applied:
         ci_passed = bool(run_ci(Queue()))
+        if not ci_passed:
+            failure_reason = "ci_failed"
+            archived_diff = archived_diff or _archive_failed_diff(
+                diff, label=str(patch_label), stage="ci"
+            )
+            if not restored_repo:
+                restored_repo = _restore_repository()
+            applied = False
 
     resolved_ts = time.strftime("%Y-%m-%d %H:%M:%S")
     metadata.update(
         {
-            "status": "confirmed" if applied else "failed",
+            "status": "confirmed" if applied and ci_passed else "failed",
             "resolved_at": resolved_ts,
             "applied": bool(applied),
             "ci_passed": bool(ci_passed),
+            "failure_reason": failure_reason or "",
+            "restored_repo": (None if restored_repo is None else bool(restored_repo)),
+            "archived_diff": archived_diff or "",
         }
     )
     metadata_path.write_text(json.dumps(metadata, sort_keys=True), encoding="utf-8")
@@ -895,21 +1013,33 @@ def confirm_veil_patch(patch_id: str) -> dict[str, object]:
             "source_peer": metadata.get("source_peer", ""),
             "target_peer": metadata.get("target_peer", ""),
             "anomaly_pattern": metadata.get("anomaly_pattern", ""),
+            "failure_reason": failure_reason,
+            "restored_repo": (None if restored_repo is None else bool(restored_repo)),
+            "archived_diff": archived_diff,
         }
     )
 
-    extra_payload = {"applied": bool(applied), "ci_passed": bool(ci_passed)}
+    extra_payload = {
+        "applied": bool(applied),
+        "ci_passed": bool(ci_passed),
+        "failure_reason": failure_reason,
+        "restored_repo": (None if restored_repo is None else bool(restored_repo)),
+        "archived_diff": archived_diff,
+    }
     if not applied:
-        extra_payload["error"] = "apply_failed"
+        extra_payload["error"] = failure_reason or "apply_failed"
     _publish_veil_resolution("veil_confirmed", metadata, extra_payload)
 
     result = {
         "patch_id": metadata.get("patch_id", patch_id),
         "applied": bool(applied),
         "ci_passed": bool(ci_passed),
+        "failure_reason": failure_reason,
+        "restored_repo": restored_repo,
+        "archived_diff": archived_diff,
     }
     if not applied:
-        result["error"] = "apply_failed"
+        result["error"] = failure_reason or "apply_failed"
     return result
 
 
@@ -975,6 +1105,9 @@ def _log_federated_event(
     verification_result: bool | None = None,
     note: str | None = None,
     requires_confirmation: bool | None = None,
+    failure_reason: str | None = None,
+    archived_diff: str | None = None,
+    restored_repo: bool | None = None,
 ) -> None:
     entry: dict[str, object] = {
         "ts": timestamp,
@@ -993,6 +1126,12 @@ def _log_federated_event(
         entry["note"] = note
     if requires_confirmation is not None:
         entry["requires_confirmation"] = bool(requires_confirmation)
+    if failure_reason:
+        entry["failure_reason"] = failure_reason
+    if archived_diff:
+        entry["archived_diff"] = archived_diff
+    if restored_repo is not None:
+        entry["restored_repo"] = bool(restored_repo)
     ledger_queue.put(entry)
 
 
@@ -1008,6 +1147,9 @@ def _publish_predictive_event(
     anomaly: Mapping[str, object] | object | None,
     files_changed: list[str] | None,
     analysis_window: str,
+    failure_reason: str | None = None,
+    archived_diff: str | None = None,
+    restored_repo: bool | None = None,
 ) -> None:
     payload: dict[str, object] = {
         "source_peer": source_peer,
@@ -1023,6 +1165,12 @@ def _publish_predictive_event(
         payload["patch_diff"] = patch_diff
     if files_changed:
         payload["files_changed"] = files_changed
+    if failure_reason:
+        payload["failure_reason"] = failure_reason
+    if archived_diff:
+        payload["archived_diff"] = archived_diff
+    if restored_repo is not None:
+        payload["restored_repo"] = bool(restored_repo)
     pulse_bus.publish(
         {
             "timestamp": datetime.utcnow().isoformat(),
@@ -1147,7 +1295,12 @@ def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Qu
     if not is_safe(files_changed):
         return
 
-    if not apply_patch(patch_diff):
+    patch_label = patch_ref or f"federated_{target_label}_{event_timestamp or ledger_ts}"
+    patch_result = _call_apply_patch(patch_diff, label=patch_label)
+    archived_diff = patch_result.get("archived_diff")
+    restored_repo = patch_result.get("restored_repo")
+    failure_reason = patch_result.get("failure_reason")
+    if not patch_result["applied"]:
         _log_federated_event(
             ledger_queue,
             timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -1159,10 +1312,38 @@ def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Qu
             patch_path=patch_ref,
             target_peer=target_label,
             note="Failed to apply predictive patch",
+            failure_reason=failure_reason,
+            archived_diff=archived_diff,
+            restored_repo=restored_repo,
         )
         return
 
-    verified = run_ci(ledger_queue)
+    verified = bool(run_ci(ledger_queue))
+    if not verified:
+        failure_reason = "ci_failed"
+        archived_diff = archived_diff or _archive_failed_diff(
+            patch_diff, label=patch_label, stage="ci"
+        )
+        if not restored_repo:
+            restored_repo = _restore_repository()
+        _log_federated_event(
+            ledger_queue,
+            timestamp=time.strftime("%Y-%m-%d %H:%M:%S"),
+            status="failed",
+            source_peer=LOCAL_PEER_NAME,
+            target_daemon=target_daemon,
+            anomaly=anomaly,
+            anomaly_pattern=anomaly_pattern,
+            patch_path=patch_ref,
+            target_peer=target_label,
+            verification_result=False,
+            note="Predictive patch failed verification",
+            failure_reason=failure_reason,
+            archived_diff=archived_diff,
+            restored_repo=restored_repo,
+        )
+        return
+
     apply_ts = time.strftime("%Y-%m-%d %H:%M:%S")
     _log_federated_event(
         ledger_queue,
@@ -1174,7 +1355,7 @@ def _process_predictive_suggestion(event: Mapping[str, object], ledger_queue: Qu
         anomaly_pattern=anomaly_pattern,
         patch_path=patch_ref,
         target_peer=target_label,
-        verification_result=verified,
+        verification_result=True,
     )
     _publish_predictive_event(
         status="applied",
@@ -1416,12 +1597,20 @@ def run_once(ledger_queue: Queue) -> dict | None:
     if not confirmed or not files_changed:
         return suggestion_entry
 
-    if not apply_patch(diff_output):
+    patch_label = patch_path.stem
+    patch_result = _call_apply_patch(diff_output, label=patch_label)
+    archived_diff = patch_result.get("archived_diff")
+    restored_repo = patch_result.get("restored_repo")
+    failure_reason = patch_result.get("failure_reason")
+    if not patch_result["applied"]:
         fail_entry = {
             **suggestion_entry,
             "event": "self_repair_failed",
-            "reason": "patch_apply_failed",
+            "reason": failure_reason or "patch_apply_failed",
+            "failure_reason": failure_reason or "patch_apply_failed",
             "outcome": "fail",
+            "restored_repo": bool(restored_repo),
+            "archived_diff": archived_diff,
         }
         log_activity(fail_entry)
         ledger_queue.put(fail_entry)
@@ -1446,11 +1635,20 @@ def run_once(ledger_queue: Queue) -> dict | None:
         send_notifications(success_entry)
         return success_entry
 
+    failure_reason = new_summary or "diagnostics_failed"
+    archived_diff = archived_diff or _archive_failed_diff(
+        diff_output, label=patch_label, stage="ci"
+    )
+    if not restored_repo:
+        restored_repo = _restore_repository()
     fail_entry = {
         **suggestion_entry,
         "event": "self_repair_failed",
-        "reason": new_summary,
+        "reason": failure_reason,
+        "failure_reason": failure_reason,
         "outcome": "fail",
+        "restored_repo": bool(restored_repo),
+        "archived_diff": archived_diff,
     }
     log_activity(fail_entry)
     ledger_queue.put(fail_entry)
