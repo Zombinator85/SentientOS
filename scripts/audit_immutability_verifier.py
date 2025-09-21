@@ -26,11 +26,12 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 
 from logging_config import get_log_path
+from sentientos import immutability
 
-DEFAULT_MANIFEST = Path("/vow/immutable_manifest.json")
+DEFAULT_MANIFEST = immutability.DEFAULT_MANIFEST_PATH
 LEDGER_PATH = get_log_path("audit_immutability.jsonl")
 PRIVILEGED_PATHS = [
     Path("NEWLEGACY.txt"),
@@ -52,13 +53,7 @@ def log_event(entry: dict) -> None:
 
 
 def load_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> dict:
-    data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    expected = hashlib.sha256(
-        json.dumps(data["files"], sort_keys=True).encode("utf-8")
-    ).hexdigest()
-    if data.get("manifest_sha256") != expected:
-        raise ValueError("manifest signature mismatch")
-    return data
+    return immutability.read_manifest(manifest_path)
 
 
 def verify_once(
@@ -93,24 +88,14 @@ def run_loop(
 
 
 def update_manifest(
-    files: list[Path] = PRIVILEGED_PATHS,
+    files: Iterable[str | Path] = PRIVILEGED_PATHS,
     manifest_path: Path = DEFAULT_MANIFEST,
     env_var: str = "LUMOS_VEIL_CONFIRM",
 ) -> None:
     if os.getenv(env_var) != "1":
         raise PermissionError("veil/confirm required")
-    data = {"files": {}, "generated": time.strftime("%Y-%m-%dT%H:%M:%S")}
-    for p in files:
-        if p.exists():
-            data["files"][str(p)] = {
-                "sha256": _hash_file(p),
-                "timestamp": data["generated"],
-            }
-    data["manifest_sha256"] = hashlib.sha256(
-        json.dumps(data["files"], sort_keys=True).encode("utf-8")
-    ).hexdigest()
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    normalized = [str(Path(p)) for p in files]
+    immutability.update_manifest(normalized, manifest_path=manifest_path)
 
 
 def main(argv: list[str] | None = None) -> int:

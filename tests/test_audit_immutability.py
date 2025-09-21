@@ -10,7 +10,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 
-import hashlib
 import json
 import threading
 import time
@@ -19,18 +18,12 @@ from pathlib import Path
 import pytest
 
 from scripts import audit_immutability_verifier as aiv
+from sentientos import immutability
 
 
 def _make_manifest(path: Path, target: Path) -> None:
-    h = hashlib.sha256(target.read_bytes()).hexdigest()
-    files = {str(target): {"sha256": h, "timestamp": "2025-01-01T00:00:00"}}
-    mhash = hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
-    manifest = {
-        "files": files,
-        "manifest_sha256": mhash,
-        "generated": "2025-01-01T00:00:00",
-    }
-    path.write_text(json.dumps(manifest), encoding="utf-8")
+    immutability.reset_key_cache()
+    immutability.update_manifest([target], manifest_path=path)
 
 
 def test_emotion_pump_verified_file(tmp_path: Path) -> None:
@@ -64,9 +57,12 @@ def test_emotion_pump_manifest_update_requires_confirm(tmp_path: Path, monkeypat
     with pytest.raises(PermissionError):
         aiv.update_manifest([file_path], manifest)
     monkeypatch.setenv("LUMOS_VEIL_CONFIRM", "1")
+    immutability.reset_key_cache()
     aiv.update_manifest([file_path], manifest)
     data = json.loads(manifest.read_text())
     assert str(file_path) in data["files"]
+    assert data.get("signature")
+    assert immutability.verify_manifest_signature(data)
 
 
 def test_emotion_pump_run_loop(tmp_path: Path) -> None:
