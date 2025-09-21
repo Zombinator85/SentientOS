@@ -99,6 +99,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_federated_restart",
         "tests.test_pulse_query",
         "tests.test_codex_veil",
+        "tests.test_codex_iterations",
     }
     for item in items:
         if (
