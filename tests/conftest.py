@@ -100,6 +100,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_pulse_query",
         "tests.test_codex_veil",
         "tests.test_codex_iterations",
+        "tests.test_manifest_reconciliation",
     }
     for item in items:
         if (
