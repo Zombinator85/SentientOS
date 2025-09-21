@@ -5,6 +5,7 @@ from queue import Queue
 import pytest
 
 from daemon import codex_daemon
+from sentientos import immutability
 
 
 class _DummyProcess:
@@ -18,6 +19,9 @@ def _configure_common_paths(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setattr(codex_daemon, "CODEX_PATCH_DIR", tmp_path / "suggest")
     monkeypatch.setattr(codex_daemon, "CODEX_REASONING_DIR", tmp_path / "reason")
     monkeypatch.setattr(codex_daemon, "CODEX_LOG", tmp_path / "codex.log")
+    monkeypatch.setattr(codex_daemon, "MANIFEST_PATH", tmp_path / "immutable_manifest.json")
+    monkeypatch.setattr(codex_daemon, "MANIFEST_AUTO_UPDATE", True)
+    immutability.reset_key_cache()
 
 
 def test_run_once_retries_until_max(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -158,9 +162,11 @@ def test_run_once_succeeds_before_limit(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert len(diagnostic_calls) == 3
     assert len(git_commands) == 2
     assert len(notifications) == 1
-    assert ledger_queue.qsize() == 4
+    assert ledger_queue.qsize() == 5
     assert len(captured_logs) == 4
 
     queue_entries = list(ledger_queue.queue)
-    assert [entry["iteration"] for entry in queue_entries] == [1, 1, 2, 2]
-    assert queue_entries[-1]["event"] == "self_repair"
+    iterations = [entry["iteration"] for entry in queue_entries if "iteration" in entry]
+    assert iterations == [1, 1, 2, 2]
+    assert queue_entries[-2]["event"] == "self_repair"
+    assert queue_entries[-1]["event"] == "manifest_reconciled"

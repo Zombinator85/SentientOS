@@ -273,6 +273,7 @@ class MonitoringDaemon:
         self.warning_events: List[dict[str, object]] = []
         self.critical_events: List[dict[str, object]] = []
         self.federated_restarts: List[dict[str, object]] = []
+        self.manifest_updates: List[dict[str, object]] = []
         self.veil_pending: Dict[str, dict[str, object]] = {}
         self.anomalies: List[AnomalyRecord] = []
 
@@ -374,6 +375,8 @@ class MonitoringDaemon:
             self._prune_history(timestamp)
             triggered = self._evaluate_anomalies(timestamp)
             self._update_veil_state(event)
+            if event_type == "manifest_update":
+                self._record_manifest_update(event, timestamp)
 
         for anomaly in triggered:
             self._publish_alert(anomaly)
@@ -461,6 +464,7 @@ class MonitoringDaemon:
         with self._lock:
             now = datetime.now(timezone.utc)
             self._prune_history(now)
+            self._prune_manifest_updates(now)
             events = list(self._event_history)
             overall = self._summarize_events(events)
             windows = {
@@ -469,12 +473,14 @@ class MonitoringDaemon:
             }
             anomalies = list(self.anomalies)
             pending = list(self.veil_pending.values())
+            manifest_updates = list(self.manifest_updates)
         return {
             "timestamp": now.isoformat(),
             "overall": overall,
             "windows": windows,
             "anomalies": anomalies,
             "veil_pending": pending,
+            "manifest_updates": manifest_updates,
         }
 
     def persist_snapshot(self) -> dict[str, object]:
@@ -483,6 +489,7 @@ class MonitoringDaemon:
         with self._lock:
             now = datetime.now(timezone.utc)
             self._prune_history(now)
+            self._prune_manifest_updates(now)
             overall = self._summarize_events(list(self._event_history))
             windows = {
                 label: self._compute_window_metrics(delta, now)
@@ -491,6 +498,7 @@ class MonitoringDaemon:
             anomalies = list(self._pending_anomalies)
             self._pending_anomalies.clear()
             pending = list(self.veil_pending.values())
+            manifest_updates = list(self.manifest_updates)
 
         payload: Snapshot = {
             "timestamp": now.isoformat(),
@@ -498,6 +506,7 @@ class MonitoringDaemon:
             "windows": windows,
             "anomalies": anomalies,
             "veil_pending": pending,
+            "manifest_updates": manifest_updates,
         }
         signature = self._signer.sign(payload)
         snapshot: Snapshot = dict(payload)
@@ -811,6 +820,37 @@ class MonitoringDaemon:
                 "payload": alert_entry,
             }
         )
+
+    def _record_manifest_update(self, event: Mapping[str, object], timestamp: datetime) -> None:
+        payload = event.get("payload")
+        if not isinstance(payload, Mapping):
+            return
+        files = payload.get("files")
+        if isinstance(files, Sequence):
+            tracked_files = [str(item) for item in files if isinstance(item, str)]
+        else:
+            tracked_files = []
+        record: Dict[str, object] = {
+            "timestamp": timestamp.isoformat(),
+            "files": tracked_files,
+            "signature": str(payload.get("signature", "")),
+            "manifest_path": str(payload.get("manifest_path", "")),
+            "source_event": str(payload.get("source_event", "")),
+            "source_daemon": str(event.get("source_daemon", "")),
+            "source_peer": str(event.get("source_peer", "")),
+        }
+        self.manifest_updates.append(record)
+        self._prune_manifest_updates(timestamp)
+
+    def _prune_manifest_updates(self, now: datetime) -> None:
+        cutoff = now - self._history_retention
+        cleaned: List[dict[str, object]] = []
+        for record in self.manifest_updates:
+            ts_text = str(record.get("timestamp", ""))
+            parsed = self._parse_timestamp(ts_text)
+            if parsed >= cutoff:
+                cleaned.append(record)
+        self.manifest_updates = cleaned
 
     def _update_veil_state(self, event: Mapping[str, object]) -> None:
         event_type = str(event.get("event_type", "")).lower()
