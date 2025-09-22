@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue
+from threading import Event
 from typing import Any, Iterable, Mapping, Sequence
 
 from sentientos import immutability
@@ -23,6 +24,8 @@ CODEX_LOG = Path("/daemon/logs/codex.jsonl")
 CODEX_CONFIRM_PATTERNS: list[str] = []
 CODEX_NOTIFY: list[str] = []
 MONITORING_METRICS_PATH = Path("/glow/monitoring/metrics.jsonl")
+CODEX_SESSION_FILE = Path(os.getenv("CODEX_SESSION_FILE", "/glow/codex_session.json"))
+CODEX_INTERVAL = float(os.getenv("CODEX_INTERVAL", "60"))
 
 EXPAND_REQUEST_DIR = Path("/glow/codex_requests")
 EXPAND_ARCHIVE_DIR = EXPAND_REQUEST_DIR / "archive"
@@ -1533,3 +1536,34 @@ def run_once(ledger_queue: Queue) -> dict | None:
         current_summary = new_summary
 
     return last_entry
+
+
+def self_repair_check(queue: Queue | None = None) -> dict | None:
+    """Public entry point used by dashboards to trigger Codex self-repair."""
+
+    active_queue = queue or Queue()
+    return run_once(active_queue)
+
+
+def run_loop(stop_event: Event, queue: Queue | None = None) -> None:
+    """Background loop watching critical pulse events to trigger self repair."""
+
+    work_queue = queue or Queue()
+
+    def _handle(event: Mapping[str, object]) -> None:
+        if stop_event.is_set():
+            return
+        priority = str(event.get("priority", "")).lower()
+        if priority == "critical":
+            self_repair_check(work_queue)
+
+    subscription = pulse_bus.subscribe(_handle, priorities=["critical"])
+    try:
+        while not stop_event.is_set():
+            time.sleep(float(CODEX_INTERVAL))
+            try:
+                run_once(work_queue)
+            except Exception:
+                continue
+    finally:
+        subscription.unsubscribe()
