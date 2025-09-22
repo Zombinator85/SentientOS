@@ -20,7 +20,7 @@ from uuid import uuid4
 
 from logging_config import get_log_path
 from log_utils import append_json, read_json
-from sentientos.daemons import pulse_bus
+from sentientos.daemons import driver_manager as driver_manager_module, pulse_bus
 
 try:  # Lazy import to avoid expensive startup during tests.
     from daemon import codex_daemon
@@ -474,6 +474,7 @@ class LumosDashboard:
         file_explorer: FileExplorer,
         config: ShellConfig,
         codex_console: CodexConsole,
+        driver_manager: driver_manager_module.DriverManager | None = None,
         codex_module = codex_daemon,
         metrics_window: str = "1h",
     ) -> None:
@@ -482,6 +483,7 @@ class LumosDashboard:
         self._file_explorer = file_explorer
         self._config = config
         self._codex_console = codex_console
+        self._driver_manager = driver_manager
         self._codex_module = codex_module
         self._metrics_window = metrics_window
         self._ledger_cache: Deque[dict[str, object]] = deque(maxlen=10)
@@ -509,6 +511,15 @@ class LumosDashboard:
         latest = entries[-10:]
         self._ledger_cache.extend(latest)
         return list(self._ledger_cache)
+
+    def _load_driver_status(self) -> dict[str, object]:
+        if self._driver_manager is None:
+            return {"devices": [], "veil_pending": []}
+        try:
+            return self._driver_manager.refresh()
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            self._logger.record("driver_panel_error", {"error": str(exc)})
+            return {"devices": [], "veil_pending": []}
 
     def _scan_veil_requests(self) -> List[dict[str, object]]:
         if self._codex_module is None:
@@ -540,14 +551,41 @@ class LumosDashboard:
         ledger = self._load_ledger()
         veil_requests = self._scan_veil_requests()
         federation = self._federation_status()
+        drivers = self._load_driver_status()
+        driver_devices = drivers.get("devices", [])
+        if isinstance(driver_devices, list):
+            missing = sum(
+                1
+                for entry in driver_devices
+                if isinstance(entry, Mapping) and entry.get("status") == "missing"
+            )
+        else:
+            missing = 0
         dashboard = {
             "health": health,
             "ledger": ledger[-10:],
             "veil_requests": veil_requests,
             "federation": federation,
+            "drivers": drivers,
         }
-        self._logger.record("lumos_dashboard_refresh", {"veil_pending": len(veil_requests)})
+        self._logger.record(
+            "lumos_dashboard_refresh",
+            {
+                "veil_pending": len(veil_requests),
+                "drivers_missing": missing,
+            },
+        )
         return dashboard
+
+    def install_recommended_driver(self, device_id: str) -> dict[str, object]:
+        if self._driver_manager is None:
+            raise RuntimeError("Driver manager not available")
+        result = self._driver_manager.install_driver(device_id)
+        self._logger.record(
+            "driver_install_requested_via_dashboard",
+            {"device_id": device_id, "status": result.get("status")},
+        )
+        return result
 
     def confirm_veil_request(self, patch_id: str) -> dict[str, object]:
         if self._codex_module is None:
@@ -581,6 +619,7 @@ class SentientShell:
         ci_runner: Callable[[], bool] | None = None,
         pulse_publisher: Callable[[Mapping[str, object]], Mapping[str, object]] | None = None,
         home_root: Path | None = None,
+        driver_manager: driver_manager_module.DriverManager | None = None,
     ) -> None:
         from sentientos.installer import AppInstaller  # Local import to avoid cycle
 
@@ -599,12 +638,20 @@ class SentientShell:
             trace_dir=trace_dir,
             codex_module=codex_module,
         )
+        manager_instance = driver_manager
+        if manager_instance is None:
+            manager_kwargs: dict[str, object] = {}
+            if pulse_publisher is not None:
+                manager_kwargs["pulse_publisher"] = pulse_publisher
+            manager_instance = driver_manager_module.DriverManager(**manager_kwargs)
+        self._driver_manager = manager_instance
         self._dashboard = LumosDashboard(
             self._logger,
             ledger_path=self._logger.ledger_path,
             file_explorer=self._file_explorer,
             config=self._config,
             codex_console=self._codex_console,
+            driver_manager=self._driver_manager,
             codex_module=codex_module,
         )
         self._start_menu = StartMenu(self._logger, codex_console=self._codex_console)
@@ -632,7 +679,7 @@ class SentientShell:
                 name="Lumos Dashboard",
                 launch=self.open_lumos_dashboard,
                 categories=["system", "monitoring"],
-                description="View daemons, pulses, and veil requests.",
+                description="View daemons, pulses, drivers, and veil requests.",
                 pinned=True,
                 system=True,
             )
@@ -684,6 +731,10 @@ class SentientShell:
         return self._dashboard
 
     @property
+    def driver_manager(self) -> driver_manager_module.DriverManager:
+        return self._driver_manager
+
+    @property
     def installer(self):
         return self._installer
 
@@ -696,6 +747,9 @@ class SentientShell:
         snapshot = self._dashboard.refresh()
         self._taskbar.open_application("Lumos Dashboard", snapshot)
         return snapshot
+
+    def install_recommended_driver(self, device_id: str) -> dict[str, object]:
+        return self._dashboard.install_recommended_driver(device_id)
 
     def press_super_key(self) -> bool:
         return self._start_menu.press_super_key()
