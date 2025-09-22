@@ -24,6 +24,72 @@ CODEX_CONFIRM_PATTERNS: list[str] = []
 CODEX_NOTIFY: list[str] = []
 MONITORING_METRICS_PATH = Path("/glow/monitoring/metrics.jsonl")
 
+EXPAND_REQUEST_DIR = Path("/glow/codex_requests")
+EXPAND_ARCHIVE_DIR = EXPAND_REQUEST_DIR / "archive"
+EXPAND_MAX_BYTES = 50 * 1024
+PROJECT_ROOT = Path(os.getenv("CODEX_PROJECT_ROOT", Path.cwd())).resolve()
+
+def _workspace_root() -> Path:
+    if isinstance(PROJECT_ROOT, Path):
+        return PROJECT_ROOT
+    return Path(str(PROJECT_ROOT)).resolve()
+
+
+def _normalize_repo_path(path: str) -> str:
+    text = str(path).replace("\\", "/").strip()
+    while text.startswith("./"):
+        text = text[2:]
+    if text.startswith("/"):
+        text = text[1:]
+    return text
+
+
+def _is_off_limits(path: str) -> bool:
+    candidate = _normalize_repo_path(path)
+    if not candidate:
+        return True
+    if candidate.startswith("vow/"):
+        return True
+    if immutability.is_protected_path(candidate):
+        return True
+    if candidate.startswith("NEWLEGACY"):
+        return True
+    return False
+
+
+def _resolve_workspace_path(path: str) -> Path:
+    candidate = _normalize_repo_path(path)
+    if not candidate:
+        raise ValueError("empty_path")
+    parts = Path(candidate).parts
+    if any(part == ".." for part in parts):
+        raise ValueError("parent_traversal_not_allowed")
+    base = _workspace_root().resolve()
+    target = base.joinpath(Path(candidate))
+    resolved = target.resolve(strict=False)
+    if not str(resolved).startswith(str(base)):
+        raise ValueError("path_outside_workspace")
+    return resolved
+
+
+def _apply_file_mapping(mapping: Mapping[str, object]) -> list[str]:
+    if not isinstance(mapping, Mapping):
+        raise ValueError("mapping_not_object")
+    changed: list[str] = []
+    base = _workspace_root().resolve()
+    for raw_path, payload in mapping.items():
+        if not isinstance(raw_path, str):
+            raise ValueError("invalid_path_key")
+        if not isinstance(payload, str):
+            raise ValueError("invalid_file_content")
+        target = _resolve_workspace_path(raw_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(payload, encoding="utf-8")
+        rel = target.resolve(strict=False).relative_to(base)
+        changed.append(rel.as_posix())
+    return sorted(set(changed))
+
+
 MANIFEST_PATH = immutability.DEFAULT_MANIFEST_PATH
 MANIFEST_AUTO_UPDATE = (
     os.getenv("CODEX_MANIFEST_AUTO_UPDATE", "1").strip().lower() not in {"0", "false"}
@@ -110,6 +176,495 @@ def _sanitize_token(value: str) -> str:
     if not token:
         return "token"
     return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in token)
+
+
+def _is_valid_request_name(name: str) -> bool:
+    if "/" in name or "\\" in name:
+        return False
+    if ".." in name:
+        return False
+    return True
+
+
+def _build_expand_prompt(task: str, context: str | None) -> str:
+    ethics = load_ethics()
+    lines = [
+        "You are the SentientOS Codex expansion assistant operating in expand mode.",
+        "Follow all sanctuary ethics, privilege boundaries, and safety guardrails.",
+        "",
+        "Ethics Context:",
+        ethics or "None provided.",
+        "",
+        "Task:",
+        task.strip(),
+    ]
+    if context:
+        lines.extend(["", "Additional Context:", context.strip()])
+    lines.extend(
+        [
+            "",
+            "Guardrails:",
+            "- Do not touch /vow/, NEWLEGACY, or privileged files.",
+            "- Keep changes minimal, transparent, and reversible.",
+            "- Prefer additive expansions that respect existing tests.",
+            "",
+            "Output Instructions:",
+            "Respond with either a unified diff (preferred) or a JSON object mapping file paths to file contents.",
+            "All paths must be relative to the repository root.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _generate_expand_request_id(source_name: str) -> str:
+    token = _sanitize_token(Path(source_name).stem or "request")
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    suffix = uuid.uuid4().hex[:6]
+    return f"expand_{token}_{timestamp}_{suffix}"
+
+
+def _archive_request_file(path: Path, request_id: str) -> Path:
+    EXPAND_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    destination = EXPAND_ARCHIVE_DIR / f"{request_id}{path.suffix}"
+    counter = 0
+    while destination.exists():
+        counter += 1
+        destination = EXPAND_ARCHIVE_DIR / f"{request_id}_{counter}{path.suffix}"
+    path.rename(destination)
+    return destination
+
+
+def _archive_codex_response(request_id: str, content: str, *, suffix: str) -> Path:
+    EXPAND_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    response_path = EXPAND_ARCHIVE_DIR / f"{request_id}_response{suffix}"
+    response_path.write_text(content, encoding="utf-8")
+    return response_path
+
+
+def _write_expand_trace(
+    request_id: str,
+    *,
+    prompt: str,
+    response: str,
+    task: str,
+    context: str | None,
+) -> Path:
+    CODEX_REASONING_DIR.mkdir(parents=True, exist_ok=True)
+    trace_path = CODEX_REASONING_DIR / f"expand_{request_id}.json"
+    trace = {
+        "ts": _iso_timestamp(),
+        "request_id": request_id,
+        "prompt": prompt,
+        "response": response,
+        "task": task,
+        "context": context or "",
+        "codex_mode": CODEX_MODE,
+    }
+    trace_path.write_text(json.dumps(trace, indent=2, sort_keys=True), encoding="utf-8")
+    return trace_path
+
+
+def _log_expand_entry(entry: dict[str, object], ledger_queue: Queue | None) -> None:
+    log_activity(dict(entry))
+    if ledger_queue is not None:
+        ledger_queue.put(dict(entry))
+
+
+def _publish_expand_request(
+    request_id: str,
+    *,
+    request_file: Path,
+    task: str,
+    context: str | None,
+    size: int,
+) -> None:
+    payload = {
+        "request_id": request_id,
+        "request_file": request_file.as_posix().lstrip("/"),
+        "task": task,
+        "context": context or "",
+        "size_bytes": size,
+        "codex_mode": CODEX_MODE,
+    }
+    pulse_bus.publish(
+        {
+            "timestamp": _iso_timestamp(),
+            "source_daemon": "CodexDaemon",
+            "event_type": "expand_request",
+            "priority": "info",
+            "payload": payload,
+        }
+    )
+
+
+def _publish_expand_result(
+    request_id: str,
+    *,
+    status: str,
+    reason: str | None,
+    files_changed: Sequence[str],
+    response_format: str,
+) -> None:
+    payload = {
+        "request_id": request_id,
+        "status": status,
+        "reason": reason or "",
+        "files_changed": list(files_changed),
+        "response_format": response_format,
+        "codex_mode": CODEX_MODE,
+    }
+    pulse_bus.publish(
+        {
+            "timestamp": _iso_timestamp(),
+            "source_daemon": "CodexDaemon",
+            "event_type": "expand_result",
+            "priority": "info",
+            "payload": payload,
+        }
+    )
+
+
+def _queue_expand_veil(
+    request_id: str,
+    patch_path: Path,
+    files_changed: Sequence[str],
+    task: str,
+    ledger_queue: Queue | None,
+    *,
+    response_format: str,
+) -> None:
+    metadata = {
+        "patch_id": request_id,
+        "patch_path": patch_path.as_posix().lstrip("/"),
+        "scope": "local",
+        "requires_confirmation": True,
+        "status": "pending",
+        "files_changed": list(files_changed),
+        "codex_mode": CODEX_MODE,
+        "timestamp": _iso_timestamp(),
+        "response_format": response_format,
+        "task": task,
+    }
+    metadata_path = patch_path.with_suffix("").with_suffix(".veil.json")
+    metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
+    pulse_bus.publish(
+        {
+            "timestamp": _iso_timestamp(),
+            "source_daemon": "CodexDaemon",
+            "event_type": "veil_request",
+            "priority": "warning",
+            "payload": dict(metadata),
+        }
+    )
+    ledger_entry = {
+        "ts": _ledger_timestamp(),
+        "event": "veil_pending",
+        "patch_id": request_id,
+        "files_changed": list(files_changed),
+        "codex_mode": CODEX_MODE,
+        "scope": "local",
+    }
+    _log_expand_entry(ledger_entry, ledger_queue)
+
+
+def _load_expand_request(path: Path) -> tuple[str, str | None]:
+    suffix = path.suffix.lower()
+    text = path.read_text(encoding="utf-8")
+    if suffix == ".json":
+        data = json.loads(text)
+        if not isinstance(data, Mapping):
+            raise ValueError("json_request_not_object")
+        task = data.get("task")
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError("missing_task")
+        context = data.get("context")
+        context_text = context if isinstance(context, str) and context.strip() else None
+        return task.strip(), context_text
+    if suffix == ".txt":
+        task = text.strip()
+        if not task:
+            raise ValueError("missing_task")
+        return task, None
+    raise ValueError("unsupported_request_format")
+
+
+def _handle_expand_request(path: Path, ledger_queue: Queue | None) -> dict[str, object]:
+    request_id = _generate_expand_request_id(path.name)
+    request_size = path.stat().st_size
+    task = ""
+    context: str | None = None
+    response_format = "diff"
+    files_changed: list[str] = []
+    archived_request: Path | None = None
+
+    if not _is_valid_request_name(path.name):
+        archived_request = _archive_request_file(path, request_id)
+        _publish_expand_request(
+            request_id,
+            request_file=archived_request,
+            task=task,
+            context=context,
+            size=request_size,
+        )
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "invalid_name",
+            "files_changed": files_changed,
+            "codex_mode": CODEX_MODE,
+        }
+        _publish_expand_result(request_id, status="rejected", reason="invalid_name", files_changed=files_changed, response_format=response_format)
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    if request_size > EXPAND_MAX_BYTES:
+        archived_request = _archive_request_file(path, request_id)
+        _publish_expand_request(
+            request_id,
+            request_file=archived_request,
+            task=task,
+            context=context,
+            size=request_size,
+        )
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "request_too_large",
+            "files_changed": files_changed,
+            "codex_mode": CODEX_MODE,
+        }
+        _publish_expand_result(request_id, status="rejected", reason="request_too_large", files_changed=files_changed, response_format=response_format)
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    try:
+        task, context = _load_expand_request(path)
+    except Exception:
+        archived_request = _archive_request_file(path, request_id)
+        _publish_expand_request(
+            request_id,
+            request_file=archived_request,
+            task=task,
+            context=context,
+            size=request_size,
+        )
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "invalid_request",
+            "files_changed": files_changed,
+            "codex_mode": CODEX_MODE,
+        }
+        _publish_expand_result(request_id, status="rejected", reason="invalid_request", files_changed=files_changed, response_format=response_format)
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    archived_request = _archive_request_file(path, request_id)
+    _publish_expand_request(
+        request_id,
+        request_file=archived_request,
+        task=task,
+        context=context,
+        size=request_size,
+    )
+
+    prompt = _build_expand_prompt(task, context)
+    proc = subprocess.run(["codex", "exec", prompt], capture_output=True, text=True)
+    codex_output = proc.stdout
+    if not codex_output.strip():
+        _publish_expand_result(request_id, status="rejected", reason="empty_response", files_changed=files_changed, response_format=response_format)
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "empty_response",
+            "files_changed": files_changed,
+            "codex_mode": CODEX_MODE,
+        }
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    trace_path = _write_expand_trace(
+        request_id,
+        prompt=prompt,
+        response=codex_output,
+        task=task,
+        context=context,
+    )
+
+    suggestion_path = CODEX_SUGGEST_DIR / f"{request_id}.diff"
+    mapping: Mapping[str, object] | None = None
+    try:
+        parsed = json.loads(codex_output)
+        if isinstance(parsed, Mapping):
+            mapping = parsed
+    except json.JSONDecodeError:
+        mapping = None
+
+    if mapping is not None:
+        response_format = "json_mapping"
+        files_changed = [
+            _normalize_repo_path(path_key)
+            for path_key in mapping.keys()
+            if isinstance(path_key, str)
+        ]
+        files_changed = [path for path in files_changed if path]
+        suggestion_path = CODEX_SUGGEST_DIR / f"{request_id}.json"
+        suggestion_path.parent.mkdir(parents=True, exist_ok=True)
+        suggestion_path.write_text(json.dumps(mapping, indent=2, sort_keys=True), encoding="utf-8")
+        _archive_codex_response(request_id, codex_output, suffix=".json")
+    else:
+        files_changed = parse_diff_files(codex_output)
+        suggestion_path.parent.mkdir(parents=True, exist_ok=True)
+        suggestion_path.write_text(codex_output, encoding="utf-8")
+        _archive_codex_response(request_id, codex_output, suffix=".diff")
+
+    files_changed = sorted({_normalize_repo_path(path) for path in files_changed if path})
+    suggest_entry = {
+        "ts": _ledger_timestamp(),
+        "event": "self_expand_suggested",
+        "request_id": request_id,
+        "task": task,
+        "files_changed": list(files_changed),
+        "codex_mode": CODEX_MODE,
+        "response_format": response_format,
+        "reasoning_trace": trace_path.as_posix().lstrip("/"),
+    }
+    _log_expand_entry(suggest_entry, ledger_queue)
+
+    if not files_changed:
+        _publish_expand_result(request_id, status="rejected", reason="no_changes", files_changed=files_changed, response_format=response_format)
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "no_changes",
+            "files_changed": files_changed,
+            "codex_mode": CODEX_MODE,
+            "response_format": response_format,
+        }
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    if any(_is_off_limits(path) for path in files_changed):
+        _publish_expand_result(request_id, status="rejected", reason="off_limits", files_changed=files_changed, response_format=response_format)
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "off_limits",
+            "files_changed": list(files_changed),
+            "codex_mode": CODEX_MODE,
+            "response_format": response_format,
+        }
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    requires_confirmation = not is_safe(files_changed)
+    if requires_confirmation:
+        _queue_expand_veil(
+            request_id,
+            suggestion_path,
+            files_changed,
+            task,
+            ledger_queue,
+            response_format=response_format,
+        )
+        _publish_expand_result(request_id, status="veil_pending", reason="veil", files_changed=files_changed, response_format=response_format)
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "veil",
+            "files_changed": list(files_changed),
+            "codex_mode": CODEX_MODE,
+            "response_format": response_format,
+        }
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    success = False
+    verification = False
+    if response_format == "diff":
+        success = bool(apply_patch(codex_output))
+        changed_files = list(files_changed)
+    else:
+        try:
+            changed_files = _apply_file_mapping(mapping or {})
+            success = True
+        except Exception:
+            changed_files = list(files_changed)
+            success = False
+
+    if not success:
+        _publish_expand_result(request_id, status="rejected", reason="patch_apply_failed", files_changed=files_changed, response_format=response_format)
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "patch_apply_failed",
+            "files_changed": list(files_changed),
+            "codex_mode": CODEX_MODE,
+            "response_format": response_format,
+        }
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    queue = ledger_queue if ledger_queue is not None else Queue()
+    verification = bool(run_ci(queue))
+    if not verification:
+        _publish_expand_result(request_id, status="rejected", reason="ci_failed", files_changed=changed_files, response_format=response_format)
+        entry = {
+            "ts": _ledger_timestamp(),
+            "event": "self_expand_rejected",
+            "request_id": request_id,
+            "reason": "ci_failed",
+            "files_changed": list(changed_files),
+            "codex_mode": CODEX_MODE,
+            "response_format": response_format,
+        }
+        _log_expand_entry(entry, ledger_queue)
+        return entry
+
+    subprocess.run(["git", "add", "-A"], check=False)
+    subprocess.run(["git", "commit", "-m", "[codex:self_expand]"], check=False)
+
+    result_entry = {
+        "ts": _ledger_timestamp(),
+        "event": "self_expand",
+        "request_id": request_id,
+        "task": task,
+        "files_changed": list(changed_files),
+        "verification_result": verification,
+        "codex_mode": CODEX_MODE,
+        "response_format": response_format,
+        "reasoning_trace": trace_path.as_posix().lstrip("/"),
+    }
+    _log_expand_entry(result_entry, ledger_queue)
+    _publish_expand_result(
+        request_id,
+        status="applied",
+        reason=None,
+        files_changed=changed_files,
+        response_format=response_format,
+    )
+    _reconcile_manifest(changed_files, ledger_queue, source_event="self_expand")
+    return result_entry
+
+
+def _process_expand_requests(ledger_queue: Queue | None) -> dict[str, object] | None:
+    request_dir = EXPAND_REQUEST_DIR
+    if not request_dir.exists():
+        return None
+    candidates = sorted(path for path in request_dir.iterdir() if path.is_file())
+    for candidate in candidates:
+        if candidate.suffix.lower() not in {".json", ".txt"}:
+            continue
+        return _handle_expand_request(candidate, ledger_queue)
+    return None
 
 
 def apply_patch(diff_output: str) -> bool:
@@ -705,8 +1260,19 @@ def confirm_veil_patch(patch_id: str) -> dict[str, object]:
     if status not in {"pending", "suggested"}:
         raise RuntimeError("veil patch already resolved")
     diff_path = _resolve_patch_file(patch_id, metadata)
-    diff_text = diff_path.read_text(encoding="utf-8")
-    applied = bool(apply_patch(diff_text))
+    response_format = str(metadata.get("response_format", "diff"))
+    if response_format == "json_mapping":
+        mapping = json.loads(diff_path.read_text(encoding="utf-8"))
+        files_changed = _apply_file_mapping(mapping)
+        applied = True
+    else:
+        diff_text = diff_path.read_text(encoding="utf-8")
+        applied = bool(apply_patch(diff_text))
+        files_changed = [
+            str(item)
+            for item in metadata.get("files_changed", [])
+            if isinstance(item, str)
+        ]
     if not applied:
         raise RuntimeError("patch_apply_failed")
     queue: Queue = Queue()
@@ -716,7 +1282,6 @@ def confirm_veil_patch(patch_id: str) -> dict[str, object]:
     metadata["status"] = "confirmed"
     metadata["confirmed_at"] = _iso_timestamp()
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
-    files_changed = [str(item) for item in metadata.get("files_changed", []) if isinstance(item, str)]
     entry = {
         "ts": _ledger_timestamp(),
         "event": "veil_confirmed",
@@ -792,6 +1357,11 @@ def record_veil_confirmed(
 
 def run_once(ledger_queue: Queue) -> dict | None:
     """Execute a single Codex self-repair cycle with multi-iteration and workspace hygiene."""
+
+    if CODEX_MODE == "expand":
+        expand_entry = _process_expand_requests(ledger_queue)
+        if expand_entry is not None:
+            return expand_entry
 
     passed, summary, _ = run_diagnostics()
     if passed:
