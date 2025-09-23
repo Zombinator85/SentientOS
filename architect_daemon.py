@@ -11,6 +11,8 @@ from collections import deque
 from pathlib import Path
 from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence
 
+import yaml
+
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
@@ -31,6 +33,10 @@ ARCHITECT_SESSION_FILE = Path(
 )
 ARCHITECT_LEDGER_PATH = Path(
     os.getenv("ARCHITECT_LEDGER_PATH", "/daemon/logs/architect_ledger.jsonl")
+)
+ARCHITECT_CONFIG_PATH = Path(os.getenv("ARCHITECT_CONFIG_PATH", "/vow/config.yaml"))
+ARCHITECT_COMPLETION_PATH = Path(
+    os.getenv("ARCHITECT_COMPLETION_PATH", "/vow/first_boot_complete")
 )
 
 _DEFAULT_CI_COMMANDS: tuple[tuple[str, ...], ...] = (
@@ -111,6 +117,8 @@ class ArchitectDaemon:
         request_dir: Path | str | None = None,
         session_file: Path | str | None = None,
         ledger_path: Path | str | None = None,
+        config_path: Path | str | None = None,
+        completion_path: Path | str | None = None,
         interval: float | None = None,
         max_iterations: int | None = None,
         ledger_sink: Callable[[dict[str, object]], None] | None = None,
@@ -122,10 +130,18 @@ class ArchitectDaemon:
         self.request_dir = Path(request_dir) if request_dir else ARCHITECT_REQUEST_DIR
         self.session_file = Path(session_file) if session_file else ARCHITECT_SESSION_FILE
         self.ledger_path = Path(ledger_path) if ledger_path else ARCHITECT_LEDGER_PATH
-        self.interval = float(interval if interval is not None else ARCHITECT_INTERVAL)
-        self.max_iterations = int(
+        self.config_path = Path(config_path) if config_path else ARCHITECT_CONFIG_PATH
+        self.completion_path = (
+            Path(completion_path) if completion_path else ARCHITECT_COMPLETION_PATH
+        )
+        self._default_interval = float(
+            interval if interval is not None else ARCHITECT_INTERVAL
+        )
+        self.interval = float(self._default_interval)
+        self._default_max_iterations = int(
             max_iterations if max_iterations is not None else ARCHITECT_MAX_ITERATIONS
         )
+        self.max_iterations = int(self._default_max_iterations)
         self._ledger_sink = ledger_sink
         self._pulse_publisher = pulse_publisher or pulse_bus.publish
         self._clock = clock or _utcnow
@@ -147,6 +163,8 @@ class ArchitectDaemon:
         self._context_buffer: Deque[dict[str, object]] = deque(maxlen=25)
         self._ledger_buffer: Deque[dict[str, object]] = deque(maxlen=25)
         self._subscription: pulse_bus.PulseSubscription | None = None
+        self._activation_subscription: pulse_bus.PulseSubscription | None = None
+        self._subscriptions_enabled = False
 
         self._session = self._load_session()
         last_reflect = self._session.get("last_reflect")
@@ -156,17 +174,82 @@ class ArchitectDaemon:
             else 0.0
         )
 
+        self._config_mtime: float | None = None
+        self._config_snapshot: dict[str, object] = {}
+        self._config_sync_in_progress = False
+        self._codex_mode = "observe"
+        self._autonomy_enabled = False
+        self._federation_peer_name = ""
+        self._federation_peers: tuple[str, ...] = ()
+
+        self._config_snapshot = self._normalize_config({})
+        self._apply_config(self._config_snapshot)
+
+        self._boot_completed = self.completion_path.exists()
+        self._active = self._boot_completed
+        self._activation_emitted = False
+        if self._active:
+            self.sync_config(force=True, emit=False)
+
     # ------------------------------------------------------------------
     # Lifecycle hooks
     def start(self) -> None:
+        self._subscriptions_enabled = True
+        self._ensure_activation_subscription()
+        if self.completion_path.exists():
+            self._boot_completed = True
+            self._activate(reason="startup")
+
+    def stop(self) -> None:
+        self._subscriptions_enabled = False
+        if self._subscription and self._subscription.active:
+            self._subscription.unsubscribe()
+        self._subscription = None
+        if self._activation_subscription and self._activation_subscription.active:
+            self._activation_subscription.unsubscribe()
+        self._activation_subscription = None
+        self._active = False
+        self._activation_emitted = False
+
+    @property
+    def active(self) -> bool:
+        """Return whether the ArchitectDaemon is actively processing pulses."""
+
+        return self._active
+
+    def _ensure_activation_subscription(self) -> None:
+        if not self._subscriptions_enabled:
+            return
+        if self._activation_subscription and self._activation_subscription.active:
+            return
+        self._activation_subscription = pulse_bus.subscribe(self._handle_activation_pulse)
+
+    def _ensure_event_subscription(self) -> None:
+        if not self._subscriptions_enabled:
+            return
         if self._subscription and self._subscription.active:
             return
         self._subscription = pulse_bus.subscribe(self.handle_pulse)
 
-    def stop(self) -> None:
-        if self._subscription and self._subscription.active:
-            self._subscription.unsubscribe()
-        self._subscription = None
+    def _handle_activation_pulse(self, event: Mapping[str, object]) -> None:
+        event_type = event.get("event_type")
+        if event_type != "first_boot_complete":
+            return
+        self._boot_completed = True
+        self._activate(reason="first_boot_complete")
+
+    def _activate(self, *, reason: str) -> None:
+        if not self._boot_completed and not self.completion_path.exists():
+            return
+        self._boot_completed = True
+        was_active = self._active
+        self._active = True
+        self.sync_config(force=True, emit=False)
+        if self._subscriptions_enabled:
+            self._ensure_event_subscription()
+        if not self._activation_emitted or not was_active:
+            self._emit_activation_event(reason)
+            self._activation_emitted = True
 
     # ------------------------------------------------------------------
     # Session helpers
@@ -200,6 +283,203 @@ class ArchitectDaemon:
         self._session["failures"] = int(self._session.get("failures", 0)) + 1
         self._save_session()
 
+    # ------------------------------------------------------------------
+    # Configuration management
+    def sync_config(self, *, force: bool = False, emit: bool = True) -> None:
+        if not force and not self._active:
+            return
+        if self._config_sync_in_progress:
+            return
+        self._config_sync_in_progress = True
+        try:
+            mtime: float | None = None
+            if self.config_path.exists():
+                try:
+                    mtime = self.config_path.stat().st_mtime
+                except OSError:
+                    mtime = None
+            data: Mapping[str, object] | None = None
+            if self.config_path.exists():
+                try:
+                    loaded = yaml.safe_load(self.config_path.read_text(encoding="utf-8"))
+                except Exception:
+                    loaded = {}
+                if isinstance(loaded, Mapping):
+                    data = loaded
+                else:
+                    data = {}
+            else:
+                data = {}
+            snapshot = dict(self._normalize_config(data))
+            should_apply = force or snapshot != self._config_snapshot
+            if not should_apply:
+                self._config_mtime = mtime
+                return
+            previous = dict(self._config_snapshot)
+            self._config_snapshot = snapshot
+            self._config_mtime = mtime
+            self._apply_config(snapshot)
+            if emit and previous != snapshot:
+                self._emit_config_update(previous, snapshot)
+        finally:
+            self._config_sync_in_progress = False
+
+    def _normalize_config(self, data: Mapping[str, object] | None) -> dict[str, object]:
+        payload = data or {}
+        mode_value = payload.get("codex_mode", self._codex_mode or "observe")
+        mode = str(mode_value).strip().lower()
+        if mode not in {"observe", "repair", "full", "expand"}:
+            mode = "observe"
+        interval = self._coerce_float(payload.get("codex_interval"), self._default_interval)
+        max_iterations = self._coerce_int(
+            payload.get("codex_max_iterations"), self._default_max_iterations
+        )
+        peer_name = str(payload.get("federation_peer_name") or "").strip()
+        peers_raw = payload.get("federation_peers") or payload.get("federation_addresses")
+        peers = self._normalize_peers(peers_raw)
+        autonomy = self._coerce_bool(payload.get("architect_autonomy", False))
+        return {
+            "codex_mode": mode,
+            "codex_interval": interval,
+            "codex_max_iterations": max_iterations,
+            "federation_peer_name": peer_name,
+            "federation_peers": tuple(peers),
+            "architect_autonomy": autonomy,
+        }
+
+    def _normalize_peers(self, raw: object) -> list[str]:
+        if not isinstance(raw, Iterable) or isinstance(raw, (str, bytes)):
+            return []
+        peers: list[str] = []
+        seen: set[str] = set()
+        for item in raw:
+            candidate = str(item).strip()
+            if not candidate:
+                continue
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            peers.append(candidate)
+        return peers
+
+    @staticmethod
+    def _coerce_float(value: object, default: float) -> float:
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value.strip())
+            except ValueError:
+                return float(default)
+        return float(default)
+
+    @staticmethod
+    def _coerce_int(value: object, default: int) -> int:
+        if isinstance(value, (int, float)):
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return int(default)
+        if isinstance(value, str):
+            try:
+                return int(float(value.strip()))
+            except ValueError:
+                return int(default)
+        return int(default)
+
+    @staticmethod
+    def _coerce_bool(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            text = value.strip().lower()
+            if text in {"1", "true", "yes", "on"}:
+                return True
+            if text in {"0", "false", "no", "off"}:
+                return False
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return False
+
+    def _apply_config(self, snapshot: Mapping[str, object]) -> None:
+        self._codex_mode = str(snapshot.get("codex_mode", "observe"))
+        self.interval = float(snapshot.get("codex_interval", self._default_interval))
+        self.max_iterations = int(
+            snapshot.get("codex_max_iterations", self._default_max_iterations)
+        )
+        self._federation_peer_name = str(
+            snapshot.get("federation_peer_name", "")
+        ).strip()
+        peers = snapshot.get("federation_peers", ())
+        if isinstance(peers, (list, tuple)):
+            self._federation_peers = tuple(str(item) for item in peers)
+        else:
+            self._federation_peers = ()
+        self._autonomy_enabled = bool(snapshot.get("architect_autonomy", False))
+
+    def _current_config_summary(self) -> dict[str, object]:
+        return {
+            "codex_mode": self._codex_mode,
+            "codex_interval": self.interval,
+            "codex_max_iterations": self.max_iterations,
+            "federation_peer_name": self._federation_peer_name,
+            "federation_peers": list(self._federation_peers),
+            "architect_autonomy": self._autonomy_enabled,
+        }
+
+    def _emit_activation_event(self, reason: str) -> None:
+        summary = self._current_config_summary()
+        ledger_payload = {
+            "event": "architect_enabled",
+            "summary": dict(summary),
+            "reason": reason,
+        }
+        self._emit_ledger_event(ledger_payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_enabled",
+                "priority": "info",
+                "payload": {"summary": dict(summary), "reason": reason},
+            }
+        )
+
+    def _emit_config_update(
+        self, previous: Mapping[str, object], current: Mapping[str, object]
+    ) -> None:
+        summary = self._current_config_summary()
+
+        def _format(value: object) -> object:
+            if isinstance(value, tuple):
+                return list(value)
+            if isinstance(value, list):
+                return list(value)
+            return value
+
+        changes: dict[str, dict[str, object]] = {}
+        for key, value in summary.items():
+            prev_val = _format(previous.get(key))
+            curr_val = _format(current.get(key))
+            if prev_val != curr_val:
+                changes[key] = {"previous": prev_val, "current": curr_val}
+
+        ledger_payload = {
+            "event": "architect_config_update",
+            "summary": dict(summary),
+            "changes": changes,
+        }
+        self._emit_ledger_event(ledger_payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_config_update",
+                "priority": "info",
+                "payload": {"summary": dict(summary), "changes": changes},
+            }
+        )
+
     def _now(self) -> datetime:
         return self._clock()
 
@@ -215,6 +495,9 @@ class ArchitectDaemon:
         description: str,
         context: Iterable[Mapping[str, object]] | None = None,
     ) -> ArchitectRequest:
+        if not self._active:
+            raise RuntimeError("ArchitectDaemon is inactive until first boot completes.")
+        self.sync_config()
         details = {"description": description}
         return self._create_request("expand", description, context, details)
 
@@ -223,6 +506,9 @@ class ArchitectDaemon:
         reason: str,
         context: Iterable[Mapping[str, object]] | None = None,
     ) -> ArchitectRequest:
+        if not self._active:
+            raise RuntimeError("ArchitectDaemon is inactive until first boot completes.")
+        self.sync_config()
         details = {"trigger": reason}
         return self._create_request("repair", reason, context, details)
 
@@ -231,6 +517,9 @@ class ArchitectDaemon:
         topic: str,
         context: Iterable[Mapping[str, object]] | None = None,
     ) -> ArchitectRequest:
+        if not self._active:
+            raise RuntimeError("ArchitectDaemon is inactive until first boot completes.")
+        self.sync_config()
         details = {"topic": topic}
         return self._create_request("reflect", topic, context, details)
 
@@ -238,6 +527,9 @@ class ArchitectDaemon:
         return self._requests.get(architect_id)
 
     def tick(self, now: datetime | None = None) -> ArchitectRequest | None:
+        if not self._active:
+            return None
+        self.sync_config()
         timestamp = (now or self._now()).timestamp()
         if self.interval <= 0:
             return None
@@ -254,6 +546,9 @@ class ArchitectDaemon:
     # ------------------------------------------------------------------
     # Event ingestion
     def handle_pulse(self, event: Mapping[str, object]) -> None:
+        if not self._active:
+            return
+        self.sync_config()
         normalized = self._normalize_pulse_event(event)
         if normalized is None:
             return
@@ -266,6 +561,9 @@ class ArchitectDaemon:
             self.request_repair("driver_failure")
 
     def handle_ledger_entry(self, entry: Mapping[str, object]) -> None:
+        if not self._active:
+            return
+        self.sync_config()
         normalized = self._normalize_ledger_entry(entry)
         if normalized is None:
             return
@@ -343,6 +641,11 @@ class ArchitectDaemon:
                 "max_iterations": request.max_iterations,
             }
         )
+        self._record_prompt_event(request, "suggested")
+        if self._autonomy_enabled:
+            self._record_prompt_event(request, "submitted")
+        else:
+            self._record_prompt_event(request, "pending", priority="warning")
         return request
 
     def _write_prompt(self, request: ArchitectRequest) -> None:
@@ -498,6 +801,39 @@ class ArchitectDaemon:
                 "event_type": "veil_request",
                 "priority": "warning",
                 "payload": payload,
+            }
+        )
+        self._record_prompt_event(request, "pending", priority="warning")
+
+    def _record_prompt_event(
+        self, request: ArchitectRequest, state: str, *, priority: str = "info"
+    ) -> None:
+        prompt_path = (
+            request.prompt_path.as_posix().lstrip("/") if request.prompt_path else ""
+        )
+        payload = {
+            "architect_id": request.architect_id,
+            "mode": request.mode,
+            "reason": request.reason,
+            "prompt": prompt_path,
+            "codex_prefix": request.codex_prefix,
+            "iterations": request.iterations,
+            "autonomy": self._autonomy_enabled,
+        }
+        if state == "pending":
+            payload["requires_approval"] = True
+        ledger_payload = dict(payload)
+        ledger_payload["event"] = f"architect_prompt_{state}"
+        self._emit_ledger_event(ledger_payload)
+        pulse_payload = dict(payload)
+        pulse_payload["status"] = state
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": f"architect_prompt_{state}",
+                "priority": priority,
+                "payload": pulse_payload,
             }
         )
 

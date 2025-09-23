@@ -144,6 +144,7 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
     assert config["codex_mode"] == "expand"
     assert config["codex_interval"] == 7200
     assert config["codex_max_iterations"] == 5
+    assert config["architect_autonomy"] is False
     assert config["federation_peer_name"] == "Aurora"
     assert config["federation_peers"] == ["tcp://aurora:7777"]
 
@@ -154,6 +155,7 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
     assert any(event["event_type"] == "first_boot_complete" for event in pulses)
 
     assert summary["codex"]["mode"] == "expand"
+    assert summary["codex"]["autonomy_enabled"] is False
     assert summary["drivers"][0]["requires_veil"] is True
     assert summary["federation"]["connectivity"]["tcp://aurora:7777"] is True
     assert connectivity_checks == [("Aurora", "tcp://aurora:7777")]
