@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence
 
 import random
+from uuid import uuid4
 
 import yaml
 
@@ -59,6 +60,15 @@ ARCHITECT_FEDERATE_REFLECTIONS = (
     os.getenv("ARCHITECT_FEDERATE_REFLECTIONS", "0").strip().lower()
     not in {"0", "false", "no", "off"}
 )
+ARCHITECT_PRIORITY_BACKLOG_PATH = Path(
+    os.getenv(
+        "ARCHITECT_PRIORITY_BACKLOG",
+        os.path.join(str(ARCHITECT_REFLECTION_DIR), "priorities.json"),
+    )
+)
+
+_PRIORITY_ACTIVE_STATUSES = {"pending", "in_progress", "done", "discarded"}
+_PRIORITY_HISTORY_STATUSES = {"done", "discarded"}
 
 _DEFAULT_CI_COMMANDS: tuple[tuple[str, ...], ...] = (
     ("pytest", "-q"),
@@ -155,6 +165,7 @@ class ArchitectDaemon:
         cooldown_period: float | None = None,
         max_failures: int | None = None,
         reflection_dir: Path | str | None = None,
+        priority_path: Path | str | None = None,
         rng: random.Random | None = None,
         anomaly_threshold: int | None = None,
     ) -> None:
@@ -224,6 +235,26 @@ class ArchitectDaemon:
             Path(reflection_dir) if reflection_dir else ARCHITECT_REFLECTION_DIR
         )
         self._reflection_dir.mkdir(parents=True, exist_ok=True)
+
+        self._priority_path = (
+            Path(priority_path)
+            if priority_path is not None
+            else ARCHITECT_PRIORITY_BACKLOG_PATH
+        )
+        if not self._priority_path.is_absolute():
+            self._priority_path = self._reflection_dir / self._priority_path
+        self._priority_path.parent.mkdir(parents=True, exist_ok=True)
+        (
+            self._priority_active,
+            self._priority_history,
+            self._priority_updated,
+            priority_dirty,
+        ) = self._load_priority_backlog()
+        self._priority_index = {
+            entry["id"]: entry for entry in self._priority_active if "id" in entry
+        }
+        if priority_dirty:
+            self._save_priority_backlog()
 
         self._requests: dict[str, ArchitectRequest] = {}
         self._prefix_index: dict[str, ArchitectRequest] = {}
@@ -460,6 +491,204 @@ class ArchitectDaemon:
             json.dumps(self._session, indent=2, sort_keys=True), encoding="utf-8"
         )
 
+    # ------------------------------------------------------------------
+    # Priority backlog management
+    def _load_priority_backlog(
+        self,
+    ) -> tuple[list[dict[str, str]], list[dict[str, str]], str, bool]:
+        timestamp = self._now().isoformat()
+        if not self._priority_path.exists():
+            return [], [], timestamp, True
+        try:
+            raw = json.loads(self._priority_path.read_text(encoding="utf-8"))
+        except Exception:
+            return [], [], timestamp, True
+        if not isinstance(raw, Mapping):
+            return [], [], timestamp, True
+
+        updated = str(raw.get("updated", timestamp))
+        dirty = False
+
+        active_list: list[dict[str, str]] = []
+        raw_active = raw.get("active")
+        if isinstance(raw_active, Sequence):
+            for item in raw_active:
+                if not isinstance(item, Mapping):
+                    continue
+                priority_id = str(item.get("id", "")).strip()
+                text = str(item.get("text", "")).strip()
+                status = str(item.get("status", "pending")).strip().lower()
+                if not priority_id or not text:
+                    continue
+                if status not in _PRIORITY_ACTIVE_STATUSES:
+                    status = "pending"
+                    dirty = True
+                if status == "in_progress":
+                    status = "pending"
+                    dirty = True
+                active_list.append({"id": priority_id, "text": text, "status": status})
+
+        history_list: list[dict[str, str]] = []
+        raw_history = raw.get("history")
+        if isinstance(raw_history, Sequence):
+            seen: set[str] = set()
+            for item in raw_history:
+                if not isinstance(item, Mapping):
+                    continue
+                priority_id = str(item.get("id", "")).strip()
+                text = str(item.get("text", "")).strip()
+                status = str(item.get("status", "done")).strip().lower()
+                completed_at = str(item.get("completed_at", "")).strip()
+                if (
+                    not priority_id
+                    or not text
+                    or status not in _PRIORITY_HISTORY_STATUSES
+                ):
+                    continue
+                if priority_id in seen:
+                    continue
+                entry: dict[str, str] = {
+                    "id": priority_id,
+                    "text": text,
+                    "status": status,
+                }
+                if completed_at:
+                    entry["completed_at"] = completed_at
+                history_list.append(entry)
+                seen.add(priority_id)
+
+        return active_list, history_list, updated, dirty
+
+    def _save_priority_backlog(self) -> None:
+        self._priority_updated = self._now().isoformat()
+        payload = {
+            "updated": self._priority_updated,
+            "active": [dict(item) for item in self._priority_active],
+            "history": [dict(item) for item in self._priority_history],
+        }
+        try:
+            self._priority_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+            )
+        except Exception:
+            pass
+
+    def _register_reflection_priorities(
+        self, priorities: Sequence[str]
+    ) -> list[dict[str, str]]:
+        created: list[dict[str, str]] = []
+        for item in priorities:
+            text = str(item).strip()
+            if not text:
+                continue
+            priority_id = str(uuid4())
+            entry = {"id": priority_id, "text": text, "status": "pending"}
+            self._priority_active.append(entry)
+            self._priority_index[priority_id] = entry
+            created.append(entry)
+        if created:
+            self._save_priority_backlog()
+        return created
+
+    def _emit_priority_event(
+        self,
+        event_type: str,
+        entry: Mapping[str, object],
+        *,
+        cycle: int | None,
+        priority_level: str,
+        extra: Mapping[str, object] | None = None,
+    ) -> None:
+        ledger_payload = {
+            "event": event_type,
+            "priority_id": entry.get("id"),
+            "text": entry.get("text"),
+        }
+        pulse_payload = {
+            "priority_id": entry.get("id"),
+            "text": entry.get("text"),
+        }
+        if cycle is not None:
+            ledger_payload["cycle"] = cycle
+            pulse_payload["cycle"] = cycle
+        if extra:
+            for key, value in extra.items():
+                ledger_payload[key] = value
+                pulse_payload[key] = value
+        self._emit_ledger_event(ledger_payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": event_type,
+                "priority": priority_level,
+                "payload": pulse_payload,
+            }
+        )
+
+    def _select_backlog_priority(self, cycle_number: int) -> dict[str, str] | None:
+        for entry in self._priority_active:
+            status = str(entry.get("status", "pending")).strip().lower()
+            if status == "pending":
+                entry["status"] = "in_progress"
+                self._priority_index[entry["id"]] = entry
+                self._save_priority_backlog()
+                self._emit_priority_event(
+                    "architect_priority_selected",
+                    entry,
+                    cycle=cycle_number,
+                    priority_level="info",
+                    extra={"status": entry["status"]},
+                )
+                return entry
+        return None
+
+    def _finalize_priority(
+        self,
+        priority_id: str | None,
+        *,
+        status: str,
+        cycle: int,
+        reason: str | None = None,
+    ) -> None:
+        if not priority_id:
+            return
+        entry = self._priority_index.get(priority_id)
+        if not entry:
+            return
+        status = str(status).strip().lower()
+        if status not in _PRIORITY_ACTIVE_STATUSES:
+            return
+        entry["status"] = status
+        if status in _PRIORITY_HISTORY_STATUSES:
+            already_recorded = any(
+                hist.get("id") == priority_id for hist in self._priority_history
+            )
+            if not already_recorded:
+                record: dict[str, str] = {
+                    "id": entry["id"],
+                    "text": entry["text"],
+                    "status": status,
+                    "completed_at": self._now().isoformat(),
+                }
+                self._priority_history.append(record)
+        self._save_priority_backlog()
+        extra: dict[str, object] = {"status": status}
+        if reason:
+            extra["reason"] = reason
+        event_type = "architect_priority_done"
+        priority_level = "info"
+        if status != "done":
+            event_type = "architect_priority_discarded"
+            priority_level = "warning"
+        self._emit_priority_event(
+            event_type,
+            entry,
+            cycle=cycle,
+            priority_level=priority_level,
+            extra=extra,
+        )
+
     def _is_in_cooldown(self, timestamp: float | None = None) -> bool:
         if self._cooldown_until <= 0:
             return False
@@ -574,6 +803,22 @@ class ArchitectDaemon:
         return expansions[-limit:]
 
     def _draft_cycle_request(self, cycle_number: int) -> ArchitectRequest:
+        priority_entry = self._select_backlog_priority(cycle_number)
+        if priority_entry is not None:
+            text = priority_entry.get("text", "").strip()
+            description = f"Backlog priority: {text}" if text else "Backlog priority"
+            details = {
+                "description": description,
+                "cycle_number": cycle_number,
+                "trigger": "scheduled",
+                "throttled": self._throttled,
+                "priority_id": priority_entry.get("id", ""),
+                "priority_text": text,
+                "priority_status": priority_entry.get("status", "in_progress"),
+                "priority_origin": "reflection_backlog",
+            }
+            return self._create_request("expand", description, None, details)
+
         description = f"Scheduled Codex cycle {cycle_number:04d}"
         details = {
             "description": description,
@@ -1406,6 +1651,17 @@ class ArchitectDaemon:
             self._record_success()
         else:
             self._record_failure()
+        priority_id = request.details.get("priority_id")
+        cycle_number = int(request.cycle_number or 0)
+        if isinstance(priority_id, str) and priority_id:
+            status_value = "done" if merged else "discarded"
+            reason_value = None if merged else "merge_failed"
+            self._finalize_priority(
+                priority_id,
+                status=status_value,
+                cycle=cycle_number,
+                reason=reason_value,
+            )
         self._prefix_index.pop(request.codex_prefix, None)
 
     def _finalize_reflection(
@@ -1426,6 +1682,34 @@ class ArchitectDaemon:
         cycle_range = {"start": window_start, "end": window_end}
         rel_path = path.as_posix().lstrip("/")
         completed_at = self._now().isoformat()
+
+        created_priorities = self._register_reflection_priorities(next_priorities)
+        if created_priorities:
+            priority_ids = [entry["id"] for entry in created_priorities]
+            priority_texts = [entry["text"] for entry in created_priorities]
+            self._emit_ledger_event(
+                {
+                    "event": "architect_priorities_parsed",
+                    "reflection_path": rel_path,
+                    "count": len(created_priorities),
+                    "priority_ids": list(priority_ids),
+                    "priorities": list(priority_texts),
+                }
+            )
+            self._publish_pulse(
+                {
+                    "timestamp": completed_at,
+                    "source_daemon": "ArchitectDaemon",
+                    "event_type": "architect_priorities_parsed",
+                    "priority": "info",
+                    "payload": {
+                        "reflection_path": path.as_posix(),
+                        "count": len(created_priorities),
+                        "priority_ids": list(priority_ids),
+                        "priorities": list(priority_texts),
+                    },
+                }
+            )
 
         request.status = "completed"
         request.last_error = None
@@ -1594,7 +1878,7 @@ class ArchitectDaemon:
         failures = _normalize_list("failures")
         regressions = _normalize_list("regressions")
         priorities = _normalize_list("next_priorities")
-        if None in {successes, failures, regressions, priorities}:
+        if any(value is None for value in (successes, failures, regressions, priorities)):
             return None, "invalid_list_field"
 
         normalized: dict[str, object] = {
@@ -1632,6 +1916,15 @@ class ArchitectDaemon:
                 }
             )
             self._record_failure()
+            priority_id = request.details.get("priority_id")
+            cycle_number = int(request.cycle_number or 0)
+            if isinstance(priority_id, str) and priority_id:
+                self._finalize_priority(
+                    priority_id,
+                    status="discarded",
+                    cycle=cycle_number,
+                    reason=reason or "max_iterations",
+                )
             self._prefix_index.pop(request.codex_prefix, None)
             return
         self._update_cycle_entry(
@@ -1918,7 +2211,7 @@ class ArchitectDaemon:
         event_type = event.get("event_type")
         if not isinstance(source, str) or not isinstance(event_type, str):
             return None
-        normalized = {
+        normalized: dict[str, object] = {
             "timestamp": str(event.get("timestamp", self._now().isoformat())),
             "source": source,
             "event_type": event_type,
