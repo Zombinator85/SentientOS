@@ -102,6 +102,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_iterations",
         "tests.test_manifest_reconciliation",
         "tests.test_expand_mode",
+        "tests.test_architect_integration",
     }
     for item in items:
         if (
