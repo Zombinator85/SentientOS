@@ -261,7 +261,9 @@ def test_reflection_cycle_emitted_every_frequency(
             assert request.mode == "reflect"
             assert request.prompt_path is not None
             assert reflections_dir in request.prompt_path.parents
-            assert any(evt["event"] == "architect_reflection" for evt in ledger_events)
+            assert any(
+                evt["event"] == "architect_reflection_start" for evt in ledger_events
+            )
 
 
 def test_monitor_anomalies_trigger_throttling(
@@ -357,6 +359,13 @@ def test_shell_dashboard_reports_architect_status(
     assert architect_panel["throttled"] is True
     assert architect_panel["autonomy_enabled"] is True
     assert architect_panel["last_reflection_summary"] == "All cycles healthy"
+    reflections_panel = snapshot["reflections"]
+    assert reflections_panel["latest"]["summary"] == "All cycles healthy"
+
+    export_target = tmp_path / "shared"
+    exported = shell.dashboard.export_latest_reflection(export_target)
+    assert exported.exists()
+    assert json.loads(exported.read_text(encoding="utf-8"))["summary"] == "All cycles healthy"
 
     run_event = shell.run_architect_now()
     assert run_event["event_type"] == "architect_run_now"
