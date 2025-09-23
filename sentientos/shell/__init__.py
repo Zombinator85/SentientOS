@@ -547,6 +547,84 @@ class LumosDashboard:
             "auto_apply_federated": snapshot.get("auto_apply_federated", False),
         }
 
+    def _load_architect_panel(self) -> dict[str, object]:
+        try:
+            from architect_daemon import (
+                ARCHITECT_REFLECTION_DIR,
+                load_architect_status,
+            )
+        except Exception:
+            return {}
+
+        status = load_architect_status()
+        cooldown = status.get("cooldown", {})
+        if not isinstance(cooldown, Mapping):
+            cooldown = {}
+        cooldown_payload = {
+            "active": bool(status.get("cooldown_active")),
+            "until": status.get("cooldown_until_iso", ""),
+            "failure_streak": status.get("failure_streak", 0),
+        }
+        summary = self._extract_reflection_summary(status, ARCHITECT_REFLECTION_DIR)
+        return {
+            "next_cycle": status.get("next_cycle_iso", ""),
+            "cooldown": cooldown_payload,
+            "autonomy_enabled": bool(status.get("autonomy_enabled", False)),
+            "last_reflection_summary": summary,
+            "throttled": bool(
+                status.get("throttled", status.get("architect_throttled", False))
+            ),
+            "cycle_count": status.get("cycle_count", 0),
+        }
+
+    def _extract_reflection_summary(
+        self, status: Mapping[str, object], reflection_dir: Path
+    ) -> object:
+        summary_value = status.get("last_reflection_summary")
+        if isinstance(summary_value, str) and summary_value.strip():
+            return summary_value
+        candidates: list[Path] = []
+        seen: set[Path] = set()
+
+        path_value = status.get("last_reflection_path")
+        if isinstance(path_value, str) and path_value.strip():
+            candidate = Path("/") / path_value
+            if candidate.suffix != ".json":
+                json_candidate = candidate.with_suffix(".json")
+                if json_candidate.exists():
+                    candidate = json_candidate
+            if candidate.exists():
+                seen.add(candidate)
+                candidates.append(candidate)
+
+        if reflection_dir.exists():
+            try:
+                files = sorted(
+                    reflection_dir.glob("*.json"),
+                    key=lambda path: path.stat().st_mtime,
+                    reverse=True,
+                )
+            except OSError:
+                files = []
+            for path in files:
+                if path in seen:
+                    continue
+                candidates.append(path)
+                seen.add(path)
+
+        for candidate in candidates:
+            try:
+                data = json.loads(candidate.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(data, Mapping):
+                continue
+            for key in ("summary", "analysis", "overview"):
+                value = data.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value
+        return None
+
     def refresh(self) -> dict[str, object]:
         health = self._load_metrics()
         ledger = self._load_ledger()
@@ -562,18 +640,23 @@ class LumosDashboard:
             )
         else:
             missing = 0
+        architect = self._load_architect_panel()
         dashboard = {
             "health": health,
             "ledger": ledger[-10:],
             "veil_requests": veil_requests,
             "federation": federation,
             "drivers": drivers,
+            "architect": architect,
         }
         self._logger.record(
             "lumos_dashboard_refresh",
             {
                 "veil_pending": len(veil_requests),
                 "drivers_missing": missing,
+                "architect_cooldown_active": bool(
+                    architect.get("cooldown", {}).get("active", False)
+                ),
             },
         )
         return dashboard
@@ -603,6 +686,22 @@ class LumosDashboard:
         self._ledger_cache.clear()
         self._logger.record("veil_rejected_via_dashboard", {"patch_id": patch_id})
         return result
+
+    def run_architect_now(self) -> dict[str, object]:
+        return self._dashboard.run_architect_now()
+
+    def reset_architect_cooldown(self) -> dict[str, object]:
+        return self._dashboard.reset_architect_cooldown()
+
+    def run_architect_now(self) -> dict[str, object]:
+        return self._logger.record(
+            "architect_run_now", {"requested_via": "dashboard"}
+        )
+
+    def reset_architect_cooldown(self) -> dict[str, object]:
+        return self._logger.record(
+            "architect_reset_cooldown", {"requested_via": "dashboard"}
+        )
 
 
 class SentientShell:
