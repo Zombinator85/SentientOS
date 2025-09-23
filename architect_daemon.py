@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import json
 import os
+import re
 import subprocess
 from collections import deque
 from pathlib import Path
@@ -60,6 +61,10 @@ ARCHITECT_FEDERATE_REFLECTIONS = (
     os.getenv("ARCHITECT_FEDERATE_REFLECTIONS", "0").strip().lower()
     not in {"0", "false", "no", "off"}
 )
+ARCHITECT_FEDERATE_PRIORITIES = (
+    os.getenv("ARCHITECT_FEDERATE_PRIORITIES", "0").strip().lower()
+    not in {"0", "false", "no", "off"}
+)
 ARCHITECT_PRIORITY_BACKLOG_PATH = Path(
     os.getenv(
         "ARCHITECT_PRIORITY_BACKLOG",
@@ -94,6 +99,14 @@ def _utcnow() -> datetime:
 def _sanitize_token(text: str) -> str:
     token = text.strip() or "request"
     return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in token)
+
+
+_PRIORITY_CANONICAL_PATTERN = re.compile(r"[^a-z0-9]+")
+
+
+def _canonicalize_priority_text(text: str) -> str:
+    normalized = _PRIORITY_CANONICAL_PATTERN.sub("", text.strip().lower())
+    return normalized or text.strip().lower()
 
 
 def _normalize_mapping(value: Mapping[str, object]) -> dict[str, object]:
@@ -244,17 +257,26 @@ class ArchitectDaemon:
         if not self._priority_path.is_absolute():
             self._priority_path = self._reflection_dir / self._priority_path
         self._priority_path.parent.mkdir(parents=True, exist_ok=True)
+        self._peer_backlog_dir = self._reflection_dir / "peer_backlogs"
+        self._peer_backlog_dir.mkdir(parents=True, exist_ok=True)
         (
             self._priority_active,
             self._priority_history,
             self._priority_updated,
             priority_dirty,
+            federated_entries,
         ) = self._load_priority_backlog()
         self._priority_index = {
             entry["id"]: entry for entry in self._priority_active if "id" in entry
         }
+        self._federated_priorities: dict[str, dict[str, object]] = {}
+        self._federated_index: dict[str, dict[str, object]] = {}
+        self._peer_backlog_entries: dict[str, dict[str, dict[str, object]]] = {}
+        self._federated_conflicts_reported: set[str] = set()
+        self._hydrate_federated_state(federated_entries)
+        self._local_pending_snapshot = self._pending_snapshot()
         if priority_dirty:
-            self._save_priority_backlog()
+            self._save_priority_backlog(share=False)
 
         self._requests: dict[str, ArchitectRequest] = {}
         self._prefix_index: dict[str, ArchitectRequest] = {}
@@ -275,6 +297,7 @@ class ArchitectDaemon:
         self._last_reflection_path: str | None = None
         self._last_reflection_summary: str | None = None
         self._federate_reflections = bool(ARCHITECT_FEDERATE_REFLECTIONS)
+        self._federate_priorities = bool(ARCHITECT_FEDERATE_PRIORITIES)
 
         self._session = self._load_session()
         self._hydrate_session_state()
@@ -495,16 +518,22 @@ class ArchitectDaemon:
     # Priority backlog management
     def _load_priority_backlog(
         self,
-    ) -> tuple[list[dict[str, str]], list[dict[str, str]], str, bool]:
+    ) -> tuple[
+        list[dict[str, str]],
+        list[dict[str, str]],
+        str,
+        bool,
+        list[dict[str, object]],
+    ]:
         timestamp = self._now().isoformat()
         if not self._priority_path.exists():
-            return [], [], timestamp, True
+            return [], [], timestamp, True, []
         try:
             raw = json.loads(self._priority_path.read_text(encoding="utf-8"))
         except Exception:
-            return [], [], timestamp, True
+            return [], [], timestamp, True, []
         if not isinstance(raw, Mapping):
-            return [], [], timestamp, True
+            return [], [], timestamp, True, []
 
         updated = str(raw.get("updated", timestamp))
         dirty = False
@@ -557,21 +586,224 @@ class ArchitectDaemon:
                 history_list.append(entry)
                 seen.add(priority_id)
 
-        return active_list, history_list, updated, dirty
+        federated_entries: list[dict[str, object]] = []
+        raw_federated = raw.get("federated")
+        if isinstance(raw_federated, Sequence):
+            for item in raw_federated:
+                if not isinstance(item, Mapping):
+                    continue
+                entry_id = str(item.get("id", "")).strip()
+                text = str(item.get("text", "")).strip()
+                if not entry_id or not text:
+                    continue
+                canonical = str(
+                    item.get("canonical", _canonicalize_priority_text(text))
+                ).strip()
+                origin_peers_raw = item.get("origin_peers")
+                origin_peers: list[str] = []
+                if isinstance(origin_peers_raw, Sequence):
+                    for peer in origin_peers_raw:
+                        peer_name = str(peer).strip()
+                        if peer_name:
+                            origin_peers.append(peer_name)
+                variants: list[dict[str, object]] = []
+                raw_variants = item.get("variants")
+                if isinstance(raw_variants, Sequence):
+                    for variant in raw_variants:
+                        if not isinstance(variant, Mapping):
+                            continue
+                        peer_name = str(variant.get("peer", "")).strip()
+                        variant_text = str(variant.get("text", "")).strip()
+                        if not peer_name or not variant_text:
+                            continue
+                        variant_entry: dict[str, object] = {
+                            "peer": peer_name,
+                            "text": variant_text,
+                        }
+                        received_at = variant.get("received_at")
+                        if isinstance(received_at, str) and received_at.strip():
+                            variant_entry["received_at"] = received_at.strip()
+                        verified = variant.get("signature_verified")
+                        if isinstance(verified, bool):
+                            variant_entry["signature_verified"] = verified
+                        elif isinstance(verified, (int, float)):
+                            variant_entry["signature_verified"] = bool(verified)
+                        variants.append(variant_entry)
+                entry: dict[str, object] = {
+                    "id": entry_id,
+                    "text": text,
+                    "canonical": canonical or _canonicalize_priority_text(text),
+                    "origin_peers": sorted({peer for peer in origin_peers}),
+                    "conflict": bool(item.get("conflict", False)),
+                    "status": str(item.get("status", "pending") or "pending"),
+                    "variants": variants,
+                }
+                if item.get("merged"):
+                    entry["merged"] = True
+                    merged_at = str(item.get("merged_at", "")).strip()
+                    if merged_at:
+                        entry["merged_at"] = merged_at
+                    merged_priority = str(item.get("merged_priority_id", "")).strip()
+                    if merged_priority:
+                        entry["merged_priority_id"] = merged_priority
+                federated_entries.append(entry)
 
-    def _save_priority_backlog(self) -> None:
+        return active_list, history_list, updated, dirty, federated_entries
+
+    def _save_priority_backlog(self, *, share: bool = True) -> None:
         self._priority_updated = self._now().isoformat()
         payload = {
             "updated": self._priority_updated,
             "active": [dict(item) for item in self._priority_active],
             "history": [dict(item) for item in self._priority_history],
         }
+        federated_payload = self._serialize_federated_entries()
+        payload["federated"] = federated_payload
+        conflicts_payload = [
+            entry for entry in federated_payload if entry.get("conflict")
+        ]
+        payload["conflicts"] = conflicts_payload
         try:
             self._priority_path.write_text(
                 json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
             )
         except Exception:
             pass
+
+        current_snapshot = self._pending_snapshot()
+        diff = self._compute_pending_diff(self._local_pending_snapshot, current_snapshot)
+        self._local_pending_snapshot = current_snapshot
+        if share and self._federate_priorities:
+            self._share_backlog(diff, current_snapshot)
+
+    def _serialize_federated_entries(self) -> list[dict[str, object]]:
+        entries: list[dict[str, object]] = []
+        for canonical, entry in sorted(self._federated_priorities.items()):
+            text = str(entry.get("text", "")).strip()
+            serialized: dict[str, object] = {
+                "id": str(entry.get("id", "")).strip(),
+                "text": text,
+                "canonical": entry.get("canonical", canonical),
+                "origin_peers": sorted({
+                    str(peer).strip() for peer in entry.get("origin_peers", []) if str(peer).strip()
+                }),
+                "conflict": bool(entry.get("conflict", False)),
+                "status": str(entry.get("status", "pending") or "pending"),
+            }
+            if not serialized["id"]:
+                serialized["id"] = str(uuid4())
+            if entry.get("merged"):
+                serialized["merged"] = True
+                merged_at = entry.get("merged_at")
+                if isinstance(merged_at, str) and merged_at.strip():
+                    serialized["merged_at"] = merged_at.strip()
+                merged_priority = entry.get("merged_priority_id")
+                if isinstance(merged_priority, str) and merged_priority.strip():
+                    serialized["merged_priority_id"] = merged_priority.strip()
+            variants_payload: list[dict[str, object]] = []
+            for variant in entry.get("variants", []):
+                if not isinstance(variant, Mapping):
+                    continue
+                peer = str(variant.get("peer", "")).strip()
+                variant_text = str(variant.get("text", "")).strip()
+                if not peer or not variant_text:
+                    continue
+                variant_entry: dict[str, object] = {"peer": peer, "text": variant_text}
+                received_at = variant.get("received_at")
+                if isinstance(received_at, str) and received_at.strip():
+                    variant_entry["received_at"] = received_at.strip()
+                if "signature_verified" in variant:
+                    variant_entry["signature_verified"] = bool(
+                        variant.get("signature_verified")
+                    )
+                variants_payload.append(variant_entry)
+            variants_payload.sort(key=lambda item: item.get("peer", ""))
+            serialized["variants"] = variants_payload
+            entries.append(serialized)
+        entries.sort(key=lambda item: str(item.get("text", "")).lower())
+        return entries
+
+    def _pending_snapshot(self) -> dict[str, dict[str, object]]:
+        snapshot: dict[str, dict[str, object]] = {}
+        for entry in self._priority_active:
+            priority_id = str(entry.get("id", "")).strip()
+            if not priority_id:
+                continue
+            status = str(entry.get("status", "pending")).strip().lower()
+            if status != "pending":
+                continue
+            snapshot[priority_id] = {
+                "id": priority_id,
+                "text": str(entry.get("text", "")).strip(),
+                "status": status,
+            }
+        return snapshot
+
+    def _compute_pending_diff(
+        self,
+        previous: Mapping[str, Mapping[str, object]] | None,
+        current: Mapping[str, Mapping[str, object]] | None,
+    ) -> dict[str, list[dict[str, object]]]:
+        prev = previous or {}
+        curr = current or {}
+        diff: dict[str, list[dict[str, object]]] = {
+            "added": [],
+            "removed": [],
+            "updated": [],
+        }
+        for priority_id, entry in curr.items():
+            if priority_id not in prev:
+                diff["added"].append(dict(entry))
+                continue
+            prev_entry = prev[priority_id]
+            if (
+                str(prev_entry.get("text", "")).strip()
+                != str(entry.get("text", "")).strip()
+            ) or (
+                str(prev_entry.get("status", "")).strip()
+                != str(entry.get("status", "")).strip()
+            ):
+                diff["updated"].append(dict(entry))
+        for priority_id, entry in prev.items():
+            if priority_id not in curr:
+                diff["removed"].append(dict(entry))
+        return diff
+
+    def _share_backlog(
+        self,
+        diff: Mapping[str, Sequence[Mapping[str, object]]],
+        snapshot: Mapping[str, Mapping[str, object]],
+    ) -> None:
+        if not any(diff.get(key) for key in ("added", "removed", "updated")):
+            return
+        source_peer = self._federation_peer_name or "local"
+        payload_diff = {
+            key: [dict(item) for item in diff.get(key, [])]
+            for key in ("added", "removed", "updated")
+        }
+        pending_payload = [dict(item) for item in snapshot.values()]
+        event_timestamp = self._now().isoformat()
+        ledger_payload = {
+            "event": "architect_backlog_shared",
+            "source_peer": source_peer,
+            "diff": payload_diff,
+            "pending_count": len(pending_payload),
+            "updated": self._priority_updated,
+        }
+        self._emit_ledger_event(ledger_payload)
+        pulse_payload = {
+            "timestamp": event_timestamp,
+            "source_daemon": "ArchitectDaemon",
+            "event_type": "architect_backlog_shared",
+            "priority": "info",
+            "payload": {
+                "diff": payload_diff,
+                "pending": pending_payload,
+                "updated": self._priority_updated,
+            },
+            "source_peer": source_peer,
+        }
+        self._publish_pulse(pulse_payload)
 
     def _register_reflection_priorities(
         self, priorities: Sequence[str]
@@ -589,6 +821,409 @@ class ArchitectDaemon:
         if created:
             self._save_priority_backlog()
         return created
+
+    # ------------------------------------------------------------------
+    # Federated backlog helpers
+    def _hydrate_federated_state(
+        self, entries: Sequence[Mapping[str, object]]
+    ) -> None:
+        self._federated_priorities.clear()
+        self._federated_index.clear()
+        self._peer_backlog_entries.clear()
+        self._federated_conflicts_reported = set()
+        for item in entries:
+            if not isinstance(item, Mapping):
+                continue
+            text = str(item.get("text", "")).strip()
+            canonical = str(
+                item.get("canonical", _canonicalize_priority_text(text))
+            ).strip()
+            if not canonical:
+                canonical = _canonicalize_priority_text(text)
+            entry_id = str(item.get("id", "")).strip() or str(uuid4())
+            origin_peers_raw = item.get("origin_peers", [])
+            origin_peers = [
+                str(peer).strip()
+                for peer in origin_peers_raw
+                if isinstance(peer, (str, bytes)) and str(peer).strip()
+            ]
+            entry: dict[str, object] = {
+                "id": entry_id,
+                "text": text,
+                "canonical": canonical,
+                "origin_peers": sorted({peer for peer in origin_peers}),
+                "conflict": bool(item.get("conflict", False)),
+                "status": str(item.get("status", "pending") or "pending"),
+                "variants": [],
+                "_peer_map": {},
+            }
+            if item.get("merged"):
+                entry["merged"] = True
+                merged_at = str(item.get("merged_at", "")).strip()
+                if merged_at:
+                    entry["merged_at"] = merged_at
+                merged_priority_id = str(item.get("merged_priority_id", "")).strip()
+                if merged_priority_id:
+                    entry["merged_priority_id"] = merged_priority_id
+            variants_raw = item.get("variants")
+            if isinstance(variants_raw, Sequence):
+                for variant in variants_raw:
+                    if not isinstance(variant, Mapping):
+                        continue
+                    peer = str(variant.get("peer", "")).strip()
+                    variant_text = str(variant.get("text", "")).strip()
+                    if not peer or not variant_text:
+                        continue
+                    variant_entry: dict[str, object] = {
+                        "peer": peer,
+                        "text": variant_text,
+                    }
+                    received_at = variant.get("received_at")
+                    if isinstance(received_at, str) and received_at.strip():
+                        variant_entry["received_at"] = received_at.strip()
+                    if "signature_verified" in variant:
+                        variant_entry["signature_verified"] = bool(
+                            variant.get("signature_verified")
+                        )
+                    entry["variants"].append(variant_entry)
+                    entry["_peer_map"][peer] = variant_text
+                    peer_entries = self._peer_backlog_entries.setdefault(peer, {})
+                    canonical_variant = _canonicalize_priority_text(variant_text)
+                    peer_entries[canonical_variant] = {
+                        "peer": peer,
+                        "text": variant_text,
+                        "canonical": canonical_variant,
+                        "received_at": variant_entry.get("received_at", ""),
+                        "signature_verified": bool(
+                            variant_entry.get("signature_verified", False)
+                        ),
+                    }
+            entry["variants"].sort(key=lambda data: data.get("peer", ""))
+            self._federated_priorities[canonical] = entry
+            self._federated_index[entry_id] = entry
+            if entry.get("conflict"):
+                self._federated_conflicts_reported.add(canonical)
+
+    def _create_federated_entry(self, canonical: str, text: str) -> dict[str, object]:
+        return {
+            "id": str(uuid4()),
+            "text": text,
+            "canonical": canonical,
+            "origin_peers": [],
+            "variants": [],
+            "conflict": False,
+            "status": "pending",
+            "_peer_map": {},
+        }
+
+    def _clone_federated_entry(self, entry: Mapping[str, object]) -> dict[str, object]:
+        text = str(entry.get("text", "")).strip()
+        canonical = str(
+            entry.get("canonical", _canonicalize_priority_text(text))
+        ).strip()
+        cloned = {
+            "id": str(entry.get("id", "")).strip() or str(uuid4()),
+            "text": text,
+            "canonical": canonical or _canonicalize_priority_text(text),
+            "origin_peers": [],
+            "variants": [],
+            "conflict": False,
+            "status": str(entry.get("status", "pending") or "pending"),
+            "_peer_map": {},
+        }
+        if entry.get("merged"):
+            cloned["merged"] = True
+            merged_at = entry.get("merged_at")
+            if isinstance(merged_at, str) and merged_at.strip():
+                cloned["merged_at"] = merged_at.strip()
+            merged_priority_id = entry.get("merged_priority_id")
+            if isinstance(merged_priority_id, str) and merged_priority_id.strip():
+                cloned["merged_priority_id"] = merged_priority_id.strip()
+        return cloned
+
+    def _apply_peer_variant(
+        self, entry: dict[str, object], peer: str, variant: Mapping[str, object]
+    ) -> None:
+        text = str(variant.get("text", "")).strip()
+        if not text:
+            return
+        canonical = str(
+            variant.get("canonical", _canonicalize_priority_text(text))
+        ).strip()
+        received_at = str(variant.get("received_at", "")).strip()
+        verified = bool(variant.get("signature_verified", False))
+        peer_map = entry.setdefault("_peer_map", {})
+        peer_map[peer] = text
+        origin_peers = entry.setdefault("origin_peers", [])
+        if peer not in origin_peers:
+            origin_peers.append(peer)
+        variants = entry.setdefault("variants", [])
+        existing_variant: dict[str, object] | None = None
+        for payload in variants:
+            if isinstance(payload, Mapping) and payload.get("peer") == peer:
+                existing_variant = payload  # type: ignore[assignment]
+                break
+        if existing_variant is None:
+            new_variant: dict[str, object] = {"peer": peer, "text": text}
+            if received_at:
+                new_variant["received_at"] = received_at
+            if "signature_verified" in variant:
+                new_variant["signature_verified"] = verified
+            variants.append(new_variant)
+        else:
+            existing_variant["text"] = text
+            if received_at:
+                existing_variant["received_at"] = received_at
+            if "signature_verified" in variant:
+                existing_variant["signature_verified"] = verified
+        if not entry.get("text"):
+            entry["text"] = text
+        else:
+            if (
+                str(entry.get("text", "")).strip() != text
+                and _canonicalize_priority_text(str(entry.get("text", "")))
+                == canonical
+            ):
+                entry["conflict"] = True
+        entry["status"] = str(entry.get("status", "pending") or "pending")
+
+    def _update_peer_backlog_entries(
+        self,
+        peer: str,
+        entries: Sequence[Mapping[str, object]] | Sequence[object],
+        timestamp: str,
+        verified: bool,
+    ) -> None:
+        normalized: dict[str, dict[str, object]] = {}
+        for item in entries:
+            if isinstance(item, Mapping):
+                text = str(item.get("text", "")).strip()
+            else:
+                text = str(item).strip()
+            if not text:
+                continue
+            canonical = _canonicalize_priority_text(text)
+            normalized[canonical] = {
+                "peer": peer,
+                "text": text,
+                "canonical": canonical,
+                "received_at": timestamp,
+                "signature_verified": bool(verified),
+            }
+        self._peer_backlog_entries[peer] = normalized
+
+    def _reconcile_federated_priorities(self) -> None:
+        previous_conflicts = set(self._federated_conflicts_reported)
+        new_priorities: dict[str, dict[str, object]] = {}
+        for peer, entries in self._peer_backlog_entries.items():
+            for canonical, variant in entries.items():
+                text = str(variant.get("text", "")).strip()
+                if not text:
+                    continue
+                entry = new_priorities.get(canonical)
+                if entry is None:
+                    existing = self._federated_priorities.get(canonical)
+                    entry = (
+                        self._clone_federated_entry(existing)
+                        if existing is not None
+                        else self._create_federated_entry(canonical, text)
+                    )
+                    new_priorities[canonical] = entry
+                self._apply_peer_variant(entry, peer, variant)
+        new_conflicts: set[str] = set()
+        for canonical, entry in new_priorities.items():
+            entry["origin_peers"] = sorted(set(entry.get("origin_peers", [])))
+            variants = entry.get("variants", [])
+            if isinstance(variants, list):
+                variants.sort(key=lambda data: data.get("peer", ""))
+            if entry.get("conflict"):
+                new_conflicts.add(canonical)
+                if canonical not in previous_conflicts:
+                    self._emit_backlog_conflict(entry)
+        self._federated_conflicts_reported = new_conflicts
+        self._federated_priorities = new_priorities
+        self._federated_index = {
+            entry["id"]: entry for entry in new_priorities.values() if entry.get("id")
+        }
+
+    def _emit_backlog_conflict(self, entry: Mapping[str, object]) -> None:
+        payload = {
+            "event": "architect_backlog_conflict",
+            "federated_id": entry.get("id"),
+            "text": entry.get("text"),
+            "origin_peers": list(entry.get("origin_peers", [])),
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_backlog_conflict",
+                "priority": "warning",
+                "payload": {
+                    "federated_id": entry.get("id"),
+                    "text": entry.get("text"),
+                    "origin_peers": list(entry.get("origin_peers", [])),
+                },
+            }
+        )
+
+    def _store_peer_backlog(
+        self,
+        peer: str,
+        entries: Sequence[Mapping[str, object]] | Sequence[object],
+        diff: Mapping[str, object] | None,
+        *,
+        verified: bool,
+        event_timestamp: str,
+    ) -> Path:
+        filename = _sanitize_token(peer or "peer") or "peer"
+        path = self._peer_backlog_dir / f"{filename}.json"
+        update_entry: dict[str, object] = {
+            "source_peer": peer,
+            "received_at": self._now().isoformat(),
+            "event_timestamp": event_timestamp,
+            "signature_verified": bool(verified),
+            "pending": [
+                {"text": str(item.get("text", "")) if isinstance(item, Mapping) else str(item)}
+                for item in entries
+            ],
+        }
+        if diff:
+            update_entry["diff"] = _normalize_mapping(diff)
+        payload: dict[str, object] = {"peer": peer, "updates": []}
+        if path.exists():
+            try:
+                existing = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(existing, Mapping):
+                    for key, value in existing.items():
+                        if key == "updates" and isinstance(value, list):
+                            payload["updates"] = list(value)
+                        elif key != "updates":
+                            payload[key] = value
+            except Exception:
+                payload = {"peer": peer, "updates": []}
+        updates_list = payload.setdefault("updates", [])
+        if isinstance(updates_list, list):
+            updates_list.append(update_entry)
+        else:
+            payload["updates"] = [update_entry]
+        payload["latest_pending"] = update_entry["pending"]
+        payload["last_received_at"] = update_entry["received_at"]
+        payload["signature_verified"] = bool(verified)
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        return path
+
+    def _emit_backlog_received(
+        self,
+        peer: str,
+        entries: Sequence[Mapping[str, object]] | Sequence[object],
+        diff: Mapping[str, object] | None,
+        verified: bool,
+        stored_path: Path,
+    ) -> None:
+        ledger_payload = {
+            "event": "architect_backlog_received",
+            "peer": peer,
+            "count": len(entries),
+            "signature_verified": bool(verified),
+            "path": stored_path.as_posix().lstrip("/"),
+        }
+        if diff:
+            ledger_payload["diff"] = _normalize_mapping(diff)
+        self._emit_ledger_event(ledger_payload)
+        pulse_payload = {
+            "timestamp": self._now().isoformat(),
+            "source_daemon": "ArchitectDaemon",
+            "event_type": "architect_backlog_received",
+            "priority": "info" if verified else "warning",
+            "payload": {
+                "peer": peer,
+                "count": len(entries),
+                "signature_verified": bool(verified),
+                "path": stored_path.as_posix(),
+                "diff": _normalize_mapping(diff) if diff else {},
+            },
+        }
+        self._publish_pulse(pulse_payload)
+
+    def _emit_backlog_invalid(self, peer: str) -> None:
+        payload = {
+            "event": "architect_backlog_invalid",
+            "peer": peer,
+            "reason": "invalid_signature",
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_backlog_invalid",
+                "priority": "warning",
+                "payload": {"peer": peer, "reason": "invalid_signature"},
+            }
+        )
+
+    def _extract_remote_priorities(
+        self, payload: Mapping[str, object]
+    ) -> list[dict[str, object]]:
+        candidates: list[dict[str, object]] = []
+        pending = payload.get("pending") or payload.get("active")
+        if isinstance(pending, Sequence):
+            for item in pending:
+                if isinstance(item, Mapping):
+                    text = str(item.get("text", "")).strip()
+                    status = str(item.get("status", "pending")).strip().lower()
+                else:
+                    text = str(item).strip()
+                    status = "pending"
+                if not text:
+                    continue
+                if status not in {"pending", "in_progress", ""}:
+                    continue
+                candidates.append({"text": text})
+        return candidates
+
+    def merge_federated_priority(
+        self, federated_id: str
+    ) -> dict[str, str] | None:
+        entry = self._federated_index.get(federated_id)
+        if not entry:
+            return None
+        text = str(entry.get("text", "")).strip()
+        if not text:
+            return None
+        priority_id = str(uuid4())
+        local_entry = {"id": priority_id, "text": text, "status": "pending"}
+        self._priority_active.append(local_entry)
+        self._priority_index[priority_id] = local_entry
+        entry["merged"] = True
+        entry["merged_at"] = self._now().isoformat()
+        entry["merged_priority_id"] = priority_id
+        self._save_priority_backlog()
+        ledger_payload = {
+            "event": "architect_backlog_merged",
+            "federated_id": federated_id,
+            "priority_id": priority_id,
+            "text": text,
+            "origin_peers": list(entry.get("origin_peers", [])),
+        }
+        self._emit_ledger_event(ledger_payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_backlog_merged",
+                "priority": "info",
+                "payload": {
+                    "federated_id": federated_id,
+                    "priority_id": priority_id,
+                    "text": text,
+                    "origin_peers": list(entry.get("origin_peers", [])),
+                },
+            }
+        )
+        return local_entry
 
     def _emit_priority_event(
         self,
@@ -1150,6 +1785,9 @@ class ArchitectDaemon:
         federate_reflections = self._coerce_bool(
             payload.get("federate_reflections", ARCHITECT_FEDERATE_REFLECTIONS)
         )
+        federate_priorities = self._coerce_bool(
+            payload.get("federate_priorities", ARCHITECT_FEDERATE_PRIORITIES)
+        )
         return {
             "codex_mode": mode,
             "codex_interval": codex_interval,
@@ -1160,6 +1798,7 @@ class ArchitectDaemon:
             "federation_peers": tuple(peers),
             "architect_autonomy": autonomy,
             "federate_reflections": federate_reflections,
+            "federate_priorities": federate_priorities,
         }
 
     def _normalize_peers(self, raw: object) -> list[str]:
@@ -1249,6 +1888,9 @@ class ArchitectDaemon:
         self._federate_reflections = bool(
             snapshot.get("federate_reflections", ARCHITECT_FEDERATE_REFLECTIONS)
         )
+        self._federate_priorities = bool(
+            snapshot.get("federate_priorities", ARCHITECT_FEDERATE_PRIORITIES)
+        )
 
     def _current_config_summary(self) -> dict[str, object]:
         return {
@@ -1263,6 +1905,7 @@ class ArchitectDaemon:
             "architect_autonomy": self._autonomy_enabled,
             "architect_throttled": self._throttled,
             "federate_reflections": self._federate_reflections,
+            "federate_priorities": self._federate_priorities,
         }
 
     def _emit_activation_event(self, reason: str) -> None:
@@ -1396,6 +2039,9 @@ class ArchitectDaemon:
         self._context_buffer.append(normalized)
         source = normalized.get("source")
         event_type = normalized.get("event_type")
+        if event_type == "architect_backlog_shared":
+            self._handle_federated_backlog(event, normalized)
+            return
         if source == "MonitoringDaemon":
             if event_type == "monitor_alert":
                 self._handle_monitor_alert(normalized)
@@ -1411,6 +2057,45 @@ class ArchitectDaemon:
             return
         if source == "DriverManager" and event_type == "driver_failure":
             self.request_repair("driver_failure")
+
+    def _handle_federated_backlog(
+        self, event: Mapping[str, object], normalized: Mapping[str, object]
+    ) -> None:
+        if not self._federate_priorities:
+            return
+        peer = str(
+            normalized.get("source_peer")
+            or event.get("source_peer")
+            or ""
+        ).strip()
+        if not peer or peer.lower() == "local":
+            return
+        if self._federation_peer_name and peer == self._federation_peer_name:
+            return
+        try:
+            verified = bool(pulse_bus.verify(event))
+        except Exception:
+            verified = False
+        if not verified:
+            self._emit_backlog_invalid(peer)
+            return
+        payload = normalized.get("payload")
+        if not isinstance(payload, Mapping):
+            return
+        entries = self._extract_remote_priorities(payload)
+        diff = payload.get("diff") if isinstance(payload.get("diff"), Mapping) else None
+        timestamp = str(normalized.get("timestamp", self._now().isoformat()))
+        self._update_peer_backlog_entries(peer, entries, timestamp, verified)
+        stored_path = self._store_peer_backlog(
+            peer,
+            entries,
+            diff,
+            verified=verified,
+            event_timestamp=timestamp,
+        )
+        self._reconcile_federated_priorities()
+        self._save_priority_backlog(share=False)
+        self._emit_backlog_received(peer, entries, diff, verified, stored_path)
 
     def handle_ledger_entry(self, entry: Mapping[str, object]) -> None:
         if not self._active:
@@ -2219,6 +2904,9 @@ class ArchitectDaemon:
         priority = event.get("priority")
         if isinstance(priority, str):
             normalized["priority"] = priority
+        source_peer = event.get("source_peer")
+        if isinstance(source_peer, str) and source_peer:
+            normalized["source_peer"] = source_peer
         payload = event.get("payload")
         if isinstance(payload, Mapping):
             normalized["payload"] = _normalize_mapping(payload)

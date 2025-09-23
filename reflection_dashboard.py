@@ -103,8 +103,13 @@ def load_priority_backlog() -> Dict[str, Any]:
         except Exception:
             data = None
         if isinstance(data, dict):
+            data.setdefault("updated", "")
+            data.setdefault("active", [])
+            data.setdefault("history", [])
+            data.setdefault("federated", [])
+            data.setdefault("conflicts", [])
             return data
-    return {"updated": "", "active": [], "history": []}
+    return {"updated": "", "active": [], "history": [], "federated": [], "conflicts": []}
 
 
 def _last_completed_priority(history: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -259,6 +264,58 @@ def run_dashboard() -> None:
                 )
             else:
                 st.markdown("**Last completed priority:** none recorded yet.")
+
+            federated = backlog.get("federated") or []
+            st.subheader("Federated Priorities")
+            if federated:
+                federated_rows = []
+                for entry in federated:
+                    origin_peers = ", ".join(entry.get("origin_peers", []))
+                    federated_rows.append(
+                        {
+                            "text": entry.get("text", ""),
+                            "origin_peers": origin_peers,
+                            "conflict": bool(entry.get("conflict", False)),
+                            "merged": bool(entry.get("merged", False)),
+                        }
+                    )
+                fed_df = pd.DataFrame(federated_rows)
+                if not fed_df.empty:
+                    fed_df = fed_df.sort_values(["conflict", "text"], ascending=[False, True])
+                    st.dataframe(fed_df)
+                else:
+                    st.write("No federated priorities received yet.")
+            else:
+                st.write("No federated priorities received yet.")
+
+            conflicts = backlog.get("conflicts") or []
+            if conflicts:
+                st.subheader("Conflicts Requiring Review")
+                conflict_rows = []
+                for entry in conflicts:
+                    variants = entry.get("variants") or []
+                    variant_text = "; ".join(
+                        f"{variant.get('peer')}: {variant.get('text')}"
+                        for variant in variants
+                        if isinstance(variant, dict)
+                    )
+                    conflict_rows.append(
+                        {
+                            "text": entry.get("text", ""),
+                            "origin_peers": ", ".join(entry.get("origin_peers", [])),
+                            "variants": variant_text,
+                        }
+                    )
+                conflict_df = pd.DataFrame(conflict_rows)
+                if not conflict_df.empty:
+                    conflict_df = conflict_df.sort_values("text", ascending=True)
+                    st.dataframe(conflict_df)
+                st.info(
+                    "Conflicting priorities need manual confirmation."
+                    " Use the merge controls' resolve option to accept or dismiss a peer proposal."
+                )
+            else:
+                st.caption("No backlog conflicts detected across peers.")
 
             backlog_json = json.dumps(backlog, indent=2, sort_keys=True)
             st.download_button(
