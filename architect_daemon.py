@@ -45,12 +45,19 @@ ARCHITECT_COOLDOWN_PERIOD = float(
     os.getenv("ARCHITECT_COOLDOWN_PERIOD", str(24 * 60 * 60))
 )
 ARCHITECT_MAX_FAILURES = int(os.getenv("ARCHITECT_MAX_FAILURES", "3"))
-ARCHITECT_REFLECTION_FREQUENCY = int(
-    os.getenv("ARCHITECT_REFLECTION_FREQUENCY", "10")
+ARCHITECT_REFLECTION_INTERVAL = int(
+    os.getenv(
+        "ARCHITECT_REFLECTION_INTERVAL",
+        os.getenv("ARCHITECT_REFLECTION_FREQUENCY", "10"),
+    )
 )
 ARCHITECT_ANOMALY_THRESHOLD = int(os.getenv("ARCHITECT_ANOMALY_THRESHOLD", "3"))
 ARCHITECT_REFLECTION_DIR = Path(
     os.getenv("ARCHITECT_REFLECTION_DIR", "/glow/codex_reflections")
+)
+ARCHITECT_FEDERATE_REFLECTIONS = (
+    os.getenv("ARCHITECT_FEDERATE_REFLECTIONS", "0").strip().lower()
+    not in {"0", "false", "no", "off"}
 )
 
 _DEFAULT_CI_COMMANDS: tuple[tuple[str, ...], ...] = (
@@ -143,6 +150,7 @@ class ArchitectDaemon:
         ci_commands: Sequence[Sequence[str]] | None = None,
         immutability_command: Sequence[str] | None = None,
         jitter: float | None = None,
+        reflection_interval: int | None = None,
         reflection_frequency: int | None = None,
         cooldown_period: float | None = None,
         max_failures: int | None = None,
@@ -168,14 +176,14 @@ class ArchitectDaemon:
         self.max_iterations = int(self._default_max_iterations)
         self._default_jitter = float(jitter if jitter is not None else ARCHITECT_JITTER)
         self.jitter = max(0.0, self._default_jitter)
-        self._reflection_frequency = max(
-            1,
-            int(
-                reflection_frequency
-                if reflection_frequency is not None
-                else ARCHITECT_REFLECTION_FREQUENCY
-            ),
+        reflection_interval = (
+            reflection_interval
+            if reflection_interval is not None
+            else reflection_frequency
         )
+        if reflection_interval is None:
+            reflection_interval = ARCHITECT_REFLECTION_INTERVAL
+        self._reflection_interval = max(1, int(reflection_interval))
         self._cooldown_period = max(
             0.0,
             float(
@@ -235,6 +243,7 @@ class ArchitectDaemon:
         self._throttled = False
         self._last_reflection_path: str | None = None
         self._last_reflection_summary: str | None = None
+        self._federate_reflections = bool(ARCHITECT_FEDERATE_REFLECTIONS)
 
         self._session = self._load_session()
         self._hydrate_session_state()
@@ -484,7 +493,7 @@ class ArchitectDaemon:
         now_dt = timestamp or self._now()
         now_ts = now_dt.timestamp()
         cycle_number = self._cycle_counter + 1
-        is_reflection = cycle_number % self._reflection_frequency == 0
+        is_reflection = cycle_number % self._reflection_interval == 0
         if is_reflection:
             request = self._draft_reflection_cycle(cycle_number)
         else:
@@ -578,12 +587,14 @@ class ArchitectDaemon:
     def _draft_reflection_cycle(self, cycle_number: int) -> ArchitectRequest:
         topic = f"cycle_{cycle_number:04d}_reflection"
         window_start = max(1, cycle_number - 9)
+        window_end = cycle_number
         history = self._recent_cycle_history(limit=10)
         details = {
             "topic": topic,
             "cycle_number": cycle_number,
             "window_start": window_start,
-            "window_end": cycle_number,
+            "window_end": window_end,
+            "window_size": window_end - window_start + 1,
             "cycle_history": history,
         }
         request = self._create_request("reflect", topic, None, details)
@@ -595,8 +606,9 @@ class ArchitectDaemon:
         )
         self._emit_ledger_event(
             {
-                "event": "architect_reflection",
+                "event": "architect_reflection_start",
                 "cycle": cycle_number,
+                "cycle_range": {"start": window_start, "end": window_end},
                 "prompt": prompt_ref,
             }
         )
@@ -604,9 +616,13 @@ class ArchitectDaemon:
             {
                 "timestamp": self._now().isoformat(),
                 "source_daemon": "ArchitectDaemon",
-                "event_type": "architect_reflection",
+                "event_type": "architect_reflection_start",
                 "priority": "info",
-                "payload": {"cycle": cycle_number, "prompt": prompt_ref},
+                "payload": {
+                    "cycle": cycle_number,
+                    "prompt": prompt_ref,
+                    "cycle_range": {"start": window_start, "end": window_end},
+                },
             }
         )
         return request
@@ -886,6 +902,9 @@ class ArchitectDaemon:
         peers_raw = payload.get("federation_peers") or payload.get("federation_addresses")
         peers = self._normalize_peers(peers_raw)
         autonomy = self._coerce_bool(payload.get("architect_autonomy", False))
+        federate_reflections = self._coerce_bool(
+            payload.get("federate_reflections", ARCHITECT_FEDERATE_REFLECTIONS)
+        )
         return {
             "codex_mode": mode,
             "codex_interval": codex_interval,
@@ -895,6 +914,7 @@ class ArchitectDaemon:
             "federation_peer_name": peer_name,
             "federation_peers": tuple(peers),
             "architect_autonomy": autonomy,
+            "federate_reflections": federate_reflections,
         }
 
     def _normalize_peers(self, raw: object) -> list[str]:
@@ -981,6 +1001,9 @@ class ArchitectDaemon:
         else:
             self._federation_peers = ()
         self._autonomy_enabled = bool(snapshot.get("architect_autonomy", False))
+        self._federate_reflections = bool(
+            snapshot.get("federate_reflections", ARCHITECT_FEDERATE_REFLECTIONS)
+        )
 
     def _current_config_summary(self) -> dict[str, object]:
         return {
@@ -994,6 +1017,7 @@ class ArchitectDaemon:
             "federation_peers": list(self._federation_peers),
             "architect_autonomy": self._autonomy_enabled,
             "architect_throttled": self._throttled,
+            "federate_reflections": self._federate_reflections,
         }
 
     def _emit_activation_event(self, reason: str) -> None:
@@ -1174,6 +1198,10 @@ class ArchitectDaemon:
             if request:
                 reason = str(normalized.get("reason", ""))
                 self._retry_request(request, reason, normalized)
+        elif event == "self_reflection":
+            request = self._match_request(normalized.get("request_id"))
+            if request:
+                self._finalize_reflection(request, normalized)
 
     # ------------------------------------------------------------------
     # Request orchestration
@@ -1301,13 +1329,24 @@ class ArchitectDaemon:
             )
             lines.append("respecting sanctuary law and adding coverage where possible.")
         elif request.mode == "reflect":
-            lines.append("Reflection Task:")
-            lines.append(
-                "Review the last 10 cycles of Codex expansions, summarize outcomes, suggest next priorities, and identify regressions. Respond in JSON."
-            )
-            lines.append(
-                "Return a JSON object with keys: summary, next_priorities, regressions. Do not propose or apply code patches."
-            )
+            window_size = 10
+            try:
+                window_size = int(request.details.get("window_size", window_size))
+            except Exception:
+                window_size = 10
+            lines.append("Reflection Prompt:")
+            lines.append(f"Review the last {window_size} Codex cycles.")
+            lines.append("Summarize outcomes (success, failure, veil, cooldown).")
+            lines.append("Identify regressions or recurring issues.")
+            lines.append("Suggest next-step priorities.")
+            lines.append("Respond in JSON only using this schema:")
+            lines.append("{")
+            lines.append('  "summary": "string",')
+            lines.append('  "successes": ["string"],')
+            lines.append('  "failures": ["string"],')
+            lines.append('  "regressions": ["string"],')
+            lines.append('  "next_priorities": ["string"]')
+            lines.append("}")
             if isinstance(history, list) and history:
                 lines.append("")
                 lines.append("Recent Cycle Outcomes:")
@@ -1368,6 +1407,204 @@ class ArchitectDaemon:
         else:
             self._record_failure()
         self._prefix_index.pop(request.codex_prefix, None)
+
+    def _finalize_reflection(
+        self, request: ArchitectRequest, entry: Mapping[str, object]
+    ) -> None:
+        raw_output = entry.get("reflection", entry.get("output"))
+        reflection, error = self._parse_reflection_output(raw_output)
+        if reflection is None:
+            reason = error or "invalid_reflection_output"
+            self._record_reflection_failure(request, reason, raw_output)
+            return
+
+        path = self._persist_reflection(request, reflection)
+        summary = str(reflection["summary"]).strip()
+        next_priorities = list(reflection["next_priorities"])
+        window_start = int(request.details.get("window_start", request.cycle_number))
+        window_end = int(request.details.get("window_end", request.cycle_number))
+        cycle_range = {"start": window_start, "end": window_end}
+        rel_path = path.as_posix().lstrip("/")
+        completed_at = self._now().isoformat()
+
+        request.status = "completed"
+        request.last_error = None
+        self._last_reflection_summary = summary
+        self._last_reflection_path = rel_path
+        self._update_cycle_entry(
+            request.architect_id,
+            status="completed",
+            result="recorded",
+            completed_at=completed_at,
+            summary=summary,
+            reflection_path=rel_path,
+            next_priorities=list(next_priorities),
+        )
+
+        ledger_payload = {
+            "event": "architect_reflection",
+            "architect_id": request.architect_id,
+            "cycle": request.cycle_number,
+            "cycle_range": dict(cycle_range),
+            "file": rel_path,
+            "summary": summary,
+            "next_priorities": list(next_priorities),
+            "successes": list(reflection["successes"]),
+            "failures": list(reflection["failures"]),
+            "regressions": list(reflection["regressions"]),
+            "federated": self._federate_reflections,
+        }
+        self._emit_ledger_event(ledger_payload)
+
+        pulse_payload: dict[str, object] = {
+            "cycle": request.cycle_number,
+            "cycle_range": dict(cycle_range),
+            "summary": summary,
+            "next_priorities": list(next_priorities),
+            "successes": list(reflection["successes"]),
+            "failures": list(reflection["failures"]),
+            "regressions": list(reflection["regressions"]),
+            "file": path.as_posix(),
+            "federated": self._federate_reflections,
+        }
+        if self._federate_reflections:
+            pulse_payload["peers"] = list(self._federation_peers)
+            if self._federation_peer_name:
+                pulse_payload["peer_name"] = self._federation_peer_name
+
+        self._publish_pulse(
+            {
+                "timestamp": completed_at,
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_reflection_complete",
+                "priority": "info",
+                "payload": pulse_payload,
+            }
+        )
+
+        self._prefix_index.pop(request.codex_prefix, None)
+        self._save_session()
+
+    def _record_reflection_failure(
+        self, request: ArchitectRequest, reason: str, raw_output: object
+    ) -> None:
+        request.status = "failed"
+        self._last_reflection_summary = None
+        self._last_reflection_path = None
+        self._update_cycle_entry(
+            request.architect_id,
+            status="failed",
+            error=reason,
+            failed_at=self._now().isoformat(),
+        )
+        payload = {
+            "event": "architect_reflection_failed",
+            "architect_id": request.architect_id,
+            "cycle": request.cycle_number,
+            "reason": reason,
+        }
+        if raw_output is not None:
+            payload["raw_output_type"] = type(raw_output).__name__
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_reflection_failed",
+                "priority": "warning",
+                "payload": {"cycle": request.cycle_number, "reason": reason},
+            }
+        )
+        self._prefix_index.pop(request.codex_prefix, None)
+        self._save_session()
+
+    def _persist_reflection(
+        self, request: ArchitectRequest, reflection: Mapping[str, object]
+    ) -> Path:
+        timestamp = self._now().strftime("%Y%m%d_%H%M%S")
+        stem = f"reflection_{timestamp}"
+        path = self._reflection_dir / f"{stem}.json"
+        counter = 0
+        while path.exists():
+            counter += 1
+            path = self._reflection_dir / f"{stem}_{counter}.json"
+        payload = {
+            "summary": reflection["summary"],
+            "successes": list(reflection["successes"]),
+            "failures": list(reflection["failures"]),
+            "regressions": list(reflection["regressions"]),
+            "next_priorities": list(reflection["next_priorities"]),
+            "architect_id": request.architect_id,
+            "cycle": request.cycle_number,
+            "cycle_range": {
+                "start": int(request.details.get("window_start", request.cycle_number)),
+                "end": int(request.details.get("window_end", request.cycle_number)),
+            },
+            "generated_at": self._now().isoformat(),
+        }
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        return path
+
+    def _parse_reflection_output(
+        self, payload: object
+    ) -> tuple[dict[str, object] | None, str | None]:
+        if isinstance(payload, Mapping):
+            data = dict(payload)
+        elif isinstance(payload, str):
+            text = payload.strip()
+            if not text:
+                return None, "empty_reflection_output"
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError as exc:
+                return None, f"json_decode_error:{exc.msg}"
+            if not isinstance(parsed, Mapping):
+                return None, "reflection_not_object"
+            data = dict(parsed)
+        else:
+            return None, "reflection_not_object"
+
+        required = [
+            "summary",
+            "successes",
+            "failures",
+            "regressions",
+            "next_priorities",
+        ]
+        for key in required:
+            if key not in data:
+                return None, f"missing_{key}"
+
+        summary = data["summary"]
+        if not isinstance(summary, str):
+            summary = str(summary)
+
+        def _normalize_list(name: str) -> list[str] | None:
+            value = data.get(name)
+            if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+                return None
+            result: list[str] = []
+            for item in value:
+                text = str(item).strip()
+                if text:
+                    result.append(text)
+            return result
+
+        successes = _normalize_list("successes")
+        failures = _normalize_list("failures")
+        regressions = _normalize_list("regressions")
+        priorities = _normalize_list("next_priorities")
+        if None in {successes, failures, regressions, priorities}:
+            return None, "invalid_list_field"
+
+        normalized: dict[str, object] = {
+            "summary": summary.strip() or summary,
+            "successes": successes or [],
+            "failures": failures or [],
+            "regressions": regressions or [],
+            "next_priorities": priorities or [],
+        }
+        return normalized, None
 
     def _retry_request(
         self,
@@ -1709,6 +1946,9 @@ class ArchitectDaemon:
             "codex_mode",
             "iterations",
             "failure_reason",
+            "reflection",
+            "output",
+            "result",
         ):
             if key in entry:
                 normalized[key] = entry[key]
