@@ -1,6 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 # noqa: D100 - all tests share this setup module
 from __future__ import annotations
+import json
 import sys
 from pathlib import Path
 import builtins
@@ -27,7 +28,18 @@ import types
 try:
     importlib.import_module('yaml')
 except Exception:
-    sys.modules['yaml'] = types.ModuleType('yaml')
+    yaml_stub = types.ModuleType('yaml')
+
+    def _safe_load(text: str | None, *_, **__) -> object:
+        if not text:
+            return {}
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return {}
+
+    yaml_stub.safe_load = _safe_load  # type: ignore[attr-defined]
+    sys.modules['yaml'] = yaml_stub
 
 from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
 from nacl.signing import SigningKey
@@ -104,6 +116,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_expand_mode",
         "tests.test_architect_integration",
         "tests.test_architect_priorities",
+        "tests.test_architect_federated_priorities",
     }
     for item in items:
         if (
