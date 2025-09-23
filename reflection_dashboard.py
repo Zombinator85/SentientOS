@@ -13,8 +13,10 @@ require_lumos_approval()
 
 import argparse
 import json
+import os
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
 import reflection_stream as rs
@@ -32,6 +34,11 @@ try:
     import streamlit as st  # type: ignore[import-untyped]  # Streamlit dashboard
 except Exception:  # pragma: no cover - optional
     st = None
+
+
+PRIORITY_FILE = Path(
+    os.getenv("ARCHITECT_PRIORITY_BACKLOG", "/glow/codex_reflections/priorities.json")
+)
 
 
 def _parse_ts(ts: str) -> datetime:
@@ -86,6 +93,34 @@ def load_timeline(limit: int = 200) -> List[Dict[str, Any]]:
             )
     events.sort(key=lambda x: x.get("timestamp", ""))
     return events
+
+
+def load_priority_backlog() -> Dict[str, Any]:
+    """Load the ArchitectDaemon priority backlog, returning defaults if missing."""
+    if PRIORITY_FILE.exists():
+        try:
+            data = json.loads(PRIORITY_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            data = None
+        if isinstance(data, dict):
+            return data
+    return {"updated": "", "active": [], "history": []}
+
+
+def _last_completed_priority(history: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    candidates: List[Dict[str, Any]] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("status") != "done":
+            continue
+        candidates.append(entry)
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda item: _parse_ts(str(item.get("completed_at", ""))), reverse=True
+    )
+    return candidates[0]
 
 
 def filter_events(
@@ -190,12 +225,49 @@ def run_dashboard() -> None:
             start=start,
             text=search or None,
         )
-        df = pd.DataFrame(events)
-        if not df.empty:
-            df = df.sort_values("timestamp", ascending=False)
-            st.dataframe(df)
-        else:
-            st.write("No events")
+
+        events_tab, reflections_tab = st.tabs(["Events", "Reflections"])
+
+        with events_tab:
+            df = pd.DataFrame(events)
+            if not df.empty:
+                df = df.sort_values("timestamp", ascending=False)
+                st.dataframe(df)
+            else:
+                st.write("No events")
+
+        with reflections_tab:
+            backlog = load_priority_backlog()
+            st.subheader("Architect Priorities")
+            updated = backlog.get("updated") or "unknown"
+            st.caption(f"Last updated: {updated}")
+            active = backlog.get("active") or []
+            active_df = pd.DataFrame(active)
+            if not active_df.empty:
+                active_df = active_df.sort_values(["status", "text"], ascending=[True, True])
+                st.dataframe(active_df)
+            else:
+                st.write("Backlog empty — awaiting new reflection priorities.")
+
+            history = backlog.get("history") or []
+            last_priority = _last_completed_priority(history)
+            if last_priority:
+                completed_at = last_priority.get("completed_at", "unknown")
+                st.markdown(
+                    f"**Last completed priority:** {last_priority.get('text', 'unknown')}\n\n"
+                    f"Completed at: {completed_at}"
+                )
+            else:
+                st.markdown("**Last completed priority:** none recorded yet.")
+
+            backlog_json = json.dumps(backlog, indent=2, sort_keys=True)
+            st.download_button(
+                "Export backlog JSON",
+                data=backlog_json,
+                file_name="architect_priorities.json",
+                mime="application/json",
+            )
+
         if not tail:
             break
         time.sleep(refresh)
