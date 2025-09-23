@@ -32,6 +32,34 @@ class DummyCodex:
         return {"patch_id": patch_id, "status": "rejected"}
 
 
+class StubFirstBootWizard:
+    def __init__(self) -> None:
+        self._summary: dict[str, object] | None = None
+        self.reset_calls = 0
+        self.should_run_calls = 0
+        self.run_calls: list[dict[str, object]] = []
+
+    def should_run(self) -> bool:
+        self.should_run_calls += 1
+        return False
+
+    def run(self, decisions=None, force: bool = False) -> dict[str, object]:
+        payload = {"decisions": decisions, "force": force}
+        self.run_calls.append(payload)
+        self._summary = {"status": "skipped"}
+        return dict(self._summary)
+
+    def reset(self) -> None:
+        self.reset_calls += 1
+        self._summary = None
+
+    @property
+    def last_summary(self) -> dict[str, object] | None:
+        if self._summary is None:
+            return None
+        return dict(self._summary)
+
+
 @pytest.fixture()
 def shell_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     log_dir = tmp_path / "logs"
@@ -52,6 +80,7 @@ def shell_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
         ci_runner=lambda: True,
         pulse_publisher=lambda event: event,
         home_root=tmp_path / "home" / "tester",
+        first_boot_wizard=StubFirstBootWizard(),
     )
     return {
         "shell": shell,
