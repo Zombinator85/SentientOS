@@ -10,6 +10,21 @@ from sentientos.daemons.driver_manager import DriverManager
 from sentientos.shell import SentientShell, ShellConfig, ShellEventLogger
 
 
+class StubFirstBootWizard:
+    def should_run(self) -> bool:
+        return False
+
+    def run(self, decisions=None, force: bool = False) -> dict[str, object]:
+        return {"status": "skipped"}
+
+    def reset(self) -> None:
+        return None
+
+    @property
+    def last_summary(self) -> dict[str, object] | None:
+        return None
+
+
 def _make_clock() -> Callable[[], datetime]:
     base = datetime(2024, 1, 1, tzinfo=timezone.utc)
     counter = {"value": 0}
@@ -161,6 +176,7 @@ def test_shell_dashboard_driver_panel(tmp_path: Path, monkeypatch: pytest.Monkey
         pulse_publisher=shell_publisher,
         home_root=tmp_path / "home" / "tester",
         driver_manager=manager,
+        first_boot_wizard=StubFirstBootWizard(),
     )
 
     snapshot = shell.open_lumos_dashboard()
