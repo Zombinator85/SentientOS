@@ -565,24 +565,54 @@ class LumosDashboard:
             "until": status.get("cooldown_until_iso", ""),
             "failure_streak": status.get("failure_streak", 0),
         }
-        summary = self._extract_reflection_summary(status, ARCHITECT_REFLECTION_DIR)
+        reflection_meta = self._extract_reflection_summary(
+            status, ARCHITECT_REFLECTION_DIR
+        )
         return {
             "next_cycle": status.get("next_cycle_iso", ""),
             "cooldown": cooldown_payload,
             "autonomy_enabled": bool(status.get("autonomy_enabled", False)),
-            "last_reflection_summary": summary,
+            "last_reflection_summary": reflection_meta.get("summary"),
             "throttled": bool(
                 status.get("throttled", status.get("architect_throttled", False))
             ),
             "cycle_count": status.get("cycle_count", 0),
+            "last_reflection": reflection_meta,
         }
+
+    def _build_reflection_panel(
+        self, metadata: Mapping[str, object] | None
+    ) -> dict[str, object]:
+        if not isinstance(metadata, Mapping) or not metadata:
+            return {}
+
+        def _as_list(name: str) -> list[str]:
+            value = metadata.get(name)
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                return [str(item) for item in value]
+            return []
+
+        latest = {
+            "summary": str(metadata.get("summary", "")),
+            "next_priorities": _as_list("next_priorities"),
+            "successes": _as_list("successes"),
+            "failures": _as_list("failures"),
+            "regressions": _as_list("regressions"),
+            "generated_at": str(metadata.get("generated_at", "")),
+            "cycle": metadata.get("cycle"),
+            "cycle_range": metadata.get("cycle_range", {}),
+            "path": str(metadata.get("path", "")),
+        }
+        return {"latest": latest}
 
     def _extract_reflection_summary(
         self, status: Mapping[str, object], reflection_dir: Path
-    ) -> object:
+    ) -> dict[str, object]:
+        metadata: dict[str, object] = {}
         summary_value = status.get("last_reflection_summary")
         if isinstance(summary_value, str) and summary_value.strip():
-            return summary_value
+            metadata["summary"] = summary_value.strip()
+
         candidates: list[Path] = []
         seen: set[Path] = set()
 
@@ -619,11 +649,30 @@ class LumosDashboard:
                 continue
             if not isinstance(data, Mapping):
                 continue
-            for key in ("summary", "analysis", "overview"):
+            summary = data.get("summary")
+            if isinstance(summary, str) and summary.strip():
+                metadata["summary"] = summary.strip()
+            for key in ("next_priorities", "successes", "failures", "regressions"):
                 value = data.get(key)
-                if isinstance(value, str) and value.strip():
-                    return value
-        return None
+                if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                    metadata[key] = [str(item) for item in value]
+            metadata.setdefault("generated_at", data.get("generated_at", ""))
+            metadata.setdefault("cycle", data.get("cycle"))
+            metadata.setdefault("cycle_range", data.get("cycle_range", {}))
+            metadata["path"] = candidate.as_posix()
+            break
+
+        if "summary" not in metadata:
+            metadata.setdefault("summary", "")
+        metadata.setdefault("next_priorities", [])
+        metadata.setdefault("successes", [])
+        metadata.setdefault("failures", [])
+        metadata.setdefault("regressions", [])
+        metadata.setdefault("generated_at", "")
+        metadata.setdefault("cycle", None)
+        metadata.setdefault("cycle_range", {})
+        metadata.setdefault("path", "")
+        return metadata
 
     def refresh(self) -> dict[str, object]:
         health = self._load_metrics()
@@ -641,6 +690,9 @@ class LumosDashboard:
         else:
             missing = 0
         architect = self._load_architect_panel()
+        reflections_panel = self._build_reflection_panel(
+            architect.get("last_reflection")
+        )
         dashboard = {
             "health": health,
             "ledger": ledger[-10:],
@@ -648,6 +700,7 @@ class LumosDashboard:
             "federation": federation,
             "drivers": drivers,
             "architect": architect,
+            "reflections": reflections_panel,
         }
         self._logger.record(
             "lumos_dashboard_refresh",
@@ -660,6 +713,36 @@ class LumosDashboard:
             },
         )
         return dashboard
+
+    def export_latest_reflection(self, destination: Path | str) -> Path:
+        if not destination:
+            raise ValueError("destination is required")
+
+        metadata = self._load_architect_panel().get("last_reflection", {})
+        if not isinstance(metadata, Mapping) or not metadata.get("path"):
+            raise FileNotFoundError("no_reflection_available")
+
+        source_path = Path(str(metadata["path"]))
+        if not source_path.exists():
+            raise FileNotFoundError(str(source_path))
+
+        destination_path = Path(destination)
+        if destination_path.exists() and destination_path.is_dir():
+            destination_path = destination_path / source_path.name
+        elif not destination_path.suffix:
+            destination_path = destination_path / source_path.name
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        destination_path.write_text(
+            source_path.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        self._logger.record(
+            "architect_reflection_exported",
+            {
+                "source": source_path.as_posix(),
+                "destination": destination_path.as_posix(),
+            },
+        )
+        return destination_path
 
     def install_recommended_driver(self, device_id: str) -> dict[str, object]:
         if self._driver_manager is None:
