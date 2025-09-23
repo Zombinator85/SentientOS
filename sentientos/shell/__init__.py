@@ -21,6 +21,7 @@ from uuid import uuid4
 from logging_config import get_log_path
 from log_utils import append_json, read_json
 from sentientos.daemons import driver_manager as driver_manager_module, pulse_bus
+from sentientos.first_boot import FirstBootWizard, WizardDecisions
 
 try:  # Lazy import to avoid expensive startup during tests.
     from daemon import codex_daemon
@@ -620,6 +621,7 @@ class SentientShell:
         pulse_publisher: Callable[[Mapping[str, object]], Mapping[str, object]] | None = None,
         home_root: Path | None = None,
         driver_manager: driver_manager_module.DriverManager | None = None,
+        first_boot_wizard: FirstBootWizard | None = None,
     ) -> None:
         from sentientos.installer import AppInstaller  # Local import to avoid cycle
 
@@ -661,6 +663,24 @@ class SentientShell:
             installer_kwargs["pulse_publisher"] = pulse_publisher
         self._installer = AppInstaller(**installer_kwargs)
         self._assistive_enabled = bool(self._config.snapshot().get("assistive_enabled", False))
+        wizard_instance = first_boot_wizard
+        if wizard_instance is None:
+            wizard_kwargs: dict[str, object] = {"driver_manager": self._driver_manager}
+            if pulse_publisher is not None:
+                wizard_kwargs["pulse_publisher"] = pulse_publisher
+            wizard_instance = FirstBootWizard(**wizard_kwargs)
+        self._first_boot_wizard = wizard_instance
+        self._first_boot_summary: dict[str, object] | None = None
+        if self._first_boot_wizard.should_run():
+            summary = self._first_boot_wizard.run()
+            self._first_boot_summary = dict(summary)
+            self._logger.record(
+                "first_boot_wizard_autorun",
+                {"status": self._first_boot_summary.get("status")},
+            )
+        else:
+            stored = self._first_boot_wizard.last_summary
+            self._first_boot_summary = dict(stored) if stored is not None else None
         self._register_default_apps()
 
     def _register_default_apps(self) -> None:
@@ -709,6 +729,10 @@ class SentientShell:
         self._start_menu.register_setting(
             "assistive technology", lambda: self._config.snapshot().get("assistive_enabled", False)
         )
+        self._start_menu.register_setting(
+            "re-run first-boot wizard",
+            lambda: self.run_first_boot_wizard(force=True),
+        )
 
     @property
     def start_menu(self) -> StartMenu:
@@ -735,6 +759,12 @@ class SentientShell:
         return self._driver_manager
 
     @property
+    def first_boot_summary(self) -> dict[str, object] | None:
+        if self._first_boot_summary is None:
+            return None
+        return dict(self._first_boot_summary)
+
+    @property
     def installer(self):
         return self._installer
 
@@ -750,6 +780,24 @@ class SentientShell:
 
     def install_recommended_driver(self, device_id: str) -> dict[str, object]:
         return self._dashboard.install_recommended_driver(device_id)
+
+    def run_first_boot_wizard(
+        self,
+        decisions: WizardDecisions | None = None,
+        *,
+        force: bool = False,
+    ) -> dict[str, object]:
+        if self._first_boot_wizard is None:
+            raise RuntimeError("First boot wizard is not available")
+        if force:
+            self._first_boot_wizard.reset()
+        summary = self._first_boot_wizard.run(decisions=decisions, force=force)
+        self._first_boot_summary = dict(summary)
+        self._logger.record(
+            "first_boot_wizard_run",
+            {"force": force, "status": self._first_boot_summary.get("status")},
+        )
+        return dict(summary)
 
     def press_super_key(self) -> bool:
         return self._start_menu.press_super_key()
