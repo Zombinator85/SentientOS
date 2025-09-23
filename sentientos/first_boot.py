@@ -40,6 +40,7 @@ class WizardDecisions:
     codex_max_iterations: int | None = None
     federation_peer_name: str | None = None
     federation_addresses: Sequence[str] | None = None
+    architect_autonomy: bool | None = None
 
 
 def _utcnow() -> datetime:
@@ -179,6 +180,7 @@ class FirstBootWizard:
             "codex_mode": codex_payload.get("mode"),
             "driver_installs": len([result for result in driver_results if result.get("status") == "success" or result.get("requires_veil")]),
             "federation_peers": len(federation_payload.get("addresses", [])),
+            "autonomy_enabled": codex_payload.get("autonomy_enabled"),
         }
         self._record_step("summary", summary_payload)
         self._write_completion_flag()
@@ -186,12 +188,32 @@ class FirstBootWizard:
             "codex_mode": codex_payload.get("mode"),
             "drivers": driver_results,
             "federation": federation_payload,
+            "architect_autonomy": codex_payload.get("autonomy_enabled"),
         }
         self._log_event("first_boot_complete", completion_payload)
         self._last_summary = summary
         return dict(summary)
 
     # Internal helpers -------------------------------------------------
+
+    def _resolve_autonomy(
+        self, decisions: WizardDecisions, config: MutableMapping[str, object]
+    ) -> bool:
+        if decisions.architect_autonomy is not None:
+            return bool(decisions.architect_autonomy)
+        existing = config.get("architect_autonomy")
+        if isinstance(existing, bool):
+            return existing
+        if isinstance(existing, str):
+            text = existing.strip().lower()
+            if text in {"1", "true", "yes", "on"}:
+                return True
+            if text in {"0", "false", "no", "off"}:
+                return False
+        if isinstance(existing, (int, float)):
+            return bool(existing)
+        return False
+
     def _handle_driver_step(self, decisions: WizardDecisions) -> List[dict[str, object]]:
         devices: List[Mapping[str, object]] = []
         results: List[dict[str, object]] = []
@@ -254,7 +276,7 @@ class FirstBootWizard:
             FirstBootPanel(
                 title="Codex Configuration",
                 description="Select Codex operating mode and reasoning cadence for the covenant.",
-                buttons=("Save Codex Settings",),
+                buttons=("Save Codex Settings", "Enable continuous self-improvement"),
             )
         )
         mode = str(
@@ -264,11 +286,18 @@ class FirstBootWizard:
             raise ValueError("codex_mode must be one of: observe, repair, full, expand")
         interval = int(decisions.codex_interval or config.get("codex_interval", 3600))
         max_iterations = int(decisions.codex_max_iterations or config.get("codex_max_iterations", 1))
+        autonomy = self._resolve_autonomy(decisions, config)
         config["codex_mode"] = mode
         config["codex_interval"] = interval
         config["codex_max_iterations"] = max_iterations
+        config["architect_autonomy"] = autonomy
         self._save_config(config)
-        payload = {"mode": mode, "interval": interval, "max_iterations": max_iterations}
+        payload = {
+            "mode": mode,
+            "interval": interval,
+            "max_iterations": max_iterations,
+            "autonomy_enabled": autonomy,
+        }
         self._record_step("codex", payload)
         self._log_event("first_boot_codex_configured", payload, pulse=False)
         return payload

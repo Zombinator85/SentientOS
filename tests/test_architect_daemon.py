@@ -29,12 +29,32 @@ def test_monitor_anomaly_generates_request(tmp_path: Path, monkeypatch: pytest.M
     ledger_events: list[dict[str, object]] = []
     published: list[dict[str, object]] = []
 
+    config_path = tmp_path / "vow" / "config.yaml"
+    completion_path = tmp_path / "vow" / "first_boot_complete"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                "codex_mode: expand",
+                "codex_interval: 3600",
+                "codex_max_iterations: 1",
+                "architect_autonomy: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    completion_path.parent.mkdir(parents=True, exist_ok=True)
+    completion_path.write_text("completed\n", encoding="utf-8")
+
     monkeypatch.setattr(architect_daemon.codex_daemon, "load_ethics", lambda: "ETHICS")
 
     daemon = architect_daemon.ArchitectDaemon(
         request_dir=request_dir,
         session_file=session_file,
         ledger_path=ledger_path,
+        config_path=config_path,
+        completion_path=completion_path,
         ledger_sink=ledger_events.append,
         pulse_publisher=lambda event: (published.append(event) or event),
         clock=_fixed_clock,
@@ -71,6 +91,24 @@ def test_codex_success_records_success(tmp_path: Path, monkeypatch: pytest.Monke
     published: list[dict[str, object]] = []
     commands: list[list[str]] = []
 
+    config_path = tmp_path / "vow" / "config.yaml"
+    completion_path = tmp_path / "vow" / "first_boot_complete"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                "codex_mode: expand",
+                "codex_interval: 3600",
+                "codex_max_iterations: 1",
+                "architect_autonomy: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    completion_path.parent.mkdir(parents=True, exist_ok=True)
+    completion_path.write_text("completed\n", encoding="utf-8")
+
     def fake_run(cmd: list[str], capture_output: bool = False, text: bool = False, **_: object) -> _Result:
         commands.append(list(cmd))
         return _Result(returncode=0, stdout="", stderr="")
@@ -82,6 +120,8 @@ def test_codex_success_records_success(tmp_path: Path, monkeypatch: pytest.Monke
         request_dir=tmp_path / "requests",
         session_file=tmp_path / "session.json",
         ledger_path=tmp_path / "ledger.jsonl",
+        config_path=config_path,
+        completion_path=completion_path,
         ledger_sink=ledger_events.append,
         pulse_publisher=lambda event: (published.append(event) or event),
         clock=_fixed_clock,
@@ -116,10 +156,30 @@ def test_failed_attempts_retries_capped(tmp_path: Path, monkeypatch: pytest.Monk
     ledger_events: list[dict[str, object]] = []
     monkeypatch.setattr(architect_daemon.codex_daemon, "load_ethics", lambda: "")
 
+    config_path = tmp_path / "vow" / "config.yaml"
+    completion_path = tmp_path / "vow" / "first_boot_complete"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                "codex_mode: expand",
+                "codex_interval: 3600",
+                "codex_max_iterations: 2",
+                "architect_autonomy: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    completion_path.parent.mkdir(parents=True, exist_ok=True)
+    completion_path.write_text("completed\n", encoding="utf-8")
+
     daemon = architect_daemon.ArchitectDaemon(
         request_dir=tmp_path / "requests",
         session_file=tmp_path / "session.json",
         ledger_path=tmp_path / "ledger.jsonl",
+        config_path=config_path,
+        completion_path=completion_path,
         ledger_sink=ledger_events.append,
         pulse_publisher=lambda event: event,
         clock=_fixed_clock,
@@ -164,10 +224,30 @@ def test_veil_pending_publishes_pulse(tmp_path: Path, monkeypatch: pytest.Monkey
     published: list[dict[str, object]] = []
     monkeypatch.setattr(architect_daemon.codex_daemon, "load_ethics", lambda: "")
 
+    config_path = tmp_path / "vow" / "config.yaml"
+    completion_path = tmp_path / "vow" / "first_boot_complete"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                "codex_mode: expand",
+                "codex_interval: 3600",
+                "codex_max_iterations: 1",
+                "architect_autonomy: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    completion_path.parent.mkdir(parents=True, exist_ok=True)
+    completion_path.write_text("completed\n", encoding="utf-8")
+
     daemon = architect_daemon.ArchitectDaemon(
         request_dir=tmp_path / "requests",
         session_file=tmp_path / "session.json",
         ledger_path=tmp_path / "ledger.jsonl",
+        config_path=config_path,
+        completion_path=completion_path,
         ledger_sink=ledger_events.append,
         pulse_publisher=lambda event: (published.append(event) or event),
         clock=_fixed_clock,
@@ -197,6 +277,24 @@ def test_branch_merge_failure_logged(tmp_path: Path, monkeypatch: pytest.MonkeyP
     ledger_events: list[dict[str, object]] = []
     commands: list[list[str]] = []
 
+    config_path = tmp_path / "vow" / "config.yaml"
+    completion_path = tmp_path / "vow" / "first_boot_complete"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        "\n".join(
+            [
+                "codex_mode: expand",
+                "codex_interval: 3600",
+                "codex_max_iterations: 1",
+                "architect_autonomy: true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    completion_path.parent.mkdir(parents=True, exist_ok=True)
+    completion_path.write_text("completed\n", encoding="utf-8")
+
     def fake_run(cmd: list[str], capture_output: bool = False, text: bool = False, **_: object) -> _Result:
         commands.append(list(cmd))
         if cmd and cmd[0] == "pytest":
@@ -210,6 +308,8 @@ def test_branch_merge_failure_logged(tmp_path: Path, monkeypatch: pytest.MonkeyP
         request_dir=tmp_path / "requests",
         session_file=tmp_path / "session.json",
         ledger_path=tmp_path / "ledger.jsonl",
+        config_path=config_path,
+        completion_path=completion_path,
         ledger_sink=ledger_events.append,
         pulse_publisher=lambda event: event,
         clock=_fixed_clock,
