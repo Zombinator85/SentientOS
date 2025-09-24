@@ -117,6 +117,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_architect_integration",
         "tests.test_architect_priorities",
         "tests.test_architect_federated_priorities",
+        "tests.test_architect_conflict_resolution",
     }
     for item in items:
         if (
