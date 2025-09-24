@@ -580,6 +580,75 @@ class LumosDashboard:
             "last_reflection": reflection_meta,
         }
 
+    def _load_cycle_summaries(self, limit: int = 20) -> list[dict[str, object]]:
+        try:
+            from architect_daemon import load_cycle_summaries as _load_cycles
+        except Exception:
+            return []
+
+        records = _load_cycles(limit=limit)
+        cycles: list[dict[str, object]] = []
+        for record in records:
+            if not isinstance(record, Mapping):
+                continue
+            summary = dict(record)
+            summary_path = str(summary.pop("path", ""))
+            reflections_raw = summary.get("reflections", [])
+            backlog_raw = summary.get("backlog_attempts", [])
+            conflicts_raw = summary.get("federation_conflicts", [])
+            reflections = [
+                str(item)
+                for item in reflections_raw
+                if isinstance(item, str) and item.strip()
+            ]
+            backlog_attempts: list[dict[str, object]] = []
+            for attempt in backlog_raw if isinstance(backlog_raw, list) else []:
+                if isinstance(attempt, Mapping):
+                    backlog_attempts.append(dict(attempt))
+            conflicts: list[dict[str, object]] = []
+            for conflict in conflicts_raw if isinstance(conflicts_raw, list) else []:
+                if isinstance(conflict, Mapping):
+                    conflicts.append(dict(conflict))
+            successes = sum(
+                1
+                for attempt in backlog_attempts
+                if str(attempt.get("status")) == "done"
+            )
+            failures = sum(
+                1
+                for attempt in backlog_attempts
+                if str(attempt.get("status")) in {"failed", "discarded"}
+            )
+            resolved = sum(
+                1
+                for conflict in conflicts
+                if str(conflict.get("status")) == "resolved"
+            )
+            total = successes + failures
+            success_rate = successes / total if total else 0.0
+            cycle_entry = {
+                "cycle_id": summary.get("cycle_id"),
+                "started_at": summary.get("started_at"),
+                "ended_at": summary.get("ended_at"),
+                "reflections": reflections,
+                "backlog_attempts": backlog_attempts,
+                "federation_conflicts": conflicts,
+                "cooldown": bool(summary.get("cooldown", False)),
+                "anomalies": [
+                    str(item)
+                    for item in summary.get("anomalies", [])
+                    if isinstance(item, str)
+                ],
+                "notes": str(summary.get("notes", "")),
+                "successes": successes,
+                "failures": failures,
+                "conflicts_resolved": resolved,
+                "success_rate": success_rate,
+                "summary_path": summary_path,
+            }
+            cycles.append(cycle_entry)
+        return cycles
+
     def _build_reflection_panel(
         self, metadata: Mapping[str, object] | None
     ) -> dict[str, object]:
@@ -693,6 +762,7 @@ class LumosDashboard:
         reflections_panel = self._build_reflection_panel(
             architect.get("last_reflection")
         )
+        cycles = self._load_cycle_summaries()
         dashboard = {
             "health": health,
             "ledger": ledger[-10:],
@@ -701,6 +771,7 @@ class LumosDashboard:
             "drivers": drivers,
             "architect": architect,
             "reflections": reflections_panel,
+            "cycles": cycles,
         }
         self._logger.record(
             "lumos_dashboard_refresh",
@@ -710,6 +781,7 @@ class LumosDashboard:
                 "architect_cooldown_active": bool(
                     architect.get("cooldown", {}).get("active", False)
                 ),
+                "cycles_count": len(cycles),
             },
         )
         return dashboard
