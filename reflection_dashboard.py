@@ -23,6 +23,7 @@ import reflection_stream as rs
 import trust_engine as te
 from sentient_banner import streamlit_banner, streamlit_closing, print_banner
 import ledger
+from sentientos.daemons import pulse_bus
 
 
 try:
@@ -110,6 +111,23 @@ def load_priority_backlog() -> Dict[str, Any]:
             data.setdefault("conflicts", [])
             return data
     return {"updated": "", "active": [], "history": [], "federated": [], "conflicts": []}
+
+
+def publish_backlog_action(action: str, conflict_id: str, reason: Optional[str] = None) -> None:
+    payload: Dict[str, Any] = {"action": action, "conflict_id": conflict_id}
+    if reason:
+        payload["reason"] = reason
+    event = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "source_daemon": "ReflectionDashboard",
+        "event_type": "architect_backlog_action",
+        "priority": "info",
+        "payload": payload,
+    }
+    try:
+        pulse_bus.publish(event)
+    except Exception:  # pragma: no cover - dashboard fallback
+        pass
 
 
 def _last_completed_priority(history: Iterable[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -288,34 +306,74 @@ def run_dashboard() -> None:
             else:
                 st.write("No federated priorities received yet.")
 
-            conflicts = backlog.get("conflicts") or []
-            if conflicts:
-                st.subheader("Conflicts Requiring Review")
-                conflict_rows = []
-                for entry in conflicts:
-                    variants = entry.get("variants") or []
-                    variant_text = "; ".join(
-                        f"{variant.get('peer')}: {variant.get('text')}"
-                        for variant in variants
-                        if isinstance(variant, dict)
-                    )
-                    conflict_rows.append(
-                        {
-                            "text": entry.get("text", ""),
-                            "origin_peers": ", ".join(entry.get("origin_peers", [])),
-                            "variants": variant_text,
-                        }
-                    )
-                conflict_df = pd.DataFrame(conflict_rows)
-                if not conflict_df.empty:
-                    conflict_df = conflict_df.sort_values("text", ascending=True)
-                    st.dataframe(conflict_df)
-                st.info(
-                    "Conflicting priorities need manual confirmation."
-                    " Use the merge controls' resolve option to accept or dismiss a peer proposal."
-                )
+            conflicts = [entry for entry in backlog.get("conflicts") or [] if isinstance(entry, dict)]
+            pending_conflicts: List[Dict[str, Any]] = []
+            merge_suggestions: List[tuple[Dict[str, Any], Dict[str, Any]]] = []
+            for entry in conflicts:
+                status = str(entry.get("status", "pending"))
+                if status in {"pending", "rejected"}:
+                    pending_conflicts.append(entry)
+                codex_state = entry.get("codex")
+                suggestion = codex_state.get("suggestion") if isinstance(codex_state, dict) else None
+                if isinstance(suggestion, dict):
+                    suggestion_status = str(suggestion.get("status", "pending"))
+                    if suggestion_status in {"pending", "rejected"}:
+                        merge_suggestions.append((entry, suggestion))
+
+            if pending_conflicts:
+                st.subheader("Conflicts Pending Review")
+                for entry in pending_conflicts:
+                    conflict_id = entry.get("conflict_id", "unknown")
+                    status = entry.get("status", "pending")
+                    expander_label = f"Conflict {conflict_id} — status: {status}"
+                    with st.expander(expander_label, expanded=False):
+                        st.caption(f"Detected at: {entry.get('detected_at', 'unknown')}")
+                        variant_rows: List[Dict[str, Any]] = []
+                        for variant in entry.get("variants", []):
+                            if not isinstance(variant, dict):
+                                continue
+                            variant_rows.append(
+                                {
+                                    "peer": variant.get("peer"),
+                                    "text": variant.get("text"),
+                                    "received_at": variant.get("received_at", ""),
+                                }
+                            )
+                        if variant_rows:
+                            if pd is not None:
+                                st.table(pd.DataFrame(variant_rows))
+                            else:  # pragma: no cover - fallback when pandas missing
+                                st.write(variant_rows)
+                        else:
+                            st.write("No variants recorded for this conflict.")
             else:
                 st.caption("No backlog conflicts detected across peers.")
+
+            if merge_suggestions:
+                st.subheader("Codex Merge Suggestions")
+                for entry, suggestion in merge_suggestions:
+                    conflict_id = entry.get("conflict_id", "unknown")
+                    merged_priority = suggestion.get("merged_priority", "")
+                    suggestion_status = suggestion.get("status", "pending")
+                    notes = suggestion.get("notes", "")
+                    st.markdown(f"**{merged_priority or 'Merged priority pending'}**")
+                    st.caption(
+                        f"Conflict {conflict_id} — suggestion status: {suggestion_status}"
+                    )
+                    if notes:
+                        st.write(notes)
+                    col_accept, col_reject, col_separate = st.columns(3)
+                    if col_accept.button("Accept Merge", key=f"accept_{conflict_id}"):
+                        publish_backlog_action("accept", str(conflict_id))
+                        st.success("Accept merge request sent to ArchitectDaemon.")
+                    if col_reject.button("Reject", key=f"reject_{conflict_id}"):
+                        publish_backlog_action("reject", str(conflict_id))
+                        st.warning("Reject merge request sent to ArchitectDaemon.")
+                    if col_separate.button("Keep Separate", key=f"separate_{conflict_id}"):
+                        publish_backlog_action("separate", str(conflict_id))
+                        st.info("Separation request sent to ArchitectDaemon.")
+            else:
+                st.caption("No Codex merge suggestions available.")
 
             backlog_json = json.dumps(backlog, indent=2, sort_keys=True)
             st.download_button(
