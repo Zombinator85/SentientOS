@@ -73,6 +73,9 @@ ARCHITECT_PRIORITY_BACKLOG_PATH = Path(
         os.path.join(str(ARCHITECT_REFLECTION_DIR), "priorities.json"),
     )
 )
+ARCHITECT_CYCLE_DIR = Path(
+    os.getenv("ARCHITECT_CYCLE_DIR", "/glow/codex_cycles")
+)
 
 _PRIORITY_ACTIVE_STATUSES = {"pending", "in_progress", "done", "discarded"}
 _PRIORITY_HISTORY_STATUSES = {"done", "discarded"}
@@ -108,6 +111,12 @@ def _sanitize_token(text: str) -> str:
 
 
 _PRIORITY_CANONICAL_PATTERN = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(text: str) -> str:
+    token = re.sub(r"[^a-z0-9]+", "_", text.strip().lower())
+    token = token.strip("_")
+    return token or "event"
 
 
 def _canonicalize_priority_text(text: str) -> str:
@@ -195,6 +204,7 @@ class ArchitectDaemon:
         max_failures: int | None = None,
         reflection_dir: Path | str | None = None,
         priority_path: Path | str | None = None,
+        cycle_dir: Path | str | None = None,
         rng: random.Random | None = None,
         anomaly_threshold: int | None = None,
     ) -> None:
@@ -302,6 +312,9 @@ class ArchitectDaemon:
         self._conflict_resolution_dir = self._reflection_dir / "resolutions"
         self._conflict_resolution_dir.mkdir(parents=True, exist_ok=True)
 
+        self._cycle_dir = Path(cycle_dir) if cycle_dir else ARCHITECT_CYCLE_DIR
+        self._cycle_dir.mkdir(parents=True, exist_ok=True)
+
         self._requests: dict[str, ArchitectRequest] = {}
         self._prefix_index: dict[str, ArchitectRequest] = {}
         self._context_buffer: Deque[dict[str, object]] = deque(maxlen=25)
@@ -322,6 +335,12 @@ class ArchitectDaemon:
         self._last_reflection_summary: str | None = None
         self._federate_reflections = bool(ARCHITECT_FEDERATE_REFLECTIONS)
         self._federate_priorities = bool(ARCHITECT_FEDERATE_PRIORITIES)
+
+        self._cycle_state: dict[str, dict[str, object]] = {}
+        self._pending_cycle_anomalies: list[str] = []
+        self._pending_cycle_conflicts: set[str] = set()
+        self._pending_cycle_cooldown = False
+        self._active_cycle_id: str | None = None
 
         self._session = self._load_session()
         self._hydrate_session_state()
@@ -1454,6 +1473,7 @@ class ArchitectDaemon:
                 },
             }
         )
+        self._record_cycle_conflict(conflict_id)
         if conflict_id:
             self._process_conflict_resolution(conflict_id)
 
@@ -1672,6 +1692,7 @@ class ArchitectDaemon:
                 },
             }
         )
+        self._record_cycle_conflict(conflict_id)
 
     def _emit_conflict_resolution_failed(
         self, conflict_id: str, reason: str, output: str | None
@@ -1699,6 +1720,7 @@ class ArchitectDaemon:
                 "payload": pulse_payload,
             }
         )
+        self._record_cycle_conflict(conflict_id)
 
     def accept_conflict_merge(self, conflict_id: str) -> bool:
         conflict = self._conflicts.get(conflict_id)
@@ -1793,6 +1815,7 @@ class ArchitectDaemon:
                 },
             }
         )
+        self._record_cycle_conflict(conflict_id)
         return True
 
     def reject_conflict_merge(self, conflict_id: str, reason: str | None = None) -> bool:
@@ -1835,6 +1858,7 @@ class ArchitectDaemon:
         if reason:
             pulse_payload["payload"]["reason"] = reason
         self._publish_pulse(pulse_payload)
+        self._record_cycle_conflict(conflict_id)
         return True
 
     def keep_conflict_separate(self, conflict_id: str) -> bool:
@@ -1891,6 +1915,7 @@ class ArchitectDaemon:
                 },
             }
         )
+        self._record_cycle_conflict(conflict_id)
         return True
 
     def _store_peer_backlog(
@@ -2141,6 +2166,7 @@ class ArchitectDaemon:
         if status != "done":
             event_type = "architect_priority_discarded"
             priority_level = "warning"
+        self._record_cycle_backlog_outcome(priority_id, status=status, reason=reason)
         self._emit_priority_event(
             event_type,
             entry,
@@ -2214,6 +2240,7 @@ class ArchitectDaemon:
         if request.prompt_path is not None:
             entry["prompt"] = request.prompt_path.as_posix().lstrip("/")
         self._cycle_history.append(entry)
+        self._initialize_cycle_summary(request, trigger)
         self._emit_cycle_start_event(request, trigger)
 
     def _emit_cycle_start_event(self, request: ArchitectRequest, trigger: str) -> None:
@@ -2253,6 +2280,425 @@ class ArchitectDaemon:
             if entry.get("architect_id") == architect_id:
                 entry.update({key: value for key, value in updates.items() if value is not None})
                 break
+
+    def _initialize_cycle_summary(self, request: ArchitectRequest, trigger: str) -> None:
+        summary: dict[str, object] = {
+            "cycle_id": str(uuid4()),
+            "started_at": request.created_at.isoformat(),
+            "ended_at": "",
+            "reflections": [],
+            "backlog_attempts": [],
+            "federation_conflicts": [],
+            "cooldown": False,
+            "anomalies": [],
+            "notes": "",
+        }
+        state: dict[str, object] = {
+            "summary": summary,
+            "notes": [
+                f"cycle={request.cycle_number}",
+                f"mode={request.mode}",
+                f"trigger={trigger}",
+            ],
+            "backlog_index": {},
+            "conflict_ids": set(),
+            "cycle_number": request.cycle_number,
+        }
+        if self._pending_cycle_anomalies:
+            unique = sorted(dict.fromkeys(self._pending_cycle_anomalies))
+            summary["anomalies"] = list(unique)
+            notes = state.get("notes")
+            if isinstance(notes, list):
+                notes.append(f"anomalies={','.join(unique)}")
+            self._pending_cycle_anomalies = []
+        if self._pending_cycle_conflicts:
+            state["conflict_ids"] = set(self._pending_cycle_conflicts)
+            self._pending_cycle_conflicts = set()
+        if self._pending_cycle_cooldown:
+            summary["cooldown"] = True
+            notes = state.get("notes")
+            if isinstance(notes, list):
+                notes.append("cooldown=pending")
+            self._pending_cycle_cooldown = False
+        self._cycle_state[request.architect_id] = state
+        self._active_cycle_id = request.architect_id
+        self._record_cycle_backlog_attempt(request, state)
+
+    def _record_cycle_backlog_attempt(
+        self, request: ArchitectRequest, state: Mapping[str, object]
+    ) -> None:
+        details = request.details
+        priority_id = str(details.get("priority_id", "")).strip()
+        if not priority_id:
+            return
+        text = str(details.get("priority_text", "")).strip()
+        summary = state.get("summary")
+        if not isinstance(summary, dict):
+            return
+        backlog_entry = {"id": priority_id, "text": text, "status": "pending"}
+        attempts = summary.setdefault("backlog_attempts", [])
+        if isinstance(attempts, list):
+            attempts.append(backlog_entry)
+        backlog_index = state.get("backlog_index")
+        if isinstance(backlog_index, dict):
+            backlog_index[priority_id] = backlog_entry
+        notes = state.get("notes")
+        if isinstance(notes, list):
+            notes.append(f"backlog={priority_id}")
+
+    def _find_cycle_backlog_entry(
+        self, priority_id: str
+    ) -> tuple[dict[str, object] | None, dict[str, object] | None]:
+        for state in self._cycle_state.values():
+            backlog_index = state.get("backlog_index")
+            if isinstance(backlog_index, dict) and priority_id in backlog_index:
+                return backlog_index[priority_id], state
+        return None, None
+
+    def _record_cycle_backlog_outcome(
+        self, priority_id: str, *, status: str, reason: str | None
+    ) -> None:
+        entry, state = self._find_cycle_backlog_entry(priority_id)
+        if not entry or not state:
+            return
+        normalized = str(status or "").strip().lower()
+        if normalized == "discarded" and (reason or "").strip() in {"merge_failed", "max_iterations"}:
+            normalized = "failed"
+        if normalized not in {"done", "failed", "discarded"}:
+            normalized = "failed" if normalized != "done" else "done"
+        entry["status"] = normalized
+        notes = state.get("notes")
+        if isinstance(notes, list):
+            note = f"backlog[{priority_id}]={normalized}"
+            if reason:
+                note = f"{note}({reason})"
+            notes.append(note)
+
+    def _record_cycle_conflict(self, conflict_id: str) -> None:
+        token = str(conflict_id or "").strip()
+        if not token:
+            return
+        if self._active_cycle_id and self._active_cycle_id in self._cycle_state:
+            state = self._cycle_state[self._active_cycle_id]
+            conflicts = state.get("conflict_ids")
+            if isinstance(conflicts, set):
+                conflicts.add(token)
+        else:
+            self._pending_cycle_conflicts.add(token)
+
+    def _record_cycle_anomaly(self, label: str) -> None:
+        token = _slugify(label)
+        if not token:
+            return
+        if self._active_cycle_id and self._active_cycle_id in self._cycle_state:
+            state = self._cycle_state[self._active_cycle_id]
+            summary = state.get("summary")
+            if isinstance(summary, dict):
+                anomalies = summary.setdefault("anomalies", [])
+                if isinstance(anomalies, list) and token not in anomalies:
+                    anomalies.append(token)
+                    notes = state.get("notes")
+                    if isinstance(notes, list):
+                        notes.append(f"anomaly={token}")
+        else:
+            if token not in self._pending_cycle_anomalies:
+                self._pending_cycle_anomalies.append(token)
+
+    def _mark_cycle_cooldown(self) -> None:
+        if self._active_cycle_id and self._active_cycle_id in self._cycle_state:
+            state = self._cycle_state[self._active_cycle_id]
+            summary = state.get("summary")
+            if isinstance(summary, dict):
+                summary["cooldown"] = True
+            notes = state.get("notes")
+            if isinstance(notes, list):
+                notes.append("cooldown=true")
+        else:
+            self._pending_cycle_cooldown = True
+
+    def _finalize_cycle_summary(
+        self,
+        request: ArchitectRequest,
+        *,
+        result: str,
+        reason: str | None = None,
+        reflection_path: Path | None = None,
+    ) -> None:
+        state = self._cycle_state.get(request.architect_id)
+        if not state:
+            return
+        summary = state.get("summary")
+        if not isinstance(summary, dict):
+            self._cycle_state.pop(request.architect_id, None)
+            if self._active_cycle_id == request.architect_id:
+                self._active_cycle_id = None
+            return
+        if summary.get("ended_at"):
+            return
+        if reflection_path is not None:
+            reflections = summary.setdefault("reflections", [])
+            if isinstance(reflections, list):
+                rel = reflection_path.as_posix().lstrip("/")
+                reflections.append(rel)
+        summary["ended_at"] = self._now().isoformat()
+        notes = state.get("notes")
+        if isinstance(notes, list):
+            result_note = f"result={result}"
+            if reason:
+                result_note = f"{result_note}:{reason}"
+            notes.append(result_note)
+            summary["notes"] = "; ".join(notes)
+        else:
+            summary["notes"] = f"result={result}" if not reason else f"result={result}:{reason}"
+
+        summary["cooldown"] = bool(summary.get("cooldown", False))
+
+        def _normalize_str_list(values: object) -> list[str]:
+            result: list[str] = []
+            if isinstance(values, Sequence) and not isinstance(values, (str, bytes)):
+                for item in values:
+                    text = str(item).strip()
+                    if text:
+                        result.append(text)
+            return result
+
+        summary["reflections"] = _normalize_str_list(summary.get("reflections"))
+        summary["anomalies"] = sorted(dict.fromkeys(_normalize_str_list(summary.get("anomalies"))))
+
+        backlog_attempts: list[dict[str, object]] = []
+        seen_backlog: set[str] = set()
+        for attempt in summary.get("backlog_attempts", []):
+            if not isinstance(attempt, Mapping):
+                continue
+            entry_id = str(attempt.get("id", "")).strip()
+            if not entry_id or entry_id in seen_backlog:
+                continue
+            status_value = str(attempt.get("status", "")).strip().lower()
+            if status_value == "discarded" and str(attempt.get("reason", "")).strip() in {"merge_failed", "max_iterations"}:
+                status_value = "failed"
+            if status_value not in {"done", "failed", "discarded"}:
+                status_value = "failed" if status_value != "done" else "done"
+            backlog_attempts.append(
+                {
+                    "id": entry_id,
+                    "text": str(attempt.get("text", "")).strip(),
+                    "status": status_value,
+                }
+            )
+            seen_backlog.add(entry_id)
+        summary["backlog_attempts"] = backlog_attempts
+
+        conflict_ids = state.get("conflict_ids")
+        if isinstance(conflict_ids, set):
+            backlog_index = state.get("backlog_index")
+            if isinstance(backlog_index, dict):
+                for priority_id in backlog_index.keys():
+                    for conflict_id in self._conflict_index.get(priority_id, set()):
+                        conflict_ids.add(conflict_id)
+        else:
+            conflict_ids = set()
+        federation_conflicts: list[dict[str, object]] = []
+        for conflict_id in sorted(conflict_ids):
+            record = self._conflicts.get(conflict_id)
+            if not isinstance(record, Mapping):
+                continue
+            peers = []
+            variants = record.get("variants", [])
+            if isinstance(variants, Sequence):
+                for variant in variants:
+                    if not isinstance(variant, Mapping):
+                        continue
+                    peer = str(variant.get("peer", "")).strip()
+                    if peer:
+                        peers.append(peer)
+            peers = sorted(dict.fromkeys(peers))
+            codex_state = record.get("codex") if isinstance(record.get("codex"), Mapping) else {}
+            resolution_path = ""
+            if isinstance(codex_state, Mapping):
+                suggestion = codex_state.get("suggestion")
+                if isinstance(suggestion, Mapping):
+                    resolution_path = str(suggestion.get("path", "")).strip()
+            status_value = str(record.get("status", "pending")).strip().lower()
+            status_label = "resolved" if status_value in {"accepted", "separate"} else "unresolved"
+            federation_conflicts.append(
+                {
+                    "id": conflict_id,
+                    "peers": peers,
+                    "status": status_label,
+                    "resolution_path": resolution_path,
+                }
+            )
+        summary["federation_conflicts"] = federation_conflicts
+
+        valid, error = self._validate_cycle_summary(summary)
+        stats = {
+            "successes": sum(1 for item in backlog_attempts if item.get("status") == "done"),
+            "failures": sum(
+                1
+                for item in backlog_attempts
+                if item.get("status") in {"failed", "discarded"}
+            ),
+            "conflicts_resolved": sum(
+                1 for entry in federation_conflicts if entry.get("status") == "resolved"
+            ),
+        }
+        summary_path: Path | None = None
+        failure_reason: str | None = None
+        if not valid:
+            failure_reason = error or "invalid_summary"
+            self._handle_cycle_summary_failure(request, summary, failure_reason)
+        else:
+            try:
+                summary_path = self._persist_cycle_summary(summary)
+            except Exception as exc:  # pragma: no cover - defensive
+                failure_reason = f"write_failed:{exc}"
+                self._handle_cycle_summary_failure(request, summary, failure_reason)
+
+        if summary_path is not None:
+            rel_path = summary_path.as_posix().lstrip("/")
+            ledger_payload = {
+                "event": "architect_cycle_summary",
+                "cycle": request.cycle_number,
+                "cycle_id": summary["cycle_id"],
+                "started_at": summary["started_at"],
+                "ended_at": summary["ended_at"],
+                "reflections": list(summary.get("reflections", [])),
+                "backlog_attempts": backlog_attempts,
+                "federation_conflicts": federation_conflicts,
+                "cooldown": summary.get("cooldown", False),
+                "anomalies": summary.get("anomalies", []),
+                "notes": summary.get("notes", ""),
+                "summary_path": rel_path,
+                **stats,
+            }
+            self._emit_ledger_event(ledger_payload)
+            pulse_payload = {
+                "cycle": request.cycle_number,
+                "cycle_id": summary["cycle_id"],
+                "successes": stats["successes"],
+                "failures": stats["failures"],
+                "conflicts_resolved": stats["conflicts_resolved"],
+                "summary_path": summary_path.as_posix(),
+                "ended_at": summary["ended_at"],
+            }
+            self._publish_pulse(
+                {
+                    "timestamp": summary["ended_at"],
+                    "source_daemon": "ArchitectDaemon",
+                    "event_type": "architect_cycle_summary",
+                    "priority": "info",
+                    "payload": pulse_payload,
+                }
+            )
+            self._update_cycle_entry(
+                request.architect_id,
+                summary_path=rel_path,
+                summary_stats=dict(stats),
+            )
+        elif failure_reason:
+            self._update_cycle_entry(
+                request.architect_id,
+                summary_error=failure_reason,
+            )
+
+        self._cycle_state.pop(request.architect_id, None)
+        if self._active_cycle_id == request.architect_id:
+            self._active_cycle_id = None
+        self._save_session()
+
+    def _validate_cycle_summary(
+        self, summary: Mapping[str, object]
+    ) -> tuple[bool, str | None]:
+        required_keys = ["cycle_id", "started_at", "ended_at", "notes"]
+        for key in required_keys:
+            value = summary.get(key)
+            if not isinstance(value, str):
+                return False, f"invalid_{key}"
+            if key != "notes" and not value.strip():
+                return False, f"missing_{key}"
+        if not isinstance(summary.get("cooldown"), bool):
+            return False, "invalid_cooldown"
+        reflections = summary.get("reflections")
+        if not isinstance(reflections, list) or any(not isinstance(item, str) for item in reflections):
+            return False, "invalid_reflections"
+        anomalies = summary.get("anomalies")
+        if not isinstance(anomalies, list) or any(not isinstance(item, str) for item in anomalies):
+            return False, "invalid_anomalies"
+        backlog = summary.get("backlog_attempts")
+        if not isinstance(backlog, list):
+            return False, "invalid_backlog"
+        for attempt in backlog:
+            if not isinstance(attempt, Mapping):
+                return False, "invalid_backlog_entry"
+            entry_id = attempt.get("id")
+            status = attempt.get("status")
+            if not isinstance(entry_id, str) or not entry_id.strip():
+                return False, "invalid_backlog_id"
+            if not isinstance(status, str) or status not in {"done", "failed", "discarded"}:
+                return False, "invalid_backlog_status"
+            if not isinstance(attempt.get("text"), str):
+                return False, "invalid_backlog_text"
+        conflicts = summary.get("federation_conflicts")
+        if not isinstance(conflicts, list):
+            return False, "invalid_conflicts"
+        for conflict in conflicts:
+            if not isinstance(conflict, Mapping):
+                return False, "invalid_conflict_entry"
+            conflict_id = conflict.get("id")
+            status = conflict.get("status")
+            peers = conflict.get("peers")
+            if not isinstance(conflict_id, str) or not conflict_id.strip():
+                return False, "invalid_conflict_id"
+            if status not in {"resolved", "unresolved"}:
+                return False, "invalid_conflict_status"
+            if not isinstance(peers, list) or any(not isinstance(item, str) for item in peers):
+                return False, "invalid_conflict_peers"
+            if not isinstance(conflict.get("resolution_path"), str):
+                return False, "invalid_conflict_path"
+        return True, None
+
+    def _persist_cycle_summary(self, summary: Mapping[str, object]) -> Path:
+        ended_at = str(summary.get("ended_at", ""))
+        timestamp = self._timestamp_for_cycle_filename(ended_at)
+        path = self._cycle_dir / f"cycle_{timestamp}.json"
+        counter = 0
+        while path.exists():
+            counter += 1
+            path = self._cycle_dir / f"cycle_{timestamp}_{counter}.json"
+        path.write_text(json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8")
+        return path
+
+    def _timestamp_for_cycle_filename(self, ended_at: str) -> str:
+        try:
+            normalized = ended_at.strip().replace("Z", "+00:00")
+            dt = datetime.fromisoformat(normalized)
+        except Exception:
+            dt = self._now()
+        return dt.strftime("%Y%m%d_%H%M%S")
+
+    def _handle_cycle_summary_failure(
+        self, request: ArchitectRequest, summary: Mapping[str, object], reason: str
+    ) -> None:
+        payload = {
+            "event": "architect_cycle_summary_failed",
+            "cycle": request.cycle_number,
+            "cycle_id": summary.get("cycle_id", ""),
+            "reason": reason,
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_cycle_summary_failed",
+                "priority": "warning",
+                "payload": {
+                    "cycle": request.cycle_number,
+                    "cycle_id": summary.get("cycle_id", ""),
+                    "reason": reason,
+                },
+            }
+        )
 
     def _recent_cycle_history(self, limit: int = 10) -> list[dict[str, object]]:
         expansions = [
@@ -2338,6 +2784,7 @@ class ArchitectDaemon:
         cooldown_iso = datetime.fromtimestamp(
             self._cooldown_until, tz=timezone.utc
         ).isoformat()
+        self._mark_cycle_cooldown()
         payload = {
             "event": "architect_cooldown",
             "reason": reason,
@@ -2412,6 +2859,7 @@ class ArchitectDaemon:
                 },
             }
         )
+        self._record_cycle_anomaly("throttled")
         self._schedule_next_cycle(self._now().timestamp())
 
     def _release_throttle(self, *, reason: str) -> None:
@@ -2512,6 +2960,18 @@ class ArchitectDaemon:
     def _handle_monitor_alert(self, event: Mapping[str, object]) -> None:
         self._anomaly_streak = min(self._anomaly_streak + 1, self._anomaly_threshold * 2)
         payload = event.get("payload") if isinstance(event, Mapping) else None
+        label = ""
+        if isinstance(payload, Mapping):
+            raw_label = (
+                payload.get("anomaly")
+                or payload.get("detail")
+                or payload.get("type")
+                or ""
+            )
+            label = str(raw_label).strip()
+        if not label:
+            label = str(event.get("event_type", "monitor_alert"))
+        self._record_cycle_anomaly(label)
         if self._anomaly_streak >= self._anomaly_threshold and not self._throttled:
             normalized_payload = payload if isinstance(payload, Mapping) else None
             self._engage_throttle(normalized_payload)
@@ -3175,6 +3635,8 @@ class ArchitectDaemon:
                 cycle=cycle_number,
                 reason=reason_value,
             )
+        summary_reason = None if merged else "merge_failed"
+        self._finalize_cycle_summary(request, result=status, reason=summary_reason)
         self._prefix_index.pop(request.codex_prefix, None)
 
     def _finalize_reflection(
@@ -3278,9 +3740,13 @@ class ArchitectDaemon:
                 "payload": pulse_payload,
             }
         )
-
+        self._finalize_cycle_summary(
+            request,
+            result="reflection_recorded",
+            reason=None,
+            reflection_path=path,
+        )
         self._prefix_index.pop(request.codex_prefix, None)
-        self._save_session()
 
     def _record_reflection_failure(
         self, request: ArchitectRequest, reason: str, raw_output: object
@@ -3312,8 +3778,13 @@ class ArchitectDaemon:
                 "payload": {"cycle": request.cycle_number, "reason": reason},
             }
         )
+        self._finalize_cycle_summary(
+            request,
+            result="reflection_failed",
+            reason=reason,
+            reflection_path=None,
+        )
         self._prefix_index.pop(request.codex_prefix, None)
-        self._save_session()
 
     def _persist_reflection(
         self, request: ArchitectRequest, reflection: Mapping[str, object]
@@ -3438,6 +3909,12 @@ class ArchitectDaemon:
                     cycle=cycle_number,
                     reason=reason or "max_iterations",
                 )
+            self._finalize_cycle_summary(
+                request,
+                result="failed",
+                reason=reason or "max_iterations",
+                reflection_path=None,
+            )
             self._prefix_index.pop(request.codex_prefix, None)
             return
         self._update_cycle_entry(
@@ -3806,3 +4283,38 @@ def load_architect_status(
         else ""
     )
     return status
+
+
+def load_cycle_summaries(
+    limit: int = 20,
+    *,
+    directory: Path | str | None = None,
+) -> list[dict[str, object]]:
+    """Load persisted cycle summaries sorted by most recent completion."""
+
+    target_dir = Path(directory) if directory else ARCHITECT_CYCLE_DIR
+    if not target_dir.exists():
+        return []
+    try:
+        files = sorted(
+            target_dir.glob("cycle_*.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        files = []
+    if limit > 0:
+        files = files[:limit]
+    records: list[dict[str, object]] = []
+    for path in files:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, Mapping):
+            continue
+        record = dict(data)
+        record["path"] = path.as_posix()
+        records.append(record)
+    records.sort(key=lambda item: str(item.get("ended_at", "")), reverse=True)
+    return records
