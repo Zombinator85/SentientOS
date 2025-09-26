@@ -7,9 +7,12 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional
 
 import difflib
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .intent import IntentCandidate, IntentPrioritizer
 
 
 def _default_now() -> datetime:
@@ -294,8 +297,9 @@ class ScopedRewriteEngine:
 class RewriteDashboard:
     """Provide dashboard-friendly summaries for Codex rewrites."""
 
-    def __init__(self, storage: PatchStorage) -> None:
+    def __init__(self, storage: PatchStorage, *, intent_layer: "IntentPrioritizer" | None = None) -> None:
         self._storage = storage
+        self._intent_layer = intent_layer
 
     def rows(self) -> List[Dict[str, Any]]:
         entries: List[Dict[str, Any]] = []
@@ -303,24 +307,39 @@ class RewriteDashboard:
             anomaly = patch.metadata.get("anomaly") if isinstance(patch.metadata, Mapping) else None
             if not isinstance(anomaly, Mapping):
                 anomaly = {}
-            entries.append(
-                {
-                    "patch_id": patch.patch_id,
-                    "daemon": patch.daemon,
-                    "reason": patch.reason,
-                    "status": patch.status,
-                    "diff_summary": patch.diff_summary(),
-                    "confidence": patch.confidence,
-                    "override": patch.override,
-                    "source": patch.source,
-                    "anomaly": dict(anomaly),
-                    "anomaly_description": str(anomaly.get("description", "")),
-                    "actions": {
-                        "approve": patch.status == "pending",
-                        "revert": patch.status in {"applied", "approved"},
-                        "lock": patch.status != "locked",
-                        "quarantine": patch.status != "quarantined",
-                    },
-                }
-            )
+            entry: Dict[str, Any] = {
+                "patch_id": patch.patch_id,
+                "daemon": patch.daemon,
+                "reason": patch.reason,
+                "status": patch.status,
+                "diff_summary": patch.diff_summary(),
+                "confidence": patch.confidence,
+                "override": patch.override,
+                "source": patch.source,
+                "anomaly": dict(anomaly),
+                "anomaly_description": str(anomaly.get("description", "")),
+                "actions": {
+                    "approve": patch.status == "pending",
+                    "revert": patch.status in {"applied", "approved"},
+                    "lock": patch.status != "locked",
+                    "quarantine": patch.status != "quarantined",
+                },
+            }
+
+            if self._intent_layer is not None:
+                candidate_id = f"rewrite:{patch.patch_id}"
+                candidate: IntentCandidate | None = self._intent_layer.get_candidate(candidate_id)
+                if candidate is not None:
+                    entry["priority_score"] = candidate.score
+                    entry["intent"] = {
+                        "is_current": bool(
+                            self._intent_layer.current_intent
+                            and self._intent_layer.current_intent.candidate_id == candidate_id
+                        ),
+                        "acknowledged": candidate.acknowledged,
+                        "locked": self._intent_layer.is_locked(candidate_id),
+                        "score": candidate.score,
+                    }
+
+            entries.append(entry)
         return entries
