@@ -1,6 +1,14 @@
 """Codex helpers for SentientOS."""
 from __future__ import annotations
 
+from .anomalies import (
+    Anomaly,
+    AnomalyCoordinator,
+    AnomalyDetector,
+    AnomalyEmitter,
+    ProposalPlan,
+    RewriteProposalEngine,
+)
 from .rewrites import (
     LedgerInterface,
     PatchStorage,
@@ -10,6 +18,12 @@ from .rewrites import (
 )
 
 __all__ = [
+    "Anomaly",
+    "AnomalyCoordinator",
+    "AnomalyDetector",
+    "AnomalyEmitter",
+    "ProposalPlan",
+    "RewriteProposalEngine",
     "LedgerInterface",
     "PatchStorage",
     "RewriteDashboard",
