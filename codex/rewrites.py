@@ -7,7 +7,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional
 
 import difflib
 
@@ -300,6 +300,9 @@ class RewriteDashboard:
     def rows(self) -> List[Dict[str, Any]]:
         entries: List[Dict[str, Any]] = []
         for patch in self._storage.iter_patches():
+            anomaly = patch.metadata.get("anomaly") if isinstance(patch.metadata, Mapping) else None
+            if not isinstance(anomaly, Mapping):
+                anomaly = {}
             entries.append(
                 {
                     "patch_id": patch.patch_id,
@@ -309,10 +312,14 @@ class RewriteDashboard:
                     "diff_summary": patch.diff_summary(),
                     "confidence": patch.confidence,
                     "override": patch.override,
+                    "source": patch.source,
+                    "anomaly": dict(anomaly),
+                    "anomaly_description": str(anomaly.get("description", "")),
                     "actions": {
                         "approve": patch.status == "pending",
                         "revert": patch.status in {"applied", "approved"},
                         "lock": patch.status != "locked",
+                        "quarantine": patch.status != "quarantined",
                     },
                 }
             )
