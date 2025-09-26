@@ -76,6 +76,12 @@ ARCHITECT_PRIORITY_BACKLOG_PATH = Path(
 ARCHITECT_CYCLE_DIR = Path(
     os.getenv("ARCHITECT_CYCLE_DIR", "/glow/codex_cycles")
 )
+ARCHITECT_TRAJECTORY_DIR = Path(
+    os.getenv("ARCHITECT_TRAJECTORY_DIR", "/glow/codex_trajectories")
+)
+ARCHITECT_TRAJECTORY_INTERVAL = int(
+    os.getenv("ARCHITECT_TRAJECTORY_INTERVAL", "10")
+)
 
 _PRIORITY_ACTIVE_STATUSES = {"pending", "in_progress", "done", "discarded"}
 _PRIORITY_HISTORY_STATUSES = {"done", "discarded"}
@@ -205,6 +211,8 @@ class ArchitectDaemon:
         reflection_dir: Path | str | None = None,
         priority_path: Path | str | None = None,
         cycle_dir: Path | str | None = None,
+        trajectory_interval: int | None = None,
+        trajectory_dir: Path | str | None = None,
         rng: random.Random | None = None,
         anomaly_threshold: int | None = None,
     ) -> None:
@@ -314,6 +322,16 @@ class ArchitectDaemon:
 
         self._cycle_dir = Path(cycle_dir) if cycle_dir else ARCHITECT_CYCLE_DIR
         self._cycle_dir.mkdir(parents=True, exist_ok=True)
+        self._trajectory_dir = (
+            Path(trajectory_dir) if trajectory_dir else ARCHITECT_TRAJECTORY_DIR
+        )
+        self._trajectory_dir.mkdir(parents=True, exist_ok=True)
+        interval_value = (
+            trajectory_interval
+            if trajectory_interval is not None
+            else ARCHITECT_TRAJECTORY_INTERVAL
+        )
+        self._trajectory_interval = max(1, int(interval_value))
 
         self._requests: dict[str, ArchitectRequest] = {}
         self._prefix_index: dict[str, ArchitectRequest] = {}
@@ -333,6 +351,9 @@ class ArchitectDaemon:
         self._throttled = False
         self._last_reflection_path: str | None = None
         self._last_reflection_summary: str | None = None
+        self._last_trajectory_path: str | None = None
+        self._last_trajectory_id: str | None = None
+        self._last_trajectory_notes: str | None = None
         self._federate_reflections = bool(ARCHITECT_FEDERATE_REFLECTIONS)
         self._federate_priorities = bool(ARCHITECT_FEDERATE_PRIORITIES)
 
@@ -442,6 +463,10 @@ class ArchitectDaemon:
                 "last_reflection_path": "",
                 "last_reflection_summary": "",
                 "anomaly_streak": 0,
+                "last_trajectory_path": "",
+                "last_trajectory_id": "",
+                "last_trajectory_notes": "",
+                "trajectory_interval": ARCHITECT_TRAJECTORY_INTERVAL,
             }
         try:
             data = json.loads(self.session_file.read_text(encoding="utf-8"))
@@ -461,6 +486,10 @@ class ArchitectDaemon:
                 "last_reflection_path": "",
                 "last_reflection_summary": "",
                 "anomaly_streak": 0,
+                "last_trajectory_path": "",
+                "last_trajectory_id": "",
+                "last_trajectory_notes": "",
+                "trajectory_interval": ARCHITECT_TRAJECTORY_INTERVAL,
             }
         if not isinstance(data, MutableMapping):
             return {
@@ -478,6 +507,10 @@ class ArchitectDaemon:
                 "last_reflection_path": "",
                 "last_reflection_summary": "",
                 "anomaly_streak": 0,
+                "last_trajectory_path": "",
+                "last_trajectory_id": "",
+                "last_trajectory_notes": "",
+                "trajectory_interval": ARCHITECT_TRAJECTORY_INTERVAL,
             }
         payload = dict(data)
         payload.setdefault("runs", 0)
@@ -494,6 +527,10 @@ class ArchitectDaemon:
         payload.setdefault("last_reflection_path", "")
         payload.setdefault("last_reflection_summary", "")
         payload.setdefault("anomaly_streak", 0)
+        payload.setdefault("last_trajectory_path", "")
+        payload.setdefault("last_trajectory_id", "")
+        payload.setdefault("last_trajectory_notes", "")
+        payload.setdefault("trajectory_interval", ARCHITECT_TRAJECTORY_INTERVAL)
         return payload
 
     def _hydrate_session_state(self) -> None:
@@ -538,6 +575,27 @@ class ArchitectDaemon:
             self._anomaly_streak = int(self._session.get("anomaly_streak", 0))
         except (TypeError, ValueError):
             self._anomaly_streak = 0
+        trajectory_path = self._session.get("last_trajectory_path", "")
+        if isinstance(trajectory_path, str) and trajectory_path.strip():
+            self._last_trajectory_path = trajectory_path
+        else:
+            self._last_trajectory_path = None
+        trajectory_id = self._session.get("last_trajectory_id", "")
+        if isinstance(trajectory_id, str) and trajectory_id.strip():
+            self._last_trajectory_id = trajectory_id
+        else:
+            self._last_trajectory_id = None
+        trajectory_notes = self._session.get("last_trajectory_notes", "")
+        if isinstance(trajectory_notes, str) and trajectory_notes.strip():
+            self._last_trajectory_notes = trajectory_notes
+        else:
+            self._last_trajectory_notes = None
+        try:
+            interval_value = int(self._session.get("trajectory_interval", self._trajectory_interval))
+            if interval_value > 0:
+                self._trajectory_interval = interval_value
+        except (TypeError, ValueError):
+            pass
         self._update_interval()
 
     def _save_session(self) -> None:
@@ -553,6 +611,10 @@ class ArchitectDaemon:
         self._session["last_reflection_summary"] = self._last_reflection_summary or ""
         self._session["anomaly_streak"] = int(self._anomaly_streak)
         self._session["autonomy_enabled"] = bool(self._autonomy_enabled)
+        self._session["last_trajectory_path"] = self._last_trajectory_path or ""
+        self._session["last_trajectory_id"] = self._last_trajectory_id or ""
+        self._session["last_trajectory_notes"] = self._last_trajectory_notes or ""
+        self._session["trajectory_interval"] = int(self._trajectory_interval)
         self.session_file.write_text(
             json.dumps(self._session, indent=2, sort_keys=True), encoding="utf-8"
         )
@@ -2595,6 +2657,7 @@ class ArchitectDaemon:
                 summary_path=rel_path,
                 summary_stats=dict(stats),
             )
+            self._maybe_generate_trajectory(request)
         elif failure_reason:
             self._update_cycle_entry(
                 request.architect_id,
@@ -2697,6 +2760,369 @@ class ArchitectDaemon:
                     "cycle_id": summary.get("cycle_id", ""),
                     "reason": reason,
                 },
+            }
+        )
+
+    def _maybe_generate_trajectory(self, request: ArchitectRequest) -> None:
+        interval = max(1, int(self._trajectory_interval or 1))
+        cycle_number = int(request.cycle_number or 0)
+        if cycle_number <= 0:
+            return
+        if cycle_number % interval != 0:
+            return
+        self._emit_trajectory_start(cycle_number, interval)
+        try:
+            report = self._build_trajectory_report(interval=interval)
+        except ValueError as exc:
+            reason = str(exc) or "trajectory_build_failed"
+            self._handle_trajectory_failure(cycle_number, reason)
+            return
+        valid, error = self._validate_trajectory_report(report)
+        if not valid:
+            self._handle_trajectory_failure(
+                cycle_number, error or "invalid_trajectory_report"
+            )
+            return
+        try:
+            report_path = self._persist_trajectory_report(report)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self._handle_trajectory_failure(cycle_number, f"write_failed:{exc}")
+            return
+        self._handle_trajectory_success(report, report_path)
+
+    def _emit_trajectory_start(self, cycle_number: int, interval: int) -> None:
+        timestamp = self._now().isoformat()
+        ledger_payload = {
+            "event": "architect_trajectory_start",
+            "cycle": cycle_number,
+            "interval": interval,
+        }
+        self._emit_ledger_event(ledger_payload)
+        self._publish_pulse(
+            {
+                "timestamp": timestamp,
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_trajectory_start",
+                "priority": "info",
+                "payload": {"cycle": cycle_number, "interval": interval},
+            }
+        )
+
+    def _emit_trajectory_warning(
+        self, message: str, *, detail: Mapping[str, object] | None = None
+    ) -> None:
+        payload: dict[str, object] = {"event": "architect_trajectory_warning", "message": message}
+        if detail:
+            for key, value in detail.items():
+                payload[key] = value
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_trajectory_warning",
+                "priority": "warning",
+                "payload": dict(payload),
+            }
+        )
+
+    def _collect_recent_cycles(self, limit: int) -> list[dict[str, object]]:
+        try:
+            files = sorted(
+                self._cycle_dir.glob("cycle_*.json"),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+        except OSError:
+            files = []
+        if limit > 0:
+            files = files[:limit]
+        if limit > 0 and len(files) < limit:
+            self._emit_trajectory_warning(
+                "cycle_history_shortfall",
+                detail={"expected": limit, "available": len(files)},
+            )
+        records: list[dict[str, object]] = []
+        for path in files:
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                self._emit_trajectory_warning(
+                    "cycle_summary_unreadable",
+                    detail={"summary_path": path.as_posix()},
+                )
+                continue
+            if not isinstance(data, Mapping):
+                self._emit_trajectory_warning(
+                    "cycle_summary_invalid",
+                    detail={"summary_path": path.as_posix()},
+                )
+                continue
+            record = dict(data)
+            record["__path__"] = path
+            records.append(record)
+        if not records:
+            return []
+        records.sort(
+            key=lambda item: self._parse_iso_timestamp(str(item.get("ended_at", "")))
+        )
+        return records
+
+    def _parse_iso_timestamp(self, value: str) -> datetime:
+        text = value.strip()
+        if not text:
+            return datetime.min.replace(tzinfo=timezone.utc)
+        try:
+            normalized = text.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized)
+        except Exception:
+            return datetime.min.replace(tzinfo=timezone.utc)
+
+    def _build_trajectory_report(self, *, interval: int) -> dict[str, object]:
+        cycles = self._collect_recent_cycles(interval)
+        if not cycles:
+            raise ValueError("no_cycle_summaries")
+        cycle_paths: list[str] = []
+        started_values: list[str] = []
+        ended_values: list[str] = []
+        total_successes = 0
+        total_failures = 0
+        failure_counts: dict[str, int] = {}
+        failure_labels: dict[str, str] = {}
+        conflict_counts: dict[str, int] = {}
+        backlog_status: dict[str, str] = {}
+        planned_priorities: dict[str, str] = {}
+        for record in cycles:
+            path_obj = record.get("__path__")
+            if isinstance(path_obj, Path):
+                cycle_paths.append(path_obj.as_posix())
+            started = str(record.get("started_at", "")).strip()
+            ended = str(record.get("ended_at", "")).strip()
+            if started:
+                started_values.append(started)
+            if ended:
+                ended_values.append(ended)
+            backlog = record.get("backlog_attempts", [])
+            if isinstance(backlog, list):
+                for attempt in backlog:
+                    if not isinstance(attempt, Mapping):
+                        continue
+                    status = str(attempt.get("status", "")).strip().lower()
+                    text = str(attempt.get("text", "")).strip()
+                    if not text:
+                        text = str(attempt.get("id", "")).strip()
+                    canonical = _canonicalize_priority_text(text) if text else ""
+                    if not canonical:
+                        canonical = str(attempt.get("id", "")).strip()
+                    if not canonical:
+                        continue
+                    label = text or canonical
+                    if status == "done":
+                        total_successes += 1
+                        backlog_status[canonical] = "done"
+                    elif status in {"failed", "discarded"}:
+                        total_failures += 1
+                        if backlog_status.get(canonical) != "done":
+                            backlog_status[canonical] = "discarded"
+                        failure_counts[canonical] = failure_counts.get(canonical, 0) + 1
+                        failure_labels.setdefault(canonical, label)
+            conflicts = record.get("federation_conflicts", [])
+            if isinstance(conflicts, list):
+                for conflict in conflicts:
+                    if not isinstance(conflict, Mapping):
+                        continue
+                    status_value = str(conflict.get("status", "")).strip().lower()
+                    if status_value == "resolved":
+                        continue
+                    label = str(conflict.get("id", "")).strip()
+                    if not label:
+                        continue
+                    conflict_counts[label] = conflict_counts.get(label, 0) + 1
+            reflections = record.get("reflections", [])
+            if isinstance(reflections, list):
+                for ref in reflections:
+                    if not isinstance(ref, str):
+                        continue
+                    ref_path = Path(ref)
+                    if not ref_path.is_absolute():
+                        ref_path = Path("/") / ref.lstrip("/")
+                    if not ref_path.exists():
+                        self._emit_trajectory_warning(
+                            "reflection_missing",
+                            detail={"reflection_path": ref},
+                        )
+                        continue
+                    try:
+                        reflection_data = json.loads(ref_path.read_text(encoding="utf-8"))
+                    except Exception:
+                        self._emit_trajectory_warning(
+                            "reflection_invalid",
+                            detail={"reflection_path": ref_path.as_posix()},
+                        )
+                        continue
+                    priorities = reflection_data.get("next_priorities")
+                    if isinstance(priorities, list):
+                        for item in priorities:
+                            if not isinstance(item, str):
+                                continue
+                            text_value = item.strip()
+                            if not text_value:
+                                continue
+                            canonical = _canonicalize_priority_text(text_value)
+                            if not canonical:
+                                canonical = text_value.lower()
+                            planned_priorities.setdefault(canonical, text_value)
+        total_attempts = total_successes + total_failures
+        success_rate = (
+            float(round(total_successes / total_attempts, 4)) if total_attempts else 0.0
+        )
+        failure_rate = (
+            float(round(total_failures / total_attempts, 4)) if total_attempts else 0.0
+        )
+        recurring_labels: list[str] = []
+        for canonical, count in failure_counts.items():
+            if count > 1:
+                recurring_labels.append(failure_labels.get(canonical, canonical))
+        for label, count in conflict_counts.items():
+            if count > 1:
+                recurring_labels.append(label)
+        recurring = sorted(dict.fromkeys(recurring_labels))
+        planned_total = len(planned_priorities)
+        completed = sum(
+            1 for key in planned_priorities if backlog_status.get(key) == "done"
+        )
+        discarded = sum(
+            1 for key in planned_priorities if backlog_status.get(key) == "discarded"
+        )
+        attempts_note = (
+            f"{total_successes}/{total_attempts}"
+            if total_attempts
+            else "0/0"
+        )
+        followthrough_note = (
+            f"{completed}/{planned_total} completed"
+            if planned_total
+            else "no planned priorities"
+        )
+        regression_note = ", ".join(recurring) if recurring else "none"
+        notes = (
+            f"Codex summary: {len(cycles)} cycles, success {success_rate * 100:.0f}%"
+            f" ({attempts_note}), follow-through {followthrough_note}, "
+            f"recurring regressions: {regression_note}."
+        )
+        started_at = started_values[0] if started_values else self._now().isoformat()
+        ended_at = ended_values[-1] if ended_values else self._now().isoformat()
+        report = {
+            "trajectory_id": str(uuid4()),
+            "started_at": started_at,
+            "ended_at": ended_at,
+            "cycles_included": cycle_paths,
+            "success_rate": success_rate,
+            "failure_rate": failure_rate,
+            "recurring_regressions": recurring,
+            "priority_followthrough": {
+                "planned": int(planned_total),
+                "completed": int(completed),
+                "discarded": int(discarded),
+            },
+            "notes": notes,
+        }
+        return report
+
+    def _validate_trajectory_report(
+        self, report: Mapping[str, object]
+    ) -> tuple[bool, str | None]:
+        required = ("trajectory_id", "started_at", "ended_at", "notes")
+        for key in required:
+            value = report.get(key)
+            if not isinstance(value, str):
+                return False, f"invalid_{key}"
+            if key != "notes" and not value.strip():
+                return False, f"missing_{key}"
+        cycles = report.get("cycles_included")
+        if not isinstance(cycles, list) or not cycles:
+            return False, "invalid_cycles"
+        for item in cycles:
+            if not isinstance(item, str) or not item.strip():
+                return False, "invalid_cycle_path"
+        success_rate = report.get("success_rate")
+        failure_rate = report.get("failure_rate")
+        if not isinstance(success_rate, (int, float)):
+            return False, "invalid_success_rate"
+        if not isinstance(failure_rate, (int, float)):
+            return False, "invalid_failure_rate"
+        if success_rate < 0 or failure_rate < 0:
+            return False, "negative_rates"
+        regressions = report.get("recurring_regressions")
+        if not isinstance(regressions, list):
+            return False, "invalid_regressions"
+        if any(not isinstance(item, str) for item in regressions):
+            return False, "invalid_regression_entry"
+        followthrough = report.get("priority_followthrough")
+        if not isinstance(followthrough, Mapping):
+            return False, "invalid_followthrough"
+        for key in ("planned", "completed", "discarded"):
+            value = followthrough.get(key)
+            if not isinstance(value, int) or value < 0:
+                return False, f"invalid_followthrough_{key}"
+        return True, None
+
+    def _persist_trajectory_report(self, report: Mapping[str, object]) -> Path:
+        ended_at = str(report.get("ended_at", ""))
+        timestamp = self._timestamp_for_cycle_filename(ended_at)
+        path = self._trajectory_dir / f"trajectory_{timestamp}.json"
+        counter = 0
+        while path.exists():
+            counter += 1
+            path = self._trajectory_dir / f"trajectory_{timestamp}_{counter}.json"
+        path.write_text(json.dumps(dict(report), indent=2, sort_keys=True), encoding="utf-8")
+        return path
+
+    def _handle_trajectory_success(
+        self, report: Mapping[str, object], report_path: Path
+    ) -> None:
+        notes_value = str(report.get("notes", ""))
+        rel_path = report_path.as_posix().lstrip("/")
+        self._last_trajectory_path = rel_path
+        self._last_trajectory_id = str(report.get("trajectory_id", "")) or None
+        self._last_trajectory_notes = notes_value or None
+        ledger_payload = {"event": "architect_trajectory_report", **dict(report)}
+        ledger_payload["report_path"] = rel_path
+        self._emit_ledger_event(ledger_payload)
+        pulse_payload = {
+            "timestamp": str(report.get("ended_at", self._now().isoformat())),
+            "source_daemon": "ArchitectDaemon",
+            "event_type": "architect_trajectory_report",
+            "priority": "info",
+            "payload": {
+                "trajectory_id": report.get("trajectory_id"),
+                "success_rate": report.get("success_rate"),
+                "failure_rate": report.get("failure_rate"),
+                "recurring_regressions": list(report.get("recurring_regressions", [])),
+                "priority_followthrough": dict(
+                    report.get("priority_followthrough", {})
+                ),
+                "cycles_included": list(report.get("cycles_included", [])),
+                "report_path": report_path.as_posix(),
+            },
+        }
+        self._publish_pulse(pulse_payload)
+        self._save_session()
+
+    def _handle_trajectory_failure(self, cycle_number: int, reason: str) -> None:
+        payload = {
+            "event": "architect_trajectory_failed",
+            "cycle": cycle_number,
+            "reason": str(reason),
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_trajectory_failed",
+                "priority": "warning",
+                "payload": {"cycle": cycle_number, "reason": str(reason)},
             }
         )
 
@@ -3073,6 +3499,16 @@ class ArchitectDaemon:
         federate_priorities = self._coerce_bool(
             payload.get("federate_priorities", ARCHITECT_FEDERATE_PRIORITIES)
         )
+        trajectory_interval = max(
+            1,
+            self._coerce_int(
+                payload.get(
+                    "architect_trajectory_interval",
+                    self._trajectory_interval,
+                ),
+                self._trajectory_interval,
+            ),
+        )
         return {
             "codex_mode": mode,
             "codex_interval": codex_interval,
@@ -3084,6 +3520,7 @@ class ArchitectDaemon:
             "architect_autonomy": autonomy,
             "federate_reflections": federate_reflections,
             "federate_priorities": federate_priorities,
+            "architect_trajectory_interval": trajectory_interval,
         }
 
     def _normalize_peers(self, raw: object) -> list[str]:
@@ -3176,6 +3613,17 @@ class ArchitectDaemon:
         self._federate_priorities = bool(
             snapshot.get("federate_priorities", ARCHITECT_FEDERATE_PRIORITIES)
         )
+        try:
+            trajectory_interval = int(
+                snapshot.get(
+                    "architect_trajectory_interval", self._trajectory_interval
+                )
+            )
+        except (TypeError, ValueError):
+            trajectory_interval = self._trajectory_interval
+        if trajectory_interval <= 0:
+            trajectory_interval = self._trajectory_interval
+        self._trajectory_interval = max(1, trajectory_interval)
 
     def _current_config_summary(self) -> dict[str, object]:
         return {
@@ -3191,6 +3639,7 @@ class ArchitectDaemon:
             "architect_throttled": self._throttled,
             "federate_reflections": self._federate_reflections,
             "federate_priorities": self._federate_priorities,
+            "architect_trajectory_interval": self._trajectory_interval,
         }
 
     def _emit_activation_event(self, reason: str) -> None:
@@ -4282,6 +4731,14 @@ def load_architect_status(
         if cooldown_until > 0
         else ""
     )
+    status.setdefault("last_trajectory_path", "")
+    status.setdefault("last_trajectory_id", "")
+    status.setdefault("last_trajectory_notes", "")
+    try:
+        interval_value = int(status.get("trajectory_interval", ARCHITECT_TRAJECTORY_INTERVAL))
+    except (TypeError, ValueError):
+        interval_value = ARCHITECT_TRAJECTORY_INTERVAL
+    status["trajectory_interval"] = max(1, interval_value)
     return status
 
 
@@ -4298,6 +4755,39 @@ def load_cycle_summaries(
     try:
         files = sorted(
             target_dir.glob("cycle_*.json"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+    except OSError:
+        files = []
+    if limit > 0:
+        files = files[:limit]
+    records: list[dict[str, object]] = []
+    for path in files:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, Mapping):
+            continue
+        record = dict(data)
+        record["path"] = path.as_posix()
+        records.append(record)
+    records.sort(key=lambda item: str(item.get("ended_at", "")), reverse=True)
+    return records
+
+
+def load_trajectory_reports(
+    limit: int = 10,
+    *,
+    directory: Path | str | None = None,
+) -> list[dict[str, object]]:
+    target_dir = Path(directory) if directory else ARCHITECT_TRAJECTORY_DIR
+    if not target_dir.exists():
+        return []
+    try:
+        files = sorted(
+            target_dir.glob("trajectory_*.json"),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
         )
