@@ -14,6 +14,8 @@ from typing import Any, Iterable, Mapping, Sequence
 from sentientos import immutability
 from sentientos.daemons import pulse_bus
 
+from integration_memory import integration_memory
+
 CODEX_MODE = "observe"
 CODEX_MAX_ITERATIONS = 1
 CODEX_FOCUS = "pytest"
@@ -796,6 +798,33 @@ class _PredictiveRepairManager:
         analysis_window = self._analysis_window(payload)
         anomaly_pattern = self._anomaly_pattern(payload)
         target_daemon = self._target_daemon(payload)
+        raw_confidence = payload.get("confidence")
+        try:
+            event_confidence = float(raw_confidence)
+        except (TypeError, ValueError):
+            event_confidence = 0.5
+        integration_source = target_daemon or str(
+            payload.get("source_daemon")
+            or event.get("source_daemon")
+            or "CodexDaemon"
+        )
+        integration_entry = integration_memory.record_event(
+            "anomaly_detected",
+            source=integration_source,
+            impact="degraded",
+            confidence=event_confidence,
+            payload={
+                "analysis_window": analysis_window,
+                "anomaly_pattern": anomaly_pattern,
+                "observed": payload.get("observed") or payload.get("count"),
+                "threshold": payload.get("threshold"),
+                "source_daemon": integration_source,
+            },
+        )
+        projection = integration_memory.project_state(
+            integration_source, anomaly_pattern or None
+        )
+        state_vector = integration_memory.state_vector(integration_source)
         suggestion_entry: dict[str, Any] = {
             "ts": _ledger_timestamp(),
             "event": "self_predict_suggested" if scope == "local" else "federated_predictive_event",
@@ -811,6 +840,9 @@ class _PredictiveRepairManager:
             "source_peer": LOCAL_PEER_NAME,
             "origin_peer": origin_peer,
             "target_peer": "" if scope == "local" else target_peer,
+            "integration_event_id": integration_entry.id,
+            "integration_projection": projection,
+            "integration_state_vector": state_vector,
         }
         if scope == "local":
             suggestion_entry["prompt"] = prompt
@@ -1057,6 +1089,20 @@ class _PredictiveRepairManager:
                     "verification_result": entry.get("verification_result", False),
                 },
             }
+        )
+        patch_event_type = "patch_applied" if applied and verification else "patch_failed"
+        integration_memory.record_event(
+            patch_event_type,
+            source=target_daemon or "CodexDaemon",
+            impact="patched" if applied and verification else "failed",
+            confidence=1.0 if applied and verification else 0.4,
+            payload={
+                "patch_id": patch_id,
+                "files_changed": list(files_changed),
+                "analysis_window": analysis_window,
+                "anomaly_pattern": anomaly_pattern,
+                "scope": "local",
+            },
         )
         if applied and verification:
             record_self_predict_applied(files_changed, ledger_queue)
