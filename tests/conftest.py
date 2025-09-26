@@ -117,6 +117,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_architect_integration",
         "tests.test_architect_priorities",
         "tests.test_architect_federated_priorities",
+        "tests.test_architect_steering",
         "tests.test_architect_conflict_resolution",
         "tests.test_architect_cycles",
         "tests.test_architect_trajectory",

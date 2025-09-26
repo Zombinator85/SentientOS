@@ -82,6 +82,15 @@ ARCHITECT_TRAJECTORY_DIR = Path(
 ARCHITECT_TRAJECTORY_INTERVAL = int(
     os.getenv("ARCHITECT_TRAJECTORY_INTERVAL", "10")
 )
+ARCHITECT_SUCCESS_RATE_THRESHOLD = float(
+    os.getenv("ARCHITECT_SUCCESS_RATE_THRESHOLD", "0.7")
+)
+ARCHITECT_FAILURE_STREAK_THRESHOLD = int(
+    os.getenv("ARCHITECT_FAILURE_STREAK_THRESHOLD", "3")
+)
+ARCHITECT_CONFLICT_RATE_THRESHOLD = float(
+    os.getenv("ARCHITECT_CONFLICT_RATE_THRESHOLD", "0.3")
+)
 
 _PRIORITY_ACTIVE_STATUSES = {"pending", "in_progress", "done", "discarded"}
 _PRIORITY_HISTORY_STATUSES = {"done", "discarded"}
@@ -215,6 +224,9 @@ class ArchitectDaemon:
         trajectory_dir: Path | str | None = None,
         rng: random.Random | None = None,
         anomaly_threshold: int | None = None,
+        success_rate_threshold: float | None = None,
+        failure_streak_threshold: int | None = None,
+        conflict_rate_threshold: float | None = None,
     ) -> None:
         self.request_dir = Path(request_dir) if request_dir else ARCHITECT_REQUEST_DIR
         self.session_file = Path(session_file) if session_file else ARCHITECT_SESSION_FILE
@@ -242,6 +254,7 @@ class ArchitectDaemon:
         if reflection_interval is None:
             reflection_interval = ARCHITECT_REFLECTION_INTERVAL
         self._reflection_interval = max(1, int(reflection_interval))
+        self._default_reflection_interval = int(self._reflection_interval)
         self._cooldown_period = max(
             0.0,
             float(
@@ -250,6 +263,7 @@ class ArchitectDaemon:
                 else ARCHITECT_COOLDOWN_PERIOD
             ),
         )
+        self._default_cooldown_period = float(self._cooldown_period)
         self._max_failures = max(
             1,
             int(max_failures if max_failures is not None else ARCHITECT_MAX_FAILURES),
@@ -260,6 +274,30 @@ class ArchitectDaemon:
                 anomaly_threshold
                 if anomaly_threshold is not None
                 else ARCHITECT_ANOMALY_THRESHOLD
+            ),
+        )
+        self._success_rate_threshold = max(
+            0.0,
+            float(
+                success_rate_threshold
+                if success_rate_threshold is not None
+                else ARCHITECT_SUCCESS_RATE_THRESHOLD
+            ),
+        )
+        self._failure_streak_threshold = max(
+            1,
+            int(
+                failure_streak_threshold
+                if failure_streak_threshold is not None
+                else ARCHITECT_FAILURE_STREAK_THRESHOLD
+            ),
+        )
+        self._conflict_rate_threshold = max(
+            0.0,
+            float(
+                conflict_rate_threshold
+                if conflict_rate_threshold is not None
+                else ARCHITECT_CONFLICT_RATE_THRESHOLD
             ),
         )
         self._ledger_sink = ledger_sink
@@ -356,6 +394,17 @@ class ArchitectDaemon:
         self._last_trajectory_notes: str | None = None
         self._federate_reflections = bool(ARCHITECT_FEDERATE_REFLECTIONS)
         self._federate_priorities = bool(ARCHITECT_FEDERATE_PRIORITIES)
+
+        self._steering_overrides: dict[str, object] = {
+            "reflection_interval": None,
+            "cooldown_period": None,
+            "conflict_priority": False,
+        }
+        self._low_confidence_priorities: set[str] = set()
+        self._priority_confidence: dict[str, str] = {}
+        self._trajectory_adjustment_reason: str = ""
+        self._trajectory_adjustment_settings: dict[str, object] = {}
+        self._conflict_priority_escalated = False
 
         self._cycle_state: dict[str, dict[str, object]] = {}
         self._pending_cycle_anomalies: list[str] = []
@@ -467,6 +516,10 @@ class ArchitectDaemon:
                 "last_trajectory_id": "",
                 "last_trajectory_notes": "",
                 "trajectory_interval": ARCHITECT_TRAJECTORY_INTERVAL,
+                "trajectory_adjustment_reason": "",
+                "trajectory_adjustment_settings": {},
+                "trajectory_overrides": {},
+                "low_confidence_priorities": [],
             }
         try:
             data = json.loads(self.session_file.read_text(encoding="utf-8"))
@@ -490,6 +543,10 @@ class ArchitectDaemon:
                 "last_trajectory_id": "",
                 "last_trajectory_notes": "",
                 "trajectory_interval": ARCHITECT_TRAJECTORY_INTERVAL,
+                "trajectory_adjustment_reason": "",
+                "trajectory_adjustment_settings": {},
+                "trajectory_overrides": {},
+                "low_confidence_priorities": [],
             }
         if not isinstance(data, MutableMapping):
             return {
@@ -511,6 +568,10 @@ class ArchitectDaemon:
                 "last_trajectory_id": "",
                 "last_trajectory_notes": "",
                 "trajectory_interval": ARCHITECT_TRAJECTORY_INTERVAL,
+                "trajectory_adjustment_reason": "",
+                "trajectory_adjustment_settings": {},
+                "trajectory_overrides": {},
+                "low_confidence_priorities": [],
             }
         payload = dict(data)
         payload.setdefault("runs", 0)
@@ -531,6 +592,10 @@ class ArchitectDaemon:
         payload.setdefault("last_trajectory_id", "")
         payload.setdefault("last_trajectory_notes", "")
         payload.setdefault("trajectory_interval", ARCHITECT_TRAJECTORY_INTERVAL)
+        payload.setdefault("trajectory_adjustment_reason", "")
+        payload.setdefault("trajectory_adjustment_settings", {})
+        payload.setdefault("trajectory_overrides", {})
+        payload.setdefault("low_confidence_priorities", [])
         return payload
 
     def _hydrate_session_state(self) -> None:
@@ -596,6 +661,42 @@ class ArchitectDaemon:
                 self._trajectory_interval = interval_value
         except (TypeError, ValueError):
             pass
+        reason_value = self._session.get("trajectory_adjustment_reason", "")
+        if isinstance(reason_value, str):
+            self._trajectory_adjustment_reason = reason_value.strip()
+        else:
+            self._trajectory_adjustment_reason = ""
+        settings_value = self._session.get("trajectory_adjustment_settings", {})
+        if isinstance(settings_value, Mapping):
+            self._trajectory_adjustment_settings = dict(settings_value)
+        else:
+            self._trajectory_adjustment_settings = {}
+        overrides_value = self._session.get("trajectory_overrides", {})
+        normalized_overrides: dict[str, object] = {
+            "reflection_interval": None,
+            "cooldown_period": None,
+            "conflict_priority": False,
+        }
+        if isinstance(overrides_value, Mapping):
+            reflection_override = overrides_value.get("reflection_interval")
+            if isinstance(reflection_override, int) and reflection_override > 0:
+                normalized_overrides["reflection_interval"] = int(reflection_override)
+            cooldown_override = overrides_value.get("cooldown_period")
+            if isinstance(cooldown_override, (int, float)) and float(cooldown_override) > 0:
+                normalized_overrides["cooldown_period"] = float(cooldown_override)
+            if overrides_value.get("conflict_priority"):
+                normalized_overrides["conflict_priority"] = True
+        self._steering_overrides = normalized_overrides
+        low_confidence_value = self._session.get("low_confidence_priorities", [])
+        if isinstance(low_confidence_value, Sequence) and not isinstance(low_confidence_value, (str, bytes)):
+            self._low_confidence_priorities = {
+                _canonicalize_priority_text(str(item))
+                for item in low_confidence_value
+                if str(item).strip()
+            }
+        else:
+            self._low_confidence_priorities = set()
+        self._apply_steering_overrides()
         self._update_interval()
 
     def _save_session(self) -> None:
@@ -615,6 +716,12 @@ class ArchitectDaemon:
         self._session["last_trajectory_id"] = self._last_trajectory_id or ""
         self._session["last_trajectory_notes"] = self._last_trajectory_notes or ""
         self._session["trajectory_interval"] = int(self._trajectory_interval)
+        self._session["trajectory_adjustment_reason"] = self._trajectory_adjustment_reason
+        self._session["trajectory_adjustment_settings"] = dict(
+            self._trajectory_adjustment_settings
+        )
+        self._session["trajectory_overrides"] = dict(self._steering_overrides)
+        self._session["low_confidence_priorities"] = sorted(self._low_confidence_priorities)
         self.session_file.write_text(
             json.dumps(self._session, indent=2, sort_keys=True), encoding="utf-8"
         )
@@ -624,8 +731,8 @@ class ArchitectDaemon:
     def _load_priority_backlog(
         self,
     ) -> tuple[
-        list[dict[str, str]],
-        list[dict[str, str]],
+        list[dict[str, object]],
+        list[dict[str, object]],
         str,
         bool,
         list[dict[str, object]],
@@ -644,7 +751,7 @@ class ArchitectDaemon:
         updated = str(raw.get("updated", timestamp))
         dirty = False
 
-        active_list: list[dict[str, str]] = []
+        active_list: list[dict[str, object]] = []
         raw_active = raw.get("active")
         if isinstance(raw_active, Sequence):
             for item in raw_active:
@@ -661,7 +768,11 @@ class ArchitectDaemon:
                 if status == "in_progress":
                     status = "pending"
                     dirty = True
-                active_list.append({"id": priority_id, "text": text, "status": status})
+                entry: dict[str, object] = {"id": priority_id, "text": text, "status": status}
+                confidence_value = str(item.get("confidence", "")).strip()
+                if confidence_value:
+                    entry["confidence"] = confidence_value
+                active_list.append(entry)
 
         history_list: list[dict[str, str]] = []
         raw_history = raw.get("history")
@@ -2892,6 +3003,8 @@ class ArchitectDaemon:
         conflict_counts: dict[str, int] = {}
         backlog_status: dict[str, str] = {}
         planned_priorities: dict[str, str] = {}
+        conflict_cycles = 0
+        total_conflicts = 0
         for record in cycles:
             path_obj = record.get("__path__")
             if isinstance(path_obj, Path):
@@ -2928,6 +3041,7 @@ class ArchitectDaemon:
                         failure_labels.setdefault(canonical, label)
             conflicts = record.get("federation_conflicts", [])
             if isinstance(conflicts, list):
+                unresolved_in_cycle = 0
                 for conflict in conflicts:
                     if not isinstance(conflict, Mapping):
                         continue
@@ -2937,7 +3051,11 @@ class ArchitectDaemon:
                     label = str(conflict.get("id", "")).strip()
                     if not label:
                         continue
+                    unresolved_in_cycle += 1
                     conflict_counts[label] = conflict_counts.get(label, 0) + 1
+                if unresolved_in_cycle:
+                    conflict_cycles += 1
+                    total_conflicts += unresolved_in_cycle
             reflections = record.get("reflections", [])
             if isinstance(reflections, list):
                 for ref in reflections:
@@ -2979,6 +3097,9 @@ class ArchitectDaemon:
         failure_rate = (
             float(round(total_failures / total_attempts, 4)) if total_attempts else 0.0
         )
+        conflict_rate = (
+            float(round(conflict_cycles / len(cycles), 4)) if cycles else 0.0
+        )
         recurring_labels: list[str] = []
         for canonical, count in failure_counts.items():
             if count > 1:
@@ -3019,6 +3140,7 @@ class ArchitectDaemon:
             "cycles_included": cycle_paths,
             "success_rate": success_rate,
             "failure_rate": failure_rate,
+            "conflict_rate": conflict_rate,
             "recurring_regressions": recurring,
             "priority_followthrough": {
                 "planned": int(planned_total),
@@ -3026,6 +3148,17 @@ class ArchitectDaemon:
                 "discarded": int(discarded),
             },
             "notes": notes,
+            "total_conflicts": int(total_conflicts),
+            "current_failure_streak": int(self._failure_streak),
+            "priority_failures": [
+                {
+                    "canonical": canonical,
+                    "label": failure_labels.get(canonical, canonical),
+                    "count": int(count),
+                }
+                for canonical, count in sorted(failure_counts.items())
+            ],
+            "priority_status": dict(backlog_status),
         }
         return report
 
@@ -3107,6 +3240,7 @@ class ArchitectDaemon:
             },
         }
         self._publish_pulse(pulse_payload)
+        self._apply_trajectory_adjustments(report)
         self._save_session()
 
     def _handle_trajectory_failure(self, cycle_number: int, reason: str) -> None:
@@ -3125,6 +3259,250 @@ class ArchitectDaemon:
                 "payload": {"cycle": cycle_number, "reason": str(reason)},
             }
         )
+
+    def _apply_trajectory_adjustments(self, report: Mapping[str, object]) -> None:
+        if not isinstance(report, Mapping):
+            return
+        overrides = dict(self._steering_overrides)
+        reason_parts: list[str] = []
+        settings: dict[str, object] = {}
+        changed = False
+
+        success_rate = float(report.get("success_rate", 0.0) or 0.0)
+        base_reflection = max(1, int(self._default_reflection_interval))
+        if success_rate < self._success_rate_threshold:
+            if base_reflection > 1:
+                target_reflection = max(1, base_reflection // 2)
+            else:
+                target_reflection = 1
+            if overrides.get("reflection_interval") != target_reflection:
+                overrides["reflection_interval"] = target_reflection
+                reason_parts.append(
+                    (
+                        f"Success rate {success_rate:.0%} below"
+                        f" {self._success_rate_threshold:.0%}: reflection interval set to {target_reflection}"
+                    )
+                )
+                settings["reflection_interval"] = target_reflection
+                changed = True
+
+        failure_streak_value = max(
+            int(report.get("current_failure_streak", 0) or 0),
+            int(self._failure_streak or 0),
+        )
+        if failure_streak_value > self._failure_streak_threshold:
+            base_cooldown = max(self._default_cooldown_period, 0.0)
+            target_cooldown = max(
+                int(base_cooldown * 1.5),
+                int(base_cooldown) + 6 * 60 * 60,
+            )
+            if overrides.get("cooldown_period") != target_cooldown:
+                overrides["cooldown_period"] = target_cooldown
+                hours = max(1, int(round(target_cooldown / 3600)))
+                reason_parts.append(
+                    (
+                        f"Failure streak {failure_streak_value} exceeded"
+                        f" {self._failure_streak_threshold}: cooldown extended to {hours}h"
+                    )
+                )
+                settings["cooldown_period"] = target_cooldown
+                changed = True
+
+        conflict_rate = float(report.get("conflict_rate", 0.0) or 0.0)
+        conflict_escalated = False
+        if (
+            conflict_rate > self._conflict_rate_threshold
+            and not overrides.get("conflict_priority")
+        ):
+            overrides["conflict_priority"] = True
+            reason_parts.append(
+                (
+                    f"Conflict rate {conflict_rate:.0%} above"
+                    f" {self._conflict_rate_threshold:.0%}: conflict resolution escalated"
+                )
+            )
+            settings["conflict_priority"] = True
+            changed = True
+            conflict_escalated = True
+
+        status_map: dict[str, str] = {}
+        raw_status = report.get("priority_status", {})
+        if isinstance(raw_status, Mapping):
+            for key, value in raw_status.items():
+                canonical_key = _canonicalize_priority_text(str(key))
+                if canonical_key:
+                    status_map[canonical_key] = str(value)
+        failure_entries = report.get("priority_failures", [])
+        label_map: dict[str, str] = {}
+        new_low_confidence = set(self._low_confidence_priorities)
+        threshold_failures = max(2, self._failure_streak_threshold)
+        if isinstance(failure_entries, Sequence):
+            for item in failure_entries:
+                if not isinstance(item, Mapping):
+                    continue
+                canonical = _canonicalize_priority_text(str(item.get("canonical", "")))
+                if not canonical:
+                    continue
+                label_map[canonical] = str(item.get("label", canonical))
+                try:
+                    count = int(item.get("count", 0))
+                except (TypeError, ValueError):
+                    count = 0
+                status_value = status_map.get(canonical, "")
+                if count >= threshold_failures and status_value != "done":
+                    new_low_confidence.add(canonical)
+
+        priority_changed = new_low_confidence != self._low_confidence_priorities
+        reorder_changed = self._update_priority_confidence(new_low_confidence)
+        low_confidence_list = sorted(new_low_confidence)
+        if priority_changed or reorder_changed:
+            self._low_confidence_priorities = new_low_confidence
+            labels = [label_map.get(item, item) for item in low_confidence_list]
+            self._emit_priority_reordered_event(labels)
+            self._save_priority_backlog()
+            settings["low_confidence"] = low_confidence_list
+
+        if not changed:
+            if priority_changed or reorder_changed:
+                self._trajectory_adjustment_settings["low_confidence"] = low_confidence_list
+            return
+
+        self._steering_overrides = overrides
+        self._apply_steering_overrides()
+        if conflict_escalated:
+            self._escalate_conflict_resolution()
+        reason_text = "; ".join(reason_parts)
+        if reason_text:
+            self._trajectory_adjustment_reason = reason_text
+            self._trajectory_adjustment_settings = dict(settings)
+            self._emit_trajectory_adjustment(reason_text, settings)
+
+    def _emit_trajectory_adjustment(
+        self, reason: str, settings: Mapping[str, object]
+    ) -> None:
+        payload = {
+            "event": "architect_trajectory_adjusted",
+            "reason": reason,
+            "settings": dict(settings),
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_trajectory_adjusted",
+                "priority": "info",
+                "payload": {"reason": reason, "settings": dict(settings)},
+            }
+        )
+
+    def _emit_priority_reordered_event(self, labels: Sequence[str]) -> None:
+        normalized = [str(label) for label in labels if str(label).strip()]
+        payload = {
+            "event": "architect_priority_reordered",
+            "low_confidence": normalized,
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_priority_reordered",
+                "priority": "info",
+                "payload": {"low_confidence": normalized},
+            }
+        )
+
+    def _update_priority_confidence(self, low_confidence: set[str]) -> bool:
+        low_confidence = {item for item in low_confidence if item}
+        changed = False
+        normal_entries: list[dict[str, object]] = []
+        low_pending: list[dict[str, object]] = []
+        new_confidence_map: dict[str, str] = {}
+        for entry in list(self._priority_active):
+            if not isinstance(entry, MutableMapping):
+                continue
+            text_value = str(entry.get("text", ""))
+            canonical = _canonicalize_priority_text(text_value)
+            status_value = str(entry.get("status", "pending")).strip().lower()
+            is_low = canonical in low_confidence
+            if is_low:
+                if entry.get("confidence") != "low":
+                    entry["confidence"] = "low"
+                    changed = True
+                if status_value == "pending":
+                    low_pending.append(entry)
+                else:
+                    normal_entries.append(entry)
+                entry_id = entry.get("id")
+                if isinstance(entry_id, str):
+                    new_confidence_map[entry_id] = "low"
+            else:
+                if entry.pop("confidence", None) is not None:
+                    changed = True
+                normal_entries.append(entry)
+        new_order = normal_entries + low_pending
+        if new_order != list(self._priority_active):
+            self._priority_active[:] = new_order
+            changed = True
+        self._priority_index = {
+            entry["id"]: entry
+            for entry in self._priority_active
+            if isinstance(entry, Mapping) and "id" in entry
+        }
+        self._priority_confidence = new_confidence_map
+        return changed
+
+    def _escalate_conflict_resolution(self) -> None:
+        if not self._autonomy_enabled:
+            return
+        for conflict_id, record in list(self._conflicts.items()):
+            if not isinstance(record, Mapping):
+                continue
+            status = str(record.get("status", "pending")).strip().lower()
+            if status not in {"pending", "rejected"}:
+                continue
+            variants = record.get("variants", [])
+            if not isinstance(variants, Sequence):
+                continue
+            variant_list = list(variants)
+            if len(variant_list) < 2:
+                continue
+            try:
+                self._process_conflict_resolution(conflict_id)
+            except Exception:
+                continue
+
+    def reset_trajectory_adjustments(self, *, actor: str | None = None) -> None:
+        actor_name = actor or "unknown"
+        self._steering_overrides = {
+            "reflection_interval": None,
+            "cooldown_period": None,
+            "conflict_priority": False,
+        }
+        self._low_confidence_priorities = set()
+        self._priority_confidence = {}
+        self._trajectory_adjustment_reason = ""
+        self._trajectory_adjustment_settings = {}
+        self._apply_steering_overrides()
+        self._update_priority_confidence(set())
+        if self._priority_active:
+            self._save_priority_backlog()
+        payload = {
+            "event": "architect_adjustments_reset",
+            "actor": actor_name,
+        }
+        self._emit_ledger_event(payload)
+        self._publish_pulse(
+            {
+                "timestamp": self._now().isoformat(),
+                "source_daemon": "ArchitectDaemon",
+                "event_type": "architect_adjustments_reset",
+                "priority": "info",
+                "payload": {"actor": actor_name},
+            }
+        )
+        self._save_session()
 
     def _recent_cycle_history(self, limit: int = 10) -> list[dict[str, object]]:
         expansions = [
@@ -3584,6 +3962,23 @@ class ArchitectDaemon:
             multiplier = 1.0
         self.interval = base * multiplier
 
+    def _apply_steering_overrides(self) -> None:
+        reflection_override = self._steering_overrides.get("reflection_interval")
+        if isinstance(reflection_override, int) and reflection_override > 0:
+            self._reflection_interval = max(1, int(reflection_override))
+        else:
+            self._reflection_interval = max(1, int(self._default_reflection_interval))
+            self._steering_overrides["reflection_interval"] = None
+        cooldown_override = self._steering_overrides.get("cooldown_period")
+        if isinstance(cooldown_override, (int, float)) and float(cooldown_override) > 0:
+            self._cooldown_period = float(cooldown_override)
+        else:
+            self._cooldown_period = float(self._default_cooldown_period)
+            self._steering_overrides["cooldown_period"] = None
+        conflict_override = bool(self._steering_overrides.get("conflict_priority"))
+        self._steering_overrides["conflict_priority"] = conflict_override
+        self._conflict_priority_escalated = conflict_override
+
     def _apply_config(self, snapshot: Mapping[str, object]) -> None:
         self._codex_mode = str(snapshot.get("codex_mode", "observe"))
         base_interval = float(
@@ -3624,6 +4019,7 @@ class ArchitectDaemon:
         if trajectory_interval <= 0:
             trajectory_interval = self._trajectory_interval
         self._trajectory_interval = max(1, trajectory_interval)
+        self._apply_steering_overrides()
 
     def _current_config_summary(self) -> dict[str, object]:
         return {
@@ -3791,6 +4187,11 @@ class ArchitectDaemon:
             return
         if event_type == "architect_reset_cooldown":
             self.reset_cooldown(actor=str(source) if isinstance(source, str) else None)
+            return
+        if event_type == "architect_reset_adjustments":
+            self.reset_trajectory_adjustments(
+                actor=str(source) if isinstance(source, str) else None
+            )
             return
         if source == "DriverManager" and event_type == "driver_failure":
             self.request_repair("driver_failure")
@@ -4739,6 +5140,27 @@ def load_architect_status(
     except (TypeError, ValueError):
         interval_value = ARCHITECT_TRAJECTORY_INTERVAL
     status["trajectory_interval"] = max(1, interval_value)
+    reason_value = status.get("trajectory_adjustment_reason", "")
+    status["trajectory_adjustment_reason"] = str(reason_value) if reason_value else ""
+    settings_value = status.get("trajectory_adjustment_settings", {})
+    if isinstance(settings_value, Mapping):
+        status["trajectory_adjustment_settings"] = dict(settings_value)
+    else:
+        status["trajectory_adjustment_settings"] = {}
+    overrides_value = status.get("trajectory_overrides", {})
+    if isinstance(overrides_value, Mapping):
+        status["trajectory_overrides"] = dict(overrides_value)
+    else:
+        status["trajectory_overrides"] = {}
+    low_confidence_value = status.get("low_confidence_priorities", [])
+    if isinstance(low_confidence_value, Sequence) and not isinstance(low_confidence_value, (str, bytes)):
+        status["low_confidence_priorities"] = [
+            _canonicalize_priority_text(str(item))
+            for item in low_confidence_value
+            if str(item).strip()
+        ]
+    else:
+        status["low_confidence_priorities"] = []
     return status
 
 
@@ -4808,3 +5230,57 @@ def load_trajectory_reports(
         records.append(record)
     records.sort(key=lambda item: str(item.get("ended_at", "")), reverse=True)
     return records
+
+
+def load_priority_backlog_snapshot(
+    *,
+    path: Path | str | None = None,
+) -> dict[str, object]:
+    target = Path(path) if path else ARCHITECT_PRIORITY_BACKLOG_PATH
+    if not target.exists():
+        return {"active": [], "history": [], "low_confidence": [], "updated": ""}
+    try:
+        raw = json.loads(target.read_text(encoding="utf-8"))
+    except Exception:
+        return {"active": [], "history": [], "low_confidence": [], "updated": ""}
+    if not isinstance(raw, Mapping):
+        return {"active": [], "history": [], "low_confidence": [], "updated": ""}
+    active_entries: list[dict[str, object]] = []
+    raw_active = raw.get("active")
+    if isinstance(raw_active, Sequence):
+        for item in raw_active:
+            if not isinstance(item, Mapping):
+                continue
+            entry: dict[str, object] = {
+                "id": str(item.get("id", "")),
+                "text": str(item.get("text", "")),
+                "status": str(item.get("status", "")),
+            }
+            confidence = str(item.get("confidence", "")).strip()
+            if confidence:
+                entry["confidence"] = confidence
+            active_entries.append(entry)
+    history_entries: list[dict[str, object]] = []
+    raw_history = raw.get("history")
+    if isinstance(raw_history, Sequence):
+        for item in raw_history:
+            if not isinstance(item, Mapping):
+                continue
+            entry = {
+                "id": str(item.get("id", "")),
+                "text": str(item.get("text", "")),
+                "status": str(item.get("status", "")),
+                "completed_at": str(item.get("completed_at", "")),
+            }
+            history_entries.append(entry)
+    low_confidence = [
+        str(entry.get("id") or entry.get("text"))
+        for entry in active_entries
+        if str(entry.get("confidence", "")) == "low"
+    ]
+    return {
+        "active": active_entries,
+        "history": history_entries,
+        "low_confidence": [item for item in low_confidence if item],
+        "updated": str(raw.get("updated", "")),
+    }
