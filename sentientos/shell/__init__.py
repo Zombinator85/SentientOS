@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections import deque
+from collections import Counter, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -551,6 +551,7 @@ class LumosDashboard:
         try:
             from architect_daemon import (
                 ARCHITECT_REFLECTION_DIR,
+                ARCHITECT_TRAJECTORY_INTERVAL,
                 load_architect_status,
             )
         except Exception:
@@ -568,6 +569,17 @@ class LumosDashboard:
         reflection_meta = self._extract_reflection_summary(
             status, ARCHITECT_REFLECTION_DIR
         )
+        try:
+            trajectory_interval = int(
+                status.get("trajectory_interval", ARCHITECT_TRAJECTORY_INTERVAL)
+            )
+        except (TypeError, ValueError):
+            trajectory_interval = ARCHITECT_TRAJECTORY_INTERVAL
+        trajectory_meta = {
+            "path": str(status.get("last_trajectory_path", "")),
+            "trajectory_id": str(status.get("last_trajectory_id", "")),
+            "notes": str(status.get("last_trajectory_notes", "")),
+        }
         return {
             "next_cycle": status.get("next_cycle_iso", ""),
             "cooldown": cooldown_payload,
@@ -578,6 +590,8 @@ class LumosDashboard:
             ),
             "cycle_count": status.get("cycle_count", 0),
             "last_reflection": reflection_meta,
+            "trajectory_interval": trajectory_interval,
+            "last_trajectory": trajectory_meta,
         }
 
     def _load_cycle_summaries(self, limit: int = 20) -> list[dict[str, object]]:
@@ -648,6 +662,86 @@ class LumosDashboard:
             }
             cycles.append(cycle_entry)
         return cycles
+
+    def _load_trajectory_reports(self, limit: int = 10) -> list[dict[str, object]]:
+        try:
+            from architect_daemon import load_trajectory_reports as _load_reports
+        except Exception:
+            return []
+
+        reports = _load_reports(limit=limit)
+        normalized: list[dict[str, object]] = []
+        for report in reports:
+            if not isinstance(report, Mapping):
+                continue
+            followthrough = report.get("priority_followthrough", {})
+            if not isinstance(followthrough, Mapping):
+                followthrough = {}
+            entry = {
+                "trajectory_id": str(report.get("trajectory_id", "")),
+                "started_at": str(report.get("started_at", "")),
+                "ended_at": str(report.get("ended_at", "")),
+                "cycles_included": [
+                    str(item)
+                    for item in report.get("cycles_included", [])
+                    if isinstance(item, str)
+                ],
+                "success_rate": float(report.get("success_rate", 0.0) or 0.0),
+                "failure_rate": float(report.get("failure_rate", 0.0) or 0.0),
+                "recurring_regressions": [
+                    str(item)
+                    for item in report.get("recurring_regressions", [])
+                    if isinstance(item, str)
+                ],
+                "priority_followthrough": {
+                    "planned": int(followthrough.get("planned", 0)),
+                    "completed": int(followthrough.get("completed", 0)),
+                    "discarded": int(followthrough.get("discarded", 0)),
+                },
+                "notes": str(report.get("notes", "")),
+                "report_path": str(report.get("path", "")),
+            }
+            normalized.append(entry)
+        return normalized
+
+    def _build_trajectory_panel(self) -> dict[str, object]:
+        reports = self._load_trajectory_reports()
+        success_chart: list[dict[str, object]] = []
+        follow_chart: list[dict[str, object]] = []
+        regression_counter: Counter[str] = Counter()
+        for entry in reports:
+            success_chart.append(
+                {
+                    "trajectory_id": entry.get("trajectory_id", ""),
+                    "ended_at": entry.get("ended_at", ""),
+                    "success_rate": entry.get("success_rate", 0.0),
+                    "failure_rate": entry.get("failure_rate", 0.0),
+                }
+            )
+            follow = entry.get("priority_followthrough", {})
+            follow_chart.append(
+                {
+                    "trajectory_id": entry.get("trajectory_id", ""),
+                    "planned": follow.get("planned", 0),
+                    "completed": follow.get("completed", 0),
+                    "discarded": follow.get("discarded", 0),
+                }
+            )
+            for label in entry.get("recurring_regressions", []):
+                if isinstance(label, str) and label:
+                    regression_counter[label] += 1
+        regression_chart = [
+            {"label": label, "count": count}
+            for label, count in regression_counter.most_common()
+        ]
+        return {
+            "reports": reports,
+            "charts": {
+                "success_ratio": success_chart,
+                "regressions": regression_chart,
+                "followthrough": follow_chart,
+            },
+        }
 
     def _build_reflection_panel(
         self, metadata: Mapping[str, object] | None
@@ -763,6 +857,7 @@ class LumosDashboard:
             architect.get("last_reflection")
         )
         cycles = self._load_cycle_summaries()
+        trajectories = self._build_trajectory_panel()
         dashboard = {
             "health": health,
             "ledger": ledger[-10:],
@@ -772,6 +867,7 @@ class LumosDashboard:
             "architect": architect,
             "reflections": reflections_panel,
             "cycles": cycles,
+            "trajectories": trajectories,
         }
         self._logger.record(
             "lumos_dashboard_refresh",
@@ -782,6 +878,7 @@ class LumosDashboard:
                     architect.get("cooldown", {}).get("active", False)
                 ),
                 "cycles_count": len(cycles),
+                "trajectories_count": len(trajectories.get("reports", [])),
             },
         )
         return dashboard
