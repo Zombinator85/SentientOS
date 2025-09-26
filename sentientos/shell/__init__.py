@@ -580,6 +580,18 @@ class LumosDashboard:
             "trajectory_id": str(status.get("last_trajectory_id", "")),
             "notes": str(status.get("last_trajectory_notes", "")),
         }
+        adjustment = {
+            "reason": str(status.get("trajectory_adjustment_reason", "")),
+            "settings": dict(status.get("trajectory_adjustment_settings", {})),
+            "overrides": dict(status.get("trajectory_overrides", {})),
+        }
+        low_confidence_raw = status.get("low_confidence_priorities", [])
+        if isinstance(low_confidence_raw, Sequence) and not isinstance(
+            low_confidence_raw, (str, bytes)
+        ):
+            low_confidence = [str(item) for item in low_confidence_raw]
+        else:
+            low_confidence = []
         return {
             "next_cycle": status.get("next_cycle_iso", ""),
             "cooldown": cooldown_payload,
@@ -592,6 +604,8 @@ class LumosDashboard:
             "last_reflection": reflection_meta,
             "trajectory_interval": trajectory_interval,
             "last_trajectory": trajectory_meta,
+            "trajectory_adjustment": adjustment,
+            "low_confidence_priorities": low_confidence,
         }
 
     def _load_cycle_summaries(self, limit: int = 20) -> list[dict[str, object]]:
@@ -704,7 +718,9 @@ class LumosDashboard:
             normalized.append(entry)
         return normalized
 
-    def _build_trajectory_panel(self) -> dict[str, object]:
+    def _build_trajectory_panel(
+        self, architect_status: Mapping[str, object] | None = None
+    ) -> dict[str, object]:
         reports = self._load_trajectory_reports()
         success_chart: list[dict[str, object]] = []
         follow_chart: list[dict[str, object]] = []
@@ -734,6 +750,49 @@ class LumosDashboard:
             {"label": label, "count": count}
             for label, count in regression_counter.most_common()
         ]
+        try:
+            from architect_daemon import load_priority_backlog_snapshot as _load_backlog
+        except Exception:
+            backlog_snapshot: Mapping[str, object] = {
+                "active": [],
+                "history": [],
+                "low_confidence": [],
+                "updated": "",
+            }
+        else:
+            try:
+                snapshot = _load_backlog()
+            except Exception:
+                backlog_snapshot = {
+                    "active": [],
+                    "history": [],
+                    "low_confidence": [],
+                    "updated": "",
+                }
+            else:
+                backlog_snapshot = snapshot if isinstance(snapshot, Mapping) else {
+                    "active": [],
+                    "history": [],
+                    "low_confidence": [],
+                    "updated": "",
+                }
+        steering = {
+            "reason": "",
+            "settings": {},
+            "overrides": {},
+            "low_confidence": [],
+        }
+        if isinstance(architect_status, Mapping):
+            adjustment = architect_status.get("trajectory_adjustment", {})
+            if isinstance(adjustment, Mapping):
+                steering["reason"] = str(adjustment.get("reason", ""))
+                steering["settings"] = dict(adjustment.get("settings", {}))
+                steering["overrides"] = dict(adjustment.get("overrides", {}))
+            low_confidence = architect_status.get("low_confidence_priorities", [])
+            if isinstance(low_confidence, Sequence) and not isinstance(
+                low_confidence, (str, bytes)
+            ):
+                steering["low_confidence"] = [str(item) for item in low_confidence]
         return {
             "reports": reports,
             "charts": {
@@ -741,6 +800,8 @@ class LumosDashboard:
                 "regressions": regression_chart,
                 "followthrough": follow_chart,
             },
+            "steering": steering,
+            "backlog": dict(backlog_snapshot),
         }
 
     def _build_reflection_panel(
@@ -857,7 +918,7 @@ class LumosDashboard:
             architect.get("last_reflection")
         )
         cycles = self._load_cycle_summaries()
-        trajectories = self._build_trajectory_panel()
+        trajectories = self._build_trajectory_panel(architect)
         dashboard = {
             "health": health,
             "ledger": ledger[-10:],
@@ -953,6 +1014,11 @@ class LumosDashboard:
     def reset_architect_cooldown(self) -> dict[str, object]:
         return self._logger.record(
             "architect_reset_cooldown", {"requested_via": "dashboard"}
+        )
+
+    def reset_architect_adjustments(self) -> dict[str, object]:
+        return self._logger.record(
+            "architect_reset_adjustments", {"requested_via": "dashboard"}
         )
 
 
