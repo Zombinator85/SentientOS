@@ -9,6 +9,13 @@ from .anomalies import (
     ProposalPlan,
     RewriteProposalEngine,
 )
+from .intent import (
+    IntentCandidate,
+    IntentEmitter,
+    IntentPrioritizer,
+    PriorityScoringEngine,
+    PriorityWeights,
+)
 from .rewrites import (
     LedgerInterface,
     PatchStorage,
@@ -24,6 +31,11 @@ __all__ = [
     "AnomalyEmitter",
     "ProposalPlan",
     "RewriteProposalEngine",
+    "IntentCandidate",
+    "IntentEmitter",
+    "IntentPrioritizer",
+    "PriorityScoringEngine",
+    "PriorityWeights",
     "LedgerInterface",
     "PatchStorage",
     "RewriteDashboard",
