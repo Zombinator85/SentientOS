@@ -115,6 +115,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_rewrites",
         "tests.test_codex_anomalies",
         "tests.test_codex_intent",
+        "tests.test_codex_embodiment",
         "tests.test_codex_integration",
         "tests.test_manifest_reconciliation",
         "tests.test_expand_mode",

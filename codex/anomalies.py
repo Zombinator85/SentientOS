@@ -100,6 +100,8 @@ class AnomalyDetector:
         logs: Iterable[Mapping[str, Any]],
         pulses: Iterable[Mapping[str, Any]],
         backlog: Iterable[Mapping[str, Any]],
+        *,
+        embodiment_events: Iterable[Mapping[str, Any]] = (),
     ) -> List[Anomaly]:
         anomalies: List[Anomaly] = []
         observed = self._now()
@@ -199,12 +201,180 @@ class AnomalyDetector:
                 )
             )
 
+        embodiment_payloads = [_normalize_embodiment_event(event) for event in embodiment_events]
+        embodiment_payloads = [payload for payload in embodiment_payloads if payload is not None]
+        anomalies.extend(_detect_embodiment_anomalies(embodiment_payloads, observed))
+
         return anomalies
 
 
 def _is_orphan(entry: Mapping[str, Any]) -> bool:
     status = entry.get("status") or entry.get("state")
     return bool(entry.get("orphaned")) or status == "orphaned"
+
+
+def _normalize_embodiment_event(entry: Mapping[str, Any] | Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(entry, Mapping):
+        return None
+    channel = entry.get("channel") or entry.get("source") or entry.get("stream")
+    if not channel:
+        return None
+    event_type = entry.get("event_type") or entry.get("type") or entry.get("event") or "event"
+    payload = entry.get("payload")
+    if not isinstance(payload, Mapping):
+        payload = {
+            key: value
+            for key, value in entry.items()
+            if key not in {"channel", "source", "stream", "event_type", "type", "event", "timestamp"}
+        }
+    timestamp = _coerce_timestamp(entry.get("timestamp"))
+    return {
+        "channel": str(channel),
+        "event_type": str(event_type),
+        "payload": dict(payload),
+        "timestamp": timestamp,
+    }
+
+
+def _detect_embodiment_anomalies(
+    events: Iterable[Mapping[str, Any]],
+    observed: datetime,
+) -> List[Anomaly]:
+    anomalies: List[Anomaly] = []
+    noise_counts: MutableMapping[str, int] = {}
+    offline_channels: set[str] = set()
+
+    for event in events:
+        channel = str(event.get("channel") or "unknown")
+        event_type = str(event.get("event_type") or "event")
+        payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
+        timestamp = event.get("timestamp") if isinstance(event.get("timestamp"), datetime) else observed
+
+        if _is_motion_anomaly(event_type, payload):
+            period = str(payload.get("period") or "").lower()
+            severity = "critical" if period in {"night", "quiet_hours"} else "warning"
+            metadata = _embodiment_metadata(channel, payload)
+            if period:
+                metadata["period"] = period
+            magnitude = _coerce_float(payload.get("magnitude"))
+            if magnitude is not None:
+                metadata["magnitude"] = magnitude
+            anomalies.append(
+                Anomaly(
+                    "embodiment_motion",
+                    f"Unexpected motion detected on {channel}",
+                    severity,
+                    metadata,
+                    timestamp=timestamp,
+                )
+            )
+            continue
+
+        if _is_noise_event(event_type, payload):
+            decibel = _coerce_float(payload.get("decibel"))
+            threshold = _coerce_float(payload.get("threshold") or payload.get("baseline")) or 70.0
+            noise_counts[channel] = noise_counts.get(channel, 0) + 1
+            severity = "critical" if noise_counts[channel] >= 3 or payload.get("profanity") else "warning"
+            metadata = _embodiment_metadata(channel, payload)
+            metadata.update({"decibel": decibel, "threshold": threshold})
+            anomalies.append(
+                Anomaly(
+                    "embodiment_noise",
+                    f"Noise anomaly from {channel}: {decibel or 'unknown'} dB",
+                    severity,
+                    metadata,
+                    timestamp=timestamp,
+                )
+            )
+            continue
+
+        if _is_absence_event(event_type, payload) and channel not in offline_channels:
+            offline_channels.add(channel)
+            metadata = _embodiment_metadata(channel, payload)
+            status = str(payload.get("status") or event_type)
+            metadata["status"] = status
+            anomalies.append(
+                Anomaly(
+                    "embodiment_absence",
+                    f"Embodiment feed offline: {channel}",
+                    "critical",
+                    metadata,
+                    timestamp=timestamp,
+                )
+            )
+
+    return anomalies
+
+
+def _coerce_timestamp(raw: Any) -> datetime | None:
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        if raw.tzinfo is None:
+            return raw.replace(tzinfo=timezone.utc)
+        return raw
+    if isinstance(raw, str):
+        try:
+            value = datetime.fromisoformat(raw)
+        except ValueError:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value
+    return None
+
+
+def _coerce_float(raw: Any) -> Optional[float]:
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_motion_anomaly(event_type: str, payload: Mapping[str, Any]) -> bool:
+    if event_type.lower() != "motion":
+        return False
+    if payload.get("unexpected") or payload.get("allowed") is False:
+        return True
+    period = str(payload.get("period") or "").lower()
+    magnitude = _coerce_float(payload.get("magnitude")) or 0.0
+    if period in {"night", "quiet_hours"} and magnitude > 0.0:
+        return True
+    return False
+
+
+def _is_noise_event(event_type: str, payload: Mapping[str, Any]) -> bool:
+    if event_type.lower() not in {"noise", "audio"}:
+        return False
+    if payload.get("profanity") or payload.get("keyword_flag"):
+        return True
+    decibel = _coerce_float(payload.get("decibel"))
+    threshold = _coerce_float(payload.get("threshold") or payload.get("baseline")) or 70.0
+    return decibel is not None and decibel >= threshold
+
+
+def _is_absence_event(event_type: str, payload: Mapping[str, Any]) -> bool:
+    status = str(payload.get("status") or event_type).lower()
+    if status in {"offline", "missing", "absent"}:
+        return True
+    if payload.get("expected") and not payload.get("present", True):
+        return True
+    return False
+
+
+def _embodiment_metadata(channel: str, payload: Mapping[str, Any]) -> Dict[str, Any]:
+    confidence = _coerce_float(payload.get("confidence")) or 0.5
+    metadata: Dict[str, Any] = {
+        "channel": channel,
+        "source": channel,
+        "impact": "environment",
+        "confidence": confidence,
+        "tags": ["embodiment", channel],
+    }
+    metadata.update({key: value for key, value in payload.items() if key != "confidence"})
+    return metadata
 
 
 ProposalBuilder = Callable[[Path, Anomaly], str]
