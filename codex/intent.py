@@ -34,6 +34,7 @@ _DEFAULT_SEVERITY_SCALE: SeverityScale = {
 _DEFAULT_IMPACT_SCALE: ImpactScale = {
     "system": 1.0,
     "daemon": 0.85,
+    "environment": 0.8,
     "service": 0.75,
     "module": 0.65,
     "local": 0.45,

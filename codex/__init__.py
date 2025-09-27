@@ -9,6 +9,7 @@ from .anomalies import (
     ProposalPlan,
     RewriteProposalEngine,
 )
+from .embodiment import EmbodimentEvent, EmbodimentMount
 from .intent import (
     IntentCandidate,
     IntentEmitter,
@@ -31,6 +32,8 @@ __all__ = [
     "AnomalyEmitter",
     "ProposalPlan",
     "RewriteProposalEngine",
+    "EmbodimentEvent",
+    "EmbodimentMount",
     "IntentCandidate",
     "IntentEmitter",
     "IntentPrioritizer",
