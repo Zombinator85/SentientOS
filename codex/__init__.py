@@ -10,6 +10,15 @@ from .anomalies import (
     RewriteProposalEngine,
 )
 from .embodiment import EmbodimentEvent, EmbodimentMount
+from .plans import (
+    CodexPlan,
+    PlanController,
+    PlanDashboard,
+    PlanExecutor,
+    PlanLedger,
+    PlanStep,
+    PlanStorage,
+)
 from .intent import (
     IntentCandidate,
     IntentEmitter,
@@ -34,6 +43,13 @@ __all__ = [
     "RewriteProposalEngine",
     "EmbodimentEvent",
     "EmbodimentMount",
+    "CodexPlan",
+    "PlanController",
+    "PlanDashboard",
+    "PlanExecutor",
+    "PlanLedger",
+    "PlanStep",
+    "PlanStorage",
     "IntentCandidate",
     "IntentEmitter",
     "IntentPrioritizer",
