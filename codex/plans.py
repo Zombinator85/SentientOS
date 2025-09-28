@@ -9,6 +9,8 @@ from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optio
 import json
 import uuid
 
+from .strategy import StrategyAdjustmentEngine, strategy_engine
+
 
 def _default_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -148,11 +150,13 @@ class CodexPlan:
                 )
         timestamp = now()
         identifier = plan_id or f"plan-{timestamp.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6]}"
+        metadata_payload = dict(metadata or {})
+        metadata_payload.setdefault("strategy_version", strategy_engine.strategy_version)
         return cls(
             plan_id=identifier,
             goal=goal,
             steps=parsed_steps,
-            metadata=dict(metadata or {}),
+            metadata=metadata_payload,
             status="proposed",
             created_at=timestamp,
             updated_at=timestamp,
@@ -226,6 +230,14 @@ class PlanController:
         if index < 0 or index >= len(plan.steps):
             raise IndexError("Invalid plan step index")
         step = plan.steps[index]
+        expected_index = plan.next_step_index()
+        if expected_index is None:
+            expected_index = index
+        if index != expected_index:
+            step.metadata.setdefault("override_sequence", [plan.steps[expected_index].action if expected_index < len(plan.steps) else step.action, step.action])
+            step.metadata["operator_action"] = "override"
+        else:
+            step.metadata.setdefault("operator_action", "approve")
         step.approve(operator)
         self._storage.save_plan(plan)
         return step
@@ -253,12 +265,14 @@ class PlanExecutor:
         *,
         rollback_dir: Path | str = Path("integration/rollbacks"),
         now: Callable[[], datetime] = _default_now,
+        strategy: StrategyAdjustmentEngine | None = None,
     ) -> None:
         self._ledger = ledger
         self._storage = storage
         self._rollback_dir = Path(rollback_dir)
         self._rollback_dir.mkdir(parents=True, exist_ok=True)
         self._now = now
+        self._strategy = strategy or strategy_engine
 
     def execute_next(self, plan_id: str, runner: Callable[[PlanStep], Any]) -> Any:
         plan = self._storage.load_plan(plan_id)
@@ -281,10 +295,20 @@ class PlanExecutor:
         plan.status = "in_progress"
         self._storage.save_plan(plan)
 
+        operator_action = step.metadata.get("operator_action", "approve")
+
         if not self._ledger.confirm_step(plan, step):
             step.status = "failed"
             step.error = "ledger_rejected"
             self._storage.save_plan(plan)
+            self._record_outcome(
+                plan,
+                step,
+                index,
+                status="rollback",
+                operator_action=operator_action,
+                extra_metadata={"reason": "ledger_rejected"},
+            )
             self._log_rollback(plan, step, reason="ledger_rejected")
             plan.status = "failed"
             self._storage.save_plan(plan)
@@ -300,6 +324,15 @@ class PlanExecutor:
             step.status = "failed"
             step.error = str(exc)
             self._storage.save_plan(plan)
+            self._record_outcome(
+                plan,
+                step,
+                index,
+                status="failure",
+                operator_action=operator_action,
+                extra_metadata={"rolled_back": True},
+                error=str(exc),
+            )
             self._log_rollback(plan, step, reason=str(exc))
             plan.status = "failed"
             self._storage.save_plan(plan)
@@ -308,6 +341,14 @@ class PlanExecutor:
         step.status = "completed"
         step.result = result
         self._storage.save_plan(plan)
+
+        self._record_outcome(
+            plan,
+            step,
+            index,
+            status="success",
+            operator_action=operator_action,
+        )
 
         if plan.completed():
             plan.status = "completed"
@@ -336,6 +377,37 @@ class PlanExecutor:
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, sort_keys=True) + "\n")
 
+    def _record_outcome(
+        self,
+        plan: CodexPlan,
+        step: PlanStep,
+        index: int,
+        *,
+        status: str,
+        operator_action: str,
+        extra_metadata: Mapping[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        metadata = dict(step.metadata)
+        if extra_metadata:
+            metadata.update(extra_metadata)
+        try:
+            self._strategy.record_outcome(
+                plan_id=plan.plan_id,
+                plan_goal=plan.goal,
+                step_index=index,
+                step_title=step.title,
+                step_action=step.action,
+                step_kind=step.kind,
+                status=status,
+                operator_action=operator_action,
+                step_metadata=metadata,
+                result=step.result,
+                error=error or step.error,
+            )
+        except Exception:  # pragma: no cover - defensive to avoid execution failure
+            return
+
 
 class PlanDashboard:
     """Summarize Codex plans for operator review."""
@@ -345,6 +417,9 @@ class PlanDashboard:
         self._rollback_dir = Path(rollback_dir)
 
     def rows(self) -> Iterator[Dict[str, Any]]:
+        strategy_version = strategy_engine.strategy_version
+        strategy_locked = strategy_engine.locked
+        summary = strategy_engine.sequence_summary()
         for plan in self._storage.iter_plans():
             yield {
                 "plan_id": plan.plan_id,
@@ -354,5 +429,8 @@ class PlanDashboard:
                 "completed_steps": sum(1 for step in plan.steps if step.status == "completed"),
                 "estimated_impact": plan.metadata.get("estimated_impact"),
                 "rollback_path": str(self._rollback_dir / f"{plan.plan_id}.jsonl"),
+                "strategy_version": plan.metadata.get("strategy_version", strategy_version),
+                "strategy_locked": strategy_locked,
+                "strategy_summary": summary,
             }
 
