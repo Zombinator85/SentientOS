@@ -128,6 +128,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_architect_trajectory",
         "tests.test_codex_plans",
         "tests.test_codex_strategy",
+        "tests.test_codex_strategies",
     }
     for item in items:
         if (
