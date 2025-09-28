@@ -33,6 +33,12 @@ from .rewrites import (
     RewritePatch,
     ScopedRewriteEngine,
 )
+from .strategy import (
+    OutcomeEntry,
+    StrategyAdjustmentEngine,
+    configure_strategy_root,
+    strategy_engine,
+)
 
 __all__ = [
     "Anomaly",
@@ -60,4 +66,8 @@ __all__ = [
     "RewriteDashboard",
     "RewritePatch",
     "ScopedRewriteEngine",
+    "OutcomeEntry",
+    "StrategyAdjustmentEngine",
+    "strategy_engine",
+    "configure_strategy_root",
 ]

@@ -379,6 +379,17 @@ class IntegrationMemory:
         snapshot = {
             "vectors": self._state.snapshot(),
         }
+        try:
+            from codex.strategy import strategy_engine
+
+            snapshot["strategy"] = {
+                "weights": strategy_engine.weights_dict(),
+                "version": strategy_engine.strategy_version,
+                "locked": strategy_engine.locked,
+                "sequence_summary": strategy_engine.sequence_summary(),
+            }
+        except Exception:  # pragma: no cover - defensive to keep persistence resilient
+            pass
         self.state_path.write_text(json.dumps(snapshot, sort_keys=True, indent=2), encoding="utf-8")
 
 
