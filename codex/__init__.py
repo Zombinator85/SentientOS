@@ -40,6 +40,7 @@ from .rewrites import (
     RewritePatch,
     ScopedRewriteEngine,
 )
+from .scaffolds import ScaffoldEngine, ScaffoldRecord
 from .orchestrator import StrategyOrchestrator
 from .specs import SpecEngine, SpecProposal, SpecReviewBoard
 from .strategy import (
@@ -84,6 +85,8 @@ __all__ = [
     "SpecEngine",
     "SpecProposal",
     "SpecReviewBoard",
+    "ScaffoldEngine",
+    "ScaffoldRecord",
     "OutcomeEntry",
     "StrategyAdjustmentEngine",
     "strategy_engine",
