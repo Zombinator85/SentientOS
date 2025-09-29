@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable
 
+from codex.narratives import CodexNarrator
 from integration_memory import IntegrationEntry, IntegrationMemory, integration_memory
 
 __all__ = [
@@ -24,6 +25,9 @@ class IntegrationPanelState:
     projections: list[dict[str, Any]]
     state_vectors: dict[str, Any]
     locked_entries: set[str]
+    narratives: list[dict[str, Any]]
+    active_view: str
+    feed: list[dict[str, Any]]
 
 
 def _unique_sources(entries: Iterable[IntegrationEntry]) -> set[str]:
@@ -34,6 +38,8 @@ def integration_panel_state(
     *,
     limit: int = 10,
     memory: IntegrationMemory | None = None,
+    view: str = "logs",
+    narrator: CodexNarrator | None = None,
 ) -> IntegrationPanelState:
     """Build the current panel state for streamlit or CLI consumers."""
 
@@ -55,11 +61,20 @@ def integration_panel_state(
             projections.append(mem.project_state(source))
             seen.add(overall_key)
     state_vectors = mem.state_vector()
+    active_view = view.lower() if isinstance(view, str) else "logs"
+    if active_view not in {"logs", "narratives"}:
+        active_view = "logs"
+    narrative_engine = narrator or CodexNarrator(mem.root)
+    narratives = narrative_engine.list_narratives(limit=limit)
+    feed = narratives if active_view == "narratives" else events_payload
     return IntegrationPanelState(
         events=events_payload,
         projections=projections,
         state_vectors=state_vectors,
         locked_entries=mem.locked_entries(),
+        narratives=narratives,
+        active_view=active_view,
+        feed=feed,
     )
 
 
