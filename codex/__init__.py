@@ -25,6 +25,7 @@ from .meta_strategies import (
     MetaStrategyStorage,
     PatternMiningEngine,
 )
+from .refinements import Refiner, RefinementTransform
 from .governance import MetaStrategyGovernor
 from .narratives import CodexNarrator
 from .intent import (
@@ -89,6 +90,8 @@ __all__ = [
     "Implementor",
     "ImplementationBlock",
     "ImplementationRecord",
+    "Refiner",
+    "RefinementTransform",
     "ScaffoldEngine",
     "ScaffoldRecord",
     "OutcomeEntry",
