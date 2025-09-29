@@ -5,7 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+)
 
 import json
 import re
@@ -114,6 +124,10 @@ class SpecProposal:
         self.operator_notes.append(entry)
 
 
+if TYPE_CHECKING:  # pragma: no cover - import for type hints only
+    from .scaffolds import ScaffoldEngine
+
+
 class SpecEngine:
     """Generate and manage Codex specification proposals."""
 
@@ -123,10 +137,13 @@ class SpecEngine:
         self,
         root: Path | str = Path("integration"),
         *,
+        repo_root: Path | str | None = None,
         now: Callable[[], datetime] = _default_now,
+        scaffold_engine: "ScaffoldEngine | None" = None,
     ) -> None:
         self._root = Path(root)
         self._root.mkdir(parents=True, exist_ok=True)
+        self._repo_root = Path(repo_root) if repo_root is not None else self._root.parent
         self._spec_root = self._root / "specs"
         self._proposal_dir = self._spec_root / "proposals"
         self._queue_dir = self._spec_root / "queue"
@@ -154,6 +171,17 @@ class SpecEngine:
 
         self._load_state()
         self._load_existing_specs()
+
+        if scaffold_engine is None:
+            from .scaffolds import ScaffoldEngine as _ScaffoldEngine
+
+            self._scaffolds = _ScaffoldEngine(
+                repo_root=self._repo_root,
+                integration_root=self._root,
+                now=now,
+            )
+        else:
+            self._scaffolds = scaffold_engine
 
     # ------------------------------------------------------------------
     # Public API
@@ -229,6 +257,14 @@ class SpecEngine:
             "queued_at": self._now().isoformat(),
             "commit": commit_hash,
         }
+        try:
+            scaffold_record = self._scaffolds.generate(proposal)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            scaffold_manifest["error"] = str(exc)
+        else:
+            scaffold_manifest["status"] = scaffold_record.status
+            scaffold_manifest["paths"] = dict(scaffold_record.paths)
+            scaffold_manifest["generated_at"] = scaffold_record.generated_at
         (scaffold_dir / "manifest.json").write_text(
             json.dumps(scaffold_manifest, sort_keys=True, indent=2),
             encoding="utf-8",
