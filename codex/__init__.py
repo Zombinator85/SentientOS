@@ -19,6 +19,7 @@ from .plans import (
     PlanStep,
     PlanStorage,
 )
+from .implementations import Implementor, ImplementationBlock, ImplementationRecord
 from .meta_strategies import (
     CodexMetaStrategy,
     MetaStrategyStorage,
@@ -85,6 +86,9 @@ __all__ = [
     "SpecEngine",
     "SpecProposal",
     "SpecReviewBoard",
+    "Implementor",
+    "ImplementationBlock",
+    "ImplementationRecord",
     "ScaffoldEngine",
     "ScaffoldRecord",
     "OutcomeEntry",
