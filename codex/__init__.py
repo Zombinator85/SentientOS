@@ -25,6 +25,7 @@ from .meta_strategies import (
     PatternMiningEngine,
 )
 from .governance import MetaStrategyGovernor
+from .narratives import CodexNarrator
 from .intent import (
     IntentCandidate,
     IntentEmitter,
@@ -67,6 +68,7 @@ __all__ = [
     "MetaStrategyStorage",
     "PatternMiningEngine",
     "MetaStrategyGovernor",
+    "CodexNarrator",
     "IntentCandidate",
     "IntentEmitter",
     "IntentPrioritizer",
