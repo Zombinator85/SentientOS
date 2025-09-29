@@ -19,6 +19,11 @@ from .plans import (
     PlanStep,
     PlanStorage,
 )
+from .meta_strategies import (
+    CodexMetaStrategy,
+    MetaStrategyStorage,
+    PatternMiningEngine,
+)
 from .intent import (
     IntentCandidate,
     IntentEmitter,
@@ -57,6 +62,9 @@ __all__ = [
     "PlanLedger",
     "PlanStep",
     "PlanStorage",
+    "CodexMetaStrategy",
+    "MetaStrategyStorage",
+    "PatternMiningEngine",
     "IntentCandidate",
     "IntentEmitter",
     "IntentPrioritizer",
