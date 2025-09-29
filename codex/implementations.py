@@ -1,7 +1,7 @@
 """Codex Implementor for drafting first-pass implementations."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Protocol
@@ -94,6 +94,15 @@ class ImplementationRecord:
     approved_at: str | None = None
     approved_by: str | None = None
     history: List[Dict[str, Any]] | None = None
+    version_id: str | None = None
+    parent_id: str | None = None
+    change_summary: str | None = None
+    confidence_delta: str | None = None
+    active_version: str | None = None
+    pending_version: str | None = None
+    versions: List[Dict[str, Any]] | None = None
+    locked_lines: List[Dict[str, Any]] | None = None
+    final_rejected: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
@@ -108,6 +117,23 @@ class ImplementationRecord:
         }
         if self.history:
             payload["history"] = list(self.history)
+        if self.version_id is not None:
+            payload["version_id"] = self.version_id
+        if self.parent_id is not None:
+            payload["parent_id"] = self.parent_id
+        if self.change_summary is not None:
+            payload["change_summary"] = self.change_summary
+        if self.confidence_delta is not None:
+            payload["confidence_delta"] = self.confidence_delta
+        if self.active_version is not None:
+            payload["active_version"] = self.active_version
+        if self.pending_version is not None:
+            payload["pending_version"] = self.pending_version
+        if self.versions:
+            payload["versions"] = list(self.versions)
+        if self.locked_lines:
+            payload["locked_lines"] = list(self.locked_lines)
+        payload["final_rejected"] = bool(self.final_rejected)
         return payload
 
     @classmethod
@@ -125,6 +151,15 @@ class ImplementationRecord:
             approved_at=payload.get("approved_at"),
             approved_by=payload.get("approved_by"),
             history=history,
+            version_id=payload.get("version_id"),
+            parent_id=payload.get("parent_id"),
+            change_summary=payload.get("change_summary"),
+            confidence_delta=payload.get("confidence_delta"),
+            active_version=payload.get("active_version"),
+            pending_version=payload.get("pending_version"),
+            versions=list(payload.get("versions") or []),
+            locked_lines=list(payload.get("locked_lines") or []),
+            final_rejected=bool(payload.get("final_rejected", False)),
         )
 
 
@@ -219,10 +254,12 @@ class Implementor:
                 )
                 blocks.append(block)
 
+        version_id = "v1"
         new_history_entry = {
             "timestamp": timestamp,
             "action": "drafted",
             "block_count": len(blocks),
+            "version_id": version_id,
         }
         history.append(new_history_entry)
 
@@ -234,9 +271,29 @@ class Implementor:
             blocks=blocks,
             ledger_entry=None,
             history=history,
+            version_id=version_id,
+            parent_id=None,
+            change_summary="Initial draft",
+            confidence_delta="0",
+            active_version=None,
+            pending_version=version_id,
         )
 
+        version_summary = self._version_summary(
+            spec_id,
+            version_id,
+            parent_id=None,
+            change_summary="Initial draft",
+            confidence_delta="0",
+            status="pending_review",
+            timestamp=timestamp,
+        )
+        implementation_record.versions = [version_summary]
+
         self._save_metadata(self._metadata_path(spec_id), implementation_record)
+        self._ensure_version_directory(spec_id)
+        version_record = self._version_payload_for_save(implementation_record)
+        self._save_version(spec_id, version_id, version_record)
         self._append_log(
             "drafted",
             spec_id,
@@ -273,39 +330,99 @@ class Implementor:
         *,
         operator: str,
         ledger_entry: str | None = None,
+        version_id: str | None = None,
     ) -> ImplementationRecord:
         """Mark all blocks as approved once dashboard sign-off occurs."""
 
-        record = self._load_metadata(spec_id)
+        record = self.load_record(spec_id)
         if ledger_entry:
             record.ledger_entry = ledger_entry
         if not record.ledger_entry:
             raise ValueError("Ledger entry required before approval")
 
+        target_version = version_id or record.pending_version or record.version_id
+        if not target_version:
+            raise ValueError("No implementation version available for approval")
+
+        version_record = self.load_version(spec_id, target_version)
+
         timestamp = self._now().isoformat()
-        record.status = "approved"
-        record.approved_at = timestamp
-        record.approved_by = operator
-        for block in record.blocks:
-            block.status = "approved"
-            block.history = list(block.history) + [
+        version_history_entry = {
+            "timestamp": timestamp,
+            "operator": operator,
+            "action": "approved",
+            "version_id": target_version,
+            "ledger_entry": record.ledger_entry,
+        }
+        updated_blocks: List[ImplementationBlock] = []
+        for block in version_record.blocks:
+            block_history = list(block.history)
+            block_history.append(
                 {
                     "timestamp": timestamp,
                     "operator": operator,
                     "action": "approved",
                     "confidence": block.confidence,
+                    "version_id": target_version,
                 }
-            ]
+            )
+            updated_block = self._clone_block(
+                block,
+                status="approved",
+                history=block_history,
+            )
+            updated_blocks.append(updated_block)
             self._register_pattern_acceptance(block.pattern_key)
 
-        history_entry = {
-            "timestamp": timestamp,
-            "operator": operator,
-            "action": "approved",
-            "ledger_entry": record.ledger_entry,
-        }
+        version_record.blocks = updated_blocks
+        version_record.status = "approved"
+        version_record.approved_at = timestamp
+        version_record.approved_by = operator
+        version_record.history = list(version_record.history or []) + [
+            version_history_entry
+        ]
+        self.save_version(spec_id, version_record)
+
+        previous_active = record.active_version
+        record.status = "approved"
+        record.approved_at = timestamp
+        record.approved_by = operator
+        record.version_id = target_version
+        record.pending_version = None
+        record.active_version = target_version
+        record.blocks = [self._clone_block(block) for block in updated_blocks]
+        record.parent_id = version_record.parent_id
+        record.change_summary = version_record.change_summary
+        record.confidence_delta = version_record.confidence_delta
+        record.final_rejected = False
+
+        history_entry = dict(version_history_entry)
         record.history = list(record.history or []) + [history_entry]
-        self._save_metadata(self._metadata_path(spec_id), record)
+        if not any(
+            entry.get("version_id") == target_version for entry in record.versions or []
+        ):
+            summary = self._version_summary(
+                spec_id,
+                target_version,
+                parent_id=version_record.parent_id,
+                change_summary=version_record.change_summary,
+                confidence_delta=version_record.confidence_delta,
+                status="approved",
+                timestamp=timestamp,
+            )
+            record.versions = list(record.versions or []) + [summary]
+        else:
+            self._update_version_entry(
+                record,
+                target_version,
+                status="approved",
+                approved_at=timestamp,
+                operator=operator,
+            )
+        if previous_active and previous_active != target_version:
+            self._update_version_entry(record, previous_active, status="archived")
+
+        self.save_record(record)
         self._append_log(
             "approved",
             spec_id,
@@ -321,26 +438,70 @@ class Implementor:
         *,
         operator: str,
         reason: str | None = None,
+        version_id: str | None = None,
     ) -> ImplementationRecord:
         """Archive draft blocks that were rejected by operators."""
 
-        record = self._load_metadata(spec_id)
+        record = self.load_record(spec_id)
+        target_version = version_id or record.pending_version or record.version_id
+        if not target_version:
+            target_version = record.active_version
+        if not target_version:
+            raise ValueError("No implementation version available for rejection")
+
+        version_record = self.load_version(spec_id, target_version)
         timestamp = self._now().isoformat()
-        record.status = "rejected"
         archive_payload = {
             "timestamp": timestamp,
             "operator": operator,
             "action": "rejected",
+            "version_id": target_version,
             "reason": reason,
         }
-        record.history = list(record.history or []) + [archive_payload]
-        for block in record.blocks:
-            block.status = "rejected"
-            block.history = list(block.history) + [archive_payload]
-            archive_path = self._rejected_root / f"{spec_id}_{block.block_id}.py"
+        updated_blocks: List[ImplementationBlock] = []
+        for block in version_record.blocks:
+            block_history = list(block.history)
+            block_history.append(archive_payload)
+            updated_block = self._clone_block(
+                block,
+                status="rejected",
+                history=block_history,
+            )
+            updated_blocks.append(updated_block)
+            archive_path = self._rejected_root / f"{spec_id}_{target_version}_{block.block_id}.py"
             archive_path.write_text(block.draft, encoding="utf-8")
 
-        self._save_metadata(self._metadata_path(spec_id), record)
+        version_record.blocks = updated_blocks
+        version_record.status = "rejected"
+        version_record.history = list(version_record.history or []) + [archive_payload]
+        self.save_version(spec_id, version_record)
+
+        previous_active = record.active_version
+        rejecting_active = previous_active is None or previous_active == target_version
+        record.history = list(record.history or []) + [archive_payload]
+        record.pending_version = None
+        if rejecting_active:
+            record.status = "rejected"
+            record.active_version = None
+            record.version_id = target_version
+            record.blocks = [self._clone_block(block) for block in updated_blocks]
+        else:
+            record.status = "approved"
+            record.version_id = previous_active
+            active_version_record = self.load_version(spec_id, previous_active)
+            record.blocks = [
+                self._clone_block(block)
+                for block in active_version_record.blocks
+            ]
+        self._update_version_entry(
+            record,
+            target_version,
+            status="rejected",
+            rejected_at=timestamp,
+            operator=operator,
+            reason=reason,
+        )
+        self.save_record(record)
         self._append_log(
             "rejected",
             spec_id,
@@ -379,11 +540,17 @@ class Implementor:
     def assert_ready(self, spec_id: str) -> None:
         """Ensure implementations remain gated until approval and ledger commit."""
 
-        record = self._load_metadata(spec_id)
+        record = self.load_record(spec_id)
         if record.status != "approved" or not record.ledger_entry:
             raise RuntimeError(
                 "Implementation pending dashboard approval and ledger commitment."
             )
+        if record.pending_version:
+            raise RuntimeError(
+                "Implementation pending dashboard approval and ledger commitment."
+            )
+        if not record.active_version:
+            raise RuntimeError("No approved implementation version is active")
 
     # ------------------------------------------------------------------
     # Dashboard helpers
@@ -404,9 +571,163 @@ class Implementor:
         return records
 
     # ------------------------------------------------------------------
+    # Public helpers for refinement engine
+    def load_record(self, spec_id: str) -> ImplementationRecord:
+        """Expose stored implementation metadata for refinement engines."""
+
+        return self._load_metadata(spec_id)
+
+    def save_record(self, record: ImplementationRecord) -> None:
+        """Persist implementation metadata after refinement updates."""
+
+        self._save_metadata(self._metadata_path(record.spec_id), record)
+
+    def load_version(self, spec_id: str, version_id: str) -> ImplementationRecord:
+        """Load a saved implementation version."""
+
+        path = self._version_path(spec_id, version_id)
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Unknown implementation version {version_id} for spec {spec_id}"
+            )
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return ImplementationRecord.from_dict(payload)
+
+    def save_version(self, spec_id: str, record: ImplementationRecord) -> None:
+        """Persist a specific implementation version."""
+
+        if not record.version_id:
+            raise ValueError("Implementation version must include version_id")
+        self._ensure_version_directory(spec_id)
+        payload = self._version_payload_for_save(record)
+        self._save_version(spec_id, record.version_id, payload)
+
+    def version_summary(
+        self,
+        spec_id: str,
+        version_id: str,
+        *,
+        parent_id: str | None,
+        change_summary: str | None,
+        confidence_delta: str | None,
+        status: str,
+        timestamp: str,
+    ) -> Dict[str, Any]:
+        """Public helper to describe a version for dashboard use."""
+
+        return self._version_summary(
+            spec_id,
+            version_id,
+            parent_id=parent_id,
+            change_summary=change_summary,
+            confidence_delta=confidence_delta,
+            status=status,
+            timestamp=timestamp,
+        )
+
+    def update_version_entry(
+        self, record: ImplementationRecord, version_id: str, **updates: Any
+    ) -> None:
+        """Public helper to mutate a version summary on a record."""
+
+        self._update_version_entry(record, version_id, **updates)
+
+    # ------------------------------------------------------------------
     # Internal helpers
     def _metadata_path(self, spec_id: str) -> Path:
         return self._implementations_root / f"{spec_id}.json"
+
+    def _spec_directory(self, spec_id: str) -> Path:
+        return self._implementations_root / spec_id
+
+    def _versions_directory(self, spec_id: str) -> Path:
+        return self._spec_directory(spec_id) / "versions"
+
+    def _ensure_version_directory(self, spec_id: str) -> None:
+        self._versions_directory(spec_id).mkdir(parents=True, exist_ok=True)
+
+    def _version_path(self, spec_id: str, version_id: str) -> Path:
+        return self._versions_directory(spec_id) / f"{version_id}.json"
+
+    def _version_payload_for_save(
+        self, record: ImplementationRecord
+    ) -> ImplementationRecord:
+        blocks = [self._clone_block(block) for block in record.blocks]
+        return ImplementationRecord(
+            spec_id=record.spec_id,
+            title=record.title,
+            status=record.status,
+            generated_at=record.generated_at,
+            blocks=blocks,
+            ledger_entry=record.ledger_entry,
+            approved_at=record.approved_at,
+            approved_by=record.approved_by,
+            history=list(record.history or []),
+            version_id=record.version_id,
+            parent_id=record.parent_id,
+            change_summary=record.change_summary,
+            confidence_delta=record.confidence_delta,
+        )
+
+    def _save_version(
+        self, spec_id: str, version_id: str, record: ImplementationRecord
+    ) -> None:
+        path = self._version_path(spec_id, version_id)
+        payload = record.to_dict()
+        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+    def _version_summary(
+        self,
+        spec_id: str,
+        version_id: str,
+        *,
+        parent_id: str | None,
+        change_summary: str | None,
+        confidence_delta: str | None,
+        status: str,
+        timestamp: str,
+    ) -> Dict[str, Any]:
+        return {
+            "version_id": version_id,
+            "parent_id": parent_id,
+            "change_summary": change_summary,
+            "confidence_delta": confidence_delta,
+            "status": status,
+            "created_at": timestamp,
+            "path": self._relpath(self._version_path(spec_id, version_id)),
+        }
+
+    def _update_version_entry(
+        self, record: ImplementationRecord, version_id: str, **updates: Any
+    ) -> None:
+        versions = list(record.versions or [])
+        for entry in versions:
+            if entry.get("version_id") == version_id:
+                for key, value in updates.items():
+                    if value is not None:
+                        entry[key] = value
+                record.versions = versions
+                return
+        record.versions = versions
+
+    def _clone_block(
+        self,
+        block: ImplementationBlock,
+        *,
+        draft: str | None = None,
+        status: str | None = None,
+        confidence: str | None = None,
+        history: List[Dict[str, Any]] | None = None,
+        created_at: str | None = None,
+    ) -> ImplementationBlock:
+        return replace(
+            block,
+            draft=draft if draft is not None else block.draft,
+            status=status if status is not None else block.status,
+            confidence=confidence if confidence is not None else block.confidence,
+            history=list(history if history is not None else block.history),
+            created_at=created_at if created_at is not None else block.created_at,
+        )
 
     def _function_name(self, component: str, slug: str, index: int) -> str:
         return f"codex_{component}_{slug}_{index}"
