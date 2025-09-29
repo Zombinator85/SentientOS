@@ -33,6 +33,7 @@ from .rewrites import (
     RewritePatch,
     ScopedRewriteEngine,
 )
+from .orchestrator import StrategyOrchestrator
 from .strategy import (
     OutcomeEntry,
     StrategyAdjustmentEngine,
@@ -66,6 +67,7 @@ __all__ = [
     "RewriteDashboard",
     "RewritePatch",
     "ScopedRewriteEngine",
+    "StrategyOrchestrator",
     "OutcomeEntry",
     "StrategyAdjustmentEngine",
     "strategy_engine",
