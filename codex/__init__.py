@@ -26,6 +26,7 @@ from .meta_strategies import (
     PatternMiningEngine,
 )
 from .refinements import Refiner, RefinementTransform
+from .testcycles import TestCycleManager, TestProposal, TestSynthesizer
 from .governance import MetaStrategyGovernor
 from .narratives import CodexNarrator
 from .intent import (
@@ -92,6 +93,9 @@ __all__ = [
     "ImplementationRecord",
     "Refiner",
     "RefinementTransform",
+    "TestCycleManager",
+    "TestProposal",
+    "TestSynthesizer",
     "ScaffoldEngine",
     "ScaffoldRecord",
     "OutcomeEntry",
