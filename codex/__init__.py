@@ -41,6 +41,7 @@ from .rewrites import (
     ScopedRewriteEngine,
 )
 from .orchestrator import StrategyOrchestrator
+from .specs import SpecEngine, SpecProposal, SpecReviewBoard
 from .strategy import (
     OutcomeEntry,
     StrategyAdjustmentEngine,
@@ -80,6 +81,9 @@ __all__ = [
     "RewritePatch",
     "ScopedRewriteEngine",
     "StrategyOrchestrator",
+    "SpecEngine",
+    "SpecProposal",
+    "SpecReviewBoard",
     "OutcomeEntry",
     "StrategyAdjustmentEngine",
     "strategy_engine",
