@@ -13,6 +13,7 @@ from integration_memory import integration_memory
 
 from .intent import PriorityWeights
 from .meta_strategies import CodexMetaStrategy, PatternMiningEngine
+from .governance import MetaStrategyGovernor, GovernanceDecision
 
 __all__ = [
     "CodexStrategy",
@@ -366,6 +367,7 @@ class StrategyAdjustmentEngine:
         self._state_path = self._root / "strategy_state.json"
         self._strategy_storage = StrategyStorage(self._root / "strategies")
         self._meta_strategy_engine = PatternMiningEngine(self._root)
+        self._governor = MetaStrategyGovernor(self._root)
         self._weights = PriorityWeights().normalized()
         self._version = 1
         self._locked = False
@@ -408,6 +410,12 @@ class StrategyAdjustmentEngine:
     def meta_strategy_engine(self) -> PatternMiningEngine:
         return self._meta_strategy_engine
 
+    def meta_governor(self) -> MetaStrategyGovernor:
+        return self._governor
+
+    def governance_dashboard(self) -> Dict[str, Any]:
+        return self._governor.dashboard_snapshot()
+
     def set_strategy_ledger(self, ledger: StrategyLedger) -> None:
         with self._lock:
             self._strategy_ledger = ledger
@@ -431,6 +439,7 @@ class StrategyAdjustmentEngine:
 
     def approve_meta_strategy(self, pattern: str, *, operator: str | None = None) -> CodexMetaStrategy:
         strategy = self._meta_strategy_engine.approve(pattern, operator=operator)
+        self._governor.register_meta_strategy(strategy)
         integration_memory.record_event(
             "strategy.meta_strategy.approved",
             source=strategy.pattern,
@@ -442,6 +451,7 @@ class StrategyAdjustmentEngine:
 
     def reject_meta_strategy(self, pattern: str, *, operator: str | None = None) -> None:
         self._meta_strategy_engine.reject(pattern, operator=operator)
+        self._governor.unregister_meta_strategy(pattern)
         integration_memory.record_event(
             "strategy.meta_strategy.rejected",
             source=pattern,
@@ -488,8 +498,11 @@ class StrategyAdjustmentEngine:
     def register_strategy(self, strategy: CodexStrategy, *, operator: str | None = None) -> CodexStrategy:
         with self._lock:
             self._strategies[strategy.strategy_id] = strategy
+            decision = self._refresh_governance(strategy, reason="register")
             self._strategy_storage.save(strategy)
-            payload = {"goal": strategy.goal, "horizon": strategy.metadata.get("horizon")}
+        payload = {"goal": strategy.goal, "horizon": strategy.metadata.get("horizon")}
+        if decision is not None:
+            payload["governance_status"] = decision.status
         self._log_strategy_event("strategy_registered", strategy, operator, payload)
         return strategy
 
@@ -504,8 +517,11 @@ class StrategyAdjustmentEngine:
         with self._lock:
             strategy = self.load_strategy(strategy_id)
             strategy.activate(operator)
+            decision = self._refresh_governance(strategy, reason="activate")
             self._strategy_storage.save(strategy)
             payload = {"plan": strategy.current_plan.plan_id}
+            if decision is not None:
+                payload["governance_status"] = decision.status
         self._log_strategy_event("strategy_activated", strategy, operator, payload)
         return strategy
 
@@ -519,8 +535,11 @@ class StrategyAdjustmentEngine:
                 raise PermissionError("Strategy checkpoint not confirmed by ledger")
             strategy.mark_checkpoint(operator)
             strategy.set_ledger_confirmed()
+            decision = self._refresh_governance(strategy, reason="checkpoint")
             self._strategy_storage.save(strategy)
             payload = {"plan": plan.plan_id, "title": plan.title}
+            if decision is not None:
+                payload["governance_status"] = decision.status
         self._log_strategy_event("strategy_checkpoint", strategy, operator, payload)
         return strategy
 
@@ -532,6 +551,7 @@ class StrategyAdjustmentEngine:
         operator: str | None = None,
         condition_payload: Mapping[str, Any] | None = None,
     ) -> CodexStrategy:
+        decision: GovernanceDecision | None
         with self._lock:
             strategy = self.load_strategy(strategy_id)
             if strategy.status != "checkpoint":
@@ -561,12 +581,15 @@ class StrategyAdjustmentEngine:
             if condition_payload:
                 strategy.metadata.setdefault("condition_log", []).append(dict(condition_payload))
             adjust = self._maybe_adjust_strategy_horizon(strategy, matched_branch.condition)
+            decision = self._refresh_governance(strategy, reason="advance")
             self._strategy_storage.save(strategy)
             payload = {
                 "from_plan": plan.plan_id,
                 "branch": matched_branch.condition,
                 "next_plan": next_plan,
             }
+            if decision is not None:
+                payload["governance_status"] = decision.status
         self._log_strategy_event("strategy_advanced", strategy, operator, payload)
         if adjust is not None:
             self._log_strategy_event("strategy_horizon_adjusted", strategy, operator=None, extra=adjust)
@@ -576,6 +599,7 @@ class StrategyAdjustmentEngine:
         with self._lock:
             strategy = self.load_strategy(strategy_id)
             strategy.pause(operator)
+            self._refresh_governance(strategy, reason="pause")
             self._strategy_storage.save(strategy)
         self._log_strategy_event("strategy_paused", strategy, operator, {})
         return strategy
@@ -584,6 +608,7 @@ class StrategyAdjustmentEngine:
         with self._lock:
             strategy = self.load_strategy(strategy_id)
             strategy.resume(operator)
+            self._refresh_governance(strategy, reason="resume")
             self._strategy_storage.save(strategy)
         self._log_strategy_event("strategy_resumed", strategy, operator, {})
         return strategy
@@ -595,14 +620,19 @@ class StrategyAdjustmentEngine:
         operator: str | None = None,
         rolled_back: bool = True,
     ) -> CodexStrategy:
+        decision: GovernanceDecision | None
         with self._lock:
             strategy = self.load_strategy(strategy_id)
             if rolled_back:
                 strategy.rollback(operator)
             else:
                 strategy.complete(operator)
+            decision = self._refresh_governance(strategy, reason="terminate")
             self._strategy_storage.save(strategy)
             payload = {"rolled_back": rolled_back}
+            if decision is not None:
+                payload["governance_status"] = decision.status
+        self._governor.release(strategy_id)
         self._log_strategy_event("strategy_terminated", strategy, operator, payload)
         return strategy
 
@@ -614,6 +644,8 @@ class StrategyAdjustmentEngine:
             self._strategy_log_path = self._root / "strategy_log.jsonl"
             self._state_path = self._root / "strategy_state.json"
             self._strategy_storage = StrategyStorage(self._root / "strategies")
+            self._meta_strategy_engine = PatternMiningEngine(self._root)
+            self._governor = MetaStrategyGovernor(self._root)
             self._version = 1
             self._locked = False
             self._metrics = defaultdict(float)
@@ -626,6 +658,9 @@ class StrategyAdjustmentEngine:
             self._strategy_ledger = StrategyLedger()
             self._weights = PriorityWeights().normalized()
             self._load_state()
+            for strategy in self._strategies.values():
+                self._refresh_governance(strategy, reason="reconfigure")
+                self._strategy_storage.save(strategy)
 
     # ------------------------------------------------------------------
     def record_outcome(
@@ -711,6 +746,42 @@ class StrategyAdjustmentEngine:
         return f"Codex adjusted sequencing of {start} → {follow} based on {count} prior overrides."
 
     # ------------------------------------------------------------------
+    def _refresh_governance(self, strategy: CodexStrategy, *, reason: str) -> GovernanceDecision | None:
+        decision = self._governor.observe(strategy, reason=reason)
+        self._apply_governance_decision(strategy, decision)
+        return decision
+
+    def _apply_governance_decision(
+        self,
+        strategy: CodexStrategy,
+        decision: GovernanceDecision | None,
+    ) -> None:
+        if decision is None:
+            return
+        governance = strategy.metadata.setdefault("governance", {})
+        governance.update(
+            {
+                "status": decision.status,
+                "divergence_score": round(decision.divergence_score, 3),
+                "actions": list(decision.actions),
+                "details": dict(decision.details),
+                "last_update": _serialize_timestamp(),
+            }
+        )
+        governance["suspended"] = decision.status in {"suspended", "escalated"}
+        if decision.status == "resequence":
+            governance["resequenced"] = True
+        else:
+            governance.pop("resequenced", None)
+        auto_paused = governance.get("auto_paused", False)
+        if decision.status in {"suspended", "escalated"}:
+            if strategy.status == "active" and not strategy.metadata.get("paused"):
+                strategy.pause(operator=None)
+                governance["auto_paused"] = True
+        elif decision.status == "aligned" and strategy.metadata.get("paused") and auto_paused:
+            strategy.resume(operator=None)
+            governance["auto_paused"] = False
+
     def _load_state(self) -> None:
         if not self._state_path.exists():
             return
