@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Mapping, MutableMapping
 
 import json
 import re
@@ -14,6 +14,9 @@ try:  # pragma: no cover - optional import for type checking only
     from typing import Protocol
 except ImportError:  # pragma: no cover - Python <3.8 fallback
     Protocol = object  # type: ignore[misc,assignment]
+
+if TYPE_CHECKING:  # pragma: no cover - type checking only
+    from .implementations import Implementor
 
 
 def _default_now() -> datetime:
@@ -82,6 +85,7 @@ class ScaffoldEngine:
         repo_root: Path | str = Path("."),
         integration_root: Path | str | None = None,
         now: Callable[[], datetime] = _default_now,
+        implementor: "Implementor | None" = None,
     ) -> None:
         self._repo_root = Path(repo_root)
         self._integration_root = (
@@ -112,6 +116,17 @@ class ScaffoldEngine:
 
         self._load_style()
         self._ensure_dashboard_stub()
+
+        if implementor is None:
+            from .implementations import Implementor as _Implementor
+
+            self._implementor: Implementor | None = _Implementor(
+                repo_root=self._repo_root,
+                integration_root=self._integration_root,
+                now=now,
+            )
+        else:
+            self._implementor = implementor
 
     # ------------------------------------------------------------------
     # Public API
@@ -152,6 +167,13 @@ class ScaffoldEngine:
         )
         self._save_metadata(metadata_path, record)
         self._append_log("generated", proposal.spec_id, metadata=record.to_dict())
+
+        if self._implementor is not None:
+            try:
+                self._implementor.draft_from_scaffold(proposal, record.to_dict())
+            except Exception:
+                # Draft failures should not block scaffold generation; log best-effort.
+                self._append_log("implementation_draft_failed", proposal.spec_id)
         return record
 
     def enable(
@@ -184,6 +206,12 @@ class ScaffoldEngine:
             operator=operator,
             metadata={"ledger_entry": ledger_entry},
         )
+
+        if self._implementor is not None:
+            try:
+                self._implementor.commit_ledger_entry(spec_id, ledger_entry)
+            except FileNotFoundError:
+                self._append_log("implementation_missing", spec_id)
         return record
 
     def record_edit(
