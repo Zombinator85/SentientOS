@@ -12,6 +12,7 @@ from typing import Any, Dict, Mapping, MutableMapping, Sequence
 from integration_memory import integration_memory
 
 from .intent import PriorityWeights
+from .meta_strategies import CodexMetaStrategy, PatternMiningEngine
 
 __all__ = [
     "CodexStrategy",
@@ -364,6 +365,7 @@ class StrategyAdjustmentEngine:
         self._strategy_log_path = self._root / "strategy_log.jsonl"
         self._state_path = self._root / "strategy_state.json"
         self._strategy_storage = StrategyStorage(self._root / "strategies")
+        self._meta_strategy_engine = PatternMiningEngine(self._root)
         self._weights = PriorityWeights().normalized()
         self._version = 1
         self._locked = False
@@ -403,9 +405,79 @@ class StrategyAdjustmentEngine:
             "confidence": self._weights.confidence,
         }
 
+    def meta_strategy_engine(self) -> PatternMiningEngine:
+        return self._meta_strategy_engine
+
     def set_strategy_ledger(self, ledger: StrategyLedger) -> None:
         with self._lock:
             self._strategy_ledger = ledger
+
+    # ------------------------------------------------------------------
+    # Meta-strategy management
+    def propose_meta_strategies(self, arcs: Sequence[Mapping[str, Any]]) -> Sequence[CodexMetaStrategy]:
+        proposals = self._meta_strategy_engine.analyze(arcs)
+        for meta in proposals:
+            integration_memory.record_event(
+                "strategy.meta_strategy.proposed",
+                source=meta.pattern,
+                impact="baseline",
+                confidence=float(meta.metadata.get("confidence", 0.6) or 0.6),
+                payload=meta.to_dict(),
+            )
+        return proposals
+
+    def meta_strategy_dashboard(self) -> list[Dict[str, Any]]:
+        return list(self._meta_strategy_engine.dashboard_payload())
+
+    def approve_meta_strategy(self, pattern: str, *, operator: str | None = None) -> CodexMetaStrategy:
+        strategy = self._meta_strategy_engine.approve(pattern, operator=operator)
+        integration_memory.record_event(
+            "strategy.meta_strategy.approved",
+            source=strategy.pattern,
+            impact="baseline",
+            confidence=float(strategy.metadata.get("confidence", 0.6) or 0.6),
+            payload={"operator": operator, "meta_strategy": strategy.to_dict()},
+        )
+        return strategy
+
+    def reject_meta_strategy(self, pattern: str, *, operator: str | None = None) -> None:
+        self._meta_strategy_engine.reject(pattern, operator=operator)
+        integration_memory.record_event(
+            "strategy.meta_strategy.rejected",
+            source=pattern,
+            impact="baseline",
+            confidence=0.5,
+            payload={"operator": operator},
+        )
+
+    def apply_meta_strategy(
+        self,
+        pattern: str,
+        *,
+        outcome: str,
+        context: Mapping[str, Any] | None = None,
+    ) -> str:
+        message = self._meta_strategy_engine.applied_message(pattern)
+        self._meta_strategy_engine.record_application(pattern, outcome=outcome, context=context)
+        stored = self._meta_strategy_engine.get(pattern)
+        confidence = 0.6
+        if stored is not None:
+            try:
+                confidence = float(stored.metadata.get("confidence", 0.6) or 0.6)
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                confidence = 0.6
+        impact = "baseline" if outcome in {"success", "completed"} else "failed"
+        payload = {"message": message, "outcome": outcome}
+        if context:
+            payload["context"] = dict(context)
+        integration_memory.record_event(
+            "strategy.meta_strategy.applied",
+            source=pattern,
+            impact=impact,
+            confidence=confidence,
+            payload=payload,
+        )
+        return message
 
     # ------------------------------------------------------------------
     # Strategy arc management
@@ -675,6 +747,12 @@ class StrategyAdjustmentEngine:
             if len(parts) == 2:
                 preferred[(parts[0].strip(), parts[1].strip())] = int(count)
         self._preferred_sequences = preferred
+        threshold = payload.get("meta_strategy_threshold")
+        if threshold is not None:
+            try:
+                self._meta_strategy_engine.set_threshold(float(threshold))
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                pass
 
     def _persist_state(self) -> None:
         data = {
@@ -691,6 +769,7 @@ class StrategyAdjustmentEngine:
             "preferred_sequences": {
                 f"{start}→{follow}": count for (start, follow), count in self._preferred_sequences.items()
             },
+            "meta_strategy_threshold": self._meta_strategy_engine.confidence_threshold,
         }
         self._state_path.parent.mkdir(parents=True, exist_ok=True)
         self._state_path.write_text(json.dumps(data, sort_keys=True, indent=2), encoding="utf-8")

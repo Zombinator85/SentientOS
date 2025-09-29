@@ -130,6 +130,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_strategy",
         "tests.test_codex_strategies",
         "tests.test_codex_orchestration",
+        "tests.test_codex_meta_strategies",
     }
     for item in items:
         if (
