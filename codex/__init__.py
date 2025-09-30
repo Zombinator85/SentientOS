@@ -7,6 +7,7 @@ from .amendments import (
     IntegrityViolation,
     SpecAmender,
 )
+from .autogenesis import GapScanner, LineageWriter, ReviewSymmetry, SelfAmender
 from .integrity_daemon import IntegrityDaemon
 from .anomalies import (
     Anomaly,
@@ -65,6 +66,10 @@ __all__ = [
     "AmendmentReviewBoard",
     "SpecAmender",
     "IntegrityViolation",
+    "GapScanner",
+    "LineageWriter",
+    "ReviewSymmetry",
+    "SelfAmender",
     "IntegrityDaemon",
     "Anomaly",
     "AnomalyCoordinator",

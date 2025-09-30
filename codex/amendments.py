@@ -378,6 +378,36 @@ class SpecAmender:
             )
         return proposal
 
+    def annotate_lineage(
+        self,
+        proposal_id: str,
+        *,
+        lineage: Mapping[str, Any],
+        context: Mapping[str, Any] | None = None,
+    ) -> AmendmentProposal:
+        """Attach lineage metadata to an existing proposal."""
+
+        proposal = self._require(proposal_id)
+        merged_lineage = dict(proposal.lineage or {})
+        merged_lineage.update(dict(lineage))
+        proposal.lineage = merged_lineage
+
+        if context:
+            existing_context = dict(proposal.context or {})
+            existing_context.update(dict(context))
+            proposal.context = existing_context
+
+        stored = self._persist(proposal)
+        self._append_amendment_log(
+            "annotated",
+            proposal.spec_id,
+            proposal.proposal_id,
+            {"lineage": merged_lineage, "context": dict(context or {})},
+        )
+        return AmendmentProposal.from_dict(
+            json.loads(stored.read_text(encoding="utf-8"))
+        )
+
     # ------------------------------------------------------------------
     # Internal helpers
     def _draft_amendment(
