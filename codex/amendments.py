@@ -10,10 +10,14 @@ import json
 import uuid
 
 
+from .integrity_daemon import IntegrityDaemon, IntegrityViolation
+
+
 __all__ = [
     "AmendmentProposal",
     "SpecAmender",
     "AmendmentReviewBoard",
+    "IntegrityViolation",
 ]
 
 
@@ -134,6 +138,8 @@ class SpecAmender:
         self._spec_log = self._integration_root / "spec_log.jsonl"
         self._state_path = self._amendment_root / "state.json"
         self._now = now
+
+        self._integrity_daemon = IntegrityDaemon(self._integration_root, now=now)
 
         self._signals: Dict[str, Dict[str, Any]] = {}
         self._state: Dict[str, Any] = {
@@ -331,6 +337,11 @@ class SpecAmender:
             "items": items,
         }
 
+    def integrity_endpoint(self) -> Dict[str, Any]:
+        """Expose covenantal health snapshot for other modules."""
+
+        return self._integrity_daemon.health()
+
     def edit_proposal(
         self,
         proposal_id: str,
@@ -477,6 +488,7 @@ class SpecAmender:
             updated_at=self._now(),
             lineage=dict(lineage) if lineage else None,
         )
+        self._integrity_daemon.evaluate(proposal)
         self._persist(proposal)
         self._append_amendment_log(
             "proposed",
