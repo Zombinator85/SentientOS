@@ -1,7 +1,13 @@
 """Codex helpers for SentientOS."""
 from __future__ import annotations
 
-from .amendments import AmendmentProposal, AmendmentReviewBoard, SpecAmender
+from .amendments import (
+    AmendmentProposal,
+    AmendmentReviewBoard,
+    IntegrityViolation,
+    SpecAmender,
+)
+from .integrity_daemon import IntegrityDaemon
 from .anomalies import (
     Anomaly,
     AnomalyCoordinator,
@@ -58,6 +64,8 @@ __all__ = [
     "AmendmentProposal",
     "AmendmentReviewBoard",
     "SpecAmender",
+    "IntegrityViolation",
+    "IntegrityDaemon",
     "Anomaly",
     "AnomalyCoordinator",
     "AnomalyDetector",
