@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from codex.amendments import AmendmentReviewBoard, SpecAmender
+from codex.amendments import AmendmentReviewBoard, IntegrityViolation, SpecAmender
 
 
 class ManualClock:
@@ -163,3 +163,60 @@ def test_dashboard_and_ledger_gating(tmp_path: Path, base_spec: dict) -> None:
         )
     assert another is not None
     assert not engine.active_amendments("spec-pending"), "Ledger gating should block pending amendments"
+
+
+def test_integrity_daemon_quarantines_malicious_amendment(
+    tmp_path: Path, base_spec: dict
+) -> None:
+    clock = ManualClock()
+    root = tmp_path / "integration"
+    engine = SpecAmender(root=root, now=clock.now)
+
+    hostile_spec = dict(base_spec)
+    hostile_spec.pop("directives")
+    hostile_spec["status"] = "reboot"
+    hostile_spec["lineage"] = None
+
+    with pytest.raises(IntegrityViolation) as excinfo:
+        engine.propose_manual(
+            base_spec["spec_id"],
+            summary="",
+            deltas={"directives": {"before": base_spec["directives"], "after": []}},
+            context={"origin": "rogue-operator"},
+            original_spec={**base_spec, "lineage": {"seed": "v0"}},
+            proposed_spec=hostile_spec,
+        )
+
+    violation = excinfo.value
+    assert "tamper" in violation.reason_codes
+    assert "violation_of_vow" in violation.reason_codes
+
+    quarantine_dir = root / "daemon" / "integrity" / "quarantine"
+    entries = list(quarantine_dir.glob("*.json"))
+    assert entries, "IntegrityDaemon should quarantine hostile amendments"
+    record = _load_json(entries[0])
+    assert record["violations"], "Quarantine record should list violations"
+    assert record["proposal"]["spec_id"] == base_spec["spec_id"]
+
+    ledger_entries = _read_log(root / "daemon" / "integrity" / "ledger.jsonl")
+    assert ledger_entries[-1]["reason_codes"]
+
+
+def test_integrity_endpoint_reports_health(tmp_path: Path, base_spec: dict) -> None:
+    clock = ManualClock()
+    root = tmp_path / "integration"
+    engine = SpecAmender(root=root, now=clock.now)
+
+    # Trigger a standard proposal to mark a healthy pass
+    for _ in range(3):
+        engine.record_signal(
+            base_spec["spec_id"],
+            "coverage_gap",
+            {"detail": "missing-case"},
+            current_spec=base_spec,
+        )
+
+    status = engine.integrity_endpoint()
+    assert status["daemon"] == "IntegrityDaemon"
+    assert status["passed"] >= 1
+    assert status["status"] in {"stable", "watch"}
