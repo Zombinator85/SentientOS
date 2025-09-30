@@ -138,6 +138,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_implementations",
         "tests.test_codex_refinements",
         "tests.test_codex_testcycles",
+        "tests.test_codex_coverage",
     }
     for item in items:
         if (
