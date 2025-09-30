@@ -1,6 +1,7 @@
 """Codex helpers for SentientOS."""
 from __future__ import annotations
 
+from .amendments import AmendmentProposal, AmendmentReviewBoard, SpecAmender
 from .anomalies import (
     Anomaly,
     AnomalyCoordinator,
@@ -54,6 +55,9 @@ from .strategy import (
 )
 
 __all__ = [
+    "AmendmentProposal",
+    "AmendmentReviewBoard",
+    "SpecAmender",
     "Anomaly",
     "AnomalyCoordinator",
     "AnomalyDetector",
