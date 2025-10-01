@@ -25,6 +25,74 @@ This provides the `sentient-api` and `cathedral-gui` commands.
 python scripts/bootstrap_cathedral.py
 ```
 
+## 🪟 SentientOS for Windows — Minimal Architecture
+
+The minimal Windows stack ships with a local runtime daemon, a browser-based
+chat experience, and self-updating Git integration. Everything runs offline and
+communicates through local files or sockets.
+
+### 1. Local Runtime Service
+
+* **Runtime:** Python 3.11 (Windows compatible).
+* **Entry point:** `sentientosd.py` (installed as the `sentientosd` console
+  script).
+* **Responsibilities:**
+  * Load a local LLM via `sentientos.local_model.LocalModel`. Set
+    `SENTIENTOS_MODEL_PATH` to point at a quantised GPT-OSS 120B derivative (or
+    keep the placeholder directory generated in `sentientos_data/models`).
+  * Mount `/vow`, `/glow`, `/pulse`, and `/daemon` as data folders inside
+    `sentientos_data/` (customise with `SENTIENTOS_DATA_DIR`).
+  * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
+    `IntegrityDaemon`, `CodexHealer`) once per minute so amendments are proposed
+    and validated without human prompts.
+  * Commit approved amendments with `sentientos.utils.git_commit_push`.
+
+Launch locally with:
+
+```bash
+sentientosd
+```
+
+Install as a Windows Service (requires `pywin32`) with:
+
+```powershell
+python -m sentientos.windows_service install
+```
+
+### 2. Chat Interface
+
+* **Backend:** FastAPI app (`sentientos.chat_service.APP`) exposing `/chat`.
+* **Frontend:** Minimal HTML/JS chatbox served from the same FastAPI instance on
+  `http://localhost:5000`.
+* **Run:**
+
+  ```bash
+  sentientos-chat
+  ```
+
+### 3. GitHub Integration
+
+* **Auto commits:** `sentientos.utils.git_commit_push` stages changes and pushes
+  `"Codex auto-amendment applied"` once IntegrityDaemon approves an amendment.
+* **Auto updates:** `updater.py` runs `git pull` then restarts the daemon. Use it
+  as a scheduled task:
+
+  ```bash
+  sentientos-updater
+  ```
+
+### 4. Automation Flow
+
+1. `GenesisForge` drafts a maintenance amendment.
+2. `SpecAmender` tracks lifecycle metadata.
+3. `IntegrityDaemon` approves mature amendments.
+4. `CodexHealer` prunes stale entries.
+5. Approved amendments trigger `git_commit_push()`.
+6. `updater.py` pulls fresh lineage and restarts the daemon.
+
+The result is a closed loop—SentientOS drafts, validates, commits, and absorbs
+its own amendments entirely offline.
+
 ### 🖼️ GUI Launch
 ```bash
 python -m gui.cathedral_gui

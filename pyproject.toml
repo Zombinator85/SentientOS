@@ -49,6 +49,8 @@ dependencies = [
     "mypy>=1.5,<2",
     "psutil>=5,<6",
     "transformers>=4,<5",
+    "fastapi>=0.110,<1",
+    "uvicorn>=0.23,<1",
 ]
 
 [project.optional-dependencies]
@@ -82,6 +84,9 @@ video = "video_cli:main"
 plint-env = "scripts.plint_env:main"
 cathedral-gui = "gui.cathedral_gui:main"
 sentient-api = "sentient_api:app.run"
+sentientosd = "sentientosd:main"
+sentientos-chat = "sentientos.chat_service:run"
+sentientos-updater = "updater:update"
 
 [project.entry-points."sentientos.plugins"]
 telegram-bot = "telegram_bot"
