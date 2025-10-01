@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import logging
+from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
+from .event_stream import history as boot_history
 from .local_model import LocalModel
 
 LOGGER = logging.getLogger(__name__)
@@ -19,6 +21,12 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str
+
+
+class BootEvent(BaseModel):
+    timestamp: str
+    message: str
+    level: str
 
 
 @APP.on_event("startup")
@@ -35,6 +43,11 @@ async def chat_endpoint(request: ChatRequest) -> ChatResponse:
     return ChatResponse(response=reply)
 
 
+@APP.get("/boot-feed", response_model=List[BootEvent])
+async def boot_feed() -> List[BootEvent]:
+    return [BootEvent(**event) for event in boot_history()]
+
+
 @APP.get("/", response_class=HTMLResponse)
 async def root_page() -> HTMLResponse:
     return HTMLResponse(
@@ -47,6 +60,11 @@ async def root_page() -> HTMLResponse:
             <style>
                 body { font-family: Arial, sans-serif; margin: 0; padding: 2rem; background: #111; color: #f5f5f5; }
                 #chat { max-width: 640px; margin: 0 auto; }
+                #boot-ceremony { margin-bottom: 2rem; padding: 1rem; background: #1b1b1b; border-radius: 8px; }
+                #boot-ceremony h2 { margin-top: 0; }
+                .boot-entry { margin: 0.5rem 0; padding: 0.5rem; border-left: 4px solid #444; background: #0f0f0f; border-radius: 4px; }
+                .boot-entry[data-level="warning"] { border-color: #f0a202; }
+                .boot-entry[data-level="error"] { border-color: #f2545b; }
                 textarea { width: 100%; min-height: 120px; padding: 0.75rem; font-size: 1rem; }
                 button { margin-top: 1rem; padding: 0.75rem 1.5rem; font-size: 1rem; cursor: pointer; }
                 .response { margin-top: 2rem; padding: 1rem; background: #1e1e1e; border-radius: 8px; }
@@ -54,6 +72,10 @@ async def root_page() -> HTMLResponse:
         </head>
         <body>
             <div id="chat">
+                <section id="boot-ceremony">
+                    <h2>Boot Ceremony</h2>
+                    <div id="boot-feed"></div>
+                </section>
                 <h1>SentientOS Local Chat</h1>
                 <p>Start a local conversation with the SentientOS daemon. All interactions remain on your machine.</p>
                 <textarea id="message" placeholder="Type your message..."></textarea>
@@ -64,6 +86,28 @@ async def root_page() -> HTMLResponse:
                 </div>
             </div>
             <script>
+                async function refreshBootFeed() {
+                    try {
+                        const res = await fetch('/boot-feed');
+                        if (!res.ok) {
+                            return;
+                        }
+                        const data = await res.json();
+                        const container = document.getElementById('boot-feed');
+                        container.innerHTML = '';
+                        data.forEach((event) => {
+                            const entry = document.createElement('div');
+                            entry.className = 'boot-entry';
+                            entry.dataset.level = event.level;
+                            const timestamp = new Date(event.timestamp).toLocaleTimeString();
+                            entry.innerHTML = `<strong>[${timestamp}]</strong> ${event.message}`;
+                            container.appendChild(entry);
+                        });
+                    } catch (err) {
+                        console.warn('Unable to refresh boot feed', err);
+                    }
+                }
+
                 async function sendMessage() {
                     const messageEl = document.getElementById('message');
                     const responseEl = document.getElementById('response');
@@ -94,6 +138,8 @@ async def root_page() -> HTMLResponse:
                         sendMessage();
                     }
                 });
+                refreshBootFeed();
+                setInterval(refreshBootFeed, 5000);
             </script>
         </body>
         </html>
