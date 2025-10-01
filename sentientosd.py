@@ -5,9 +5,15 @@ import logging
 import signal
 from contextlib import suppress
 
+from sentientos.boot_ceremony import (
+    BootAnnouncer,
+    BootCeremonyError,
+    CeremonialScript,
+    EventEmitter,
+    FirstContact,
+)
 from sentientos.codex import CodexHealer, GenesisForge, IntegrityDaemon, SpecAmender
 from sentientos.local_model import LocalModel
-from sentientos.storage import ensure_mounts
 from sentientos.utils import git_commit_push
 
 LOGGER = logging.getLogger(__name__)
@@ -16,7 +22,17 @@ LOGGER = logging.getLogger(__name__)
 async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) -> None:
     """Run the autonomous Codex maintenance loop."""
 
-    ensure_mounts()
+    emitter = EventEmitter(LOGGER)
+    announcer = BootAnnouncer(emitter)
+    ceremony = CeremonialScript(announcer)
+    try:
+        ceremony.perform()
+    except BootCeremonyError:
+        LOGGER.critical("Boot ceremony failed. Aborting startup.")
+        raise
+    first_contact = FirstContact(emitter)
+    first_contact.affirm_integrity()
+    first_contact.invite_conversation()
     model = LocalModel.autoload()
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
