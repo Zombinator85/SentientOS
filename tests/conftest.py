@@ -133,6 +133,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_meta_strategies",
         "tests.test_codex_governance",
         "tests.test_codex_narratives",
+        "tests.test_codex_healer",
         "tests.test_codex_specs",
         "tests.test_codex_scaffolds",
         "tests.test_codex_implementations",
