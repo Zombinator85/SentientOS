@@ -150,6 +150,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_codex_gap_seeker",
         "tests.test_external_gap_seeker",
         "tests.test_oracle_relay",
+        "tests.test_commit_watcher_ci",
     }
     for item in items:
         if (
