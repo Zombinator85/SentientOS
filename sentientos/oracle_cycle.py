@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import textwrap
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -269,6 +270,344 @@ class CodexExecutor:
         return execution
 
 
+@dataclass(slots=True, frozen=True)
+class PullRequestInfo:
+    """Minimal metadata describing a GitHub pull request."""
+
+    number: int
+    title: str
+    author: str
+    head_sha: str
+    base_ref: str
+    url: str | None = None
+    draft: bool = False
+    mergeable: bool | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class CheckRun:
+    """Snapshot of a CI check result."""
+
+    name: str
+    status: str
+    conclusion: str | None
+    details_url: str | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "name": self.name,
+            "status": self.status,
+        }
+        if self.conclusion is not None:
+            payload["conclusion"] = self.conclusion
+        if self.details_url:
+            payload["details_url"] = self.details_url
+        return payload
+
+    def is_success(self) -> bool:
+        if self.status != "completed":
+            return False
+        return (self.conclusion or "").lower() in {"success", "neutral", "skipped"}
+
+    def is_failure(self) -> bool:
+        if self.status != "completed":
+            return False
+        return (self.conclusion or "").lower() in {
+            "failure",
+            "timed_out",
+            "cancelled",
+            "action_required",
+            "stale",
+        }
+
+    def is_pending(self) -> bool:
+        if self.status == "completed":
+            return not self.is_success() and not self.is_failure()
+        return True
+
+
+class PullRequestProvider(Protocol):
+    """Source that can list open pull requests."""
+
+    def list_pull_requests(self) -> Sequence[PullRequestInfo]:
+        ...
+
+
+class CheckRunProvider(Protocol):
+    """Source that can return CI checks for a pull request."""
+
+    def list_check_runs(self, pull_request: PullRequestInfo) -> Sequence[CheckRun]:
+        ...
+
+
+class MergeStrategy(Protocol):
+    """Callable merging a pull request and returning a decision."""
+
+    def __call__(self, pull_request: PullRequestInfo) -> "MergeDecision":
+        ...
+
+
+@dataclass(slots=True)
+class CIEvaluation:
+    """Aggregated CI status for a pull request."""
+
+    pull_request: PullRequestInfo
+    checks: tuple[CheckRun, ...]
+    passed: tuple[CheckRun, ...]
+    failed: tuple[CheckRun, ...]
+    pending: tuple[CheckRun, ...]
+
+    @property
+    def status(self) -> str:
+        if self.failed:
+            return "failed"
+        if self.pending:
+            return "pending"
+        return "passed"
+
+    @property
+    def all_passed(self) -> bool:
+        return not self.failed and not self.pending
+
+
+@dataclass(slots=True)
+class MergeDecision:
+    """Result of attempting to merge a pull request."""
+
+    merged: bool
+    sha: str | None = None
+    message: str | None = None
+    reason: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = {"merged": self.merged}
+        if self.sha is not None:
+            payload["sha"] = self.sha
+        if self.message:
+            payload["message"] = self.message
+        if self.reason:
+            payload["reason"] = self.reason
+        return payload
+
+
+class PRMonitor:
+    """Filter pull requests authored by SentientOS for auto-merge consideration."""
+
+    def __init__(
+        self,
+        provider: PullRequestProvider,
+        *,
+        author: str = "SentientOS",
+        base_ref: str | None = "main",
+    ) -> None:
+        self._provider = provider
+        self._author = author
+        self._base_ref = base_ref
+
+    def scan(self) -> list[PullRequestInfo]:
+        candidates: list[PullRequestInfo] = []
+        for pull_request in self._provider.list_pull_requests():
+            if pull_request.author != self._author:
+                continue
+            if pull_request.draft:
+                continue
+            if self._base_ref is not None and pull_request.base_ref != self._base_ref:
+                continue
+            candidates.append(pull_request)
+        return candidates
+
+
+class CIChecker:
+    """Evaluate CI status for a pull request."""
+
+    def __init__(self, provider: CheckRunProvider) -> None:
+        self._provider = provider
+
+    def evaluate(self, pull_request: PullRequestInfo) -> CIEvaluation:
+        checks = tuple(self._provider.list_check_runs(pull_request))
+        passed: list[CheckRun] = []
+        failed: list[CheckRun] = []
+        pending: list[CheckRun] = []
+        for check in checks:
+            if check.is_failure():
+                failed.append(check)
+            elif check.is_success():
+                passed.append(check)
+            else:
+                pending.append(check)
+        return CIEvaluation(
+            pull_request=pull_request,
+            checks=checks,
+            passed=tuple(passed),
+            failed=tuple(failed),
+            pending=tuple(pending),
+        )
+
+
+class MergeGate:
+    """Auto-merge pull requests whose CI checks are green."""
+
+    def __init__(
+        self,
+        strategy: MergeStrategy,
+        *,
+        base_ref: str | None = "main",
+    ) -> None:
+        self._strategy = strategy
+        self._base_ref = base_ref
+
+    def attempt(self, evaluation: CIEvaluation) -> MergeDecision:
+        pull_request = evaluation.pull_request
+        if evaluation.status != "passed":
+            return MergeDecision(merged=False, reason="ci_not_passed")
+        if self._base_ref is not None and pull_request.base_ref != self._base_ref:
+            return MergeDecision(merged=False, reason="base_mismatch")
+        if pull_request.draft:
+            return MergeDecision(merged=False, reason="draft")
+        if pull_request.mergeable is False:
+            return MergeDecision(merged=False, reason="not_mergeable")
+        decision = self._strategy(pull_request)
+        if not decision.merged and decision.reason is None:
+            decision.reason = "merge_declined"
+        return decision
+
+
+class NarratorLink:
+    """Bridge to ChangeNarrator/BootChronicler style announcements."""
+
+    def __init__(
+        self,
+        *,
+        on_announce: Callable[[str, Mapping[str, object]], None] | None = None,
+    ) -> None:
+        self._on_announce = on_announce
+        self._history: list[dict[str, object]] = []
+
+    def announce_success(
+        self,
+        pull_request: PullRequestInfo,
+        decision: MergeDecision,
+        *,
+        evaluation: CIEvaluation,
+    ) -> None:
+        message = "A self-amendment was merged after passing all checks."
+        record = {
+            "event": "success",
+            "message": message,
+            "pr_number": pull_request.number,
+            "pr_title": pull_request.title,
+            "merge_sha": decision.sha,
+            "checks": [check.as_dict() for check in evaluation.passed],
+        }
+        self._history.append(record)
+        if self._on_announce is not None:
+            self._on_announce(message, record)
+
+    def announce_failure(
+        self,
+        pull_request: PullRequestInfo,
+        evaluation: CIEvaluation,
+        *,
+        reason: str,
+    ) -> None:
+        message = "An amendment was rejected due to CI failures and has been quarantined."
+        record = {
+            "event": "failure",
+            "message": message,
+            "reason": reason,
+            "pr_number": pull_request.number,
+            "pr_title": pull_request.title,
+            "failed_checks": [check.as_dict() for check in evaluation.failed],
+            "pending_checks": [check.as_dict() for check in evaluation.pending],
+        }
+        self._history.append(record)
+        if self._on_announce is not None:
+            self._on_announce(message, record)
+
+    @property
+    def history(self) -> list[dict[str, object]]:
+        return list(self._history)
+
+
+class FailureHandler:
+    """Log CI failures and trigger CodexHealer follow-ups."""
+
+    def __init__(
+        self,
+        ledger: RecoveryLedger,
+        *,
+        healer: "CodexHealerProtocol" | None = None,
+        narrator: NarratorLink | None = None,
+    ) -> None:
+        self._ledger = ledger
+        self._healer = healer
+        self._narrator = narrator
+
+    def handle(
+        self,
+        evaluation: CIEvaluation,
+        *,
+        reason: str,
+        extra_details: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
+        pull_request = evaluation.pull_request
+        anomaly = Anomaly(
+            kind="pull_request",
+            subject=f"#{pull_request.number}",
+            details={
+                "title": pull_request.title,
+                "head_sha": pull_request.head_sha,
+            },
+        )
+        details: dict[str, object] = {
+            "reason": reason,
+            "failed_checks": [check.as_dict() for check in evaluation.failed],
+            "pending_checks": [check.as_dict() for check in evaluation.pending],
+        }
+        if pull_request.url:
+            details["pr_url"] = pull_request.url
+        if extra_details:
+            details.update(dict(extra_details))
+        status = "pr_ci_failed" if reason != "timeout" else "pr_ci_timeout"
+        entry = self._ledger.log(status, anomaly=anomaly, details=details, quarantined=True)
+        if self._healer is not None:
+            action = RepairAction(
+                kind="ci_failure",
+                subject=pull_request.head_sha,
+                description=f"Investigate CI failure for PR #{pull_request.number}",
+                execute=lambda: False,
+                auto_adopt=False,
+                metadata={
+                    "pr_number": pull_request.number,
+                    "reason": reason,
+                    "ledger_entry": entry,
+                },
+            )
+            self._healer.review_external(anomaly, action)
+        if self._narrator is not None:
+            self._narrator.announce_failure(pull_request, evaluation, reason=reason)
+        return entry
+
+
+class BackoffPolicy:
+    """Compute exponential backoff delays for CI polling."""
+
+    def __init__(
+        self,
+        *,
+        initial_seconds: float = 2.0,
+        multiplier: float = 2.0,
+        max_seconds: float = 60.0,
+    ) -> None:
+        self._initial = initial_seconds
+        self._multiplier = multiplier
+        self._maximum = max_seconds
+
+    def delay(self, attempt: int) -> float:
+        delay = self._initial * (self._multiplier ** attempt)
+        return float(min(self._maximum, delay))
+
+
 class CommitWatcher:
     """Observe GitHub for Codex commits and log lineage."""
 
@@ -278,13 +617,49 @@ class CommitWatcher:
         ledger: RecoveryLedger,
         *,
         healer: "CodexHealerProtocol" | None = None,
+        pr_monitor: PRMonitor | None = None,
+        ci_checker: CIChecker | None = None,
+        merge_gate: MergeGate | None = None,
+        failure_handler: FailureHandler | None = None,
+        narrator: NarratorLink | None = None,
+        backoff: BackoffPolicy | None = None,
+        sleep: Callable[[float], None] | None = None,
+        max_ci_attempts: int = 5,
     ) -> None:
         self._github = github
         self._ledger = ledger
         self._healer = healer
+        self._pr_monitor = pr_monitor
+        self._ci_checker = ci_checker
+        self._merge_gate = merge_gate
+        self._failure_handler = failure_handler
+        self._narrator = narrator
+        self._backoff = backoff or BackoffPolicy()
+        self._sleep = sleep or time.sleep
+        self._max_ci_attempts = max_ci_attempts
 
     def await_commit(self, commit_sha: str, *, timeout: float | None = None) -> CommitObservation:
         observation = self._github.wait_for_commit(commit_sha, timeout=timeout)
+        auto_merge_details: dict[str, object] | None = None
+        if (
+            observation.status == "success"
+            and observation.ci_passed
+            and not observation.merged
+            and self._pr_monitor is not None
+            and self._ci_checker is not None
+            and self._merge_gate is not None
+        ):
+            auto_merge_details = self._attempt_auto_merge(observation)
+            status = auto_merge_details.get("status") if auto_merge_details else None
+            if status == "merged":
+                observation.merged = True
+            elif status in {"ci_failed", "timeout"}:
+                observation.ci_passed = False
+                observation.status = "failure"
+        if auto_merge_details:
+            merged_details = dict(observation.details)
+            merged_details["auto_merge"] = auto_merge_details
+            observation.details = merged_details
         anomaly = Anomaly("codex_commit", commit_sha, {"status": observation.status})
         details = {
             "ci_passed": observation.ci_passed,
@@ -313,6 +688,75 @@ class CommitWatcher:
             )
             self._healer.review_external(anomaly, action)
         return observation
+
+    def _attempt_auto_merge(self, observation: CommitObservation) -> dict[str, object]:
+        candidates = self._pr_monitor.scan() if self._pr_monitor is not None else []
+        pull_request = next((pr for pr in candidates if pr.head_sha == observation.commit_sha), None)
+        if pull_request is None:
+            return {"status": "skipped", "reason": "no_matching_pr"}
+        attempt = 0
+        while True:
+            evaluation = self._ci_checker.evaluate(pull_request)
+            if evaluation.status == "pending":
+                if attempt >= self._max_ci_attempts:
+                    if self._failure_handler is not None:
+                        self._failure_handler.handle(
+                            evaluation,
+                            reason="timeout",
+                            extra_details={"attempts": attempt + 1},
+                        )
+                    return {"status": "timeout", "attempts": attempt + 1}
+                delay = self._backoff.delay(attempt)
+                attempt += 1
+                self._sleep(delay)
+                continue
+            if evaluation.status == "failed":
+                if self._failure_handler is not None:
+                    self._failure_handler.handle(evaluation, reason="ci_failed")
+                return {
+                    "status": "ci_failed",
+                    "failed_checks": [check.as_dict() for check in evaluation.failed],
+                }
+            decision = self._merge_gate.attempt(evaluation)
+            if decision.merged:
+                entry = self._record_auto_merge(evaluation, decision)
+                return {
+                    "status": "merged",
+                    "merge_sha": decision.sha,
+                    "ledger_entry": entry,
+                    "attempts": attempt + 1,
+                }
+            reason = decision.reason or "merge_declined"
+            if self._failure_handler is not None and reason not in {"base_mismatch", "draft"}:
+                self._failure_handler.handle(
+                    evaluation,
+                    reason=reason,
+                    extra_details={"merge_decision": decision.to_dict()},
+                )
+            return {"status": "merge_blocked", "reason": reason}
+
+    def _record_auto_merge(self, evaluation: CIEvaluation, decision: MergeDecision) -> dict[str, object]:
+        pull_request = evaluation.pull_request
+        anomaly = Anomaly(
+            kind="pull_request",
+            subject=f"#{pull_request.number}",
+            details={
+                "title": pull_request.title,
+                "head_sha": pull_request.head_sha,
+            },
+        )
+        details = {
+            "pr_number": pull_request.number,
+            "pr_title": pull_request.title,
+            "merge_sha": decision.sha,
+            "checks": [check.as_dict() for check in evaluation.passed],
+        }
+        if pull_request.url:
+            details["pr_url"] = pull_request.url
+        entry = self._ledger.log("pr_auto_merged", anomaly=anomaly, details=details)
+        if self._narrator is not None:
+            self._narrator.announce_success(pull_request, decision, evaluation=evaluation)
+        return entry
 
 
 class CodexHealerProtocol(Protocol):
@@ -496,6 +940,16 @@ __all__ = [
     "GitHubClient",
     "WorkspaceSubmission",
     "CodexExecution",
+    "PullRequestInfo",
+    "CheckRun",
+    "CIEvaluation",
+    "MergeDecision",
+    "PRMonitor",
+    "CIChecker",
+    "MergeGate",
+    "NarratorLink",
+    "FailureHandler",
+    "BackoffPolicy",
     "CommitObservation",
     "UpdateResult",
     "DeepResearchReport",
