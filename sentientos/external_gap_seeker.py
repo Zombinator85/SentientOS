@@ -180,10 +180,31 @@ class NarrativeMark:
             "reloaded": result.reloaded,
             "author": self.AUTHOR,
         }
-        status = "external_gap_seek_applied" if result.pulled else "external_gap_seek_update_failed"
-        anomaly = Anomaly("external_gap_seek_update", result.commit_sha, {})
-        entry = self._ledger.log(status, anomaly=anomaly, details=details, quarantined=not result.pulled)
-        self._records.append({"status": status, "entry": entry, "quarantined": not result.pulled})
+        if result.health_report is not None:
+            details["health"] = dict(result.health_report.probes)
+        if result.last_known_good:
+            details["last_known_good"] = result.last_known_good
+        details["rolled_back"] = result.rolled_back
+        if result.rollback_commit:
+            details["rollback_commit"] = result.rollback_commit
+        if result.failure_reason:
+            details["failure_reason"] = result.failure_reason
+        if result.ledger_entry is not None:
+            details["recovery_ledger_entry"] = result.ledger_entry
+        status = "external_gap_seek_applied"
+        quarantined = False
+        if result.rolled_back:
+            status = "external_gap_seek_rolled_back"
+            quarantined = True
+        elif not result.pulled:
+            status = "external_gap_seek_update_failed"
+            quarantined = True
+        anomaly_details: dict[str, object] = {"rolled_back": result.rolled_back}
+        if result.rollback_commit:
+            anomaly_details["rollback_commit"] = result.rollback_commit
+        anomaly = Anomaly("external_gap_seek_update", result.commit_sha, anomaly_details)
+        entry = self._ledger.log(status, anomaly=anomaly, details=details, quarantined=quarantined)
+        self._records.append({"status": status, "entry": entry, "quarantined": quarantined})
         if self._on_record:
             self._on_record(self._records[-1])
 
