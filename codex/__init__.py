@@ -8,6 +8,17 @@ from .amendments import (
     SpecAmender,
 )
 from .autogenesis import GapScanner, LineageWriter, ReviewSymmetry, SelfAmender
+from .gap_seeker import (
+    CoverageReader,
+    GapAmender,
+    GapReporter,
+    GapResolution,
+    GapResolutionError,
+    GapSeeker,
+    GapSignal,
+    NarratorLink,
+    RepoScanner,
+)
 from .integrity_daemon import IntegrityDaemon
 from .anomalies import (
     Anomaly,
@@ -70,6 +81,15 @@ __all__ = [
     "LineageWriter",
     "ReviewSymmetry",
     "SelfAmender",
+    "CoverageReader",
+    "GapAmender",
+    "GapReporter",
+    "GapResolution",
+    "GapResolutionError",
+    "GapSeeker",
+    "GapSignal",
+    "NarratorLink",
+    "RepoScanner",
     "IntegrityDaemon",
     "Anomaly",
     "AnomalyCoordinator",
