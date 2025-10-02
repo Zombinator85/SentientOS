@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, Protocol
 
 from .codex import CodexHealer, GenesisForge, IntegrityDaemon
+from privilege_lint.reporting import NarratorLink, create_default_router
 from .event_stream import record as record_event
 from .storage import ensure_mounts
 
@@ -88,6 +89,7 @@ class CeremonialScript:
         )
         for step in steps:
             self._execute_step(step)
+        self._announce_privilege_status()
 
     def _execute_step(self, step: CeremonialStep) -> None:
         self._announcer.proclaim(step.announcement)
@@ -122,6 +124,17 @@ class CeremonialScript:
     @staticmethod
     def _prime_forge() -> None:
         GenesisForge.expand()
+
+    def _announce_privilege_status(self) -> None:
+        try:
+            router = create_default_router(LOGGER)
+            report, _, archive_path, _ = router.generate()
+            narrator = NarratorLink(lambda message: self._announcer.proclaim(message))
+            narrator.announce_boot(report, archive_path=archive_path)
+        except Exception as exc:  # pragma: no cover - defensive resilience
+            self._announcer.caution(
+                f"Privilege status unavailable at boot: {exc}. Continuing startup."
+            )
 
 
 class FirstContact:

@@ -6,12 +6,12 @@ require_lumos_approval()
 import ast
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
-import sys
 import subprocess
-import hashlib
+import sys
 from pathlib import Path
 from privilege_lint.config import LintConfig, load_config
 from privilege_lint.import_rules import apply_fix_imports, validate_import_sort
@@ -40,6 +40,7 @@ from privilege_lint.comment_controls import parse_controls, is_disabled
 from privilege_lint.metrics import MetricsCollector
 from privilege_lint.plugins import load_plugins
 from logging_config import get_log_path
+from privilege_lint.reporting import LintExecution
 # ── privilege_lint_cli.py ─────────────────────────────────────────
 
 
@@ -425,6 +426,113 @@ def iter_ext_files(paths: list[str], exts: set[str]) -> list[Path]:
     return sorted(set(result))
 
 
+def run_lint(
+    paths: list[str] | None = None,
+    *,
+    fix: bool = False,
+    quiet: bool = False,
+    max_workers: int | None = None,
+    show_hints: bool = False,
+    no_cache: bool = False,
+    mypy: bool = False,
+) -> LintExecution:
+    targets = paths or [str(Path(__file__).resolve().parent)]
+    metrics = MetricsCollector()
+    linter = PrivilegeLinter(metrics=metrics)
+    if no_cache:
+        linter.cache.enabled = False
+
+    files = iter_py_files(targets)
+    js_files = (
+        iter_ext_files(targets, {".js", ".ts"}) if linter.config.js_enabled else []
+    )
+    go_files = iter_ext_files(targets, {".go"}) if linter.config.go_enabled else []
+
+    check_files: list[Path] = []
+    for candidate in files + js_files + go_files:
+        if linter.cache.is_valid(candidate):
+            metrics.cache_hit()
+        else:
+            check_files.append(candidate)
+
+    if fix:
+        fixed = 0
+        for fp in check_files:
+            if linter.validate(fp):
+                if linter.apply_fix(fp):
+                    fixed += 1
+            linter.cache.update(fp)
+        linter.cache.save()
+        metrics.finish()
+        timestamp = datetime.datetime.now(datetime.timezone.utc)
+        return LintExecution(
+            metrics=metrics,
+            issues=[],
+            timestamp=timestamp,
+            checked_files=sorted({fp for fp in check_files}, key=lambda p: str(p)),
+            project_root=linter.project_root,
+            config_hash=linter.cache.cfg_hash,
+            report_json_enabled=linter.config.report_json,
+            sarif_enabled=linter.config.sarif,
+            fixed_count=fixed,
+        )
+
+    issues = parallel_validate(
+        linter,
+        [fp for fp in check_files if fp.suffix == ".py"],
+        max_workers,
+    )
+
+    other_files = [fp for fp in check_files if fp.suffix in {".js", ".ts", ".go"}]
+    for fp in other_files:
+        try:
+            if fp.suffix in {".js", ".ts"}:
+                issues.extend(validate_js(fp, linter.license_header))
+            elif fp.suffix == ".go":
+                issues.extend(validate_go(fp, linter.license_header))
+        except RuleSkippedError:
+            pass
+
+    for fp in check_files:
+        linter.cache.update(fp)
+
+    if linter.config.mypy_enabled:
+        mypy_targets = files if mypy else check_files
+        mypy_issues, _ = run_incremental(
+            mypy_targets,
+            linter.cache,
+            strict=linter.config.mypy_strict,
+            force_full=mypy,
+        )
+        issues.extend(mypy_issues)
+
+    if linter.config.data_paths:
+        data_files = iter_data_files(linter.config.data_paths)
+        for df in data_files:
+            if linter.cache.is_valid(df):
+                continue
+            if df.suffix == ".json" and linter.config.data_check_json:
+                issues.extend(validate_json(df))
+            elif df.suffix == ".csv" and linter.config.data_check_csv:
+                issues.extend(validate_csv(df))
+            linter.cache.update(df)
+
+    linter.cache.save()
+    metrics.finish()
+    timestamp = datetime.datetime.now(datetime.timezone.utc)
+    unique_checked = sorted({fp for fp in check_files}, key=lambda p: str(p))
+    return LintExecution(
+        metrics=metrics,
+        issues=sorted(issues),
+        timestamp=timestamp,
+        checked_files=unique_checked,
+        project_root=linter.project_root,
+        config_hash=linter.cache.cfg_hash,
+        report_json_enabled=linter.config.report_json,
+        sarif_enabled=linter.config.sarif,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Privilege banner linter")
     ap.add_argument("paths", nargs="*", default=[str(Path(__file__).resolve().parent)])
@@ -446,94 +554,42 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sarif", type=str, default=None, help="Write SARIF report")
     args = ap.parse_args(argv)
 
-    metrics = MetricsCollector()
-    linter = PrivilegeLinter(metrics=metrics)
-    if args.no_cache:
-        linter.cache.enabled = False
-    files = iter_py_files(args.paths)
-    js_files = (
-        iter_ext_files(args.paths, {".js", ".ts"}) if linter.config.js_enabled else []
+    result = run_lint(
+        args.paths,
+        fix=args.fix,
+        quiet=args.quiet,
+        max_workers=args.max_workers,
+        show_hints=args.show_hints,
+        no_cache=args.no_cache,
+        mypy=args.mypy,
     )
-    go_files = iter_ext_files(args.paths, {".go"}) if linter.config.go_enabled else []
-    check_files = []
-    for f in files + js_files + go_files:
-        if linter.cache.is_valid(f):
-            metrics.cache_hit()
-        else:
-            check_files.append(f)
 
     if args.fix:
-        fixed = 0
-        for fp in check_files:
-            if linter.validate(fp):
-                if linter.apply_fix(fp):
-                    fixed += 1
-            linter.cache.update(fp)
-        linter.cache.save()
         if not args.quiet:
-            print(f"Fixed {fixed} files")
+            print(f"Fixed {result.fixed_count} files")
         return 0
 
-    issues = parallel_validate(
-        linter, [f for f in check_files if f.suffix == ".py"], args.max_workers
-    )
-    other_files = [f for f in check_files if f.suffix in {".js", ".ts", ".go"}]
-    for f in other_files:
-        try:
-            if f.suffix in {".js", ".ts"}:
-                issues.extend(validate_js(f, linter.license_header))
-            elif f.suffix == ".go":
-                issues.extend(validate_go(f, linter.license_header))
-        except RuleSkippedError:
-            pass
-    for fp in check_files:
-        linter.cache.update(fp)
-
-    if linter.config.mypy_enabled:
-        mypy_targets = files if args.mypy else check_files
-        mypy_issues, checked = run_incremental(
-            mypy_targets,
-            linter.cache,
-            strict=linter.config.mypy_strict,
-            force_full=args.mypy,
-        )
-        issues.extend(mypy_issues)
-        checked_count = len(checked)
-
-    if linter.config.data_paths:
-        data_files = iter_data_files(linter.config.data_paths)
-        for df in data_files:
-            if linter.cache.is_valid(df):
-                continue
-            if df.suffix == ".json" and linter.config.data_check_json:
-                issues.extend(validate_json(df))
-            elif df.suffix == ".csv" and linter.config.data_check_csv:
-                issues.extend(validate_csv(df))
-            linter.cache.update(df)
-
-    linter.cache.save()
-    metrics.finish()
-    if issues:
+    if result.issues:
         if not args.quiet or args.show_hints:
-            print("\n".join(sorted(issues)))
+            print("\n".join(result.issues))
         return 1
 
     stamp_src = (
-        linter.cache.cfg_hash
+        result.config_hash
         + subprocess.check_output(["git", "rev-parse", "HEAD^{tree}"]).decode().strip()
     )
     stamp = hashlib.sha1(stamp_src.encode()).hexdigest()
     (Path(".git") / ".privilege_lint.gitcache").write_text(stamp)
     report_path = args.report_json or (
-        "plint_metrics.json" if linter.config.report_json else None
+        "plint_metrics.json" if result.report_json_enabled else None
     )
     if report_path:
-        metrics.write_json(Path(report_path))
-    sarif_path = args.sarif or ("plint.sarif" if linter.config.sarif else None)
+        result.metrics.write_json(Path(report_path))
+    sarif_path = args.sarif or ("plint.sarif" if result.sarif_enabled else None)
     if sarif_path:
         from reporters.sarif import write_sarif
 
-        write_sarif(issues, Path(sarif_path))
+        write_sarif(result.issues, Path(sarif_path))
     return 0
 
 

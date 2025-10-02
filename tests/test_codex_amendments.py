@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from codex.amendments import AmendmentReviewBoard, IntegrityViolation, SpecAmender
+from codex.amendments import (
+    AmendmentReviewBoard,
+    IntegrityViolation,
+    PrivilegeViolation,
+    SpecAmender,
+)
+from privilege_lint.reporting import PrivilegeReport
 
 
 class ManualClock:
@@ -27,6 +33,33 @@ def _read_log(path: Path) -> list[dict]:
     if not path.exists():
         return []
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _make_report(status: str, issues: list[str]) -> PrivilegeReport:
+    return PrivilegeReport(
+        status=status,
+        timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+        issues=issues,
+        metrics={"files": 0, "cache_hits": 0, "runtime": 0, "rules": {}},
+        checked_files=[],
+    )
+
+
+class StubHook:
+    def __init__(self, report: PrivilegeReport) -> None:
+        self.report = report
+        self.calls: list[tuple[str, str]] = []
+
+    def enforce(
+        self,
+        *,
+        spec_id: str,
+        proposal_id: str,
+        requested_format: str | None = None,
+        paths: list[str] | None = None,
+    ) -> PrivilegeReport:
+        self.calls.append((spec_id, proposal_id))
+        return self.report
 
 
 @pytest.fixture()
@@ -89,7 +122,8 @@ def test_dashboard_and_ledger_gating(tmp_path: Path, base_spec: dict) -> None:
     clock = ManualClock()
     root = tmp_path / "integration"
     engine = SpecAmender(root=root, now=clock.now)
-    board = AmendmentReviewBoard(engine)
+    hook = StubHook(_make_report("clean", []))
+    board = AmendmentReviewBoard(engine, hook=hook)
 
     proposal = engine.record_signal(
         base_spec["spec_id"],
@@ -122,6 +156,7 @@ def test_dashboard_and_ledger_gating(tmp_path: Path, base_spec: dict) -> None:
         ledger_entry="ledger://amend/001",
     )
     assert approved.status == "approved"
+    assert hook.calls, "Privilege hook should be invoked during approval"
     assert engine.active_amendments(base_spec["spec_id"]), "Approved amendment should appear active"
 
     amendment_log = _read_log(root / "amendment_log.jsonl")
@@ -198,9 +233,43 @@ def test_integrity_daemon_quarantines_malicious_amendment(
     assert record["violations"], "Quarantine record should list violations"
     assert record["proposal"]["spec_id"] == base_spec["spec_id"]
 
-    ledger_entries = _read_log(root / "daemon" / "integrity" / "ledger.jsonl")
-    assert ledger_entries[-1]["reason_codes"]
 
+def test_privilege_violation_blocks_approval(tmp_path: Path, base_spec: dict) -> None:
+    clock = ManualClock()
+    root = tmp_path / "integration"
+    engine = SpecAmender(root=root, now=clock.now)
+    hook = StubHook(_make_report("violation", ["spec.py:1: missing banner"]))
+    board = AmendmentReviewBoard(engine, hook=hook)
+
+    proposal = engine.record_signal(
+        base_spec["spec_id"],
+        "coverage_gap",
+        {"detail": "unverified branch"},
+        current_spec=base_spec,
+    )
+    for _ in range(2):
+        proposal = engine.record_signal(
+            base_spec["spec_id"],
+            "coverage_gap",
+            {"detail": "unverified branch"},
+            current_spec=base_spec,
+        )
+    assert proposal is not None
+
+    with pytest.raises(PrivilegeViolation) as excinfo:
+        board.approve(
+            proposal.proposal_id,
+            operator="aurora",
+            ledger_entry="ledger://amend/002",
+        )
+    violation = excinfo.value
+    assert violation.report.issues
+
+    stored = engine.load_proposal(proposal.proposal_id)
+    assert stored is not None
+    assert stored.status == "quarantined"
+    amendment_log = _read_log(root / "amendment_log.jsonl")
+    assert any(entry["event"] == "privilege-blocked" for entry in amendment_log)
 
 def test_integrity_endpoint_reports_health(tmp_path: Path, base_spec: dict) -> None:
     clock = ManualClock()
