@@ -11,6 +11,12 @@ import uuid
 
 
 from .integrity_daemon import IntegrityDaemon, IntegrityViolation
+from privilege_lint.reporting import (
+    NarratorLink,
+    PrivilegeReport,
+    ReviewBoardHook,
+    create_default_router,
+)
 
 
 __all__ = [
@@ -18,6 +24,7 @@ __all__ = [
     "SpecAmender",
     "AmendmentReviewBoard",
     "IntegrityViolation",
+    "PrivilegeViolation",
 ]
 
 
@@ -99,6 +106,14 @@ class AmendmentProposal:
         if metadata:
             entry["metadata"] = dict(metadata)
         self.operator_notes.append(entry)
+
+
+class PrivilegeViolation(RuntimeError):
+    """Raised when privilege lint violations block an amendment."""
+
+    def __init__(self, report: PrivilegeReport) -> None:
+        super().__init__("Privilege lint violations detected")
+        self.report = report
 
 
 class SpecAmender:
@@ -632,8 +647,15 @@ class SpecAmender:
 class AmendmentReviewBoard:
     """Operator workflow controller for spec amendments."""
 
-    def __init__(self, engine: SpecAmender) -> None:
+    def __init__(
+        self,
+        engine: SpecAmender,
+        hook: ReviewBoardHook | None = None,
+    ) -> None:
         self._engine = engine
+        self._hook = hook or ReviewBoardHook(
+            create_default_router(), narrator=NarratorLink()
+        )
 
     def approve(
         self,
@@ -645,6 +667,25 @@ class AmendmentReviewBoard:
         if not ledger_entry:
             raise ValueError("Ledger entry required before approval")
         proposal = self._engine._require(proposal_id)
+        report = self._hook.enforce(
+            spec_id=proposal.spec_id,
+            proposal_id=proposal.proposal_id,
+        )
+        if not report.passed:
+            proposal.status = "quarantined"
+            proposal.add_note(
+                operator,
+                "privilege-blocked",
+                {"issues": report.issues},
+            )
+            self._engine._persist(proposal)
+            self._engine._append_amendment_log(
+                "privilege-blocked",
+                proposal.spec_id,
+                proposal.proposal_id,
+                {"operator": operator, "issues": report.issues},
+            )
+            raise PrivilegeViolation(report)
         proposal.status = "approved"
         proposal.ledger_entry = ledger_entry
         proposal.add_note(operator, "approved", {"ledger_entry": ledger_entry})
