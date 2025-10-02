@@ -152,6 +152,8 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_oracle_relay",
         "tests.test_research_timer",
         "tests.test_commit_watcher_ci",
+        "tests.test_dashboard_event_stream",
+        "tests.test_dashboard_api",
     }
     for item in items:
         if (
