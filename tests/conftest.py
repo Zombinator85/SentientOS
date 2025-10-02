@@ -148,6 +148,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_local_model",
         "tests.test_oracle_cycle",
         "tests.test_codex_gap_seeker",
+        "tests.test_external_gap_seeker",
     }
     for item in items:
         if (
