@@ -27,6 +27,11 @@ python scripts/bootstrap_cathedral.py
 
 ## 🪟 SentientOS for Windows — Minimal Architecture
 
+> 📘 **Need the full walkthrough?** Follow
+> [`docs/WINDOWS_LOCAL_MODEL_SETUP.md`](docs/WINDOWS_LOCAL_MODEL_SETUP.md) for a
+> line-by-line Windows checklist that covers prerequisites, environment
+> creation, GPT-OSS 120B placement, and service scheduling.
+
 The minimal Windows stack ships with a local runtime daemon, a browser-based
 chat experience, and self-updating Git integration. Everything runs offline and
 communicates through local files or sockets.
