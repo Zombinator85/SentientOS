@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SentientOS Operator Console</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='dashboard.css') }}" />
+  </head>
+  <body>
+    <header>
+      <h1>SentientOS Operator Console</h1>
+      <p class="subtitle">Unified visibility into boot ceremonies, oracle cycles, gap fixes, commits, and deep research.</p>
+    </header>
+
+    <section id="controls">
+      <button id="toggle-24h" data-active="false">Show Last 24h</button>
+      <label for="module-filter">Filter by module:</label>
+      <select id="module-filter">
+        <option value="">All</option>
+      </select>
+      <button id="download-archive">Download Research Archive</button>
+      <span id="status-indicator" aria-live="polite">Connecting…</span>
+    </section>
+
+    <main>
+      <div class="panel" data-category="feed">
+        <h2>Boot Feed</h2>
+        <ul class="event-list" id="feed-list"></ul>
+      </div>
+      <div class="panel" data-category="oracle">
+        <h2>OracleCycle Log</h2>
+        <ul class="event-list" id="oracle-list"></ul>
+      </div>
+      <div class="panel" data-category="gapseeker">
+        <h2>Gap Reports</h2>
+        <ul class="event-list" id="gapseeker-list"></ul>
+      </div>
+      <div class="panel" data-category="commits">
+        <h2>CommitWatcher</h2>
+        <ul class="event-list" id="commits-list"></ul>
+      </div>
+      <div class="panel" data-category="research">
+        <h2>Deep Research</h2>
+        <ul class="event-list" id="research-list"></ul>
+      </div>
+    </main>
+
+    <template id="event-template">
+      <li class="event-item">
+        <div class="event-header">
+          <span class="event-module"></span>
+          <time class="event-timestamp"></time>
+        </div>
+        <p class="event-message"></p>
+      </li>
+    </template>
+
+    <script src="{{ url_for('static', path='dashboard.js') }}" type="module"></script>
+  </body>
+</html>
