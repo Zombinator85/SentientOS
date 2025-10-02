@@ -144,6 +144,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_autogenesis_loop",
         "tests.test_genesis_forge",
         "tests.test_local_model",
+        "tests.test_oracle_cycle",
     }
     for item in items:
         if (
