@@ -24,8 +24,12 @@ def env_status() -> dict[str, dict[str, object]]:
     }
 
 
-def report() -> str:
-    return report_text()
+def report(format: str = "text") -> str:
+    if format == "text":
+        return report_text()
+    if format == "json":
+        return report_json()
+    raise ValueError(f"unsupported report format: {format}")
 
 
 def report_text() -> str:
@@ -35,6 +39,10 @@ def report_text() -> str:
         desc = caps["info"] if caps["available"] else "MISSING"
         lines.append(f"{name:<12} {check:<6} {desc}")
     return "\n".join(lines)
+
+
+def report_json() -> str:
+    return json.dumps(env_status(), indent=2)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -48,7 +56,7 @@ def main(argv: list[str] | None = None) -> None:
         parser.error("only 'report' command supported")
 
     if args.format == "json":
-        print(json.dumps(env_status(), indent=2))
+        print(report_json())
     else:
         print(report_text())
 
