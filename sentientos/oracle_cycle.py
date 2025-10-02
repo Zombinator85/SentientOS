@@ -114,6 +114,283 @@ class UpdateResult:
     commit_sha: str
     pulled: bool
     reloaded: bool
+    health_report: "HealthReport" | None = None
+    rolled_back: bool = False
+    rollback_commit: str | None = None
+    last_known_good: str | None = None
+    ledger_entry: dict[str, object] | None = None
+    failure_reason: str | None = None
+
+
+@dataclass(slots=True)
+class HealthReport:
+    """Outcome describing the result of a :class:`HealthCheck`."""
+
+    healthy: bool
+    probes: Mapping[str, bool]
+
+    def failing_probes(self) -> tuple[str, ...]:
+        """Return the identifiers of probes that failed."""
+
+        return tuple(name for name, ok in self.probes.items() if not ok)
+
+
+class SnapshotManager:
+    """Persist and retrieve the last-known-good commit."""
+
+    def __init__(
+        self,
+        *,
+        read_current: Callable[[], str | None],
+        storage_path: Path,
+    ) -> None:
+        self._read_current = read_current
+        self._storage_path = Path(storage_path)
+        self._last_capture: str | None = None
+        self._last_promoted: str | None = None
+
+    def current_commit(self) -> str | None:
+        """Return the repository's current commit hash."""
+
+        try:
+            commit = self._read_current()
+        except Exception:
+            return None
+        if commit is None:
+            return None
+        commit = commit.strip()
+        return commit or None
+
+    def capture(self) -> str | None:
+        """Record the current commit as the last known good state."""
+
+        commit = self.current_commit()
+        if commit:
+            self._write(commit)
+            self._last_capture = commit
+        return commit
+
+    def last_known_good(self) -> str | None:
+        """Return the most recently persisted good commit."""
+
+        try:
+            text = self._storage_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return None
+        except OSError:
+            return None
+        commit = text.strip()
+        return commit or None
+
+    def promote(self, commit_sha: str | None) -> None:
+        """Persist ``commit_sha`` as the last-known-good state."""
+
+        if not commit_sha:
+            return
+        self._write(commit_sha)
+        self._last_promoted = commit_sha
+
+    def _write(self, commit_sha: str) -> None:
+        self._storage_path.parent.mkdir(parents=True, exist_ok=True)
+        self._storage_path.write_text(commit_sha.strip(), encoding="utf-8")
+
+
+class UpdateRunner:
+    """Execute git pulls and daemon reloads as part of an update."""
+
+    def __init__(
+        self,
+        pull_strategy: PullStrategy,
+        *,
+        reload_strategy: ReloadStrategy | None = None,
+        restart_strategies: Sequence[Callable[[], bool]] | None = None,
+    ) -> None:
+        self._pull = pull_strategy
+        self._reload = reload_strategy
+        self._restarts = tuple(restart_strategies or ())
+
+    def run(self, commit_sha: str) -> tuple[bool, bool]:
+        """Apply the update and return ``(pulled, reloaded)``."""
+
+        pulled = self._pull(commit_sha)
+        if not pulled:
+            return False, False
+        reloaded = False
+        if self._reload is not None:
+            reloaded = self._reload()
+            if not reloaded:
+                return True, False
+        for restart in self._restarts:
+            try:
+                restart()
+            except Exception:
+                continue
+        return True, reloaded
+
+    @property
+    def requires_reload(self) -> bool:
+        return self._reload is not None
+
+
+class HealthCheck:
+    """Verify that critical daemons are healthy after an update."""
+
+    def __init__(
+        self,
+        probes: Mapping[str, Callable[[], bool]],
+        *,
+        timeout: float = 30.0,
+        interval: float = 1.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        self._probes = dict(probes)
+        self._timeout = timeout
+        self._interval = interval
+        self._sleep = sleep
+
+    def verify(self) -> HealthReport:
+        """Run probes until success or timeout."""
+
+        if not self._probes:
+            return HealthReport(True, {})
+        start = time.monotonic()
+        statuses = {name: False for name in self._probes}
+        while True:
+            for name, probe in self._probes.items():
+                try:
+                    statuses[name] = bool(probe())
+                except Exception:
+                    statuses[name] = False
+            if all(statuses.values()):
+                return HealthReport(True, dict(statuses))
+            if time.monotonic() - start >= self._timeout:
+                return HealthReport(False, dict(statuses))
+            self._sleep(self._interval)
+
+
+class RollbackHandler:
+    """Restore the repository to a stable commit when an update fails."""
+
+    def __init__(
+        self,
+        checkout: Callable[[str], bool],
+        *,
+        restart: Callable[[], bool] | None = None,
+    ) -> None:
+        self._checkout = checkout
+        self._restart = restart
+
+    def rollback(self, commit_sha: str) -> bool:
+        """Return ``True`` if rollback to ``commit_sha`` succeeded."""
+
+        success = self._checkout(commit_sha)
+        if not success:
+            return False
+        if self._restart is None:
+            return True
+        try:
+            return bool(self._restart())
+        except Exception:
+            return False
+
+
+class LedgerLink:
+    """Persist update and rollback events to the :class:`RecoveryLedger`."""
+
+    def __init__(self, ledger: RecoveryLedger) -> None:
+        self._ledger = ledger
+
+    def log_update_applied(
+        self,
+        commit_sha: str,
+        *,
+        previous_commit: str | None,
+        health_report: HealthReport | None,
+    ) -> dict[str, object]:
+        details: dict[str, object] = {"commit_sha": commit_sha}
+        if previous_commit:
+            details["previous_commit"] = previous_commit
+        if health_report is not None:
+            details["health"] = dict(health_report.probes)
+        anomaly_details = {}
+        if previous_commit:
+            anomaly_details["previous_commit"] = previous_commit
+        anomaly = Anomaly("system_update", commit_sha, anomaly_details)
+        return self._ledger.log("Update applied", anomaly=anomaly, details=details)
+
+    def log_rollback(
+        self,
+        failed_commit: str,
+        restored_commit: str,
+        *,
+        reason: str | None = None,
+        health_report: HealthReport | None = None,
+    ) -> dict[str, object]:
+        details: dict[str, object] = {
+            "failed_commit": failed_commit,
+            "restored_commit": restored_commit,
+        }
+        if reason:
+            details["reason"] = reason
+        if health_report is not None:
+            details["health"] = dict(health_report.probes)
+        anomaly = Anomaly(
+            "system_update",
+            restored_commit,
+            {"failed_commit": failed_commit},
+        )
+        return self._ledger.log(
+            "Rolled back to last stable commit",
+            anomaly=anomaly,
+            details=details,
+            quarantined=True,
+        )
+
+    def log_snapshot_missing(
+        self,
+        failed_commit: str,
+        *,
+        reason: str | None = None,
+    ) -> dict[str, object]:
+        details: dict[str, object] = {"failed_commit": failed_commit}
+        if reason:
+            details["reason"] = reason
+        anomaly = Anomaly(
+            "system_update",
+            failed_commit,
+            {"issue": "snapshot_missing"},
+        )
+        return self._ledger.log(
+            "Rollback snapshot missing",
+            anomaly=anomaly,
+            details=details,
+            quarantined=True,
+        )
+
+    def log_rollback_failure(
+        self,
+        failed_commit: str,
+        target_commit: str,
+        *,
+        reason: str | None = None,
+    ) -> dict[str, object]:
+        details: dict[str, object] = {
+            "failed_commit": failed_commit,
+            "target_commit": target_commit,
+        }
+        if reason:
+            details["reason"] = reason
+        anomaly = Anomaly(
+            "system_update",
+            failed_commit,
+            {"target_commit": target_commit, "issue": "rollback_failed"},
+        )
+        return self._ledger.log(
+            "Rollback failed",
+            anomaly=anomaly,
+            details=details,
+            quarantined=True,
+        )
 
 
 @dataclass(slots=True)
@@ -524,6 +801,30 @@ class NarratorLink:
         if self._on_announce is not None:
             self._on_announce(message, record)
 
+    def announce_update_failure(
+        self,
+        failed_commit: str,
+        restored_commit: str | None,
+    ) -> None:
+        """Inform operators about an automatic rollback."""
+
+        if restored_commit:
+            short = restored_commit[:7]
+            message = f"The last update failed; I restored commit {short}."
+        else:
+            message = (
+                "The last update failed; a last-known-good commit was not available."
+            )
+        record = {
+            "event": "update_rollback",
+            "message": message,
+            "failed_commit": failed_commit,
+            "restored_commit": restored_commit,
+        }
+        self._history.append(record)
+        if self._on_announce is not None:
+            self._on_announce(message, record)
+
     @property
     def history(self) -> list[dict[str, object]]:
         return list(self._history)
@@ -774,16 +1075,131 @@ class Updater:
         pull_strategy: PullStrategy,
         *,
         reload_strategy: ReloadStrategy | None = None,
+        snapshot_manager: SnapshotManager | None = None,
+        health_check: HealthCheck | None = None,
+        rollback_handler: RollbackHandler | None = None,
+        ledger: LedgerLink | None = None,
+        narrator: NarratorLink | None = None,
+        update_runner: UpdateRunner | None = None,
     ) -> None:
-        self._pull = pull_strategy
-        self._reload = reload_strategy
+        self._runner = update_runner or UpdateRunner(
+            pull_strategy,
+            reload_strategy=reload_strategy,
+        )
+        self._snapshot = snapshot_manager
+        self._health = health_check
+        self._rollback = rollback_handler
+        self._ledger = ledger
+        self._narrator = narrator
 
     def apply(self, commit_sha: str) -> UpdateResult:
-        pulled = self._pull(commit_sha)
-        reloaded = False
-        if pulled and self._reload is not None:
-            reloaded = self._reload()
-        return UpdateResult(commit_sha=commit_sha, pulled=pulled, reloaded=reloaded)
+        previous_commit: str | None = None
+        last_known_good: str | None = None
+        if self._snapshot is not None:
+            previous_commit = self._snapshot.capture()
+            last_known_good = self._snapshot.last_known_good()
+
+        pulled, reloaded = self._runner.run(commit_sha)
+        health_report: HealthReport | None = None
+        failure_reason: str | None = None
+        applied_commit = commit_sha
+        if pulled and self._snapshot is not None:
+            current = self._snapshot.current_commit()
+            if current:
+                applied_commit = current
+
+        if not pulled:
+            failure_reason = "pull_failed"
+        elif self._runner.requires_reload and not reloaded:
+            failure_reason = "reload_failed"
+        elif self._health is not None:
+            health_report = self._health.verify()
+            if not health_report.healthy:
+                failure_reason = "health_check_failed"
+
+        ledger_entry: dict[str, object] | None = None
+        rolled_back = False
+        rollback_commit: str | None = None
+
+        if failure_reason is None:
+            if self._snapshot is not None:
+                latest = self._snapshot.current_commit()
+                if latest:
+                    applied_commit = latest
+                    last_known_good = latest
+                self._snapshot.promote(applied_commit)
+            if self._ledger is not None:
+                ledger_entry = self._ledger.log_update_applied(
+                    applied_commit,
+                    previous_commit=previous_commit,
+                    health_report=health_report,
+                )
+        elif pulled:
+            target_commit: str | None = None
+            if self._snapshot is not None:
+                target_commit = self._snapshot.last_known_good()
+            if target_commit is None:
+                target_commit = previous_commit
+            if target_commit and self._rollback is not None:
+                rolled_back = self._rollback.rollback(target_commit)
+                if rolled_back:
+                    rollback_commit = target_commit
+                    last_known_good = target_commit
+                    if self._snapshot is not None:
+                        self._snapshot.promote(target_commit)
+                    if self._ledger is not None:
+                        ledger_entry = self._ledger.log_rollback(
+                            applied_commit,
+                            target_commit,
+                            reason=failure_reason,
+                            health_report=health_report,
+                        )
+                    if self._narrator is not None:
+                        self._narrator.announce_update_failure(
+                            applied_commit,
+                            target_commit,
+                        )
+                else:
+                    if self._ledger is not None:
+                        ledger_entry = self._ledger.log_rollback_failure(
+                            applied_commit,
+                            target_commit,
+                            reason=failure_reason,
+                        )
+                    if self._narrator is not None:
+                        self._narrator.announce_update_failure(
+                            applied_commit,
+                            None,
+                        )
+            elif target_commit:
+                if self._ledger is not None:
+                    ledger_entry = self._ledger.log_rollback_failure(
+                        applied_commit,
+                        target_commit,
+                        reason="rollback_handler_missing",
+                    )
+                if self._narrator is not None:
+                    self._narrator.announce_update_failure(applied_commit, None)
+            else:
+                if self._ledger is not None:
+                    ledger_entry = self._ledger.log_snapshot_missing(
+                        applied_commit,
+                        reason=failure_reason,
+                    )
+                if self._narrator is not None:
+                    self._narrator.announce_update_failure(applied_commit, None)
+
+        return UpdateResult(
+            commit_sha=applied_commit,
+            pulled=pulled,
+            reloaded=reloaded,
+            health_report=health_report,
+            rolled_back=rolled_back,
+            rollback_commit=rollback_commit,
+            last_known_good=last_known_good,
+            ledger_entry=ledger_entry,
+            failure_reason=failure_reason,
+        )
 
 
 class ResearchTimer:
@@ -952,11 +1368,17 @@ __all__ = [
     "BackoffPolicy",
     "CommitObservation",
     "UpdateResult",
+    "HealthReport",
     "DeepResearchReport",
     "OracleGuidance",
     "OracleQuery",
     "CodexExecutor",
     "CommitWatcher",
+    "SnapshotManager",
+    "UpdateRunner",
+    "HealthCheck",
+    "RollbackHandler",
+    "LedgerLink",
     "Updater",
     "ResearchTimer",
     "OracleCycle",
