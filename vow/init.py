@@ -27,6 +27,7 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 from queue import Empty, Queue
+from typing import Any
 
 import base64
 import hashlib
@@ -86,7 +87,7 @@ REMOTE_PUBLIC_KEY_FILE = KEY_DIR / "remote_public.key"
 CONFIG_FILE = Path("/vow/config.yaml")
 DEFAULT_CONFIG = {
     "model_path": "/models",
-    "fallback_order": ["120b", "20b", "13b", "mock"],
+    "fallback_order": ["mixtral", "13b", "mock"],
     "prune_retention_days": 30,
     "sync_interval": 300,
     "confirmation_rules": ["rm", "shutdown", "format"],
@@ -117,9 +118,12 @@ FEDERATION_METHOD = str(CONFIG.get("federation_method", "local_mount"))
 
 MODEL_BASE_PATH = Path(CONFIG["model_path"])
 MODEL_PATHS = {
-    "120b": MODEL_BASE_PATH / "gpt-oss-120b-quantized",
-    "20b": MODEL_BASE_PATH / "gpt-oss-20b",
+    "mixtral": MODEL_BASE_PATH
+    / "mixtral-8x7b"
+    / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf",
     "13b": MODEL_BASE_PATH / "gpt-oss-13b",
+    # Legacy GPT-OSS 120B builds require extreme hardware and must be configured manually.
+    "legacy-120b": MODEL_BASE_PATH / "gpt-oss-120b-quantized",
 }
 
 MODEL_FALLBACK = CONFIG["fallback_order"]
@@ -240,33 +244,91 @@ def ensure_mounts() -> None:
     for path in MOUNT_POINTS:
         path.mkdir(parents=True, exist_ok=True)
 
-def load_model():
-    """Load the preferred GPT-OSS model from SSD.
+def load_model() -> None:
+    """Load the preferred local Mixtral model from disk.
 
-    Attempts to load the quantized 120B model first, falling back to 20B and
-    13B as needed. If all attempts fail, the system operates in mock mode so it
-    never bricks.
+    The daemon prioritises the Mixtral-8x7B GGUF path and gracefully falls
+    back to smaller archives or mock output. Legacy GPT-OSS 120B builds are
+    only available for operators with extreme hardware and must be configured
+    manually.
     """
+
+    class _LlamaPipeline:
+        """Adapter that mirrors the transformers pipeline interface."""
+
+        def __init__(self, llama: "Llama") -> None:  # type: ignore[name-defined]
+            self._llama = llama
+
+        def __call__(self, prompt: str, max_new_tokens: int = 128, **kwargs: Any) -> list[dict]:
+            response = self._llama(
+                prompt,
+                max_tokens=max_new_tokens,
+                temperature=kwargs.get("temperature", 0.7),
+                top_p=kwargs.get("top_p", 0.95),
+                top_k=kwargs.get("top_k"),
+                repeat_penalty=kwargs.get("repeat_penalty"),
+            )
+            text = response.get("choices", [{}])[0].get("text", "")
+            return [{"generated_text": str(text)}]
+
     global MODEL
     order = MODEL_FALLBACK
-    try:
-        from transformers import pipeline
-    except Exception as exc:  # pragma: no cover - best effort
-        print(f"Transformers unavailable: {exc}")
-        MODEL = None
-        return
+
+    def _load_llama(path: Path) -> bool:
+        try:
+            from llama_cpp import Llama
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"llama.cpp unavailable: {exc}")
+            return False
+        if not path.exists():
+            print(f"Model file missing: {path}")
+            return False
+        try:
+            llama = Llama(model_path=str(path), n_ctx=4096, n_gpu_layers=-1, logits_all=False)
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"Failed to initialise llama.cpp backend: {exc}")
+            return False
+        MODEL = _LlamaPipeline(llama)
+        print(f"Mixtral backend loaded from {path}")
+        return True
+
+    def _load_transformer(path: Path, label: str) -> bool:
+        try:
+            from transformers import pipeline
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"Transformers unavailable: {exc}")
+            return False
+        if not path.exists():
+            print(f"Model directory missing: {path}")
+            return False
+        try:
+            MODEL_PIPELINE = pipeline("text-generation", model=str(path))
+        except Exception as exc:  # pragma: no cover - best effort
+            print(f"Model {label} load failed: {exc}")
+            return False
+        MODEL = MODEL_PIPELINE
+        print(f"{label} model loaded successfully")
+        return True
 
     for size in order:
+        if size == "mock":
+            break
         path = MODEL_PATHS.get(size)
         if not path:
             continue
-        try:
-            MODEL = pipeline("text-generation", model=str(path))
-            print(f"GPT-OSS {size} model loaded successfully")
-            return
-        except Exception as exc:  # pragma: no cover - best effort
-            print(f"Model {size} load failed: {exc}")
+        suffix = path.suffix.lower()
+        if suffix in {".gguf", ".ggml"}:
+            if _load_llama(path):
+                return
+        else:
+            label = "Mixtral" if size == "mixtral" else size
+            if _load_transformer(path, label):
+                return
+
     MODEL = None
+    if "legacy-120b" in MODEL_FALLBACK:
+        print("Legacy GPT-OSS 120B not loaded (requires extreme hardware)")
+    print("Operating in mock mode; local completions will be heuristic only.")
 
 def boot_message() -> None:
     global SYSTEM_CONTEXT

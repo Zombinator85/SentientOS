@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -118,3 +120,35 @@ def test_local_model_generate_resilient(monkeypatch: pytest.MonkeyPatch, tmp_pat
     response_malformed = model.generate("", history=["", None, 42])
     assert isinstance(response_malformed, str)
     assert response_malformed
+
+
+def test_local_model_gguf_mixtral_backend(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(data_root))
+    monkeypatch.delenv("SENTIENTOS_MODEL_CONFIG", raising=False)
+    monkeypatch.delenv("SENTIENTOS_MODEL_PATH", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_PATH", raising=False)
+
+    mixtral_path = (
+        data_root
+        / "models"
+        / "mixtral-8x7b"
+        / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+    )
+    mixtral_path.parent.mkdir(parents=True, exist_ok=True)
+    mixtral_path.write_bytes(b"gguf")
+
+    class DummyLlama:
+        def __init__(self, **kwargs: object) -> None:
+            self.kwargs = kwargs
+
+        def __call__(self, prompt: str, **_: object) -> dict:
+            return {"choices": [{"text": f"Mixtral echoes: {prompt}"}]}
+
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
+
+    model = LocalModel.autoload()
+
+    assert "Mixtral" in model.metadata.get("name", "")
+    response = model.generate("Hello cathedral")
+    assert "Mixtral echoes" in response
