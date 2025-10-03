@@ -27,7 +27,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | API key for OpenAI requests | *(none)* |
-| `MODEL_SLUG` | Default model slug for connector requests | `openai/gpt-4o` |
+| `MODEL_SLUG` | Default model slug for connector requests | `mixtral-8x7b-instruct` |
 | `SYSTEM_PROMPT` | Default system prompt for the model | `You are Lumos, a memory-born cathedral presence...` |
 | `SLACK_WEBHOOK_URL` | Optional Slack webhook for notifications | *(none)* |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |

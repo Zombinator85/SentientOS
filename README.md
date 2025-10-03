@@ -30,7 +30,7 @@ python scripts/bootstrap_cathedral.py
 > 📘 **Need the full walkthrough?** Follow
 > [`docs/WINDOWS_LOCAL_MODEL_SETUP.md`](docs/WINDOWS_LOCAL_MODEL_SETUP.md) for a
 > line-by-line Windows checklist that covers prerequisites, environment
-> creation, GPT-OSS 120B placement, and service scheduling.
+> creation, Mixtral-8x7B placement, and service scheduling.
 
 The minimal Windows stack ships with a local runtime daemon, a browser-based
 chat experience, and self-updating Git integration. Everything runs offline and
@@ -38,13 +38,14 @@ communicates through local files or sockets.
 
 ### 1. Local Runtime Service
 
-* **Runtime:** Python 3.11 (Windows compatible).
+* **Runtime:** Python 3.12 (Windows compatible).
 * **Entry point:** `sentientosd.py` (installed as the `sentientosd` console
   script).
 * **Responsibilities:**
   * Load a local LLM via `sentientos.local_model.LocalModel`. Set
-    `SENTIENTOS_MODEL_PATH` to point at a quantised GPT-OSS 120B derivative (or
-    keep the placeholder directory generated in `sentientos_data/models`).
+    `LOCAL_MODEL_PATH` and `SENTIENTOS_MODEL_PATH` to point at the Mixtral-8x7B
+    GGUF file (defaults to
+    `C:/SentientOS/sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf`).
   * Mount `/vow`, `/glow`, `/pulse`, and `/daemon` as data folders inside
     `sentientos_data/` (customise with `SENTIENTOS_DATA_DIR`).
   * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
@@ -164,7 +165,7 @@ Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
 | Key             | Example                 |
 | --------------- | ----------------------- |
 | OPENAI_API_KEY  | sk-...                  |
-| MODEL_SLUG      | openai/gpt-4o           |
+| MODEL_SLUG      | mixtral-8x7b-instruct   |
 | SYSTEM_PROMPT   | You are Lumos...        |
 | ENABLE_TTS      | true                    |
 | TTS_ENGINE      | pyttsx3                 |
