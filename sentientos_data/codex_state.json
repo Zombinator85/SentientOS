@@ -1,0 +1,15 @@
+{
+  "amendments": [
+    {
+      "identifier": "503e6c03-4b38-442c-8394-866e4716d2b3",
+      "summary": "Automated maintenance sweep",
+      "created_at": 1759496867.7412896,
+      "status": "approved",
+      "committed": false,
+      "payload": {
+        "origin": "genesis_forge",
+        "timestamp": "1759496867.7412896"
+      }
+    }
+  ]
+}
