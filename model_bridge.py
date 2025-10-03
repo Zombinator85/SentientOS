@@ -15,6 +15,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from sentientos.local_model import LocalModel, ModelLoadError
+
 _GUI_BUS: Any | None
 try:
     from parliament_bus import bus as _GUI_BUS
@@ -29,7 +31,7 @@ except Exception:  # pragma: no cover - optional dependency
 _LOG_PATH = get_log_path("model_bridge_log.jsonl", "MODEL_BRIDGE_LOG")
 _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-_MODEL_SLUG = os.getenv("MODEL_SLUG", "openai/gpt-4o")
+_MODEL_SLUG = os.getenv("MODEL_SLUG", "sentientos/mixtral-8x7b-instruct")
 _PROVIDER: str | None = None
 _WRAPPER: Callable[[List[Dict[str, str]]], str] | None = None
 
@@ -40,8 +42,15 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
     if _WRAPPER is not None:
         return _WRAPPER
     load_dotenv()
-    _MODEL_SLUG = os.getenv("MODEL_SLUG", _MODEL_SLUG)
-    provider, model = _MODEL_SLUG.split("/", 1)
+    raw_slug = os.getenv("MODEL_SLUG", _MODEL_SLUG)
+    if not raw_slug:
+        raw_slug = "sentientos/mixtral-8x7b-instruct"
+    if "/" in raw_slug:
+        provider, model = raw_slug.split("/", 1)
+    else:
+        provider, model = "sentientos", raw_slug
+        raw_slug = f"{provider}/{model}"
+    _MODEL_SLUG = raw_slug
     _PROVIDER = provider
     if provider == "openai":
         if openai is None:
@@ -90,7 +99,16 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
                 return str(data["generated_text"])
             return json.dumps(data)
 
-    else:  # local
+    elif provider == "sentientos":
+        try:
+            local_model = LocalModel.autoload()
+        except ModelLoadError as exc:
+            raise RuntimeError(f"Local model unavailable: {exc}") from exc
+
+        def _call(msgs: List[Dict[str, str]]) -> str:
+            return local_model.generate(msgs[-1]["content"])
+
+    else:  # local python shim
         path = Path(os.getenv("LOCAL_MODEL_PATH", "local_model.py"))
 
         def _call(msgs: List[Dict[str, str]]) -> str:

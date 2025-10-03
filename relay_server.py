@@ -13,33 +13,27 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
 from pydantic import BaseModel
 
+from sentientos.local_model import LocalModel, ModelLoadError
+
 require_admin_banner()
 require_lumos_approval()
 
-MODEL = None
-MODEL_PATHS = {
-    "120b": Path("/models/gpt-oss-120b-quantized"),
-    "20b": Path("/models/gpt-oss-20b"),
-}
+MODEL: LocalModel | None = None
 
 
 def load_model() -> None:
-    """Attempt to load a GPT-OSS model for local inference."""
+    """Attempt to load the Mixtral GGUF backend through LocalModel."""
+
     global MODEL
     try:
-        from transformers import pipeline
-    except Exception:  # pragma: no cover - best effort
+        MODEL = LocalModel.autoload()
+        print(f"Local model initialised: {MODEL.describe()}")
+    except ModelLoadError as exc:  # pragma: no cover - best effort
+        print(f"Local model load failed: {exc}")
         MODEL = None
-        return
-    for size in ["120b", "20b"]:
-        path = MODEL_PATHS.get(size)
-        try:
-            MODEL = pipeline("text-generation", model=str(path))
-            print(f"GPT-OSS {size} model loaded")
-            return
-        except Exception as exc:  # pragma: no cover - best effort
-            print(f"Model {size} load failed: {exc}")
-    MODEL = None
+    except Exception as exc:  # pragma: no cover - best effort
+        print(f"Unexpected model initialisation failure: {exc}")
+        MODEL = None
 
 
 load_model()
@@ -63,8 +57,7 @@ def relay(req: RelayRequest) -> dict:
     start = time.time()
     if MODEL is not None:
         try:  # pragma: no cover - best effort
-            result = MODEL(prompt, max_new_tokens=50)
-            output = result[0]["generated_text"]
+            output = MODEL.generate(prompt)
         except Exception:  # pragma: no cover - best effort
             output = f"Echo: {req.task}"
     else:

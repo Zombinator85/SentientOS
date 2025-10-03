@@ -25,7 +25,7 @@ def autofill_env() -> None:
     added = {}
     mapping = {
         "OPENAI_API_KEY": "",
-        "MODEL_SLUG": "openai/gpt-4o",
+        "MODEL_SLUG": "mixtral-8x7b-instruct",
         "SYSTEM_PROMPT": "You are Lumos...",
         "ENABLE_TTS": "true",
         "TTS_ENGINE": "pyttsx3",
