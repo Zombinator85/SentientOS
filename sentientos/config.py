@@ -173,18 +173,23 @@ def _default_config(data_root: Path) -> ModelConfig:
 
 def _default_candidates(data_root: Path) -> List[ModelCandidate]:
     candidates: List[ModelCandidate] = []
-    default_path = os.environ.get(_MODEL_PATH_ENV)
+    default_path = os.environ.get(_MODEL_PATH_ENV) or os.environ.get("LOCAL_MODEL_PATH")
     if default_path:
         base_path = Path(default_path)
         if not base_path.is_absolute():
             base_path = data_root / base_path
     else:
-        base_path = data_root / "models" / "gpt-oss-120b"
+        base_path = (
+            data_root
+            / "models"
+            / "mixtral-8x7b"
+            / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+        )
     candidates.append(
         ModelCandidate(
             path=base_path,
             engine=os.environ.get(_MODEL_ENGINE_ENV, "auto"),
-            name="gpt-oss-120b",
+            name="Mixtral-8x7B Instruct (GGUF)",
         )
     )
 
@@ -207,6 +212,7 @@ def _default_candidates(data_root: Path) -> List[ModelCandidate]:
     default_fallback = data_root / "models" / "gpt-oss-13b"
     if all(candidate.path != default_fallback for candidate in candidates):
         candidates.append(ModelCandidate(path=default_fallback, engine="auto", name="gpt-oss-13b"))
+    # Legacy GPT-OSS 120B builds require extreme hardware and must be configured manually.
     return candidates
 
 
