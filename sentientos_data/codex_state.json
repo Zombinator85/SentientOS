@@ -1,25 +1,14 @@
 {
   "amendments": [
     {
-      "identifier": "503e6c03-4b38-442c-8394-866e4716d2b3",
+      "identifier": "16ee7235-34f8-4f00-a61f-12354b0bc894",
       "summary": "Automated maintenance sweep",
-      "created_at": 1759496867.7412896,
+      "created_at": 1759505041.15534,
       "status": "approved",
       "committed": false,
       "payload": {
         "origin": "genesis_forge",
-        "timestamp": "1759496867.7412896"
-      }
-    },
-    {
-      "identifier": "9f508aa8-f066-416b-a379-a85e6a4cdcfa",
-      "summary": "Automated maintenance sweep",
-      "created_at": 1759496989.6864257,
-      "status": "proposed",
-      "committed": false,
-      "payload": {
-        "origin": "genesis_forge",
-        "timestamp": "1759496989.6864257"
+        "timestamp": "1759505041.15534"
       }
     }
   ]
