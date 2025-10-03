@@ -10,6 +10,17 @@
         "origin": "genesis_forge",
         "timestamp": "1759505041.15534"
       }
+    },
+    {
+      "identifier": "5a839394-fd6c-4baa-a7cb-44246af9356c",
+      "summary": "Automated maintenance sweep",
+      "created_at": 1759505782.2002378,
+      "status": "proposed",
+      "committed": false,
+      "payload": {
+        "origin": "genesis_forge",
+        "timestamp": "1759505782.2002378"
+      }
     }
   ]
 }
