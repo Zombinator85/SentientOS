@@ -13,6 +13,13 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping
 
 import json
 
+try:  # pragma: no cover - optional dependency
+    import yaml  # type: ignore[import-untyped]
+except ModuleNotFoundError:  # pragma: no cover - fallback path
+    yaml = None  # type: ignore[assignment]
+
+from .proof_verifier import ProofReport, ProofVerifier
+
 
 def _default_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -72,6 +79,7 @@ class IntegrityDaemon:
 
     REQUIRED_FIELDS = {"objective", "directives", "testing_requirements"}
     FORBIDDEN_STATUSES = {"reboot", "retired", "nullified", "decommissioned"}
+    DEFAULT_PROOF_CONFIG = {"enabled": True, "fail_on_invalid": True}
 
     def __init__(
         self,
@@ -85,8 +93,15 @@ class IntegrityDaemon:
         self._quarantine_dir = self._daemon_root / "quarantine"
         self._log_path = self._daemon_root / "integrity_log.jsonl"
         self._ledger_path = self._daemon_root / "ledger.jsonl"
+        self._proof_conditions_path = self._daemon_root / "proof_conditions.json"
         for directory in (self._daemon_root, self._quarantine_dir):
             directory.mkdir(parents=True, exist_ok=True)
+
+        self._proof_verifier = ProofVerifier(
+            required_fields=self.REQUIRED_FIELDS,
+            forbidden_statuses=self.FORBIDDEN_STATUSES,
+        )
+        self._proof_config = self._load_proof_config()
 
         self._health: Dict[str, Any] = {
             "daemon": "IntegrityDaemon",
@@ -104,20 +119,29 @@ class IntegrityDaemon:
 
         timestamp = self._now().isoformat()
         report = self._probe(proposal)
-        violations = self._covenant_check(proposal, report)
+        covenant_violations = self._covenant_check(proposal, report)
+        proof_payload = self._prepare_proof_payload(proposal)
+        proof_payload["timestamp"] = timestamp
+        self.generate_proof_conditions(proposal, proof_payload)
+        proof_report = self._proof_verifier.evaluate(proof_payload)
+        proof_violations = self._proof_violation_entries(proof_report)
+        violations = [*covenant_violations, *proof_violations]
         self._health["last_scan"] = timestamp
+
+        status_label = "QUARANTINED" if violations else "VALID"
+        ledger_entry = self._record_ledger_entry(
+            timestamp=timestamp,
+            proposal=proposal,
+            probe=report,
+            proof_report=proof_report,
+            violations=violations,
+            status=status_label,
+        )
 
         if violations:
             self._health["quarantined"] = int(self._health["quarantined"]) + 1
             codes = sorted({str(entry["code"]) for entry in violations})
-            payload = {
-                "timestamp": timestamp,
-                "proposal_id": getattr(proposal, "proposal_id", "unknown"),
-                "spec_id": getattr(proposal, "spec_id", "unknown"),
-                "summary": getattr(proposal, "summary", ""),
-                "violations": [dict(entry) for entry in violations],
-                "probe": report.to_dict(),
-            }
+            payload = dict(ledger_entry)
             self._health["status"] = "alert"
             self._health["last_violation"] = {
                 "proposal_id": payload["proposal_id"],
@@ -126,7 +150,6 @@ class IntegrityDaemon:
                 "timestamp": timestamp,
             }
             self._quarantine(proposal, payload)
-            self._glyph(payload, codes)
             raise IntegrityViolation(
                 payload["proposal_id"],
                 spec_id=payload["spec_id"],
@@ -148,8 +171,52 @@ class IntegrityDaemon:
         payload["timestamp"] = self._now().isoformat()
         return dict(payload)
 
+    def generate_proof_conditions(
+        self, proposal: Any, payload: Mapping[str, Any] | None = None
+    ) -> Dict[str, Any]:
+        """Persist the current invariant set and proposal context."""
+
+        proof_payload = dict(payload or self._prepare_proof_payload(proposal))
+        conditions = {
+            "timestamp": self._now().isoformat(),
+            "proposal_id": getattr(proposal, "proposal_id", "unknown"),
+            "spec_id": getattr(proposal, "spec_id", "unknown"),
+            "invariants": self._proof_verifier.describe_invariants(),
+            "required_fields": proof_payload.get("required_fields", []),
+            "spec_fields": proof_payload.get("spec_fields", []),
+            "status": proof_payload.get("status"),
+            "ledger_diff": proof_payload.get("ledger_diff", {}),
+        }
+        self._proof_conditions_path.write_text(
+            json.dumps(conditions, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        return conditions
+
     # ------------------------------------------------------------------
     # Core stages
+    def _prepare_proof_payload(self, proposal: Any) -> Dict[str, Any]:
+        spec = self._normalize_mapping(getattr(proposal, "proposed_spec", {}))
+        ledger_diff = self._normalize_mapping(getattr(proposal, "ledger_diff", {}))
+        payload: Dict[str, Any] = {
+            "proposal_id": getattr(proposal, "proposal_id", "unknown"),
+            "spec_id": getattr(proposal, "spec_id", "unknown"),
+            "summary": getattr(proposal, "summary", ""),
+            "proposed_spec": spec,
+            "original_spec": self._normalize_mapping(
+                getattr(proposal, "original_spec", {})
+            ),
+            "ledger_diff": ledger_diff,
+            "required_fields": sorted(self.REQUIRED_FIELDS),
+        }
+        if spec:
+            payload["spec_fields"] = sorted(spec.keys())
+            payload["status"] = spec.get("status")
+            payload["recursion_break"] = bool(
+                spec.get("recursion_break")
+                or str(spec.get("recursion", "")).strip().lower() in {"break", "halt"}
+            )
+        return payload
+
     def _probe(self, proposal: Any) -> ProbeReport:
         original = self._normalize_mapping(getattr(proposal, "original_spec", {}))
         proposed = self._normalize_mapping(getattr(proposal, "proposed_spec", {}))
@@ -260,6 +327,26 @@ class IntegrityDaemon:
 
     # ------------------------------------------------------------------
     # Support utilities
+    def _proof_violation_entries(self, proof_report: ProofReport) -> List[Dict[str, Any]]:
+        if not (self._proof_config.get("enabled", True) and not proof_report.valid):
+            return []
+        entries: List[Dict[str, Any]] = []
+        for violation in proof_report.violations:
+            detail = str(violation.get("detail") or violation.get("description") or "")
+            entry: Dict[str, Any] = {
+                "code": "proof_invalid",
+                "detail": detail or "proof verification failure",
+                "invariant": violation.get("invariant"),
+            }
+            if violation.get("severity"):
+                entry["severity"] = violation["severity"]
+            entries.append(entry)
+        if not entries:
+            entries.append({"code": "proof_invalid", "detail": "proof verification failed"})
+        if self._proof_config.get("fail_on_invalid", True):
+            return entries
+        return []
+
     def _quarantine(self, proposal: Any, payload: Mapping[str, Any]) -> None:
         path = self._quarantine_dir / f"{payload['proposal_id']}.json"
         stored = {
@@ -268,22 +355,59 @@ class IntegrityDaemon:
             "violations": payload["violations"],
             "probe": payload["probe"],
         }
+        if "proof_report" in payload:
+            stored["proof_report"] = payload["proof_report"]
         path.write_text(json.dumps(stored, indent=2, sort_keys=True), encoding="utf-8")
         log_entry = dict(payload)
         log_entry["event"] = "quarantined"
         with self._log_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(log_entry, sort_keys=True) + "\n")
 
-    def _glyph(self, payload: Mapping[str, Any], codes: Iterable[str]) -> None:
+    def _record_ledger_entry(
+        self,
+        *,
+        timestamp: str,
+        proposal: Any,
+        probe: ProbeReport,
+        proof_report: ProofReport,
+        violations: Iterable[Mapping[str, Any]],
+        status: str,
+    ) -> Dict[str, Any]:
         entry = {
-            "timestamp": payload["timestamp"],
-            "proposal_id": payload["proposal_id"],
-            "spec_id": payload["spec_id"],
-            "reason_codes": list(codes),
-            "summary": payload["summary"],
+            "timestamp": timestamp,
+            "proposal_id": getattr(proposal, "proposal_id", "unknown"),
+            "spec_id": getattr(proposal, "spec_id", "unknown"),
+            "summary": getattr(proposal, "summary", ""),
+            "status": status,
+            "violations": [dict(item) for item in violations],
+            "probe": probe.to_dict(),
+            "proof_report": proof_report.to_dict(),
         }
         with self._ledger_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, sort_keys=True) + "\n")
+        return entry
+
+    def _load_proof_config(self) -> Dict[str, Any]:
+        config_path = self._root / "vow" / "config.yaml"
+        if yaml is None:
+            return dict(self.DEFAULT_PROOF_CONFIG)
+        try:
+            config_data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return dict(self.DEFAULT_PROOF_CONFIG)
+        except yaml.YAMLError:
+            return dict(self.DEFAULT_PROOF_CONFIG)
+        if not isinstance(config_data, Mapping):
+            return dict(self.DEFAULT_PROOF_CONFIG)
+        block = config_data.get("proof_verification", {})
+        if not isinstance(block, Mapping):
+            return dict(self.DEFAULT_PROOF_CONFIG)
+        merged = dict(self.DEFAULT_PROOF_CONFIG)
+        if "enabled" in block:
+            merged["enabled"] = bool(block.get("enabled"))
+        if "fail_on_invalid" in block:
+            merged["fail_on_invalid"] = bool(block.get("fail_on_invalid"))
+        return merged
 
     @staticmethod
     def _normalize_mapping(payload: Any) -> Dict[str, Any]:
