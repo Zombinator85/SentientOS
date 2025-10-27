@@ -7,7 +7,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Iterable, List, Sequence
+from typing import Callable, Iterable, List, Mapping, Sequence
 
 
 def _ensure_utc(moment: datetime | None = None) -> datetime:
@@ -96,10 +96,20 @@ class RecoveryLedger:
             "anomaly": anomaly.to_dict(),
             "quarantined": quarantined,
         }
+        proof_summary: dict[str, object] | None = None
         if action is not None:
             entry["action"] = action.to_dict()
         if details:
             entry["details"] = copy.deepcopy(details)
+            proof_summary = self._extract_proof_summary(details.get("proof_report"))
+        if proof_summary:
+            entry["proof_summary"] = proof_summary
+            entry["narrative"] = (
+                "Amendment validated: "
+                f"{proof_summary['passed']} invariants passed, "
+                f"{proof_summary['violations']} violations detected, "
+                f"status = {proof_summary['status']}."
+            )
         self._entries.append(entry)
         if self._path is not None:
             with self._path.open("a", encoding="utf-8") as handle:
@@ -109,6 +119,27 @@ class RecoveryLedger:
     @property
     def entries(self) -> list[dict[str, object]]:
         return list(self._entries)
+
+    def _extract_proof_summary(
+        self, proof_report: Mapping[str, object] | None
+    ) -> dict[str, object] | None:
+        if not isinstance(proof_report, Mapping):
+            return None
+        trace = proof_report.get("trace")
+        violations = proof_report.get("violations")
+        total = 0
+        violation_count = 0
+        if isinstance(trace, Iterable) and not isinstance(trace, (str, bytes)):
+            total = len(list(trace))
+        if isinstance(violations, Iterable) and not isinstance(violations, (str, bytes)):
+            violation_count = len(list(violations))
+        passed = max(total - violation_count, 0)
+        status = "VALID" if bool(proof_report.get("valid")) else "QUARANTINED"
+        return {
+            "status": status,
+            "passed": passed,
+            "violations": violation_count,
+        }
 
 
 class HealingEnvironment:

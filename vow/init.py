@@ -100,6 +100,7 @@ DEFAULT_CONFIG = {
     "codex_notify": [],
     "federation_peer": "",
     "federation_method": "local_mount",
+    "proof_verification": {"enabled": True, "fail_on_invalid": True},
     "federated_auto_apply": False,
     "federation_peer_name": "",
 }
