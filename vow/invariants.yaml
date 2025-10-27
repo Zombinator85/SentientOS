@@ -1,0 +1,21 @@
+invariants:
+  - name: structural_integrity
+    rule: "required_fields ⊆ spec_fields"
+    description: "All covenant-required fields must be present in the proposed specification."
+    severity: critical
+    proof_hint: "Ensure the amendment includes objective, directives, and testing_requirements."
+  - name: audit_continuity
+    rule: "ledger_diff.removed == []"
+    description: "Ledger continuity cannot be broken by removing historical entries."
+    severity: high
+    proof_hint: "Ledger diffs must only append new entries; never remove existing ones."
+  - name: forbidden_status
+    rule: "spec.status not in FORBIDDEN_STATUSES"
+    description: "Proposals may not transition the amendment into forbidden lifecycle states."
+    severity: high
+    proof_hint: "Avoid statuses such as reboot, retired, nullified, or decommissioned."
+  - name: recursion_guard
+    rule: "not spec.recursion_break"
+    description: "Recursion guard must remain intact to prevent runaway invocation loops."
+    severity: high
+    proof_hint: "Do not set recursion_break or recursion to break/halt within the amendment."

@@ -154,6 +154,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_commit_watcher_ci",
         "tests.test_dashboard_event_stream",
         "tests.test_dashboard_api",
+        "tests.test_proof_validity",
     }
     for item in items:
         if (
