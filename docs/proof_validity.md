@@ -65,6 +65,17 @@ Each evaluation returns a JSON document with the following structure:
 * **CodexHealer** narrates the verdict via `proof_summary`, enabling operators to
   understand how many invariants passed or failed during recovery events.
 
+### HungryEyes training pipeline
+
+Historical ledger entries and quarantine payloads can now be transformed into
+training data via `sentientos.daemons.hungry_eyes.HungryEyesDatasetBuilder`.
+The builder normalises each event into covenant-aligned features (violation
+counts, invariant flags, probe outcomes) which feed the
+`HungryEyesSentinel`'s interpretable logistic model.  After fitting, the
+sentinel exposes detailed risk contributions that are attached to each
+`proof_report` as part of the IntegrityDaemon dual-control handshake, providing
+auditable evidence for autonomous approvals.
+
 ## Test Coverage
 
 Automated coverage for the framework lives in
