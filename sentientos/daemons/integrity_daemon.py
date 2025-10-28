@@ -101,10 +101,25 @@ class IntegrityDaemon:
         if observer is None:
             return None
         mode = str(getattr(observer, "mode", "observe")).lower()
-        if mode != "observe":
+        if mode not in {"observe", "repair", "full", "expand"}:
             return None
+
+        # Primary path: a modern sentinel exposes an ``assess`` method returning
+        # a mapping with at least ``risk`` and ``threshold`` entries.
+        if hasattr(observer, "assess"):
+            try:
+                assessment = observer.assess(event)
+            except Exception:  # pragma: no cover - advisory only
+                assessment = None
+            if isinstance(assessment, dict) and "risk" in assessment:
+                payload = dict(assessment)
+                payload.setdefault("mode", mode)
+                payload.setdefault("threshold", self._hungry_threshold)
+                return payload
+
+        # Legacy fall-back: the observer may expose scalar risk functions.
         risk_score = None
-        for attr in ("risk_score", "assess", "score"):
+        for attr in ("risk_score", "score"):
             if hasattr(observer, attr):
                 candidate = getattr(observer, attr)
                 try:
@@ -118,7 +133,7 @@ class IntegrityDaemon:
         return {
             "mode": mode,
             "risk": risk_score,
-            "threshold": self._hungry_threshold,
+            "threshold": getattr(observer, "threshold", self._hungry_threshold),
         }
 
     def stop(self) -> None:
