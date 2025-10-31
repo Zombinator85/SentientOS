@@ -5,7 +5,6 @@ require_admin_banner()
 require_lumos_approval()
 # 🕯️ Privilege ritual migrated 2025-06-07 by Cathedral decree.
 
-from logging_config import get_log_path
 import os
 import json
 import re
@@ -29,6 +28,9 @@ except Exception:  # pragma: no cover - fallback when PyYAML isn't installed
     yaml = None
 import ast
 from typing import Any, Dict, Callable
+
+from logging_config import get_log_path
+from talkback_bridge import CameraTalkback
 
 # --- Pluggable actuator registry -------------------------------------------
 
@@ -166,6 +168,21 @@ class WorkflowActuator(BaseActuator):
         return {"ok": ok}
 
 
+class TalkbackActuator(BaseActuator):
+    """Send synthesized speech through a configured camera audio channel."""
+
+    def execute(self, intent: Dict[str, Any]) -> Dict[str, Any]:
+        message = intent.get("message") or intent.get("text")
+        if not message or not isinstance(message, str):
+            raise ValueError("talkback requires a 'message' string")
+        url = intent.get("url") or intent.get("rtsp") or None
+        ffmpeg_path = intent.get("ffmpeg")
+        voice = intent.get("voice")
+        talkback = CameraTalkback(rtsp_url=url, ffmpeg_path=ffmpeg_path)
+        audio_path = talkback.speak(message, voice=voice)
+        return {"ok": True, "target": talkback.rtsp_url, "audio_path": str(audio_path)}
+
+
 def register_builtin_actuators() -> None:
     register_actuator("shell", ShellActuator())
     register_actuator("http", HttpActuator())
@@ -173,6 +190,7 @@ def register_builtin_actuators() -> None:
     register_actuator("email", EmailActuator())
     register_actuator("webhook", WebhookActuator())
     register_actuator("workflow", WorkflowActuator())
+    register_actuator("talkback", TalkbackActuator())
 
 
 register_builtin_actuators()
