@@ -156,6 +156,11 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_dashboard_api",
         "tests.test_proof_validity",
         "tests.test_hungry_eyes",
+        "tests.test_motion_detector",
+        "tests.test_mic_monitor",
+        "tests.test_camera_daemon",
+        "tests.test_reporter",
+        "tests.test_talkback_actuator",
     }
     for item in items:
         if (
