@@ -33,6 +33,19 @@ in your browser and try it out.
 
 Tests must keep 80 % coverage.
 
+### SentientOSsecondary CUDA build (Windows)
+
+The CUDA-focused secondary runtime is packaged in `SentientOSsecondary.zip`
+via Git LFS.  After pulling LFS assets run the helper script to extract and
+validate the archive:
+
+```powershell
+python -m scripts.prepare_secondary_build --extract
+```
+
+The end-to-end Visual Studio build and launch procedure lives in
+`docs/BUILD_SECONDARY.md`.
+
 ### Installing extras (bin vs src)
 
 Pre-built wheels install without a compiler:
