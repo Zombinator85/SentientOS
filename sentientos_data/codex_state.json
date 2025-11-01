@@ -1,0 +1,37 @@
+{
+  "amendments": [
+    {
+      "identifier": "16ee7235-34f8-4f00-a61f-12354b0bc894",
+      "summary": "Automated maintenance sweep",
+      "created_at": 1759505041.15534,
+      "status": "approved",
+      "committed": false,
+      "payload": {
+        "origin": "genesis_forge",
+        "timestamp": "1759505041.15534"
+      }
+    },
+    {
+      "identifier": "5a839394-fd6c-4baa-a7cb-44246af9356c",
+      "summary": "Automated maintenance sweep",
+      "created_at": 1759505782.2002378,
+      "status": "approved",
+      "committed": false,
+      "payload": {
+        "origin": "genesis_forge",
+        "timestamp": "1759505782.2002378"
+      }
+    },
+    {
+      "identifier": "405e676c-690c-4144-a415-cb66a052d85a",
+      "summary": "Automated maintenance sweep",
+      "created_at": 1759506606.9188852,
+      "status": "proposed",
+      "committed": false,
+      "payload": {
+        "origin": "genesis_forge",
+        "timestamp": "1759506606.9188852"
+      }
+    }
+  ]
+}
