@@ -44,6 +44,13 @@ fetched correctly and unpacks it into `SentientOSsecondary/`.
 
 ```powershell
 PS> python -m scripts.prepare_secondary_build --extract
+
+The helper also understands a `--build` flag if you want to regenerate the
+Visual Studio project files and release binaries in one step:
+
+```powershell
+PS> python -m scripts.prepare_secondary_build --extract --build
+```
 ```
 
 The script performs three checks:
@@ -136,3 +143,56 @@ the default `C:\SentientOS\sentientos_data\models` directory.
 
 With these steps the SentientOSsecondary module becomes a first-class, auditable
 component of the SentientOS deployment pipeline.
+
+## 8. Verification and Troubleshooting
+
+### Confirm the CUDA runtime
+
+1. Open an **x64 Native Tools Command Prompt for VS 2022**.
+2. Run `nvidia-smi` and confirm the driver reports the expected GPU.
+3. From the same prompt, run `nvcc --version` to ensure the CUDA toolkit is on
+   your `PATH`.
+
+If either command fails, repair the NVIDIA driver or reinstall the CUDA toolkit
+before continuing. The automated verification step relies on cuBLAS to load the
+model into VRAM.
+
+### Run the automated CUDA verification
+
+The helper script now bundles a smoke test that launches `llama-server`, waits
+for `ggml_init_cublas()` to announce the detected GPU, and sends a short
+completion request. The script tears the server down automatically after the
+response completes.
+
+```powershell
+PS> python -m scripts.prepare_secondary_build --verify-cuda
+```
+
+Key flags you can use to customise the run:
+
+- `--model PATH` – override the default Mixtral GGUF path.
+- `--n-predict 128` – request a longer sample.
+- `--verify-port 8090` – change the temporary HTTP port in case 8088 is busy.
+
+The script prints the first chunk of generated text and exits non-zero if the
+CUDA runtime fails to initialise or the HTTP request does not succeed.
+
+### Rebuild after asset or embed failures
+
+If `llama-server.exe` reports missing embedded headers or stale assets, rerun
+the helper in build mode to regenerate both the embedded bundle and the server
+binary:
+
+```powershell
+PS> python -m scripts.prepare_secondary_build --build
+```
+
+Add `--skip-embed` only if you are certain the embedded web assets are already
+up to date. You can also invoke the embed step directly:
+
+```powershell
+PS> cmake --build ..\build --config Release --target server_embed
+```
+
+Once the assets build cleanly, rerun the verification step to ensure CUDA is
+still initialised correctly.
