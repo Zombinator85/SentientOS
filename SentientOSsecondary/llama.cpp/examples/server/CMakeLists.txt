@@ -26,8 +26,12 @@ foreach(asset ${LLAMA_SERVER_PUBLIC_ASSETS})
     add_custom_command(
         OUTPUT ${output}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}
-        COMMAND xxd -i -n ${symbol} ${source} ${output}
-        DEPENDS ${source}
+        COMMAND ${CMAKE_COMMAND}
+            -DASSET=${source}
+            -DSYMBOL=${symbol}
+            -DOUTPUT=${output}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/embed_asset.cmake
+        DEPENDS ${source} ${CMAKE_CURRENT_SOURCE_DIR}/embed_asset.cmake
         COMMENT "Embedding asset ${asset}"
         VERBATIM
     )
@@ -37,14 +41,19 @@ foreach(asset ${LLAMA_SERVER_PUBLIC_ASSETS})
 endforeach()
 
 set(LLAMA_SERVER_MANIFEST ${CMAKE_CURRENT_BINARY_DIR}/static_asset_manifest.hpp)
+set(LLAMA_SERVER_RECORD_FILE ${CMAKE_CURRENT_BINARY_DIR}/embedded_assets.txt)
+file(WRITE ${LLAMA_SERVER_RECORD_FILE} "")
+foreach(record ${LLAMA_SERVER_EMBED_RECORDS})
+    file(APPEND ${LLAMA_SERVER_RECORD_FILE} "${record}\n")
+endforeach()
 
 add_custom_command(
     OUTPUT ${LLAMA_SERVER_MANIFEST}
     COMMAND ${CMAKE_COMMAND}
         -DOUTPUT=${LLAMA_SERVER_MANIFEST}
-        -DRECORDS=\"${LLAMA_SERVER_EMBED_RECORDS}\"
+        -DRECORD_FILE=${LLAMA_SERVER_RECORD_FILE}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/generate_static_asset_manifest.cmake
-    DEPENDS ${LLAMA_SERVER_EMBED_HEADERS}
+    DEPENDS ${LLAMA_SERVER_EMBED_HEADERS} ${LLAMA_SERVER_RECORD_FILE}
     COMMENT "Generating embedded asset manifest"
     VERBATIM
 )

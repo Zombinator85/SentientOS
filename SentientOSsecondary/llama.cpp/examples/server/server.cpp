@@ -260,6 +260,7 @@ private:
 }  // namespace llama::server
 
 int main() {
+    using llama::server::EmbeddedAssetManifest;
     using llama::server::StaticAssetResolver;
     StaticAssetResolver resolver(std::filesystem::path{"public"}, EmbeddedAssetManifest());
     auto asset = resolver.Resolve("/assets/index.js");
