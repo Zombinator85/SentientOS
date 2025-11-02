@@ -1,0 +1,8 @@
+{"event": "gap_seeker.start", "payload": {"candidates_requested": 3}, "timestamp": "2025-11-02T15:47:32.476714Z"}
+{"event": "gap_seeker.candidate", "payload": {"candidate": {"files": ["scripts/lock.py"], "id": "67fee89f-c830-4080-97f3-89fd4f562f9f", "priority": "minor", "summary": "Fix __future__ import ordering so python -m scripts.lock install works", "topic": "stabilise scripts.lock install flow"}}, "timestamp": "2025-11-02T15:47:32.476746Z"}
+{"event": "integrity.complete", "payload": {"identifier": "67fee89f-c830-4080-97f3-89fd4f562f9f", "integrity_valid": true, "missing_fields": [], "risk_score": 0.22000000000000003, "threshold": 0.6}, "timestamp": "2025-11-02T15:47:32.491189Z"}
+{"event": "tests.start", "payload": {"command": ["pytest", "-q"]}, "timestamp": "2025-11-02T15:47:32.491200Z"}
+{"event": "tests.complete", "payload": {"command": ["pytest", "-q"], "duration_s": 3.852, "returncode": 0}, "timestamp": "2025-11-02T15:47:36.343338Z"}
+{"event": "tests.start", "payload": {"command": ["make", "ci"]}, "timestamp": "2025-11-02T15:47:36.343386Z"}
+{"event": "tests.complete", "payload": {"command": ["make", "ci"], "duration_s": 4.339, "returncode": 0}, "timestamp": "2025-11-02T15:47:40.681938Z"}
+{"event": "tests.summary", "payload": {"identifier": "67fee89f-c830-4080-97f3-89fd4f562f9f", "status": "approved", "tests_passed": true}, "timestamp": "2025-11-02T15:47:40.681976Z"}

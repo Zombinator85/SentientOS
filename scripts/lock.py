@@ -1,12 +1,6 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
 
-require_admin_banner()
-require_lumos_approval()
-from __future__ import annotations
-
-"""Lock management helper.
+Lock management helper.
 
 Usage:
   python -m scripts.lock freeze   # regenerate lock files and hash markers
@@ -14,11 +8,18 @@ Usage:
   python -m scripts.lock check    # fail if lock hashes drift
 """
 
+from __future__ import annotations
+
 import hashlib
 import pathlib
 import subprocess
 import sys
 import textwrap
+
+from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+require_admin_banner()
+require_lumos_approval()
 
 LOCKS = (
     "requirements-lock.txt",

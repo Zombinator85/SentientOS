@@ -99,9 +99,10 @@ class PluginBus:
             while True:
                 await asyncio.sleep(0.5)
         except asyncio.CancelledError:
-            pass
+            raise
         finally:
-            self._observer.stop()
-            self._observer.join()
-            self._observer = None
+            if self._observer is not None:
+                self._observer.stop()
+                self._observer.join()
+                self._observer = None
 
