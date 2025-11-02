@@ -1,70 +1,33 @@
 # SentientOSsecondary CUDA Build Guide
 
 SentientOSsecondary packages the Windows + CUDA build chain that powers the
-`llama.cpp` based secondary runtime.  The assets live in
-`SentientOSsecondary.zip`, which is tracked through Git LFS so the binary build
-artifacts stay out of the main Git history.  This guide documents how to unpack
-those assets, verify the layout, and produce a release build of the
-`llama-server` target on Windows.
-
-> **Note**
-> The repository snapshot that ships with this guide only stores Git LFS
-> pointers.  Make sure you have network access to the Git LFS remote before
-> attempting the extraction and build steps below.
+`llama.cpp` based secondary runtime.  The tree now lives directly inside the
+repository under `SentientOSsecondary/llama.cpp` so CI and devcontainers can
+build without Git LFS.  This guide documents how to validate the layout and
+produce a release build of the `llama-server` target on Windows.
 
 ## 1. Prerequisites
 
-1. Git LFS (`git lfs install`), with credentials that can download the private
-   SentientOS LFS objects.
-2. Visual Studio 2022 with the **Desktop development with C++** workload.
-3. NVIDIA CUDA Toolkit 12.2 (or newer that remains compatible with
+1. Visual Studio 2022 with the **Desktop development with C++** workload.
+2. NVIDIA CUDA Toolkit 12.2 (or newer that remains compatible with
    `llama.cpp`).
-4. Python 3.10+ (the helper script uses the standard library only).
-5. CMake 3.26+ on your PATH.
-6. `cmake` generator integration for Visual Studio (installed by default when
+3. Python 3.10+ (the helper script uses the standard library only).
+4. CMake 3.26+ on your PATH.
+5. `cmake` generator integration for Visual Studio (installed by default when
    you install VS 2022).
 
-## 2. Fetch the Git LFS payloads
+## 2. Validate the vendored tree
+
+Run the lightweight validation helper to make sure the committed vendor tree is
+still intact:
 
 ```powershell
-# From the repository root
-PS> git lfs install
-PS> git lfs pull
+PS> python tools/bootstrap_secondary.py
 ```
 
-You should now see large binary downloads for:
-
-- `SentientOSsecondary.zip`
-- `sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf`
-
-## 3. Extract and validate SentientOSsecondary
-
-The helper script `scripts/prepare_secondary_build.py` guarantees the zip was
-fetched correctly and unpacks it into `SentientOSsecondary/`.
-
-```powershell
-PS> python -m scripts.prepare_secondary_build --extract
-
-The helper also understands a `--build` flag if you want to regenerate the
-Visual Studio project files and release binaries in one step:
-
-```powershell
-PS> python -m scripts.prepare_secondary_build --extract --build
-```
-```
-
-The script performs three checks:
-
-1. Confirms the zip is an actual binary payload (not an unfetched LFS pointer).
-2. Extracts or refreshes the `SentientOSsecondary/` directory.
-3. Verifies that key build files exist, including:
-   - `SentientOSsecondary/llama.cpp/examples/server/CMakeLists.txt`
-   - `SentientOSsecondary/llama.cpp/common/CMakeLists.txt`
-   - `SentientOSsecondary/build/` (populated with the pre-generated assets such
-     as embedded web resources)
-
-If any of the checks fail the script stops with a clear error message so you
-can re-run `git lfs pull` or investigate the extraction path.
+The script confirms that `SentientOSsecondary/llama.cpp` and the embedded asset
+pipeline exist.  If any files are missing (for example after a partial clone),
+reset the directory from git history before continuing.
 
 ## 4. Configure the Windows + CUDA build
 

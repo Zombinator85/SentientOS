@@ -1,6 +1,8 @@
 # 🏛️ SentientOS
 A cathedral-grade memory and emotion relay for model-presence computing.
 
+> ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
+
 [![Docker Pull](https://img.shields.io/static/v1?label=Docker%20Pull&message=ghcr.io/zombinator85/sentientos&color=blue)](https://github.com/zombinator85/sentientos/pkgs/container/sentientos)
 
 ## 🌟 Overview
@@ -18,6 +20,12 @@ pip install .
 ```
 
 This provides the `sentient-api` and `cathedral-gui` commands.
+
+## 🧪 Codex-first CI flow
+
+- Run builds inside the `.devcontainer` image or via GitHub Actions. The `Codex CI` workflow builds the devcontainer image, compiles the vendored `llama.cpp` server example, and runs smoke tests automatically.
+- Inside the devcontainer, `make ci` executes the same sequence locally by calling `./scripts/ci.sh`.
+- `python3 tools/bootstrap_secondary.py` validates that the vendored `SentientOSsecondary/llama.cpp` tree is present before the build begins.
 
 ## 🚀 Quickstart
 

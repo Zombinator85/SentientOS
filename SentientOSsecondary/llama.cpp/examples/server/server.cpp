@@ -1,6 +1,7 @@
 #include "static_asset_manifest.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <filesystem>
 #include <fstream>
@@ -11,6 +12,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -77,35 +79,30 @@ bool contains_traversal(std::string_view request) {
 }
 
 std::vector<std::string> expand_aliases(const std::string &path) {
-    std::vector<std::size_t> toggles;
-    for (std::size_t i = 0; i < path.size(); ++i) {
-        if (path[i] == '-' || path[i] == '_') {
-            toggles.push_back(i);
+    static constexpr std::array<char, 3> kAliasChars{'-', '_', '.'};
+
+    std::vector<std::string> results{path};
+    std::unordered_set<std::string> seen;
+    seen.insert(path);
+
+    for (std::size_t index = 0; index < path.size(); ++index) {
+        const char ch = path[index];
+        if (ch != '-' && ch != '_' && ch != '.') {
+            continue;
         }
-    }
 
-    if (toggles.empty()) {
-        return {path};
-    }
-
-    std::vector<std::string> results;
-    const std::size_t combinations = static_cast<std::size_t>(1) << toggles.size();
-    results.reserve(combinations);
-
-    for (std::size_t mask = 0; mask < combinations; ++mask) {
-        std::string candidate = path;
-        for (std::size_t bit = 0; bit < toggles.size(); ++bit) {
-            const std::size_t index = toggles[bit];
-            if ((mask & (static_cast<std::size_t>(1) << bit)) != 0U) {
-                candidate[index] = '-';
-            } else {
-                candidate[index] = '_';
+        const std::size_t current_size = results.size();
+        for (std::size_t existing = 0; existing < current_size; ++existing) {
+            for (const char replacement : kAliasChars) {
+                std::string candidate = results[existing];
+                candidate[index] = replacement;
+                if (seen.insert(candidate).second) {
+                    results.push_back(std::move(candidate));
+                }
             }
         }
-        results.push_back(std::move(candidate));
     }
 
-    results.push_back(path);
     std::sort(results.begin(), results.end());
     results.erase(std::unique(results.begin(), results.end()), results.end());
     return results;
@@ -114,7 +111,7 @@ std::vector<std::string> expand_aliases(const std::string &path) {
 std::string canonical_alias(std::string_view path) {
     std::string canonical(path);
     for (char &ch : canonical) {
-        if (ch == '-') {
+        if (ch == '-' || ch == '.') {
             ch = '_';
         }
     }
@@ -263,8 +260,13 @@ int main() {
     using llama::server::EmbeddedAssetManifest;
     using llama::server::StaticAssetResolver;
     StaticAssetResolver resolver(std::filesystem::path{"public"}, EmbeddedAssetManifest());
-    auto asset = resolver.Resolve("/assets/index.js");
-    if (!asset) {
+    if (!resolver.Resolve("/assets/index.js")) {
+        return 1;
+    }
+    if (!resolver.Resolve("/assets/app.js")) {
+        return 1;
+    }
+    if (!resolver.Resolve("/assets/app_js")) {
         return 1;
     }
     return 0;

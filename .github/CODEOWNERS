@@ -1,0 +1,3 @@
+# SentientOS CODEOWNERS
+# PRs touching the secondary runtime must include the Codex label in addition to CODEOWNER review.
+SentientOSsecondary/** @Zombinator85
