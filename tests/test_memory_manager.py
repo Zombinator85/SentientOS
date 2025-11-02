@@ -178,3 +178,52 @@ def test_purge_archives_to_tomb(tmp_path, monkeypatch):
     lines = [json.loads(l) for l in tomb.read_text().splitlines() if l.strip()]
     assert lines and lines[0]["fragment"]["id"] == fid
     assert lines[0]["requestor"] == "tester"
+
+
+def test_apply_forgetting_curve_removes_stale(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    monkeypatch.setenv("MEMORY_IMPORTANCE_FLOOR", "0.6")
+    monkeypatch.setenv("MEMORY_HALF_LIFE_DAYS", "1")
+    from importlib import reload
+    import memory_manager as mm
+
+    reload(mm)
+
+    fid = mm.append_memory("fading", tags=["test"])
+    path = tmp_path / "raw" / f"{fid}.json"
+    data = json.loads(path.read_text())
+    data["importance"] = 0.1
+    data["last_accessed"] = (
+        datetime.datetime.utcnow() - datetime.timedelta(days=30)
+    ).isoformat()
+    path.write_text(json.dumps(data))
+
+    removed = mm.apply_forgetting_curve(requestor="pytest")
+    assert removed == 1
+    assert not path.exists()
+    tomb = tmp_path / "memory_tomb.jsonl"
+    assert tomb.exists()
+
+
+def test_summarize_memory_creates_topic_capsule(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+
+    reload(mm)
+    mm.append_memory("topic summary", tags=["alpha"])
+    mm.summarize_memory()
+    topic = tmp_path / "topics" / "alpha.md"
+    assert topic.exists()
+    assert "topic summary" in topic.read_text()
+
+
+def test_curate_memory_runs_cycle(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+
+    reload(mm)
+    mm.append_memory("retain me", tags=["beta"])
+    stats = mm.curate_memory()
+    assert "removed" in stats
