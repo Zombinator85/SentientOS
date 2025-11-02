@@ -1,14 +1,21 @@
+cmake_policy(SET CMP0007 NEW)
 cmake_policy(SET CMP0057 NEW)
 
 if(NOT DEFINED OUTPUT)
     message(FATAL_ERROR "OUTPUT is required")
 endif()
 
-if(NOT DEFINED RECORDS)
-    set(RECORDS "")
+if(DEFINED RECORD_FILE)
+    if(NOT EXISTS "${RECORD_FILE}")
+        message(FATAL_ERROR "RECORD_FILE does not exist: ${RECORD_FILE}")
+    endif()
+    file(READ "${RECORD_FILE}" _record_content)
+else()
+    set(_record_content "${RECORDS}")
 endif()
 
-string(REPLACE "\n" ";" RECORDS "${RECORDS}")
+string(REPLACE "\r\n" "\n" _record_content "${_record_content}")
+string(REPLACE "\n" ";" RECORDS "${_record_content}")
 list(FILTER RECORDS EXCLUDE REGEX "^$")
 
 set(headers)
@@ -87,7 +94,10 @@ foreach(record ${RECORDS})
         set(encoding "false")
     endif()
 
-    list(APPEND entries "    {\"${route}\", \"${mime}\", ${encoding}, ${symbol}, static_cast<std::size_t>(${symbol}_len)}")
+    string(REPLACE "\"" "\\\"" route_escaped "${route}")
+    string(REPLACE "\"" "\\\"" mime_escaped "${mime}")
+
+    list(APPEND entries "    {\"${route_escaped}\", \"${mime_escaped}\", ${encoding}, ${symbol}, static_cast<std::size_t>(${symbol}_len)}")
 endforeach()
 
 list(REMOVE_DUPLICATES headers)
@@ -112,14 +122,16 @@ list(LENGTH entries entry_count)
 string(APPEND output_content "namespace llama::server {\n\n")
 string(APPEND output_content "struct EmbeddedAsset {\n    std::string_view route;\n    std::string_view content_type;\n    bool gzip_encoded;\n    const unsigned char* data;\n    std::size_t size;\n};\n\n")
 
-string(APPEND output_content "inline constexpr std::array<EmbeddedAsset, ${entry_count}> kEmbeddedAssets = {\n")
-string(APPEND output_content "{\n")
+if(entry_count EQUAL 0)
+    string(APPEND output_content "inline constexpr std::array<EmbeddedAsset, 0> kEmbeddedAssets{};\n\n")
+else()
+    string(APPEND output_content "inline constexpr std::array<EmbeddedAsset, ${entry_count}> kEmbeddedAssets = {{\n")
+    foreach(entry ${entries})
+        string(APPEND output_content "${entry},\n")
+    endforeach()
+    string(APPEND output_content "}};\n\n")
+endif()
 
-foreach(entry ${entries})
-    string(APPEND output_content "${entry},\n")
-endforeach()
-
-string(APPEND output_content "};\n\n")
 string(APPEND output_content "inline constexpr std::span<const EmbeddedAsset> EmbeddedAssetManifest() {\n    return std::span<const EmbeddedAsset>{kEmbeddedAssets};\n}\n\n")
 string(APPEND output_content "}  // namespace llama::server\n")
 
