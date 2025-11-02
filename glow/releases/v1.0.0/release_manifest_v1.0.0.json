@@ -1,0 +1,92 @@
+{
+  "version": "1.0.0",
+  "artifacts": [
+    {
+      "path": "build/examples/server/llama-server",
+      "sha256": "0ce347dedca122d860f238164eadf452c7bf37b75e8f0755dcb44313505dae67",
+      "sha512": "45278113825540b53912143289ea30f453aafc9525ccd6d9ca70e7dfd1f7305d8c5a3a6eeb5d0254d6dea62a1d91b8bbfea867ab2cf5a59596fbd18261530e8b"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "f3caefd84a1f788760c254fd5cc46a76d48ceb6df22563bb8479318e9b8c92ce",
+      "sha512": "3c938658f6b1926a226d40eeafc3939ee342717d52e9eaf421a5f3b227fd1a3b5b7f9eea111d7a74d8626e8a198bda3bbb8ca95ff6b8ef380b524d4145ae7bcc"
+    },
+    {
+      "path": "README.md",
+      "sha256": "7521d811c834c164701b4239eef9ecf64bc371adcfa66f50945a34aca1a28695",
+      "sha512": "45b204e8f42e00859f6d213f028f3ae3275ec00c260bd821dd829f8aa418084cabeb7d26cd6e83a8344e189dd72dc35abf18081cf4857713c2f2c2fdd3a298e1"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/audit_summary.md",
+      "sha256": "c0f4850329918fbd53dad5cbb35072a85b1080348a6ad98b1940f54c5e770610",
+      "sha512": "51bcac959d37b9e9100d8fedc8520c4bb9adf4f0870fa7f397b0921437b2abcaeaf9e2ac0a7c69224fc5c324bb692da8b16044dcf94955f5a90012393e1a90b7"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/audit_verification.json",
+      "sha256": "4229a6160f4da65e03633b6cad25ad1eb61a87e58901c8289bb07de8b36f2fea",
+      "sha512": "8f7dfa1cdd8bed7c90ce9f30e34c5327b140bc86ef78e4dd5bc6d198382d0300a8a6022ad93a040d1e9fb932c27c578400e426cabf963b303228a788d4b1f5cd"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/hungry_eyes_metrics.json",
+      "sha256": "64940aa72c979fa5b61f01d49d13037a36b7913951d6179c910a5606e765447a",
+      "sha512": "bd528a1ea88f2d8c56438fdd7112f02f9be22c60da1133f8779014e3f3509315d231dfee27cdb1ff33d47c57d8e1ac115d849d3e1bf5f16fbb7543eeadca26f4"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/integrity_ledger_snapshot.jsonl",
+      "sha256": "ae1a8050861fe42dee2de9300d5d4e32f6a186ce90e0a3e8cc3d065c2cefe94d",
+      "sha512": "005157385f2c448ca85199dc4878404d13ea0e1b5cd8d38adf4a3765aea215646d05f088bfa6eb3f630e4f2dc51934b5eef42d98d260ed9c9ee6098f164927f0"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/report.md",
+      "sha256": "b109134953bc8a3d80a8b3cbd42018edf35e7966f13e417dde9fd38f2b94d615",
+      "sha512": "d360512e86be93aace1457ab71800defdf975d5d5a21b797de18a2befc1ec7cc6085003d85d161d525355ec0fd4e8e1621818b33dad8e53759aa14b372e2f25c"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/risk_histogram.csv",
+      "sha256": "c0fc26405d5aaa2a084a9a3bf32df60d9409f0cec754e2adbbce3c1bcd6c6962",
+      "sha512": "8319c7ed40ac1b05f8e3fb85db5c29996be5a1ff343a9651c12e78fc741b053f9f1eea2550af43719cf0506f5e816d6ed28adf625d0eccc9b2680c0e5dcdfe76"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/throughput.csv",
+      "sha256": "aaa2fd2a31f1a283cc30977c741a560a8b79f01dad244bfaf23ddda491d38b6e",
+      "sha512": "3f2f455683513b10288ad3dacb2c5dbda7fa618d81f46cf7ac5256fc53497fba3f0028e87d48b7c553d3260b8c62f423576fd03db673e96feb1c414ff35d1f43"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/timeline.jsonl",
+      "sha256": "ac388125da66a4191f012a26d2207a9890663a76954bf0700778205cca5d071d",
+      "sha512": "05133cd06d30aca45e597dd676b9145433773336e02b01c882736882eb2b39e886e7dd10bd26bf441935d33083ceb42451864dbaf3dec2f1efb6cdb562e07bbc"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/artifacts_sha256.txt",
+      "sha256": "374934b181ee4f0f0f1ce0fd0f4333a21df26ec9f0eb274d6a2b5536d14855b1",
+      "sha512": "af4daebd7463e8c6987732493ef695af54c7de91668d615a9ec53ec3f2c2cc2954c445fb525b9cee49868b11c1ca812499c7dbeae8f67f553651dde7d3ed19ad"
+    },
+    {
+      "path": "vow/immutable_manifest.json",
+      "sha256": "2f20c93b89b9355b3a2217515c7e7d958cd6ee9cc784e21c8d2ad2555b9f7fbb",
+      "sha512": "dc3deb7bcee3d7e2141df2a5897e77eb91fd71d3dc32c778a26ec7b8090a9f4538a992e06702975d5067f881f38d03f047f94643c44ffb1bb6b0605627c8520f"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/analysis/amendment_state_flow.md",
+      "sha256": "d33561436fd3d646411150ba0613a2a14f630ac50041411902a5a092d529eba2",
+      "sha512": "9b3b471c1fdcce2dd8af8f0058dae6a70611b1cc57b0c6c5e69d6d882b7f85c1dde6732434375f7f3d50ce1497f2ecb85a4ce2415ff246856ba01c4cd315e47f"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/analysis/approval_latency.md",
+      "sha256": "e2f06e21233325f7734290f304ed7c79f1d16dbde2ab3cd30a085512468ffac5",
+      "sha512": "8bccfa4c0949cd15c68241191a331e18f70e9d32bd38387fe628ef6146b1966d65854f135aebf8d20506483df88ee3b83098d9c2869c461ce8aec5f63ef81e7b"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/analysis/quarantine_breakdown.md",
+      "sha256": "aacb4ef81dfd3c5596dcd12140a221996d5e8bda3392c889d110dffa6d2cfa52",
+      "sha512": "00302abcdf65e3b58cee693a4b7a2758e3c8f119fe08f1360cd38c95f744e078969a46d37087a6e0302aa92d02641065a09dda1bc5b9ed283bec8d7fc829168e"
+    },
+    {
+      "path": "glow/rehearsal/v1.0.0-rc1/analysis/risk_histogram.md",
+      "sha256": "20bb2cbd3c2f473bdbb6403a634dfeaca116ddcc5482b07ddeef63f16d21fa5f",
+      "sha512": "ed8af541f92b1b72d1a8910c41b2963a08e83396c6d6ddbc08d522b4b9591313c458d151e0f04831f98cbdcd638fb1e8bb134b95c00048b4e47cf22da3da3beb"
+    }
+  ],
+  "timestamp": "2025-11-02T17:21:03.129927+00:00",
+  "signed_by": "Codex"
+}
