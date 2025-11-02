@@ -35,12 +35,12 @@ Tests must keep 80 % coverage.
 
 ### SentientOSsecondary CUDA build (Windows)
 
-The CUDA-focused secondary runtime is packaged in `SentientOSsecondary.zip`
-via Git LFS.  After pulling LFS assets run the helper script to extract and
-validate the archive:
+The CUDA-focused secondary runtime ships directly in
+`SentientOSsecondary/llama.cpp`.  Run the validation helper to ensure the
+vendored tree is intact before invoking the Windows build pipeline:
 
 ```powershell
-python -m scripts.prepare_secondary_build --extract
+python tools/bootstrap_secondary.py
 ```
 
 The end-to-end Visual Studio build and launch procedure lives in

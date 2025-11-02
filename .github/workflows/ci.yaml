@@ -1,0 +1,42 @@
+name: Codex CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Build & smoke test (${{ matrix.accelerator }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - accelerator: cpu
+            enabled: true
+          - accelerator: cuda
+            enabled: false  # Placeholder for future CUDA coverage.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build devcontainer image
+        run: |
+          docker build \
+            -t sentientos-dev:${{ matrix.accelerator }} \
+            -f .devcontainer/Dockerfile \
+            .
+
+      - name: Run CI script inside container
+        if: matrix.enabled != false
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            sentientos-dev:${{ matrix.accelerator }} \
+            bash -lc "./scripts/ci.sh"
+
+      - name: Skip placeholder configuration
+        if: matrix.enabled == false
+        run: echo "CUDA configuration placeholder - enable once hardware runners are ready."
