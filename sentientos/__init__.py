@@ -2,7 +2,7 @@
 from __future__ import annotations
 """SentientOS core package."""
 
-__version__: str = "4.5.0"
+__version__: str = "1.0.0-rc1"
 
 from .core import Core
 from .privilege import (
