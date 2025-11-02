@@ -7,7 +7,7 @@ from typing import List
 from typing import cast
 from ._compat import RuleSkippedError, safe_import
 
-esprima = safe_import("pyesprima", stub={"parseScript": None})
+esprima = safe_import("pyesprima", stub={"parseScript": None}, warn=False)
 
 
 def _parse(path: Path) -> object | None:

@@ -20,7 +20,7 @@ package-windows:
 	python scripts/package_launcher.py --platform windows
 
 package-mac:
-        python scripts/package_launcher.py --platform mac
+	python scripts/package_launcher.py --platform mac
 
 ci:
 	./scripts/ci.sh
