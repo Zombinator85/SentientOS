@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "sentientos"
-version = "4.5.0"
+version = "1.0.0-rc1"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 authors = ["SentientOS"]
 readme = "README.md"
@@ -16,7 +16,7 @@ packages = [
 
 [project]
 name = "sentientos"
-version = "4.5.0"
+version = "1.0.0-rc1"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 readme = "README.md"
 authors = [{name = "SentientOS"}]

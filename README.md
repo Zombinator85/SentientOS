@@ -33,6 +33,14 @@ This provides the `sentient-api` and `cathedral-gui` commands.
 python scripts/bootstrap_cathedral.py
 ```
 
+### Getting Started in the Dev Container
+
+1. Open the repository in VS Code and select **Reopen in Container** when prompted.
+2. Once the environment boots, run `make ci` to execute the full Codex build (Python package, Rust binary, and C++ server example).
+3. Use `poetry run sentientosd` or `python -m sentientos` to launch the core runtime inside the container.
+
+For non-interactive CI, trigger the `Codex CI` workflow or execute `./scripts/ci.sh` locally—the script mirrors the pipeline used for release validation.
+
 ## 🪟 SentientOS for Windows — Minimal Architecture
 
 > 📘 **Need the full walkthrough?** Follow
