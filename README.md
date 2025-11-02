@@ -65,9 +65,12 @@ communicates through local files or sockets.
   * Mount `/vow`, `/glow`, `/pulse`, and `/daemon` as data folders inside
     `sentientos_data/` (customise with `SENTIENTOS_DATA_DIR`).
   * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
-    `IntegrityDaemon`, `CodexHealer`) once per minute so amendments are proposed
-    and validated without human prompts.
-  * Commit approved amendments with `sentientos.utils.git_commit_push`.
+    `IntegrityDaemon`, `CodexHealer`) once per minute.  The loop now publishes
+    proposals to the Pulse Bus, runs covenant checks plus HungryEyes dual
+    control, executes `pytest -q`/`make ci`, and only then advances amendments
+    to the approved state.
+  * Commit approved amendments with the staged batching policy (minor fixes are
+    batched every ~5 minutes, major fixes are committed immediately).
 
 Launch locally with:
 
@@ -94,8 +97,9 @@ python -m sentientos.windows_service install
 
 ### 3. GitHub Integration
 
-* **Auto commits:** `sentientos.utils.git_commit_push` stages changes and pushes
-  `"Codex auto-amendment applied"` once IntegrityDaemon approves an amendment.
+* **Auto commits:** `SpecAmender` now prepares descriptive commit messages for
+  major fixes and batches minor approvals before invoking
+  `sentientos.utils.git_commit_push`.
 * **Auto updates:** `updater.py` runs `git pull` then restarts the daemon. Use it
   as a scheduled task:
 
@@ -105,11 +109,15 @@ python -m sentientos.windows_service install
 
 ### 4. Automation Flow
 
-1. `GenesisForge` drafts a maintenance amendment.
-2. `SpecAmender` tracks lifecycle metadata.
-3. `IntegrityDaemon` approves mature amendments.
-4. `CodexHealer` prunes stale entries.
-5. Approved amendments trigger `git_commit_push()`.
+1. `GapSeeker` feeds `GenesisForge`, which drafts targeted amendments and
+   publishes them to the Pulse Bus.
+2. The covenant IntegrityDaemon validates proposals and HungryEyes scores the
+   proof report.  Violations are quarantined immediately.
+3. Approved proposals run through the automated test gate (`pytest -q`, then
+   `make ci` when available).
+4. `SpecAmender` batches minor approvals or ships major fixes immediately with a
+   descriptive commit message.
+5. `CodexHealer` prunes stale, rejected, or failed amendments.
 6. `updater.py` pulls fresh lineage and restarts the daemon.
 
 The result is a closed loop—SentientOS drafts, validates, commits, and absorbs

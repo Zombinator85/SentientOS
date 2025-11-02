@@ -45,10 +45,11 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         IntegrityDaemon.guard()
         CodexHealer.monitor()
 
-        if SpecAmender.has_new_commit():
-            LOGGER.info("Codex amendment ready for commit")
-            if git_commit_push("Codex auto-amendment applied"):
-                SpecAmender.mark_committed()
+        plan = SpecAmender.next_commit()
+        if plan:
+            LOGGER.info("Codex amendment ready for commit: %s", plan.message)
+            if git_commit_push(plan.message):
+                SpecAmender.mark_committed(plan)
 
         try:
             await asyncio.wait_for(shutdown_event.wait(), timeout=interval_seconds)
