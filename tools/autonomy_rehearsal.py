@@ -209,7 +209,7 @@ def main() -> None:
             "make ci",
         ],
         "status": "draft",
-        "version": "v1.0.0-rc1",
+        "version": "v1.0.0",
         "lineage": {
             "source": "autonomy_rehearsal",
             "amendment_id": candidate_id,

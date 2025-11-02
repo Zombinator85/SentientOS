@@ -24,3 +24,4 @@ package-mac:
 
 ci:
 	./scripts/ci.sh
+	./scripts/verify_provenance.sh
