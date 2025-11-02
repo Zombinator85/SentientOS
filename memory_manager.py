@@ -5,17 +5,21 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from logging_config import get_log_path
+import math
 import os
 import json
 import hashlib
 import datetime
+from datetime import timezone
 from pathlib import Path
-from typing import List, Dict, Optional, Union
+from threading import RLock
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
 from emotions import empty_emotion_vector
 import emotion_memory as em
+import semantic_embeddings as se
 
 # Optional upgrade: use simple embedding vectors instead of bag-of-words
 USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
@@ -25,17 +29,78 @@ USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "0") == "1"
 MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
+TOPIC_PATH = MEMORY_DIR / "topics"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
 GOALS_PATH = MEMORY_DIR / "goals.json"
 TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
+TOPIC_PATH.mkdir(parents=True, exist_ok=True)
 TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+# --- Importance & forgetting heuristics -------------------------------------
+
+FORGETTING_HALF_LIFE_DAYS = float(os.getenv("MEMORY_HALF_LIFE_DAYS", "14"))
+IMPORTANCE_FLOOR = float(os.getenv("MEMORY_IMPORTANCE_FLOOR", "0.2"))
+IMPORTANCE_TAG_BOOSTS = {
+    "goal": 0.15,
+    "reflection": 0.2,
+    "self_patch": 0.1,
+    "escalation": 0.25,
+    "blessing": 0.12,
+}
+_INDEX_LOCK = RLock()
 
 
 def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+def _fragment_path(fragment_id: str) -> Path:
+    return RAW_PATH / f"{fragment_id}.json"
+
+
+def _load_fragment(fragment_id: str) -> dict | None:
+    path = _fragment_path(fragment_id)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _write_fragment(fragment_id: str, data: dict) -> None:
+    path = _fragment_path(fragment_id)
+    path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def _load_index_records() -> list[dict]:
+    if not VECTOR_INDEX_PATH.exists():
+        return []
+    lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
+    records: list[dict] = []
+    for i, line in enumerate(lines):
+        if not line.strip():
+            continue
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            print(f"[VECTOR INDEX WARNING] Skipped malformed line at #{i}: {exc}")
+    return records
+
+
+def _save_index_records(records: Sequence[dict]) -> None:
+    with _INDEX_LOCK:
+        with open(VECTOR_INDEX_PATH, "w", encoding="utf-8") as f:
+            for record in records:
+                f.write(json.dumps(record) + "\n")
+
+
+def _remove_from_index(fragment_id: str) -> None:
+    records = [rec for rec in _load_index_records() if rec.get("id") != fragment_id]
+    _save_index_records(records)
 
 
 def _append_tomb(entry: Dict) -> None:
@@ -78,6 +143,50 @@ def list_tomb(
     return out
 
 
+def _estimate_importance(entry: dict) -> float:
+    text = entry.get("text", "")
+    score = 0.35
+    word_count = len(text.split())
+    score += min(0.2, word_count / 400.0)
+    emotions = entry.get("emotions") or {}
+    intensity = max(emotions.values()) if isinstance(emotions, dict) and emotions else 0.0
+    score += min(0.2, intensity * 0.5)
+    for tag in entry.get("tags", []):
+        score += IMPORTANCE_TAG_BOOSTS.get(tag, 0.05)
+    if entry.get("source") == "reflector":
+        score += 0.05
+    return max(0.05, min(1.0, score))
+
+
+def _touch_fragment(fragment_id: str, *, accessed_at: datetime.datetime) -> None:
+    data = _load_fragment(fragment_id)
+    if not data:
+        return
+    data["access_count"] = data.get("access_count", 0) + 1
+    data["last_accessed"] = accessed_at.isoformat()
+    _write_fragment(fragment_id, data)
+
+
+def _decay_factor(last_access: datetime.datetime, importance: float, now: datetime.datetime) -> float:
+    age_days = max((now - last_access).total_seconds() / 86400.0, 0.0)
+    if FORGETTING_HALF_LIFE_DAYS <= 0:
+        return importance
+    decay = math.exp(-age_days / FORGETTING_HALF_LIFE_DAYS)
+    return importance * decay
+
+
+def _parse_ts(value: str | None) -> datetime.datetime:
+    if not value:
+        return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    try:
+        dt = datetime.datetime.fromisoformat(value)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+
+
 def append_memory(
     text: str,
     tags: List[str] | None = None,
@@ -100,10 +209,11 @@ def append_memory(
         "emotion_features": emotion_features or {},
         "emotion_breakdown": emotion_breakdown or {},
     }
+    entry["importance"] = _estimate_importance(entry)
+    entry["access_count"] = 0
+    entry["last_accessed"] = entry["timestamp"]
     em.add_emotion(entry["emotions"])
-    (RAW_PATH / f"{fragment_id}.json").write_text(
-        json.dumps(entry, ensure_ascii=False), encoding="utf-8"
-    )
+    _write_fragment(fragment_id, entry)
     _update_vector_index(entry)
     print(f"[MEMORY] Appended fragment → {fragment_id} | tags={tags} | source={source}")
     return fragment_id
@@ -111,13 +221,18 @@ def append_memory(
 
 def _update_vector_index(entry: Dict):
     vec = _vectorize(entry["text"])
+    records = [rec for rec in _load_index_records() if rec.get("id") != entry["id"]]
     record = {
         "id": entry["id"],
         "vector": vec,
         "snippet": entry["text"][:400],
+        "importance": entry.get("importance", 0.3),
+        "tags": entry.get("tags", []),
+        "last_accessed": entry.get("last_accessed"),
+        "access_count": entry.get("access_count", 0),
     }
-    with open(VECTOR_INDEX_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(record) + "\n")
+    records.append(record)
+    _save_index_records(records)
     print(f"[VECTOR] Index updated for {entry['id']}")
 
 
@@ -127,7 +242,14 @@ def _bag_of_words(text: str) -> Dict[str, int]:
 
 
 def _embedding(text: str) -> List[float]:
-    """Return a deterministic pseudo-embedding for ``text``."""
+    """Return a semantic embedding for ``text`` with deterministic fallback."""
+
+    try:
+        vectors = se.encode([text])
+        if vectors:
+            return vectors[0]
+    except Exception as exc:  # pragma: no cover - defensive logging
+        print(f"[EMBEDDING WARNING] Falling back to hash embedding: {exc}")
     digest = hashlib.sha256(text.encode("utf-8")).digest()
     return [b / 255.0 for b in digest[:64]]
 
@@ -154,18 +276,7 @@ def _cosine(a: Vector, b: Vector) -> float:
 
 
 def _load_index() -> List[Dict]:
-    if not VECTOR_INDEX_PATH.exists():
-        return []
-    lines = VECTOR_INDEX_PATH.read_text(encoding="utf-8").splitlines()
-    out: List[Dict] = []
-    for i, line in enumerate(lines):
-        if not line.strip():
-            continue
-        try:
-            out.append(json.loads(line))
-        except json.JSONDecodeError as e:
-            print(f"[VECTOR INDEX WARNING] Skipped malformed line at #{i}: {e}")
-    return out
+    return list(_load_index_records())
 
 
 REFLECTION_PHRASES = [
@@ -197,16 +308,46 @@ def is_reflection_loop(snippet: str) -> bool:
 
 
 def get_context(query: str, k: int = 6) -> List[str]:
-    index = _load_index()
+    index = _load_index_records()
     q_vec = _vectorize(query)
-    scored: List[tuple[float, str]] = []
+    now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    scored: List[tuple[float, dict]] = []
     for row in index:
-        if is_reflection_loop(row.get("snippet", "")):
+        snippet = row.get("snippet", "")
+        if not snippet or is_reflection_loop(snippet):
             continue
         score = _cosine(q_vec, row.get("vector", {}))
-        scored.append((score, row.get("snippet", "")))
-    scored.sort(reverse=True)
-    return [s for _, s in scored[:k]]
+        if score <= 0:
+            continue
+        importance = float(row.get("importance", 0.3))
+        access_count = int(row.get("access_count", 0))
+        last_access = _parse_ts(row.get("last_accessed"))
+        freshness = _decay_factor(last_access, importance, now)
+        vote = score * (0.6 + 0.4 * freshness) * (1.0 + min(access_count, 10) * 0.05)
+        scored.append((vote, row))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    top_rows = [row for _, row in scored[:k]]
+    if not top_rows:
+        return []
+
+    updated_records = index.copy()
+    snippets: List[str] = []
+    seen: set[str] = set()
+    for row in top_rows:
+        frag_id = row.get("id")
+        if not frag_id or frag_id in seen:
+            continue
+        seen.add(frag_id)
+        snippets.append(row.get("snippet", ""))
+        row["access_count"] = int(row.get("access_count", 0)) + 1
+        row["last_accessed"] = now.isoformat()
+        _touch_fragment(frag_id, accessed_at=now)
+
+    if updated_records:
+        _save_index_records(updated_records)
+
+    return [s for s in snippets if s][:k]
 
 
 def search_by_tags(tags: List[str], limit: int = 5) -> list[dict]:
@@ -256,7 +397,7 @@ def purge_memory(
     for f in files:
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            ts = datetime.datetime.fromisoformat(data.get("timestamp"))
+            ts = _parse_ts(data.get("timestamp")).astimezone(timezone.utc)
             entries.append((ts, f, data))
         except Exception:
             continue
@@ -275,6 +416,7 @@ def purge_memory(
                     "reason": reason,
                 })
                 fp.unlink(missing_ok=True)
+                _remove_from_index(data.get("id", ""))
                 removed += 1
     if max_files is not None and len(entries) - removed > max_files:
         remaining = [e for e in entries if e[1].exists()]
@@ -287,14 +429,39 @@ def purge_memory(
                 "reason": reason,
             })
             fp.unlink(missing_ok=True)
+            _remove_from_index(data.get("id", ""))
             removed += 1
     if removed:
         print(f"[PURGE] Removed {removed} old memory fragments")
 
 
+def _write_topic_summaries(entries: Sequence[dict]) -> None:
+    topics: Dict[str, List[str]] = {}
+    for data in entries:
+        tags = data.get("tags", []) or []
+        if not tags:
+            continue
+        ts = data.get("timestamp", "")
+        snippet = data.get("text", "").strip().replace("\n", " ")
+        for tag in tags:
+            topics.setdefault(tag, []).append(f"[{ts}] {snippet}")
+
+    for tag, lines in topics.items():
+        if not tag:
+            continue
+        out = TOPIC_PATH / f"{tag}.md"
+        with open(out, "w", encoding="utf-8") as f:
+            f.write(f"# {tag} memory capsule\n\n")
+            for line in lines[-200:]:  # keep recent history manageable
+                f.write(f"- {line}\n")
+        print(f"[SUMMARY] Topic capsule updated → {out}")
+
+
 def summarize_memory() -> None:
-    """Concatenate daily fragments into summary files."""
+    """Concatenate daily fragments into summary files and topic capsules."""
+
     summaries: Dict[str, List[str]] = {}
+    entries: List[dict] = []
     for fp in RAW_PATH.glob("*.json"):
         try:
             data = json.loads(fp.read_text(encoding="utf-8"))
@@ -303,6 +470,7 @@ def summarize_memory() -> None:
         ts = data.get("timestamp")
         if not ts:
             continue
+        entries.append(data)
         day = ts.split("T")[0]
         snippet = data.get("text", "").strip().replace("\n", " ")
         summaries.setdefault(day, []).append(f"[{ts}] {snippet}")
@@ -313,6 +481,74 @@ def summarize_memory() -> None:
             for line in lines:
                 f.write(line + "\n")
         print(f"[SUMMARY] Updated {out}")
+
+    _write_topic_summaries(entries)
+
+
+def apply_forgetting_curve(
+    *, requestor: str = "curator", reason: str = "forgetting_curve"
+) -> int:
+    """Apply an Ebbinghaus-inspired decay to prune low-importance fragments.
+
+    Returns the number of fragments removed.
+    """
+
+    now = datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    removed = 0
+    kept_records: list[dict] = []
+
+    for record in _load_index_records():
+        fragment_id = record.get("id")
+        if not fragment_id:
+            continue
+        data = _load_fragment(fragment_id)
+        if not data:
+            continue
+        if data.get("pinned"):
+            kept_records.append(record)
+            continue
+
+        importance = float(data.get("importance", 0.3))
+        access_count = int(data.get("access_count", 0))
+        importance = max(importance, min(0.6, access_count * 0.05))
+        last_access = _parse_ts(data.get("last_accessed"))
+        retention = _decay_factor(last_access, importance, now)
+
+        if retention < IMPORTANCE_FLOOR:
+            _append_tomb(
+                {
+                    "fragment": data,
+                    "requestor": requestor,
+                    "time": now.isoformat(),
+                    "reason": reason,
+                }
+            )
+            _fragment_path(fragment_id).unlink(missing_ok=True)
+            removed += 1
+        else:
+            data["importance"] = min(1.0, retention + 0.05 * importance)
+            _write_fragment(fragment_id, data)
+            record["importance"] = data["importance"]
+            record["last_accessed"] = data.get("last_accessed")
+            record["access_count"] = data.get("access_count", 0)
+            kept_records.append(record)
+
+    if kept_records:
+        _save_index_records(kept_records)
+    elif VECTOR_INDEX_PATH.exists():
+        VECTOR_INDEX_PATH.unlink()
+
+    if removed:
+        print(f"[FORGET] Archived {removed} stale fragments")
+    return removed
+
+
+def curate_memory() -> dict[str, Any]:
+    """Run summarisation and forgetting maintenance cycle."""
+
+    removed = apply_forgetting_curve()
+    summarize_memory()
+    return {"removed": removed}
 
 
 def save_reflection(
