@@ -27,6 +27,7 @@ logs/
 .env
 .env.*
 venv/
+.venv/
 ENV/
 audio_logs/*
 !audio_logs/.gitkeep
