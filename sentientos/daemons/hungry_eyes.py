@@ -188,14 +188,25 @@ class HungryEyesSentinel:
     _EPSILON = 1e-6
     _VALID_MODES = {"observe", "repair", "full", "expand"}
 
-    def __init__(self, mode: str = "observe", *, threshold: float = 0.5) -> None:
+    def __init__(self, mode: str = "observe", *, threshold: float = 0.5, retrain_window: int = 10) -> None:
         self.mode = mode
         self.threshold = float(threshold)
         self._weights: dict[str, float] = {}
         self._bias: float = 0.0
         self._fitted = False
+        self._dataset: list[HungryEyesTrainingExample] = []
+        self._pending: list[HungryEyesTrainingExample] = []
+        self._retrain_window = max(1, int(retrain_window))
 
     def fit(self, examples: Iterable[HungryEyesTrainingExample]) -> None:
+        examples = list(examples)
+        self._dataset = list(examples)
+        if not examples:
+            self._weights = {}
+            self._bias = 0.0
+            self._fitted = False
+            return
+
         positives: dict[str, float] = {}
         negatives: dict[str, float] = {}
         pos_total = self._EPSILON
@@ -230,6 +241,27 @@ class HungryEyesSentinel:
         self._weights = weights
         self._bias = math.log(max(pos_total, self._EPSILON) / max(neg_total, self._EPSILON))
         self._fitted = True
+
+    def observe(self, event: Mapping[str, object]) -> dict[str, object]:
+        """Update the dataset with a new event and retrain if needed."""
+
+        builder = HungryEyesDatasetBuilder()
+        builder.add_event(event)
+        example = builder.build()[0]
+        self._dataset.append(example)
+        self._pending.append(example)
+        if len(self._pending) >= self._retrain_window:
+            self.fit(self._dataset)
+            self._pending.clear()
+        if not self._fitted:
+            return {
+                "mode": self.mode,
+                "risk": 0.0,
+                "threshold": self.threshold,
+                "features": example.features,
+                "contributions": {},
+            }
+        return self.assess(event)
 
     def assess(self, event: Mapping[str, object]) -> dict[str, object]:
         if not self._fitted:
@@ -278,7 +310,12 @@ class HungryEyesSentinel:
             "weights": dict(self._weights),
             "bias": self._bias,
             "fitted": self._fitted,
+            "dataset_size": len(self._dataset),
         }
+
+    @property
+    def dataset_size(self) -> int:
+        return len(self._dataset)
 
 
 def iter_quarantine_payloads(path: Path | str) -> Iterator[dict[str, object]]:

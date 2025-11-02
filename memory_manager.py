@@ -5,6 +5,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from logging_config import get_log_path
+import collections
 import math
 import os
 import json
@@ -30,6 +31,8 @@ MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 RAW_PATH = MEMORY_DIR / "raw"
 DAY_PATH = MEMORY_DIR / "distilled"
 TOPIC_PATH = MEMORY_DIR / "topics"
+TURN_PATH = MEMORY_DIR / "turns"
+SESSION_PATH = MEMORY_DIR / "sessions"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
 GOALS_PATH = MEMORY_DIR / "goals.json"
 TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
@@ -37,6 +40,8 @@ TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
 TOPIC_PATH.mkdir(parents=True, exist_ok=True)
+TURN_PATH.mkdir(parents=True, exist_ok=True)
+SESSION_PATH.mkdir(parents=True, exist_ok=True)
 TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # --- Importance & forgetting heuristics -------------------------------------
@@ -74,6 +79,30 @@ def _load_fragment(fragment_id: str) -> dict | None:
 def _write_fragment(fragment_id: str, data: dict) -> None:
     path = _fragment_path(fragment_id)
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+
+def iter_fragments(*, limit: int | None = None, reverse: bool = True) -> Iterable[dict]:
+    """Yield raw memory fragments as dictionaries.
+
+    Parameters
+    ----------
+    limit:
+        Maximum number of fragments to yield. ``None`` returns every fragment.
+    reverse:
+        When ``True`` (default) iterate from newest to oldest.
+    """
+
+    files = sorted(RAW_PATH.glob("*.json"), reverse=reverse)
+    count = 0
+    for fp in files:
+        try:
+            data = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        yield data
+        count += 1
+        if limit is not None and count >= limit:
+            break
 
 
 def _load_index_records() -> list[dict]:
@@ -457,6 +486,80 @@ def _write_topic_summaries(entries: Sequence[dict]) -> None:
         print(f"[SUMMARY] Topic capsule updated → {out}")
 
 
+def _extract_session_id(entry: dict) -> str | None:
+    meta = entry.get("meta")
+    if isinstance(meta, dict):
+        for key in ("session", "conversation", "thread", "goal"):
+            value = meta.get(key)
+            if value:
+                return str(value)
+    for tag in entry.get("tags", []) or []:
+        if ":" in tag:
+            prefix, value = tag.split(":", 1)
+            if prefix in {"session", "conversation", "goal"} and value:
+                return value
+    goal_id = entry.get("goal_id")
+    if goal_id:
+        return str(goal_id)
+    return None
+
+
+def _write_session_digest(session_id: str, entries: Sequence[dict]) -> None:
+    if not session_id or not entries:
+        return
+    entries = sorted(entries, key=lambda item: item.get("timestamp", ""))
+    start = entries[0].get("timestamp", "")
+    end = entries[-1].get("timestamp", "")
+    tags = collections.Counter()
+    highlights: list[str] = []
+    for entry in entries[-10:]:
+        tags.update(entry.get("tags", []) or [])
+        text = (entry.get("summary") or entry.get("text", "")).strip().replace("\n", " ")
+        if text:
+            highlights.append(text[:240])
+
+    common_tags = ", ".join(tag for tag, _ in tags.most_common(6)) or "(none)"
+    out = SESSION_PATH / f"{session_id}.md"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", encoding="utf-8") as handle:
+        handle.write(f"# Session {session_id}\n\n")
+        handle.write(f"* timeframe: {start} → {end}\n")
+        handle.write(f"* entries: {len(entries)}\n")
+        handle.write(f"* dominant tags: {common_tags}\n\n")
+        handle.write("## Highlights\n")
+        for bullet in highlights:
+            handle.write(f"- {bullet}\n")
+    print(f"[SUMMARY] Session digest updated → {out}")
+
+
+def _write_turn_summaries(entries: Sequence[dict]) -> None:
+    sessions: dict[str, list[dict]] = {}
+    for entry in entries:
+        session_id = _extract_session_id(entry)
+        if not session_id:
+            continue
+        sessions.setdefault(session_id, []).append(entry)
+
+    for session_id, session_entries in sessions.items():
+        session_entries.sort(key=lambda item: item.get("timestamp", ""))
+        turns: list[dict] = []
+        for item in session_entries[-50:]:
+            text = (item.get("summary") or item.get("text", "")).strip().replace("\n", " ")
+            turns.append(
+                {
+                    "timestamp": item.get("timestamp"),
+                    "summary": text[:280],
+                    "importance": item.get("importance"),
+                    "tags": item.get("tags", []),
+                }
+            )
+        out = TURN_PATH / f"{session_id}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(turns, ensure_ascii=False, indent=2))
+        _write_session_digest(session_id, session_entries)
+        print(f"[SUMMARY] Turn capsule updated → {out}")
+
+
 def summarize_memory() -> None:
     """Concatenate daily fragments into summary files and topic capsules."""
 
@@ -483,6 +586,7 @@ def summarize_memory() -> None:
         print(f"[SUMMARY] Updated {out}")
 
     _write_topic_summaries(entries)
+    _write_turn_summaries(entries)
 
 
 def apply_forgetting_curve(

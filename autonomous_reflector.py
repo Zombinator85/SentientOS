@@ -16,6 +16,11 @@ import memory_manager as mm
 from notification import send as notify
 from self_patcher import apply_patch
 import skill_library as skills
+import critic_daemon
+import reflexion_loop as reflexion
+import goal_curator
+import oracle_bridge
+import emotion_ledger_analytics as emotion_analytics
 
 INTERVAL = 60
 METACOG_INTERVAL = max(2, int(os.getenv("AUTONOMOUS_METACOG_INTERVAL", "5")))
@@ -45,6 +50,7 @@ def _act(goal: dict) -> tuple[dict, dict]:
     consensus = council.deliberate(intent, goal.get("text", ""))
     goal["consensus"] = consensus
     if not consensus.get("approved"):
+        oracle_bridge.consult(goal.get("text", ""), intent=intent)
         notify(
             "goal_blocked",
             {
@@ -60,6 +66,8 @@ def _act(goal: dict) -> tuple[dict, dict]:
             "consensus": consensus,
         }, consensus
     result = actuator.act(intent, explanation=goal.get("text", ""), critique_step=step)
+    if result.get("status") not in {"finished", "success"}:
+        oracle_bridge.consult(goal.get("text", ""), intent=intent)
     return result, consensus
 
 
@@ -110,6 +118,8 @@ def _reflect(goal: dict, result: dict, consensus: dict) -> None:
             notify("escalation", {"id": goal["id"], "text": goal.get("text", "")})
             notify("goal_stuck", {"id": goal["id"], "text": goal.get("text", "")})
     mm.save_goal(goal)
+    critic_daemon.review_action(goal, result, consensus)
+    reflexion.record_insight(goal, result, consensus)
     _self_patch(goal, result, consensus)
     _log_reflection(goal, result, consensus)
 
@@ -124,6 +134,7 @@ def _metacognitive_checkpoint(history: Deque[Dict[str, dict]]) -> None:
         f"Metacognitive checkpoint → completed={completed} blocked={blocked} failed={failed}"
     )
     mm.append_memory(note, tags=["metacognition", "autonomy"], source="autonomous_reflector")
+    snapshot = emotion_analytics.capture_snapshot()
     notify(
         "metacognition",
         {
@@ -131,6 +142,7 @@ def _metacognitive_checkpoint(history: Deque[Dict[str, dict]]) -> None:
             "blocked": blocked,
             "failed": failed,
             "window": len(history),
+            "emotion_severity": snapshot.get("severity"),
         },
     )
     mm.curate_memory()
@@ -157,6 +169,7 @@ def run_loop(interval: float = INTERVAL, iterations: int | None = None) -> None:
             count += 1
         if count and count % CURATION_INTERVAL == 0:
             mm.curate_memory()
+            goal_curator.maybe_schedule_goals()
         time.sleep(interval)
 
 
