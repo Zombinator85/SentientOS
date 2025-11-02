@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, List
 
 import memory_manager as mm
+import council_peer_review as peer_review
 
 FORBIDDEN_SHELL_PATTERNS = [
     "rm -rf",
@@ -80,6 +81,8 @@ def deliberate(intent: Dict[str, Any], explanation: str | None = None) -> Dict[s
         "approved": approved,
         "required": required,
     }
+
+    record["peer_review"] = peer_review.collect_feedback(record)
 
     mm.append_memory(
         json.dumps({"consensus": record}, ensure_ascii=False),

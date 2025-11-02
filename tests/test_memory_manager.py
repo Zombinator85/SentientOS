@@ -218,6 +218,23 @@ def test_summarize_memory_creates_topic_capsule(tmp_path, monkeypatch):
     assert "topic summary" in topic.read_text()
 
 
+def test_session_and_turn_capsules(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
+    from importlib import reload
+    import memory_manager as mm
+
+    reload(mm)
+    mm.append_memory("first turn", tags=["session:alpha", "user_request"], source="unit")
+    mm.append_memory("second turn", tags=["session:alpha"], source="unit")
+    mm.summarize_memory()
+
+    turn_file = tmp_path / "turns" / "alpha.json"
+    session_file = tmp_path / "sessions" / "alpha.md"
+    assert turn_file.exists()
+    assert session_file.exists()
+    assert "first turn" in session_file.read_text()
+
+
 def test_curate_memory_runs_cycle(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
     from importlib import reload
