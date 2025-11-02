@@ -1,0 +1,9 @@
+{
+  "name": "Codex Build Substrate",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspace",
+  "remoteUser": "root",
+  "postCreateCommand": "python3 -m pip install -r requirements-dev.txt"
+}
