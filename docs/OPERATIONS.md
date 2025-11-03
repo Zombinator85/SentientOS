@@ -1,6 +1,6 @@
 # SentientOS Autonomy Operations
 
-This document describes the autonomy hardening controls introduced for the v1.1.0-alpha rehearsal cycle. The features are driven
+This document describes the autonomy hardening controls introduced for the v1.1.0-beta rehearsal cycle. The features are driven
 through `config.yaml` and `SENTIENTOS_*` environment overrides. The defaults are deliberately conservative so every subsystem must
 be opted into explicitly in production.
 
@@ -40,6 +40,16 @@ over the configuration file.
 - `oracle.endpoint` / `SENTIENTOS_ORACLE_ENDPOINT`
 - `oracle.timeout_s` / `SENTIENTOS_ORACLE_TIMEOUT_S`
 - `oracle.budget_per_cycle` / `SENTIENTOS_ORACLE_BUDGET_PER_CYCLE`
+
+### Budget Clamps
+
+- `budgets.reflexion.max_per_hour` / `SENTIENTOS_BUDGET_REFLEXION_MAX_PER_HOUR`
+- `budgets.oracle.max_requests_per_day` / `SENTIENTOS_BUDGET_ORACLE_MAX_REQUESTS_PER_DAY`
+- `budgets.goals.max_autocreated_per_day` / `SENTIENTOS_BUDGET_GOALS_MAX_AUTOCREATED_PER_DAY`
+
+Budget exhaustion changes the module status to `limited` in `/admin/status` and increments the corresponding
+`sos_*_rate_limited_total` counters in `/admin/metrics`. Refill windows are one hour for reflexion and one day for oracle and goal
+curators.
 
 ### Goal Curator & HungryEyes
 
@@ -91,3 +101,14 @@ When `/admin/status` shows the oracle in `degraded` mode:
 The critic increments `sos_critic_disagreements_total` and pushes peer review context to the quarantine log. Use
 `sosctl reflexion run --since 1d` to capture narrative notes and `sosctl council vote --amendment <id>` to re-run the vote once the
 peer review completes.
+
+### Alert Snapshots
+
+Run `./scripts/alerts_snapshot.sh` to materialise the current alert state under `glow/alerts/*.prom`. The snapshot includes:
+
+- `critic_disagreements_surge.prom` – set to `1` when disagreements are non-zero.
+- `oracle_degraded.prom` – set to `1` when the oracle has remained degraded for at least one minute.
+- `council_quorum_miss_ratio.prom` – set to `1` when quorum misses exceed 20% of council votes.
+- `hungryeyes_retrain_overdue.prom` – set to `1` when HungryEyes has not retrained within the last hour.
+
+Alerts drop back to `0` as soon as the underlying condition clears. Include these files in retrospectives for provenance.

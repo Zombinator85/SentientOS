@@ -131,7 +131,7 @@ def run_rehearsal(
 
     status = runtime.status()
     report = {
-        "version": "v1.1.0-alpha",
+        "version": "v1.1.0-beta",
         "cycles": cycles,
         "oracle_mode": runtime.oracle.mode.value,
         "critic_disagreements": len(peer_reviews),

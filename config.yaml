@@ -39,5 +39,12 @@ hungry_eyes:
     retrain_every_n_events: 25
     max_corpus_mb: 32
     seed: null
+budgets:
+  reflexion:
+    max_per_hour: 0
+  oracle:
+    max_requests_per_day: 0
+  goals:
+    max_autocreated_per_day: 0
 determinism:
   seed: 1337

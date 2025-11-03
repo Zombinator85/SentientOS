@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "sentientos"
-version = "1.1.0-alpha"
+version = "1.1.0-beta"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 authors = ["SentientOS"]
 readme = "README.md"
@@ -12,11 +12,12 @@ packages = [
     {include = "sentientos"},
     {include = "api"},
     {include = "gui"},
+    {include = "apps"},
 ]
 
 [project]
 name = "sentientos"
-version = "1.1.0-alpha"
+version = "1.1.0-beta"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 readme = "README.md"
 authors = [{name = "SentientOS"}]
@@ -96,7 +97,7 @@ bridge-watchdog = "bridge_watchdog"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["sentientos", "api", "gui"]
+include = ["sentientos", "api", "gui", "apps"]
 
 [tool.setuptools]
 py-modules = ["sentient_api"]

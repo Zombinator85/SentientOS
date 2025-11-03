@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import time
+from collections import deque
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
@@ -15,10 +16,13 @@ from typing import Callable, Dict, List, Mapping, MutableMapping, Optional, Sequ
 
 from ..config import (
     CriticConfig,
+    GoalsBudgetConfig,
     GoalsCuratorConfig,
     HungryEyesActiveLearningConfig,
     MemoryCuratorConfig,
+    OracleBudgetConfig,
     OracleConfig,
+    ReflexionBudgetConfig,
     ReflexionConfig,
     RuntimeConfig,
 )
@@ -31,6 +35,41 @@ LOGGER = logging.getLogger(__name__)
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class SlidingWindowLimiter:
+    """Simple sliding window rate limiter used for safety budgets."""
+
+    def __init__(self, limit: int, window_seconds: float) -> None:
+        self._limit = max(0, int(limit))
+        self._window = float(window_seconds)
+        self._events: deque[float] = deque()
+
+    @property
+    def limit(self) -> int:
+        return self._limit
+
+    def _prune(self, now: float) -> None:
+        cutoff = now - self._window
+        while self._events and self._events[0] <= cutoff:
+            self._events.popleft()
+
+    def consume(self, *, now: Optional[float] = None) -> bool:
+        if self._limit <= 0:
+            return True
+        instant = time.time() if now is None else float(now)
+        self._prune(instant)
+        if len(self._events) >= self._limit:
+            return False
+        self._events.append(instant)
+        return True
+
+    def remaining(self, *, now: Optional[float] = None) -> Optional[int]:
+        if self._limit <= 0:
+            return None
+        instant = time.time() if now is None else float(now)
+        self._prune(instant)
+        return max(self._limit - len(self._events), 0)
 
 
 class OracleMode(str, Enum):
@@ -158,14 +197,28 @@ class MemoryCurator:
 
 
 class ReflexionEngine:
-    def __init__(self, config: ReflexionConfig, metrics: MetricsRegistry) -> None:
+    def __init__(
+        self,
+        config: ReflexionConfig,
+        metrics: MetricsRegistry,
+        budget: ReflexionBudgetConfig,
+    ) -> None:
         self._config = config
         self._metrics = metrics
         self._semaphore = BoundedSemaphore(value=4)
         self._notes: List[dict] = []
+        self._budget = SlidingWindowLimiter(budget.max_per_hour, 3600.0)
+        self._last_rate_limited: Optional[str] = None
 
     def run(self, task: str, *, corr_id: str, timeout_s: float = 5.0) -> Optional[dict]:
         if not self._config.enable:
+            return None
+        if not self._budget.consume():
+            self._last_rate_limited = _utcnow().isoformat()
+            self._metrics.increment("sos_reflexion_rate_limited_total")
+            LOGGER.warning(
+                "Reflexion rate-limited corr_id=%s limit=%s", corr_id, self._budget.limit
+            )
             return None
         start = time.monotonic()
         acquired = self._semaphore.acquire(timeout=timeout_s)
@@ -198,7 +251,19 @@ class ReflexionEngine:
     def status(self) -> Mapping[str, object]:
         if not self._config.enable:
             return {"status": "disabled"}
-        return {"status": "healthy", "notes": len(self._notes)}
+        remaining = self._budget.remaining()
+        status = {
+            "status": "healthy",
+            "notes": len(self._notes),
+        }
+        if self._budget.limit > 0:
+            status["budget_limit"] = self._budget.limit
+            status["budget_remaining"] = remaining
+            if remaining == 0:
+                status["status"] = "limited"
+            if self._last_rate_limited:
+                status["last_rate_limited"] = self._last_rate_limited
+        return status
 
 
 class CriticEngine:
@@ -272,6 +337,17 @@ class Council:
             outcome = CouncilOutcome.REJECTED
         else:
             outcome = CouncilOutcome.TIED
+        notes = ""
+        if outcome == CouncilOutcome.TIED:
+            breaker = self._tie_breaker.lower().strip()
+            if breaker in {"approve", "chair", "oracle"}:
+                outcome = CouncilOutcome.APPROVED
+                notes = f"tie_breaker:{self._tie_breaker}"
+            else:
+                outcome = CouncilOutcome.REJECTED
+                notes = f"tie_breaker:{self._tie_breaker or 'default-reject'}"
+        if not quorum_met:
+            self._metrics.increment("sos_council_quorum_misses_total")
         self._metrics.increment(
             "sos_council_votes_total",
             labels={"result": outcome.value},
@@ -285,8 +361,16 @@ class Council:
             "quorum_met": quorum_met,
             "ts": _utcnow().isoformat(),
         }
+        if notes:
+            note["notes"] = notes
         LOGGER.info(json.dumps(note))
-        return CouncilDecision(outcome=outcome, votes_for=votes_for, votes_against=votes_against, quorum_met=quorum_met)
+        return CouncilDecision(
+            outcome=outcome,
+            votes_for=votes_for,
+            votes_against=votes_against,
+            quorum_met=quorum_met,
+            notes=notes,
+        )
 
     def status(self) -> Mapping[str, object]:
         return {
@@ -297,10 +381,18 @@ class Council:
 
 
 class OracleGateway:
-    def __init__(self, config: OracleConfig, metrics: MetricsRegistry) -> None:
+    def __init__(
+        self,
+        config: OracleConfig,
+        metrics: MetricsRegistry,
+        budget: OracleBudgetConfig,
+    ) -> None:
         self._config = config
         self._metrics = metrics
         self._mode = OracleMode.OFFLINE
+        self._budget = SlidingWindowLimiter(budget.max_requests_per_day, 86400.0)
+        self._last_rate_limited: Optional[str] = None
+        self._last_degraded: Optional[str] = None
 
     @property
     def mode(self) -> OracleMode:
@@ -310,6 +402,19 @@ class OracleGateway:
         if not self._config.enable:
             self._mode = OracleMode.OFFLINE
             return {"mode": self._mode.value, "result": None}
+        if not self._budget.consume():
+            self._mode = OracleMode.DEGRADED
+            self._last_rate_limited = _utcnow().isoformat()
+            self._last_degraded = self._last_rate_limited
+            self._metrics.increment("sos_oracle_rate_limited_total")
+            LOGGER.warning(
+                "Oracle rate-limited corr_id=%s limit=%s", corr_id, self._budget.limit
+            )
+            return {
+                "mode": self._mode.value,
+                "result": None,
+                "error": "rate_limited",
+            }
         attempt = 0
         delay = 0.1
         last_error: Optional[str] = None
@@ -328,6 +433,7 @@ class OracleGateway:
                 elapsed = (time.monotonic() - start) * 1000
                 self._metrics.increment("sos_oracle_requests_total", labels={"mode": self._mode.value})
                 self._metrics.observe("sos_oracle_latency_ms", elapsed)
+                self._last_degraded = None
                 return {"mode": self._mode.value, "result": result, "elapsed_ms": elapsed}
         self._mode = OracleMode.DEGRADED
         elapsed = (time.monotonic() - start) * 1000
@@ -336,28 +442,53 @@ class OracleGateway:
         LOGGER.warning(
             "Oracle degraded after retries corr_id=%s error=%s", corr_id, last_error
         )
+        self._last_degraded = _utcnow().isoformat()
         return {"mode": self._mode.value, "result": None, "error": last_error}
 
     def status(self) -> Mapping[str, object]:
         if not self._config.enable:
             return {"status": "disabled"}
-        return {"status": "healthy" if self._mode == OracleMode.ONLINE else "degraded", "mode": self._mode.value}
+        remaining = self._budget.remaining()
+        status = {
+            "status": "healthy" if self._mode == OracleMode.ONLINE else "degraded",
+            "mode": self._mode.value,
+        }
+        if self._budget.limit > 0:
+            status["budget_limit"] = self._budget.limit
+            status["budget_remaining"] = remaining
+            if self._last_rate_limited:
+                status["last_rate_limited"] = self._last_rate_limited
+        if self._last_degraded:
+            status["last_degraded_at"] = self._last_degraded
+        return status
 
 
 class GoalCurator:
-    def __init__(self, config: GoalsCuratorConfig, metrics: MetricsRegistry) -> None:
+    def __init__(
+        self,
+        config: GoalsCuratorConfig,
+        metrics: MetricsRegistry,
+        budget: GoalsBudgetConfig,
+    ) -> None:
         self._config = config
         self._metrics = metrics
         self._active: List[dict] = []
         self._last_created: Optional[float] = None
         self._tokens: float = float(config.max_concurrent_auto_goals)
         self._last_refill = time.monotonic()
+        self._budget = SlidingWindowLimiter(budget.max_autocreated_per_day, 86400.0)
+        self._last_rate_limited: Optional[str] = None
 
     def consider(self, proposal: Mapping[str, object], *, corr_id: str, support_count: int, now: Optional[float] = None) -> bool:
         if not self._config.enable:
             return False
         now = time.monotonic() if now is None else now
         self._refill(now)
+        if not self._budget.consume(now=time.time()):
+            self._last_rate_limited = _utcnow().isoformat()
+            self._metrics.increment("sos_goals_rate_limited_total")
+            LOGGER.warning("Goal curator rate-limited corr_id=%s", corr_id)
+            return False
         if support_count < self._config.min_support_count:
             return False
         if self._tokens < 1:
@@ -388,11 +519,20 @@ class GoalCurator:
     def status(self) -> Mapping[str, object]:
         if not self._config.enable:
             return {"status": "disabled"}
-        return {
+        status = {
             "status": "healthy",
             "active": len(self._active),
             "tokens": round(self._tokens, 3),
         }
+        remaining = self._budget.remaining()
+        if self._budget.limit > 0:
+            status["budget_limit"] = self._budget.limit
+            status["budget_remaining"] = remaining
+            if remaining == 0:
+                status["status"] = "limited"
+            if self._last_rate_limited:
+                status["last_rate_limited"] = self._last_rate_limited
+        return status
 
 
 class HungryEyesActiveLearner:
@@ -454,7 +594,11 @@ class AutonomyRuntime:
         self.config = config
         self.metrics = metrics or MetricsRegistry()
         self.memory_curator = MemoryCurator(config.memory.curator, self.metrics)
-        self.reflexion = ReflexionEngine(config.reflexion, self.metrics)
+        self.reflexion = ReflexionEngine(
+            config.reflexion,
+            self.metrics,
+            config.budgets.reflexion,
+        )
         self.critic = CriticEngine(config.critic, self.metrics)
         self.council = Council(
             self.metrics,
@@ -462,8 +606,16 @@ class AutonomyRuntime:
             quorum=config.council.quorum,
             tie_breaker=config.council.tie_breaker,
         )
-        self.oracle = OracleGateway(config.oracle, self.metrics)
-        self.goal_curator = GoalCurator(config.goals.curator, self.metrics)
+        self.oracle = OracleGateway(
+            config.oracle,
+            self.metrics,
+            config.budgets.oracle,
+        )
+        self.goal_curator = GoalCurator(
+            config.goals.curator,
+            self.metrics,
+            config.budgets.goals,
+        )
         self.hungry_eyes = HungryEyesActiveLearner(config.hungry_eyes.active_learning, self.metrics)
 
     @classmethod
