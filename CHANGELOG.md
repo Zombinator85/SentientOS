@@ -2,6 +2,21 @@
 
 All notable changes for the SentientOS 1.x line are documented below.
 
+## [1.1.0-beta] - 2026-02-05
+
+### Operator Experience
+- Delivered a read-only FastAPI dashboard (`apps/dashboard`) visualising `/admin/status`, `/admin/metrics`, and rehearsal artifacts with sparklines and diff viewers.
+- Added bearer-token gating (`SENTIENTOS_DASHBOARD_TOKEN`) to ensure only authorised guardians can access runtime telemetry.
+
+### Chaos & Alerting
+- Introduced `scripts/chaos.sh` with targeted drills for oracle drops, critic lag, council splits, and curator bursts.
+- Implemented safety budgets for reflexion, oracle, and autonomous goals with new `sos_*_rate_limited_total` counters and status reporting.
+- Added Prometheus alert snapshots via `scripts/alerts_snapshot.sh` emitting files under `glow/alerts/*.prom`.
+
+### Documentation & Release
+- Authored `docs/DASHBOARD.md` and `docs/CHAOS.md`, and expanded `docs/OPERATIONS.md` with budget clamps and alert runbooks.
+- Bumped the toolchain version to `v1.1.0-beta` and recorded signed release metadata in `BETA_NOTES.md`.
+
 ## [1.1.0-alpha] - 2026-01-15
 
 ### Autonomy Hardening

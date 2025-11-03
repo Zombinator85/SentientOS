@@ -355,6 +355,28 @@ class DeterminismConfig:
 
 
 @dataclass
+class ReflexionBudgetConfig:
+    max_per_hour: int = 0
+
+
+@dataclass
+class OracleBudgetConfig:
+    max_requests_per_day: int = 0
+
+
+@dataclass
+class GoalsBudgetConfig:
+    max_autocreated_per_day: int = 0
+
+
+@dataclass
+class BudgetsConfig:
+    reflexion: ReflexionBudgetConfig = field(default_factory=ReflexionBudgetConfig)
+    oracle: OracleBudgetConfig = field(default_factory=OracleBudgetConfig)
+    goals: GoalsBudgetConfig = field(default_factory=GoalsBudgetConfig)
+
+
+@dataclass
 class RuntimeConfig:
     determinism: DeterminismConfig = field(default_factory=DeterminismConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
@@ -364,6 +386,7 @@ class RuntimeConfig:
     oracle: OracleConfig = field(default_factory=OracleConfig)
     goals: GoalsConfig = field(default_factory=GoalsConfig)
     hungry_eyes: HungryEyesConfig = field(default_factory=HungryEyesConfig)
+    budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "RuntimeConfig":
@@ -465,6 +488,26 @@ class RuntimeConfig:
             )
         )
 
+        budgets_section = mapping.get("budgets", {})
+        reflexion_budget_section = _as_mapping(budgets_section.get("reflexion"))
+        oracle_budget_section = _as_mapping(budgets_section.get("oracle"))
+        goals_budget_section = _as_mapping(budgets_section.get("goals"))
+        budgets = BudgetsConfig(
+            reflexion=ReflexionBudgetConfig(
+                max_per_hour=int(reflexion_budget_section.get("max_per_hour", 0) or 0)
+            ),
+            oracle=OracleBudgetConfig(
+                max_requests_per_day=int(
+                    oracle_budget_section.get("max_requests_per_day", 0) or 0
+                )
+            ),
+            goals=GoalsBudgetConfig(
+                max_autocreated_per_day=int(
+                    goals_budget_section.get("max_autocreated_per_day", 0) or 0
+                )
+            ),
+        )
+
         return cls(
             determinism=determinism,
             memory=memory,
@@ -474,6 +517,7 @@ class RuntimeConfig:
             oracle=oracle,
             goals=goals,
             hungry_eyes=hungry_eyes,
+            budgets=budgets,
         )
 
 
@@ -564,6 +608,11 @@ def _default_runtime_mapping() -> Dict[str, Any]:
                 "max_corpus_mb": 32,
                 "seed": None,
             }
+        },
+        "budgets": {
+            "reflexion": {"max_per_hour": 0},
+            "oracle": {"max_requests_per_day": 0},
+            "goals": {"max_autocreated_per_day": 0},
         },
     }
 
@@ -737,5 +786,20 @@ _ENVIRONMENT_OVERRIDES: Dict[str, Tuple[Tuple[str, ...], Any]] = {
         "hungry_eyes",
         "active_learning",
         "seed",
+    ), _to_int),
+    "SENTIENTOS_BUDGET_REFLEXION_MAX_PER_HOUR": ((
+        "budgets",
+        "reflexion",
+        "max_per_hour",
+    ), _to_int),
+    "SENTIENTOS_BUDGET_ORACLE_MAX_REQUESTS_PER_DAY": ((
+        "budgets",
+        "oracle",
+        "max_requests_per_day",
+    ), _to_int),
+    "SENTIENTOS_BUDGET_GOALS_MAX_AUTOCREATED_PER_DAY": ((
+        "budgets",
+        "goals",
+        "max_autocreated_per_day",
     ), _to_int),
 }
