@@ -164,6 +164,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_redaction",
         "tests.test_secrets_scan",
         "tests.test_embeddings_migration",
+        "tests.test_autonomy_readiness",
         "tests.e2e.test_alert_rules",
         "tests.e2e.test_services",
         "tests.e2e.test_perf_targets",
