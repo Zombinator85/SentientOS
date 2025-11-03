@@ -1,0 +1,8 @@
+name: EventSignatureMismatches
+severity: critical
+type: metric_threshold
+description: Pulse events failing signature validation
+params:
+  metric: sos_event_signature_mismatches_total
+  comparison: ">
+  threshold: 0

@@ -1,0 +1,6 @@
+name: OracleDegradedSustained
+severity: critical
+type: oracle_degraded
+description: Oracle degraded longer than recovery SLO
+params:
+  minutes: 15

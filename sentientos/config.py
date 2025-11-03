@@ -274,11 +274,27 @@ class ForgettingCurveConfig:
 
 
 @dataclass
+class PrivacyRedactionConfig:
+    enable: bool = True
+    whitelist: Tuple[str, ...] = ()
+    additional_patterns: Tuple[str, ...] = ()
+
+
+@dataclass
+class PrivacyConfig:
+    redactions: PrivacyRedactionConfig = field(default_factory=PrivacyRedactionConfig)
+    hash_pii: bool = False
+    hash_salt_file: Optional[Path] = None
+
+
+@dataclass
 class MemoryCuratorConfig:
     enable: bool = False
     rollup_interval_s: int = 900
     max_capsule_len: int = 4096
     forgetting_curve: ForgettingCurveConfig = field(default_factory=ForgettingCurveConfig)
+    auto_calibrate_importance: bool = False
+    target_capsules: int = 512
 
 
 @dataclass
@@ -387,6 +403,7 @@ class RuntimeConfig:
     goals: GoalsConfig = field(default_factory=GoalsConfig)
     hungry_eyes: HungryEyesConfig = field(default_factory=HungryEyesConfig)
     budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
+    privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "RuntimeConfig":
@@ -411,7 +428,30 @@ class RuntimeConfig:
                         forgetting_section.get("min_keep_score", 0.25)
                     ),
                 ),
+                auto_calibrate_importance=bool(
+                    curator_section.get("auto_calibrate_importance", False)
+                ),
+                target_capsules=int(curator_section.get("target_capsules", 512)),
             )
+        )
+
+        privacy_section = _as_mapping(mapping.get("privacy"))
+        redaction_section = _as_mapping(privacy_section.get("redactions"))
+        salt_path = privacy_section.get("hash_salt_file")
+        privacy = PrivacyConfig(
+            redactions=PrivacyRedactionConfig(
+                enable=bool(redaction_section.get("enable", True)),
+                whitelist=tuple(
+                    str(item)
+                    for item in _as_sequence(redaction_section.get("whitelist"))
+                ),
+                additional_patterns=tuple(
+                    str(item)
+                    for item in _as_sequence(redaction_section.get("additional_patterns"))
+                ),
+            ),
+            hash_pii=bool(privacy_section.get("hash_pii", False)),
+            hash_salt_file=Path(str(salt_path)).expanduser() if salt_path else None,
         )
 
         reflexion_section = mapping.get("reflexion", {})
@@ -518,6 +558,7 @@ class RuntimeConfig:
             goals=goals,
             hungry_eyes=hungry_eyes,
             budgets=budgets,
+            privacy=privacy,
         )
 
 
@@ -572,6 +613,8 @@ def _default_runtime_mapping() -> Dict[str, Any]:
                     "half_life_days": 30.0,
                     "min_keep_score": 0.25,
                 },
+                "auto_calibrate_importance": False,
+                "target_capsules": 512,
             }
         },
         "reflexion": {"enable": False, "max_tokens": 2048, "store_path": None},
@@ -613,6 +656,15 @@ def _default_runtime_mapping() -> Dict[str, Any]:
             "reflexion": {"max_per_hour": 0},
             "oracle": {"max_requests_per_day": 0},
             "goals": {"max_autocreated_per_day": 0},
+        },
+        "privacy": {
+            "redactions": {
+                "enable": True,
+                "whitelist": [],
+                "additional_patterns": [],
+            },
+            "hash_pii": False,
+            "hash_salt_file": None,
         },
     }
 

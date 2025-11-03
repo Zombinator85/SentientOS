@@ -102,13 +102,41 @@ The critic increments `sos_critic_disagreements_total` and pushes peer review co
 `sosctl reflexion run --since 1d` to capture narrative notes and `sosctl council vote --amendment <id>` to re-run the vote once the
 peer review completes.
 
+### Service Level Objectives
+
+SentientOS v1.1.0-rc promotes a baseline set of SLOs encoded in `config.slos.yaml`. They are exposed in `/admin/status` and `/admin/metrics` with gauges prefixed `sentientos_slo*`.
+
+| SLO | Target | Measurement |
+| --- | --- | --- |
+| `admin_api_availability` | ≥ 99.9% | ratio derived from `sos_admin_requests_total` and `_failures_total` |
+| `rehearsal_success_ratio` | ≥ 0.98 | rehearsal cycles without degraded council/oracle |
+| `council_quorum_latency_p95` | ≤ 2s | p95 of `sos_council_vote_latency_ms` histogram |
+| `critic_disagreement_rate` | ≤ 5% | disagreements / council votes |
+| `hungry_eyes_retrain_freshness` | ≤ 7 days | age of the last Hungry Eyes retrain |
+
+Update the YAML file or override the targets in `/sentientos_data/config.slos.yaml` to customise the thresholds. The JSON payload returned by `/admin/status` now includes `slos`, `degraded_modules`, and `slo_breaches` to make incident triage explicit.
+
 ### Alert Snapshots
 
-Run `./scripts/alerts_snapshot.sh` to materialise the current alert state under `glow/alerts/*.prom`. The snapshot includes:
+Run `./scripts/alerts_snapshot.sh` to materialise the current alert state under `glow/alerts/*.prom`. The rules ship under `ops/alerts/` and cover the following failure modes:
 
-- `critic_disagreements_surge.prom` – set to `1` when disagreements are non-zero.
-- `oracle_degraded.prom` – set to `1` when the oracle has remained degraded for at least one minute.
-- `council_quorum_miss_ratio.prom` – set to `1` when quorum misses exceed 20% of council votes.
-- `hungryeyes_retrain_overdue.prom` – set to `1` when HungryEyes has not retrained within the last hour.
+- `HighReflexionTimeouts` – reflexion latency max above budget.
+- `NoQuorum` – council quorum misses observed.
+- `OracleDegradedSustained` – oracle degraded for 15+ minutes.
+- `CuratorBacklogHigh` – memory curator backlog over the configured ceiling.
+- `HungryEyesStaleModel` – Hungry Eyes has not retrained within seven days.
+- `EventSignatureMismatches` – rejected signed pulse events.
 
-Alerts drop back to `0` as soon as the underlying condition clears. Include these files in retrospectives for provenance.
+The script prints a JSON snapshot, emits firing gauges to stdout, and writes individual `*.prom` files to `glow/alerts/`.
+
+### Privacy and Redaction
+
+Logging now flows through a redaction middleware that hides e-mail addresses, bearer tokens, and 64+ character secrets by default. Tune behaviour in `config.yaml` under `privacy.redactions` to add whitelist entries or extra patterns. When `privacy.hash_pii` is enabled the memory curator hashes detected PII inside capsules and stores a reversible vault in `vow/keys/pii_vault.jsonl` for audit retrieval.
+
+### Secrets Hygiene
+
+`make audit` calls `scripts/scan_secrets.sh` which scans the staged files with ripgrep heuristics for bearer tokens, emails, and long lived secrets. Invoke the script manually before committing to catch stray credentials early.
+
+### Performance Smoke Tests
+
+`make perf` runs `scripts/perf_smoke.sh`, generates synthetic critic/reflexion/council decisions across `low|std|high` load profiles, and writes p50/p95 latency reports to `glow/perf/latest/summary.json`. Use the results as the baseline before kicking off a longer soak.

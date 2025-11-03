@@ -4,11 +4,61 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import platform
+import subprocess
 import sys
+from pathlib import Path
 from typing import Sequence
 
 from sentientos.autonomy import AutonomyRuntime, run_rehearsal
 from sentientos.config import load_runtime_config
+
+
+def _cycles_from_duration(duration: str, profile: str) -> int:
+    seconds = _parse_duration(duration)
+    base = {"low": 2, "std": 4, "high": 6}
+    per_block = base.get(profile, base["std"])
+    blocks = max(1, int(seconds // 60) or 1)
+    return per_block * blocks
+
+
+def _parse_duration(value: str) -> float:
+    text = value.strip().lower()
+    if text.endswith("ms"):
+        return max(1.0, float(text[:-2]) / 1000.0)
+    if text.endswith("s"):
+        return max(1.0, float(text[:-1]))
+    if text.endswith("m"):
+        return max(60.0, float(text[:-1]) * 60.0)
+    return max(60.0, float(text))
+
+
+def _service_action(action: str, *, unit_override: str | None = None) -> dict[str, object]:
+    override = os.getenv("SENTIENTOS_SERVICE_PLATFORM")
+    system = override.lower() if override else platform.system().lower()
+    dry_run = os.getenv("SENTIENTOS_SERVICE_DRY_RUN", "0").lower() in {"1", "true", "yes"}
+    commands: list[list[str]] = []
+    if system.startswith("win"):
+        script = Path(__file__).parent / "packaging" / "windows" / "sentientos_windows_service.ps1"
+        command = ["powershell.exe", "-File", str(script), "-Action", action]
+        if unit_override:
+            command.extend(["-ServiceName", unit_override])
+        commands.append(command)
+    else:
+        unit_path = unit_override or str(Path(__file__).parent / "packaging" / "systemd" / "sentientos.service")
+        if action == "install":
+            commands.append(["systemctl", "link", unit_path])
+            commands.append(["systemctl", "enable", "--now", "sentientos.service"])
+        else:
+            commands.append(["systemctl", action, "sentientos.service"])
+    executed: list[list[str]] = []
+    for command in commands:
+        executed.append(command)
+        if dry_run:
+            continue
+        subprocess.run(command, check=True)
+    return {"action": action, "commands": executed, "dry_run": dry_run, "system": system}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -17,6 +67,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     rehearse = sub.add_parser("rehearse", help="Execute autonomy rehearsal")
     rehearse.add_argument("--cycles", type=int, default=1, help="Number of rehearsal cycles")
+    rehearse.add_argument("--duration", default=None, help="Desired rehearsal duration (e.g. 10m)")
+    rehearse.add_argument(
+        "--load-profile",
+        choices=["low", "std", "high"],
+        default="std",
+        help="Synthetic workload profile",
+    )
 
     goals = sub.add_parser("goals", help="Goal curator helpers")
     goals_sub = goals.add_subparsers(dest="goals_command")
@@ -45,6 +102,10 @@ def build_parser() -> argparse.ArgumentParser:
     metrics_sub = metrics.add_subparsers(dest="metrics_command")
     metrics_sub.add_parser("snapshot", help="Persist a metrics snapshot")
 
+    service = sub.add_parser("service", help="Manage SentientOS background service")
+    service.add_argument("action", choices=["install", "start", "stop", "status"])
+    service.add_argument("--unit", help="Optional override for service unit path")
+
     return parser
 
 
@@ -52,8 +113,14 @@ def handle(args: argparse.Namespace) -> int:
     config = load_runtime_config()
     runtime = AutonomyRuntime.from_config(config)
     if args.command == "rehearse":
-        result = run_rehearsal(cycles=args.cycles, runtime=runtime)
-        print(json.dumps(result["report"], indent=2))
+        cycles = args.cycles
+        if args.duration:
+            cycles = max(cycles, _cycles_from_duration(args.duration, args.load_profile))
+        result = run_rehearsal(cycles=cycles, runtime=runtime)
+        payload = result["report"].copy()
+        payload["cycles"] = cycles
+        payload["load_profile"] = args.load_profile
+        print(json.dumps(payload, indent=2))
         return 0
     if args.command == "goals" and args.goals_command == "enqueue":
         created = runtime.goal_curator.consider(
@@ -92,6 +159,10 @@ def handle(args: argparse.Namespace) -> int:
         runtime.metrics.persist_snapshot()
         runtime.metrics.persist_prometheus()
         print(json.dumps({"status": "ok"}))
+        return 0
+    if args.command == "service":
+        response = _service_action(args.action, unit_override=args.unit)
+        print(json.dumps(response, indent=2))
         return 0
     return 1
 

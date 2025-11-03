@@ -1,0 +1,9 @@
+name: CuratorBacklogHigh
+severity: warning
+type: module_field_threshold
+description: Memory curator backlog growing unexpectedly
+params:
+  module: memory_curator
+  field: backlog
+  comparison: ">
+  threshold: 25

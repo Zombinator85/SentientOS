@@ -1,0 +1,28 @@
+slos:
+  - name: admin_api_availability
+    description: Admin API availability per rolling 24h window
+    target: 0.999
+    measure: admin_availability
+    direction: ">="
+  - name: rehearsal_success_ratio
+    description: Rehearsal success ratio over 24h
+    target: 0.98
+    measure: rehearsal_success_ratio
+    direction: ">="
+  - name: council_quorum_latency_p95
+    description: Council quorum latency p95 (seconds)
+    target: 2.0
+    measure: council_latency_p95
+    direction: "<="
+    unit: s
+  - name: critic_disagreement_rate
+    description: Critic disagreement rate (rolling 1h)
+    target: 0.05
+    measure: critic_disagreement_rate
+    direction: "<="
+  - name: hungry_eyes_retrain_freshness
+    description: Hungry Eyes retrain freshness (days)
+    target: 7.0
+    measure: hungry_eyes_freshness
+    direction: "<="
+    unit: d

@@ -1,72 +1,42 @@
-"""Operator alert synthesis built from admin status and metrics."""
+"""Evaluate alert rules for SentientOS operations."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple
+from typing import Iterable, Mapping, Sequence
 
-from .admin_server import admin_metrics, admin_status
+try:  # pragma: no cover - optional dependency
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - fallback
+    yaml = None  # type: ignore[assignment]
+
+try:  # pragma: no cover - optional dependency
+    from .admin_server import RUNTIME
+except ModuleNotFoundError:  # pragma: no cover - test environment fallback
+    from .autonomy import AutonomyRuntime
+    from .config import load_runtime_config
+
+    RUNTIME = AutonomyRuntime.from_config(load_runtime_config())
+
+from .metrics import MetricsRegistry
+from .slo import evaluate as evaluate_slos
 from .storage import get_data_root
 
 
-def _load_status() -> Mapping[str, object]:
-    response = admin_status()
-    return json.loads(response.body.decode("utf-8"))
+@dataclass(frozen=True)
+class AlertRule:
+    name: str
+    severity: str
+    type: str
+    params: Mapping[str, object]
+    description: str = ""
 
 
-def _load_metrics() -> str:
-    response = admin_metrics()
-    return response.body.decode("utf-8")
-
-
-def _parse_prometheus(text: str) -> Dict[Tuple[str, Tuple[Tuple[str, str], ...]], float]:
-    metrics: Dict[Tuple[str, Tuple[Tuple[str, str], ...]], float] = {}
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if " " not in line:
-            continue
-        metric, value = line.rsplit(" ", 1)
-        if "{" in metric and metric.endswith("}"):
-            name, label_str = metric[:-1].split("{", 1)
-            labels = tuple(
-                tuple(part.split("=", 1))
-                for part in label_str.split(",")
-                if "=" in part
-            )
-            labels = tuple((k, v.strip('"')) for k, v in labels)
-        else:
-            name = metric
-            labels = tuple()
-        try:
-            numeric = float(value)
-        except ValueError:
-            continue
-        metrics[(name, labels)] = numeric
-    return metrics
-
-
-def _ratio(numerator: float, denominator: float) -> float:
-    if denominator <= 0:
-        return 0.0
-    return numerator / denominator
-
-
-def _parse_iso8601(value: Optional[str]) -> Optional[datetime]:
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
-        return None
-
-
-@dataclass
+@dataclass(frozen=True)
 class Alert:
     name: str
     value: float
@@ -83,95 +53,265 @@ class Alert:
         )
 
 
-def evaluate_alerts(status: Mapping[str, object], metrics_text: str) -> Iterable[Alert]:
-    metrics = _parse_prometheus(metrics_text)
-    modules = status.get("modules", {}) if isinstance(status, Mapping) else {}
-
-    # Critic disagreements surge
-    disagreements = metrics.get(("sos_critic_disagreements_total", tuple()), 0.0)
-    yield Alert(
-        name="critic_disagreements_surge",
-        value=1.0 if disagreements > 0 else 0.0,
-        message=f"critic disagreements observed: {int(disagreements)}",
-    )
-
-    # Oracle degraded duration
-    oracle = modules.get("oracle", {}) if isinstance(modules, Mapping) else {}
-    oracle_status = oracle.get("status")
-    last_degraded_at = _parse_iso8601(str(oracle.get("last_degraded_at"))) if oracle.get("last_degraded_at") else None
-    degraded_minutes = 0.0
-    if last_degraded_at is not None:
-        degraded_minutes = max(
-            0.0,
-            (datetime.now(timezone.utc) - last_degraded_at).total_seconds() / 60.0,
+def _load_yaml_rule(path: Path) -> AlertRule | None:
+    if yaml is None:
+        return None
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(payload, Mapping):
+        return None
+    try:
+        return AlertRule(
+            name=str(payload["name"]),
+            severity=str(payload.get("severity", "warning")),
+            type=str(payload.get("type", "metric_threshold")),
+            params=dict(payload.get("params", {})),
+            description=str(payload.get("description", "")),
         )
-    oracle_value = 1.0 if oracle_status == "degraded" and degraded_minutes >= 1.0 else 0.0
-    yield Alert(
-        name="oracle_degraded",
-        value=oracle_value,
-        message=f"oracle {oracle.get('mode', 'offline')} for {degraded_minutes:.1f}m",
-    )
-
-    # Council quorum misses ratio
-    total_votes = sum(
-        value
-        for (name, _labels), value in metrics.items()
-        if name == "sos_council_votes_total"
-    )
-    quorum_misses = metrics.get(("sos_council_quorum_misses_total", tuple()), 0.0)
-    quorum_ratio = _ratio(quorum_misses, total_votes)
-    yield Alert(
-        name="council_quorum_miss_ratio",
-        value=1.0 if quorum_ratio > 0.2 else 0.0,
-        message=f"quorum miss ratio {quorum_ratio:.2f}",
-    )
-
-    # HungryEyes retrain overdue
-    hungry = modules.get("hungry_eyes", {}) if isinstance(modules, Mapping) else {}
-    last_retrain = _parse_iso8601(str(hungry.get("last_retrain"))) if hungry.get("last_retrain") else None
-    overdue = True
-    if last_retrain is not None:
-        overdue = (datetime.now(timezone.utc) - last_retrain).total_seconds() > 3600.0
-    yield Alert(
-        name="hungryeyes_retrain_overdue",
-        value=1.0 if overdue else 0.0,
-        message="HungryEyes retrain overdue" if overdue else "HungryEyes retrain fresh",
-    )
+    except Exception:
+        return None
 
 
-def write_alerts(alerts: Iterable[Alert]) -> Dict[str, Path]:
+def _default_rules() -> list[AlertRule]:
+    return [
+        AlertRule(
+            name="HighReflexionTimeouts",
+            severity="warning",
+            type="metric_threshold",
+            params={"metric": "sos_reflexion_latency_ms_max", "comparison": ">", "threshold": 2000.0},
+        ),
+        AlertRule(
+            name="NoQuorum",
+            severity="critical",
+            type="metric_threshold",
+            params={"metric": "sos_council_quorum_misses_total", "comparison": ">", "threshold": 0.0},
+        ),
+        AlertRule(
+            name="OracleDegradedSustained",
+            severity="critical",
+            type="oracle_degraded",
+            params={"minutes": 15},
+        ),
+        AlertRule(
+            name="CuratorBacklogHigh",
+            severity="warning",
+            type="module_field_threshold",
+            params={"module": "memory_curator", "field": "backlog", "comparison": ">", "threshold": 25},
+        ),
+        AlertRule(
+            name="HungryEyesStaleModel",
+            severity="warning",
+            type="module_stale",
+            params={"module": "hungry_eyes", "field": "last_retrain", "max_age_hours": 24 * 7},
+        ),
+        AlertRule(
+            name="EventSignatureMismatches",
+            severity="critical",
+            type="metric_threshold",
+            params={"metric": "sos_event_signature_mismatches_total", "comparison": ">", "threshold": 0.0},
+        ),
+    ]
+
+
+def load_rules(directory: Path | None = None) -> list[AlertRule]:
+    directory = directory or (Path.cwd() / "ops" / "alerts")
+    if directory.exists():
+        rules: list[AlertRule] = []
+        for path in sorted(directory.glob("*.yml")) + sorted(directory.glob("*.yaml")):
+            rule = _load_yaml_rule(path)
+            if rule:
+                rules.append(rule)
+        if rules:
+            return rules
+    return _default_rules()
+
+
+def _parse_metrics(metrics_text: str) -> Mapping[str, float]:
+    metrics: dict[str, float] = {}
+    for line in metrics_text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if " " not in line:
+            continue
+        metric, value = line.rsplit(" ", 1)
+        name = metric.split("{", 1)[0]
+        try:
+            metrics[name] = float(value)
+        except ValueError:
+            continue
+    return metrics
+
+
+def _compare(comparison: str, value: float, threshold: float) -> bool:
+    if comparison == ">":
+        return value > threshold
+    if comparison == ">=":
+        return value >= threshold
+    if comparison == "<":
+        return value < threshold
+    if comparison == "<=":
+        return value <= threshold
+    return False
+
+
+def evaluate_alerts(
+    status: Mapping[str, object],
+    metrics_text: str,
+    *,
+    rules: Sequence[AlertRule] | None = None,
+    metrics_registry: MetricsRegistry | None = None,
+) -> list[Alert]:
+    rules = list(rules or load_rules())
+    metrics = _parse_metrics(metrics_text)
+    modules = status.get("modules", {}) if isinstance(status, Mapping) else {}
+    registry = metrics_registry or RUNTIME.metrics
+    slo_statuses = evaluate_slos(registry, modules if isinstance(modules, Mapping) else None)
+    slo_lookup = {entry.definition.name: entry for entry in slo_statuses}
+    alerts: list[Alert] = []
+    for rule in rules:
+        alert = _evaluate_rule(rule, status, modules, metrics, slo_lookup)
+        alerts.append(alert)
+    return alerts
+
+
+def _evaluate_rule(
+    rule: AlertRule,
+    status: Mapping[str, object],
+    modules: Mapping[str, object],
+    metrics: Mapping[str, float],
+    slo_lookup: Mapping[str, object],
+) -> Alert:
+    severity = rule.severity
+    if rule.type == "metric_threshold":
+        metric = str(rule.params.get("metric", ""))
+        comparison = str(rule.params.get("comparison", ">"))
+        threshold = float(rule.params.get("threshold", 0.0))
+        value = metrics.get(metric, 0.0)
+        firing = _compare(comparison, value, threshold)
+        message = f"{metric}={value:.2f} {comparison} {threshold}"
+        return Alert(rule.name, 1.0 if firing else 0.0, message, severity)
+    if rule.type == "oracle_degraded":
+        module = modules.get("oracle", {}) if isinstance(modules, Mapping) else {}
+        status_value = module.get("status") if isinstance(module, Mapping) else None
+        minutes = float(rule.params.get("minutes", 10))
+        fired = False
+        if status_value == "degraded":
+            last = module.get("last_degraded_at")
+            if last:
+                try:
+                    ts = datetime.fromisoformat(str(last))
+                    age = datetime.now(timezone.utc) - ts.astimezone(timezone.utc)
+                    fired = age >= timedelta(minutes=minutes)
+                except ValueError:
+                    fired = True
+            else:
+                fired = True
+        message = "oracle degraded" if fired else "oracle healthy"
+        return Alert(rule.name, 1.0 if fired else 0.0, message, severity)
+    if rule.type == "module_field_threshold":
+        module_name = str(rule.params.get("module", ""))
+        field = str(rule.params.get("field", ""))
+        comparison = str(rule.params.get("comparison", ">"))
+        threshold = float(rule.params.get("threshold", 0.0))
+        module = modules.get(module_name, {}) if isinstance(modules, Mapping) else {}
+        value = 0.0
+        if isinstance(module, Mapping) and field in module:
+            try:
+                value = float(module[field])
+            except (TypeError, ValueError):
+                value = 0.0
+        fired = _compare(comparison, value, threshold)
+        message = f"{module_name}.{field}={value:.2f} {comparison} {threshold}"
+        return Alert(rule.name, 1.0 if fired else 0.0, message, severity)
+    if rule.type == "module_stale":
+        module_name = str(rule.params.get("module", ""))
+        field = str(rule.params.get("field", "last_retrain"))
+        max_age_hours = float(rule.params.get("max_age_hours", 24.0))
+        module = modules.get(module_name, {}) if isinstance(modules, Mapping) else {}
+        timestamp = module.get(field) if isinstance(module, Mapping) else None
+        fired = False
+        if timestamp:
+            try:
+                ts = datetime.fromisoformat(str(timestamp))
+                age = datetime.now(timezone.utc) - ts.astimezone(timezone.utc)
+                fired = age.total_seconds() > max_age_hours * 3600
+            except ValueError:
+                fired = True
+        else:
+            fired = True
+        message = f"{module_name} stale" if fired else f"{module_name} fresh"
+        return Alert(rule.name, 1.0 if fired else 0.0, message, severity)
+    if rule.type == "slo_breach":
+        name = str(rule.params.get("name", ""))
+        entry = slo_lookup.get(name)
+        breached = bool(entry and not entry.ok)
+        message = entry.message if entry else "slo missing"
+        return Alert(rule.name, 1.0 if breached else 0.0, message, severity)
+    return Alert(rule.name, 0.0, "unsupported rule", severity)
+
+
+def write_alerts(alerts: Iterable[Alert]) -> Mapping[str, str]:
     directory = get_data_root() / "glow" / "alerts"
     directory.mkdir(parents=True, exist_ok=True)
-    paths: Dict[str, Path] = {}
+    paths: dict[str, str] = {}
     for alert in alerts:
         path = directory / f"{alert.name}.prom"
         path.write_text(alert.to_prometheus() + "\n", encoding="utf-8")
-        paths[alert.name] = path
+        paths[alert.name] = str(path)
     return paths
 
 
-def snapshot() -> Dict[str, object]:
-    status = _load_status()
-    metrics = _load_metrics()
-    alerts = list(evaluate_alerts(status, metrics))
+def snapshot() -> Mapping[str, object]:
+    status = RUNTIME.status()
+    metrics_text = RUNTIME.export_metrics()
+    alerts = evaluate_alerts({"modules": status.modules}, metrics_text, metrics_registry=RUNTIME.metrics)
     paths = write_alerts(alerts)
     return {
-        "status": status,
+        "status": status.modules,
         "alerts": [alert.__dict__ for alert in alerts],
-        "paths": {name: str(path) for name, path in paths.items()},
+        "paths": paths,
     }
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="sentientos-alerts",
-        description="Materialise alert state for operators",
-    )
-    parser.parse_args(argv)
+def _cmd_snapshot() -> int:
     payload = snapshot()
     print(json.dumps(payload, indent=2))
     return 0
 
 
+def _cmd_gauges() -> int:
+    status = RUNTIME.status()
+    metrics_text = RUNTIME.export_metrics()
+    alerts = evaluate_alerts({"modules": status.modules}, metrics_text)
+    output = "\n".join(alert.to_prometheus() for alert in alerts if alert.value >= 1.0)
+    print(output)
+    return 0
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Evaluate SentientOS alert rules")
+    sub = parser.add_subparsers(dest="command")
+    sub.add_parser("snapshot", help="Emit JSON snapshot of alert state")
+    sub.add_parser("gauges", help="Print Prometheus gauges for firing alerts")
+    args = parser.parse_args(list(argv) if argv is not None else None)
+    if args.command == "gauges":
+        return _cmd_gauges()
+    return _cmd_snapshot()
+
+
 if __name__ == "__main__":  # pragma: no cover - CLI entry
     raise SystemExit(main())
+
+
+__all__ = [
+    "Alert",
+    "AlertRule",
+    "evaluate_alerts",
+    "load_rules",
+    "snapshot",
+    "write_alerts",
+]
+
