@@ -119,6 +119,46 @@ def epu_state() -> object:
     return jsonify(_state.state())
 
 
+def _coerce_since_param(raw: str | None) -> object | None:
+    if raw is None:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        try:
+            datetime.fromisoformat(raw)
+            return raw
+        except ValueError as exc:
+            raise ValueError(f"Invalid timestamp: {raw}") from exc
+
+
+@app.get("/observe/now")
+def observe_now() -> object:
+    """Return the most recent perception observation summary."""
+
+    observation = mm.latest_observation()
+    return jsonify({"observation": observation})
+
+
+@app.get("/observe/since")
+def observe_since() -> object:
+    """Return observation summaries since a timestamp."""
+
+    try:
+        since = _coerce_since_param(request.args.get("ts"))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    try:
+        limit = int(request.args.get("limit", "20"))
+    except ValueError:
+        limit = 20
+    observations = mm.recent_observations(limit=limit, since=since)
+    return jsonify({"observations": observations, "count": len(observations)})
+
+
 def start_cathedral():
     from flask_stub import app  # or your actual app import
     logging.basicConfig(level=logging.INFO)
