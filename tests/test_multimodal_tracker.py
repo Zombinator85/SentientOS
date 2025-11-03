@@ -4,13 +4,12 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
-
 import sys, os
 from importlib import reload
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+from perception_journal import PerceptionJournal
 
 def test_multimodal_vision_only(tmp_path, monkeypatch):
     """Test vision-only mode: logs correct structure and no faces/audio by default."""
@@ -19,7 +18,14 @@ def test_multimodal_vision_only(tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import multimodal_tracker as mt
     reload(mt)
-    tracker = mt.MultiModalEmotionTracker(enable_voice=False, camera_index=None, output_dir=str(tmp_path))
+    tracker = mt.MultiModalEmotionTracker(
+        enable_voice=False,
+        camera_index=None,
+        output_dir=str(tmp_path),
+        enable_scene=False,
+        enable_screen=False,
+        perception_journal=PerceptionJournal(tmp_path / "journal.jsonl"),
+    )
     result = tracker.process_once(None)
     assert "timestamp" in result
     assert "faces" in result
@@ -42,7 +48,15 @@ def test_multimodal_voice_only(tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, "mic_bridge", FakeMic)
     import multimodal_tracker as mt
     reload(mt)
-    tracker = mt.MultiModalEmotionTracker(enable_vision=False, enable_voice=True, camera_index=None, output_dir=str(tmp_path))
+    tracker = mt.MultiModalEmotionTracker(
+        enable_vision=False,
+        enable_voice=True,
+        camera_index=None,
+        output_dir=str(tmp_path),
+        enable_scene=False,
+        enable_screen=False,
+        perception_journal=PerceptionJournal(tmp_path / "journal.jsonl"),
+    )
     result = tracker.process_once(None)
     # Check that at least one timeline entry for voice with Joy=1.0 exists
     found = any(
@@ -70,7 +84,15 @@ def test_multimodal_both_sources(tmp_path, monkeypatch):
         def process_frame(self, frame):
             return {"faces": [{"id": 1, "emotions": {"Sadness": 0.5}, "dominant": "Sadness"}]}
     mt.FaceEmotionTracker = FakeVision
-    tracker = mt.MultiModalEmotionTracker(enable_vision=True, enable_voice=True, camera_index=None, output_dir=str(tmp_path))
+    tracker = mt.MultiModalEmotionTracker(
+        enable_vision=True,
+        enable_voice=True,
+        camera_index=None,
+        output_dir=str(tmp_path),
+        enable_scene=False,
+        enable_screen=False,
+        perception_journal=PerceptionJournal(tmp_path / "journal.jsonl"),
+    )
     result = tracker.process_once("frame")
     # Check both faces and voice are present and timelines are updated
     assert result["faces"]
@@ -85,7 +107,15 @@ def test_multimodal_headless(tmp_path, monkeypatch):
     monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
     import multimodal_tracker as mt
     reload(mt)
-    tracker = mt.MultiModalEmotionTracker(enable_vision=False, enable_voice=False, camera_index=None, output_dir=str(tmp_path))
+    tracker = mt.MultiModalEmotionTracker(
+        enable_vision=False,
+        enable_voice=False,
+        camera_index=None,
+        output_dir=str(tmp_path),
+        enable_scene=False,
+        enable_screen=False,
+        perception_journal=PerceptionJournal(tmp_path / "journal.jsonl"),
+    )
     result = tracker.process_once(None)
     assert "faces" in result
     # Timeline should be empty
