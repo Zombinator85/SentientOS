@@ -14,6 +14,10 @@ from pathlib import Path
 from threading import BoundedSemaphore, Lock
 from typing import Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence
 
+from curiosity_goal_helper import CuriosityConfig as HelperCuriosityConfig
+from curiosity_goal_helper import CuriosityGoalHelper, configure_global_helper
+from curiosity_executor import CuriosityExecutor
+from sentientos.daemons.curiosity_loop import CuriosityLoopDaemon
 from ..config import (
     CriticConfig,
     GoalsBudgetConfig,
@@ -645,6 +649,26 @@ class AutonomyRuntime:
             config.budgets.goals,
         )
         self.hungry_eyes = HungryEyesActiveLearner(config.hungry_eyes.active_learning, self.metrics)
+        curiosity_cfg = HelperCuriosityConfig(
+            enable=config.curiosity.enable,
+            max_goals_per_hour=config.curiosity.max_goals_per_hour,
+            cooldown_minutes=config.curiosity.cooldown_minutes,
+            novelty_threshold=config.curiosity.novelty_threshold,
+        )
+        self.curiosity_helper = CuriosityGoalHelper(curiosity_cfg, metrics=self.metrics)
+        configure_global_helper(self.curiosity_helper)
+        self.curiosity_executor = CuriosityExecutor(
+            self.curiosity_helper,
+            metrics=self.metrics,
+            critic=self.critic,
+        )
+        cadence = max(float(config.curiosity.cooldown_minutes) * 60.0, 60.0)
+        self.curiosity = CuriosityLoopDaemon(
+            self.curiosity_helper,
+            self.curiosity_executor,
+            cadence_seconds=cadence,
+            metrics=self.metrics,
+        )
 
     @classmethod
     def from_config(cls, config: Optional[RuntimeConfig] = None) -> "AutonomyRuntime":
@@ -663,6 +687,7 @@ class AutonomyRuntime:
             "oracle": self.oracle.status(),
             "goal_curator": self.goal_curator.status(),
             "hungry_eyes": self.hungry_eyes.status(),
+            "curiosity": self.curiosity.status(),
         }
         return AutonomyStatus(modules=modules)
 

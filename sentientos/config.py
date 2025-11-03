@@ -353,6 +353,15 @@ class GoalsConfig:
 
 
 @dataclass
+class CuriosityRuntimeConfig:
+    enable: bool = False
+    max_goals_per_hour: int = 10
+    cooldown_minutes: int = 6
+    oracle: str = "offline"
+    novelty_threshold: float = 0.45
+
+
+@dataclass
 class HungryEyesActiveLearningConfig:
     enable: bool = False
     retrain_every_n_events: int = 25
@@ -401,6 +410,7 @@ class RuntimeConfig:
     council: CouncilConfig = field(default_factory=CouncilConfig)
     oracle: OracleConfig = field(default_factory=OracleConfig)
     goals: GoalsConfig = field(default_factory=GoalsConfig)
+    curiosity: CuriosityRuntimeConfig = field(default_factory=CuriosityRuntimeConfig)
     hungry_eyes: HungryEyesConfig = field(default_factory=HungryEyesConfig)
     budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
     privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
@@ -528,6 +538,15 @@ class RuntimeConfig:
             )
         )
 
+        curiosity_section = _as_mapping(mapping.get("curiosity"))
+        curiosity = CuriosityRuntimeConfig(
+            enable=bool(curiosity_section.get("enable", False)),
+            max_goals_per_hour=int(curiosity_section.get("max_goals_per_hour", 10) or 0),
+            cooldown_minutes=int(curiosity_section.get("cooldown_minutes", 6) or 0),
+            oracle=str(curiosity_section.get("oracle", "offline")),
+            novelty_threshold=float(curiosity_section.get("novelty_threshold", 0.45)),
+        )
+
         budgets_section = mapping.get("budgets", {})
         reflexion_budget_section = _as_mapping(budgets_section.get("reflexion"))
         oracle_budget_section = _as_mapping(budgets_section.get("oracle"))
@@ -556,6 +575,7 @@ class RuntimeConfig:
             council=council,
             oracle=oracle,
             goals=goals,
+            curiosity=curiosity,
             hungry_eyes=hungry_eyes,
             budgets=budgets,
             privacy=privacy,
@@ -643,6 +663,13 @@ def _default_runtime_mapping() -> Dict[str, Any]:
                 "min_days_between_auto_goals": 7.0,
                 "max_concurrent_auto_goals": 1,
             }
+        },
+        "curiosity": {
+            "enable": False,
+            "max_goals_per_hour": 10,
+            "cooldown_minutes": 6,
+            "oracle": "offline",
+            "novelty_threshold": 0.45,
         },
         "hungry_eyes": {
             "active_learning": {
