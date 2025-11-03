@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci
+.PHONY: lock lock-install docs docs-live ci rehearse audit
 .PHONY: package package-windows package-mac
 
 lock:
@@ -12,6 +12,14 @@ docs:
 
 docs-live:
 	sphinx-autobuild docs docs/_build/html
+
+rehearse:
+	./scripts/rehearse.sh 2
+
+audit:
+	./scripts/metrics_snapshot.sh
+	./scripts/hungry_eyes_retrain.sh
+	python -c "from sentientos.config import load_runtime_config; load_runtime_config(); print('config-ok')"
 
 package:
 	python scripts/package_launcher.py

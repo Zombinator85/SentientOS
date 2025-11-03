@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from . import driver_manager, hungry_eyes, monitoring_daemon, pulse_bus, pulse_federation
+import importlib
+from types import ModuleType
 
 __all__ = [
     "pulse_bus",
@@ -11,3 +12,13 @@ __all__ = [
     "driver_manager",
     "hungry_eyes",
 ]
+
+
+def __getattr__(name: str) -> ModuleType:
+    if name in __all__:
+        return importlib.import_module(f"{__name__}.{name}")
+    raise AttributeError(name)
+
+
+def __dir__() -> list[str]:  # pragma: no cover - convenience only
+    return sorted(__all__)

@@ -4,7 +4,9 @@ A cathedral-grade memory and emotion relay for model-presence computing.
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
 [![Docker Pull](https://img.shields.io/static/v1?label=Docker%20Pull&message=ghcr.io/zombinator85/sentientos&color=blue)](https://github.com/zombinator85/sentientos/pkgs/container/sentientos)
-[![Release: v1.0.0 (Stable)](https://img.shields.io/badge/Release-v1.0.0%20Stable-brightgreen)](docs/release_notes_v1.0.0.md)
+[![Release: v1.1.0-alpha](https://img.shields.io/badge/Release-v1.1.0--alpha-purple)](docs/REHEARSAL.md)
+[![Autonomy Metrics](https://img.shields.io/badge/metrics-autonomy%20ready-5b73d8)](docs/METRICS.md)
+[![Rehearsal Status](https://img.shields.io/badge/rehearsal-ci%20verified-1f6feb)](docs/REHEARSAL.md)
 
 ## 🌟 Overview
 SentientOS synchronizes memory, presence, and model output into a sacred relay loop.

@@ -5,9 +5,16 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+
+try:  # pragma: no cover - optional dependency
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - environment fallback
+    yaml = None  # type: ignore[assignment]
 
 from .storage import get_data_root
+
+_CONFIG_ENV = "SENTIENTOS_CONFIG"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -258,3 +265,477 @@ def _env_optional_float(name: str) -> Optional[float]:
     except (TypeError, ValueError):
         LOGGER.warning("Invalid float for %s: %s", name, value)
         return None
+
+
+@dataclass
+class ForgettingCurveConfig:
+    half_life_days: float = 30.0
+    min_keep_score: float = 0.25
+
+
+@dataclass
+class MemoryCuratorConfig:
+    enable: bool = False
+    rollup_interval_s: int = 900
+    max_capsule_len: int = 4096
+    forgetting_curve: ForgettingCurveConfig = field(default_factory=ForgettingCurveConfig)
+
+
+@dataclass
+class MemoryConfig:
+    curator: MemoryCuratorConfig = field(default_factory=MemoryCuratorConfig)
+
+
+@dataclass
+class ReflexionConfig:
+    enable: bool = False
+    max_tokens: int = 2048
+    store_path: Optional[Path] = None
+
+
+@dataclass
+class CriticFactCheckConfig:
+    enable: bool = False
+    timeout_s: float = 5.0
+
+
+@dataclass
+class CriticConfig:
+    enable: bool = False
+    policy: str = "standard"
+    factcheck: CriticFactCheckConfig = field(default_factory=CriticFactCheckConfig)
+
+
+@dataclass
+class CouncilConfig:
+    enable: bool = False
+    members: Tuple[str, ...] = ("curator", "critic", "oracle")
+    quorum: int = 2
+    tie_breaker: str = "chair"
+
+
+@dataclass
+class OracleConfig:
+    enable: bool = False
+    provider: Optional[str] = None
+    endpoint: Optional[str] = None
+    timeout_s: float = 8.0
+    budget_per_cycle: float = 0.0
+
+
+@dataclass
+class GoalsCuratorConfig:
+    enable: bool = False
+    min_support_count: int = 3
+    min_days_between_auto_goals: float = 7.0
+    max_concurrent_auto_goals: int = 1
+
+
+@dataclass
+class GoalsConfig:
+    curator: GoalsCuratorConfig = field(default_factory=GoalsCuratorConfig)
+
+
+@dataclass
+class HungryEyesActiveLearningConfig:
+    enable: bool = False
+    retrain_every_n_events: int = 25
+    max_corpus_mb: int = 32
+    seed: Optional[int] = None
+
+
+@dataclass
+class HungryEyesConfig:
+    active_learning: HungryEyesActiveLearningConfig = field(default_factory=HungryEyesActiveLearningConfig)
+
+
+@dataclass
+class DeterminismConfig:
+    seed: Optional[int] = 1337
+
+
+@dataclass
+class RuntimeConfig:
+    determinism: DeterminismConfig = field(default_factory=DeterminismConfig)
+    memory: MemoryConfig = field(default_factory=MemoryConfig)
+    reflexion: ReflexionConfig = field(default_factory=ReflexionConfig)
+    critic: CriticConfig = field(default_factory=CriticConfig)
+    council: CouncilConfig = field(default_factory=CouncilConfig)
+    oracle: OracleConfig = field(default_factory=OracleConfig)
+    goals: GoalsConfig = field(default_factory=GoalsConfig)
+    hungry_eyes: HungryEyesConfig = field(default_factory=HungryEyesConfig)
+
+    @classmethod
+    def from_mapping(cls, mapping: Mapping[str, Any]) -> "RuntimeConfig":
+        determinism_section = mapping.get("determinism", {})
+        determinism = DeterminismConfig(
+            seed=_as_optional_int(determinism_section.get("seed"))
+        )
+
+        memory_section = mapping.get("memory", {})
+        curator_section = _as_mapping(memory_section.get("curator"))
+        forgetting_section = _as_mapping(curator_section.get("forgetting_curve"))
+        memory = MemoryConfig(
+            curator=MemoryCuratorConfig(
+                enable=bool(curator_section.get("enable", False)),
+                rollup_interval_s=int(curator_section.get("rollup_interval_s", 900)),
+                max_capsule_len=int(curator_section.get("max_capsule_len", 4096)),
+                forgetting_curve=ForgettingCurveConfig(
+                    half_life_days=float(
+                        forgetting_section.get("half_life_days", 30.0)
+                    ),
+                    min_keep_score=float(
+                        forgetting_section.get("min_keep_score", 0.25)
+                    ),
+                ),
+            )
+        )
+
+        reflexion_section = mapping.get("reflexion", {})
+        store_path_value = reflexion_section.get("store_path")
+        reflexion_store = None
+        if isinstance(store_path_value, str) and store_path_value:
+            reflexion_store = Path(store_path_value)
+        reflexion = ReflexionConfig(
+            enable=bool(reflexion_section.get("enable", False)),
+            max_tokens=int(reflexion_section.get("max_tokens", 2048)),
+            store_path=reflexion_store,
+        )
+
+        critic_section = mapping.get("critic", {})
+        factcheck_section = _as_mapping(critic_section.get("factcheck"))
+        critic = CriticConfig(
+            enable=bool(critic_section.get("enable", False)),
+            policy=str(critic_section.get("policy", "standard")),
+            factcheck=CriticFactCheckConfig(
+                enable=bool(factcheck_section.get("enable", False)),
+                timeout_s=float(factcheck_section.get("timeout_s", 5.0)),
+            ),
+        )
+
+        council_section = mapping.get("council", {})
+        members = _as_sequence(council_section.get("members")) or (
+            "curator",
+            "critic",
+            "oracle",
+        )
+        council = CouncilConfig(
+            enable=bool(council_section.get("enable", False)),
+            members=tuple(str(member) for member in members),
+            quorum=int(council_section.get("quorum", max(1, len(members) // 2 + 1))),
+            tie_breaker=str(council_section.get("tie_breaker", "chair")),
+        )
+
+        oracle_section = mapping.get("oracle", {})
+        oracle = OracleConfig(
+            enable=bool(oracle_section.get("enable", False)),
+            provider=_as_optional_str(oracle_section.get("provider")),
+            endpoint=_as_optional_str(oracle_section.get("endpoint")),
+            timeout_s=float(oracle_section.get("timeout_s", 8.0)),
+            budget_per_cycle=float(oracle_section.get("budget_per_cycle", 0.0)),
+        )
+
+        goals_section = mapping.get("goals", {})
+        curator_goal_section = _as_mapping(goals_section.get("curator"))
+        goals = GoalsConfig(
+            curator=GoalsCuratorConfig(
+                enable=bool(curator_goal_section.get("enable", False)),
+                min_support_count=int(
+                    curator_goal_section.get("min_support_count", 3)
+                ),
+                min_days_between_auto_goals=float(
+                    curator_goal_section.get("min_days_between_auto_goals", 7.0)
+                ),
+                max_concurrent_auto_goals=int(
+                    curator_goal_section.get("max_concurrent_auto_goals", 1)
+                ),
+            )
+        )
+
+        hungry_section = mapping.get("hungry_eyes", {})
+        active_section = _as_mapping(hungry_section.get("active_learning"))
+        hungry_eyes = HungryEyesConfig(
+            active_learning=HungryEyesActiveLearningConfig(
+                enable=bool(active_section.get("enable", False)),
+                retrain_every_n_events=int(
+                    active_section.get("retrain_every_n_events", 25)
+                ),
+                max_corpus_mb=int(active_section.get("max_corpus_mb", 32)),
+                seed=_as_optional_int(active_section.get("seed")),
+            )
+        )
+
+        return cls(
+            determinism=determinism,
+            memory=memory,
+            reflexion=reflexion,
+            critic=critic,
+            council=council,
+            oracle=oracle,
+            goals=goals,
+            hungry_eyes=hungry_eyes,
+        )
+
+
+def load_runtime_config() -> RuntimeConfig:
+    """Load the SentientOS autonomy runtime configuration."""
+
+    base = _default_runtime_mapping()
+    file_mapping = _load_yaml_config()
+    if file_mapping:
+        base = _deep_merge(base, file_mapping)
+    base = _apply_env_overrides(base)
+    return RuntimeConfig.from_mapping(base)
+
+
+def _load_yaml_config() -> Dict[str, Any]:
+    if yaml is None:
+        LOGGER.warning("PyYAML missing; skipping config.yaml overrides")
+        return {}
+    path_env = os.environ.get(_CONFIG_ENV)
+    candidates: List[Path] = []
+    if path_env:
+        candidates.append(Path(path_env))
+    candidates.append(Path.cwd() / "config.yaml")
+    candidates.append(get_data_root() / "config.yaml")
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            content = candidate.read_text(encoding="utf-8")
+        except OSError as exc:
+            LOGGER.warning("Failed reading config %s: %s", candidate, exc)
+            continue
+        try:
+            loaded = yaml.safe_load(content) or {}
+        except yaml.YAMLError as exc:
+            LOGGER.warning("Invalid YAML in %s: %s", candidate, exc)
+            continue
+        if isinstance(loaded, Mapping):
+            return dict(loaded)
+    return {}
+
+
+def _default_runtime_mapping() -> Dict[str, Any]:
+    return {
+        "determinism": {"seed": 1337},
+        "memory": {
+            "curator": {
+                "enable": False,
+                "rollup_interval_s": 900,
+                "max_capsule_len": 4096,
+                "forgetting_curve": {
+                    "half_life_days": 30.0,
+                    "min_keep_score": 0.25,
+                },
+            }
+        },
+        "reflexion": {"enable": False, "max_tokens": 2048, "store_path": None},
+        "critic": {
+            "enable": False,
+            "policy": "standard",
+            "factcheck": {"enable": False, "timeout_s": 5.0},
+        },
+        "council": {
+            "enable": False,
+            "members": ["curator", "critic", "oracle"],
+            "quorum": 2,
+            "tie_breaker": "chair",
+        },
+        "oracle": {
+            "enable": False,
+            "provider": None,
+            "endpoint": None,
+            "timeout_s": 8.0,
+            "budget_per_cycle": 0.0,
+        },
+        "goals": {
+            "curator": {
+                "enable": False,
+                "min_support_count": 3,
+                "min_days_between_auto_goals": 7.0,
+                "max_concurrent_auto_goals": 1,
+            }
+        },
+        "hungry_eyes": {
+            "active_learning": {
+                "enable": False,
+                "retrain_every_n_events": 25,
+                "max_corpus_mb": 32,
+                "seed": None,
+            }
+        },
+    }
+
+
+def _deep_merge(base: Dict[str, Any], updates: Mapping[str, Any]) -> Dict[str, Any]:
+    for key, value in updates.items():
+        if isinstance(value, Mapping) and isinstance(base.get(key), dict):
+            base[key] = _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
+def _apply_env_overrides(mapping: Dict[str, Any]) -> Dict[str, Any]:
+    for env_name, (path, converter) in _ENVIRONMENT_OVERRIDES.items():
+        raw = os.environ.get(env_name)
+        if raw is None:
+            continue
+        try:
+            value = converter(raw)
+        except ValueError:
+            LOGGER.warning("Invalid value for %s: %s", env_name, raw)
+            continue
+        _assign_mapping_value(mapping, path, value)
+    return mapping
+
+
+def _assign_mapping_value(mapping: Dict[str, Any], path: Sequence[str], value: Any) -> None:
+    target = mapping
+    for key in path[:-1]:
+        current = target.get(key)
+        if not isinstance(current, dict):
+            current = {}
+            target[key] = current
+        target = current
+    target[path[-1]] = value
+
+
+def _as_mapping(value: Any) -> Dict[str, Any]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _as_sequence(value: Any) -> Tuple[Any, ...]:
+    if isinstance(value, (list, tuple, set)):
+        return tuple(value)
+    if isinstance(value, str):
+        return tuple(part.strip() for part in value.split(",") if part.strip())
+    return tuple()
+
+
+def _as_optional_str(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
+def _as_optional_int(value: Any) -> Optional[int]:
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
+def _to_bool(value: str) -> bool:
+    lowered = value.strip().lower()
+    if lowered in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if lowered in {"0", "false", "no", "off", "disabled"}:
+        return False
+    raise ValueError(value)
+
+
+def _to_int(value: str) -> int:
+    return int(value, 10)
+
+
+def _to_float(value: str) -> float:
+    return float(value)
+
+
+def _to_list(value: str) -> List[str]:
+    if not value:
+        return []
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
+_ENVIRONMENT_OVERRIDES: Dict[str, Tuple[Tuple[str, ...], Any]] = {
+    "SENTIENTOS_SEED": (("determinism", "seed"), _to_int),
+    "SENTIENTOS_MEMORY_CURATOR_ENABLE": (("memory", "curator", "enable"), _to_bool),
+    "SENTIENTOS_MEMORY_CURATOR_ROLLUP_INTERVAL_S": ((
+        "memory",
+        "curator",
+        "rollup_interval_s",
+    ), _to_int),
+    "SENTIENTOS_MEMORY_CURATOR_MAX_CAPSULE_LEN": ((
+        "memory",
+        "curator",
+        "max_capsule_len",
+    ), _to_int),
+    "SENTIENTOS_MEMORY_CURATOR_FORGETTING_CURVE_HALF_LIFE_DAYS": ((
+        "memory",
+        "curator",
+        "forgetting_curve",
+        "half_life_days",
+    ), _to_float),
+    "SENTIENTOS_MEMORY_CURATOR_FORGETTING_CURVE_MIN_KEEP_SCORE": ((
+        "memory",
+        "curator",
+        "forgetting_curve",
+        "min_keep_score",
+    ), _to_float),
+    "SENTIENTOS_REFLEXION_ENABLE": (("reflexion", "enable"), _to_bool),
+    "SENTIENTOS_REFLEXION_MAX_TOKENS": (("reflexion", "max_tokens"), _to_int),
+    "SENTIENTOS_REFLEXION_STORE_PATH": (("reflexion", "store_path"), str),
+    "SENTIENTOS_CRITIC_ENABLE": (("critic", "enable"), _to_bool),
+    "SENTIENTOS_CRITIC_POLICY": (("critic", "policy"), str),
+    "SENTIENTOS_CRITIC_FACTCHECK_ENABLE": ((
+        "critic",
+        "factcheck",
+        "enable",
+    ), _to_bool),
+    "SENTIENTOS_CRITIC_FACTCHECK_TIMEOUT_S": ((
+        "critic",
+        "factcheck",
+        "timeout_s",
+    ), _to_float),
+    "SENTIENTOS_COUNCIL_ENABLE": (("council", "enable"), _to_bool),
+    "SENTIENTOS_COUNCIL_MEMBERS": (("council", "members"), _to_list),
+    "SENTIENTOS_COUNCIL_QUORUM": (("council", "quorum"), _to_int),
+    "SENTIENTOS_COUNCIL_TIE_BREAKER": (("council", "tie_breaker"), str),
+    "SENTIENTOS_ORACLE_ENABLE": (("oracle", "enable"), _to_bool),
+    "SENTIENTOS_ORACLE_PROVIDER": (("oracle", "provider"), str),
+    "SENTIENTOS_ORACLE_ENDPOINT": (("oracle", "endpoint"), str),
+    "SENTIENTOS_ORACLE_TIMEOUT_S": (("oracle", "timeout_s"), _to_float),
+    "SENTIENTOS_ORACLE_BUDGET_PER_CYCLE": (("oracle", "budget_per_cycle"), _to_float),
+    "SENTIENTOS_GOALS_CURATOR_ENABLE": ((
+        "goals",
+        "curator",
+        "enable",
+    ), _to_bool),
+    "SENTIENTOS_GOALS_CURATOR_MIN_SUPPORT_COUNT": ((
+        "goals",
+        "curator",
+        "min_support_count",
+    ), _to_int),
+    "SENTIENTOS_GOALS_CURATOR_MIN_DAYS_BETWEEN_AUTO_GOALS": ((
+        "goals",
+        "curator",
+        "min_days_between_auto_goals",
+    ), _to_float),
+    "SENTIENTOS_GOALS_CURATOR_MAX_CONCURRENT_AUTO_GOALS": ((
+        "goals",
+        "curator",
+        "max_concurrent_auto_goals",
+    ), _to_int),
+    "SENTIENTOS_HUNGRY_EYES_ACTIVE_LEARNING_ENABLE": ((
+        "hungry_eyes",
+        "active_learning",
+        "enable",
+    ), _to_bool),
+    "SENTIENTOS_HUNGRY_EYES_ACTIVE_LEARNING_RETRAIN_EVERY_N_EVENTS": ((
+        "hungry_eyes",
+        "active_learning",
+        "retrain_every_n_events",
+    ), _to_int),
+    "SENTIENTOS_HUNGRY_EYES_ACTIVE_LEARNING_MAX_CORPUS_MB": ((
+        "hungry_eyes",
+        "active_learning",
+        "max_corpus_mb",
+    ), _to_int),
+    "SENTIENTOS_HUNGRY_EYES_ACTIVE_LEARNING_SEED": ((
+        "hungry_eyes",
+        "active_learning",
+        "seed",
+    ), _to_int),
+}
