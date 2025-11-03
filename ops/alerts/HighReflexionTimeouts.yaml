@@ -1,0 +1,8 @@
+name: HighReflexionTimeouts
+severity: warning
+type: metric_threshold
+description: Reflexion loop exceeding timeout budget
+params:
+  metric: sos_reflexion_latency_ms_max
+  comparison: ">
+  threshold: 2000

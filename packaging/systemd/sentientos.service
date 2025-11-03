@@ -1,0 +1,20 @@
+[Unit]
+Description=SentientOS Autonomy Runtime
+After=network.target
+StartLimitIntervalSec=30
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/sentientos
+EnvironmentFile=-/etc/sentientos.env
+ExecStart=/usr/bin/python /opt/sentientos/sentientosd.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+User=sentient
+Group=sentient
+
+[Install]
+WantedBy=multi-user.target

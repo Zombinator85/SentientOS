@@ -1,0 +1,8 @@
+name: HungryEyesStaleModel
+severity: warning
+type: module_stale
+description: Hungry Eyes has not retrained recently
+params:
+  module: hungry_eyes
+  field: last_retrain
+  max_age_hours: 168

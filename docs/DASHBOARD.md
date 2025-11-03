@@ -53,6 +53,17 @@ write paths are ever exposed.
 - Tracks rate-limit counters for reflexion, oracle, and goal curator budgets.
 - All metrics data is sourced exclusively from `/admin/metrics` without any additional storage.
 
+### SLO Overview
+
+- Displays the current values and targets for every SLO defined in `config.slos.yaml`.
+- Cards flip between green/yellow/red states based on whether the SLO is currently satisfied, trending near a breach, or broken.
+- Each entry links directly to the raw JSON payload from `/admin/status` for auditability.
+
+### Quick Links & Redaction Preview
+
+- The right-hand sidebar links to the latest rehearsal, performance smoke summary, and integrity reports under `glow/`.
+- A development-only toggle renders the log redactor preview so operators can confirm that bearer tokens and emails are masked before forwarding logs.
+
 ## Troubleshooting
 
 - **401 / 403 responses** – ensure the `Authorization: Bearer <token>` header is set for all API requests.

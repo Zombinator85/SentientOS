@@ -107,6 +107,14 @@ def run_rehearsal(
                 peer_review=peer_entry,
             )
         )
+        runtime.metrics.increment("sos_rehearsal_cycles_total")
+        success = (
+            council_decision.quorum_met
+            and not critic_result.get("disagreement")
+            and oracle_result.get("mode") != OracleMode.DEGRADED.value
+        )
+        if not success:
+            runtime.metrics.increment("sos_rehearsal_failures_total")
 
     with log_path.open("w", encoding="utf-8") as handle:
         for cycle in cycles_ran:

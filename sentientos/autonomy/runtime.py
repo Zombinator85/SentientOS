@@ -29,6 +29,7 @@ from ..config import (
 from ..daemons.hungry_eyes import HungryEyesDatasetBuilder, HungryEyesSentinel
 from ..determinism import seed_everything
 from ..metrics import MetricsRegistry
+from ..privacy import PrivacyManager
 
 LOGGER = logging.getLogger(__name__)
 
@@ -109,12 +110,20 @@ class AutonomyStatus:
 
 
 class MemoryCurator:
-    def __init__(self, config: MemoryCuratorConfig, metrics: MetricsRegistry) -> None:
+    def __init__(
+        self,
+        config: MemoryCuratorConfig,
+        metrics: MetricsRegistry,
+        privacy: PrivacyManager | None = None,
+    ) -> None:
         self._config = config
         self._metrics = metrics
         self._lock = Lock()
         self._sessions: MutableMapping[str, List[dict]] = {}
         self._capsules: MutableMapping[str, List[dict]] = {}
+        self._privacy = privacy
+        self._importance_floor = float(config.forgetting_curve.min_keep_score)
+        self._target_capsules = max(1, int(config.target_capsules))
 
     def ingest_turn(self, session_id: str, turn: Mapping[str, object], *, importance: float, corr_id: str) -> None:
         if not self._config.enable:
@@ -143,10 +152,17 @@ class MemoryCurator:
             if not turns:
                 return None
             summary = self._build_capsule(turns)
+            if self._privacy:
+                summary = self._privacy.hash_capsule(summary)
             capsule_log = self._capsules.setdefault(session_id, [])
             capsule_log.append(summary)
             self._sessions[session_id] = self._apply_forgetting(turns)
         self._metrics.increment("sos_curator_capsules_written_total")
+        capsule_count = sum(len(v) for v in self._capsules.values())
+        if self._target_capsules:
+            pressure = capsule_count / float(self._target_capsules)
+            self._metrics.set_gauge("sos_memory_target_pressure", pressure)
+            self._auto_calibrate(pressure)
         LOGGER.info(
             json.dumps(
                 {
@@ -178,7 +194,7 @@ class MemoryCurator:
 
     def _apply_forgetting(self, turns: Sequence[Mapping[str, object]]) -> List[dict]:
         horizon = self._config.forgetting_curve.half_life_days
-        keep_score = self._config.forgetting_curve.min_keep_score
+        keep_score = self._importance_floor
         now = time.monotonic()
         retained: List[dict] = []
         for turn in turns:
@@ -189,6 +205,14 @@ class MemoryCurator:
             if importance * decay >= keep_score:
                 retained.append(dict(turn))
         return retained
+
+    def _auto_calibrate(self, pressure: float) -> None:
+        if not self._config.auto_calibrate_importance:
+            return
+        if pressure > 1.2:
+            self._importance_floor = min(1.0, self._importance_floor * 1.05)
+        elif pressure < 0.8:
+            self._importance_floor = max(0.05, self._importance_floor * 0.95)
 
     def status(self) -> Mapping[str, object]:
         if not self._config.enable:
@@ -330,6 +354,7 @@ class Council:
         self._tie_breaker = tie_breaker
 
     def vote(self, proposal: str, *, corr_id: str, votes_for: int, votes_against: int) -> CouncilDecision:
+        start = time.monotonic()
         quorum_met = (votes_for + votes_against) >= self._quorum
         if votes_for > votes_against:
             outcome = CouncilOutcome.APPROVED
@@ -352,6 +377,8 @@ class Council:
             "sos_council_votes_total",
             labels={"result": outcome.value},
         )
+        elapsed_ms = (time.monotonic() - start) * 1000
+        self._metrics.observe("sos_council_vote_latency_ms", elapsed_ms)
         note = {
             "event": "council_vote",
             "proposal": proposal,
@@ -593,7 +620,8 @@ class AutonomyRuntime:
     def __init__(self, config: RuntimeConfig, *, metrics: Optional[MetricsRegistry] = None) -> None:
         self.config = config
         self.metrics = metrics or MetricsRegistry()
-        self.memory_curator = MemoryCurator(config.memory.curator, self.metrics)
+        self.privacy = PrivacyManager(config.privacy)
+        self.memory_curator = MemoryCurator(config.memory.curator, self.metrics, self.privacy)
         self.reflexion = ReflexionEngine(
             config.reflexion,
             self.metrics,

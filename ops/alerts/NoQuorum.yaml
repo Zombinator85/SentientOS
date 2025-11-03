@@ -1,0 +1,8 @@
+name: NoQuorum
+severity: critical
+type: metric_threshold
+description: Council quorum misses detected
+params:
+  metric: sos_council_quorum_misses_total
+  comparison: ">
+  threshold: 0

@@ -161,12 +161,22 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_camera_daemon",
         "tests.test_reporter",
         "tests.test_talkback_actuator",
+        "tests.test_redaction",
+        "tests.test_secrets_scan",
+        "tests.test_embeddings_migration",
+        "tests.e2e.test_alert_rules",
+        "tests.e2e.test_services",
+        "tests.e2e.test_perf_targets",
+        "tests.e2e.test_soak",
     }
     for item in items:
+        module_name = item.module.__name__
+        path_str = str(getattr(item, "fspath", ""))
         if (
             item.name != "test_placeholder"
             and not item.name.startswith("test_emotion_pump")
-            and item.module.__name__ not in allowed_modules
+            and "tests/e2e/" not in path_str
+            and module_name not in allowed_modules
         ):
             item.add_marker(pytest.mark.skip(reason="legacy test disabled"))
         if 'requires_node' in item.keywords and not HAS_NODE:
