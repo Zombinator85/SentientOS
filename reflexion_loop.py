@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import datetime
 import json
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 import memory_manager as mm
 
@@ -58,6 +58,14 @@ def record_insight(goal: Dict[str, Any], result: Dict[str, Any], consensus: Dict
     """Persist a Reflexion style critique to long-term memory."""
 
     insight = generate_insight(goal, result, consensus)
+    context = mm.latest_observation()
+    if context:
+        insight["observation_context"] = {
+            "summary": context.get("summary"),
+            "novelty": context.get("novelty"),
+            "timestamp": context.get("timestamp"),
+            "novel_objects": context.get("novel_objects", []),
+        }
     mm.append_memory(
         json.dumps({"reflexion": insight}, ensure_ascii=False),
         tags=["reflection", "reflexion", goal.get("id", "")],
@@ -66,4 +74,23 @@ def record_insight(goal: Dict[str, Any], result: Dict[str, Any], consensus: Dict
     return insight
 
 
-__all__ = ["generate_insight", "record_insight"]
+def narrate_observation(summary: Mapping[str, Any], novelty: float) -> Dict[str, Any]:
+    """Record a short narrative about a perception summary."""
+
+    narrative = {
+        "summary": summary.get("summary"),
+        "novelty": float(novelty),
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "objects": list(summary.get("objects", [])),
+        "novel_objects": list(summary.get("novel_objects", [])),
+        "transcripts": list(summary.get("transcripts", [])),
+    }
+    mm.append_memory(
+        json.dumps({"perception_reflection": narrative}, ensure_ascii=False),
+        tags=["reflection", "perception"],
+        source="perception_reasoner",
+    )
+    return narrative
+
+
+__all__ = ["generate_insight", "record_insight", "narrate_observation"]

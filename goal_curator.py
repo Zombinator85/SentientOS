@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Mapping
 
 import memory_manager as mm
 
@@ -73,4 +73,43 @@ def maybe_schedule_goals(limit: int = 200, *, min_repetitions: int = _MIN_REPETI
     return created
 
 
-__all__ = ["discover", "maybe_schedule_goals"]
+def spawn_curiosity_goal(
+    summary: Mapping[str, object],
+    *,
+    novelty: float,
+    author: str = "perception_reasoner",
+) -> dict | None:
+    """Create a curiosity-driven goal derived from a perception summary."""
+
+    summary_text = str(summary.get("summary") or "").strip()
+    if not summary_text:
+        return None
+    novel_objects = summary.get("novel_objects") or summary.get("novel") or []
+    if isinstance(novel_objects, str):
+        novel_objects = [novel_objects]
+    if novel_objects:
+        focus = ", ".join(str(obj) for obj in novel_objects)
+        goal_text = f"Investigate novel perception: {focus}"
+    else:
+        goal_text = f"Investigate perception: {summary_text[:160]}"
+    existing = {_normalise(goal.get("text", "")) for goal in mm.get_goals(open_only=False)}
+    if _normalise(goal_text) in existing:
+        return None
+    intent = {
+        "type": "curiosity",
+        "novelty": float(novelty),
+        "observation": {
+            "summary": summary_text,
+            "novel_objects": list(novel_objects),
+        },
+    }
+    goal = mm.add_goal(goal_text, intent=intent, user=author, priority=2)
+    mm.append_memory(
+        json.dumps({"curiosity_task": {"goal": goal_text, "novelty": novelty}}, ensure_ascii=False),
+        tags=["goal", "curiosity", author],
+        source="perception_reasoner",
+    )
+    return goal
+
+
+__all__ = ["discover", "maybe_schedule_goals", "spawn_curiosity_goal"]

@@ -36,6 +36,14 @@ def review_action(goal: Dict[str, Any], result: Dict[str, Any], consensus: Dict[
         "severity": severity,
         "consensus": consensus or {},
     }
+    context = mm.latest_observation()
+    if context:
+        record["observation_context"] = {
+            "summary": context.get("summary"),
+            "novelty": context.get("novelty"),
+            "timestamp": context.get("timestamp"),
+            "novel_objects": context.get("novel_objects", []),
+        }
 
     mm.append_memory(
         json.dumps({"critic_review": record}, ensure_ascii=False),

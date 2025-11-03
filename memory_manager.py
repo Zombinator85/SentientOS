@@ -14,7 +14,7 @@ import datetime
 from datetime import timezone
 from pathlib import Path
 from threading import RLock
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
@@ -36,6 +36,7 @@ SESSION_PATH = MEMORY_DIR / "sessions"
 VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
 GOALS_PATH = MEMORY_DIR / "goals.json"
 TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
+OBSERVATION_LOG_PATH = MEMORY_DIR / "perception_observations.jsonl"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
@@ -43,6 +44,7 @@ TOPIC_PATH.mkdir(parents=True, exist_ok=True)
 TURN_PATH.mkdir(parents=True, exist_ok=True)
 SESSION_PATH.mkdir(parents=True, exist_ok=True)
 TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
+OBSERVATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # --- Importance & forgetting heuristics -------------------------------------
 
@@ -223,6 +225,7 @@ def append_memory(
     emotions: Dict[str, float] | None = None,
     emotion_features: Dict[str, float] | None = None,
     emotion_breakdown: Dict[str, Dict[str, float]] | None = None,
+    meta: Dict[str, object] | None = None,
 ) -> str:
     if os.getenv("INCOGNITO") == "1":
         print("[MEMORY] Incognito mode enabled – skipping persistence")
@@ -238,6 +241,8 @@ def append_memory(
         "emotion_features": emotion_features or {},
         "emotion_breakdown": emotion_breakdown or {},
     }
+    if meta:
+        entry["meta"] = meta
     entry["importance"] = _estimate_importance(entry)
     entry["access_count"] = 0
     entry["last_accessed"] = entry["timestamp"]
@@ -306,6 +311,131 @@ def _cosine(a: Vector, b: Vector) -> float:
 
 def _load_index() -> List[Dict]:
     return list(_load_index_records())
+
+
+def _load_observation_records() -> List[Dict[str, Any]]:
+    if not OBSERVATION_LOG_PATH.exists():
+        return []
+    records: List[Dict[str, Any]] = []
+    with open(OBSERVATION_LOG_PATH, "r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return records
+
+
+def _write_observation_record(record: Mapping[str, Any]) -> None:
+    with open(OBSERVATION_LOG_PATH, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+
+
+def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
+    if not value:
+        return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+    try:
+        dt = datetime.datetime.fromisoformat(value)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
+
+
+def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
+    """Persist a perception observation summary with novelty scoring."""
+
+    summary_text = str(summary.get("summary") or summary.get("text") or "").strip()
+    if not summary_text:
+        raise ValueError("Observation summary text is required")
+    timestamp = str(summary.get("timestamp") or datetime.datetime.utcnow().isoformat())
+    embedding = _embedding(summary_text)
+    previous = _load_observation_records()
+    similarities = [
+        _cosine(embedding, rec.get("embedding", []))
+        for rec in previous
+        if isinstance(rec.get("embedding"), list)
+    ]
+    novelty = max(0.0, min(1.0, 1.0 - (max(similarities) if similarities else 0.0)))
+    record: Dict[str, Any] = dict(summary)
+    record["timestamp"] = timestamp
+    record["summary"] = summary_text
+    record.setdefault("objects", [])
+    record.setdefault("novel_objects", [])
+    record.setdefault("transcripts", [])
+    record.setdefault("screen", [])
+    record.setdefault("emotions", {})
+    record.setdefault("source_events", 0)
+    record["novelty"] = novelty
+    record["embedding"] = embedding
+    record["observation_id"] = _hash(summary_text + timestamp)
+    meta_payload = {k: v for k, v in record.items() if k not in {"embedding"}}
+    fragment_id = append_memory(
+        summary_text,
+        tags=list(summary.get("tags", ["observation", "perception"])),
+        source=str(summary.get("source", "perception_reasoner")),
+        emotions=record.get("emotions"),
+        meta={"observation": meta_payload},
+    )
+    record["fragment_id"] = fragment_id
+    _write_observation_record(record)
+    return record
+
+
+def _coerce_since(value: object) -> datetime.datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, (int, float)):
+        return datetime.datetime.fromtimestamp(float(value), tz=timezone.utc)
+    if isinstance(value, str):
+        try:
+            dt = datetime.datetime.fromisoformat(value)
+            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            try:
+                return datetime.datetime.fromtimestamp(float(value), tz=timezone.utc)
+            except Exception:
+                return None
+    return None
+
+
+def recent_observations(
+    *,
+    limit: int = 20,
+    since: object | None = None,
+    include_embeddings: bool = False,
+) -> List[Dict[str, Any]]:
+    """Return recent observation summaries, newest first."""
+
+    records = _load_observation_records()
+    since_dt = _coerce_since(since)
+    if since_dt is not None:
+        filtered: List[Dict[str, Any]] = []
+        for rec in records:
+            ts = _parse_observation_timestamp(str(rec.get("timestamp")))
+            if ts >= since_dt:
+                filtered.append(rec)
+        records = filtered
+    if limit > 0:
+        records = records[-int(limit) :]
+    records = list(reversed(records))
+    if include_embeddings:
+        return records
+    sanitized: List[Dict[str, Any]] = []
+    for rec in records:
+        clean = {k: v for k, v in rec.items() if k != "embedding"}
+        sanitized.append(clean)
+    return sanitized
+
+
+def latest_observation(*, include_embedding: bool = False) -> Dict[str, Any] | None:
+    observations = recent_observations(limit=1, include_embeddings=include_embedding)
+    return observations[0] if observations else None
 
 
 REFLECTION_PHRASES = [
