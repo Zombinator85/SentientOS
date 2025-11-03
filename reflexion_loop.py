@@ -93,4 +93,38 @@ def narrate_observation(summary: Mapping[str, Any], novelty: float) -> Dict[str,
     return narrative
 
 
-__all__ = ["generate_insight", "record_insight", "narrate_observation"]
+def reflect_curiosity_result(goal: Mapping[str, Any], insight: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a structured self-reflection about a curiosity investigation."""
+
+    observation = (goal.get("intent") or {}).get("observation", {})
+    observation_id = insight.get("observation_id") or observation.get("id")
+    summary = insight.get("insight_summary") or goal.get("text")
+    lesson = (
+        f"Curiosity goal '{goal.get('text')}' explored observation {observation_id or 'unknown'}"
+    )
+    if insight.get("insight"):
+        lesson += f" and learned: {insight['insight']}"
+    adjustment = "Apply the finding to future perception reasoning cycles."
+    reflection = {
+        "goal_id": goal.get("id"),
+        "observation_id": observation_id,
+        "insight_summary": summary,
+        "lesson": lesson,
+        "adjustment": adjustment,
+        "timestamp": datetime.datetime.utcnow().isoformat(),
+    }
+    if observation_id:
+        reflection["observation_ref"] = {
+            "id": observation_id,
+            "summary": observation.get("summary"),
+            "novelty": observation.get("novelty"),
+        }
+    return reflection
+
+
+__all__ = [
+    "generate_insight",
+    "record_insight",
+    "narrate_observation",
+    "reflect_curiosity_result",
+]

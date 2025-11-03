@@ -7,7 +7,7 @@ import time
 from collections import Counter
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, TypedDict
 
-import goal_curator
+from curiosity_goal_helper import get_global_helper
 import memory_manager as mm
 import reflexion_loop
 from sentientos.metrics import MetricsRegistry
@@ -97,12 +97,14 @@ class PerceptionReasoner:
         sanitized["narrative"] = narrative
         curiosity_goal = None
         novelty = float(record.get("novelty", 0.0))
-        if novelty >= self.novelty_threshold:
-            curiosity_goal = goal_curator.spawn_curiosity_goal(sanitized, novelty=novelty)
-            if curiosity_goal:
-                sanitized["curiosity_goal"] = curiosity_goal
-                if self._metrics is not None:
-                    self._metrics.increment("sos_curiosity_tasks_spawned_total")
+        helper = get_global_helper()
+        curiosity_goal = helper.create_goal(
+            sanitized, novelty=novelty, source="perception_reasoner"
+        )
+        if curiosity_goal:
+            sanitized["curiosity_goal"] = curiosity_goal
+            if self._metrics is not None:
+                self._metrics.increment("sos_curiosity_tasks_spawned_total")
         self._last_summary = sanitized  # type: ignore[assignment]
         self._window_start = None
         self._last_emit = now_ts

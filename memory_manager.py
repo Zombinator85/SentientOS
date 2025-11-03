@@ -37,6 +37,7 @@ VECTOR_INDEX_PATH = MEMORY_DIR / "vector.idx"
 GOALS_PATH = MEMORY_DIR / "goals.json"
 TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
 OBSERVATION_LOG_PATH = MEMORY_DIR / "perception_observations.jsonl"
+CURIOSITY_REFLECTIONS_PATH = MEMORY_DIR / "curiosity_reflections.jsonl"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
@@ -45,6 +46,7 @@ TURN_PATH.mkdir(parents=True, exist_ok=True)
 SESSION_PATH.mkdir(parents=True, exist_ok=True)
 TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
 OBSERVATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+CURIOSITY_REFLECTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # --- Importance & forgetting heuristics -------------------------------------
 
@@ -333,6 +335,12 @@ def _write_observation_record(record: Mapping[str, Any]) -> None:
         handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
+def _rewrite_observation_records(records: Sequence[Mapping[str, Any]]) -> None:
+    with open(OBSERVATION_LOG_PATH, "w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+
+
 def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
     if not value:
         return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -431,6 +439,114 @@ def recent_observations(
         clean = {k: v for k, v in rec.items() if k != "embedding"}
         sanitized.append(clean)
     return sanitized
+
+
+def update_novelty_score(observation_id: str, delta: float) -> bool:
+    """Adjust the novelty score for an observation by ``delta``."""
+
+    records = _load_observation_records()
+    updated = False
+    for record in records:
+        if record.get("observation_id") != observation_id:
+            continue
+        novelty = float(record.get("novelty", 0.0)) + float(delta)
+        record["novelty"] = max(0.0, min(1.0, novelty))
+        history = record.setdefault("novelty_history", [])
+        history.append(
+            {
+                "delta": float(delta),
+                "timestamp": datetime.datetime.utcnow().isoformat(),
+            }
+        )
+        updated = True
+        break
+    if updated:
+        _rewrite_observation_records(records)
+    return updated
+
+
+def store_reflection(reflection: Mapping[str, Any]) -> Dict[str, Any]:
+    """Persist a curiosity/reflexion insight and link it to observations."""
+
+    summary = str(reflection.get("insight_summary") or "").strip()
+    if not summary:
+        raise ValueError("Reflection insight summary required")
+    timestamp = str(reflection.get("timestamp") or datetime.datetime.utcnow().isoformat())
+    record = dict(reflection)
+    record["timestamp"] = timestamp
+    record.setdefault("goal_id", None)
+    record.setdefault("observation_id", None)
+    reflection_id = record.get("reflection_id") or _hash(summary + timestamp)
+    record["reflection_id"] = reflection_id
+    with open(CURIOSITY_REFLECTIONS_PATH, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    fragment_id = append_memory(
+        summary,
+        tags=["reflection", "curiosity"],
+        source="curiosity_executor",
+        meta={"curiosity_reflection": record},
+    )
+    record["fragment_id"] = fragment_id
+    observation_id = record.get("observation_id")
+    if observation_id:
+        obs_records = _load_observation_records()
+        changed = False
+        for obs in obs_records:
+            if obs.get("observation_id") == observation_id:
+                reflections = obs.setdefault("reflections", [])
+                reflections.append(
+                    {
+                        "reflection_id": reflection_id,
+                        "summary": summary,
+                        "timestamp": timestamp,
+                    }
+                )
+                changed = True
+                break
+        if changed:
+            _rewrite_observation_records(obs_records)
+    return record
+
+
+def iter_curiosity_reflections(limit: int | None = None) -> List[Dict[str, Any]]:
+    if not CURIOSITY_REFLECTIONS_PATH.exists():
+        return []
+    with open(CURIOSITY_REFLECTIONS_PATH, "r", encoding="utf-8") as handle:
+        lines = handle.readlines()
+    entries: List[Dict[str, Any]] = []
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        try:
+            entries.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+        if limit is not None and len(entries) >= limit:
+            break
+    return list(reversed(entries))
+
+
+def summarise_daily_insights(date: str | None = None) -> Dict[str, Any]:
+    date = date or datetime.datetime.utcnow().date().isoformat()
+    reflections = [
+        entry
+        for entry in iter_curiosity_reflections()
+        if str(entry.get("timestamp", "")).startswith(date)
+    ]
+    if reflections:
+        summary_text = " \n".join(
+            f"- {entry.get('insight_summary', '')}" for entry in reflections
+        )
+    else:
+        summary_text = "No new insights."
+    digest = {"date": date, "count": len(reflections), "summary": summary_text}
+    append_memory(
+        f"Curiosity digest for {date}: {summary_text}",
+        tags=["curiosity", "digest"],
+        source="curiosity_loop",
+        meta={"curiosity_digest": digest},
+    )
+    return digest
 
 
 def latest_observation(*, include_embedding: bool = False) -> Dict[str, Any] | None:
