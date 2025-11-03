@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.poetry]
 name = "sentientos"
-version = "1.0.0"
+version = "1.1.0-alpha"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 authors = ["SentientOS"]
 readme = "README.md"
@@ -16,7 +16,7 @@ packages = [
 
 [project]
 name = "sentientos"
-version = "1.0.0"
+version = "1.1.0-alpha"
 description = "Ledger-based automation framework enforcing sanctuary privilege."
 readme = "README.md"
 authors = [{name = "SentientOS"}]
@@ -87,6 +87,7 @@ sentient-api = "sentient_api:app.run"
 sentientosd = "sentientosd:main"
 sentientos-chat = "sentientos.chat_service:run"
 sentientos-updater = "updater:update"
+sosctl = "sosctl:main"
 
 [project.entry-points."sentientos.plugins"]
 telegram-bot = "telegram_bot"

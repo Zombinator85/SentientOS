@@ -1,0 +1,43 @@
+memory:
+  curator:
+    enable: false
+    rollup_interval_s: 900
+    max_capsule_len: 4096
+    forgetting_curve:
+      half_life_days: 30.0
+      min_keep_score: 0.25
+reflexion:
+  enable: false
+  max_tokens: 2048
+  store_path: null
+critic:
+  enable: false
+  policy: standard
+  factcheck:
+    enable: false
+    timeout_s: 5.0
+council:
+  enable: false
+  members: [curator, critic, oracle]
+  quorum: 2
+  tie_breaker: chair
+oracle:
+  enable: false
+  provider: null
+  endpoint: null
+  timeout_s: 8.0
+  budget_per_cycle: 0.0
+goals:
+  curator:
+    enable: false
+    min_support_count: 3
+    min_days_between_auto_goals: 7.0
+    max_concurrent_auto_goals: 1
+hungry_eyes:
+  active_learning:
+    enable: false
+    retrain_every_n_events: 25
+    max_corpus_mb: 32
+    seed: null
+determinism:
+  seed: 1337

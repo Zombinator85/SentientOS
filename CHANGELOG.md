@@ -2,6 +2,24 @@
 
 All notable changes for the SentientOS 1.x line are documented below.
 
+## [1.1.0-alpha] - 2026-01-15
+
+### Autonomy Hardening
+- Added a comprehensive autonomy runtime (`sentientos.autonomy`) that wires feature flags, deterministic seeding, rate limits,
+  and circuit breakers across semantic memory, reflexion, critic, council, oracle, goal curator, and HungryEyes modules.
+- Introduced `/admin/status` and `/admin/metrics` endpoints exposing health summaries and Prometheus counters/histograms for the
+  hardened services.
+- Implemented a sandboxed subprocess runner with CPU and memory limits plus a CLI (`sosctl`) to manage rehearsals, goals,
+  council votes, reflexion notes, HungryEyes retrains, and metrics snapshots.
+
+### Provenance & Tooling
+- Rehearsals now emit signed `REHEARSAL_REPORT.json` and `INTEGRITY_SUMMARY.json` artefacts alongside a metrics snapshot and
+  structured runtime log.
+- Added `make rehearse`, `make audit`, and new scripts under `scripts/` to automate dry-run rehearsals, integrity checks, and
+  metrics exports.
+- Documented operations, metrics, and rehearsal playbooks (`docs/OPERATIONS.md`, `docs/METRICS.md`, `docs/REHEARSAL.md`) and
+  updated README badges for the alpha release.
+
 ## [1.0.0] - 2025-11-02
 
 ### Highlights
