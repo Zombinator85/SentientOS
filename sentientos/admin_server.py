@@ -47,6 +47,7 @@ except ModuleNotFoundError:  # pragma: no cover - test fallback
 
             return decorator
 
+from daemon_autonomy_supervisor import DaemonAutonomySupervisor
 from .autonomy import AutonomyRuntime
 from .config import load_runtime_config
 from .logging_middleware import RedactingLoggingMiddleware
@@ -55,6 +56,7 @@ from .slo import to_dict as slo_to_dict
 from .slo import to_prometheus as slo_to_prometheus
 
 RUNTIME = AutonomyRuntime.from_config(load_runtime_config())
+SUPERVISOR = DaemonAutonomySupervisor(runtime=RUNTIME, auto_start=True)
 APP = FastAPI()
 app = APP
 
@@ -134,4 +136,18 @@ def autonomy_status() -> JSONResponse:
     return JSONResponse(payload)
 
 
-__all__ = ["APP", "app", "admin_status", "admin_metrics", "autonomy_status", "RUNTIME"]
+@APP.get("/admin/status/supervisor")
+def supervisor_status() -> JSONResponse:
+    return JSONResponse(SUPERVISOR.status_report())
+
+
+__all__ = [
+    "APP",
+    "app",
+    "admin_status",
+    "admin_metrics",
+    "autonomy_status",
+    "supervisor_status",
+    "RUNTIME",
+    "SUPERVISOR",
+]

@@ -166,6 +166,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_embeddings_migration",
         "tests.test_perception_reasoner",
         "tests.test_autonomy_readiness",
+        "tests.test_autonomy_supervisor",
         "tests.e2e.test_alert_rules",
         "tests.e2e.test_services",
         "tests.e2e.test_perf_targets",

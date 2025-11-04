@@ -38,6 +38,10 @@ from sentientos.perception.asr_listener import ASRListener, AudioConfig, Callabl
 from sentientos.perception.screen_ocr import ScreenConfig, ScreenOCR
 
 
+PULSE_DIR = Path("pulse")
+METRICS_LOG = Path("glow/metrics/readiness.jsonl")
+
+
 class SubsystemCheckError(RuntimeError):
     def __init__(self, message: str, *, status: str = "FAIL", hint: str | None = None) -> None:
         super().__init__(message)
@@ -413,6 +417,33 @@ def build_context() -> CheckContext:
     return CheckContext(env=env, model_root=model_root, reports_dir=reports_dir)
 
 
+def _write_readiness_summary(summary: Mapping[str, object], report_path: Path) -> None:
+    PULSE_DIR.mkdir(parents=True, exist_ok=True)
+    totals = summary.get("totals", {}) if isinstance(summary, Mapping) else {}
+    lines = [
+        f"timestamp: {_utcnow()}",
+        f"healthy: {summary.get('healthy') if isinstance(summary, Mapping) else 'unknown'}",
+        f"pass: {totals.get('PASS', 0)} fail: {totals.get('FAIL', 0)} missing: {totals.get('MISSING', 0)}",
+        f"report: {report_path}",
+    ]
+    (PULSE_DIR / "last_readiness.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _append_readiness_metric(summary: Mapping[str, object], report_path: Path) -> None:
+    METRICS_LOG.parent.mkdir(parents=True, exist_ok=True)
+    entry = {
+        "timestamp": _utcnow(),
+        "readiness_passed": True,
+        "summary": {
+            "healthy": summary.get("healthy"),
+            "totals": summary.get("totals", {}),
+        },
+        "report": str(report_path),
+    }
+    with METRICS_LOG.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Verify embodied autonomy readiness")
     parser.add_argument("--json", action="store_true", help="Print JSON summary to stdout")
@@ -423,6 +454,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     results = run_checks(context)
     report_path = write_report(results, context.reports_dir)
     summary = summarise(results)
+    if summary.get("healthy"):
+        _write_readiness_summary(summary, report_path)
+        _append_readiness_metric(summary, report_path)
 
     if args.json:
         payload = {
