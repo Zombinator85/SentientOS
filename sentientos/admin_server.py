@@ -115,4 +115,23 @@ def admin_metrics() -> PlainTextResponse:
     return PlainTextResponse(text, media_type="text/plain; version=0.0.4")
 
 
-__all__ = ["APP", "app", "admin_status", "admin_metrics", "RUNTIME"]
+@APP.get("/admin/status/autonomy")
+def autonomy_status() -> JSONResponse:
+    audit_summary = RUNTIME.audit_log.summary()
+    social_status = RUNTIME.social.status()
+    gui_status = RUNTIME.gui.status()
+    payload = {
+        "panic_active": RUNTIME.panic_active(),
+        "recent_actions": audit_summary.get("recent", []),
+        "action_totals": audit_summary.get("totals", {}),
+        "blocked_recent": audit_summary.get("blocked_recent", 0),
+        "council_votes": RUNTIME.council.history(10),
+        "safety_budgets": {
+            "social_budget_remaining": social_status.get("budget_remaining"),
+            "gui": gui_status,
+        },
+    }
+    return JSONResponse(payload)
+
+
+__all__ = ["APP", "app", "admin_status", "admin_metrics", "autonomy_status", "RUNTIME"]

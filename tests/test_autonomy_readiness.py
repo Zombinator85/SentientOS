@@ -1,61 +1,56 @@
-from pathlib import Path
+from __future__ import annotations
 
-import os
+import json
 
-from tools.autonomy_readiness import evaluate_autonomy_environment
-
-
-def _fresh_env() -> dict[str, str]:
-    return {key: value for key, value in os.environ.items() if key.startswith("SENTIENTOS_")}
+import tools.autonomy_readiness as readiness
 
 
-def test_all_checks_pass(tmp_path: Path) -> None:
-    env = _fresh_env()
-    model_path = tmp_path / "mixtral.gguf"
-    model_path.write_text("test")
+def test_autonomy_readiness_pass(tmp_path, monkeypatch) -> None:
+    model_root = tmp_path / "models"
+    (model_root / "whisper").mkdir(parents=True)
+    (model_root / "llm").mkdir(parents=True)
+    reports_dir = tmp_path / "reports"
+    monkeypatch.setenv("SENTIENTOS_MODEL_ROOT", str(model_root))
+    monkeypatch.setenv("SENTIENTOS_REPORT_DIR", str(reports_dir))
+    monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path / "data"))
 
-    env.update(
-        {
-            "SENTIENTOS_ORACLE": "offline",
-            "SENTIENTOS_CODER": "local",
-            "SENTIENTOS_MODEL_PATH": str(model_path),
+    called = {}
+
+    def fake_which(cmd: str) -> str | None:
+        mapping = {
+            "arecord": "/usr/bin/arecord",
+            "espeak": "/usr/bin/espeak",
+            "tesseract": "/usr/bin/tesseract",
+            "chromium": "/usr/bin/chromium",
+            "xdotool": "/usr/bin/xdotool",
         }
-    )
+        called[cmd] = True
+        return mapping.get(cmd)
 
-    checks, overall = evaluate_autonomy_environment(env=env)
+    monkeypatch.setattr(readiness.shutil, "which", fake_which)
 
-    assert overall is True
-    assert all(check.ok for check in checks)
+    class DummyModel:
+        metadata = {"engine": "diagnostic"}
 
+        def generate(self, prompt: str, history=None, **kwargs):
+            return "diagnostic llm output"
 
-def test_missing_model_allowed(tmp_path: Path) -> None:
-    env = _fresh_env()
-    env.update(
-        {
-            "SENTIENTOS_ORACLE": "none",
-            "SENTIENTOS_CODER": "local",
-            "SENTIENTOS_MODEL_PATH": str(tmp_path / "does-not-exist.gguf"),
-        }
-    )
+    monkeypatch.setattr(readiness, "_load_local_model", lambda: DummyModel())
 
-    checks, overall = evaluate_autonomy_environment(env=env, require_model=False)
-
-    assert overall is True
-    path_messages = [check.message for check in checks if check.name == "Local model path"]
-    assert path_messages and "does not exist" in path_messages[0]
+    exit_code = readiness.main(["--json"])
+    assert exit_code == 0
+    report = json.loads((reports_dir / "autonomy_readiness.json").read_text(encoding="utf-8"))
+    statuses = {name: data["status"] for name, data in report["subsystems"].items()}
+    assert set(statuses.values()) == {"PASS"}
+    assert "arecord" in called
 
 
-def test_detects_missing_configuration(monkeypatch, tmp_path: Path) -> None:
-    env = {}
-    monkeypatch.delenv("SENTIENTOS_ORACLE", raising=False)
-    monkeypatch.delenv("SENTIENTOS_CODER", raising=False)
-    monkeypatch.delenv("SENTIENTOS_MODEL_PATH", raising=False)
+def test_autonomy_readiness_failure(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SENTIENTOS_MODEL_ROOT", str(tmp_path / "missing"))
+    monkeypatch.setenv("SENTIENTOS_REPORT_DIR", str(tmp_path / "reports"))
+    monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setattr(readiness.shutil, "which", lambda _: None)
+    monkeypatch.setattr(readiness, "_load_local_model", lambda: None)
+    exit_code = readiness.main(["--quiet"])
+    assert exit_code == 1
 
-    checks, overall = evaluate_autonomy_environment(env=env)
-
-    assert overall is False
-    assert {check.name for check in checks if not check.ok} == {
-        "Oracle provider",
-        "Coder backend",
-        "Local model path",
-    }

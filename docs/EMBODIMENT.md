@@ -1,72 +1,116 @@
-# SentientOS Embodied Presence
+# Embodiment Pipeline Overview
 
-This document covers the local perception and actuation stack used when
-SentientOS operates on a single workstation.  The components are designed to be
-opt-in, privacy aware, and governed by explicit budgets.
+SentientOS v1.2.0-beta delivers a fully offline embodiment stack that
+links perception, cognition and actuation without cloud dependencies.
+This document describes the data flow and configuration touch points for
+each subsystem.
 
-## Audio Ears (ASR Listener)
+## High-Level Flow
 
-- **Config:** `audio.*`
-- **Metrics:** `sos_asr_segments_total`, `sos_asr_latency_ms`, `sos_asr_dropped_total`
-- **Smoke test:** `make asr-smoke`
+```
+┌────────┐   audio   ┌───────────┐   tokens   ┌────────────┐
+│  ASR   │──────────▶│  Runtime  │──────────▶│   LLM       │
+└────────┘           └───────────┘            └────┬───────┘
+      ▲                    │                        │
+      │                curiosity,                   │
+      │ screen OCR      memory                      ▼
+┌─────────┐         ┌───────────┐              ┌──────────┐
+│  OCR    │────────▶│ Memory    │◀────────────▶│ GUI/Browser│
+└─────────┘         └───────────┘              └────┬──────┘
+      │                                             │
+      ▼                                             ▼
+  Visual cues                                  Voice / Actions
+```
 
-The listener chunks microphone audio into short windows, applies RMS
-voice-activity detection, and hands the samples to the configured backend
-(`whisper_local`, `null`, or a custom callable).  The runtime clamps concurrent
-transcriptions and enforces `max_minutes_per_hour` to avoid runaway processing.
+## Subsystems
 
-## Voice Mouth (TTS Speaker)
+### Automatic Speech Recognition (ASR)
 
-- **Config:** `tts.*`
-- **Metrics:** `sos_tts_lines_spoken_total`, `sos_tts_dropped_total`
-- **Smoke test:** `make speak MSG="hello"`
+* **Engine:** Whisper GGUF (base.en) via `sentientos.perception.asr_listener`.
+* **Inputs:** Microphone stream (`arecord`/`sox`).
+* **Outputs:** Transcript segments forwarded to the autonomy runtime and
+  memory curator.
+* **Configuration:** `config.runtime.audio` (`backend`, `vad`, `chunk_seconds`).
+* **Readiness hint:** `models/whisper/base.en.gguf` must exist.
 
-Announcements are enqueued and deduplicated by correlation id.  The speaker
-honours `max_chars_per_minute` and `cooldown_seconds` before dispatching to the
-selected backend.  Queue length and active speaking state are surfaced through
-`/admin/status`.
+### Text-to-Speech (TTS)
 
-## Screen Awareness
+* **Engine:** `TTSSpeaker` with dynamic voice modulation.
+* **Emotion mapping:**
 
-- **Config:** `screen.*`
-- **Metrics:** `sos_screen_captures_total`, `sos_screen_ocr_chars_total`
-- **Smoke test:** `make screen-ocr-smoke TEXT="example"`
+  | EPU Mood | Pitch | Rate | Volume |
+  |----------|-------|------|--------|
+  | calm     | -10%  | -10% | 0      |
+  | alert    | +20%  | +10% | +10%   |
+  | sad      | -15%  | -12% | -5%    |
+  | joyful   | +10%  | +5%  | +5%    |
 
-Periodic screen captures are hashed to avoid redundant OCR work.  Text is
-redacted through the global privacy filters before appearing on dashboards or
-metrics.  The `max_chars_per_minute` guard ensures OCR does not overwhelm the
-system.
+* **Configuration:**
 
-## GUI Control
+  ```yaml
+  tts:
+    enable: true
+    backend: espeak
+    personality:
+      expressiveness: medium  # low | medium | high
+      baseline_mood: calm
+      dynamic_voice: true
+  ```
 
-- **Config:** `gui.*`
-- **Safety modes:** `standard`, `permissive`, `locked`
+* **Fallback:** Neutral voice is used when the Emotion Processing Unit
+  (EPU) is offline.
 
-The controller exposes simple intents (`move`, `click`, `type`).  Dangerous
-patterns—such as typing secrets—are blocked unless the autonomy level is set to
-`permissive`.  When the panic flag is raised (`AutonomyRuntime.activate_panic()`)
-all GUI actions are rejected.
+### Optical Character Recognition (OCR)
 
-## Proactive Conversation
+* **Engine:** Tesseract via `sentientos.perception.screen_ocr`.
+* **Usage:** Periodic screen digests feed the memory curator and daily
+  narrative reflex.
+* **Configuration:** `config.runtime.screen` (`interval_s`, `ocr_backend`).
+* **Resource guard:** Throttled to ≤ 5000 chars/minute; automatically
+  backs off when CPU load crosses 85%.
 
-- **Config:** `conversation.*`
-- **Metrics:** `sos_conversation_triggers_total{type=...}`
+### GUI Controller
 
-Triggers fire when ASR hears the configured name, when novelty spikes, or when
-presence detectors activate.  Quiet hours suppress prompts entirely.  Rate
-limits are enforced via `max_prompts_per_hour` and surfaced in module status.
+* **Component:** `sentientos.actuators.gui_control.GUIController`.
+* **Safety:** Obeys panic flag and policy guardrails; logs every action to
+  `logs/autonomy_actions.jsonl`.
+* **Council integration:** Sensitive operations require explicit approval
+  (`council_veto` when unanswered).
 
-## Memory Hygiene
+### Browser Automator
 
-Raw ASR transcripts and screen OCR snippets are stored through
-`memory_manager.store_observation`.  The module keeps transcripts as text-only,
-rotates daily digests under `glow/digests/`, and persists notable highlights in
-`glow/highlights/<date>/`.  Storage policies are tunable via the helper functions
-in `tools/storage_policy.py`.
+* **Component:** `sentientos.agents.browser_automator.BrowserAutomator`.
+* **Budgeting:** Rate-limited to configured daily actions; honours panic
+  flag and domain allowlist.
+* **Audit:** All interactions appended to the autonomy action log for the
+  operator dashboard and `/admin/status/autonomy` endpoint.
 
-## Dashboard Panels
+### Local LLM
 
-When the modules are enabled, `/admin/status` shows live health for `ears`,
-`voice`, `screen`, `gui`, `social`, and `conversation`.  `/admin/metrics`
-exports the counters listed above and writes Prometheus text files to
-`glow/metrics/*.prom` for external scraping.
+* **Engine:** Mixtral-8x7B via llama.cpp (GGUF).
+* **Configuration:** Model directory under `models/llm/`; optional
+  `LLAMA_CPP_GPU` environment flag advertises GPU offload state to the
+  readiness report.
+
+## Supporting Services
+
+### Daily Narrative Reflex
+
+`daily_narrative_reflex.py` aggregates perception, curiosity and mood
+telemetry to create a human-readable digest in `glow/digests/DATE.md`. The
+digest is written back into vector memory with the `daily_digest` tag and
+may be narrated via the TTS pipeline.
+
+### Persistence
+
+* Mood vectors and personality baseline are saved to
+  `glow/state/mood.json` on shutdown.
+* Panic state is stored in `glow/state/panic.json` and can be toggled via
+  `make panic-on` / `make panic-off`.
+
+## Diagnostics
+
+`make autonomy-readiness` verifies the entire embodiment stack with
+actionable remediation hints. The generated report lives in
+`glow/reports/autonomy_readiness.json`.
+

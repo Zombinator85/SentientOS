@@ -2,6 +2,34 @@
 
 All notable changes for the SentientOS 1.x line are documented below.
 
+## [1.2.0-beta] - 2026-05-20
+
+### Autonomy & Embodiment
+- Added a comprehensive `tools/autonomy_readiness.py` CLI and JSON report
+  (`glow/reports/autonomy_readiness.json`) covering ASR, TTS, OCR, GUI,
+  browser and LLM readiness with remediation hints.
+- Integrated emotional voice modulation with dynamic EPU mood mapping,
+  persistent personality configuration, and mood state restoration across
+  restarts.
+- Introduced the daily narrative reflex which generates digest markdowns
+  (`glow/digests/YYYY-MM-DD.md`), indexes them in vector memory with the
+  `daily_digest` tag, and optionally narrates the latest recap.
+
+### Governance & Transparency
+- Extended the autonomy runtime with persistent panic control, council
+  confirmation hooks, and a structured autonomy action log consumed by the
+  new `/admin/status/autonomy` endpoint.
+- Added CLI helpers (`make panic-on`, `make panic-off`, `make audit-log`,
+  `make reset-mood`) to manage safety state and inspect the last 50 audit
+  entries.
+- Persisted mood vectors to `glow/state/mood.json` and improved council
+  vote history for dashboard consumption.
+
+### Documentation
+- Authored `docs/INSTALL.md`, `docs/EMBODIMENT.md`, and
+  `docs/ETHICS_AND_GOVERNANCE.md` to consolidate offline install steps,
+  embodiment architecture, and governance policies for the release.
+
 ## [1.1.0-beta] - 2026-02-05
 
 ### Operator Experience
