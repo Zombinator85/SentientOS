@@ -28,6 +28,12 @@ autonomy-readiness:
 audit-log:
         $(PYTHON) tools/autonomy_audit_cli.py --limit 50
 
+session-dump:
+        $(PYTHON) tools/session_state.py dump
+
+session-clear:
+        $(PYTHON) tools/session_state.py clear
+
 panic-on:
         $(PYTHON) tools/panic_flag.py on
 

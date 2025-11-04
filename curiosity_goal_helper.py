@@ -222,6 +222,50 @@ class CuriosityGoalHelper:
             state["status"] = status
             return state
 
+    def dump_state(self) -> Mapping[str, list[Mapping[str, object]]]:
+        """Serialise queued and inflight curiosity goals for persistence."""
+
+        with self._lock:
+            queue = [self._serialise_entry(entry) for entry in self._queue]
+            inflight = [self._serialise_entry(entry) for entry in self._inflight.values()]
+        return {"queue": queue, "inflight": inflight}
+
+    def restore_state(self, state: Mapping[str, object] | None) -> None:
+        """Restore queued curiosity goals from a persisted snapshot."""
+
+        if not state:
+            return
+        queue_items = state.get("queue") or []
+        inflight_items = state.get("inflight") or []
+        with self._lock:
+            self._queue.clear()
+            self._inflight.clear()
+            for raw in queue_items:
+                entry = self._deserialise_entry(raw)
+                self._queue.append(entry)
+            for raw in inflight_items:
+                entry = self._deserialise_entry(raw)
+                # Requeue inflight tasks so they resume processing promptly.
+                self._queue.appendleft(entry)
+            if self._metrics is not None:
+                self._metrics.set_gauge("curiosity_queue_length", float(len(self._queue)))
+
+    def _serialise_entry(self, entry: Mapping[str, object]) -> Mapping[str, object]:
+        return {
+            "goal": dict(entry.get("goal", {})),
+            "observation": dict(entry.get("observation", {})),
+            "created_at": entry.get("created_at"),
+            "source": entry.get("source"),
+        }
+
+    def _deserialise_entry(self, payload: Mapping[str, object]) -> dict:
+        return {
+            "goal": dict(payload.get("goal", {})),
+            "observation": dict(payload.get("observation", {})),
+            "created_at": float(payload.get("created_at", time.time())),
+            "source": payload.get("source", "autonomy"),
+        }
+
 
 _GLOBAL_HELPER: CuriosityGoalHelper | None = None
 _GLOBAL_LOCK = threading.Lock()

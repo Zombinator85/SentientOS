@@ -42,7 +42,7 @@ from ..determinism import seed_everything
 from ..metrics import MetricsRegistry
 from ..privacy import PrivacyManager
 from .audit import AutonomyActionLogger
-from .state import MoodStateManager
+from .state import ContinuitySnapshot, ContinuityStateManager, MoodStateManager
 from .conversation_triggers import ConversationTriggers
 
 LOGGER = logging.getLogger(__name__)
@@ -661,6 +661,10 @@ class AutonomyRuntime:
             decay_factor=config.persistence.decay_factor,
         )
         snapshot = self.mood_state.load(config.tts.personality.baseline_mood)
+        self.session_state = ContinuityStateManager(state_dir / "session.json")
+        self._continuity_state = self.session_state.load()
+        if self._continuity_state.mood:
+            self.mood_state.update(str(self._continuity_state.mood))
         panic_flag = lambda: self._panic
         mood_provider = lambda: self.mood_state.current_mood() or snapshot.mood
         self.asr = ASRListener(config.audio, metrics=self.metrics)
@@ -710,6 +714,13 @@ class AutonomyRuntime:
             novelty_threshold=config.curiosity.novelty_threshold,
         )
         self.curiosity_helper = CuriosityGoalHelper(curiosity_cfg, metrics=self.metrics)
+        if self._continuity_state.curiosity_queue or self._continuity_state.curiosity_inflight:
+            self.curiosity_helper.restore_state(
+                {
+                    "queue": self._continuity_state.curiosity_queue,
+                    "inflight": self._continuity_state.curiosity_inflight,
+                }
+            )
         configure_global_helper(self.curiosity_helper)
         self.curiosity_executor = CuriosityExecutor(
             self.curiosity_helper,
@@ -772,6 +783,38 @@ class AutonomyRuntime:
 
     def save_state(self) -> None:
         self.mood_state.save()
+        snapshot = self._refresh_continuity_snapshot()
+        self.session_state.save(snapshot)
+
+    def _refresh_continuity_snapshot(self) -> ContinuitySnapshot:
+        state = getattr(self, "_continuity_state", None)
+        if state is None:
+            state = ContinuitySnapshot()
+            self._continuity_state = state
+        state.mood = self.mood_state.current_mood()
+        curiosity_state = self.curiosity_helper.dump_state()
+        state.curiosity_queue = list(curiosity_state.get("queue", []))
+        state.curiosity_inflight = list(curiosity_state.get("inflight", []))
+        return state
+
+    def record_readiness_success(
+        self,
+        summary: Mapping[str, object],
+        *,
+        report_path: str | os.PathLike[str] | None = None,
+    ) -> None:
+        timestamp = _utcnow()
+        readiness_payload = {
+            "summary": dict(summary),
+            "report": str(report_path) if report_path else None,
+            "timestamp": timestamp,
+        }
+        self._continuity_state.readiness = readiness_payload
+        self._continuity_state.last_readiness_ts = timestamp
+        snapshot = self._refresh_continuity_snapshot()
+        snapshot.readiness = readiness_payload
+        snapshot.last_readiness_ts = timestamp
+        self.session_state.save(snapshot)
 
     def reset_mood_state(self) -> None:
         self.mood_state.reset()

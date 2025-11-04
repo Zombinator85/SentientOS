@@ -8,6 +8,10 @@ from pathlib import Path
 from typing import Mapping, MutableMapping, Optional
 
 
+def _ensure_parent(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+
 @dataclass
 class MoodSnapshot:
     mood: str
@@ -18,7 +22,7 @@ class MoodSnapshot:
 class MoodStateManager:
     def __init__(self, path: Path, *, restore: bool = True, decay_factor: float = 0.8) -> None:
         self._path = path
-        self._path.parent.mkdir(parents=True, exist_ok=True)
+        _ensure_parent(self._path)
         self._restore = restore
         self._decay = max(0.0, min(float(decay_factor), 1.0))
         self._snapshot: MoodSnapshot | None = None
@@ -73,5 +77,74 @@ class MoodStateManager:
             self._path.unlink()
 
 
-__all__ = ["MoodSnapshot", "MoodStateManager"]
+@dataclass
+class ContinuitySnapshot:
+    """Serializable representation of autonomy session continuity state."""
+
+    mood: Optional[str] = None
+    readiness: Optional[Mapping[str, object]] = None
+    curiosity_queue: list[Mapping[str, object]] = field(default_factory=list)
+    curiosity_inflight: list[Mapping[str, object]] = field(default_factory=list)
+    last_readiness_ts: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "mood": self.mood,
+            "readiness": self.readiness,
+            "curiosity_queue": list(self.curiosity_queue),
+            "curiosity_inflight": list(self.curiosity_inflight),
+            "last_readiness_ts": self.last_readiness_ts,
+        }
+
+    @classmethod
+    def from_mapping(cls, payload: Mapping[str, object] | None) -> "ContinuitySnapshot":
+        if not payload:
+            return cls()
+        return cls(
+            mood=payload.get("mood"),
+            readiness=payload.get("readiness"),
+            curiosity_queue=list(payload.get("curiosity_queue", []) or []),
+            curiosity_inflight=list(payload.get("curiosity_inflight", []) or []),
+            last_readiness_ts=payload.get("last_readiness_ts"),
+        )
+
+
+class ContinuityStateManager:
+    """Load and persist the autonomy continuity snapshot."""
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+        _ensure_parent(self._path)
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    def load(self) -> ContinuitySnapshot:
+        if not self._path.exists():
+            return ContinuitySnapshot()
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8"))
+        except Exception:
+            return ContinuitySnapshot()
+        return ContinuitySnapshot.from_mapping(data)
+
+    def save(self, snapshot: ContinuitySnapshot) -> Path:
+        payload = snapshot.to_dict()
+        self._path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return self._path
+
+    def clear(self) -> None:
+        self._path.unlink(missing_ok=True)
+
+
+__all__ = [
+    "MoodSnapshot",
+    "MoodStateManager",
+    "ContinuitySnapshot",
+    "ContinuityStateManager",
+]
 
