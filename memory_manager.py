@@ -16,6 +16,12 @@ from pathlib import Path
 from threading import RLock
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 
+from tools.storage_policy import (
+    StoragePolicyConfig as StoragePolicy,
+    rotate_text_digests,
+    stash_highlight,
+)
+
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
 from emotions import empty_emotion_vector
@@ -38,6 +44,11 @@ GOALS_PATH = MEMORY_DIR / "goals.json"
 TOMB_PATH = MEMORY_DIR / "memory_tomb.jsonl"
 OBSERVATION_LOG_PATH = MEMORY_DIR / "perception_observations.jsonl"
 CURIOSITY_REFLECTIONS_PATH = MEMORY_DIR / "curiosity_reflections.jsonl"
+TRANSCRIPT_LOG_PATH = MEMORY_DIR / "audio_transcripts.jsonl"
+SCREEN_DIGEST_PATH = MEMORY_DIR / "screen_ocr.jsonl"
+GLOW_DIR = MEMORY_DIR / "glow"
+DIGEST_DIR = GLOW_DIR / "digests"
+HIGHLIGHT_DIR = GLOW_DIR / "highlights"
 
 RAW_PATH.mkdir(parents=True, exist_ok=True)
 DAY_PATH.mkdir(parents=True, exist_ok=True)
@@ -47,6 +58,11 @@ SESSION_PATH.mkdir(parents=True, exist_ok=True)
 TOMB_PATH.parent.mkdir(parents=True, exist_ok=True)
 OBSERVATION_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 CURIOSITY_REFLECTIONS_PATH.parent.mkdir(parents=True, exist_ok=True)
+TRANSCRIPT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+SCREEN_DIGEST_PATH.parent.mkdir(parents=True, exist_ok=True)
+GLOW_DIR.mkdir(parents=True, exist_ok=True)
+DIGEST_DIR.mkdir(parents=True, exist_ok=True)
+HIGHLIGHT_DIR.mkdir(parents=True, exist_ok=True)
 
 # --- Importance & forgetting heuristics -------------------------------------
 
@@ -341,6 +357,11 @@ def _rewrite_observation_records(records: Sequence[Mapping[str, Any]]) -> None:
             handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
 
 
+def _append_jsonl(path: Path, record: Mapping[str, Any]) -> None:
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+
+
 def _parse_observation_timestamp(value: str | None) -> datetime.datetime:
     if not value:
         return datetime.datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -391,6 +412,33 @@ def store_observation_summary(summary: Mapping[str, Any]) -> Dict[str, Any]:
     record["fragment_id"] = fragment_id
     _write_observation_record(record)
     return record
+
+
+def store_observation(observation: Mapping[str, Any]) -> Dict[str, Any]:
+    """Persist a raw multimodal observation from ASR or screen OCR."""
+
+    payload = dict(observation)
+    modality = str(payload.get("modality", "unknown"))
+    timestamp = payload.get("timestamp")
+    if not timestamp:
+        payload["timestamp"] = datetime.datetime.utcnow().isoformat()
+    if modality == "audio":
+        _append_jsonl(TRANSCRIPT_LOG_PATH, payload)
+    elif modality == "screen":
+        _append_jsonl(SCREEN_DIGEST_PATH, payload)
+        text = str(payload.get("text", "")).strip()
+        if text:
+            policy = StoragePolicy(digest_dir=DIGEST_DIR, highlight_dir=HIGHLIGHT_DIR)
+            rotate_text_digests(policy, [text])
+        snapshot = payload.get("highlight_image")
+        if isinstance(snapshot, (bytes, bytearray)):
+            policy = StoragePolicy(digest_dir=DIGEST_DIR, highlight_dir=HIGHLIGHT_DIR)
+            timestamp_value = str(payload.get("timestamp"))
+            name = f"highlight-{_hash(timestamp_value)}.png"
+            stash_highlight(policy, name, bytes(snapshot))
+    else:
+        _append_jsonl(OBSERVATION_LOG_PATH, payload)
+    return payload
 
 
 def _coerce_since(value: object) -> datetime.datetime | None:

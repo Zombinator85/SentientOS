@@ -6,9 +6,28 @@ import logging
 import time
 from typing import Callable, Awaitable
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+try:  # pragma: no cover - optional dependency
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request
+    from starlette.responses import Response
+except ModuleNotFoundError:  # pragma: no cover - test fallback
+    class BaseHTTPMiddleware:  # type: ignore[misc]
+        def __init__(self, app) -> None:
+            self.app = app
+
+    class Request:  # type: ignore[misc]
+        def __init__(self, path: str = "/", method: str = "GET") -> None:
+            class _URL:
+                def __init__(self, path: str) -> None:
+                    self.path = path
+
+            self.url = _URL(path)
+            self.method = method
+            self.headers: dict[str, str] = {}
+
+    class Response:  # type: ignore[misc]
+        def __init__(self, status_code: int = 200) -> None:
+            self.status_code = status_code
 
 from .privacy import LogRedactor
 

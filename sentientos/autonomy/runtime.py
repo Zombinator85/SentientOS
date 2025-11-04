@@ -17,7 +17,12 @@ from typing import Callable, Dict, List, Mapping, MutableMapping, Optional, Sequ
 from curiosity_goal_helper import CuriosityConfig as HelperCuriosityConfig
 from curiosity_goal_helper import CuriosityGoalHelper, configure_global_helper
 from curiosity_executor import CuriosityExecutor
+from sentientos.actuators.gui_control import GUIController
+from sentientos.actuators.tts_speaker import TTSSpeaker
+from sentientos.agents.browser_automator import BrowserAutomator
 from sentientos.daemons.curiosity_loop import CuriosityLoopDaemon
+from sentientos.perception.asr_listener import ASRListener
+from sentientos.perception.screen_ocr import ScreenOCR
 from ..config import (
     CriticConfig,
     GoalsBudgetConfig,
@@ -34,6 +39,7 @@ from ..daemons.hungry_eyes import HungryEyesDatasetBuilder, HungryEyesSentinel
 from ..determinism import seed_everything
 from ..metrics import MetricsRegistry
 from ..privacy import PrivacyManager
+from .conversation_triggers import ConversationTriggers
 
 LOGGER = logging.getLogger(__name__)
 
@@ -625,6 +631,14 @@ class AutonomyRuntime:
         self.config = config
         self.metrics = metrics or MetricsRegistry()
         self.privacy = PrivacyManager(config.privacy)
+        self._panic = False
+        panic_flag = lambda: self._panic
+        self.asr = ASRListener(config.audio, metrics=self.metrics)
+        self.tts = TTSSpeaker(config.tts, metrics=self.metrics)
+        self.screen = ScreenOCR(config.screen, metrics=self.metrics)
+        self.gui = GUIController(config.gui, panic_flag=panic_flag)
+        self.social = BrowserAutomator(config.social, metrics=self.metrics, panic_flag=panic_flag)
+        self.conversation = ConversationTriggers(config.conversation, metrics=self.metrics)
         self.memory_curator = MemoryCurator(config.memory.curator, self.metrics, self.privacy)
         self.reflexion = ReflexionEngine(
             config.reflexion,
@@ -680,6 +694,12 @@ class AutonomyRuntime:
 
     def status(self) -> AutonomyStatus:
         modules = {
+            "ears": self.asr.status(),
+            "voice": self.tts.status(),
+            "screen": self.screen.status(),
+            "gui": self.gui.status(),
+            "social": self.social.status(),
+            "conversation": self.conversation.status(),
             "memory_curator": self.memory_curator.status(),
             "reflexion": self.reflexion.status(),
             "critic": self.critic.status(),
@@ -696,6 +716,15 @@ class AutonomyRuntime:
 
     def persist_metrics(self) -> None:
         self.metrics.persist_prometheus()
+
+    def activate_panic(self) -> None:
+        self._panic = True
+
+    def clear_panic(self) -> None:
+        self._panic = False
+
+    def panic_active(self) -> bool:
+        return self._panic
 
 
 def _call_with_timeout(fn: Callable[[], object], *, timeout: float) -> object:

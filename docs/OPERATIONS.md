@@ -68,6 +68,25 @@ curators.
 - `hungry_eyes.active_learning.seed` /
   `SENTIENTOS_HUNGRY_EYES_ACTIVE_LEARNING_SEED`
 
+### Embodied Presence
+
+- `audio.enable` / `SENTIENTOS_AUDIO_ENABLE`
+- `audio.max_minutes_per_hour`
+- `tts.enable` / `SENTIENTOS_TTS_ENABLE`
+- `screen.enable` / `SENTIENTOS_SCREEN_ENABLE`
+- `gui.enable` / `SENTIENTOS_GUI_ENABLE`
+- `social.enable` / `SENTIENTOS_SOCIAL_ENABLE`
+- `social.require_quorum_for_social_post`
+- `conversation.enable` / `SENTIENTOS_CONVERSATION_ENABLE`
+- `policy.autonomy_level` / `SENTIENTOS_POLICY_AUTONOMY`
+
+When enabled, `/admin/status` includes `ears`, `voice`, `screen`, `gui`, `social`, and
+`conversation` modules. Each entry reports backend health and remaining budgets.
+`/admin/metrics` exports counters such as `sos_asr_segments_total`,
+`sos_screen_captures_total`, and `sos_web_actions_total{kind=...}` to simplify live
+monitoring. Quiet hours defined by `conversation.quiet_hours` suppress proactive
+prompts and are mirrored in the status payload.
+
 ### Deterministic Seeding
 
 Set `determinism.seed` or `SENTIENTOS_SEED` to guarantee reproducible rehearsals, tests, and daemons. All entrypoints call

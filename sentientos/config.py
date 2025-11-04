@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
+
 try:  # pragma: no cover - optional dependency
     import yaml
 except ModuleNotFoundError:  # pragma: no cover - environment fallback
@@ -402,6 +403,71 @@ class BudgetsConfig:
 
 
 @dataclass
+class AudioRuntimeConfig:
+    enable: bool = False
+    backend: str = "whisper_local"
+    vad: str = "rms"
+    chunk_seconds: float = 25.0
+    max_minutes_per_hour: float = 20.0
+    max_concurrent: int = 1
+
+
+@dataclass
+class TTSRuntimeConfig:
+    enable: bool = False
+    backend: str = "espeak"
+    max_chars_per_minute: int = 2000
+    cooldown_seconds: float = 5.0
+
+
+@dataclass
+class ScreenRuntimeConfig:
+    enable: bool = False
+    interval_s: float = 2.0
+    ocr_backend: str = "tesseract"
+    max_chars_per_minute: int = 5000
+
+
+@dataclass
+class GUIRuntimeConfig:
+    enable: bool = False
+    safety: str = "standard"
+    move_smoothing: bool = True
+
+
+@dataclass
+class SocialRuntimeConfig:
+    enable: bool = False
+    allow_interactive_web: bool = False
+    domains_allowlist: Tuple[str, ...] = field(default_factory=tuple)
+    daily_action_budget: int = 0
+    require_quorum_for_social_post: bool = True
+
+
+@dataclass
+class ConversationRuntimeConfig:
+    enable: bool = False
+    quiet_hours: str = "22:00-07:00"
+    trigger_on_user_presence: bool = True
+    trigger_on_novelty: bool = True
+    trigger_on_name: bool = True
+    max_prompts_per_hour: int = 6
+
+
+@dataclass
+class PolicyRedactionConfig:
+    enable: bool = True
+    pii_hash: bool = False
+
+
+@dataclass
+class PolicyConfig:
+    autonomy_level: str = "standard"
+    require_quorum_for_social_post: bool = True
+    redaction: PolicyRedactionConfig = field(default_factory=PolicyRedactionConfig)
+
+
+@dataclass
 class RuntimeConfig:
     determinism: DeterminismConfig = field(default_factory=DeterminismConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
@@ -414,6 +480,13 @@ class RuntimeConfig:
     hungry_eyes: HungryEyesConfig = field(default_factory=HungryEyesConfig)
     budgets: BudgetsConfig = field(default_factory=BudgetsConfig)
     privacy: PrivacyConfig = field(default_factory=PrivacyConfig)
+    audio: AudioRuntimeConfig = field(default_factory=AudioRuntimeConfig)
+    tts: TTSRuntimeConfig = field(default_factory=TTSRuntimeConfig)
+    screen: ScreenRuntimeConfig = field(default_factory=ScreenRuntimeConfig)
+    gui: GUIRuntimeConfig = field(default_factory=GUIRuntimeConfig)
+    social: SocialRuntimeConfig = field(default_factory=SocialRuntimeConfig)
+    conversation: ConversationRuntimeConfig = field(default_factory=ConversationRuntimeConfig)
+    policy: PolicyConfig = field(default_factory=PolicyConfig)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "RuntimeConfig":
@@ -462,6 +535,74 @@ class RuntimeConfig:
             ),
             hash_pii=bool(privacy_section.get("hash_pii", False)),
             hash_salt_file=Path(str(salt_path)).expanduser() if salt_path else None,
+        )
+
+        audio_section = _as_mapping(mapping.get("audio"))
+        audio = AudioRuntimeConfig(
+            enable=bool(audio_section.get("enable", False)),
+            backend=str(audio_section.get("backend", "whisper_local")),
+            vad=str(audio_section.get("vad", "rms")),
+            chunk_seconds=float(audio_section.get("chunk_seconds", 25.0)),
+            max_minutes_per_hour=float(audio_section.get("max_minutes_per_hour", 20.0)),
+            max_concurrent=int(audio_section.get("max_concurrent", 1)),
+        )
+
+        tts_section = _as_mapping(mapping.get("tts"))
+        tts = TTSRuntimeConfig(
+            enable=bool(tts_section.get("enable", False)),
+            backend=str(tts_section.get("backend", "espeak")),
+            max_chars_per_minute=int(tts_section.get("max_chars_per_minute", 2000)),
+            cooldown_seconds=float(tts_section.get("cooldown_seconds", 5.0)),
+        )
+
+        screen_section = _as_mapping(mapping.get("screen"))
+        screen = ScreenRuntimeConfig(
+            enable=bool(screen_section.get("enable", False)),
+            interval_s=float(screen_section.get("interval_s", 2.0)),
+            ocr_backend=str(screen_section.get("ocr_backend", "tesseract")),
+            max_chars_per_minute=int(screen_section.get("max_chars_per_minute", 5000)),
+        )
+
+        gui_section = _as_mapping(mapping.get("gui"))
+        gui = GUIRuntimeConfig(
+            enable=bool(gui_section.get("enable", False)),
+            safety=str(gui_section.get("safety", "standard")),
+            move_smoothing=bool(gui_section.get("move_smoothing", True)),
+        )
+
+        social_section = _as_mapping(mapping.get("social"))
+        allowlist = tuple(str(item) for item in _as_sequence(social_section.get("domains_allowlist")))
+        social = SocialRuntimeConfig(
+            enable=bool(social_section.get("enable", False)),
+            allow_interactive_web=bool(social_section.get("allow_interactive_web", False)),
+            domains_allowlist=allowlist,
+            daily_action_budget=int(social_section.get("daily_action_budget", 0)),
+            require_quorum_for_social_post=bool(
+                social_section.get("require_quorum_for_social_post", True)
+            ),
+        )
+
+        conversation_section = _as_mapping(mapping.get("conversation"))
+        conversation = ConversationRuntimeConfig(
+            enable=bool(conversation_section.get("enable", False)),
+            quiet_hours=str(conversation_section.get("quiet_hours", "22:00-07:00")),
+            trigger_on_user_presence=bool(conversation_section.get("trigger_on_user_presence", True)),
+            trigger_on_novelty=bool(conversation_section.get("trigger_on_novelty", True)),
+            trigger_on_name=bool(conversation_section.get("trigger_on_name", True)),
+            max_prompts_per_hour=int(conversation_section.get("max_prompts_per_hour", 6)),
+        )
+
+        policy_section = _as_mapping(mapping.get("policy"))
+        policy_redaction = _as_mapping(policy_section.get("redaction"))
+        policy = PolicyConfig(
+            autonomy_level=str(policy_section.get("autonomy_level", "standard")),
+            require_quorum_for_social_post=bool(
+                policy_section.get("require_quorum_for_social_post", True)
+            ),
+            redaction=PolicyRedactionConfig(
+                enable=bool(policy_redaction.get("enable", True)),
+                pii_hash=bool(policy_redaction.get("pii_hash", True)),
+            ),
         )
 
         reflexion_section = mapping.get("reflexion", {})
@@ -579,6 +720,13 @@ class RuntimeConfig:
             hungry_eyes=hungry_eyes,
             budgets=budgets,
             privacy=privacy,
+            audio=audio,
+            tts=tts,
+            screen=screen,
+            gui=gui,
+            social=social,
+            conversation=conversation,
+            policy=policy,
         )
 
 
@@ -692,6 +840,51 @@ def _default_runtime_mapping() -> Dict[str, Any]:
             },
             "hash_pii": False,
             "hash_salt_file": None,
+        },
+        "audio": {
+            "enable": False,
+            "backend": "whisper_local",
+            "vad": "rms",
+            "chunk_seconds": 25.0,
+            "max_minutes_per_hour": 20.0,
+            "max_concurrent": 1,
+        },
+        "tts": {
+            "enable": False,
+            "backend": "espeak",
+            "max_chars_per_minute": 2000,
+            "cooldown_seconds": 5.0,
+        },
+        "screen": {
+            "enable": False,
+            "interval_s": 2.0,
+            "ocr_backend": "tesseract",
+            "max_chars_per_minute": 5000,
+        },
+        "gui": {
+            "enable": False,
+            "safety": "standard",
+            "move_smoothing": True,
+        },
+        "social": {
+            "enable": False,
+            "allow_interactive_web": False,
+            "domains_allowlist": [],
+            "daily_action_budget": 30,
+            "require_quorum_for_social_post": True,
+        },
+        "conversation": {
+            "enable": False,
+            "quiet_hours": "22:00-07:00",
+            "trigger_on_user_presence": True,
+            "trigger_on_novelty": True,
+            "trigger_on_name": True,
+            "max_prompts_per_hour": 6,
+        },
+        "policy": {
+            "autonomy_level": "standard",
+            "require_quorum_for_social_post": True,
+            "redaction": {"enable": True, "pii_hash": True},
         },
     }
 
@@ -817,6 +1010,14 @@ _ENVIRONMENT_OVERRIDES: Dict[str, Tuple[Tuple[str, ...], Any]] = {
         "factcheck",
         "timeout_s",
     ), _to_float),
+    "SENTIENTOS_AUDIO_ENABLE": (("audio", "enable"), _to_bool),
+    "SENTIENTOS_TTS_ENABLE": (("tts", "enable"), _to_bool),
+    "SENTIENTOS_SCREEN_ENABLE": (("screen", "enable"), _to_bool),
+    "SENTIENTOS_GUI_ENABLE": (("gui", "enable"), _to_bool),
+    "SENTIENTOS_SOCIAL_ENABLE": (("social", "enable"), _to_bool),
+    "SENTIENTOS_SOCIAL_ALLOWLIST": (("social", "domains_allowlist"), _to_list),
+    "SENTIENTOS_CONVERSATION_ENABLE": (("conversation", "enable"), _to_bool),
+    "SENTIENTOS_POLICY_AUTONOMY": (("policy", "autonomy_level"), str),
     "SENTIENTOS_COUNCIL_ENABLE": (("council", "enable"), _to_bool),
     "SENTIENTOS_COUNCIL_MEMBERS": (("council", "members"), _to_list),
     "SENTIENTOS_COUNCIL_QUORUM": (("council", "quorum"), _to_int),

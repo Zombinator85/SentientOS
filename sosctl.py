@@ -13,6 +13,7 @@ from typing import Sequence
 
 from sentientos.autonomy import AutonomyRuntime, run_rehearsal
 from sentientos.config import load_runtime_config
+from sentientos.perception.screen_ocr import ScreenOCR
 
 
 def _cycles_from_duration(duration: str, profile: str) -> int:
@@ -106,6 +107,23 @@ def build_parser() -> argparse.ArgumentParser:
     service.add_argument("action", choices=["install", "start", "stop", "status"])
     service.add_argument("--unit", help="Optional override for service unit path")
 
+    say = sub.add_parser("say", help="Speak via the configured TTS backend")
+    say.add_argument("text", help="Text to speak")
+
+    asr = sub.add_parser("asr-smoke", help="Emit a synthetic ASR observation")
+    asr.add_argument("--amplitude", type=float, default=0.1)
+    asr.add_argument("--seconds", type=float, default=1.0)
+
+    screen = sub.add_parser("screen-ocr-smoke", help="Run a synthetic screen OCR capture")
+    screen.add_argument("--text", required=True, help="Text to inject into the OCR pipeline")
+    screen.add_argument("--title", default="smoke", help="Window title")
+
+    social = sub.add_parser("social-smoke", help="Dry-run browser automation")
+    social.add_argument("URL", help="URL to open")
+    social.add_argument("--action", choices=["open", "click", "type"], default="open")
+    social.add_argument("--selector", help="CSS selector for click/type actions")
+    social.add_argument("--text", help="Text for type actions", default="")
+
     return parser
 
 
@@ -163,6 +181,49 @@ def handle(args: argparse.Namespace) -> int:
     if args.command == "service":
         response = _service_action(args.action, unit_override=args.unit)
         print(json.dumps(response, indent=2))
+        return 0
+    if args.command == "say":
+        runtime.tts._config.enable = True
+        runtime.tts.enqueue(args.text, corr_id="cli")
+        spoken = runtime.tts.drain()
+        print(json.dumps({"spoken": spoken}))
+        return 0
+    if args.command == "asr-smoke":
+        runtime.asr._config.enable = True
+        samples = [float(args.amplitude)] * int(max(1.0, args.seconds) * 16000)
+        observation = runtime.asr.process_samples(samples, sample_rate=16000)
+        print(json.dumps(observation or {}))
+        return 0
+    if args.command == "screen-ocr-smoke":
+        runtime.config.screen.enable = True
+        runtime.screen = ScreenOCR(
+            runtime.config.screen,
+            capture_fn=lambda: {"data": args.text, "title": args.title},
+            metrics=runtime.metrics,
+        )
+        observation = runtime.screen.snapshot()
+        print(json.dumps(observation or {}))
+        return 0
+    if args.command == "social-smoke":
+        try:
+            runtime.social._config.enable = True
+            domain = args.URL.split("/")[2] if "//" in args.URL else args.URL
+            allow = tuple(runtime.social._config.domains_allowlist) or (domain,)
+            if domain not in allow:
+                allow = allow + (domain,)
+            runtime.social._config.domains_allowlist = allow
+            if args.action == "open":
+                runtime.social.open_url(args.URL)
+            elif args.action == "click" and args.selector:
+                runtime.social.click(args.selector)
+            elif args.action == "type" and args.selector:
+                runtime.social.type_text(args.selector, args.text)
+            else:
+                raise ValueError("selector required for this action")
+        except Exception as exc:
+            print(json.dumps({"error": str(exc)}))
+            return 1
+        print(json.dumps(runtime.social.status()))
         return 0
     return 1
 
