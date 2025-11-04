@@ -13,7 +13,7 @@ docs:
 	sphinx-build -b html docs docs/_build/html
 
 docs-live:
-	sphinx-autobuild docs docs/_build/html
+        sphinx-autobuild docs docs/_build/html
 
 rehearse: REHEARSE_ARGS := $(filter-out $@,$(MAKECMDGOALS))
 rehearse:
@@ -21,6 +21,21 @@ rehearse:
 
 perf:
         ./scripts/perf_smoke.sh
+
+autonomy-readiness:
+        $(PYTHON) tools/autonomy_readiness.py
+
+audit-log:
+        $(PYTHON) tools/autonomy_audit_cli.py --limit 50
+
+panic-on:
+        $(PYTHON) tools/panic_flag.py on
+
+panic-off:
+        $(PYTHON) tools/panic_flag.py off
+
+reset-mood:
+        $(PYTHON) tools/mood_cli.py reset
 
 audit:
         ./scripts/metrics_snapshot.sh
@@ -30,8 +45,12 @@ audit:
         python scripts/generate_sbom.py
         python -c "from sentientos.config import load_runtime_config; load_runtime_config(); print('config-ok')"
 
+full-suite:
+        $(PYTHON) tools/autonomy_readiness.py --quiet
+        pytest -q
+
 package:
-	python scripts/package_launcher.py
+        python scripts/package_launcher.py
 
 package-windows:
 	python scripts/package_launcher.py --platform windows

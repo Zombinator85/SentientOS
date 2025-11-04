@@ -10,6 +10,8 @@ from collections import deque
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
+import json
+import os
 from pathlib import Path
 from threading import BoundedSemaphore, Lock
 from typing import Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence
@@ -39,6 +41,8 @@ from ..daemons.hungry_eyes import HungryEyesDatasetBuilder, HungryEyesSentinel
 from ..determinism import seed_everything
 from ..metrics import MetricsRegistry
 from ..privacy import PrivacyManager
+from .audit import AutonomyActionLogger
+from .state import MoodStateManager
 from .conversation_triggers import ConversationTriggers
 
 LOGGER = logging.getLogger(__name__)
@@ -362,6 +366,7 @@ class Council:
         self._members = list(members)
         self._quorum = max(1, quorum)
         self._tie_breaker = tie_breaker
+        self._history: deque[dict] = deque(maxlen=200)
 
     def vote(self, proposal: str, *, corr_id: str, votes_for: int, votes_against: int) -> CouncilDecision:
         start = time.monotonic()
@@ -401,6 +406,16 @@ class Council:
         if notes:
             note["notes"] = notes
         LOGGER.info(json.dumps(note))
+        self._history.append(
+            {
+                "proposal": proposal,
+                "outcome": outcome.value,
+                "votes_for": votes_for,
+                "votes_against": votes_against,
+                "quorum_met": quorum_met,
+                "ts": note["ts"],
+            }
+        )
         return CouncilDecision(
             outcome=outcome,
             votes_for=votes_for,
@@ -415,6 +430,10 @@ class Council:
             "members": list(self._members),
             "quorum": self._quorum,
         }
+
+    def history(self, limit: int = 20) -> List[dict]:
+        limit = max(int(limit), 1)
+        return list(self._history)[-limit:]
 
 
 class OracleGateway:
@@ -631,13 +650,34 @@ class AutonomyRuntime:
         self.config = config
         self.metrics = metrics or MetricsRegistry()
         self.privacy = PrivacyManager(config.privacy)
-        self._panic = False
+        self.audit_log = AutonomyActionLogger()
+        state_dir = Path("glow/state")
+        state_dir.mkdir(parents=True, exist_ok=True)
+        self._panic_path = state_dir / "panic.json"
+        self._panic = self._load_panic_state()
+        self.mood_state = MoodStateManager(
+            state_dir / "mood.json",
+            restore=config.persistence.restore_mood,
+            decay_factor=config.persistence.decay_factor,
+        )
+        snapshot = self.mood_state.load(config.tts.personality.baseline_mood)
         panic_flag = lambda: self._panic
+        mood_provider = lambda: self.mood_state.current_mood() or snapshot.mood
         self.asr = ASRListener(config.audio, metrics=self.metrics)
-        self.tts = TTSSpeaker(config.tts, metrics=self.metrics)
+        self.tts = TTSSpeaker(config.tts, metrics=self.metrics, mood_provider=mood_provider)
         self.screen = ScreenOCR(config.screen, metrics=self.metrics)
-        self.gui = GUIController(config.gui, panic_flag=panic_flag)
-        self.social = BrowserAutomator(config.social, metrics=self.metrics, panic_flag=panic_flag)
+        self.gui = GUIController(
+            config.gui,
+            panic_flag=panic_flag,
+            audit_logger=self.audit_log,
+        )
+        self.social = BrowserAutomator(
+            config.social,
+            metrics=self.metrics,
+            panic_flag=panic_flag,
+            audit_logger=self.audit_log,
+            council_prompt=self._request_council_confirmation,
+        )
         self.conversation = ConversationTriggers(config.conversation, metrics=self.metrics)
         self.memory_curator = MemoryCurator(config.memory.curator, self.metrics, self.privacy)
         self.reflexion = ReflexionEngine(
@@ -719,12 +759,53 @@ class AutonomyRuntime:
 
     def activate_panic(self) -> None:
         self._panic = True
+        self._write_panic_state(True)
+        self.audit_log.log("system", "panic", "activated")
 
     def clear_panic(self) -> None:
         self._panic = False
+        self._write_panic_state(False)
+        self.audit_log.log("system", "panic", "cleared")
 
     def panic_active(self) -> bool:
         return self._panic
+
+    def save_state(self) -> None:
+        self.mood_state.save()
+
+    def reset_mood_state(self) -> None:
+        self.mood_state.reset()
+
+    def _load_panic_state(self) -> bool:
+        if not self._panic_path.exists():
+            return False
+        try:
+            payload = json.loads(self._panic_path.read_text(encoding="utf-8"))
+            return bool(payload.get("active", False))
+        except Exception:
+            return False
+
+    def _write_panic_state(self, active: bool) -> None:
+        payload = {"active": active, "timestamp": _utcnow().isoformat()}
+        self._panic_path.write_text(json.dumps(payload), encoding="utf-8")
+        if not active:
+            self._panic_path.unlink(missing_ok=True)
+
+    def _request_council_confirmation(self, action: str, target: str) -> bool:
+        auto = os.getenv("SENTIENTOS_COUNCIL_AUTO_APPROVE", "0").lower()
+        if auto in {"1", "true", "yes", "on"}:
+            self.audit_log.log("council", "vote", "approved", action=action, target=target)
+            return True
+        LOGGER.warning("Council veto for %s on %s (auto-fail)", action, target)
+        self.audit_log.log(
+            "council",
+            "vote",
+            "blocked",
+            action=action,
+            target=target,
+            reason="council_veto",
+        )
+        return False
 
 
 def _call_with_timeout(fn: Callable[[], object], *, timeout: float) -> object:

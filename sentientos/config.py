@@ -413,11 +413,19 @@ class AudioRuntimeConfig:
 
 
 @dataclass
+class TTSPersonalityConfig:
+    expressiveness: str = "medium"
+    baseline_mood: str = "calm"
+    dynamic_voice: bool = True
+
+
+@dataclass
 class TTSRuntimeConfig:
     enable: bool = False
     backend: str = "espeak"
     max_chars_per_minute: int = 2000
     cooldown_seconds: float = 5.0
+    personality: TTSPersonalityConfig = field(default_factory=TTSPersonalityConfig)
 
 
 @dataclass
@@ -468,6 +476,12 @@ class PolicyConfig:
 
 
 @dataclass
+class PersistenceConfig:
+    restore_mood: bool = True
+    decay_factor: float = 0.8
+
+
+@dataclass
 class RuntimeConfig:
     determinism: DeterminismConfig = field(default_factory=DeterminismConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
@@ -487,6 +501,7 @@ class RuntimeConfig:
     social: SocialRuntimeConfig = field(default_factory=SocialRuntimeConfig)
     conversation: ConversationRuntimeConfig = field(default_factory=ConversationRuntimeConfig)
     policy: PolicyConfig = field(default_factory=PolicyConfig)
+    persistence: PersistenceConfig = field(default_factory=PersistenceConfig)
 
     @classmethod
     def from_mapping(cls, mapping: Mapping[str, Any]) -> "RuntimeConfig":
@@ -548,11 +563,18 @@ class RuntimeConfig:
         )
 
         tts_section = _as_mapping(mapping.get("tts"))
+        personality_section = _as_mapping(tts_section.get("personality"))
+        personality = TTSPersonalityConfig(
+            expressiveness=str(personality_section.get("expressiveness", "medium")),
+            baseline_mood=str(personality_section.get("baseline_mood", "calm")),
+            dynamic_voice=bool(personality_section.get("dynamic_voice", True)),
+        )
         tts = TTSRuntimeConfig(
             enable=bool(tts_section.get("enable", False)),
             backend=str(tts_section.get("backend", "espeak")),
             max_chars_per_minute=int(tts_section.get("max_chars_per_minute", 2000)),
             cooldown_seconds=float(tts_section.get("cooldown_seconds", 5.0)),
+            personality=personality,
         )
 
         screen_section = _as_mapping(mapping.get("screen"))
@@ -603,6 +625,12 @@ class RuntimeConfig:
                 enable=bool(policy_redaction.get("enable", True)),
                 pii_hash=bool(policy_redaction.get("pii_hash", True)),
             ),
+        )
+
+        persistence_section = _as_mapping(mapping.get("persistence"))
+        persistence = PersistenceConfig(
+            restore_mood=bool(persistence_section.get("restore_mood", True)),
+            decay_factor=float(persistence_section.get("decay_factor", 0.8)),
         )
 
         reflexion_section = mapping.get("reflexion", {})
@@ -727,6 +755,7 @@ class RuntimeConfig:
             social=social,
             conversation=conversation,
             policy=policy,
+            persistence=persistence,
         )
 
 
@@ -854,6 +883,11 @@ def _default_runtime_mapping() -> Dict[str, Any]:
             "backend": "espeak",
             "max_chars_per_minute": 2000,
             "cooldown_seconds": 5.0,
+            "personality": {
+                "expressiveness": "medium",
+                "baseline_mood": "calm",
+                "dynamic_voice": True,
+            },
         },
         "screen": {
             "enable": False,
@@ -885,6 +919,10 @@ def _default_runtime_mapping() -> Dict[str, Any]:
             "autonomy_level": "standard",
             "require_quorum_for_social_post": True,
             "redaction": {"enable": True, "pii_hash": True},
+        },
+        "persistence": {
+            "restore_mood": True,
+            "decay_factor": 0.8,
         },
     }
 
@@ -1012,6 +1050,18 @@ _ENVIRONMENT_OVERRIDES: Dict[str, Tuple[Tuple[str, ...], Any]] = {
     ), _to_float),
     "SENTIENTOS_AUDIO_ENABLE": (("audio", "enable"), _to_bool),
     "SENTIENTOS_TTS_ENABLE": (("tts", "enable"), _to_bool),
+    "SENTIENTOS_TTS_PERSONALITY_EXPRESSIVENESS": (
+        ("tts", "personality", "expressiveness"),
+        str,
+    ),
+    "SENTIENTOS_TTS_PERSONALITY_BASELINE": (
+        ("tts", "personality", "baseline_mood"),
+        str,
+    ),
+    "SENTIENTOS_TTS_DYNAMIC_VOICE": (
+        ("tts", "personality", "dynamic_voice"),
+        _to_bool,
+    ),
     "SENTIENTOS_SCREEN_ENABLE": (("screen", "enable"), _to_bool),
     "SENTIENTOS_GUI_ENABLE": (("gui", "enable"), _to_bool),
     "SENTIENTOS_SOCIAL_ENABLE": (("social", "enable"), _to_bool),
@@ -1022,6 +1072,14 @@ _ENVIRONMENT_OVERRIDES: Dict[str, Tuple[Tuple[str, ...], Any]] = {
     "SENTIENTOS_COUNCIL_MEMBERS": (("council", "members"), _to_list),
     "SENTIENTOS_COUNCIL_QUORUM": (("council", "quorum"), _to_int),
     "SENTIENTOS_COUNCIL_TIE_BREAKER": (("council", "tie_breaker"), str),
+    "SENTIENTOS_PERSISTENCE_RESTORE_MOOD": (
+        ("persistence", "restore_mood"),
+        _to_bool,
+    ),
+    "SENTIENTOS_PERSISTENCE_DECAY_FACTOR": (
+        ("persistence", "decay_factor"),
+        _to_float,
+    ),
     "SENTIENTOS_ORACLE_ENABLE": (("oracle", "enable"), _to_bool),
     "SENTIENTOS_ORACLE_PROVIDER": (("oracle", "provider"), str),
     "SENTIENTOS_ORACLE_ENDPOINT": (("oracle", "endpoint"), str),

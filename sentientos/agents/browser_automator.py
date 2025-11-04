@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, Mapping, MutableMapping, Optional
 
+from sentientos.autonomy.audit import AutonomyActionLogger
 from sentientos.metrics import MetricsRegistry
 
 
@@ -30,6 +31,8 @@ class BrowserAutomator:
         driver_factory: Callable[[], object] | None = None,
         metrics: MetricsRegistry | None = None,
         panic_flag: Callable[[], bool] | None = None,
+        audit_logger: AutonomyActionLogger | None = None,
+        council_prompt: Callable[[str, str], bool] | None = None,
     ) -> None:
         self._config = config
         self._driver_factory = driver_factory or (lambda: _DummyDriver())
@@ -38,34 +41,42 @@ class BrowserAutomator:
         self._panic_flag = panic_flag or (lambda: False)
         self._action_window: list[float] = []
         self._last_action: Mapping[str, object] | None = None
+        self._audit = audit_logger
+        self._council_prompt = council_prompt
 
     @property
     def enabled(self) -> bool:
         return self._config.enable and not self._panic_flag()
 
     def open_url(self, url: str) -> None:
-        self._require_enabled(url)
+        self._require_enabled(url, "open")
         self._driver.open(url)
         self._record_action("open", url)
+        self._log("open", "performed", target=url)
 
     def click(self, selector: str) -> None:
-        self._require_enabled(selector)
+        self._require_enabled(selector, "click")
         self._driver.click(selector)
         self._record_action("click", selector)
+        self._log("click", "performed", target=selector)
 
     def type_text(self, selector: str, text: str) -> None:
-        self._require_enabled(selector)
+        self._require_enabled(selector, "type")
         if self._config.require_quorum_for_post and self._looks_public(selector):
+            self._log("type", "blocked", target=selector, reason="quorum_required")
             raise BrowserActionError("posting requires quorum")
         self._driver.type(selector, text)
         self._record_action("type", selector)
+        self._log("type", "performed", target=selector)
 
     def post(self, selector: str, text: str) -> None:
-        self._require_enabled(selector)
-        if self._config.require_quorum_for_post:
-            raise BrowserActionError("quorum required for social posting")
+        self._require_enabled(selector, "post")
+        if self._config.require_quorum_for_post and not self._request_council("post", selector):
+            self._log("post", "blocked", target=selector, reason="council_veto")
+            raise BrowserActionError("council_veto")
         self._driver.type(selector, text)
         self._record_action("post", selector)
+        self._log("post", "performed", target=selector)
 
     def status(self) -> Mapping[str, object]:
         remaining = self._remaining_budget(time.time())
@@ -86,12 +97,29 @@ class BrowserAutomator:
         elif kind in {"reply"}:
             self._metrics.increment("sos_social_replies_total")
 
-    def _require_enabled(self, resource: str) -> None:
+    def _request_council(self, action: str, target: str) -> bool:
+        if self._council_prompt is None:
+            return False
+        try:
+            approved = self._council_prompt(action, target)
+        except Exception:
+            return False
+        return bool(approved)
+
+    def _log(self, action: str, status: str, **details: object) -> None:
+        if not self._audit:
+            return
+        self._audit.log("browser", action, status, **details)
+
+    def _require_enabled(self, resource: str, action: str) -> None:
         if not self.enabled:
+            self._log(action, "blocked", target=resource, reason="disabled")
             raise BrowserActionError("social automation disabled")
         if not self._within_budget():
+            self._log(action, "blocked", target=resource, reason="budget_exceeded")
             raise BrowserActionError("social action budget exceeded")
         if not self._is_allowed_domain(resource):
+            self._log(action, "blocked", target=resource, reason="domain_not_allowlisted")
             raise BrowserActionError("domain not allowlisted")
 
     def _within_budget(self) -> bool:
