@@ -1,6 +1,8 @@
 .PHONY: lock lock-install docs docs-live ci rehearse audit perf
 .PHONY: package package-windows package-mac
 
+PYTHON ?= python3
+
 lock:
 	python -m scripts.lock freeze
 
@@ -40,6 +42,18 @@ package-mac:
 ci:
         ./scripts/ci.sh
         ./scripts/verify_provenance.sh
+
+speak:
+        $(PYTHON) sosctl.py say "$(if $(MSG),$(MSG),Hello from SentientOS)"
+
+asr-smoke:
+        $(PYTHON) sosctl.py asr-smoke $(if $(SECONDS),--seconds $(SECONDS),) $(if $(AMP),--amplitude $(AMP),)
+
+screen-ocr-smoke:
+        $(PYTHON) sosctl.py screen-ocr-smoke --text "$(if $(TEXT),$(TEXT),screen smoke test)" $(if $(TITLE),--title "$(TITLE)",)
+
+social-smoke:
+        $(PYTHON) sosctl.py social-smoke $(if $(URL),$(URL),https://example.com) $(if $(ACTION),--action $(ACTION),) $(if $(SELECTOR),--selector "$(SELECTOR)",) $(if $(TEXT),--text "$(TEXT)",)
 
 %:
         @:
