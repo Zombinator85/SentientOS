@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import logging
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, Iterable, List
 
 import memory_manager as mm
 
 from emotion_utils import combine_emotions, dominant_emotion
+import secure_memory_storage as secure_store
 
 
 _QUERY_OPERATOR = re.compile(r"^(importance)\s*([<>]=?)\s*([0-9.]+)$", re.IGNORECASE)
@@ -120,7 +122,12 @@ def recall(query: str | None = None, k: int = 10) -> list[dict]:
 
     predicate = _compile_query(query)
     matches: list[dict] = []
-    for idx, entry in enumerate(mm.iter_fragments(limit=500, reverse=True)):
+    source_iterable: Iterable[dict]
+    if secure_store.is_enabled():
+        source_iterable = secure_store.iterate_plaintext(limit=500)
+    else:
+        source_iterable = mm.iter_fragments(limit=500, reverse=True)
+    for idx, entry in enumerate(source_iterable):
         data = _normalise(entry)
         if predicate(data) or float(data.get("importance", 0.0)) >= _DEFAULT_THRESHOLD:
             matches.append(data)
@@ -136,9 +143,15 @@ def recall(query: str | None = None, k: int = 10) -> list[dict]:
     return matches[:k]
 
 
-def remember(entry: dict, *, importance: float | None = None) -> dict:
+def _incognito_enabled() -> bool:
+    return os.getenv("MEM_INCOGNITO", "0") == "1"
+
+
+def remember(entry: dict, *, importance: float | None = None) -> dict | str:
     """Persist ``entry`` as a memory fragment and return the stored record."""
 
+    if _incognito_enabled():
+        return ""
     payload = dict(entry)
     text = str(payload.get("text", "")).strip()
     if not text:
@@ -177,7 +190,13 @@ def remember(entry: dict, *, importance: float | None = None) -> dict:
             "emotions": emotions or {},
         }
         data.setdefault("timestamp", _now().isoformat())
-    return _normalise(data)
+    normalised = _normalise(data)
+    if secure_store.is_enabled():
+        try:
+            secure_store.save_fragment(normalised)
+        except Exception as exc:  # pragma: no cover - defensive
+            logging.warning("[MemoryGovernor] secure store write failed: %s", exc)
+    return normalised
 
 
 @dataclass
@@ -197,6 +216,14 @@ def _write_entry(path: Path, entry: dict) -> None:
 
 def reflect() -> ReflectionSummary:
     """Apply retention rules for dream, insight, and snapshot memories."""
+
+    if secure_store.is_enabled():
+        try:
+            import mem_admin
+
+            mem_admin.reflect()
+        except Exception as exc:  # pragma: no cover - defensive logging only
+            logging.debug("[MemoryGovernor] secure reflect skipped: %s", exc)
 
     entries: list[dict] = []
     for fp in sorted(mm.RAW_PATH.glob("*.json")):

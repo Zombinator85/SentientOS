@@ -1,6 +1,7 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -33,6 +34,10 @@ from api import actuator
 from emotions import empty_emotion_vector
 from memory_manager import write_mem
 from utils import chunk_message
+import mem_export
+import secure_memory_storage as secure_store
+from safety_log import count_recent_events
+import dream_loop
 
 import requests
 
@@ -89,6 +94,10 @@ def _is_authorised_for_node_routes() -> bool:
     return False
 
 
+def _incognito_enabled() -> bool:
+    return os.getenv("MEM_INCOGNITO", "0") == "1"
+
+
 def _ensure_background_services() -> None:
     if os.getenv("SENTIENTOS_DISABLE_DISCOVERY") == "1":
         return
@@ -133,24 +142,41 @@ def register_node() -> Response:
     return jsonify(record.serialise()), 201
 
 
-@app.route("/memory/export", methods=["GET"])
+@app.route("/memory/export", methods=["GET", "POST"])
 def memory_export() -> Response:
-    if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
+    if request.method == "GET":
+        if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
+            return Response("Forbidden", status=403)
+        limit_arg = request.args.get("limit")
+        limit = None
+        if limit_arg:
+            try:
+                limit = max(1, int(limit_arg))
+            except ValueError:
+                limit = None
+        fragments = list(mm.iter_fragments(limit=limit, reverse=False))
+        payload = {"fragments": fragments}
+        allow_compression = "zstd" in (request.headers.get("Accept-Encoding", "").lower())
+        body, headers = encode_payload(payload, allow_compression=allow_compression)
+        response = Response(body, status=200, mimetype="application/json")
+        for key, value in headers.items():
+            response.headers[key] = value
+        return response
+
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return Response("Forbidden", status=403)
-    limit_arg = request.args.get("limit")
-    limit = None
-    if limit_arg:
-        try:
-            limit = max(1, int(limit_arg))
-        except ValueError:
-            limit = None
-    fragments = list(mm.iter_fragments(limit=limit, reverse=False))
-    payload = {"fragments": fragments}
-    allow_compression = "zstd" in (request.headers.get("Accept-Encoding", "").lower())
-    body, headers = encode_payload(payload, allow_compression=allow_compression)
-    response = Response(body, status=200, mimetype="application/json")
-    for key, value in headers.items():
-        response.headers[key] = value
+    options = request.get_json() or {}
+    include_insights = bool(options.get("include_insights", True))
+    include_dreams = bool(options.get("include_dreams", True))
+    passphrase = options.get("passphrase")
+    archive = mem_export.export_encrypted(
+        None,
+        include_insights=include_insights,
+        include_dreams=include_dreams,
+        passphrase=passphrase,
+    )
+    response = Response(archive, status=200, mimetype="application/octet-stream")
+    response.headers["Content-Disposition"] = "attachment; filename=sentientos_memory.bin"
     return response
 
 
@@ -176,6 +202,79 @@ def relay():
         emotions=emotion_vector,
     )
     return jsonify({"reply_chunks": chunk_message(reply)})
+
+
+@app.route("/memory/import", methods=["POST"])
+def memory_import() -> Response:
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return Response("Forbidden", status=403)
+    payload: bytes | None = None
+    passphrase = request.form.get("passphrase") if request.form else None
+    if "archive" in request.files:
+        payload = request.files["archive"].read()
+        if not passphrase:
+            passphrase = request.form.get("passphrase") if request.form else None
+    elif request.data:
+        payload = request.data
+    elif request.is_json:
+        data = request.get_json() or {}
+        archive_b64 = data.get("archive")
+        if archive_b64:
+            payload = base64.b64decode(archive_b64)
+        passphrase = passphrase or data.get("passphrase")
+    if payload is None:
+        return jsonify({"error": "archive payload required"}), 400
+    stats = mem_export.import_encrypted(payload, passphrase=passphrase)
+    return jsonify(stats)
+
+
+@app.route("/memory/stats", methods=["GET"])
+def memory_stats() -> Response:
+    if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return Response("Forbidden", status=403)
+    if secure_store.is_enabled():
+        categories = secure_store.category_counts()
+        count = secure_store.fragment_count()
+    else:
+        categories = {}
+        count = sum(1 for _ in mm.iter_fragments(limit=5000, reverse=False))
+    return jsonify({"categories": categories, "count": count})
+
+
+@app.route("/status", methods=["GET"])
+def status() -> Response:
+    loop_status: Dict[str, Any] = {}
+    try:
+        loop_status = dream_loop.status()
+    except Exception:  # pragma: no cover - defensive
+        loop_status = {"active": False}
+    payload: Dict[str, Any] = {
+        "incognito": _incognito_enabled(),
+        "dream_loop_active": bool(loop_status.get("active")),
+        "safety_events_1h": count_recent_events(1),
+    }
+    if secure_store.is_enabled():
+        payload.update(
+            {
+                "memory_db_size_bytes": secure_store.db_size_bytes(),
+                "mem_entries": secure_store.fragment_count(),
+                "active_key_id": secure_store.get_backend().get_active_key_id(),
+                "last_rotation_at": secure_store.get_meta("last_rotation_at"),
+                "last_reflection_at": secure_store.get_meta("last_reflection_at"),
+            }
+        )
+    else:
+        payload.update(
+            {
+                "memory_db_size_bytes": 0,
+                "mem_entries": sum(1 for _ in mm.iter_fragments(limit=1000, reverse=False)),
+                "active_key_id": None,
+                "last_rotation_at": None,
+                "last_reflection_at": None,
+            }
+        )
+    payload["dream_loop"] = loop_status
+    return jsonify(payload)
 
 
 @app.route("/act", methods=["POST"])
