@@ -17,6 +17,9 @@ from emotions import EMOTIONS, empty_emotion_vector
 CACHE_PATH = get_log_path("epu_state.json", "EPU_STATE_CACHE")
 
 
+_GLOBAL_STATE: "EmotionState" | None = None
+
+
 class EmotionState:
     """Maintain a 64-dimension emotion vector with decay."""
 
@@ -65,3 +68,36 @@ class EmotionState:
 
     def state(self) -> Dict[str, float]:
         return dict(self.vector)
+
+    def apply_recall_emotion(
+        self, emotions: Dict[str, float], *, influence: float = 0.2
+    ) -> Dict[str, float]:
+        """Blend historical emotions into the current baseline."""
+
+        if not emotions:
+            return dict(self.vector)
+        weight = max(0.0, min(1.0, float(influence)))
+        if weight <= 0.0:
+            return dict(self.vector)
+        for emo in EMOTIONS:
+            target = float(emotions.get(emo, 0.0))
+            self.vector[emo] = self.vector[emo] * (1 - weight) + target * weight
+        for label, raw_value in emotions.items():
+            if label in EMOTIONS:
+                continue
+            try:
+                value = float(raw_value)
+            except (TypeError, ValueError):
+                continue
+            self.vector["Ambivalence"] = self.vector["Ambivalence"] * (1 - weight) + value * weight
+        self._save()
+        return dict(self.vector)
+
+
+def get_global_state() -> EmotionState:
+    """Return a process-wide ``EmotionState`` instance."""
+
+    global _GLOBAL_STATE
+    if _GLOBAL_STATE is None:
+        _GLOBAL_STATE = EmotionState()
+    return _GLOBAL_STATE

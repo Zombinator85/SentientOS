@@ -15,13 +15,16 @@ from pathlib import Path
 
 import memory_manager as mm
 import epu_core
+import dream_loop
 
 
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
 app.logger.setLevel(getattr(logging, log_level, logging.INFO))
 SAFE_MODE = os.getenv("SENTIENTOS_SAFE_MODE") == "1"
-_state = epu_core.EmotionState()
+_state = epu_core.get_global_state()
+
+dream_loop.ensure_running()
 
 _start_time = time.time()
 _tick_counter = itertools.count(1)
@@ -102,15 +105,17 @@ def status() -> object:
     minutes, seconds = divmod(rem, 60)
     uptime = f"{days}d {hours:02}:{minutes:02}:{seconds:02}"
     log_size = LOG_PATH.stat().st_size if LOG_PATH.exists() else 0
-    return jsonify(
-        {
-            "uptime": uptime,
-            "last_heartbeat": f"Tick {_last_heartbeat}",
-            "log_size_bytes": log_size,
-            "active_endpoints": ["/sse", "/ingest", "/status"],
-            "safe_mode": SAFE_MODE,
-        }
-    )
+    loop_status = dream_loop.status()
+    payload = {
+        "uptime": uptime,
+        "last_heartbeat": f"Tick {_last_heartbeat}",
+        "log_size_bytes": log_size,
+        "active_endpoints": ["/sse", "/ingest", "/status"],
+        "safe_mode": SAFE_MODE,
+        "dream_loop_active": bool(loop_status.get("active")),
+    }
+    payload["dream_loop"] = loop_status
+    return jsonify(payload)
 
 
 @app.get("/epu/state")

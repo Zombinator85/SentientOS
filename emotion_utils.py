@@ -5,7 +5,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import os
-from typing import Dict, Tuple
+from typing import Dict, Iterable, Tuple
+from collections import defaultdict
+
 from emotions import Emotion, empty_emotion_vector
 
 try:
@@ -189,3 +191,41 @@ def detect(path: str) -> Tuple[Emotion, Dict[str, float]]:
 def detect_image(path: str) -> Emotion:
     """Return facial emotions from an image path if provided."""
     return vision_emotions(path)
+
+
+def combine_emotions(emotions: Iterable[Dict[str, float]]) -> Dict[str, float]:
+    """Average a sequence of emotion vectors, preserving unknown labels."""
+
+    vectors = [vec for vec in emotions if isinstance(vec, dict)]
+    if not vectors:
+        return empty_emotion_vector()
+    aggregate: Dict[str, float] = defaultdict(float)
+    for vec in vectors:
+        for label, value in vec.items():
+            try:
+                aggregate[label] += max(0.0, float(value))
+            except (TypeError, ValueError):
+                continue
+    count = float(len(vectors))
+    for label in list(aggregate.keys()):
+        aggregate[label] = aggregate[label] / count
+    # Ensure canonical labels exist even if absent from inputs
+    for label in empty_emotion_vector():
+        aggregate.setdefault(label, 0.0)
+    return dict(aggregate)
+
+
+def dominant_emotion(emotion_vector: Dict[str, float], neutral_label: str = "Neutral") -> str:
+    """Return the label with highest intensity or ``neutral_label`` when absent."""
+
+    best_label = neutral_label
+    best_value = 0.0
+    for label, raw_value in emotion_vector.items():
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if value > best_value:
+            best_value = value
+            best_label = label
+    return best_label

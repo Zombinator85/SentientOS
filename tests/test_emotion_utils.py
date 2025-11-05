@@ -4,7 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import tempfile
@@ -47,3 +46,12 @@ def test_fuse_multimodal():
     vis = {'Joy': 1.0}
     fused = eu.fuse(audio, text, vis, {'audio':1,'text':1,'vision':2})
     assert fused['Joy'] > 0.5
+
+
+def test_combine_and_dominant():
+    vec = eu.combine_emotions([
+        {'Joy': 0.9, 'Love': 0.1},
+        {'Joy': 0.6, 'Sadness': 0.2},
+    ])
+    assert vec['Joy'] > vec['Sadness']
+    assert eu.dominant_emotion(vec) == 'Joy'

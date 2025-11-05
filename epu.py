@@ -84,3 +84,26 @@ class EmotionProcessingUnit:
 
     def history_list(self) -> Dict[str, float]:  # alias for compatibility
         return self.mood()
+
+    def apply_recall_emotion(
+        self, emotion_vector: Dict[str, float], *, influence: float = 0.2
+    ) -> Dict[str, float]:
+        """Nudge the current mood toward ``emotion_vector``."""
+
+        if not emotion_vector:
+            return dict(self.current)
+        weight = max(0.0, min(1.0, float(influence)))
+        if weight <= 0.0:
+            return dict(self.current)
+        for label in self.current.keys():
+            target = float(emotion_vector.get(label, 0.0))
+            self.current[label] = self.current[label] * (1 - weight) + target * weight
+        for label, value in emotion_vector.items():
+            if label not in self.current:
+                try:
+                    self.current[label] = float(value) * weight
+                except (TypeError, ValueError):
+                    continue
+        self.history.append(dict(self.current))
+        self._log(self.current)
+        return dict(self.current)

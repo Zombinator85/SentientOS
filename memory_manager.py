@@ -252,6 +252,10 @@ def append_memory(
     emotion_features: Dict[str, float] | None = None,
     emotion_breakdown: Dict[str, Dict[str, float]] | None = None,
     meta: Dict[str, object] | None = None,
+    category: str | None = None,
+    summary: str | None = None,
+    importance: float | None = None,
+    reflective: bool | None = None,
 ) -> str:
     if os.getenv("INCOGNITO") == "1":
         print("[MEMORY] Incognito mode enabled – skipping persistence")
@@ -269,7 +273,20 @@ def append_memory(
     }
     if meta:
         entry["meta"] = meta
-    entry["importance"] = _estimate_importance(entry)
+    if summary:
+        entry["summary"] = summary
+    if category:
+        entry["category"] = category
+    if reflective is not None:
+        entry["reflective"] = bool(reflective)
+    if importance is not None:
+        try:
+            score = float(importance)
+        except (TypeError, ValueError):
+            score = _estimate_importance(entry)
+        entry["importance"] = max(IMPORTANCE_FLOOR, min(1.0, score))
+    else:
+        entry["importance"] = _estimate_importance(entry)
     entry["access_count"] = 0
     entry["last_accessed"] = entry["timestamp"]
     em.add_emotion(entry["emotions"])
@@ -290,6 +307,8 @@ def _update_vector_index(entry: Dict):
         "tags": entry.get("tags", []),
         "last_accessed": entry.get("last_accessed"),
         "access_count": entry.get("access_count", 0),
+        "category": entry.get("category"),
+        "summary": entry.get("summary"),
     }
     records.append(record)
     _save_index_records(records)
