@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -229,6 +230,19 @@ class LocalModel:
 
     @classmethod
     def autoload(cls) -> "LocalModel":
+        if os.getenv("SENTIENTOS_NODE_ONLY") == "1":
+            ensure_mounts()
+            config = load_model_config()
+            placeholder_metadata = {
+                "name": "SentientOS Node Placeholder",
+                "engine": "null",
+                "mode": "node_only",
+            }
+            placeholder_dir = get_data_root() / "models"
+            placeholder_dir.mkdir(parents=True, exist_ok=True)
+            backend = _NullBackend(ModelCandidate(path=placeholder_dir, engine="null"), placeholder_metadata)
+            LOGGER.info("Node-only mode active; skipped heavy local model load.")
+            return cls(backend=backend, metadata=backend.metadata, config=config, _fallback_backend=backend)
         ensure_mounts()
         config = load_model_config()
         errors: List[str] = []
