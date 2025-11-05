@@ -4,6 +4,26 @@ SentientOS tools read configuration from `.env`. Run `python .env.sync.autofill.
 Every variable shown below also appears in `.env.example` with the same default value.
 The table below explains each variable and its default behavior.
 
+### Node discovery, pairing, and thin-client controls
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `LAN_DISCOVERY_SECRET` | Optional shared secret for HMAC signing LAN beacons | *(unset)* |
+| `PAIRING_RESET` | Set to `1` to regenerate pairing keys on boot | `0` |
+| `PAIRING_REQUIRE_PIN` | Require a PIN during `/pair/confirm` | `1` |
+| `PAIRING_CODE_TTL_S` | Seconds a pairing code remains valid | `300` |
+| `PAIRING_SESSION_TTL_S` | Lifetime (seconds) for browser session cookies | `86400` |
+| `PAIRING_TOKEN_SECRET` | Secret used to sign issued node JWTs (falls back to `RELAY_SECRET`) | *(unset)* |
+| `NODE_TOKEN_TTL_H` | Lifetime (hours) for issued node tokens | `720` |
+| `SENTIENTOS_ROLE` | Node role (`core` or `thin`) | `core` |
+| `UPSTREAM_CORE` | Base URL for the upstream core when running in thin mode | *(unset)* |
+| `STREAM_TIMEOUT_S` | Timeout (seconds) for upstream streaming/proxy calls | `30` |
+| `WEBUI_ENABLED` | Enable the bundled browser UI | `1` |
+| `WEBUI_AUTH_MODE` | Authentication mode for the UI (`cookie` or `header`) | `cookie` |
+| `WEBUI_COMPACT` | Enable compact UI profile for low-spec devices | `1` |
+| `WEBUI_ROOT` | Directory containing static UI assets | `apps/webui` |
+| `SENTIENTOS_API_PORT` | API port advertised in LAN beacons | `5000` |
+| `SENTIENTOS_UI_PORT` | UI port advertised in LAN beacons | `5000` |
 ### Generating a Secure `CONNECTOR_TOKEN`
 
 Linux/macOS:
