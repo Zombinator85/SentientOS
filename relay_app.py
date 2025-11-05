@@ -5,6 +5,7 @@ import base64
 import json
 import logging
 import os
+import socket
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -44,6 +45,7 @@ import requests
 from distributed_memory import encode_payload, synchronizer
 from node_discovery import discovery
 from node_registry import NODE_TOKEN, RoundRobinRouter, registry
+from pairing_service import pairing_service
 
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
@@ -52,19 +54,40 @@ logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 _REMOTE_TIMEOUT = float(os.getenv("SENTIENTOS_REMOTE_TIMEOUT", "10"))
 _NODE_HEADER = "X-Node-Token"
+_NODE_ID_HEADER = "X-Node-Id"
+_ROLE = os.getenv("SENTIENTOS_ROLE", "core").strip().lower()
+_UPSTREAM_CORE = (os.getenv("UPSTREAM_CORE") or "").rstrip("/")
+_STREAM_TIMEOUT = float(os.getenv("STREAM_TIMEOUT_S", "30"))
+_WEBUI_ENABLED = os.getenv("WEBUI_ENABLED", "1") != "0"
+_WEBUI_ROOT = Path(os.getenv("WEBUI_ROOT", "apps/webui"))
+if not _WEBUI_ROOT.is_absolute():
+    _WEBUI_ROOT = Path.cwd() / _WEBUI_ROOT
+_WEBUI_AUTH_MODE = os.getenv("WEBUI_AUTH_MODE", "cookie").lower()
 
 NODE_ROUTER = RoundRobinRouter(registry)
 
 
-def _build_remote_headers() -> Dict[str, str]:
-    headers = {"X-Relay-Secret": RELAY_SECRET}
+def _local_node_id() -> str:
+    node_id = registry.local_hostname
+    if node_id:
+        return node_id
+    return socket.gethostname()
+
+
+def _build_remote_headers(*, include_secret: bool = True) -> Dict[str, str]:
+    headers: Dict[str, str] = {}
+    if include_secret:
+        headers["X-Relay-Secret"] = RELAY_SECRET
     if NODE_TOKEN:
         headers[_NODE_HEADER] = NODE_TOKEN
+    node_id = _local_node_id()
+    if node_id:
+        headers[_NODE_ID_HEADER] = node_id
     return headers
 
 
-def _proxy_remote_json(path: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    node = NODE_ROUTER.next()
+def _proxy_remote_json(path: str, payload: Dict[str, Any], *, capability: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    node = NODE_ROUTER.next(capability, trusted_only=True)
     if not node:
         return None
     url = f"http://{node.ip}:{node.port}{path}"
@@ -87,15 +110,67 @@ def _proxy_remote_json(path: str, payload: Dict[str, Any]) -> Optional[Dict[str,
 
 
 def _is_authorised_for_node_routes() -> bool:
+    pairing_service.cleanup_sessions()
     if request.headers.get("X-Relay-Secret") == RELAY_SECRET:
         return True
     if NODE_TOKEN and request.headers.get(_NODE_HEADER) == NODE_TOKEN:
+        return True
+    node_id = request.headers.get(_NODE_ID_HEADER)
+    token = request.headers.get(_NODE_HEADER)
+    if node_id and token and pairing_service.verify_node_token(node_id, token):
+        return True
+    session_token = request.cookies.get(pairing_service.session_cookie_name)
+    if session_token and pairing_service.validate_session(session_token):
+        return True
+    header_session = request.headers.get("X-Session-Token")
+    if header_session and pairing_service.validate_session(header_session):
         return True
     return False
 
 
 def _incognito_enabled() -> bool:
     return os.getenv("MEM_INCOGNITO", "0") == "1"
+
+
+def _proxy_upstream_json(path: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not _UPSTREAM_CORE:
+        logging.debug("[Relay] Thin routing requested but UPSTREAM_CORE is not configured")
+        return None
+    base = _UPSTREAM_CORE
+    if not base.startswith("http://") and not base.startswith("https://"):
+        base = f"http://{base}"
+    url = base.rstrip("/") + (path if path.startswith("/") else "/" + path)
+    headers = _build_remote_headers(include_secret=False)
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=_STREAM_TIMEOUT)
+    except requests.RequestException as exc:
+        logging.warning("[Relay] Upstream %s failed: %s", url, exc)
+        return None
+    if response.status_code != 200:
+        logging.warning("[Relay] Upstream %s returned %s", url, response.status_code)
+        return None
+    try:
+        return response.json()
+    except ValueError:
+        logging.warning("[Relay] Upstream %s produced non-JSON payload", url)
+        return None
+
+
+def _authorised_for_ui() -> bool:
+    pairing_service.cleanup_sessions()
+    if request.headers.get("X-Relay-Secret") == RELAY_SECRET:
+        return True
+    if NODE_TOKEN and request.headers.get(_NODE_HEADER) == NODE_TOKEN:
+        return True
+    session_token = request.cookies.get(pairing_service.session_cookie_name)
+    if session_token and pairing_service.validate_session(session_token):
+        return True
+    header_session = request.headers.get("X-Session-Token")
+    if header_session and pairing_service.validate_session(header_session):
+        return True
+    return False
+
+
 
 
 def _ensure_background_services() -> None:
@@ -114,11 +189,125 @@ def _ensure_background_services() -> None:
 _ensure_background_services()
 
 
+@app.route("/", methods=["GET"])
+def webui_root() -> Response:
+    if not _WEBUI_ENABLED:
+        return Response("Web UI disabled", status=404)
+    index_path = _WEBUI_ROOT / "index.html"
+    if not index_path.exists():
+        return Response("Web UI unavailable", status=404)
+    try:
+        content = index_path.read_text(encoding="utf-8")
+    except OSError:
+        return Response("Web UI unavailable", status=500)
+    try:
+        return Response(content, status=200, mimetype="text/html")
+    except TypeError:  # Fallback for flask stub
+        resp = Response(content, status=200)
+        if hasattr(resp, "headers"):
+            resp.headers["Content-Type"] = "text/html"
+        return resp
+
+
+@app.route("/webui/<path:asset>", methods=["GET"])
+def webui_asset(asset: str) -> Response:
+    if not _WEBUI_ENABLED:
+        return Response("Web UI disabled", status=404)
+    candidate = (_WEBUI_ROOT / asset).resolve()
+    try:
+        candidate.relative_to(_WEBUI_ROOT)
+    except ValueError:
+        return Response("Not Found", status=404)
+    if not candidate.exists() or not candidate.is_file():
+        return Response("Not Found", status=404)
+    mimetype = "text/plain"
+    if asset.endswith(".js"):
+        mimetype = "text/javascript"
+    elif asset.endswith(".css"):
+        mimetype = "text/css"
+    elif asset.endswith(".svg"):
+        mimetype = "image/svg+xml"
+    data = candidate.read_bytes()
+    try:
+        return Response(data, status=200, mimetype=mimetype)
+    except TypeError:
+        resp = Response(data, status=200)
+        if hasattr(resp, "headers"):
+            resp.headers["Content-Type"] = mimetype
+        return resp
+
+
 @app.route("/nodes", methods=["GET"])
 def list_nodes() -> Response:
     if not _is_authorised_for_node_routes():
         return Response("Forbidden", status=403)
-    return jsonify({"nodes": registry.active_nodes()})
+    return jsonify({"nodes": registry.active_nodes(), "capabilities": registry.capability_map()})
+
+
+@app.route("/nodes/list", methods=["GET"])
+def nodes_list_ui() -> Response:
+    if not _authorised_for_ui():
+        return Response("Forbidden", status=403)
+    return jsonify({"nodes": registry.active_nodes(), "capabilities": registry.capability_map()})
+
+
+@app.route("/nodes/trust", methods=["POST"])
+def nodes_trust() -> Response:
+    if not _authorised_for_ui():
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    hostname = str(payload.get("hostname") or payload.get("node_id") or "").strip()
+    level = str(payload.get("trust_level") or payload.get("level") or "trusted").strip()
+    if not hostname:
+        return jsonify({"error": "hostname required"}), 400
+    record = registry.set_trust_level(hostname, level)
+    if not record:
+        return jsonify({"error": "node not found"}), 404
+    return jsonify(record.serialise())
+
+
+@app.route("/nodes/block", methods=["POST"])
+def nodes_block() -> Response:
+    if not _authorised_for_ui():
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    hostname = str(payload.get("hostname") or payload.get("node_id") or "").strip()
+    if not hostname:
+        return jsonify({"error": "hostname required"}), 400
+    record = registry.set_trust_level(hostname, "blocked")
+    if not record:
+        return jsonify({"error": "node not found"}), 404
+    return jsonify(record.serialise())
+
+
+@app.route("/pair/start", methods=["POST"])
+def pair_start() -> Response:
+    if not _authorised_for_ui():
+        return Response("Forbidden", status=403)
+    host = request.host.split(":")[0] if request.host else _local_node_id()
+    data = pairing_service.start_pairing(host=host)
+    return jsonify(data)
+
+
+@app.route("/pair/confirm", methods=["POST"])
+def pair_confirm() -> Response:
+    payload = request.get_json() or {}
+    try:
+        result = pairing_service.confirm_pairing(payload)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    response = jsonify(result)
+    session_token = result.get("session_token")
+    if session_token and _WEBUI_AUTH_MODE == "cookie":
+        response.set_cookie(
+            pairing_service.session_cookie_name,
+            session_token,
+            max_age=int(os.getenv("PAIRING_SESSION_TTL_S", str(24 * 3600))),
+            secure=False,
+            httponly=False,
+            samesite="Lax",
+        )
+    return response
 
 
 @app.route("/nodes/register", methods=["POST"])
@@ -180,13 +369,40 @@ def memory_export() -> Response:
     return response
 
 
+@app.route("/chat", methods=["POST"])
+def chat() -> Response:
+    payload = request.get_json() or {}
+    if _ROLE == "thin":
+        upstream = _proxy_upstream_json("/chat", payload)
+        if upstream is not None:
+            return jsonify(upstream)
+        return jsonify({"error": "upstream_unavailable"}), 503
+    if not _authorised_for_ui() and request.headers.get("X-Relay-Secret") != RELAY_SECRET:
+        return Response("Forbidden", status=403)
+    capability = "llm"
+    remote = _proxy_remote_json("/chat", payload, capability=capability)
+    if remote is not None:
+        return jsonify(remote)
+    message = payload.get("message", "")
+    model = payload.get("model", "default").strip().lower()
+    emotions = payload.get("emotions") or empty_emotion_vector()
+    chunks = chunk_message(message)
+    reply = "\n".join(chunks)
+    write_mem(
+        f"[CHAT] Model: {model} | Message: {message}\n{reply}",
+        tags=["chat", model],
+        emotions=emotions,
+    )
+    return jsonify({"reply": reply, "model": model, "routed": "local", "chunks": chunks})
+
+
 @app.route("/relay", methods=["POST"])
 def relay():
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
 
     data = request.get_json() or {}
-    remote = _proxy_remote_json("/relay", data)
+    remote = _proxy_remote_json("/relay", data, capability=data.get("capability"))
     if remote is not None:
         return jsonify(remote)
 
@@ -274,11 +490,21 @@ def status() -> Response:
             }
         )
     payload["dream_loop"] = loop_status
+    payload["role"] = _ROLE or "core"
+    payload["upstream_host"] = _UPSTREAM_CORE or None
+    payload["capability_map"] = registry.capability_map()
+    payload["webui_enabled"] = _WEBUI_ENABLED
     return jsonify(payload)
 
 
 @app.route("/act", methods=["POST"])
 def act():
+    if _ROLE == "thin":
+        payload = request.get_json() or {}
+        upstream = _proxy_upstream_json("/act", payload)
+        if upstream is not None:
+            return jsonify(upstream)
+        return jsonify({"error": "upstream_unavailable"}), 503
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
 
@@ -335,6 +561,11 @@ def act_stream():
 
 @app.route("/goals/list", methods=["POST"])
 def goals_list():
+    if _ROLE == "thin":
+        upstream = _proxy_upstream_json("/goals/list", request.get_json() or {})
+        if upstream is not None:
+            return jsonify(upstream)
+        return jsonify({"error": "upstream_unavailable"}), 503
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     return jsonify(mm.get_goals(open_only=False))
@@ -342,6 +573,11 @@ def goals_list():
 
 @app.route("/goals/add", methods=["POST"])
 def goals_add():
+    if _ROLE == "thin":
+        upstream = _proxy_upstream_json("/goals/add", request.get_json() or {})
+        if upstream is not None:
+            return jsonify(upstream)
+        return jsonify({"error": "upstream_unavailable"}), 503
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     data = request.get_json() or {}
@@ -358,6 +594,11 @@ def goals_add():
 
 @app.route("/goals/complete", methods=["POST"])
 def goals_complete():
+    if _ROLE == "thin":
+        upstream = _proxy_upstream_json("/goals/complete", request.get_json() or {})
+        if upstream is not None:
+            return jsonify(upstream)
+        return jsonify({"error": "upstream_unavailable"}), 503
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     gid = (request.get_json() or {}).get("id")
@@ -371,6 +612,11 @@ def goals_complete():
 
 @app.route("/goals/delete", methods=["POST"])
 def goals_delete():
+    if _ROLE == "thin":
+        upstream = _proxy_upstream_json("/goals/delete", request.get_json() or {})
+        if upstream is not None:
+            return jsonify(upstream)
+        return jsonify({"error": "upstream_unavailable"}), 503
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     gid = (request.get_json() or {}).get("id")

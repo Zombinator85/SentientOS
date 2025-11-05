@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import hmac
+import hashlib
 import json
 import logging
 import os
@@ -14,6 +17,7 @@ from typing import Dict, Optional
 from dotenv import load_dotenv
 
 from node_registry import NODE_TOKEN, registry
+from pairing_service import pairing_service
 
 load_dotenv()
 
@@ -22,6 +26,10 @@ LOGGER = logging.getLogger(__name__)
 PORT = 9020
 _BEACON_INTERVAL = 3.0
 _BANNER_TEMPLATE = "[SentientOS] {count} nodes linked: {names}"
+_DEFAULT_API_PORT = int(os.getenv("SENTIENTOS_API_PORT", "5000"))
+_DEFAULT_UI_PORT = int(os.getenv("SENTIENTOS_UI_PORT", "5000"))
+_ROLE = os.getenv("SENTIENTOS_ROLE", "core")
+_DISCOVERY_SECRET = os.getenv("LAN_DISCOVERY_SECRET")
 
 
 def _local_ip() -> str:
@@ -39,10 +47,25 @@ def _default_capabilities() -> Dict[str, object]:
         "voice": os.getenv("SENTIENTOS_DISABLE_AUDIO", "0") != "1",
         "storage": os.getenv("SENTIENTOS_STORAGE", "local"),
         "os": platform.platform(),
+        "llm": os.getenv("SENTIENTOS_LLM_CAPABLE", "1") == "1",
+        "stt": os.getenv("SENTIENTOS_STT_CAPABLE", "0") == "1",
+        "tts": os.getenv("SENTIENTOS_TTS_CAPABLE", "0") == "1",
     }
     if os.getenv("SENTIENTOS_NODE_ONLY") == "1":
         caps["mode"] = "node_only"
+    if _ROLE:
+        caps.setdefault("role", _ROLE)
     return caps
+
+
+def _compute_hmac(payload: Dict[str, object]) -> tuple[str, str]:
+    nonce = base64.urlsafe_b64encode(os.urandom(9)).decode("ascii").rstrip("=")
+    body = dict(payload)
+    body["nonce"] = nonce
+    message = json.dumps(body, sort_keys=True).encode("utf-8")
+    signature = hmac.new(_DISCOVERY_SECRET.encode("utf-8"), message, hashlib.sha256).digest()
+    mac = base64.urlsafe_b64encode(signature).decode("ascii").rstrip("=")
+    return nonce, mac
 
 
 class NodeDiscovery:
@@ -70,9 +93,11 @@ class NodeDiscovery:
         registry.register_or_update(
             self._hostname,
             self._ip,
-            port=5000,
+            port=_DEFAULT_API_PORT,
             capabilities=self._capabilities,
             last_seen=time.time(),
+            roles=[_ROLE] if _ROLE else None,
+            pubkey_fingerprint=pairing_service.public_key_fingerprint,
         )
 
     @property
@@ -84,9 +109,6 @@ class NodeDiscovery:
         return self._ip
 
     def start(self) -> None:
-        if not self._token:
-            LOGGER.warning("Node discovery requires NODE_TOKEN; discovery disabled.")
-            return
         if self._broadcast_thread and self._broadcast_thread.is_alive():
             return
         self._broadcast_thread = threading.Thread(target=self._broadcast_loop, daemon=True)
@@ -114,13 +136,21 @@ class NodeDiscovery:
 
     def _broadcast_loop(self) -> None:
         payload = {
-            "id": self._hostname,
+            "node_id": self._hostname,
+            "hostname": self._hostname,
             "ip": self._ip,
-            "port": 5000,
+            "api_port": _DEFAULT_API_PORT,
+            "ui_port": _DEFAULT_UI_PORT,
             "capabilities": self._capabilities,
-            "token": self._token,
+            "roles": [_ROLE] if _ROLE else [],
+            "public_key_fpr": pairing_service.public_key_fingerprint,
         }
-        encoded = json.dumps(payload).encode("utf-8")
+        encoded_payload = dict(payload)
+        if _DISCOVERY_SECRET:
+            nonce, mac = _compute_hmac(payload)
+            encoded_payload["nonce"] = nonce
+            encoded_payload["hmac"] = mac
+        encoded = json.dumps(encoded_payload).encode("utf-8")
         while not self._stop.is_set():
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -156,21 +186,40 @@ class NodeDiscovery:
         except json.JSONDecodeError:
             LOGGER.debug("Discarded malformed beacon from %s", addr)
             return
-        token = payload.get("token")
-        if not token or token != self._token:
-            return
-        hostname = payload.get("id") or payload.get("hostname")
+        if _DISCOVERY_SECRET:
+            nonce = payload.get("nonce")
+            mac = payload.get("hmac")
+            if not isinstance(nonce, str) or not isinstance(mac, str):
+                LOGGER.debug("Discarded unsigned beacon from %s", addr)
+                return
+            check_body = dict(payload)
+            check_body.pop("hmac", None)
+            message = json.dumps(check_body, sort_keys=True).encode("utf-8")
+            expected = hmac.new(_DISCOVERY_SECRET.encode("utf-8"), message, hashlib.sha256).digest()
+            compare = base64.urlsafe_b64encode(expected).decode("ascii").rstrip("=")
+            if compare != mac:
+                LOGGER.debug("Discarded beacon with invalid signature from %s", addr)
+                return
+        hostname = payload.get("node_id") or payload.get("hostname")
         if hostname == self._hostname:
             return
         ip = payload.get("ip") or addr[0]
-        port = int(payload.get("port", 5000))
+        port = int(payload.get("api_port", payload.get("port", 5000)))
         capabilities = payload.get("capabilities") if isinstance(payload.get("capabilities"), dict) else {}
+        roles = payload.get("roles") if isinstance(payload.get("roles"), list) else []
+        fingerprint = payload.get("public_key_fpr")
+        trust_level = payload.get("trust_level") if isinstance(payload.get("trust_level"), str) else None
+        upstream_host = payload.get("upstream_host") if isinstance(payload.get("upstream_host"), str) else None
         registry.register_or_update(
             str(hostname),
             str(ip),
             port=port,
             capabilities=capabilities,
             last_seen=time.time(),
+            roles=roles,
+            pubkey_fingerprint=fingerprint,
+            trust_level=trust_level,
+            upstream_host=upstream_host,
         )
         LOGGER.info("Discovered node %s@%s:%s", hostname, ip, port)
         self._render_linked_banner()

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SentientOS Web Console</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        background: #0f172a;
+      }
+      h1 {
+        font-size: 1.6rem;
+        margin-bottom: 0.5rem;
+      }
+      section {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.35);
+      }
+      button {
+        cursor: pointer;
+        background: #22d3ee;
+        border: none;
+        color: #0f172a;
+        padding: 0.5rem 1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        transition: transform 0.1s ease;
+      }
+      button:hover {
+        transform: translateY(-1px);
+      }
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+        color: inherit;
+        padding: 0.75rem;
+        margin: 0.5rem 0;
+        box-sizing: border-box;
+      }
+      textarea {
+        min-height: 90px;
+      }
+      #chat-log {
+        max-height: 220px;
+        overflow-y: auto;
+        border-radius: 10px;
+        padding: 0.5rem;
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+      .chat-entry {
+        margin-bottom: 0.75rem;
+      }
+      .chat-entry strong {
+        display: block;
+        color: #38bdf8;
+        margin-bottom: 0.25rem;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+      th,
+      td {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        padding: 0.4rem;
+        text-align: left;
+      }
+      .status-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.75rem;
+      }
+      .status-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        padding: 0.75rem;
+      }
+      .status-card h3 {
+        margin: 0 0 0.25rem;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #38bdf8;
+      }
+      .status-card p {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+      @media (max-width: 720px) {
+        body {
+          padding: 1rem;
+        }
+        section {
+          padding: 0.85rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>SentientOS Thin Console</h1>
+      <p id="status-role">Loading status…</p>
+    </header>
+
+    <section>
+      <h2>Quick Chat</h2>
+      <div id="chat-log"></div>
+      <textarea id="chat-input" placeholder="Ask the core node…"></textarea>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button id="send-chat">Send</button>
+        <button id="clear-chat" type="button">Clear</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Pairing</h2>
+      <p>Generate a pairing code to link a new thin device. Confirm with the PIN displayed on the host.</p>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button id="start-pair">Start Pairing</button>
+        <button id="confirm-pair">Confirm Pairing</button>
+      </div>
+      <div style="margin-top:0.5rem;" id="pairing-info"></div>
+      <div style="margin-top:0.5rem;">
+        <input id="pair-node-id" placeholder="Node ID" type="text" />
+        <input id="pair-code" placeholder="Pairing code" type="text" />
+        <input id="pair-pin" placeholder="PIN (if required)" type="text" />
+      </div>
+    </section>
+
+    <section>
+      <h2>Node Overview</h2>
+      <div class="status-grid" id="status-cards"></div>
+      <table id="nodes-table">
+        <thead>
+          <tr>
+            <th>Node</th>
+            <th>Roles</th>
+            <th>Capabilities</th>
+            <th>Trust</th>
+            <th>Last Seen</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <script>
+      const headers = {
+        "Content-Type": "application/json",
+      };
+
+      function renderStatus(data) {
+        const cards = document.getElementById("status-cards");
+        cards.innerHTML = "";
+        const items = [
+          { label: "Role", value: data.role || "core" },
+          { label: "Upstream", value: data.upstream_host || "local" },
+          { label: "Dream Loop", value: data.dream_loop_active ? "active" : "idle" },
+          { label: "Memory Entries", value: data.mem_entries ?? "–" },
+          { label: "Safety Events (1h)", value: data.safety_events_1h ?? "0" },
+        ];
+        items.forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "status-card";
+          card.innerHTML = `<h3>${item.label}</h3><p>${item.value}</p>`;
+          cards.appendChild(card);
+        });
+        const roleLine = `Role: ${data.role || "core"} · UI: ${data.webui_enabled ? "enabled" : "disabled"}`;
+        document.getElementById("status-role").textContent = roleLine;
+      }
+
+      function renderNodes(payload) {
+        const tbody = document.querySelector("#nodes-table tbody");
+        tbody.innerHTML = "";
+        if (!payload.nodes) return;
+        payload.nodes.forEach((node) => {
+          const tr = document.createElement("tr");
+          const caps = node.capabilities ? Object.keys(node.capabilities).join(", ") : "–";
+          const roles = node.roles ? node.roles.join(", ") : "–";
+          const lastSeen = node.last_seen ? new Date(node.last_seen * 1000).toLocaleTimeString() : "–";
+          tr.innerHTML = `
+            <td>${node.hostname}</td>
+            <td>${roles}</td>
+            <td>${caps}</td>
+            <td>${node.trust_level || "provisional"}</td>
+            <td>${lastSeen}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      async function fetchStatus() {
+        try {
+          const resp = await fetch("/status", { headers });
+          if (!resp.ok) throw new Error("status failed");
+          const data = await resp.json();
+          renderStatus(data);
+        } catch (err) {
+          console.warn(err);
+        }
+      }
+
+      async function fetchNodes() {
+        try {
+          const resp = await fetch("/nodes/list", { headers });
+          if (!resp.ok) throw new Error("nodes failed");
+          const data = await resp.json();
+          renderNodes(data);
+        } catch (err) {
+          console.warn(err);
+        }
+      }
+
+      function appendChat(role, text) {
+        const log = document.getElementById("chat-log");
+        const entry = document.createElement("div");
+        entry.className = "chat-entry";
+        entry.innerHTML = `<strong>${role}</strong><div>${text}</div>`;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+      }
+
+      async function sendChat() {
+        const box = document.getElementById("chat-input");
+        const message = box.value.trim();
+        if (!message) return;
+        appendChat("You", message);
+        box.value = "";
+        try {
+          const resp = await fetch("/chat", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ message }),
+          });
+          if (!resp.ok) throw new Error("chat failed");
+          const data = await resp.json();
+          appendChat("SentientOS", data.reply || "(no reply)" );
+        } catch (err) {
+          appendChat("System", "Failed to reach chat endpoint.");
+          console.warn(err);
+        }
+      }
+
+      async function startPairing() {
+        const box = document.getElementById("pairing-info");
+        box.textContent = "Starting pairing…";
+        try {
+          const resp = await fetch("/pair/start", { method: "POST", headers });
+          if (!resp.ok) throw new Error("pairing start failed");
+          const data = await resp.json();
+          box.innerHTML = `
+            <p>Pair code: <strong>${data.pair_code}</strong></p>
+            ${data.pin ? `<p>PIN: <strong>${data.pin}</strong></p>` : ""}
+            <div>${data.qr_svg || ""}</div>
+          `;
+        } catch (err) {
+          box.textContent = "Unable to start pairing.";
+          console.warn(err);
+        }
+      }
+
+      async function confirmPairing() {
+        const nodeId = document.getElementById("pair-node-id").value.trim();
+        const code = document.getElementById("pair-code").value.trim();
+        const pin = document.getElementById("pair-pin").value.trim();
+        const box = document.getElementById("pairing-info");
+        if (!nodeId || !code) {
+          box.textContent = "Node ID and code are required.";
+          return;
+        }
+        const payload = { node_id: nodeId, pair_code: code };
+        if (pin) payload.pin = pin;
+        try {
+          const resp = await fetch("/pair/confirm", {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "pair confirm failed");
+          box.textContent = `Paired with ${data.node_id}. Token issued.`;
+          fetchNodes();
+        } catch (err) {
+          box.textContent = "Pairing failed. Check code and PIN.";
+          console.warn(err);
+        }
+      }
+
+      document.getElementById("send-chat").addEventListener("click", sendChat);
+      document.getElementById("clear-chat").addEventListener("click", () => {
+        document.getElementById("chat-log").innerHTML = "";
+      });
+      document.getElementById("start-pair").addEventListener("click", startPairing);
+      document.getElementById("confirm-pair").addEventListener("click", confirmPairing);
+      document.getElementById("chat-input").addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+          ev.preventDefault();
+          sendChat();
+        }
+      });
+
+      fetchStatus();
+      fetchNodes();
+      setInterval(fetchStatus, 15000);
+      setInterval(fetchNodes, 20000);
+    </script>
+  </body>
+</html>
