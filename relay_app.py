@@ -16,7 +16,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional, Sequence
 
 from dotenv import load_dotenv
 
@@ -48,7 +48,7 @@ import mem_admin
 import mem_export
 import memory_governor as governor
 import secure_memory_storage as secure_store
-from safety_log import count_recent_events
+from safety_log import count_recent_events, log_event
 import dream_loop
 from sentient_verifier import SentientVerifier
 from sentientscript import (
@@ -64,7 +64,7 @@ from distributed_memory import decrypt_reflection_payload, encode_payload, synch
 from epu_core import get_global_state
 from gpu_autosetup import configure_stt
 from node_discovery import discovery
-from node_registry import NODE_TOKEN, RoundRobinRouter, registry
+from node_registry import NODE_TOKEN, NodeRecord, RoundRobinRouter, registry
 from pairing_service import pairing_service
 from stt_service import StreamingTranscriber
 from tts_service import TtsStreamer
@@ -176,6 +176,29 @@ class _SseHub:
                 self._subscribers.discard(subscriber)
 
 
+class _RateLimiter:
+    def __init__(self, *, limit: int, window_seconds: float) -> None:
+        self._limit = max(1, int(limit))
+        self._window = max(1.0, float(window_seconds))
+        self._events: dict[str, deque[float]] = {}
+        self._lock = threading.Lock()
+
+    def allow(self, key: str, *, now: Optional[float] = None) -> bool:
+        moment = now or time.time()
+        with self._lock:
+            events = self._events.setdefault(key, deque())
+            while events and moment - events[0] > self._window:
+                events.popleft()
+            if len(events) >= self._limit:
+                return False
+            events.append(moment)
+        return True
+
+    def reset(self) -> None:
+        with self._lock:
+            self._events.clear()
+
+
 _ADMIN_EVENTS = _SseHub()
 _SCRIPT_INTERPRETER = SentientScriptInterpreter()
 _VOICE_SESSIONS: dict[str, _VoiceSessionState] = {}
@@ -183,6 +206,9 @@ _VOICE_LOCK = threading.Lock()
 _VOICE_IDLE_TIMEOUT = float(os.getenv("VOICE_SESSION_IDLE_S", "120"))
 _REFLECTION_SYNC_LOG = get_log_path("reflection_sync.jsonl", "REFLECTION_SYNC_LOG")
 _RECENT_REFLECTION_SYNC_IDS: deque[str] = deque(maxlen=200)
+_VERIFIER_RATE_LIMIT = _RateLimiter(limit=60, window_seconds=60.0)
+_MAX_VERIFIER_BUNDLE_BYTES = 5_000_000
+_MAX_VERIFIER_STEPS = 1_000
 
 
 _registry_register_or_update = registry.register_or_update
@@ -865,6 +891,63 @@ def admin_script_logs(run_id: str) -> Response:
     return _admin_response(shadow)
 
 
+def _verifier_submit_key() -> tuple[str, Optional[str]]:
+    token = str(request.headers.get(_NODE_HEADER) or "").strip()
+    if token:
+        hashed = hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+        key = f"token:{hashed}"
+    else:
+        key = f"ip:{_remote_ip()}"
+    node_id = request.headers.get(_NODE_ID_HEADER)
+    if node_id:
+        node_id = node_id.strip() or None
+    return key, node_id
+
+
+def _lookup_request_node(bundle: Mapping[str, Any]) -> Optional[NodeRecord]:
+    node_id = request.headers.get(_NODE_ID_HEADER)
+    if node_id:
+        record = registry.get(node_id.strip())
+        if record is not None:
+            return record
+    run_log = bundle.get("claimed_run") if isinstance(bundle, Mapping) else None
+    if isinstance(run_log, Mapping):
+        from_node = run_log.get("from_node")
+        if isinstance(from_node, str) and from_node:
+            record = registry.get(from_node)
+            if record is not None:
+                return record
+    return None
+
+
+def _bundle_is_oversized(bundle: Mapping[str, Any]) -> bool:
+    try:
+        encoded = json.dumps(bundle).encode("utf-8")
+    except Exception:
+        return False
+    if len(encoded) > _MAX_VERIFIER_BUNDLE_BYTES:
+        return True
+    run_log = bundle.get("claimed_run")
+    if isinstance(run_log, Mapping):
+        steps = run_log.get("steps")
+        if isinstance(steps, Sequence) and len(steps) > _MAX_VERIFIER_STEPS:
+            return True
+    return False
+
+
+def _verifier_event_payload(report: "VerificationReport") -> Dict[str, Any]:
+    verified_at = report.timestamps.get("verified") if isinstance(report.timestamps, Mapping) else None
+    return {
+        "job_id": report.job_id,
+        "verdict": report.verdict,
+        "script_hash": report.script_hash,
+        "from_node": report.from_node,
+        "score": report.score,
+        "verifier_node": report.verifier_node,
+        "timestamp": verified_at or time.time(),
+    }
+
+
 @app.route("/admin/verify/submit", methods=["POST"])
 def admin_verify_submit() -> Response:
     if not _admin_authorised(require_csrf=True):
@@ -880,6 +963,22 @@ def admin_verify_submit() -> Response:
         bundle = {"script": script, "claimed_run": run_log, "env": env}
     if not isinstance(bundle, dict):
         return jsonify({"error": "bundle must be an object"}), 400
+    if _bundle_is_oversized(bundle):
+        LOGGER.warning("[Verifier] bundle rejected due to size limit")
+        log_event("verifier_bundle_oversized")
+        return jsonify({"error": "bundle_too_large"}), 413
+    rate_key, _ = _verifier_submit_key()
+    if not _VERIFIER_RATE_LIMIT.allow(rate_key):
+        LOGGER.warning("[Verifier] submission rate limited for %s", rate_key)
+        log_event("verifier_rate_limited")
+        response = jsonify({"error": "rate_limited"})
+        response.status_code = 429
+        return response
+    record = _lookup_request_node(bundle)
+    if record is not None and getattr(record, "is_suspended", False):
+        LOGGER.warning("[Verifier] submission blocked for suspended node %s", record.hostname)
+        log_event("verifier_suspended")
+        return jsonify({"error": "node_suspended"}), 403
     try:
         report = _SENTIENT_VERIFIER.verify_bundle(bundle)
     except ValueError as exc:
@@ -891,8 +990,13 @@ def admin_verify_submit() -> Response:
         "job_id": report.job_id,
         "verdict": report.verdict,
         "score": report.score,
+        "script_hash": report.script_hash,
+        "from_node": report.from_node,
+        "verifier_node": report.verifier_node,
+        "timestamp": report.timestamps.get("verified") if isinstance(report.timestamps, Mapping) else None,
     }
     _notify_admin("verifier_report", response_payload)
+    _notify_admin("verifier_update", _verifier_event_payload(report))
     return _admin_response(response_payload)
 
 
@@ -934,11 +1038,23 @@ def admin_verify_list() -> Response:
 def admin_verify_replay(job_id: str) -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
-    bundle = _VERIFIER_STORE.load_bundle(job_id)
+    bundle = _VERIFIER_STORE.get_bundle(job_id)
     if bundle is None:
         return jsonify({"error": "not_found"}), 404
+    rate_key, _ = _verifier_submit_key()
+    if not _VERIFIER_RATE_LIMIT.allow(rate_key):
+        LOGGER.warning("[Verifier] replay rate limited for %s", rate_key)
+        log_event("verifier_rate_limited")
+        response = jsonify({"error": "rate_limited"})
+        response.status_code = 429
+        return response
+    record = _lookup_request_node(bundle)
+    if record is not None and getattr(record, "is_suspended", False):
+        LOGGER.warning("[Verifier] replay blocked for suspended node %s", record.hostname)
+        log_event("verifier_suspended")
+        return jsonify({"error": "node_suspended"}), 403
     try:
-        report = _SENTIENT_VERIFIER.verify_bundle(bundle)
+        report = _SENTIENT_VERIFIER.replay_job(job_id)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -948,8 +1064,13 @@ def admin_verify_replay(job_id: str) -> Response:
         "job_id": report.job_id,
         "verdict": report.verdict,
         "score": report.score,
+        "script_hash": report.script_hash,
+        "from_node": report.from_node,
+        "verifier_node": report.verifier_node,
+        "timestamp": report.timestamps.get("verified") if isinstance(report.timestamps, Mapping) else None,
     }
     _notify_admin("verifier_report", response_payload)
+    _notify_admin("verifier_update", _verifier_event_payload(report))
     return _admin_response(response_payload)
 
 

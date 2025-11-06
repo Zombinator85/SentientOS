@@ -70,6 +70,7 @@ class NodeRecord:
             "last_seen": self.last_seen,
             "upstream_host": self.upstream_host,
             "last_voice_activity": self.last_voice_activity,
+            "is_suspended": self.is_suspended,
         }
         return payload
 
@@ -135,6 +136,10 @@ class NodeRecord:
             elif value not in (None, False, "", 0):
                 keys.append(str(key))
         return sorted(set(keys))
+
+    @property
+    def is_suspended(self) -> bool:
+        return self.trust_score <= -4
 
 
 class NodeRegistry:
@@ -342,7 +347,9 @@ class NodeRegistry:
                 return None
             if delta:
                 record.trust_score = _clamp_trust_score(record.trust_score + delta)
-                if record.trust_score <= -4 and record.trust_level not in {"blocked", "suspended"}:
+                if record.is_suspended:
+                    record.trust_level = "suspended"
+                elif record.trust_level == "suspended":
                     record.trust_level = "provisional"
             self._save()
             return record

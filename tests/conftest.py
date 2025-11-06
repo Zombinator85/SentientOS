@@ -186,6 +186,8 @@ def pytest_collection_modifyitems(config, items):
         "tests.e2e.test_perf_targets",
         "tests.e2e.test_soak",
         "tests.test_sentient_verifier",
+        "tests.test_sentient_verifier_sse",
+        "tests.test_sentient_verifier_replay",
     }
     for item in items:
         module_name = item.module.__name__

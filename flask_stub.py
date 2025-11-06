@@ -55,10 +55,11 @@ class Flask:
                     if isinstance(data, dict):
                         data = json.dumps(data)
                     return Response(data, status)
-                elif isinstance(rv, dict):
+                if isinstance(rv, dict):
                     return Response(json.dumps(rv), 200)
-                else:
-                    return Response(rv, 200)
+                if isinstance(rv, Response):
+                    return rv
+                return Response(rv, 200)
 
         return Client()
 
@@ -67,4 +68,6 @@ class Flask:
 
 
 def jsonify(obj):
-    return json.dumps(obj)
+    if isinstance(obj, Response):
+        return obj
+    return Response(json.dumps(obj), 200)
