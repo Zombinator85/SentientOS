@@ -185,6 +185,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.e2e.test_services",
         "tests.e2e.test_perf_targets",
         "tests.e2e.test_soak",
+        "tests.test_sentient_verifier",
     }
     for item in items:
         module_name = item.module.__name__
