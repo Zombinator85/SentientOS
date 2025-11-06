@@ -31,6 +31,14 @@ _REGISTRY_DIR_NAME = "nodes"
 _REGISTRY_FILE_NAME = "nodes.json"
 
 
+def _clamp_trust_score(value: int | float) -> int:
+    try:
+        numeric = int(value)
+    except (TypeError, ValueError):
+        numeric = 0
+    return max(-5, min(5, numeric))
+
+
 @dataclass
 class NodeRecord:
     """Representation of a remote SentientOS node."""
@@ -43,6 +51,7 @@ class NodeRecord:
     token_hash: Optional[str] = None
     pubkey_fingerprint: Optional[str] = None
     trust_level: str = "provisional"
+    trust_score: int = 0
     last_seen: float = field(default_factory=lambda: time.time())
     upstream_host: Optional[str] = None
     last_voice_activity: float = 0.0
@@ -57,6 +66,7 @@ class NodeRecord:
             "token_hash": self.token_hash,
             "pubkey_fingerprint": self.pubkey_fingerprint,
             "trust_level": self.trust_level,
+            "trust_score": self.trust_score,
             "last_seen": self.last_seen,
             "upstream_host": self.upstream_host,
             "last_voice_activity": self.last_voice_activity,
@@ -82,6 +92,11 @@ class NodeRecord:
         else:
             roles = []
         trust_level = str(payload.get("trust_level") or "provisional")
+        trust_score_obj = payload.get("trust_score")
+        try:
+            trust_score = int(trust_score_obj)
+        except (TypeError, ValueError):
+            trust_score = 0
         token_hash = payload.get("token_hash")
         if token_hash is not None:
             token_hash = str(token_hash)
@@ -105,6 +120,7 @@ class NodeRecord:
             token_hash=token_hash,
             pubkey_fingerprint=pubkey_fingerprint,
             trust_level=trust_level,
+            trust_score=_clamp_trust_score(trust_score),
             last_seen=last_seen,
             upstream_host=upstream_host,
             last_voice_activity=last_voice_activity,
@@ -184,6 +200,7 @@ class NodeRegistry:
         token_hash: Optional[str] = None,
         pubkey_fingerprint: Optional[str] = None,
         trust_level: Optional[str] = None,
+        trust_score: Optional[int] = None,
         upstream_host: Optional[str] = None,
         last_voice_activity: Optional[float] = None,
     ) -> NodeRecord:
@@ -209,6 +226,7 @@ class NodeRegistry:
                     token_hash=token_hash,
                     pubkey_fingerprint=pubkey_fingerprint,
                     trust_level=trust_level or "provisional",
+                    trust_score=_clamp_trust_score(trust_score or 0),
                     last_seen=timestamp,
                     upstream_host=upstream_host,
                     last_voice_activity=float(last_voice_activity or 0.0),
@@ -227,6 +245,8 @@ class NodeRegistry:
                     record.pubkey_fingerprint = pubkey_fingerprint
                 if trust_level is not None:
                     record.trust_level = trust_level
+                if trust_score is not None:
+                    record.trust_score = _clamp_trust_score(trust_score)
                 if upstream_host is not None:
                     record.upstream_host = upstream_host
                 if last_voice_activity is not None:
@@ -300,6 +320,36 @@ class NodeRegistry:
             record.trust_level = trust_level
             self._save()
             return record
+
+    def get_trust_score(self, hostname: str) -> Optional[int]:
+        with self._lock:
+            record = self._nodes.get(hostname)
+            if record is None:
+                return None
+            return record.trust_score
+
+    def apply_verification_outcome(self, hostname: str, outcome: str) -> Optional[NodeRecord]:
+        outcome = str(outcome)
+        deltas = {
+            "VERIFIED_OK": 1,
+            "DIVERGED": -2,
+            "SIGNATURE_MISMATCH": -2,
+        }
+        delta = deltas.get(outcome, 0)
+        with self._lock:
+            record = self._nodes.get(hostname)
+            if record is None:
+                return None
+            if delta:
+                record.trust_score = _clamp_trust_score(record.trust_score + delta)
+                if record.trust_score <= -4 and record.trust_level not in {"blocked", "suspended"}:
+                    record.trust_level = "provisional"
+            self._save()
+            return record
+
+    def records(self) -> List[NodeRecord]:
+        with self._lock:
+            return list(self._nodes.values())
 
     def store_token(self, hostname: str, token_hash: str) -> Optional[NodeRecord]:
         with self._lock:

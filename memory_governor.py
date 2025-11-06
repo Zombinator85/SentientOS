@@ -12,6 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List
 
+try:  # pragma: no cover - optional dependency during tests
+    from verifier_store import VerifierStore
+except Exception:  # pragma: no cover - fallback when verifier not initialised
+    VerifierStore = None  # type: ignore[assignment]
+
 import memory_manager as mm
 
 from emotion_utils import combine_emotions, dominant_emotion
@@ -371,13 +376,26 @@ def metrics(limit: int = 500) -> dict[str, object]:
             "updated": _LAST_REFLECTION.updated,
             "trimmed_snapshots": _LAST_REFLECTION.trimmed_snapshots,
         }
+    verifier_counts = _verifier_counts()
     return {
         "total": total,
         "categories": counts,
         "secure_store": secure_store.is_enabled(),
         "incognito": _incognito_enabled(),
         "last_reflection": reflection_summary,
+        "verifier": {"counts": verifier_counts},
     }
+
+
+def _verifier_counts() -> dict[str, int]:
+    if VerifierStore is None:
+        return {}
+    try:
+        store = VerifierStore.default()
+        today = _dt.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=_dt.timezone.utc)
+        return store.verdict_counts(since=today.timestamp())
+    except Exception:  # pragma: no cover - defensive
+        return {}
 
 
 __all__ = [

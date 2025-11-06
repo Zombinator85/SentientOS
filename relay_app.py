@@ -50,6 +50,7 @@ import memory_governor as governor
 import secure_memory_storage as secure_store
 from safety_log import count_recent_events
 import dream_loop
+from sentient_verifier import SentientVerifier
 from sentientscript import (
     ScriptExecutionError,
     SentientScriptInterpreter,
@@ -69,6 +70,7 @@ from stt_service import StreamingTranscriber
 from tts_service import TtsStreamer
 from watchdog_service import WatchdogService
 from webrtc_bridge import WebRTCSessionManager
+from verifier_store import VerifierStore
 
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
@@ -128,7 +130,11 @@ else:
     _STT_CONFIG = None
     _STT_PIPELINE = None
     _TTS_PIPELINE = None
-    _WEBRTC_MANAGER = None
+_WEBRTC_MANAGER = None
+
+
+_VERIFIER_STORE = VerifierStore.default()
+_SENTIENT_VERIFIER = SentientVerifier(store=_VERIFIER_STORE)
 
 
 @dataclass
@@ -769,7 +775,24 @@ def _admin_status_payload() -> Dict[str, Any]:
         "watchdog": WATCHDOG.snapshot(),
         "voice": _STT_CONFIG or {},
         "safety_events_1h": count_recent_events(1),
+        "verifier": _verifier_status(),
     }
+
+
+def _verifier_status() -> Dict[str, Any]:
+    summary = _SENTIENT_VERIFIER.status()
+    summary["counts"] = _verifier_counts_today()
+    return summary
+
+
+def _verifier_counts_today() -> Dict[str, int]:
+    try:
+        today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        return _VERIFIER_STORE.verdict_counts(
+            since=today.replace(tzinfo=datetime.timezone.utc).timestamp()
+        )
+    except Exception:  # pragma: no cover - defensive
+        return {}
 
 
 @app.route("/admin/scripts", methods=["GET", "POST"])
@@ -840,6 +863,94 @@ def admin_script_logs(run_id: str) -> Response:
     if shadow is None:
         return jsonify({"error": "not_found"}), 404
     return _admin_response(shadow)
+
+
+@app.route("/admin/verify/submit", methods=["POST"])
+def admin_verify_submit() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json(silent=True) or {}
+    bundle = payload.get("bundle")
+    if bundle is None:
+        script = payload.get("script") or payload.get("plan")
+        if script is None:
+            return jsonify({"error": "script required"}), 400
+        run_log = payload.get("run_log")
+        env = payload.get("env") or {}
+        bundle = {"script": script, "claimed_run": run_log, "env": env}
+    if not isinstance(bundle, dict):
+        return jsonify({"error": "bundle must be an object"}), 400
+    try:
+        report = _SENTIENT_VERIFIER.verify_bundle(bundle)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # pragma: no cover - defensive logging
+        LOGGER.exception("[Verifier] bundle verification failed", exc_info=exc)
+        return jsonify({"error": "verification_failed"}), 500
+    response_payload = {
+        "job_id": report.job_id,
+        "verdict": report.verdict,
+        "score": report.score,
+    }
+    _notify_admin("verifier_report", response_payload)
+    return _admin_response(response_payload)
+
+
+@app.route("/admin/verify/status/<job_id>", methods=["GET"])
+def admin_verify_status(job_id: str) -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    summary = _VERIFIER_STORE.get_status(job_id)
+    if summary is None:
+        return jsonify({"error": "not_found"}), 404
+    payload = summary.to_dict()
+    payload["verifier"] = _SENTIENT_VERIFIER.status()
+    return _admin_response(payload)
+
+
+@app.route("/admin/verify/report/<job_id>", methods=["GET"])
+def admin_verify_report(job_id: str) -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    report = _VERIFIER_STORE.get_report(job_id)
+    if report is None:
+        return jsonify({"error": "not_found"}), 404
+    return _admin_response(report)
+
+
+@app.route("/admin/verify/list", methods=["GET"])
+def admin_verify_list() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    try:
+        limit = int(request.args.get("limit", "50"))
+    except ValueError:
+        limit = 50
+    summaries = [summary.to_dict() for summary in _VERIFIER_STORE.list_reports(limit=max(1, limit))]
+    return _admin_response({"reports": summaries})
+
+
+@app.route("/admin/verify/replay/<job_id>", methods=["POST"])
+def admin_verify_replay(job_id: str) -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    bundle = _VERIFIER_STORE.load_bundle(job_id)
+    if bundle is None:
+        return jsonify({"error": "not_found"}), 404
+    try:
+        report = _SENTIENT_VERIFIER.verify_bundle(bundle)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # pragma: no cover - defensive logging
+        LOGGER.exception("[Verifier] replay failed", exc_info=exc)
+        return jsonify({"error": "verification_failed"}), 500
+    response_payload = {
+        "job_id": report.job_id,
+        "verdict": report.verdict,
+        "score": report.score,
+    }
+    _notify_admin("verifier_report", response_payload)
+    return _admin_response(response_payload)
 
 
 @app.route("/admin/dream", methods=["GET"])

@@ -18,6 +18,8 @@ const loopProgressFill = document.getElementById("loop-progress-fill");
 const loopProgressLabel = document.getElementById("loop-progress-label");
 const loopMeta = document.getElementById("loop-meta");
 const loopNext = document.getElementById("loop-next");
+const verifierCounts = document.getElementById("verifier-counts");
+const verifierTable = document.querySelector("#verifier-table tbody");
 
 let deferredPrompt = null;
 window.addEventListener("beforeinstallprompt", (event) => {
@@ -88,6 +90,15 @@ function formatTimestamp(value) {
   return date.toLocaleString();
 }
 
+function formatRelativeAge(createdAtSeconds) {
+  if (!createdAtSeconds) return "–";
+  const created = Number(createdAtSeconds) * 1000;
+  if (!Number.isFinite(created)) return "–";
+  const deltaSeconds = (Date.now() - created) / 1000;
+  if (deltaSeconds < 0) return "just now";
+  return `${formatDuration(deltaSeconds)} ago`;
+}
+
 function renderMetrics(metrics) {
   overviewGrid.innerHTML = "";
   const items = [
@@ -114,11 +125,65 @@ function renderNodes(payload) {
     const voice = node.last_voice_activity ? new Date(node.last_voice_activity * 1000).toLocaleTimeString() : "–";
     tr.innerHTML = `
       <td>${node.hostname}</td>
-      <td>${node.trust_level}</td>
+      <td>${node.trust_level}${node.trust_score !== undefined ? ` (${node.trust_score})` : ""}</td>
       <td>${capabilities}</td>
       <td>${voice}</td>
     `;
     nodesTable.appendChild(tr);
+  }
+}
+
+function renderVerifier(status, listing) {
+  if (verifierCounts) {
+    verifierCounts.innerHTML = "";
+    const counts = status?.counts || {};
+    const entries = Object.entries(counts);
+    if (!entries.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "No verification activity today.";
+      verifierCounts.appendChild(empty);
+    } else {
+      for (const [verdict, count] of entries) {
+        const badge = document.createElement("div");
+        badge.className = "verifier-badge";
+        badge.innerHTML = `<strong>${count}</strong><span>${verdict.replace(/_/g, " ")}</span>`;
+        verifierCounts.appendChild(badge);
+      }
+    }
+  }
+
+  if (verifierTable) {
+    verifierTable.innerHTML = "";
+    const jobs = listing?.reports || [];
+    if (!jobs.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 5;
+      cell.textContent = "No verification jobs yet.";
+      row.appendChild(cell);
+      verifierTable.appendChild(row);
+      return;
+    }
+    for (const job of jobs) {
+      const tr = document.createElement("tr");
+      const link = document.createElement("a");
+      link.href = `/admin/verify/report/${job.job_id}`;
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = job.job_id;
+      const jobCell = document.createElement("td");
+      jobCell.appendChild(link);
+      const scriptCell = document.createElement("td");
+      scriptCell.textContent = (job.script_hash || "").toString().slice(0, 12) || "–";
+      const verdictCell = document.createElement("td");
+      verdictCell.textContent = job.verdict || "–";
+      const nodeCell = document.createElement("td");
+      nodeCell.textContent = job.from_node || "–";
+      const ageCell = document.createElement("td");
+      ageCell.textContent = formatRelativeAge(job.created_at);
+      tr.append(jobCell, scriptCell, verdictCell, nodeCell, ageCell);
+      verifierTable.appendChild(tr);
+    }
   }
 }
 
@@ -274,6 +339,15 @@ async function refreshAll() {
     renderDream(dream);
     const nodes = await fetchJson("/admin/nodes", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
     renderNodes(nodes);
+    let verifierList = { reports: [] };
+    try {
+      verifierList = await fetchJson("/admin/verify/list?limit=5", {
+        headers: { "X-Node-Token": window.NODE_TOKEN ?? "" },
+      });
+    } catch (error) {
+      console.debug("Verifier list unavailable", error);
+    }
+    renderVerifier(status.verifier ?? {}, verifierList);
     const memory = await fetchJson("/admin/memory/summary", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
     renderMemory(memory);
     const health = await fetchJson("/admin/health", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
