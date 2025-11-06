@@ -50,6 +50,12 @@ import memory_governor as governor
 import secure_memory_storage as secure_store
 from safety_log import count_recent_events
 import dream_loop
+from sentientscript import (
+    ScriptExecutionError,
+    SentientScriptInterpreter,
+    list_script_history,
+    load_safety_shadow,
+)
 
 import requests
 
@@ -165,6 +171,7 @@ class _SseHub:
 
 
 _ADMIN_EVENTS = _SseHub()
+_SCRIPT_INTERPRETER = SentientScriptInterpreter()
 _VOICE_SESSIONS: dict[str, _VoiceSessionState] = {}
 _VOICE_LOCK = threading.Lock()
 _VOICE_IDLE_TIMEOUT = float(os.getenv("VOICE_SESSION_IDLE_S", "120"))
@@ -763,6 +770,76 @@ def _admin_status_payload() -> Dict[str, Any]:
         "voice": _STT_CONFIG or {},
         "safety_events_1h": count_recent_events(1),
     }
+
+
+@app.route("/admin/scripts", methods=["GET", "POST"])
+def admin_scripts() -> Response:
+    if request.method == "GET":
+        if not _admin_authorised():
+            return Response("Forbidden", status=403)
+        try:
+            limit = int(request.args.get("limit", "20"))
+        except ValueError:
+            limit = 20
+        history = list_script_history(limit=max(1, limit), history=_SCRIPT_INTERPRETER.history)
+        payload: Dict[str, Any] = {"history": history}
+        shadows: list[Dict[str, Any]] = []
+        try:
+            dream_status = dream_loop.status()
+            insight = str(dream_status.get("last_insight") or "").strip()
+            if insight:
+                shadows.append(_SCRIPT_INTERPRETER.build_shadow(kind="dream", text=insight))
+        except Exception:
+            pass
+        try:
+            reflection = governor.metrics().get("last_reflection")
+            if reflection:
+                reflection_text = json.dumps(reflection, sort_keys=True)
+                shadows.append(_SCRIPT_INTERPRETER.build_shadow(kind="reflection", text=reflection_text))
+        except Exception:
+            pass
+        if shadows:
+            payload["shadows"] = shadows
+        return _admin_response(payload)
+
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    script_payload = payload.get("script") or payload.get("plan")
+    if not script_payload:
+        return jsonify({"error": "script required"}), 400
+    try:
+        script = _SCRIPT_INTERPRETER.load_script(script_payload)
+    except ScriptExecutionError as exc:
+        return jsonify({"error": str(exc), "path": exc.path or ""}), 400
+    if payload.get("sign"):
+        _SCRIPT_INTERPRETER.signer.sign(script)
+    if payload.get("mode") == "verify" or payload.get("verify_only"):
+        verified = _SCRIPT_INTERPRETER.signer.verify(script)
+        return _admin_response({"verified": bool(verified)})
+    try:
+        result = _SCRIPT_INTERPRETER.execute(
+            script,
+            verify_signature=bool(payload.get("verify_signature", True)),
+        )
+    except ScriptExecutionError as exc:
+        return jsonify({"error": str(exc), "path": exc.path or ""}), 400
+    response_payload = {
+        "run_id": result.run_id,
+        "fingerprint": result.fingerprint,
+        "outputs": result.outputs,
+    }
+    return _admin_response(response_payload)
+
+
+@app.route("/admin/scripts/<path:run_id>/logs", methods=["GET"])
+def admin_script_logs(run_id: str) -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    shadow = load_safety_shadow(run_id, history=_SCRIPT_INTERPRETER.history)
+    if shadow is None:
+        return jsonify({"error": "not_found"}), 404
+    return _admin_response(shadow)
 
 
 @app.route("/admin/dream", methods=["GET"])

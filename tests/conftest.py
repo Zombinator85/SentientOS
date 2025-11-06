@@ -138,6 +138,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_boot_chronicler",
         "tests.test_codex_specs",
         "tests.test_codex_scaffolds",
+        "tests.test_sentientscript_interpreter",
         "tests.test_codex_implementations",
         "tests.test_codex_refinements",
         "tests.test_codex_testcycles",
