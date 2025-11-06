@@ -24,6 +24,7 @@ import memory_manager as mm
 import memory_governor as governor
 from memory_governor import reflect
 from vow import init as vow_init
+from distributed_memory import encrypt_reflection_summary
 
 
 logger = logging.getLogger(__name__)
@@ -44,10 +45,15 @@ _STATE: Dict[str, object] = {
     "last_dominant_emotion": None,
     "last_insight": "",
     "reinforced_goals": 0,
+    "mesh_emotion_vector": {},
+    "remote_reflections": 0,
+    "last_envelope": None,
 }
 
 _THREAD: threading.Thread | None = None
 _STOP = threading.Event()
+_REMOTE_LOCK = threading.Lock()
+_REMOTE_REFLECTIONS: Dict[str, Dict[str, object]] = {}
 
 
 def _log(message: str) -> None:
@@ -324,6 +330,26 @@ def run_dream_loop(interval_min: float | int = _INTERVAL_MIN, stop_event: thread
             }
             governor.remember(insight_entry, importance=0.9)
             summary = reflect()
+            _STATE["last_emotion_vector"] = composite
+            mesh_vector = _merge_with_remote(composite)
+            _STATE["mesh_emotion_vector"] = mesh_vector
+            with _REMOTE_LOCK:
+                _STATE["remote_reflections"] = len(_REMOTE_REFLECTIONS)
+            try:
+                envelope = encrypt_reflection_summary(
+                    {
+                        "reflection_id": insight_entry["meta"].get("dream_fragment")
+                        if isinstance(insight_entry.get("meta"), dict)
+                        else stored_dream.get("id")
+                        or f"dream-{int(time.time())}",
+                        "timestamp": _utcnow().isoformat(),
+                        "mood_vector": mesh_vector or composite,
+                        "dominant_emotion": dominant,
+                    }
+                )
+                _STATE["last_envelope"] = envelope
+            except Exception:  # pragma: no cover - optional encryption
+                _STATE["last_envelope"] = None
             _STATE.update(
                 {
                     "last_cycle": _utcnow().isoformat(),
@@ -332,6 +358,7 @@ def run_dream_loop(interval_min: float | int = _INTERVAL_MIN, stop_event: thread
                     "last_insight": insight_text,
                     "reinforced_goals": goal_reinforcements,
                     "trimmed_snapshots": summary.trimmed_snapshots,
+                    "mesh_emotion_vector": mesh_vector,
                 }
             )
             _log(
@@ -343,6 +370,95 @@ def run_dream_loop(interval_min: float | int = _INTERVAL_MIN, stop_event: thread
             logger.exception("Dream loop failure: %s", exc)
             _STATE["active"] = False
         time.sleep(interval_seconds)
+
+
+def serialize_dream_fragment(
+    fragment: Mapping[str, object], *, node_id: str, trust: float = 1.0
+) -> Dict[str, object]:
+    """Serialise a dream fragment for distribution to mesh peers."""
+
+    envelope = dict(fragment)
+    envelope.setdefault("timestamp", _utcnow().isoformat())
+    envelope["node_id"] = node_id
+    envelope["trust"] = max(0.1, float(trust))
+    return json.loads(json.dumps(envelope, sort_keys=True))
+
+
+def register_remote_reflection(
+    node_id: str, payload: Mapping[str, object], *, trust: float = 1.0
+) -> Dict[str, object]:
+    """Store a reflection shared by a remote mesh node."""
+
+    vector = payload.get("mood_vector") or payload.get("emotion_vector") or {}
+    record = {
+        "node_id": node_id,
+        "emotions": dict(vector) if isinstance(vector, Mapping) else {},
+        "trust": max(0.1, float(trust)),
+        "timestamp": str(payload.get("timestamp") or _utcnow().isoformat()),
+    }
+    with _REMOTE_LOCK:
+        _REMOTE_REFLECTIONS[node_id] = record
+        _STATE["remote_reflections"] = len(_REMOTE_REFLECTIONS)
+        mesh_vector = _merge_with_remote(_STATE.get("last_emotion_vector") or {})
+        _STATE["mesh_emotion_vector"] = mesh_vector
+    return record
+
+
+def mesh_emotion_vector() -> Dict[str, float]:
+    """Return the aggregated mesh emotion vector."""
+
+    vector = _STATE.get("mesh_emotion_vector")
+    return dict(vector) if isinstance(vector, Mapping) else {}
+
+
+def latest_reflection_envelope() -> Dict[str, object] | None:
+    """Return the last encrypted reflection payload produced by the dream loop."""
+
+    envelope = _STATE.get("last_envelope")
+    if isinstance(envelope, Mapping):
+        return dict(envelope)
+    return None
+
+
+def _merge_with_remote(local_vector: Mapping[str, float]) -> Dict[str, float]:
+    contributions: List[tuple[Dict[str, float], float]] = []
+    if isinstance(local_vector, Mapping):
+        contributions.append((dict(local_vector), 1.0))
+    now = _utcnow()
+    stale: List[str] = []
+    with _REMOTE_LOCK:
+        for node_id, record in _REMOTE_REFLECTIONS.items():
+            vector = record.get("emotions")
+            trust = record.get("trust", 1.0)
+            timestamp = record.get("timestamp")
+            if isinstance(timestamp, str):
+                age = (now - _parse_ts(timestamp)).total_seconds()
+                if age > 3600:
+                    stale.append(node_id)
+                    continue
+            if isinstance(vector, Mapping) and vector:
+                contributions.append((dict(vector), max(0.1, float(trust))))
+        for node_id in stale:
+            _REMOTE_REFLECTIONS.pop(node_id, None)
+    return _weighted_merge(contributions)
+
+
+def _weighted_merge(contributions: Iterable[tuple[Mapping[str, float], float]]) -> Dict[str, float]:
+    totals: Dict[str, float] = {}
+    total_weight = 0.0
+    for vector, weight in contributions:
+        weight = max(0.0, float(weight))
+        if weight <= 0:
+            continue
+        total_weight += weight
+        for label, value in vector.items():
+            try:
+                totals[label] = totals.get(label, 0.0) + float(value) * weight
+            except (TypeError, ValueError):
+                continue
+    if total_weight <= 0:
+        return {}
+    return {label: value / total_weight for label, value in totals.items()}
 
 
 def ensure_running() -> None:
@@ -377,5 +493,15 @@ def status() -> Dict[str, object]:
     return state
 
 
-__all__ = ["run_dream_loop", "ensure_running", "shutdown", "status", "generate_insight"]
+__all__ = [
+    "run_dream_loop",
+    "ensure_running",
+    "shutdown",
+    "status",
+    "generate_insight",
+    "serialize_dream_fragment",
+    "register_remote_reflection",
+    "mesh_emotion_vector",
+    "latest_reflection_envelope",
+]
 

@@ -524,6 +524,170 @@ section {
 .health-row span.status {
   font-weight: 600;
 }
+
+#mesh {
+  margin-top: 2rem;
+}
+
+.mesh-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1.5rem;
+}
+
+.mesh-sidebar {
+  background: #0f172a;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 10px 35px rgba(15, 23, 42, 0.35);
+}
+
+.mesh-sidebar ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mesh-sidebar li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+}
+
+.mesh-icon {
+  font-size: 1.25rem;
+}
+
+.mesh-sidebar strong {
+  font-size: 1.35rem;
+  min-width: 2.5rem;
+  color: #f8fafc;
+}
+
+.mesh-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mesh-controls button {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, #3b82f6, #38bdf8);
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mesh-controls button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.3);
+}
+
+.mesh-controls .ghost-button {
+  background: transparent;
+  color: #93c5fd;
+  border-color: #334155;
+}
+
+.mesh-main {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.mesh-card {
+  background: #0f172a;
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.4);
+}
+
+.mesh-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+
+.mesh-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #e2e8f0;
+}
+
+.mesh-meta {
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+#mesh-topology {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.mesh-node {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(30, 64, 175, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.mesh-node strong {
+  color: #f8fafc;
+  font-size: 0.95rem;
+}
+
+.mesh-node span {
+  color: #cbd5f5;
+  font-size: 0.85rem;
+}
+
+.mesh-node .mesh-trust {
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+.council-transcript {
+  max-height: 260px;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  padding-right: 0.25rem;
+}
+
+.council-entry {
+  background: rgba(30, 64, 175, 0.2);
+  border-left: 3px solid #38bdf8;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
+
+.council-entry .entry-meta {
+  font-size: 0.8rem;
+  color: #cbd5f5;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.autonomy-status {
+  font-size: 0.85rem;
+  color: #cbd5f5;
+  line-height: 1.4;
+}
 @media (max-width: 720px) {
   header,
   main {
@@ -534,5 +698,14 @@ section {
   }
   .dream-panel {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+  .mesh-layout {
+    grid-template-columns: 1fr;
+  }
+  .mesh-sidebar {
+    order: 2;
+  }
+  .mesh-main {
+    order: 1;
   }
 }

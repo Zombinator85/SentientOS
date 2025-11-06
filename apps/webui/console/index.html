@@ -13,6 +13,7 @@
       <p class="subtitle">Monitor nodes, memory and health at a glance.</p>
       <nav>
         <a href="#overview">Overview</a>
+        <a href="#mesh">Mesh</a>
         <a href="#dream">Dream</a>
         <a href="#nodes">Nodes</a>
         <a href="#verifier">Verifier</a>
@@ -24,6 +25,42 @@
       <section id="overview">
         <h2>Overview</h2>
         <div id="overview-grid" class="grid"></div>
+      </section>
+      <section id="mesh">
+        <h2>Mesh Overview</h2>
+        <div class="mesh-layout">
+          <aside class="mesh-sidebar">
+            <h3>Live Signals</h3>
+            <ul>
+              <li><span class="mesh-icon">🧠</span><strong id="mesh-dream-count">0</strong><span>Dreams</span></li>
+              <li><span class="mesh-icon">⚖️</span><strong id="mesh-consensus-count">0</strong><span>Consensus</span></li>
+              <li><span class="mesh-icon">🗣️</span><strong id="mesh-voices-count">0</strong><span>Voices</span></li>
+              <li><span class="mesh-icon">🌤️</span><strong id="mesh-cloud-count">0</strong><span>Cloud</span></li>
+            </ul>
+            <div class="mesh-controls">
+              <button type="button" id="autonomy-start">Start Autonomy</button>
+              <button type="button" id="autonomy-stop" class="ghost-button">Stop Autonomy</button>
+              <button type="button" id="trigger-reflection">Trigger Reflection</button>
+            </div>
+            <div class="autonomy-status" id="autonomy-status"></div>
+          </aside>
+          <div class="mesh-main">
+            <article class="mesh-card" id="mesh-topology-card">
+              <header>
+                <h3>Cluster Topology</h3>
+                <span id="mesh-last-updated" class="mesh-meta">–</span>
+              </header>
+              <div id="mesh-topology"></div>
+            </article>
+            <article class="mesh-card" id="council-panel">
+              <header>
+                <h3>Council of Voices</h3>
+                <span id="council-session-count" class="mesh-meta">No active sessions.</span>
+              </header>
+              <div id="council-transcript" class="council-transcript"></div>
+            </article>
+          </div>
+        </div>
       </section>
       <section id="dream">
         <h2>Dream &amp; Emotion</h2>

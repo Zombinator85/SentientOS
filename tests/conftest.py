@@ -191,6 +191,10 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_verifier_consensus_core",
         "tests.test_verifier_consensus_mesh",
         "tests.test_verifier_consensus_console",
+        "tests.test_sentient_mesh_scheduler",
+        "tests.test_council_adapters",
+        "tests.test_sentient_autonomy",
+        "tests.test_console_mesh_ui",
     }
     for item in items:
         module_name = item.module.__name__
