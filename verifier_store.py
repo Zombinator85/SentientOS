@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import math
+import os
 import threading
 import time
 from dataclasses import dataclass
@@ -54,6 +56,7 @@ class VerifierStore:
         self._bundles_dir = self._root / "bundles"
         self._votes_dir = self._root / "votes"
         self._consensus_dir = self._root / "consensus"
+        self._state_dir = self._root / "state"
         self._index_path = self._root / "reports.jsonl"
         self._consensus_index_path = self._root / "consensus_index.json"
         self._rotate_bytes = max(100_000, int(rotate_bytes))
@@ -63,6 +66,7 @@ class VerifierStore:
         self._bundles_dir.mkdir(parents=True, exist_ok=True)
         self._votes_dir.mkdir(parents=True, exist_ok=True)
         self._consensus_dir.mkdir(parents=True, exist_ok=True)
+        self._state_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def default(cls) -> "VerifierStore":
@@ -230,6 +234,45 @@ class VerifierStore:
     def consensus_index(self) -> Dict[str, Any]:
         with self._lock:
             return self._load_consensus_index()
+
+    def persist_consensus_state(self, job_id: str, payload: Mapping[str, object]) -> None:
+        job_id = str(job_id or "")
+        if not job_id:
+            raise ValueError("consensus state requires job_id")
+        data = self._prepare_state_payload(payload)
+        with self._lock:
+            path = self._state_dir / f"{job_id}.json"
+            self._atomic_write_json(path, data)
+            self._update_consensus_index(job_id, state_payload=data)
+
+    def load_consensus_state(self, job_id: str) -> Optional[Dict[str, object]]:
+        path = self._state_dir / f"{job_id}.json"
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def list_consensus_states(self) -> Dict[str, Dict[str, object]]:
+        states: Dict[str, Dict[str, object]] = {}
+        for path in sorted(self._state_dir.glob("*.json")):
+            job_id = path.stem
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if isinstance(payload, dict):
+                states[job_id] = payload
+        return states
+
+    def remove_consensus_state(self, job_id: str) -> None:
+        with self._lock:
+            path = self._state_dir / f"{job_id}.json"
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
     def replay_job(
         self,
@@ -464,6 +507,7 @@ class VerifierStore:
         *,
         vote_payload: Optional[Mapping[str, object]] = None,
         consensus_payload: Optional[Mapping[str, object]] = None,
+        state_payload: Optional[Mapping[str, object]] = None,
     ) -> None:
         index = self._load_consensus_index()
         entry = dict(index.get(job_id) or {})
@@ -473,6 +517,9 @@ class VerifierStore:
         final_verdict = entry.get("final_verdict")
         quorum_k = entry.get("quorum_k")
         quorum_n = entry.get("quorum_n")
+        status = entry.get("status")
+        started_at = self._coerce_float(entry.get("started_at"))
+        finalized_at = self._coerce_float(entry.get("finalized_at"))
         if vote_payload:
             voter = str(vote_payload.get("voter_node") or "")
             if voter:
@@ -498,23 +545,59 @@ class VerifierStore:
                         voter_node = vote.get("voter_node")
                         if isinstance(voter_node, str) and voter_node:
                             participants.add(voter_node)
+            finalized_at = self._coerce_float(consensus_payload.get("finalized_at"))
+        if state_payload:
+            status = str(state_payload.get("status") or status or "RUNNING")
+            if state_payload.get("quorum_k") is not None:
+                try:
+                    quorum_k = int(state_payload.get("quorum_k"))
+                except (TypeError, ValueError):
+                    quorum_k = quorum_k
+            if state_payload.get("quorum_n") is not None:
+                try:
+                    quorum_n = int(state_payload.get("quorum_n"))
+                except (TypeError, ValueError):
+                    quorum_n = quorum_n
+            state_participants = state_payload.get("participants")
+            if isinstance(state_participants, Sequence):
+                for participant in state_participants:
+                    if isinstance(participant, str):
+                        participants.add(participant)
+            if state_payload.get("started_at") is not None:
+                try:
+                    started_at = float(state_payload.get("started_at"))
+                except (TypeError, ValueError):
+                    pass
         index[job_id] = {
+            "job_id": job_id,
             "votes_count": votes_count,
             "participants": sorted(participants),
             "finalized": finalized,
             "final_verdict": final_verdict,
             "quorum_k": quorum_k,
             "quorum_n": quorum_n,
+            "status": status,
+            "started_at": started_at,
+            "finalized_at": finalized_at,
         }
         self._write_consensus_index(index)
 
     def _prune_votes_locked(self) -> None:
         files: List[tuple[float, int, Path]] = []
         total_bytes = 0
+        try:
+            state_map = self.list_consensus_states()
+        except Exception:
+            state_map = {}
+        now = time.time()
         for path in self._votes_dir.glob("*/*.json"):
             try:
                 stat = path.stat()
             except OSError:
+                continue
+            job_id = path.parent.name
+            state = state_map.get(job_id)
+            if not self._prunable_state(state, now):
                 continue
             files.append((stat.st_mtime, stat.st_size, path))
             total_bytes += stat.st_size
@@ -532,6 +615,58 @@ class VerifierStore:
             try:
                 if not any(parent.iterdir()):
                     parent.rmdir()
+            except OSError:
+                pass
+
+    def _prunable_state(self, state: Optional[Mapping[str, object]], now: float) -> bool:
+        if not state:
+            return True
+        status = str(state.get("status") or "RUNNING").upper()
+        if status == "RUNNING":
+            return False
+        last_update = state.get("last_update")
+        try:
+            last = float(last_update) if last_update is not None else now
+        except (TypeError, ValueError):
+            last = now
+        if status == "CANCELED" and now - last < 24 * 3600:
+            return False
+        return True
+
+    @staticmethod
+    def _prepare_state_payload(payload: Mapping[str, object]) -> Dict[str, object]:
+        data: Dict[str, object] = {}
+        def _normalise(value: object) -> object:
+            if isinstance(value, dict):
+                return {str(k): _normalise(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [_normalise(item) for item in value]
+            if isinstance(value, float) and not math.isfinite(value):
+                return "Infinity" if value > 0 else "-Infinity"
+            if isinstance(value, (str, int, float, bool)) or value is None:
+                return value
+            return json.loads(json.dumps(value, default=str))
+        for key, value in payload.items():
+            data[key] = _normalise(value)
+        return data
+
+    def _atomic_write_json(self, path: Path, payload: Mapping[str, object]) -> None:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            tmp.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        except OSError:
+            tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        try:
+            with tmp.open("r+b") as handle:
+                handle.flush()
+                os.fsync(handle.fileno())
+        except OSError:
+            pass
+        try:
+            tmp.replace(path)
+        except OSError:
+            try:
+                os.replace(tmp, path)
             except OSError:
                 pass
 

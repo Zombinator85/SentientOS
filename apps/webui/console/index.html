@@ -138,12 +138,19 @@
               <span class="status-chip" id="consensus-status-chip">Idle</span>
               <span class="consensus-participants" id="consensus-participants">Participants: –</span>
             </div>
+            <div class="consensus-actions">
+              <button type="button" id="consensus-cancel-button" class="ghost-button" disabled>Cancel</button>
+              <button type="button" id="consensus-force-button" class="ghost-button" disabled>Force Finalize</button>
+              <span class="resume-badge" id="consensus-resume-badge" hidden>Resumed</span>
+            </div>
             <table id="consensus-table">
               <thead>
                 <tr>
                   <th>Participant</th>
                   <th>Verdict</th>
                   <th>Proof</th>
+                  <th>Retries</th>
+                  <th>Last error</th>
                   <th>Updated</th>
                 </tr>
               </thead>

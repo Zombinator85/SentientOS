@@ -292,6 +292,25 @@ section {
   font-size: 0.8rem;
   color: #94a3b8;
 }
+.consensus-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.consensus-actions .ghost-button[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.resume-badge {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(59, 130, 246, 0.2);
+  color: #bfdbfe;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+}
 .status-chip {
   display: inline-flex;
   align-items: center;
@@ -315,6 +334,14 @@ section {
 .status-chip.inconclusive {
   background: rgba(250, 204, 21, 0.2);
   color: #fef9c3;
+}
+.status-chip.running {
+  background: rgba(59, 130, 246, 0.2);
+  color: #bfdbfe;
+}
+.status-chip.canceled {
+  background: rgba(148, 163, 184, 0.2);
+  color: #cbd5f5;
 }
 .consensus-participants {
   flex: 1;

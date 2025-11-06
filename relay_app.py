@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import queue
+import random
 import secrets
 import socket
 import threading
@@ -238,7 +239,6 @@ _WEBRTC_MANAGER = None
 _VERIFIER_STORE = VerifierStore.default()
 _SENTIENT_VERIFIER = SentientVerifier(store=_VERIFIER_STORE)
 
-
 @dataclass
 class _ConsensusState:
     job_id: str
@@ -250,8 +250,19 @@ class _ConsensusState:
     finalized: bool = False
     rewarded_nodes: Set[str] = field(default_factory=set)
     started_at: float = field(default_factory=time.time)
+    status: str = "RUNNING"
+    retries_by_node: Dict[str, int] = field(default_factory=dict)
+    retry_after: Dict[str, float] = field(default_factory=dict)
+    errors_by_node: Dict[str, str] = field(default_factory=dict)
+    resumed: bool = False
+    last_update: float = field(default_factory=time.time)
+    cancel_reason: Optional[str] = None
+    forced_by: Optional[str] = None
+    force_reason: Optional[str] = None
 
     def register_vote(self, vote: Vote) -> ConsensusVerdict:
+        if self.status != "RUNNING":
+            raise RuntimeError("consensus job is not accepting votes")
         self.votes[vote.voter_node] = vote
         updated_participants = set(self.participants)
         updated_participants.add(vote.voter_node)
@@ -259,6 +270,7 @@ class _ConsensusState:
         quorum_n = max(self.quorum_n, len(self.participants))
         merged = merge_votes(tuple(self.votes.values()), self.quorum_k, quorum_n)
         self.consensus = merged
+        self.last_update = time.time()
         return merged
 
     def snapshot(self) -> Dict[str, Any]:
@@ -276,10 +288,154 @@ class _ConsensusState:
             "latest_votes": votes_payload,
             "provisional_verdict": provisional,
             "finalized": self.finalized,
+            "status": self.status,
+            "last_update": self.last_update,
+            "retries_by_node": dict(self.retries_by_node),
+            "errors_by_node": {node: err for node, err in self.errors_by_node.items() if err},
+            "retry_after": dict(self.retry_after),
+            "started_at": self.started_at,
+            "resumed": self.resumed,
         }
+        if self.cancel_reason:
+            payload["cancel_reason"] = self.cancel_reason
+        if self.forced_by:
+            payload["forced_by"] = self.forced_by
+        if self.force_reason:
+            payload["force_reason"] = self.force_reason
         if self.consensus is not None and self.consensus.final_verdict != "INCONCLUSIVE":
             payload["final_verdict"] = self.consensus.final_verdict
         return payload
+
+    def to_payload(self) -> Dict[str, Any]:
+        payload = self.snapshot()
+        payload["votes"] = [vote.to_dict() for vote in self.votes.values()]
+        if self.consensus is not None:
+            payload["consensus"] = self.consensus.to_dict()
+        payload["finalized"] = self.finalized
+        return payload
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> "_ConsensusState":
+        job_id = str(payload.get("job_id") or "")
+        quorum_k = int(payload.get("quorum_k") or 0)
+        quorum_n = int(payload.get("quorum_n") or 0)
+        participants_obj = payload.get("participants")
+        participants = [str(p) for p in participants_obj] if isinstance(participants_obj, Sequence) else []
+        votes_payload = payload.get("votes")
+        votes: Dict[str, Vote] = {}
+        if isinstance(votes_payload, Sequence):
+            for entry in votes_payload:
+                if isinstance(entry, Mapping):
+                    vote = _vote_from_payload(entry)
+                    votes[vote.voter_node] = vote
+        consensus_payload = payload.get("consensus")
+        consensus = _consensus_from_payload(consensus_payload) if isinstance(consensus_payload, Mapping) else None
+        rewarded = payload.get("rewarded_nodes")
+        rewarded_nodes: Set[str] = set()
+        if isinstance(rewarded, Sequence):
+            rewarded_nodes = {str(node) for node in rewarded if isinstance(node, str)}
+        started_at = payload.get("started_at")
+        try:
+            started = float(started_at) if started_at is not None else time.time()
+        except (TypeError, ValueError):
+            started = time.time()
+        state = cls(
+            job_id=job_id,
+            quorum_k=quorum_k,
+            quorum_n=quorum_n,
+            participants=list(participants),
+            votes=votes,
+            consensus=consensus,
+            finalized=bool(payload.get("finalized")),
+            rewarded_nodes=rewarded_nodes,
+            started_at=started,
+        )
+        state.status = str(payload.get("status") or "RUNNING").upper()
+        if state.status not in {"RUNNING", "CANCELED", "FINALIZED"}:
+            state.status = "RUNNING"
+        retries = payload.get("retries_by_node")
+        if isinstance(retries, Mapping):
+            state.retries_by_node = {str(k): int(v) for k, v in retries.items() if isinstance(k, str)}
+        retry_after = payload.get("retry_after")
+        if isinstance(retry_after, Mapping):
+            mapping: Dict[str, float] = {}
+            for key, value in retry_after.items():
+                try:
+                    mapping[str(key)] = float(value)
+                except (TypeError, ValueError):
+                    continue
+            state.retry_after = mapping
+        errors = payload.get("errors_by_node")
+        if isinstance(errors, Mapping):
+            state.errors_by_node = {str(k): str(v) for k, v in errors.items() if isinstance(k, str)}
+        resumed = payload.get("resumed")
+        state.resumed = bool(resumed)
+        last_update = payload.get("last_update")
+        try:
+            state.last_update = float(last_update) if last_update is not None else time.time()
+        except (TypeError, ValueError):
+            state.last_update = time.time()
+        cancel_reason = payload.get("cancel_reason")
+        if isinstance(cancel_reason, str):
+            state.cancel_reason = cancel_reason
+        forced_by = payload.get("forced_by")
+        if isinstance(forced_by, str):
+            state.forced_by = forced_by
+        force_reason = payload.get("force_reason")
+        if isinstance(force_reason, str):
+            state.force_reason = force_reason
+        return state
+
+    def record_retry(self, hostname: str, *, success: bool, error: Optional[str] = None, now: Optional[float] = None) -> None:
+        host = str(hostname)
+        moment = now if now is not None else time.time()
+        if success:
+            self.retries_by_node.pop(host, None)
+            self.retry_after.pop(host, None)
+            if error:
+                self.errors_by_node[host] = error
+            else:
+                self.errors_by_node.pop(host, None)
+            self.last_update = moment
+            return
+        attempts = self.retries_by_node.get(host, 0) + 1
+        attempts = min(attempts, _SOLICIT_RETRY_MAX)
+        self.retries_by_node[host] = attempts
+        if attempts >= _SOLICIT_RETRY_MAX:
+            self.retry_after[host] = float("inf")
+        else:
+            delay = _retry_delay(attempts)
+            self.retry_after[host] = moment + delay
+        if error:
+            self.errors_by_node[host] = error
+        self.last_update = moment
+
+    def allows_retry(self, hostname: str, now: Optional[float] = None) -> bool:
+        if self.status != "RUNNING":
+            return False
+        limit = self.retry_after.get(hostname)
+        if limit is None:
+            return True
+        if limit == float("inf"):
+            return False
+        moment = now if now is not None else time.time()
+        return limit <= moment
+
+    def has_exhausted_retries(self, hostname: str) -> bool:
+        return self.retries_by_node.get(hostname, 0) >= _SOLICIT_RETRY_MAX
+
+    def cancel(self, *, reason: Optional[str] = None) -> None:
+        self.status = "CANCELED"
+        self.cancel_reason = reason
+        self.force_reason = None
+        self.last_update = time.time()
+
+    def mark_finalized(self, *, actor: Optional[str] = None) -> None:
+        self.status = "FINALIZED"
+        if actor:
+            self.forced_by = actor
+        self.cancel_reason = None
+        self.last_update = time.time()
 
 
 _CONSENSUS_LOCK = threading.RLock()
@@ -289,6 +445,17 @@ _MESH_RATE_WINDOW = 60.0
 _MESH_RATE_LIMIT = 120
 _MAX_MESH_PARTICIPATION = 10
 _LOCAL_ACTIVE_SOLICITATIONS: Set[str] = set()
+
+_SOLICIT_RETRY_BASE = 0.5
+_SOLICIT_RETRY_FACTOR = 1.6
+_SOLICIT_RETRY_JITTER = 0.2
+_SOLICIT_RETRY_MAX = 6
+
+
+def _retry_delay(attempt: int) -> float:
+    base = _SOLICIT_RETRY_BASE * (_SOLICIT_RETRY_FACTOR ** max(0, attempt - 1))
+    jitter = random.uniform(0.0, _SOLICIT_RETRY_JITTER)
+    return base + jitter
 
 
 def _current_hostname() -> str:
@@ -388,18 +555,57 @@ def _select_consensus_participants(quorum_n: int, requested: Optional[Sequence[s
 def _get_or_create_consensus_state(job_id: str, quorum_k: int, quorum_n: int, participants: Sequence[str]) -> _ConsensusState:
     with _CONSENSUS_LOCK:
         state = _CONSENSUS_STATES.get(job_id)
+        dirty = False
         if state is None:
             state = _ConsensusState(job_id=job_id, quorum_k=quorum_k, quorum_n=quorum_n, participants=list(participants))
             _CONSENSUS_STATES[job_id] = state
+            dirty = True
         else:
+            prior_participants = set(state.participants)
             state.quorum_k = quorum_k
             state.quorum_n = max(quorum_n, state.quorum_n)
             state.participants = sorted(set(state.participants) | set(participants))
+            if set(state.participants) != prior_participants:
+                dirty = True
+        if dirty:
+            state.last_update = time.time()
+            _persist_consensus_state(state)
         return state
 
 
 def _broadcast_consensus_update(state: _ConsensusState) -> None:
     _notify_admin("verifier_consensus_update", state.snapshot())
+
+
+def _persist_consensus_state(state: _ConsensusState) -> None:
+    try:
+        _VERIFIER_STORE.persist_consensus_state(state.job_id, state.to_payload())
+    except Exception:  # pragma: no cover - persistence is best effort
+        LOGGER.warning("[Consensus] failed to persist state for %s", state.job_id, exc_info=True)
+
+
+def _ensure_consensus_state(job_id: str) -> Optional[_ConsensusState]:
+    state = _CONSENSUS_STATES.get(job_id)
+    if state is not None:
+        return state
+    payload = _VERIFIER_STORE.load_consensus_state(job_id)
+    if payload is None:
+        return None
+    try:
+        state = _ConsensusState.from_payload(payload)
+    except Exception:  # pragma: no cover - defensive parsing
+        LOGGER.warning("[Consensus] failed to parse stored state for %s", job_id, exc_info=True)
+        return None
+    state.resumed = True
+    _CONSENSUS_STATES[job_id] = state
+    return state
+
+
+def _shadow_event(code: str, *, job_id: str, actor: str, reason: Optional[str]) -> None:
+    actor_token = actor.strip().replace(" ", "_") or "unknown"
+    reason_token = (reason.strip().replace(" ", "_") if reason else "none")
+    payload = f"{code}:{job_id}:{actor_token}:{reason_token}"
+    log_event(payload[:200])
 
 
 def _vote_from_payload(payload: Mapping[str, Any]) -> Vote:
@@ -421,7 +627,62 @@ def _vote_from_payload(payload: Mapping[str, Any]) -> Vote:
     )
 
 
-def _maybe_finalise_consensus(state: _ConsensusState) -> Optional[ConsensusVerdict]:
+def _consensus_from_payload(payload: Mapping[str, Any]) -> ConsensusVerdict:
+    votes_payload = payload.get("votes")
+    votes: List[Vote] = []
+    if isinstance(votes_payload, Sequence):
+        for entry in votes_payload:
+            if isinstance(entry, Mapping):
+                votes.append(_vote_from_payload(entry))
+    finalized_at = payload.get("finalized_at")
+    try:
+        finalized = float(finalized_at) if finalized_at is not None else None
+    except (TypeError, ValueError):
+        finalized = None
+    return ConsensusVerdict(
+        job_id=str(payload.get("job_id") or ""),
+        script_hash=str(payload.get("script_hash") or ""),
+        quorum_k=int(payload.get("quorum_k") or 0),
+        quorum_n=int(payload.get("quorum_n") or 0),
+        votes=tuple(votes),
+        final_verdict=str(payload.get("final_verdict") or "INCONCLUSIVE"),
+        merkle_root=payload.get("merkle_root"),
+        bundle_sig=payload.get("bundle_sig"),
+        finalized_at=finalized,
+    )
+
+
+def resume_inflight_jobs() -> None:
+    stored = _VERIFIER_STORE.list_consensus_states()
+    if not stored:
+        return
+    restored: List[_ConsensusState] = []
+    with _CONSENSUS_LOCK:
+        for job_id, payload in stored.items():
+            status = str(payload.get("status") or "RUNNING").upper()
+            if status in {"FINALIZED", "CANCELED"}:
+                continue
+            try:
+                state = _ConsensusState.from_payload(payload)
+            except Exception:  # pragma: no cover - defensive parsing
+                LOGGER.warning("[Consensus] failed to restore state for %s", job_id, exc_info=True)
+                continue
+            state.resumed = True
+            _CONSENSUS_STATES[job_id] = state
+            restored.append(state)
+            if state.consensus is not None and state.consensus.final_verdict != "INCONCLUSIVE":
+                _maybe_finalise_consensus(state)
+            else:
+                _persist_consensus_state(state)
+    for state in restored:
+        LOGGER.info("[Consensus] resumed job %s with %d votes", state.job_id, len(state.votes))
+        _broadcast_consensus_update(state)
+
+
+resume_inflight_jobs()
+
+
+def _maybe_finalise_consensus(state: _ConsensusState, *, actor: Optional[str] = None) -> Optional[ConsensusVerdict]:
     if state.consensus is None:
         return None
     if state.consensus.final_verdict == "INCONCLUSIVE":
@@ -431,12 +692,14 @@ def _maybe_finalise_consensus(state: _ConsensusState) -> Optional[ConsensusVerdi
     signed = _SENTIENT_VERIFIER.sign_consensus(state.consensus)
     state.consensus = signed
     state.finalized = True
+    state.mark_finalized(actor=actor)
     _VERIFIER_STORE.store_consensus(signed)
     for vote in state.votes.values():
         if vote.voter_node in state.rewarded_nodes:
             continue
         registry.apply_consensus_outcome(vote.voter_node, vote_verdict=vote.local_verdict, final_verdict=signed.final_verdict)
         state.rewarded_nodes.add(vote.voter_node)
+    _persist_consensus_state(state)
     return signed
 
 
@@ -897,6 +1160,16 @@ def _remote_ip() -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.remote_addr or "127.0.0.1"
+
+
+def _admin_actor() -> str:
+    actor = request.headers.get("X-Admin-Actor")
+    if actor:
+        return actor
+    token = request.headers.get(_NODE_HEADER)
+    if token:
+        return f"token:{token[:12]}"
+    return f"ip:{_remote_ip()}"
 
 
 def _ip_allowed(ip_address: str) -> bool:
@@ -1496,13 +1769,19 @@ def admin_verify_consensus_submit() -> Response:
     vote = _SENTIENT_VERIFIER.make_vote(report)
     with _CONSENSUS_LOCK:
         state = _get_or_create_consensus_state(job_id, quorum_k, quorum_n, selected)
+        if state.status != "RUNNING":
+            return jsonify({"error": "job_not_running"}), 409
         try:
             state.register_vote(vote)
         except ValueError:
             registry.record_misbehavior(vote.voter_node, "NON_DET")
             return jsonify({"error": "conflicting_vote"}), 409
+        except RuntimeError:
+            return jsonify({"error": "job_not_running"}), 409
         _VERIFIER_STORE.store_vote(vote)
         consensus = _maybe_finalise_consensus(state)
+        if consensus is None:
+            _persist_consensus_state(state)
         snapshot = state.snapshot()
     _broadcast_consensus_update(state)
     response_payload: Dict[str, Any] = {
@@ -1549,6 +1828,14 @@ def admin_verify_consensus_status() -> Response:
             "finalized": True,
             "final_verdict": consensus_payload.get("final_verdict"),
             "latest_votes": votes_list,
+            "status": "FINALIZED",
+            "retries_by_node": {},
+            "errors_by_node": {},
+            "retry_after": {},
+            "resumed": False,
+            "last_update": consensus_payload.get("finalized_at"),
+            "started_at": consensus_payload.get("started_at"),
+            "force_reason": consensus_payload.get("force_reason"),
         }
         return _admin_response(payload)
     votes = _VERIFIER_STORE.list_votes(job_id)
@@ -1562,9 +1849,67 @@ def admin_verify_consensus_status() -> Response:
             "provisional_verdict": "INCONCLUSIVE",
             "finalized": False,
             "latest_votes": votes,
+            "status": "RUNNING",
+            "retries_by_node": {},
+            "errors_by_node": {},
+            "retry_after": {},
+            "resumed": False,
         }
         return _admin_response(payload)
     return jsonify({"error": "not_found"}), 404
+
+
+@app.route("/admin/verify/consensus/cancel", methods=["POST"])
+def admin_verify_consensus_cancel() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json(silent=True) or {}
+    job_id = str(payload.get("job_id") or "").strip()
+    if not job_id:
+        return jsonify({"error": "job_id_required"}), 400
+    reason_raw = payload.get("reason")
+    reason = str(reason_raw).strip() if isinstance(reason_raw, str) else None
+    actor = _admin_actor()
+    with _CONSENSUS_LOCK:
+        state = _ensure_consensus_state(job_id)
+        if state is None:
+            return jsonify({"error": "not_found"}), 404
+        state.cancel(reason=reason)
+        _persist_consensus_state(state)
+        snapshot = state.snapshot()
+    _broadcast_consensus_update(state)
+    _shadow_event("verifier_consensus_canceled", job_id=job_id, actor=actor, reason=reason)
+    return _admin_response({"status": "canceled", "snapshot": snapshot})
+
+
+@app.route("/admin/verify/consensus/finalize", methods=["POST"])
+def admin_verify_consensus_finalize() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json(silent=True) or {}
+    job_id = str(payload.get("job_id") or "").strip()
+    if not job_id:
+        return jsonify({"error": "job_id_required"}), 400
+    reason_raw = payload.get("reason")
+    reason = str(reason_raw).strip() if isinstance(reason_raw, str) else None
+    actor = _admin_actor()
+    with _CONSENSUS_LOCK:
+        state = _ensure_consensus_state(job_id)
+        if state is None:
+            return jsonify({"error": "not_found"}), 404
+        if state.consensus is None or state.consensus.final_verdict == "INCONCLUSIVE":
+            return jsonify({"error": "quorum_not_met"}), 409
+        if len(state.votes) < state.quorum_k:
+            return jsonify({"error": "quorum_not_met"}), 409
+        state.force_reason = reason
+        consensus = _maybe_finalise_consensus(state, actor=actor)
+        if consensus is None:
+            return jsonify({"error": "quorum_not_met"}), 409
+        _persist_consensus_state(state)
+        snapshot = state.snapshot()
+    _broadcast_consensus_update(state)
+    _shadow_event("verifier_consensus_forced", job_id=job_id, actor=actor, reason=reason)
+    return _admin_response({"status": "finalized", "snapshot": snapshot, "consensus": consensus.to_dict()})
 
 
 @app.route("/admin/verify/consensus/report", methods=["GET"])
@@ -1612,6 +1957,28 @@ def mesh_verify_solicit() -> Response:
     if not isinstance(bundle_obj, Mapping):
         return jsonify({"error": "bundle_required"}), 400
     with _CONSENSUS_LOCK:
+        state = _CONSENSUS_STATES.get(job_id)
+        if state is not None:
+            if state.status != "RUNNING":
+                state.errors_by_node[requester] = "job_not_running"
+                state.retries_by_node[requester] = _SOLICIT_RETRY_MAX
+                state.retry_after[requester] = float("inf")
+                state.last_update = time.time()
+                _persist_consensus_state(state)
+                registry.record_consensus_error(requester)
+                return jsonify({"error": "job_not_running"}), 409
+            if state.has_exhausted_retries(requester):
+                state.errors_by_node[requester] = "retry_exhausted"
+                state.retry_after[requester] = float("inf")
+                state.retries_by_node[requester] = _SOLICIT_RETRY_MAX
+                state.last_update = time.time()
+                _persist_consensus_state(state)
+                registry.record_consensus_error(requester)
+                return jsonify({"error": "retry_exhausted"}), 409
+            if not state.allows_retry(requester):
+                retry_after = state.retry_after.get(requester)
+                hint_ms = registry.verifier_backoff_hint_ms(requester)
+                return jsonify({"error": "retry_later", "retry_after": retry_after, "backoff_hint_ms": hint_ms}), 429
         if len(_LOCAL_ACTIVE_SOLICITATIONS) >= _MAX_MESH_PARTICIPATION and job_id not in _LOCAL_ACTIVE_SOLICITATIONS:
             return jsonify({"error": "busy"}), 429
         _LOCAL_ACTIVE_SOLICITATIONS.add(job_id)
@@ -1622,11 +1989,21 @@ def mesh_verify_solicit() -> Response:
     except ValueError as exc:
         with _CONSENSUS_LOCK:
             _LOCAL_ACTIVE_SOLICITATIONS.discard(job_id)
+            state = _CONSENSUS_STATES.get(job_id)
+            if state is not None:
+                state.record_retry(requester, success=False, error=str(exc))
+                _persist_consensus_state(state)
+        registry.record_consensus_error(requester)
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # pragma: no cover - defensive
         LOGGER.exception("[Consensus] solicit verification failed", exc_info=exc)
         with _CONSENSUS_LOCK:
             _LOCAL_ACTIVE_SOLICITATIONS.discard(job_id)
+            state = _CONSENSUS_STATES.get(job_id)
+            if state is not None:
+                state.record_retry(requester, success=False, error="verification_failed")
+                _persist_consensus_state(state)
+        registry.record_consensus_error(requester)
         return jsonify({"error": "verification_failed"}), 500
     finally:
         with _CONSENSUS_LOCK:
@@ -1644,8 +2021,14 @@ def mesh_verify_solicit() -> Response:
                 state.register_vote(vote)
             except ValueError:
                 registry.record_misbehavior(vote.voter_node, "NON_DET")
+                state.record_retry(requester, success=False, error="non_deterministic")
+                _persist_consensus_state(state)
+                registry.record_consensus_error(requester)
             else:
-                _maybe_finalise_consensus(state)
+                consensus = _maybe_finalise_consensus(state)
+                state.record_retry(requester, success=True, error=None)
+                _persist_consensus_state(state)
+                registry.clear_consensus_error(requester)
     if state is not None:
         _broadcast_consensus_update(state)
     return _admin_response({"vote": vote.to_dict()})
@@ -1677,6 +2060,8 @@ def mesh_verify_submit_vote() -> Response:
         state = _CONSENSUS_STATES.get(vote.job_id)
         if state is None:
             return jsonify({"error": "unknown_job"}), 404
+        if state.status != "RUNNING":
+            return jsonify({"error": "job_not_running"}), 409
         report_payload = _VERIFIER_STORE.get_report(vote.job_id)
         if report_payload:
             expected_hash = report_payload.get("proof_hash") if isinstance(report_payload, Mapping) else None
@@ -1692,8 +2077,12 @@ def mesh_verify_submit_vote() -> Response:
         except ValueError:
             registry.record_misbehavior(vote.voter_node, "NON_DET")
             return jsonify({"error": "conflicting_vote"}), 409
+        except RuntimeError:
+            return jsonify({"error": "job_not_running"}), 409
         _VERIFIER_STORE.store_vote(vote)
         consensus = _maybe_finalise_consensus(state)
+        if consensus is None:
+            _persist_consensus_state(state)
         snapshot = state.snapshot()
     _broadcast_consensus_update(state)
     response_payload: Dict[str, Any] = {"status": "accepted", "snapshot": snapshot}

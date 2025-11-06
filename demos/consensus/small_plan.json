@@ -1,0 +1,21 @@
+{
+  "name": "small_consensus_demo",
+  "description": "Minimal Sentient Script used to demonstrate verifier consensus restart and resume.",
+  "bundle": {
+    "claimed_run": null,
+    "env": {
+      "state": {
+        "memory": {
+          "demo": "consensus"
+        }
+      }
+    },
+    "script": {
+      "steps": [
+        {"action": "const", "value": 42},
+        {"action": "add", "operands": [21, 21]},
+        {"action": "echo", "message": "consensus demo"}
+      ]
+    }
+  }
+}
