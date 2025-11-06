@@ -522,15 +522,39 @@ def _verifier_stats() -> dict[str, object]:
         today = _dt.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=_dt.timezone.utc)
         stats = store.stats(since=today.timestamp())
         consensus_index = store.consensus_index()
-        finalized = 0
+        finalized_jobs = 0
         ok = 0
         diverged = 0
         inconclusive = 0
+        durations: list[float] = []
+        running_jobs: set[str] = set()
+        canceled_jobs: set[str] = set()
+        retries_total = 0
+        errors_total = 0
+        for job_id, state_payload in store.list_consensus_states().items():
+            status = str(state_payload.get("status") or "").upper()
+            if status == "RUNNING":
+                running_jobs.add(job_id)
+            elif status == "CANCELED":
+                canceled_jobs.add(job_id)
+            retries = state_payload.get("retries_by_node")
+            if isinstance(retries, Mapping):
+                for value in retries.values():
+                    try:
+                        retries_total += int(value)
+                    except (TypeError, ValueError):
+                        continue
+            errors = state_payload.get("errors_by_node")
+            if isinstance(errors, Mapping):
+                errors_total += sum(1 for value in errors.values() if value)
         for entry in consensus_index.values():
             if not isinstance(entry, dict):
                 continue
+            job_id = str(entry.get("job_id") or "")
+            if str(entry.get("status") or "").upper() == "CANCELED":
+                canceled_jobs.add(job_id)
             if entry.get("finalized"):
-                finalized += 1
+                finalized_jobs += 1
                 verdict = entry.get("final_verdict")
                 if verdict == "VERIFIED_OK":
                     ok += 1
@@ -538,13 +562,32 @@ def _verifier_stats() -> dict[str, object]:
                     diverged += 1
                 elif verdict == "INCONCLUSIVE":
                     inconclusive += 1
+                start_val = entry.get("started_at")
+                end_val = entry.get("finalized_at")
+                try:
+                    start_ts = float(start_val) if start_val is not None else None
+                    end_ts = float(end_val) if end_val is not None else None
+                except (TypeError, ValueError):
+                    start_ts = None
+                    end_ts = None
+                if start_ts is not None and end_ts is not None and end_ts >= start_ts:
+                    durations.append(end_ts - start_ts)
             else:
                 inconclusive += 1
+        avg_quorum = round(sum(durations) / len(durations), 3) if durations else 0.0
         stats["consensus"] = {
-            "finalized": finalized,
+            "finalized": finalized_jobs,
             "ok": ok,
             "diverged": diverged,
             "inconclusive": inconclusive,
+            "jobs": {
+                "running": len(running_jobs),
+                "finalized": finalized_jobs,
+                "canceled": len(canceled_jobs),
+            },
+            "retries_total": retries_total,
+            "errors_total": errors_total,
+            "avg_time_to_quorum_s": avg_quorum,
         }
         stats["trust"] = _trust_histogram()
         return stats

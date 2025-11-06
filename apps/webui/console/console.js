@@ -35,6 +35,9 @@ const consensusQuorumK = document.getElementById("consensus-quorum-k");
 const consensusQuorumN = document.getElementById("consensus-quorum-n");
 const consensusParticipantsInput = document.getElementById("consensus-participants-input");
 const closeConsensusButton = document.getElementById("close-consensus-modal");
+const consensusCancelButton = document.getElementById("consensus-cancel-button");
+const consensusForceButton = document.getElementById("consensus-force-button");
+const consensusResumeBadge = document.getElementById("consensus-resume-badge");
 const meshDreamCount = document.getElementById("mesh-dream-count");
 const meshConsensusCount = document.getElementById("mesh-consensus-count");
 const meshVoicesCount = document.getElementById("mesh-voices-count");
@@ -95,6 +98,22 @@ openConsensusButton?.addEventListener("click", () => {
 
 closeConsensusButton?.addEventListener("click", () => {
   closeConsensusModal();
+});
+
+consensusCancelButton?.addEventListener("click", async () => {
+  try {
+    await cancelConsensus();
+  } catch (error) {
+    console.error("Failed to cancel consensus", error);
+  }
+});
+
+consensusForceButton?.addEventListener("click", async () => {
+  try {
+    await forceFinalizeConsensus();
+  } catch (error) {
+    console.error("Failed to force finalize consensus", error);
+  }
 });
 
 consensusModal?.addEventListener("click", (event) => {
@@ -626,13 +645,17 @@ function renderConsensus() {
     if (consensusStatusChip) {
       consensusStatusChip.textContent = "Idle";
       consensusStatusChip.className = "status-chip";
+      consensusStatusChip.removeAttribute("title");
     }
     if (consensusParticipants) consensusParticipants.textContent = "Participants: –";
+    if (consensusCancelButton) consensusCancelButton.disabled = true;
+    if (consensusForceButton) consensusForceButton.disabled = true;
+    if (consensusResumeBadge) consensusResumeBadge.hidden = true;
     if (consensusTableBody) {
       consensusTableBody.innerHTML = "";
       const empty = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 4;
+      cell.colSpan = 6;
       cell.textContent = "No consensus activity.";
       empty.appendChild(cell);
       consensusTableBody.appendChild(empty);
@@ -645,23 +668,38 @@ function renderConsensus() {
   const denominator = quorumK > 0 ? quorumK : Math.max(received, 1);
   const percent = Math.max(0, Math.min(100, Math.round((received / denominator) * 100)));
   if (consensusProgressFill) consensusProgressFill.style.width = `${percent}%`;
-  if (consensusProgressLabel) consensusProgressLabel.textContent = `${received} / ${quorumK || denominator} votes`;
   const verdict = snapshot.finalized ? snapshot.final_verdict || snapshot.provisional_verdict : snapshot.provisional_verdict;
+  if (consensusProgressLabel) {
+    const verdictLabel = verdict ? verdict.replace(/_/g, " ") : "Pending";
+    consensusProgressLabel.textContent = `${received} / ${quorumK || denominator} votes • ${verdictLabel}`;
+  }
+  const status = String(snapshot.status || (snapshot.finalized ? "FINALIZED" : "RUNNING")).toUpperCase();
   if (consensusStatusChip) {
-    const label = verdict ? verdict.replace(/_/g, " ") : "Inconclusive";
+    const label = status.replace(/_/g, " ");
     consensusStatusChip.textContent = label;
     consensusStatusChip.className = "status-chip";
-    if (verdict === "VERIFIED_OK") {
+    if (status === "RUNNING") {
+      consensusStatusChip.classList.add("running");
+    } else if (status === "FINALIZED") {
       consensusStatusChip.classList.add("ok");
-    } else if (verdict === "DIVERGED" || verdict === "MISMATCH") {
-      consensusStatusChip.classList.add("diverged");
-    } else if (verdict === "INCONCLUSIVE") {
-      consensusStatusChip.classList.add("inconclusive");
+    } else if (status === "CANCELED") {
+      consensusStatusChip.classList.add("canceled");
     }
+    consensusStatusChip.title = `Quorum ${snapshot.quorum_k ?? "?"} of ${snapshot.quorum_n ?? "?"}`;
   }
   const participantList = Array.isArray(snapshot.participants) ? snapshot.participants : [];
   if (consensusParticipants) {
     consensusParticipants.textContent = `Participants: ${participantList.length ? participantList.join(", ") : "–"}`;
+  }
+  if (consensusResumeBadge) {
+    consensusResumeBadge.hidden = !snapshot.resumed;
+  }
+  if (consensusCancelButton) {
+    consensusCancelButton.disabled = status !== "RUNNING";
+  }
+  if (consensusForceButton) {
+    const canForce = status === "RUNNING" && received >= (Number(snapshot.quorum_k) || 0);
+    consensusForceButton.disabled = !canForce;
   }
   if (consensusTableBody) {
     consensusTableBody.innerHTML = "";
@@ -669,11 +707,14 @@ function renderConsensus() {
     if (!votes.length) {
       const row = document.createElement("tr");
       const cell = document.createElement("td");
-      cell.colSpan = 4;
+      cell.colSpan = 6;
       cell.textContent = "No votes yet.";
       row.appendChild(cell);
       consensusTableBody.appendChild(row);
     } else {
+      const retriesByNode = (snapshot.retries_by_node && typeof snapshot.retries_by_node === "object") ? snapshot.retries_by_node : {};
+      const errorsByNode = (snapshot.errors_by_node && typeof snapshot.errors_by_node === "object") ? snapshot.errors_by_node : {};
+      const retryAfter = (snapshot.retry_after && typeof snapshot.retry_after === "object") ? snapshot.retry_after : {};
       for (const vote of votes) {
         if (!vote || typeof vote !== "object") continue;
         const tr = document.createElement("tr");
@@ -694,12 +735,59 @@ function renderConsensus() {
           proofSummary = String(vote.proof_hash).slice(0, 12);
         }
         proofCell.textContent = proofSummary;
+        const retryCell = document.createElement("td");
+        const retries = Number(retriesByNode[vote.voter_node] ?? 0);
+        retryCell.textContent = retries > 0 ? String(retries) : "0";
+        const retryEta = Number(retryAfter[vote.voter_node]);
+        if (Number.isFinite(retryEta)) {
+          const deltaSeconds = retryEta - Date.now() / 1000;
+          if (deltaSeconds > 0) {
+            retryCell.title = `next attempt in ${formatDuration(deltaSeconds)}`;
+          } else if (retries > 0) {
+            retryCell.title = "ready to retry";
+          }
+        }
+        const errorCell = document.createElement("td");
+        const errorValue = errorsByNode[vote.voter_node];
+        errorCell.textContent = errorValue ? String(errorValue).replace(/_/g, " ") : "–";
+        if (errorValue) {
+          errorCell.title = String(errorValue);
+        }
         const tsCell = document.createElement("td");
         tsCell.textContent = vote.ts ? formatRelativeAge(vote.ts) : "–";
-        tr.append(nodeCell, verdictCell, proofCell, tsCell);
+        tr.append(nodeCell, verdictCell, proofCell, retryCell, errorCell, tsCell);
         consensusTableBody.appendChild(tr);
       }
     }
+  }
+}
+
+async function cancelConsensus() {
+  const jobId = consensusState.jobId;
+  if (!jobId) return;
+  const reason = window.prompt("Cancel consensus job? Provide reason (optional).", "");
+  const body = { job_id: jobId };
+  if (reason) body.reason = reason;
+  const response = await postJson("/admin/verify/consensus/cancel", body);
+  if (response?.snapshot) {
+    consensusState.snapshot = response.snapshot;
+    renderConsensus();
+  }
+}
+
+async function forceFinalizeConsensus() {
+  const jobId = consensusState.jobId;
+  if (!jobId) return;
+  if (!window.confirm("Force finalize consensus? Only use this when quorum is already met.")) {
+    return;
+  }
+  const reason = window.prompt("Reason for force finalize (optional)", "");
+  const body = { job_id: jobId };
+  if (reason) body.reason = reason;
+  const response = await postJson("/admin/verify/consensus/finalize", body);
+  if (response?.snapshot) {
+    consensusState.snapshot = response.snapshot;
+    renderConsensus();
   }
 }
 

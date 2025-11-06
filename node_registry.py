@@ -160,6 +160,7 @@ class NodeRegistry:
         self._nodes: Dict[str, NodeRecord] = {}
         self._local_hostname: Optional[str] = None
         self._last_loaded_mtime: float = 0.0
+        self._consensus_errors: Dict[str, tuple[int, float]] = {}
         self._load()
 
     @classmethod
@@ -403,6 +404,29 @@ class NodeRegistry:
         self.refresh_from_disk()
         with self._lock:
             return list(self._nodes.values())
+
+    def record_consensus_error(self, hostname: str) -> None:
+        with self._lock:
+            now = time.time()
+            count, timestamp = self._consensus_errors.get(hostname, (0, now))
+            if now - timestamp > 120:
+                count = 0
+            self._consensus_errors[hostname] = (count + 1, now)
+
+    def clear_consensus_error(self, hostname: str) -> None:
+        with self._lock:
+            self._consensus_errors.pop(hostname, None)
+
+    def verifier_backoff_hint_ms(self, hostname: str) -> int:
+        with self._lock:
+            now = time.time()
+            count, timestamp = self._consensus_errors.get(hostname, (0, now))
+            if now - timestamp > 120:
+                count = 0
+            if count <= 0:
+                return 0
+            hint = 500 + int(count * 250)
+            return min(hint, 5000)
 
     def store_token(self, hostname: str, token_hash: str) -> Optional[NodeRecord]:
         with self._lock:
