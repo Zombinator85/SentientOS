@@ -3,6 +3,17 @@ const nodesTable = document.querySelector("#nodes-table tbody");
 const memoryInfo = document.getElementById("memory-info");
 const healthChecks = document.getElementById("health-checks");
 const installButton = document.getElementById("install-button");
+const dreamMoodLabel = document.getElementById("dream-mood-label");
+const dreamMoodIntensity = document.getElementById("dream-mood-intensity");
+const dreamActiveGoal = document.getElementById("dream-active-goal");
+const dreamGoalMeta = document.getElementById("dream-goal-meta");
+const dreamLoopProgress = document.getElementById("dream-loop-progress");
+const dreamLoopBar = document.getElementById("dream-loop-bar");
+const dreamLoopStatus = document.getElementById("dream-loop-status");
+const emotionPulseCard = document.getElementById("emotion-pulse-card");
+const emotionPulseDot = document.getElementById("emotion-pulse-dot");
+const emotionPulseLabel = document.getElementById("emotion-pulse-label");
+const emotionPulseNote = document.getElementById("emotion-pulse-note");
 
 let deferredPrompt = null;
 window.addEventListener("beforeinstallprompt", (event) => {
@@ -86,6 +97,89 @@ function renderHealth(snapshot) {
   }
 }
 
+function formatTimestamp(iso) {
+  if (!iso) return "No cycle recorded";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString();
+}
+
+function clampPercent(value) {
+  const numeric = Number.isFinite(value) ? value : Number(value) || 0;
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.min(100, numeric));
+}
+
+function renderDream(snapshot) {
+  if (!snapshot || snapshot.error) {
+    if (dreamLoopStatus) {
+      dreamLoopStatus.textContent = "Dream telemetry unavailable";
+    }
+    return;
+  }
+  const mood = snapshot.mood ?? {};
+  const goalProgress = snapshot.goal_progress ?? {};
+  const state = snapshot.dream_state ?? {};
+  const pulse = snapshot.emotion_pulse ?? {};
+
+  const moodLabel = mood.label ?? snapshot.dominant_emotion ?? "Neutral";
+  const intensity = Number.isFinite(mood.intensity) ? Number(mood.intensity) : Number(mood.intensity || 0);
+  if (dreamMoodLabel) {
+    dreamMoodLabel.textContent = moodLabel;
+  }
+  if (dreamMoodIntensity) {
+    const pct = clampPercent(intensity * 100);
+    dreamMoodIntensity.textContent = `Intensity ${pct.toFixed(0)}%`;
+  }
+
+  const goal = snapshot.active_goal;
+  if (dreamActiveGoal) {
+    dreamActiveGoal.textContent = goal?.text || "No active goals";
+  }
+  if (dreamGoalMeta) {
+    const total = goalProgress.total ?? 0;
+    const completed = goalProgress.completed ?? 0;
+    const open = goalProgress.open ?? Math.max(total - completed, 0);
+    const percent = clampPercent(goalProgress.percent ?? 0);
+    dreamGoalMeta.textContent = `${completed}/${total} completed • ${open} open • ${percent.toFixed(0)}% progress`;
+  }
+
+  if (dreamLoopProgress) {
+    const loopPercent = clampPercent(snapshot.loop_progress_percent ?? 0);
+    dreamLoopProgress.textContent = `${loopPercent.toFixed(0)}%`;
+    if (dreamLoopBar) {
+      dreamLoopBar.style.width = `${loopPercent}%`;
+    }
+  }
+  if (dreamLoopStatus) {
+    if (state.active) {
+      dreamLoopStatus.textContent = "Dream loop active";
+    } else if (snapshot.last_cycle_at) {
+      dreamLoopStatus.textContent = `Last cycle ${formatTimestamp(snapshot.last_cycle_at)}`;
+    } else {
+      dreamLoopStatus.textContent = "Awaiting first dream cycle";
+    }
+  }
+
+  const pulseColor = pulse.color || "#38bdf8";
+  if (emotionPulseLabel) {
+    emotionPulseLabel.textContent = pulse.label || moodLabel;
+  }
+  if (emotionPulseNote) {
+    const pct = clampPercent((pulse.intensity ?? intensity) * 100);
+    emotionPulseNote.textContent = pct ? `Pulse at ${pct.toFixed(0)}%` : "Pulse idle";
+  }
+  if (emotionPulseDot) {
+    emotionPulseDot.style.borderColor = pulseColor;
+    emotionPulseDot.style.boxShadow = `0 0 25px ${pulseColor}66`;
+    emotionPulseDot.style.background = `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.85), ${pulseColor}33)`;
+  }
+  if (emotionPulseCard) {
+    emotionPulseCard.style.borderColor = `${pulseColor}88`;
+    emotionPulseCard.style.boxShadow = `0 15px 35px ${pulseColor}22`;
+  }
+}
+
 async function refreshAll() {
   try {
     const status = await fetchJson("/admin/status", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
@@ -96,6 +190,8 @@ async function refreshAll() {
     renderMemory(memory);
     const health = await fetchJson("/admin/health", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
     renderHealth(health.watchdog ?? health);
+    const dream = await fetchJson("/admin/dream", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
+    renderDream(dream);
   } catch (error) {
     console.warn("Failed to refresh console", error);
   }

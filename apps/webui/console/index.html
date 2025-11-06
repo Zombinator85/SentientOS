@@ -16,12 +16,44 @@
         <a href="#nodes">Nodes</a>
         <a href="#memory">Memory</a>
         <a href="#health">Health</a>
+        <a href="#dream">Dream</a>
       </nav>
     </header>
     <main>
       <section id="overview">
         <h2>Overview</h2>
         <div id="overview-grid" class="grid"></div>
+      </section>
+      <section id="dream">
+        <h2>Dream &amp; Emotion</h2>
+        <div id="dream-grid" class="grid dream-grid">
+          <div class="dream-card">
+            <h3>Current Mood</h3>
+            <p id="dream-mood-label">Neutral</p>
+            <small id="dream-mood-intensity">Baseline steady</small>
+          </div>
+          <div class="dream-card">
+            <h3>Active Goal</h3>
+            <p id="dream-active-goal">No active goals</p>
+            <small id="dream-goal-meta">All caught up</small>
+          </div>
+          <div class="dream-card">
+            <h3>Loop Progress</h3>
+            <p id="dream-loop-progress">0%</p>
+            <div class="progress-bar">
+              <span id="dream-loop-bar" style="width: 0%"></span>
+            </div>
+            <small id="dream-loop-status">Awaiting next dream cycle</small>
+          </div>
+          <div class="emotion-pulse-card" id="emotion-pulse-card">
+            <div class="pulse-dot" id="emotion-pulse-dot"></div>
+            <div>
+              <h3>Emotion Pulse</h3>
+              <p id="emotion-pulse-label">Calm</p>
+              <small id="emotion-pulse-note">Pulse idle</small>
+            </div>
+          </div>
+        </div>
       </section>
       <section id="nodes">
         <h2>Nodes</h2>

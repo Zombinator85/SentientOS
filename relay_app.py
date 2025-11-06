@@ -13,8 +13,9 @@ import socket
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from dotenv import load_dotenv
 
@@ -39,6 +40,7 @@ import epu
 import memory_manager as mm
 from api import actuator
 from emotions import empty_emotion_vector
+from emotion_utils import dominant_emotion
 from memory_manager import write_mem
 from utils import chunk_message
 import mem_admin
@@ -47,6 +49,11 @@ import memory_governor as governor
 import secure_memory_storage as secure_store
 from safety_log import count_recent_events
 import dream_loop
+
+try:  # pragma: no cover - optional dependency during tests
+    import epu_core  # type: ignore
+except Exception:  # pragma: no cover - graceful fallback
+    epu_core = None  # type: ignore[assignment]
 
 import requests
 
@@ -538,6 +545,159 @@ def _memory_summary() -> Dict[str, Any]:
     return metrics
 
 
+_EMOTION_COLOUR_MAP = {
+    "calm": "#38bdf8",
+    "neutral": "#64748b",
+    "joy": "#facc15",
+    "trust": "#34d399",
+    "fear": "#8b5cf6",
+    "anger": "#ef4444",
+    "sadness": "#3b82f6",
+    "surprise": "#f97316",
+    "anticipation": "#f59e0b",
+    "disgust": "#84cc16",
+    "love": "#f472b6",
+    "hope": "#22d3ee",
+    "stress": "#ef4444",
+}
+
+
+def _current_epu_vector() -> Dict[str, float]:
+    if epu_core is None:
+        return empty_emotion_vector()
+    try:
+        state = epu_core.get_global_state()  # type: ignore[union-attr]
+    except Exception:
+        return empty_emotion_vector()
+    try:
+        vector = state.state()
+    except Exception:
+        return empty_emotion_vector()
+    if not isinstance(vector, Mapping):
+        return empty_emotion_vector()
+    mood: Dict[str, float] = empty_emotion_vector()
+    for label, value in vector.items():
+        try:
+            mood[str(label)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    for label, default in empty_emotion_vector().items():
+        mood.setdefault(label, default)
+    return mood
+
+
+def _dominant_mood(vector: Mapping[str, float]) -> tuple[str, float]:
+    label = dominant_emotion(dict(vector), neutral_label="Neutral")
+    try:
+        intensity = float(vector.get(label, 0.0))
+    except (TypeError, ValueError):
+        intensity = 0.0
+    return label, max(0.0, intensity)
+
+
+def _emotion_colour(label: str) -> str:
+    key = label.lower()
+    return _EMOTION_COLOUR_MAP.get(key, _EMOTION_COLOUR_MAP.get("neutral", "#64748b"))
+
+
+def _parse_iso_timestamp(value: object) -> datetime | None:
+    if value in (None, ""):
+        return None
+    text = str(value)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _loop_progress_percent(status: Mapping[str, object]) -> float:
+    if bool(status.get("active")):
+        return 100.0
+    interval_minutes = status.get("interval_minutes")
+    try:
+        interval_seconds = float(interval_minutes) * 60.0
+    except (TypeError, ValueError):
+        interval_seconds = 0.0
+    last_cycle = _parse_iso_timestamp(status.get("last_cycle"))
+    if not interval_seconds or not last_cycle:
+        return 0.0
+    elapsed = (datetime.now(timezone.utc) - last_cycle).total_seconds()
+    if elapsed <= 0:
+        return 0.0
+    progress = min(100.0, max(0.0, (elapsed / interval_seconds) * 100.0))
+    return round(progress, 1)
+
+
+def _goal_progress_summary() -> Dict[str, object]:
+    goals = mm.get_goals(open_only=False)
+    total = len(goals)
+    completed = 0
+    for goal in goals:
+        if str(goal.get("status") or "").lower() == "completed":
+            completed += 1
+    open_count = max(total - completed, 0)
+    percent = (completed / total * 100.0) if total else 0.0
+    return {
+        "total": total,
+        "completed": completed,
+        "open": open_count,
+        "percent": round(percent, 1),
+    }
+
+
+def _summarise_goal(goal: Optional[Mapping[str, object]]) -> Optional[Dict[str, object]]:
+    if not goal:
+        return None
+    summary: Dict[str, object] = {
+        "id": goal.get("id", ""),
+        "status": goal.get("status", ""),
+        "priority": goal.get("priority"),
+        "deadline": goal.get("deadline"),
+        "created": goal.get("created"),
+    }
+    text = str(goal.get("text") or "").strip()
+    if len(text) > 240:
+        text = text[:237].rstrip() + "…"
+    summary["text"] = text or "No active goals"
+    return summary
+
+
+def _dream_dashboard_payload() -> Dict[str, Any]:
+    status = dream_loop.status()
+    vector = _current_epu_vector()
+    label, intensity = _dominant_mood(vector)
+    loop_progress = _loop_progress_percent(status)
+    goal_progress = _goal_progress_summary()
+    active_goal = _summarise_goal(mm.next_goal())
+    payload: Dict[str, Any] = {
+        "dream_state": status,
+        "mood": {
+            "label": label,
+            "intensity": round(float(intensity), 3),
+            "vector": vector,
+        },
+        "dominant_emotion": label,
+        "loop_progress_percent": loop_progress,
+        "goal_progress": goal_progress,
+        "active_goal": active_goal,
+        "emotion_pulse": {
+            "label": label,
+            "intensity": round(float(intensity), 3),
+            "color": _emotion_colour(label),
+        },
+    }
+    last_cycle = status.get("last_cycle") if isinstance(status, Mapping) else None
+    parsed_last = _parse_iso_timestamp(last_cycle) if last_cycle else None
+    if parsed_last is not None:
+        payload.setdefault("last_cycle_at", parsed_last.isoformat())
+    return payload
+
+
 def _admin_status_payload() -> Dict[str, Any]:
     metrics = _memory_summary()
     status = dream_loop.status()
@@ -784,6 +944,18 @@ def admin_status() -> Response:
     return _admin_response(_admin_status_payload())
 
 
+@app.route("/admin/dream", methods=["GET"])
+def admin_dream() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    try:
+        payload = _dream_dashboard_payload()
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logging.warning("Failed to build dream dashboard payload: %s", exc, exc_info=True)
+        payload = {"error": "unavailable"}
+    return _admin_response(payload)
+
+
 @app.route("/admin/health", methods=["GET"])
 def admin_health() -> Response:
     if not _admin_authorised():
@@ -878,6 +1050,25 @@ def admin_rotate_keys() -> Response:
         return Response("Forbidden", status=403)
     result = mem_admin.rotate_keys()
     return jsonify(result)
+
+
+@app.route("/reflect/sync", methods=["POST"])
+def reflect_sync() -> Response:
+    if not _is_authorised_for_node_routes():
+        return Response("Forbidden", status=403)
+    payload = request.get_json(silent=True) or {}
+    source = request.headers.get(_NODE_ID_HEADER) or request.headers.get("X-Forwarded-For") or request.remote_addr
+    try:
+        result = synchronizer.receive_reflection(payload, source=str(source or ""))
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logging.warning("Failed to process reflection sync payload: %s", exc, exc_info=True)
+        result = {"accepted": False, "reason": "error"}
+    status_code = 200 if result.get("accepted") else 400
+    response = jsonify(result)
+    if hasattr(response, "status_code"):
+        response.status_code = status_code
+        return response
+    return Response(json.dumps(result), status=status_code, mimetype="application/json")
 
 
 @app.route("/webrtc/create", methods=["POST"])
