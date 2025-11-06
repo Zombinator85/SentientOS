@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Verification Report</title>
+    <link rel="stylesheet" href="report.css" />
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <h1>Verification Report</h1>
+        <nav>
+          <a class="back-link" href="/console">← Back to console</a>
+          <a id="raw-link" class="raw-link" href="#" target="_blank" rel="noreferrer">View raw JSON</a>
+        </nav>
+      </header>
+      <section id="summary" class="card">
+        <h2>Summary</h2>
+        <div id="summary-content" class="summary-grid">Loading report…</div>
+      </section>
+      <section id="proof-section" class="card">
+        <h2>Proof Trace</h2>
+        <div id="proof-content">Loading proofs…</div>
+      </section>
+      <section id="diff-section" class="card">
+        <h2>Diffs</h2>
+        <div id="diff-content">Loading diffs…</div>
+      </section>
+      <section id="evidence-section" class="card">
+        <h2>Evidence</h2>
+        <div id="evidence-content">Loading evidence…</div>
+      </section>
+      <section class="card">
+        <h2>Raw Report</h2>
+        <pre id="raw-report" class="raw"></pre>
+      </section>
+    </main>
+    <script src="report.js" type="module"></script>
+  </body>
+</html>

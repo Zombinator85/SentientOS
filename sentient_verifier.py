@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import base64
 import datetime as _dt
+import ast
+import operator
 import hashlib
 import json
 import random
 import secrets
 import socket
 import time
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
@@ -57,6 +60,31 @@ class StepDiff:
 
 
 @dataclass
+class ProofTrace:
+    step: int
+    pre: Optional[str] = None
+    post: Optional[str] = None
+    status: str = "SKIP"
+    pre_status: Optional[str] = None
+    post_status: Optional[str] = None
+    error: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {"step": self.step, "status": self.status}
+        if self.pre is not None:
+            payload["pre"] = self.pre
+        if self.post is not None:
+            payload["post"] = self.post
+        if self.pre_status:
+            payload["pre_status"] = self.pre_status
+        if self.post_status:
+            payload["post_status"] = self.post_status
+        if self.error:
+            payload["error"] = self.error
+        return payload
+
+
+@dataclass
 class VerificationReport:
     job_id: str
     script_hash: str
@@ -69,6 +97,9 @@ class VerificationReport:
     timestamps: Dict[str, Any] = field(default_factory=dict)
     signer_fingerprint: Optional[str] = None
     signature: Optional[str] = None
+    proofs: List[ProofTrace] = field(default_factory=list)
+    proof_counts: Dict[str, int] = field(default_factory=dict)
+    proof_hash: Optional[str] = None
 
     def to_dict(self, *, include_signature: bool = True) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
@@ -86,6 +117,12 @@ class VerificationReport:
             payload["signer_fingerprint"] = self.signer_fingerprint
         if include_signature and self.signature:
             payload["signature"] = self.signature
+        if self.proofs:
+            payload["proofs"] = [trace.to_dict() for trace in self.proofs]
+        if self.proof_counts:
+            payload["proof_counts"] = dict(self.proof_counts)
+        if self.proof_hash:
+            payload["proof_hash"] = self.proof_hash
         return payload
 
 
@@ -126,6 +163,14 @@ class SentientVerifier:
             pass
         return report
 
+    def replay_job(self, job_id: str) -> VerificationReport:
+        bundle = self._store.get_bundle(job_id)
+        if bundle is None:
+            raise ValueError("unknown_job")
+        if not isinstance(bundle, Mapping):
+            raise ValueError("invalid_bundle")
+        return self.verify_bundle(dict(bundle))
+
     def verify_script(
         self,
         script: Mapping[str, Any] | None,
@@ -153,6 +198,9 @@ class SentientVerifier:
 
         diffs: List[StepDiff] = []
         evidence: Dict[str, Any] = {}
+        proof_traces: List[ProofTrace] = []
+        proof_counts: Dict[str, int] = {"pass": 0, "fail": 0, "error": 0}
+        proof_hash: Optional[str] = None
         verdict = "REPLAY_ERROR"
         score = 0.0
         try:
@@ -160,6 +208,9 @@ class SentientVerifier:
             replay_steps = replay["steps"]
             replay_final_state_hash = replay["final_state_hash"]
             replay_log_hash = replay["log_hash"]
+            proof_traces = replay.get("proofs", [])
+            proof_counts = replay.get("proof_counts", proof_counts)
+            proof_hash = replay.get("proof_hash")
             if claimed_steps:
                 diffs = self._diff(claimed_steps, replay_steps)
             verdict = self._verdict(signature_valid, diffs, error=None)
@@ -197,6 +248,9 @@ class SentientVerifier:
             diffs=diffs,
             evidence=evidence,
             timestamps=timestamps,
+            proofs=proof_traces,
+            proof_counts=proof_counts,
+            proof_hash=proof_hash,
         )
         self.sign_report(report)
         self._store.save_report(report.to_dict())
@@ -328,14 +382,55 @@ class SentientVerifier:
         start_time = float(env.get("start_time") or time.time())
         clock_mode = str(env.get("clock_mode") or "fixed").lower()
         replay_steps: List[StepResult] = []
+        state = self._initial_state(env)
+        previous_result: Optional[Mapping[str, Any]] = None
+        proof_traces: List[ProofTrace] = []
+        proof_counts = {"pass": 0, "fail": 0, "error": 0}
         state_seed = "0" * 64
         for index, raw_step in enumerate(steps[:_MAX_STEPS]):
             if not isinstance(raw_step, Mapping):
                 continue
             action = str(raw_step.get("action") or "noop")
+            state_before = deepcopy(state)
+            step_traces = self._prepare_step_proofs(index, raw_step)
+            if step_traces:
+                context_before = self._proof_context(
+                    state_before,
+                    env,
+                    result=None,
+                    step=index,
+                    previous=previous_result,
+                )
+                for trace in step_traces:
+                    status, error = self._evaluate_proof_expression(trace.pre, context_before)
+                    trace.pre_status = status
+                    if error:
+                        trace.error = error
             result = self._execute_step(action, raw_step, rng)
             timestamp = self._resolve_timestamp(start_time, clock_mode, index, claimed_steps)
             state_seed = self._state_hash(state_seed, result, index)
+            state = self._update_state(state, result)
+            if step_traces:
+                context_after = self._proof_context(
+                    state,
+                    env,
+                    result=result,
+                    step=index,
+                    previous=previous_result,
+                )
+                for trace in step_traces:
+                    status, error = self._evaluate_proof_expression(trace.post, context_after)
+                    trace.post_status = status
+                    if error and not trace.error:
+                        trace.error = error
+                    self._finalise_trace_status(trace)
+                    if trace.status == "PASS":
+                        proof_counts["pass"] += 1
+                    elif trace.status == "FAIL":
+                        proof_counts["fail"] += 1
+                    elif trace.status == "ERROR":
+                        proof_counts["error"] += 1
+                    proof_traces.append(trace)
             replay_steps.append(
                 StepResult(
                     index=index,
@@ -345,11 +440,16 @@ class SentientVerifier:
                     state_hash=state_seed,
                 )
             )
+            previous_result = result
         serialised = [step.to_dict() for step in replay_steps]
+        proof_hash = self._proof_hash(proof_traces)
         return {
             "steps": serialised,
             "final_state_hash": state_seed,
             "log_hash": self._log_hash(serialised),
+            "proofs": proof_traces,
+            "proof_counts": proof_counts,
+            "proof_hash": proof_hash,
         }
 
     def _execute_step(
@@ -379,6 +479,122 @@ class SentientVerifier:
             payload = {key: value for key, value in parameters.items() if key != "action"}
             return payload or {"value": None}
         return {key: value for key, value in parameters.items() if key != "action"}
+
+    def _initial_state(self, env: Mapping[str, Any]) -> Dict[str, Any]:
+        state_obj = env.get("state")
+        if isinstance(state_obj, Mapping):
+            state = deepcopy(_as_jsonable(state_obj))
+            if not isinstance(state, dict):
+                state = dict(state)
+        else:
+            state = {}
+        memory = state.get("memory")
+        if isinstance(memory, Mapping):
+            state["memory"] = dict(memory)
+        else:
+            state["memory"] = {}
+        return state
+
+    def _prepare_step_proofs(self, index: int, step: Mapping[str, Any]) -> List[ProofTrace]:
+        proofs_obj = step.get("proofs")
+        candidates: List[Mapping[str, Any]] = []
+        if isinstance(proofs_obj, Mapping):
+            candidates.append(proofs_obj)
+        elif isinstance(proofs_obj, Sequence):
+            for entry in proofs_obj:
+                if isinstance(entry, Mapping):
+                    candidates.append(entry)
+        else:
+            single = step.get("proof")
+            if isinstance(single, Mapping):
+                candidates.append(single)
+        traces: List[ProofTrace] = []
+        for candidate in candidates:
+            pre = self._coerce_expression(candidate.get("pre") or candidate.get("precondition"))
+            post = self._coerce_expression(candidate.get("post") or candidate.get("postcondition"))
+            if pre is None and post is None:
+                continue
+            traces.append(ProofTrace(step=index, pre=pre, post=post))
+        return traces
+
+    @staticmethod
+    def _coerce_expression(value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def _proof_context(
+        self,
+        state: Mapping[str, Any],
+        env: Mapping[str, Any],
+        *,
+        result: Optional[Mapping[str, Any]],
+        step: int,
+        previous: Optional[Mapping[str, Any]],
+    ) -> Dict[str, Any]:
+        memory = state.get("memory") if isinstance(state.get("memory"), Mapping) else {}
+        return {
+            "state": state,
+            "memory": memory,
+            "env": env,
+            "result": result,
+            "step": step,
+            "previous_result": previous,
+        }
+
+    def _evaluate_proof_expression(
+        self, expression: Optional[str], context: Mapping[str, Any]
+    ) -> tuple[str, Optional[str]]:
+        if not expression:
+            return "SKIP", None
+        try:
+            outcome = bool(_safe_eval(expression, context))
+        except Exception as exc:  # pragma: no cover - defensive
+            return "ERROR", str(exc)
+        return ("PASS" if outcome else "FAIL"), None
+
+    @staticmethod
+    def _finalise_trace_status(trace: ProofTrace) -> ProofTrace:
+        statuses = [trace.pre_status, trace.post_status]
+        if any(status == "ERROR" for status in statuses):
+            trace.status = "ERROR"
+        elif any(status == "FAIL" for status in statuses):
+            trace.status = "FAIL"
+        elif any(status == "PASS" for status in statuses):
+            trace.status = "PASS"
+        else:
+            trace.status = "SKIP"
+        return trace
+
+    def _proof_hash(self, traces: Sequence[ProofTrace]) -> Optional[str]:
+        if not traces:
+            return None
+        payload = [trace.to_dict() for trace in traces]
+        return "sha256:" + hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+    def _update_state(self, state: Dict[str, Any], result: Mapping[str, Any]) -> Dict[str, Any]:
+        for key, value in result.items():
+            if isinstance(value, Mapping):
+                if key == "memory":
+                    memory = state.setdefault("memory", {})
+                    if isinstance(memory, dict):
+                        memory.update(self._coerce_mapping(value))
+                    else:
+                        state["memory"] = self._coerce_mapping(value)
+                else:
+                    existing = state.get(key)
+                    if isinstance(existing, dict):
+                        existing.update(self._coerce_mapping(value))
+                    else:
+                        state[key] = self._coerce_mapping(value)
+            else:
+                state[key] = value
+        return state
+
+    @staticmethod
+    def _coerce_mapping(value: Mapping[str, Any]) -> Dict[str, Any]:
+        return {str(key): _as_jsonable(val) for key, val in value.items()}
 
     @staticmethod
     def _numbers_from(value: Any) -> List[float]:
@@ -554,6 +770,120 @@ def _as_jsonable(payload: Any) -> Any:
     return payload
 
 
+_ALLOWED_BIN_OPS: Dict[type, Any] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_ALLOWED_UNARY_OPS: Dict[type, Any] = {
+    ast.UAdd: operator.pos,
+    ast.USub: operator.neg,
+    ast.Not: operator.not_,
+}
+_ALLOWED_COMPARISONS: Dict[type, Any] = {
+    ast.Eq: operator.eq,
+    ast.NotEq: operator.ne,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.In: lambda lhs, rhs: lhs in rhs,
+    ast.NotIn: lambda lhs, rhs: lhs not in rhs,
+    ast.Is: operator.is_,
+    ast.IsNot: operator.is_not,
+}
+_ALLOWED_CALLS: Dict[str, Any] = {
+    "len": len,
+    "abs": abs,
+    "min": min,
+    "max": max,
+    "sum": sum,
+    "sorted": sorted,
+    "all": all,
+    "any": any,
+    "round": round,
+}
+
+
+def _safe_eval(expression: str, context: Mapping[str, Any]) -> Any:
+    tree = ast.parse(expression, mode="eval")
+
+    def _eval(node: ast.AST) -> Any:
+        if isinstance(node, ast.Expression):
+            return _eval(node.body)
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.Name):
+            if node.id in {"True", "False", "None"}:
+                return {"True": True, "False": False, "None": None}[node.id]
+            if node.id in context:
+                return context[node.id]
+            raise ValueError(f"unknown name: {node.id}")
+        if isinstance(node, ast.BoolOp):
+            if isinstance(node.op, ast.And):
+                return all(_eval(value) for value in node.values)
+            if isinstance(node.op, ast.Or):
+                return any(_eval(value) for value in node.values)
+            raise ValueError("unsupported boolean operator")
+        if isinstance(node, ast.UnaryOp):
+            func = _ALLOWED_UNARY_OPS.get(type(node.op))
+            if func is None:
+                raise ValueError("unsupported unary operator")
+            return func(_eval(node.operand))
+        if isinstance(node, ast.BinOp):
+            func = _ALLOWED_BIN_OPS.get(type(node.op))
+            if func is None:
+                raise ValueError("unsupported binary operator")
+            return func(_eval(node.left), _eval(node.right))
+        if isinstance(node, ast.Compare):
+            left = _eval(node.left)
+            for op, comparator in zip(node.ops, node.comparators):
+                func = _ALLOWED_COMPARISONS.get(type(op))
+                if func is None:
+                    raise ValueError("unsupported comparison")
+                right = _eval(comparator)
+                if not func(left, right):
+                    return False
+                left = right
+            return True
+        if isinstance(node, ast.Subscript):
+            base = _eval(node.value)
+            index_node = node.slice
+            if isinstance(index_node, ast.Slice):
+                lower = _eval(index_node.lower) if index_node.lower else None
+                upper = _eval(index_node.upper) if index_node.upper else None
+                step = _eval(index_node.step) if index_node.step else None
+                return base[slice(lower, upper, step)]
+            if hasattr(ast, "Index") and isinstance(index_node, ast.Index):  # pragma: no cover - py<3.9
+                index_node = index_node.value
+            index = _eval(index_node)
+            return base[index]
+        if isinstance(node, ast.Dict):
+            return {_eval(key): _eval(value) for key, value in zip(node.keys, node.values)}
+        if isinstance(node, ast.List):
+            return [_eval(element) for element in node.elts]
+        if isinstance(node, ast.Tuple):
+            return tuple(_eval(element) for element in node.elts)
+        if isinstance(node, ast.Set):
+            return {_eval(element) for element in node.elts}
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in _ALLOWED_CALLS:
+                func = _ALLOWED_CALLS[node.func.id]
+                args = [_eval(arg) for arg in node.args]
+                kwargs = {kw.arg: _eval(kw.value) for kw in node.keywords if kw.arg}
+                if any(kw.arg is None for kw in node.keywords):
+                    raise ValueError("keyword argument must be named")
+                return func(*args, **kwargs)
+            raise ValueError("disallowed function call")
+        raise ValueError(f"unsupported expression node: {type(node).__name__}")
+
+    return _eval(tree)
+
+
 def _utcnow_iso() -> str:
     return _dt.datetime.utcnow().replace(tzinfo=_dt.timezone.utc).isoformat()
 
@@ -563,4 +893,5 @@ __all__ = [
     "VerificationReport",
     "StepResult",
     "StepDiff",
+    "ProofTrace",
 ]

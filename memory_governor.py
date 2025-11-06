@@ -376,26 +376,26 @@ def metrics(limit: int = 500) -> dict[str, object]:
             "updated": _LAST_REFLECTION.updated,
             "trimmed_snapshots": _LAST_REFLECTION.trimmed_snapshots,
         }
-    verifier_counts = _verifier_counts()
+    verifier_stats = _verifier_stats()
     return {
         "total": total,
         "categories": counts,
         "secure_store": secure_store.is_enabled(),
         "incognito": _incognito_enabled(),
         "last_reflection": reflection_summary,
-        "verifier": {"counts": verifier_counts},
+        "verifier": verifier_stats,
     }
 
 
-def _verifier_counts() -> dict[str, int]:
+def _verifier_stats() -> dict[str, object]:
     if VerifierStore is None:
-        return {}
+        return {"counts": {}, "proof_counts": {}}
     try:
         store = VerifierStore.default()
         today = _dt.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=_dt.timezone.utc)
-        return store.verdict_counts(since=today.timestamp())
+        return store.stats(since=today.timestamp())
     except Exception:  # pragma: no cover - defensive
-        return {}
+        return {"counts": {}, "proof_counts": {}}
 
 
 __all__ = [
