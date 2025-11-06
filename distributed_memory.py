@@ -3,19 +3,23 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import logging
+import os
+import secrets
+import socket
 import threading
 import time
-from datetime import datetime
-from typing import Dict, Optional
+from datetime import datetime, timezone
+from typing import Dict, Mapping, Optional
 
-import os
 import requests
 from dotenv import load_dotenv
 
 import memory_manager as mm
 from node_registry import NODE_TOKEN, registry
+from secure_memory_storage import AESGCM
 
 try:  # pragma: no cover - optional dependency
     import zstandard as zstd
@@ -31,6 +35,69 @@ _REMOTE_TIMEOUT = 8.0
 _HEADER_TOKEN = "X-Node-Token"
 _MEMORY_ENDPOINT = "/memory/export"
 _COMPRESSED_ENCODING = "base64+zstd"
+_REFLECTION_ENDPOINT = "/reflect/sync"
+_REFLECTION_ENCODING = "aesgcm+base64"
+_REFLECTION_ASSOCIATED_DATA = b"sentientos-reflection-v1"
+_NODE_ID_HEADER = "X-Node-Id"
+
+
+def _local_node_id() -> str:
+    node_id = registry.local_hostname
+    if node_id:
+        return node_id
+    return socket.gethostname()
+
+
+def _derive_reflection_key() -> bytes:
+    if not NODE_TOKEN:
+        raise ValueError("NODE_TOKEN required for reflection synchronisation")
+    seed = f"{NODE_TOKEN}|reflection-sync".encode("utf-8")
+    return hashlib.sha256(seed).digest()
+
+
+def encrypt_reflection_summary(summary: Mapping[str, object]) -> Dict[str, str]:
+    """Return an AES-GCM envelope for the provided *summary*."""
+
+    aesgcm = AESGCM(_derive_reflection_key())
+    nonce = secrets.token_bytes(12)
+    payload = json.dumps(dict(summary), ensure_ascii=False).encode("utf-8")
+    ciphertext = aesgcm.encrypt(nonce, payload, _REFLECTION_ASSOCIATED_DATA)
+    envelope: Dict[str, str] = {
+        "nonce": base64.b64encode(nonce).decode("ascii"),
+        "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
+        "encoding": _REFLECTION_ENCODING,
+        "version": "1",
+    }
+    summary_id = summary.get("reflection_id") or summary.get("id")
+    if summary_id:
+        envelope["summary_id"] = str(summary_id)
+    return envelope
+
+
+def decrypt_reflection_payload(payload: Mapping[str, object]) -> Dict[str, object]:
+    """Decrypt and return the reflection summary contained in *payload*."""
+
+    encoding = str(payload.get("encoding") or _REFLECTION_ENCODING).lower()
+    if encoding not in {_REFLECTION_ENCODING, "aesgcm"}:
+        raise ValueError("unsupported_encoding")
+    nonce_b64 = payload.get("nonce")
+    ciphertext_b64 = payload.get("ciphertext")
+    if not isinstance(nonce_b64, str) or not isinstance(ciphertext_b64, str):
+        raise ValueError("invalid_envelope")
+    try:
+        nonce = base64.b64decode(nonce_b64)
+        ciphertext = base64.b64decode(ciphertext_b64)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError("invalid_envelope") from exc
+    aesgcm = AESGCM(_derive_reflection_key())
+    try:
+        plaintext = aesgcm.decrypt(nonce, ciphertext, _REFLECTION_ASSOCIATED_DATA)
+    except Exception as exc:  # pragma: no cover - defensive
+        raise ValueError("decryption_failed") from exc
+    data = json.loads(plaintext.decode("utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("invalid_payload")
+    return data
 
 
 def _parse_timestamp(timestamp: str) -> float:
@@ -97,6 +164,7 @@ class DistributedMemorySynchronizer:
         self._interval = interval_seconds
         self._thread: Optional[threading.Thread] = None
         self._stop = threading.Event()
+        self._lock = threading.Lock()
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -130,6 +198,43 @@ class DistributedMemorySynchronizer:
             return
         for node in nodes:
             self._merge_from_node(node.serialise(), local_fragments)
+
+    def broadcast_reflection(self, summary: Mapping[str, object]) -> None:
+        """Send ``summary`` to all trusted peers."""
+
+        if not NODE_TOKEN:
+            return
+        if not summary:
+            return
+        nodes = list(registry.iter_remote_nodes(trusted_only=True))
+        if not nodes:
+            return
+        snapshot = {k: v for k, v in dict(summary).items() if v is not None}
+        snapshot.setdefault("sent_at", datetime.now(timezone.utc).isoformat())
+        try:
+            payload = encrypt_reflection_summary(snapshot)
+        except ValueError:
+            LOGGER.debug("Reflection broadcast skipped: encryption unavailable")
+            return
+        headers = {
+            _HEADER_TOKEN: NODE_TOKEN,
+            "Content-Type": "application/json",
+            _NODE_ID_HEADER: _local_node_id(),
+        }
+        with self._lock:
+            for node in nodes:
+                url = f"http://{node.ip}:{node.port}{_REFLECTION_ENDPOINT}"
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=_REMOTE_TIMEOUT)
+                except requests.RequestException as exc:  # pragma: no cover - defensive
+                    LOGGER.debug("Reflection sync to %s failed: %s", node.hostname, exc)
+                    continue
+                if response.status_code >= 400:
+                    LOGGER.debug(
+                        "Reflection sync to %s returned %s",
+                        node.hostname,
+                        response.status_code,
+                    )
 
     def _merge_from_node(self, node: Dict[str, object], local_cache: Dict[str, dict]) -> None:
         ip = node.get("ip")
@@ -173,4 +278,23 @@ class DistributedMemorySynchronizer:
 
 synchronizer = DistributedMemorySynchronizer()
 
-__all__ = ["DistributedMemorySynchronizer", "encode_payload", "synchronizer"]
+
+def _relay_reflection(summary: dict) -> None:
+    try:
+        synchronizer.broadcast_reflection(summary)
+    except Exception:  # pragma: no cover - defensive
+        LOGGER.debug("Reflection broadcast failed", exc_info=True)
+
+
+try:
+    mm.add_reflection_listener(_relay_reflection)
+except AttributeError:  # pragma: no cover - legacy fallback
+    LOGGER.debug("Reflection listener registration unavailable")
+
+__all__ = [
+    "DistributedMemorySynchronizer",
+    "decrypt_reflection_payload",
+    "encode_payload",
+    "encrypt_reflection_summary",
+    "synchronizer",
+]

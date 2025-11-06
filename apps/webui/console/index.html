@@ -13,6 +13,7 @@
       <p class="subtitle">Monitor nodes, memory and health at a glance.</p>
       <nav>
         <a href="#overview">Overview</a>
+        <a href="#dream">Dream</a>
         <a href="#nodes">Nodes</a>
         <a href="#memory">Memory</a>
         <a href="#health">Health</a>
@@ -22,6 +23,47 @@
       <section id="overview">
         <h2>Overview</h2>
         <div id="overview-grid" class="grid"></div>
+      </section>
+      <section id="dream">
+        <h2>Dream &amp; Emotion</h2>
+        <div class="dream-panel">
+          <article class="dream-card" id="dream-mood-card">
+            <header class="card-header">
+              <h3>Current Mood</h3>
+              <span class="tone" id="emotion-tone">Neutral</span>
+            </header>
+            <div class="emotion-pulse" id="emotion-pulse">
+              <div class="pulse-ring"></div>
+              <div class="pulse-info">
+                <span class="mood-label" id="mood-label">Neutral</span>
+                <span class="mood-intensity" id="mood-intensity">0%</span>
+              </div>
+            </div>
+            <div class="mood-spectrum" id="mood-spectrum"></div>
+          </article>
+          <article class="dream-card" id="dream-goal-card">
+            <h3>Active Goal</h3>
+            <p class="goal-text" id="goal-text">No active goals.</p>
+            <div class="goal-meta">
+              <span class="goal-status" id="goal-status"></span>
+              <span class="goal-priority" id="goal-priority"></span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="goal-progress-fill"></div>
+            </div>
+            <div class="progress-label" id="goal-progress-label">0%</div>
+            <div class="goal-deadline" id="goal-deadline"></div>
+          </article>
+          <article class="dream-card" id="dream-loop-card">
+            <h3>Loop Progress</h3>
+            <div class="progress-track">
+              <div class="progress-fill" id="loop-progress-fill"></div>
+            </div>
+            <div class="progress-label" id="loop-progress-label">0%</div>
+            <div class="loop-meta" id="loop-meta">Waiting for first cycle.</div>
+            <div class="loop-next" id="loop-next"></div>
+          </article>
+        </div>
       </section>
       <section id="nodes">
         <h2>Nodes</h2>

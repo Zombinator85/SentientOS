@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import hashlib
 import ipaddress
 import json
@@ -12,9 +13,10 @@ import secrets
 import socket
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 from dotenv import load_dotenv
 
@@ -39,6 +41,7 @@ import epu
 import memory_manager as mm
 from api import actuator
 from emotions import empty_emotion_vector
+from emotion_utils import dominant_emotion
 from memory_manager import write_mem
 from utils import chunk_message
 import mem_admin
@@ -50,7 +53,8 @@ import dream_loop
 
 import requests
 
-from distributed_memory import encode_payload, synchronizer
+from distributed_memory import decrypt_reflection_payload, encode_payload, synchronizer
+from epu_core import get_global_state
 from gpu_autosetup import configure_stt
 from node_discovery import discovery
 from node_registry import NODE_TOKEN, RoundRobinRouter, registry
@@ -63,6 +67,7 @@ from webrtc_bridge import WebRTCSessionManager
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
+LOGGER = logging.getLogger(__name__)
 
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 _REMOTE_TIMEOUT = float(os.getenv("SENTIENTOS_REMOTE_TIMEOUT", "10"))
@@ -163,6 +168,8 @@ _ADMIN_EVENTS = _SseHub()
 _VOICE_SESSIONS: dict[str, _VoiceSessionState] = {}
 _VOICE_LOCK = threading.Lock()
 _VOICE_IDLE_TIMEOUT = float(os.getenv("VOICE_SESSION_IDLE_S", "120"))
+_REFLECTION_SYNC_LOG = get_log_path("reflection_sync.jsonl", "REFLECTION_SYNC_LOG")
+_RECENT_REFLECTION_SYNC_IDS: deque[str] = deque(maxlen=200)
 
 
 _registry_register_or_update = registry.register_or_update
@@ -538,6 +545,206 @@ def _memory_summary() -> Dict[str, Any]:
     return metrics
 
 
+_EMOTION_PULSE_PRESETS = [
+    ("joy", ("radiant", "#facc15")),
+    ("love", ("warm", "#f472b6")),
+    ("gratitude", ("golden", "#fbbf24")),
+    ("content", ("calm", "#38bdf8")),
+    ("compassion", ("soothe", "#34d399")),
+    ("hope", ("sky", "#22d3ee")),
+    ("enthusiasm", ("spark", "#f97316")),
+    ("confidence", ("steady", "#0ea5e9")),
+    ("sad", ("deep", "#6366f1")),
+    ("grief", ("midnight", "#4f46e5")),
+    ("loneliness", ("midnight", "#475569")),
+    ("fear", ("violet", "#a855f7")),
+    ("anxiety", ("ember", "#fb7185")),
+    ("panic", ("flare", "#ef4444")),
+    ("anger", ("crimson", "#ef4444")),
+    ("frustration", ("ember", "#f97316")),
+    ("rage", ("storm", "#dc2626")),
+    ("ambivalence", ("mauve", "#c084fc")),
+    ("confusion", ("nebula", "#818cf8")),
+    ("dissonance", ("static", "#a5b4fc")),
+    ("boredom", ("mute", "#94a3b8")),
+    ("surprise", ("electric", "#22d3ee")),
+]
+
+
+def _emotion_pulse(label: str, intensity: float) -> Dict[str, object]:
+    tone, color = ("neutral", "#94a3b8")
+    name = label.lower()
+    for keyword, preset in _EMOTION_PULSE_PRESETS:
+        if keyword in name:
+            tone, color = preset
+            break
+    level = "calm"
+    if intensity >= 0.6:
+        level = "surge"
+    elif intensity >= 0.3:
+        level = "focused"
+    return {
+        "color": color,
+        "tone": tone,
+        "level": level,
+        "intensity": round(max(0.0, min(1.0, float(intensity))), 3),
+    }
+
+
+def _top_emotions(vector: Mapping[str, float], limit: int = 3) -> list[Dict[str, object]]:
+    ranked: list[tuple[str, float]] = []
+    for label, raw in vector.items():
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if value <= 0.0:
+            continue
+        ranked.append((label, value))
+    ranked.sort(key=lambda item: item[1], reverse=True)
+    out: list[Dict[str, object]] = []
+    for label, value in ranked[:limit]:
+        out.append({"label": label, "value": round(value, 3), "percent": round(value * 100, 1)})
+    return out
+
+
+def _goal_progress_snapshot(goal: Mapping[str, object]) -> Dict[str, object]:
+    raw_fraction = goal.get("progress")
+    try:
+        fraction = float(raw_fraction)
+    except (TypeError, ValueError):
+        fraction = 0.0
+    status = str(goal.get("status") or "open").lower()
+    if not (0.0 < fraction <= 1.0):
+        status_map = {
+            "completed": 1.0,
+            "needs_review": 0.65,
+            "in_progress": 0.55,
+            "blocked": 0.35,
+            "failed": 0.25,
+            "stuck": 0.2,
+            "open": 0.15,
+        }
+        fraction = status_map.get(status, 0.2 if status else 0.1)
+    steps = goal.get("steps")
+    if isinstance(steps, list) and steps:
+        done = sum(1 for step in steps if isinstance(step, Mapping) and step.get("done"))
+        fraction = max(fraction, done / len(steps))
+    capped = max(0.0, min(1.0, fraction))
+    return {
+        "fraction": round(capped, 3),
+        "percent": round(capped * 100, 1),
+        "status": status,
+    }
+
+
+def _format_duration(seconds: Optional[float]) -> str:
+    if seconds is None:
+        return ""
+    seconds = max(0.0, float(seconds))
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    minutes, remaining = divmod(int(seconds), 60)
+    if minutes < 60:
+        return f"{minutes}m" + (f" {remaining}s" if remaining and minutes < 5 else "")
+    hours, minutes = divmod(minutes, 60)
+    if hours < 48:
+        return f"{hours}h" + (f" {minutes}m" if minutes and hours < 12 else "")
+    days, hours = divmod(hours, 24)
+    return f"{days}d" + (f" {hours}h" if hours else "")
+
+
+def _dream_panel_snapshot() -> Dict[str, Any]:
+    loop = dream_loop.status()
+    interval_minutes = loop.get("interval_minutes")
+    try:
+        interval_minutes = float(interval_minutes)
+    except (TypeError, ValueError):
+        try:
+            interval_minutes = float(os.getenv("DREAM_INTERVAL_MIN", "30"))
+        except ValueError:
+            interval_minutes = 30.0
+    last_cycle = loop.get("last_cycle")
+    seconds_since: Optional[float] = None
+    seconds_until: Optional[float] = None
+    fraction = 0.0
+    interval_seconds = interval_minutes * 60.0 if interval_minutes else None
+    if last_cycle:
+        try:
+            ts = datetime.datetime.fromisoformat(str(last_cycle))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            seconds_since = max(0.0, (now - ts).total_seconds())
+            if interval_seconds:
+                fraction = min(seconds_since / interval_seconds, 1.0)
+                seconds_until = max(0.0, interval_seconds - seconds_since)
+        except Exception:
+            LOGGER.debug("Failed to parse dream loop timestamp", exc_info=True)
+    elif loop.get("active"):
+        fraction = 0.25
+
+    mood_vector = empty_emotion_vector()
+    try:
+        mood_state = get_global_state().state()
+        for label, value in mood_state.items():
+            try:
+                mood_vector[label] = float(value)
+            except (TypeError, ValueError):
+                continue
+    except Exception:
+        LOGGER.debug("EPU global state unavailable", exc_info=True)
+    dominant = dominant_emotion(mood_vector, neutral_label="Neutral")
+    intensity = float(mood_vector.get(dominant, 0.0)) if dominant in mood_vector else 0.0
+    top_emotions = _top_emotions(mood_vector)
+    pulse = _emotion_pulse(dominant, intensity)
+
+    goal = mm.next_goal()
+    active_goal: Dict[str, Any] | None = None
+    if goal:
+        active_goal = {
+            "id": goal.get("id"),
+            "text": goal.get("text"),
+            "status": goal.get("status"),
+            "priority": goal.get("priority"),
+            "deadline": goal.get("deadline"),
+            "progress": _goal_progress_snapshot(goal),
+        }
+        schedule_at = goal.get("schedule_at")
+        if schedule_at:
+            active_goal["scheduled_at"] = schedule_at
+
+    progress = {
+        "fraction": round(max(0.0, min(1.0, fraction)), 3),
+        "percent": round(max(0.0, min(1.0, fraction)) * 100, 1),
+        "seconds_since_last_cycle": seconds_since,
+        "seconds_until_next_cycle": seconds_until,
+        "interval_minutes": interval_minutes,
+    }
+    progress["since_label"] = _format_duration(seconds_since)
+    progress["until_label"] = _format_duration(seconds_until)
+
+    return {
+        "loop": {
+            "active": bool(loop.get("active")),
+            "configured": bool(loop.get("configured")),
+            "last_cycle": last_cycle,
+            "interval_minutes": interval_minutes,
+            "progress": progress,
+        },
+        "mood": {
+            "dominant": dominant,
+            "intensity": round(intensity, 3),
+            "vector": mood_vector,
+            "top": top_emotions,
+        },
+        "pulse": pulse,
+        "active_goal": active_goal,
+    }
+
+
+
+
 def _admin_status_payload() -> Dict[str, Any]:
     metrics = _memory_summary()
     status = dream_loop.status()
@@ -556,6 +763,14 @@ def _admin_status_payload() -> Dict[str, Any]:
         "voice": _STT_CONFIG or {},
         "safety_events_1h": count_recent_events(1),
     }
+
+
+@app.route("/admin/dream", methods=["GET"])
+def admin_dream() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    payload = _dream_panel_snapshot()
+    return _admin_response(payload)
 
 
 def _guess_mimetype(name: str, default: str = "text/plain") -> str:
@@ -1146,6 +1361,59 @@ def memory_export() -> Response:
     response = Response(archive, status=200, mimetype="application/octet-stream")
     response.headers["Content-Disposition"] = "attachment; filename=sentientos_memory.bin"
     return response
+
+
+@app.route("/reflect/sync", methods=["POST"])
+def reflect_sync() -> Response:
+    if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
+        return Response("Forbidden", status=403)
+    hostname = str(request.headers.get(_NODE_ID_HEADER) or "").strip()
+    if not hostname:
+        return jsonify({"error": "node_id_required"}), 400
+    record = registry.get(hostname)
+    if not record or record.trust_level != "trusted":
+        return jsonify({"error": "node_not_trusted"}), 403
+    envelope = request.get_json(silent=True)
+    if not isinstance(envelope, dict):
+        return jsonify({"error": "invalid_payload"}), 400
+    try:
+        summary = decrypt_reflection_payload(envelope)
+    except ValueError as exc:
+        LOGGER.debug("Reflection sync decrypt failed: %s", exc)
+        return jsonify({"error": "decrypt_failed"}), 400
+    summary_id = str(envelope.get("summary_id") or summary.get("reflection_id") or "").strip()
+    if summary_id:
+        if summary_id in _RECENT_REFLECTION_SYNC_IDS:
+            return jsonify({"status": "duplicate"}), 200
+        _RECENT_REFLECTION_SYNC_IDS.append(summary_id)
+    summary = {k: v for k, v in summary.items() if v is not None}
+    summary["received_from"] = hostname
+    summary["received_at"] = datetime.datetime.utcnow().isoformat()
+    importance = summary.get("importance")
+    try:
+        importance_value = float(importance) if importance is not None else 0.35
+    except (TypeError, ValueError):
+        importance_value = 0.35
+    importance_value = max(0.1, min(1.0, importance_value))
+    summary["importance"] = importance_value
+    try:
+        _REFLECTION_SYNC_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(_REFLECTION_SYNC_LOG, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(summary, ensure_ascii=False) + "\n")
+    except OSError:
+        LOGGER.debug("Failed to persist reflection sync log", exc_info=True)
+    try:
+        mm.append_memory(
+            json.dumps({"reflection_sync": summary}, ensure_ascii=False),
+            tags=["reflection", "sync"],
+            source="reflection_sync",
+            summary=summary.get("headline") or summary.get("reason") or "Remote reflection",
+            importance=importance_value,
+        )
+    except Exception:
+        LOGGER.debug("Failed to record reflection sync memory", exc_info=True)
+    _notify_admin("refresh", {"source": "reflection_sync", "from": hostname})
+    return jsonify({"status": "ok"})
 
 
 @app.route("/chat", methods=["POST"])
