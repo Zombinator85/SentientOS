@@ -18,7 +18,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, MutableMapping, Optional
+from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional
 
 from dotenv import load_dotenv
 
@@ -55,6 +55,7 @@ class NodeRecord:
     last_seen: float = field(default_factory=lambda: time.time())
     upstream_host: Optional[str] = None
     last_voice_activity: float = 0.0
+    misbehavior_counts: Dict[str, int] = field(default_factory=dict)
 
     def serialise(self) -> Dict[str, object]:
         payload: Dict[str, object] = {
@@ -71,6 +72,7 @@ class NodeRecord:
             "upstream_host": self.upstream_host,
             "last_voice_activity": self.last_voice_activity,
             "is_suspended": self.is_suspended,
+            "misbehavior_counts": dict(self.misbehavior_counts),
         }
         return payload
 
@@ -112,6 +114,11 @@ class NodeRecord:
             last_voice_activity = float(voice_activity) if voice_activity is not None else 0.0
         except (TypeError, ValueError):
             last_voice_activity = 0.0
+        misbehaviour_raw = payload.get("misbehavior_counts")
+        if isinstance(misbehaviour_raw, Mapping):
+            misbehavior_counts = {str(key): int(value) for key, value in misbehaviour_raw.items() if isinstance(value, (int, float))}
+        else:
+            misbehavior_counts = {}
         return cls(
             hostname=hostname,
             ip=ip,
@@ -125,6 +132,7 @@ class NodeRecord:
             last_seen=last_seen,
             upstream_host=upstream_host,
             last_voice_activity=last_voice_activity,
+            misbehavior_counts=misbehavior_counts,
         )
 
     @property
@@ -295,6 +303,8 @@ class NodeRegistry:
                     continue
                 if record.trust_level == "blocked":
                     continue
+                if record.is_suspended:
+                    continue
                 if trusted_only and record.trust_level != "trusted":
                     continue
                 if capability and capability not in record.capability_keys:
@@ -304,6 +314,7 @@ class NodeRegistry:
                 candidates.append(record)
             candidates.sort(
                 key=lambda rec: (
+                    rec.capabilities.get("verifier_capable") is not True,
                     -(rec.last_voice_activity or 0.0),
                     rec.trust_level != "trusted",
                     -rec.last_seen,
@@ -347,10 +358,51 @@ class NodeRegistry:
                 return None
             if delta:
                 record.trust_score = _clamp_trust_score(record.trust_score + delta)
+            if record.is_suspended:
+                record.trust_level = "suspended"
+            self._save()
+            return record
+
+    def apply_consensus_outcome(
+        self,
+        hostname: str,
+        *,
+        vote_verdict: str,
+        final_verdict: str,
+    ) -> Optional[NodeRecord]:
+        vote_verdict = str(vote_verdict)
+        final_verdict = str(final_verdict)
+        with self._lock:
+            record = self._nodes.get(hostname)
+            if record is None:
+                return None
+            if record.is_suspended:
+                return record
+            delta = 0
+            if final_verdict == "INCONCLUSIVE":
+                delta = 0
+            elif final_verdict == vote_verdict:
+                delta = 1
+            else:
+                delta = -1
+            if delta:
+                record.trust_score = _clamp_trust_score(record.trust_score + delta)
                 if record.is_suspended:
                     record.trust_level = "suspended"
-                elif record.trust_level == "suspended":
-                    record.trust_level = "provisional"
+            self._save()
+            return record
+
+    def record_misbehavior(self, hostname: str, code: str) -> Optional[NodeRecord]:
+        code_key = str(code or "").upper() or "UNKNOWN"
+        with self._lock:
+            record = self._nodes.get(hostname)
+            if record is None:
+                return None
+            counts = dict(record.misbehavior_counts)
+            counts[code_key] = int(counts.get(code_key, 0)) + 1
+            record.misbehavior_counts = counts
+            record.trust_score = _clamp_trust_score(record.trust_score - 3)
+            record.trust_level = "suspended" if record.is_suspended else record.trust_level
             self._save()
             return record
 

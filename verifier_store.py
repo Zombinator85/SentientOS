@@ -5,9 +5,13 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Sequence
 
 from sentientos.storage import get_data_root
+
+
+if TYPE_CHECKING:
+    from sentient_verifier import ConsensusVerdict, Vote
 
 
 @dataclass(frozen=True)
@@ -48,12 +52,17 @@ class VerifierStore:
         self._root = Path(root) if root else get_data_root() / "verify"
         self._reports_dir = self._root / "reports"
         self._bundles_dir = self._root / "bundles"
+        self._votes_dir = self._root / "votes"
+        self._consensus_dir = self._root / "consensus"
         self._index_path = self._root / "reports.jsonl"
+        self._consensus_index_path = self._root / "consensus_index.json"
         self._rotate_bytes = max(100_000, int(rotate_bytes))
         self._lock = threading.RLock()
         self._root.mkdir(parents=True, exist_ok=True)
         self._reports_dir.mkdir(parents=True, exist_ok=True)
         self._bundles_dir.mkdir(parents=True, exist_ok=True)
+        self._votes_dir.mkdir(parents=True, exist_ok=True)
+        self._consensus_dir.mkdir(parents=True, exist_ok=True)
 
     @classmethod
     def default(cls) -> "VerifierStore":
@@ -115,6 +124,60 @@ class VerifierStore:
         except (OSError, json.JSONDecodeError):
             return None
 
+    def store_vote(self, vote: "Vote" | Mapping[str, object]) -> None:
+        if hasattr(vote, "to_dict"):
+            payload = vote.to_dict()  # type: ignore[assignment]
+        else:
+            payload = dict(vote)
+        job_id = str(payload.get("job_id") or "")
+        voter = str(payload.get("voter_node") or "")
+        if not job_id or not voter:
+            raise ValueError("vote must include job_id and voter_node")
+        with self._lock:
+            vote_dir = self._votes_dir / job_id
+            vote_dir.mkdir(parents=True, exist_ok=True)
+            path = vote_dir / f"{voter}.json"
+            path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+            self._update_consensus_index(job_id, vote_payload=payload)
+            self._prune_votes_locked()
+
+    def list_votes(self, job_id: str) -> List[Dict[str, object]]:
+        vote_dir = self._votes_dir / job_id
+        if not vote_dir.exists():
+            return []
+        votes: List[Dict[str, object]] = []
+        for path in sorted(vote_dir.glob("*.json")):
+            try:
+                votes.append(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError):
+                continue
+        return votes
+
+    def store_consensus(self, consensus: "ConsensusVerdict" | Mapping[str, object]) -> None:
+        if hasattr(consensus, "to_dict"):
+            payload = consensus.to_dict()  # type: ignore[assignment]
+        else:
+            payload = dict(consensus)
+        job_id = str(payload.get("job_id") or "")
+        if not job_id:
+            raise ValueError("consensus requires job_id")
+        with self._lock:
+            path = self._consensus_dir / f"{job_id}.json"
+            path.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+            self._update_consensus_index(job_id, consensus_payload=payload)
+
+    def get_consensus(self, job_id: str) -> Optional[Dict[str, object]]:
+        path = self._consensus_dir / f"{job_id}.json"
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    def latest_consensus(self, job_id: str) -> Optional[Dict[str, object]]:
+        return self.get_consensus(job_id)
+
     # Backwards compatibility
     def load_bundle(self, job_id: str) -> Optional[Dict[str, object]]:  # pragma: no cover - legacy
         return self.get_bundle(job_id)
@@ -163,6 +226,10 @@ class VerifierStore:
                 "error": proof_error,
             },
         }
+
+    def consensus_index(self) -> Dict[str, Any]:
+        with self._lock:
+            return self._load_consensus_index()
 
     def replay_job(
         self,
@@ -322,22 +389,40 @@ class VerifierStore:
         total = 0
         if not job_id:
             return total
-        for root in (self._reports_dir, self._bundles_dir):
+        for root in (self._reports_dir, self._bundles_dir, self._consensus_dir):
             path = root / f"{job_id}.json"
             try:
                 total += path.stat().st_size
             except OSError:
                 continue
+        vote_dir = self._votes_dir / job_id
+        if vote_dir.exists():
+            for vote_path in vote_dir.glob("*.json"):
+                try:
+                    total += vote_path.stat().st_size
+                except OSError:
+                    continue
         return total
 
     def _remove_job_files(self, job_id: str) -> None:
-        for root in (self._reports_dir, self._bundles_dir):
+        for root in (self._reports_dir, self._bundles_dir, self._consensus_dir):
             path = root / f"{job_id}.json"
             try:
                 if path.exists():
                     path.unlink()
             except OSError:
                 continue
+        vote_dir = self._votes_dir / job_id
+        if vote_dir.exists():
+            for vote_path in vote_dir.glob("*.json"):
+                try:
+                    vote_path.unlink()
+                except OSError:
+                    continue
+            try:
+                vote_dir.rmdir()
+            except OSError:
+                pass
 
     def _rewrite_index(self, entries: Sequence[Mapping[str, object]]) -> None:
         try:
@@ -348,6 +433,107 @@ class VerifierStore:
             self._index_path.write_text(data, encoding="utf-8")
         except OSError:
             pass
+
+    def _load_consensus_index(self) -> Dict[str, Any]:
+        if not self._consensus_index_path.exists():
+            return {}
+        try:
+            content = self._consensus_index_path.read_text(encoding="utf-8")
+        except OSError:
+            return {}
+        try:
+            payload = json.loads(content)
+        except json.JSONDecodeError:
+            return {}
+        if isinstance(payload, dict):
+            return payload
+        return {}
+
+    def _write_consensus_index(self, data: Mapping[str, Any]) -> None:
+        try:
+            self._consensus_index_path.write_text(
+                json.dumps(data, sort_keys=True, indent=2),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    def _update_consensus_index(
+        self,
+        job_id: str,
+        *,
+        vote_payload: Optional[Mapping[str, object]] = None,
+        consensus_payload: Optional[Mapping[str, object]] = None,
+    ) -> None:
+        index = self._load_consensus_index()
+        entry = dict(index.get(job_id) or {})
+        participants = set(entry.get("participants") or [])
+        votes_count = int(entry.get("votes_count") or 0)
+        finalized = bool(entry.get("finalized") or False)
+        final_verdict = entry.get("final_verdict")
+        quorum_k = entry.get("quorum_k")
+        quorum_n = entry.get("quorum_n")
+        if vote_payload:
+            voter = str(vote_payload.get("voter_node") or "")
+            if voter:
+                participants.add(voter)
+            votes_count = len(self.list_votes(job_id))
+        if consensus_payload:
+            finalized = bool(consensus_payload.get("finalized_at"))
+            final_verdict = consensus_payload.get("final_verdict")
+            if consensus_payload.get("quorum_k") is not None:
+                try:
+                    quorum_k = int(consensus_payload.get("quorum_k"))
+                except (TypeError, ValueError):
+                    quorum_k = quorum_k
+            if consensus_payload.get("quorum_n") is not None:
+                try:
+                    quorum_n = int(consensus_payload.get("quorum_n"))
+                except (TypeError, ValueError):
+                    quorum_n = quorum_n
+            votes = consensus_payload.get("votes")
+            if isinstance(votes, list):
+                for vote in votes:
+                    if isinstance(vote, Mapping):
+                        voter_node = vote.get("voter_node")
+                        if isinstance(voter_node, str) and voter_node:
+                            participants.add(voter_node)
+        index[job_id] = {
+            "votes_count": votes_count,
+            "participants": sorted(participants),
+            "finalized": finalized,
+            "final_verdict": final_verdict,
+            "quorum_k": quorum_k,
+            "quorum_n": quorum_n,
+        }
+        self._write_consensus_index(index)
+
+    def _prune_votes_locked(self) -> None:
+        files: List[tuple[float, int, Path]] = []
+        total_bytes = 0
+        for path in self._votes_dir.glob("*/*.json"):
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            files.append((stat.st_mtime, stat.st_size, path))
+            total_bytes += stat.st_size
+        files.sort(key=lambda item: item[0])
+        max_files = 2000
+        max_bytes = 200 * 1024 * 1024
+        while files and (len(files) > max_files or total_bytes > max_bytes):
+            _, size, path = files.pop(0)
+            total_bytes -= size
+            try:
+                path.unlink()
+            except OSError:
+                continue
+            parent = path.parent
+            try:
+                if not any(parent.iterdir()):
+                    parent.rmdir()
+            except OSError:
+                pass
 
 
 def _parse_iso_timestamp(value: str) -> float:

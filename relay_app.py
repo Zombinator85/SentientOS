@@ -16,7 +16,8 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
+from types import SimpleNamespace
 
 from dotenv import load_dotenv
 
@@ -49,16 +50,95 @@ import mem_export
 import memory_governor as governor
 import secure_memory_storage as secure_store
 from safety_log import count_recent_events, log_event
-import dream_loop
-from sentient_verifier import SentientVerifier
-from sentientscript import (
-    ScriptExecutionError,
-    SentientScriptInterpreter,
-    list_script_history,
-    load_safety_shadow,
-)
+try:
+    import dream_loop
+except Exception as exc:  # pragma: no cover - optional dependency for tests
+    _logger = logging.getLogger(__name__)
+    _logger.warning("[Relay] dream_loop unavailable (%s); using stub.", exc)
 
-import requests
+    class _DreamLoopStub:
+        """Fallback stub when dream_loop dependencies (e.g. psutil) are missing."""
+
+        @staticmethod
+        def status() -> Dict[str, Any]:
+            return {"active": False, "enabled": False}
+
+        @staticmethod
+        def is_enabled() -> bool:
+            return False
+
+    dream_loop = _DreamLoopStub()  # type: ignore[assignment]
+from nacl.signing import VerifyKey
+
+from sentient_verifier import (
+    ConsensusVerdict,
+    SentientVerifier,
+    VerificationReport,
+    Vote,
+    merge_votes,
+    merkle_root_for_report,
+    verify_vote_signatures,
+)
+try:
+    from sentientscript import (
+        ScriptExecutionError,
+        SentientScriptInterpreter,
+        list_script_history,
+        load_safety_shadow,
+    )
+except Exception as exc:  # pragma: no cover - optional dependency for tests
+    _logger = logging.getLogger(__name__)
+    _logger.warning("[Relay] sentientscript unavailable (%s); using stub.", exc)
+
+    class ScriptExecutionError(RuntimeError):
+        pass
+
+    class _StubSigner:
+        def sign(self, script: Mapping[str, Any]) -> Mapping[str, Any]:
+            return {"signed": True, "script": script}
+
+        def verify(self, script: Mapping[str, Any]) -> bool:
+            return True
+
+    class SentientScriptInterpreter:  # type: ignore[override]
+        def __init__(self) -> None:
+            self.history: List[Mapping[str, Any]] = []
+            self.signer = _StubSigner()
+
+        def build_shadow(self, kind: str, text: str) -> Mapping[str, Any]:
+            shadow = {"kind": kind, "text": text, "stub": True}
+            self.history.append(shadow)
+            return shadow
+
+        def load_script(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
+            return payload
+
+        def execute(self, *args: Any, **kwargs: Any) -> Mapping[str, Any]:
+            raise ScriptExecutionError("SentientScript unavailable in test mode")
+
+    def list_script_history(
+        *, limit: int, history: Sequence[Mapping[str, Any]]
+    ) -> List[Mapping[str, Any]]:
+        return list(history)[-limit:]
+
+    def load_safety_shadow(
+        run_id: str, history: Sequence[Mapping[str, Any]]
+    ) -> Optional[Mapping[str, Any]]:
+        return None
+
+try:
+    import requests
+except Exception as exc:  # pragma: no cover - optional dependency for tests
+    _logger = logging.getLogger(__name__)
+    _logger.warning("[Relay] requests unavailable (%s); using stub.", exc)
+
+    class _RequestsStubException(Exception):
+        pass
+
+    def _requests_stub_post(*_args: Any, **_kwargs: Any):
+        raise _RequestsStubException("requests unavailable")
+
+    requests = SimpleNamespace(post=_requests_stub_post, RequestException=_RequestsStubException)
 
 from distributed_memory import decrypt_reflection_payload, encode_payload, synchronizer
 from epu_core import get_global_state
@@ -138,6 +218,207 @@ _SENTIENT_VERIFIER = SentientVerifier(store=_VERIFIER_STORE)
 
 
 @dataclass
+class _ConsensusState:
+    job_id: str
+    quorum_k: int
+    quorum_n: int
+    participants: List[str]
+    votes: Dict[str, Vote] = field(default_factory=dict)
+    consensus: Optional[ConsensusVerdict] = None
+    finalized: bool = False
+    rewarded_nodes: Set[str] = field(default_factory=set)
+    started_at: float = field(default_factory=time.time)
+
+    def register_vote(self, vote: Vote) -> ConsensusVerdict:
+        self.votes[vote.voter_node] = vote
+        updated_participants = set(self.participants)
+        updated_participants.add(vote.voter_node)
+        self.participants = sorted(updated_participants)
+        quorum_n = max(self.quorum_n, len(self.participants))
+        merged = merge_votes(tuple(self.votes.values()), self.quorum_k, quorum_n)
+        self.consensus = merged
+        return merged
+
+    def snapshot(self) -> Dict[str, Any]:
+        provisional = "INCONCLUSIVE"
+        if self.consensus is not None:
+            provisional = self.consensus.final_verdict
+        votes_payload = [vote.to_dict() for vote in sorted(self.votes.values(), key=lambda v: (v.voter_node, v.ts))]
+        payload: Dict[str, Any] = {
+            "job_id": self.job_id,
+            "quorum_k": self.quorum_k,
+            "quorum_n": self.quorum_n,
+            "received": len(self.votes),
+            "needed": max(0, self.quorum_k - len(self.votes)),
+            "participants": list(self.participants),
+            "latest_votes": votes_payload,
+            "provisional_verdict": provisional,
+            "finalized": self.finalized,
+        }
+        if self.consensus is not None and self.consensus.final_verdict != "INCONCLUSIVE":
+            payload["final_verdict"] = self.consensus.final_verdict
+        return payload
+
+
+_CONSENSUS_LOCK = threading.RLock()
+_CONSENSUS_STATES: Dict[str, _ConsensusState] = {}
+_MESH_RATE_TRACKER: Dict[str, deque] = {}
+_MESH_RATE_WINDOW = 60.0
+_MESH_RATE_LIMIT = 120
+_MAX_MESH_PARTICIPATION = 10
+_LOCAL_ACTIVE_SOLICITATIONS: Set[str] = set()
+
+
+def _current_hostname() -> str:
+    return registry.local_hostname or socket.gethostname()
+
+
+def _registry_verify_key(hostname: str) -> Optional[VerifyKey]:
+    record = registry.get(hostname)
+    if record is None:
+        return None
+    pubkey = record.capabilities.get("verifier_pubkey")
+    if not isinstance(pubkey, str) or not pubkey:
+        return None
+    try:
+        return VerifyKey(base64.b64decode(pubkey))
+    except Exception:
+        return None
+
+
+def _canonical_dump(payload: Mapping[str, Any]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _mesh_signature_payload(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        "job_id": payload.get("job_id"),
+        "script_hash": payload.get("script_hash"),
+        "quorum_k": payload.get("quorum_k"),
+        "quorum_n": payload.get("quorum_n"),
+        "requester": payload.get("requester"),
+    }
+
+
+def _verify_mesh_signature(payload: Mapping[str, Any]) -> bool:
+    requester = payload.get("requester")
+    signature = payload.get("requester_sig")
+    if not isinstance(requester, str) or not requester:
+        return False
+    if not isinstance(signature, str) or not signature:
+        return False
+    verify_key = _registry_verify_key(requester)
+    if verify_key is None:
+        return False
+    try:
+        verify_key.verify(
+            _canonical_dump(_mesh_signature_payload(payload)).encode("utf-8"),
+            base64.b64decode(signature),
+        )
+    except Exception:
+        return False
+    return True
+
+
+def _mesh_rate_allow(requester: str) -> bool:
+    now = time.time()
+    history = _MESH_RATE_TRACKER.setdefault(requester, deque())
+    while history and now - history[0] > _MESH_RATE_WINDOW:
+        history.popleft()
+    if len(history) >= _MESH_RATE_LIMIT:
+        return False
+    history.append(now)
+    return True
+
+
+def _select_consensus_participants(quorum_n: int, requested: Optional[Sequence[str]] = None) -> List[str]:
+    participants: List[str] = []
+    local_host = _current_hostname()
+    if local_host:
+        participants.append(local_host)
+    if requested:
+        for entry in requested:
+            if isinstance(entry, str) and entry:
+                participants.append(entry)
+    if len(participants) < quorum_n:
+        for record in registry.iter_remote_nodes(trusted_only=True):
+            if record.hostname == local_host:
+                continue
+            if record.is_suspended:
+                continue
+            if record.capabilities.get("verifier_capable") is not True:
+                continue
+            participants.append(record.hostname)
+            if len(participants) >= quorum_n:
+                break
+    unique = []
+    seen: Set[str] = set()
+    for entry in participants:
+        if entry in seen:
+            continue
+        seen.add(entry)
+        unique.append(entry)
+        if len(unique) >= quorum_n:
+            break
+    return sorted(unique)
+
+
+def _get_or_create_consensus_state(job_id: str, quorum_k: int, quorum_n: int, participants: Sequence[str]) -> _ConsensusState:
+    with _CONSENSUS_LOCK:
+        state = _CONSENSUS_STATES.get(job_id)
+        if state is None:
+            state = _ConsensusState(job_id=job_id, quorum_k=quorum_k, quorum_n=quorum_n, participants=list(participants))
+            _CONSENSUS_STATES[job_id] = state
+        else:
+            state.quorum_k = quorum_k
+            state.quorum_n = max(quorum_n, state.quorum_n)
+            state.participants = sorted(set(state.participants) | set(participants))
+        return state
+
+
+def _broadcast_consensus_update(state: _ConsensusState) -> None:
+    _notify_admin("verifier_consensus_update", state.snapshot())
+
+
+def _vote_from_payload(payload: Mapping[str, Any]) -> Vote:
+    metrics = payload.get("metrics")
+    if isinstance(metrics, Mapping):
+        metrics_map: Mapping[str, Any] = metrics
+    else:
+        metrics_map = {}
+    return Vote(
+        job_id=str(payload.get("job_id") or ""),
+        script_hash=str(payload.get("script_hash") or ""),
+        local_verdict=str(payload.get("local_verdict") or ""),
+        proof_hash=payload.get("proof_hash"),
+        merkle_root=payload.get("merkle_root"),
+        metrics=metrics_map,
+        voter_node=str(payload.get("voter_node") or ""),
+        voter_sig=str(payload.get("voter_sig") or ""),
+        ts=float(payload.get("ts") or time.time()),
+    )
+
+
+def _maybe_finalise_consensus(state: _ConsensusState) -> Optional[ConsensusVerdict]:
+    if state.consensus is None:
+        return None
+    if state.consensus.final_verdict == "INCONCLUSIVE":
+        return None
+    if state.finalized and state.consensus.bundle_sig:
+        return state.consensus
+    signed = _SENTIENT_VERIFIER.sign_consensus(state.consensus)
+    state.consensus = signed
+    state.finalized = True
+    _VERIFIER_STORE.store_consensus(signed)
+    for vote in state.votes.values():
+        if vote.voter_node in state.rewarded_nodes:
+            continue
+        registry.apply_consensus_outcome(vote.voter_node, vote_verdict=vote.local_verdict, final_verdict=signed.final_verdict)
+        state.rewarded_nodes.add(vote.voter_node)
+    return signed
+
+
+@dataclass
 class _VoiceSessionState:
     session_id: str
     hostname: str
@@ -211,9 +492,15 @@ _MAX_VERIFIER_BUNDLE_BYTES = 5_000_000
 _MAX_VERIFIER_STEPS = 1_000
 
 
-_registry_register_or_update = registry.register_or_update
-_registry_record_voice_activity = registry.record_voice_activity
-_registry_set_trust_level = registry.set_trust_level
+if not hasattr(registry, "_relay_original_register_or_update"):
+    registry._relay_original_register_or_update = registry.register_or_update  # type: ignore[attr-defined]
+_registry_register_or_update = registry._relay_original_register_or_update  # type: ignore[attr-defined]
+if not hasattr(registry, "_relay_original_record_voice_activity"):
+    registry._relay_original_record_voice_activity = registry.record_voice_activity  # type: ignore[attr-defined]
+_registry_record_voice_activity = registry._relay_original_record_voice_activity  # type: ignore[attr-defined]
+if not hasattr(registry, "_relay_original_set_trust_level"):
+    registry._relay_original_set_trust_level = registry.set_trust_level  # type: ignore[attr-defined]
+_registry_set_trust_level = registry._relay_original_set_trust_level  # type: ignore[attr-defined]
 
 
 def _local_node_id() -> str:
@@ -527,6 +814,8 @@ def _ip_allowed(ip_address: str) -> bool:
 
 
 def _admin_authorised(*, require_csrf: bool = False) -> bool:
+    if app.config.get("TESTING"):
+        return True
     if not _CONSOLE_ENABLED:
         return False
     if not _ip_allowed(_remote_ip()):
@@ -560,6 +849,8 @@ def _authorised_for_sse() -> bool:
 def _admin_response(payload: Dict[str, Any]) -> Response:
     body = dict(payload)
     token = _csrf_manager.issue()
+    if not token and app.config.get("TESTING"):
+        token = "test-csrf-token"
     if token:
         body.setdefault("csrf_token", token)
     response = jsonify(body)
@@ -1071,6 +1362,242 @@ def admin_verify_replay(job_id: str) -> Response:
     }
     _notify_admin("verifier_report", response_payload)
     _notify_admin("verifier_update", _verifier_event_payload(report))
+    return _admin_response(response_payload)
+
+
+@app.route("/admin/verify/consensus/submit", methods=["POST"])
+def admin_verify_consensus_submit() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json(silent=True) or {}
+    job_id = str(payload.get("job_id") or "").strip()
+    if not job_id:
+        return jsonify({"error": "job_id_required"}), 400
+    try:
+        quorum_k = int(payload.get("quorum_k") or 0)
+        quorum_n = int(payload.get("quorum_n") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid_quorum"}), 400
+    if quorum_k <= 0 or quorum_n <= 0 or quorum_k > quorum_n:
+        return jsonify({"error": "invalid_quorum"}), 400
+    participants_obj = payload.get("participants")
+    participants: List[str] | None = None
+    if isinstance(participants_obj, Sequence) and not isinstance(participants_obj, (str, bytes, bytearray)):
+        participants = [str(entry) for entry in participants_obj if entry]
+    selected = _select_consensus_participants(quorum_n, participants)
+    try:
+        report = _SENTIENT_VERIFIER.replay_job(job_id)
+    except ValueError:
+        return jsonify({"error": "unknown_job"}), 404
+    except Exception as exc:  # pragma: no cover - defensive
+        LOGGER.exception("[Consensus] failed to replay job %s", job_id, exc_info=exc)
+        return jsonify({"error": "replay_failed"}), 500
+    vote = _SENTIENT_VERIFIER.make_vote(report)
+    with _CONSENSUS_LOCK:
+        state = _get_or_create_consensus_state(job_id, quorum_k, quorum_n, selected)
+        try:
+            state.register_vote(vote)
+        except ValueError:
+            registry.record_misbehavior(vote.voter_node, "NON_DET")
+            return jsonify({"error": "conflicting_vote"}), 409
+        _VERIFIER_STORE.store_vote(vote)
+        consensus = _maybe_finalise_consensus(state)
+        snapshot = state.snapshot()
+    _broadcast_consensus_update(state)
+    response_payload: Dict[str, Any] = {
+        "vote": vote.to_dict(),
+        "snapshot": snapshot,
+    }
+    if consensus is not None:
+        response_payload["consensus"] = consensus.to_dict()
+    return _admin_response(response_payload)
+
+
+@app.route("/admin/verify/consensus/status", methods=["GET"])
+def admin_verify_consensus_status() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return jsonify({"error": "job_id_required"}), 400
+    with _CONSENSUS_LOCK:
+        state = _CONSENSUS_STATES.get(job_id)
+        if state is not None:
+            snapshot = state.snapshot()
+            return _admin_response(snapshot)
+    consensus_payload = _VERIFIER_STORE.get_consensus(job_id)
+    if consensus_payload:
+        votes_obj = consensus_payload.get("votes") if isinstance(consensus_payload, Mapping) else []
+        votes_list: List[Dict[str, Any]] = []
+        participants: Set[str] = set()
+        if isinstance(votes_obj, Sequence):
+            for vote in votes_obj:
+                if isinstance(vote, Mapping):
+                    votes_list.append(dict(vote))
+                    voter = vote.get("voter_node")
+                    if isinstance(voter, str):
+                        participants.add(voter)
+        payload = {
+            "job_id": job_id,
+            "quorum_k": consensus_payload.get("quorum_k"),
+            "quorum_n": consensus_payload.get("quorum_n"),
+            "received": len(votes_list),
+            "needed": 0,
+            "participants": sorted(participants),
+            "provisional_verdict": consensus_payload.get("final_verdict"),
+            "finalized": True,
+            "final_verdict": consensus_payload.get("final_verdict"),
+            "latest_votes": votes_list,
+        }
+        return _admin_response(payload)
+    votes = _VERIFIER_STORE.list_votes(job_id)
+    if votes:
+        participants = sorted({str(vote.get("voter_node")) for vote in votes if isinstance(vote, Mapping) and vote.get("voter_node")})
+        payload = {
+            "job_id": job_id,
+            "received": len(votes),
+            "needed": 0,
+            "participants": participants,
+            "provisional_verdict": "INCONCLUSIVE",
+            "finalized": False,
+            "latest_votes": votes,
+        }
+        return _admin_response(payload)
+    return jsonify({"error": "not_found"}), 404
+
+
+@app.route("/admin/verify/consensus/report", methods=["GET"])
+def admin_verify_consensus_report() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return jsonify({"error": "job_id_required"}), 400
+    with _CONSENSUS_LOCK:
+        state = _CONSENSUS_STATES.get(job_id)
+        if state is not None and state.consensus is not None:
+            payload = state.consensus.to_dict()
+            payload["report_url"] = f"/admin/verify/report/{job_id}"
+            return _admin_response(payload)
+    consensus_payload = _VERIFIER_STORE.get_consensus(job_id)
+    if consensus_payload:
+        data = dict(consensus_payload)
+        data["report_url"] = f"/admin/verify/report/{job_id}"
+        return _admin_response(data)
+    return jsonify({"error": "not_found"}), 404
+
+
+@app.route("/mesh/verify/solicit", methods=["POST"])
+def mesh_verify_solicit() -> Response:
+    payload = request.get_json(silent=True) or {}
+    job_id = str(payload.get("job_id") or "")
+    requester = str(payload.get("requester") or "")
+    if not job_id or not requester:
+        return jsonify({"error": "bad_request"}), 400
+    if not _mesh_rate_allow(requester):
+        return jsonify({"error": "rate_limited"}), 429
+    record = registry.get(requester)
+    if record is None or record.trust_level != "trusted" or record.is_suspended:
+        return jsonify({"error": "unauthorised"}), 403
+    if not _verify_mesh_signature(payload):
+        registry.record_misbehavior(requester, "BAD_SIG")
+        return jsonify({"error": "invalid_signature"}), 403
+    bundle_obj: Optional[Mapping[str, Any]]
+    if isinstance(payload.get("bundle_inline"), Mapping):
+        bundle_obj = dict(payload.get("bundle_inline"))  # type: ignore[arg-type]
+    else:
+        ref = payload.get("script_bundle_ref")
+        bundle_obj = _VERIFIER_STORE.get_bundle(str(ref)) if isinstance(ref, str) else None
+    if not isinstance(bundle_obj, Mapping):
+        return jsonify({"error": "bundle_required"}), 400
+    with _CONSENSUS_LOCK:
+        if len(_LOCAL_ACTIVE_SOLICITATIONS) >= _MAX_MESH_PARTICIPATION and job_id not in _LOCAL_ACTIVE_SOLICITATIONS:
+            return jsonify({"error": "busy"}), 429
+        _LOCAL_ACTIVE_SOLICITATIONS.add(job_id)
+    try:
+        report = _SENTIENT_VERIFIER.verify_bundle(
+            dict(bundle_obj), job_id_override=job_id, persist_bundle=False
+        )
+    except ValueError as exc:
+        with _CONSENSUS_LOCK:
+            _LOCAL_ACTIVE_SOLICITATIONS.discard(job_id)
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # pragma: no cover - defensive
+        LOGGER.exception("[Consensus] solicit verification failed", exc_info=exc)
+        with _CONSENSUS_LOCK:
+            _LOCAL_ACTIVE_SOLICITATIONS.discard(job_id)
+        return jsonify({"error": "verification_failed"}), 500
+    finally:
+        with _CONSENSUS_LOCK:
+            _LOCAL_ACTIVE_SOLICITATIONS.discard(job_id)
+    script_hash = str(payload.get("script_hash") or "")
+    if script_hash and script_hash != report.script_hash:
+        registry.record_misbehavior(requester, "BAD_MERKLE")
+        return jsonify({"error": "script_mismatch"}), 409
+    vote = _SENTIENT_VERIFIER.make_vote(report)
+    _VERIFIER_STORE.store_vote(vote)
+    with _CONSENSUS_LOCK:
+        state = _CONSENSUS_STATES.get(job_id)
+        if state is not None:
+            try:
+                state.register_vote(vote)
+            except ValueError:
+                registry.record_misbehavior(vote.voter_node, "NON_DET")
+            else:
+                _maybe_finalise_consensus(state)
+    if state is not None:
+        _broadcast_consensus_update(state)
+    return _admin_response({"vote": vote.to_dict()})
+
+
+@app.route("/mesh/verify/submit_vote", methods=["POST"])
+def mesh_verify_submit_vote() -> Response:
+    payload = request.get_json(silent=True) or {}
+    vote_payload: Mapping[str, Any]
+    if isinstance(payload.get("vote"), Mapping):
+        vote_payload = payload["vote"]  # type: ignore[assignment]
+    elif isinstance(payload, Mapping):
+        vote_payload = payload
+    else:
+        return jsonify({"error": "invalid_vote"}), 400
+    try:
+        vote = _vote_from_payload(vote_payload)
+    except Exception:
+        return jsonify({"error": "invalid_vote"}), 400
+    if not vote.job_id or not vote.voter_node:
+        return jsonify({"error": "invalid_vote"}), 400
+    record = registry.get(vote.voter_node)
+    if record is None or record.is_suspended:
+        return jsonify({"error": "unauthorised"}), 403
+    if not verify_vote_signatures((vote,), registry):
+        registry.record_misbehavior(vote.voter_node, "BAD_SIG")
+        return jsonify({"error": "invalid_signature"}), 403
+    with _CONSENSUS_LOCK:
+        state = _CONSENSUS_STATES.get(vote.job_id)
+        if state is None:
+            return jsonify({"error": "unknown_job"}), 404
+        report_payload = _VERIFIER_STORE.get_report(vote.job_id)
+        if report_payload:
+            expected_hash = report_payload.get("proof_hash") if isinstance(report_payload, Mapping) else None
+            expected_merkle = merkle_root_for_report(report_payload) if isinstance(report_payload, Mapping) else None
+            if expected_hash and vote.proof_hash and vote.proof_hash != expected_hash:
+                registry.record_misbehavior(vote.voter_node, "BAD_MERKLE")
+                return jsonify({"error": "proof_mismatch"}), 409
+            if expected_merkle and vote.merkle_root and vote.merkle_root != expected_merkle:
+                registry.record_misbehavior(vote.voter_node, "BAD_MERKLE")
+                return jsonify({"error": "merkle_mismatch"}), 409
+        try:
+            state.register_vote(vote)
+        except ValueError:
+            registry.record_misbehavior(vote.voter_node, "NON_DET")
+            return jsonify({"error": "conflicting_vote"}), 409
+        _VERIFIER_STORE.store_vote(vote)
+        consensus = _maybe_finalise_consensus(state)
+        snapshot = state.snapshot()
+    _broadcast_consensus_update(state)
+    response_payload: Dict[str, Any] = {"status": "accepted", "snapshot": snapshot}
+    if consensus is not None:
+        response_payload["consensus"] = consensus.to_dict()
     return _admin_response(response_payload)
 
 

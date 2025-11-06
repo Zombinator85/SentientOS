@@ -20,12 +20,32 @@ const loopMeta = document.getElementById("loop-meta");
 const loopNext = document.getElementById("loop-next");
 const verifierCounts = document.getElementById("verifier-counts");
 const verifierTable = document.querySelector("#verifier-table tbody");
+const consensusCard = document.getElementById("consensus-card");
+const consensusJobLabel = document.getElementById("consensus-job-label");
+const consensusProgressFill = document.getElementById("consensus-progress-fill");
+const consensusProgressLabel = document.getElementById("consensus-progress-label");
+const consensusStatusChip = document.getElementById("consensus-status-chip");
+const consensusParticipants = document.getElementById("consensus-participants");
+const consensusTableBody = document.querySelector("#consensus-table tbody");
+const openConsensusButton = document.getElementById("open-consensus-modal");
+const consensusModal = document.getElementById("consensus-modal");
+const consensusForm = document.getElementById("consensus-form");
+const consensusJobSelect = document.getElementById("consensus-job");
+const consensusQuorumK = document.getElementById("consensus-quorum-k");
+const consensusQuorumN = document.getElementById("consensus-quorum-n");
+const consensusParticipantsInput = document.getElementById("consensus-participants-input");
+const closeConsensusButton = document.getElementById("close-consensus-modal");
 
 let csrfToken = null;
 const verifierState = {
   jobs: [],
   counts: {},
   proofCounts: { pass: 0, fail: 0, error: 0 },
+};
+
+const consensusState = {
+  jobId: null,
+  snapshot: null,
 };
 
 let deferredPrompt = null;
@@ -41,6 +61,94 @@ installButton?.addEventListener("click", async () => {
   await deferredPrompt.userChoice;
   deferredPrompt = null;
   installButton.hidden = true;
+});
+
+openConsensusButton?.addEventListener("click", () => {
+  openConsensusModal();
+});
+
+closeConsensusButton?.addEventListener("click", () => {
+  closeConsensusModal();
+});
+
+consensusModal?.addEventListener("click", (event) => {
+  if (event.target === consensusModal) {
+    closeConsensusModal();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !consensusModal?.hidden) {
+    closeConsensusModal();
+  }
+});
+
+consensusForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const jobId = (consensusJobSelect?.value || consensusState.jobId || "").trim();
+  const quorumK = Number(consensusQuorumK?.value || 0);
+  const quorumN = Number(consensusQuorumN?.value || 0);
+  if (!jobId || !Number.isFinite(quorumK) || !Number.isFinite(quorumN) || quorumK <= 0 || quorumN <= 0) {
+    return;
+  }
+  const participantsRaw = consensusParticipantsInput?.value || "";
+  const participants = participantsRaw
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length);
+  const body = {
+    job_id: jobId,
+    quorum_k: quorumK,
+    quorum_n: quorumN,
+  };
+  if (participants.length) {
+    body.participants = participants;
+  }
+  try {
+    const response = await fetchJson("/admin/verify/consensus/submit", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Node-Token": window.NODE_TOKEN ?? "",
+        "X-CSRF-Token": csrfToken ?? "",
+      },
+      body: JSON.stringify(body),
+    });
+    if (response) {
+      consensusState.jobId = jobId;
+      if (response.snapshot) {
+        consensusState.snapshot = response.snapshot;
+      } else if (!response.error) {
+        consensusState.snapshot = response;
+      }
+      renderConsensus();
+      closeConsensusModal();
+    }
+  } catch (error) {
+    console.error("Failed to start consensus", error);
+  }
+});
+
+consensusJobSelect?.addEventListener("change", async (event) => {
+  const jobId = (event.target.value || "").trim();
+  consensusState.jobId = jobId || null;
+  if (!jobId) {
+    consensusState.snapshot = null;
+    renderConsensus();
+    return;
+  }
+  try {
+    const status = await fetchJson(`/admin/verify/consensus/status?job_id=${encodeURIComponent(jobId)}`, {
+      headers: { "X-Node-Token": window.NODE_TOKEN ?? "" },
+    });
+    if (status && typeof status === "object" && !status.error) {
+      consensusState.snapshot = status;
+    }
+  } catch (error) {
+    console.debug("Failed to load consensus status", error);
+    consensusState.snapshot = null;
+  }
+  renderConsensus();
 });
 
 async function fetchJson(url, options) {
@@ -293,6 +401,148 @@ function renderVerifier() {
       verifierTable.appendChild(tr);
     }
   }
+  if (consensusJobSelect) {
+    const prior = consensusJobSelect.value;
+    const jobs = [...verifierState.jobs];
+    consensusJobSelect.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select job…";
+    consensusJobSelect.appendChild(placeholder);
+    for (const job of jobs) {
+      const option = document.createElement("option");
+      option.value = job.job_id;
+      option.textContent = `${job.job_id} (${job.verdict || "pending"})`;
+      consensusJobSelect.appendChild(option);
+    }
+    if (prior && [...consensusJobSelect.options].some((opt) => opt.value === prior)) {
+      consensusJobSelect.value = prior;
+    } else if (consensusState.jobId && [...consensusJobSelect.options].some((opt) => opt.value === consensusState.jobId)) {
+      consensusJobSelect.value = consensusState.jobId;
+    }
+  }
+  renderConsensus();
+}
+
+function renderConsensus() {
+  if (!consensusCard) return;
+  const snapshot = consensusState.snapshot;
+  if (!snapshot) {
+    if (consensusJobLabel) consensusJobLabel.textContent = "No job selected.";
+    if (consensusProgressFill) consensusProgressFill.style.width = "0%";
+    if (consensusProgressLabel) consensusProgressLabel.textContent = "Waiting for votes";
+    if (consensusStatusChip) {
+      consensusStatusChip.textContent = "Idle";
+      consensusStatusChip.className = "status-chip";
+    }
+    if (consensusParticipants) consensusParticipants.textContent = "Participants: –";
+    if (consensusTableBody) {
+      consensusTableBody.innerHTML = "";
+      const empty = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 4;
+      cell.textContent = "No consensus activity.";
+      empty.appendChild(cell);
+      consensusTableBody.appendChild(empty);
+    }
+    return;
+  }
+  if (consensusJobLabel) consensusJobLabel.textContent = `Job ${snapshot.job_id}`;
+  const quorumK = Number(snapshot.quorum_k ?? snapshot.needed ?? 0) || 0;
+  const received = Number(snapshot.received ?? 0);
+  const denominator = quorumK > 0 ? quorumK : Math.max(received, 1);
+  const percent = Math.max(0, Math.min(100, Math.round((received / denominator) * 100)));
+  if (consensusProgressFill) consensusProgressFill.style.width = `${percent}%`;
+  if (consensusProgressLabel) consensusProgressLabel.textContent = `${received} / ${quorumK || denominator} votes`;
+  const verdict = snapshot.finalized ? snapshot.final_verdict || snapshot.provisional_verdict : snapshot.provisional_verdict;
+  if (consensusStatusChip) {
+    const label = verdict ? verdict.replace(/_/g, " ") : "Inconclusive";
+    consensusStatusChip.textContent = label;
+    consensusStatusChip.className = "status-chip";
+    if (verdict === "VERIFIED_OK") {
+      consensusStatusChip.classList.add("ok");
+    } else if (verdict === "DIVERGED" || verdict === "MISMATCH") {
+      consensusStatusChip.classList.add("diverged");
+    } else if (verdict === "INCONCLUSIVE") {
+      consensusStatusChip.classList.add("inconclusive");
+    }
+  }
+  const participantList = Array.isArray(snapshot.participants) ? snapshot.participants : [];
+  if (consensusParticipants) {
+    consensusParticipants.textContent = `Participants: ${participantList.length ? participantList.join(", ") : "–"}`;
+  }
+  if (consensusTableBody) {
+    consensusTableBody.innerHTML = "";
+    const votes = Array.isArray(snapshot.latest_votes) ? snapshot.latest_votes : [];
+    if (!votes.length) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = 4;
+      cell.textContent = "No votes yet.";
+      row.appendChild(cell);
+      consensusTableBody.appendChild(row);
+    } else {
+      for (const vote of votes) {
+        if (!vote || typeof vote !== "object") continue;
+        const tr = document.createElement("tr");
+        if (verdict && vote.local_verdict && verdict !== vote.local_verdict) {
+          tr.classList.add("consensus-row-disputed");
+        }
+        const nodeCell = document.createElement("td");
+        nodeCell.textContent = vote.voter_node || "–";
+        const verdictCell = document.createElement("td");
+        verdictCell.textContent = (vote.local_verdict || "–").toString();
+        const proofCell = document.createElement("td");
+        let proofSummary = "–";
+        const metrics = vote.metrics || {};
+        if (metrics && typeof metrics === "object" && metrics.proof_counts) {
+          const counts = metrics.proof_counts;
+          proofSummary = `${counts.pass ?? 0}✔ / ${counts.fail ?? 0}✖ / ${counts.error ?? 0}!`;
+        } else if (vote.proof_hash) {
+          proofSummary = String(vote.proof_hash).slice(0, 12);
+        }
+        proofCell.textContent = proofSummary;
+        const tsCell = document.createElement("td");
+        tsCell.textContent = vote.ts ? formatRelativeAge(vote.ts) : "–";
+        tr.append(nodeCell, verdictCell, proofCell, tsCell);
+        consensusTableBody.appendChild(tr);
+      }
+    }
+  }
+}
+
+function openConsensusModal() {
+  if (!consensusModal) return;
+  consensusModal.hidden = false;
+  const snapshot = consensusState.snapshot;
+  if (consensusJobSelect && consensusState.jobId && [...consensusJobSelect.options].some((opt) => opt.value === consensusState.jobId)) {
+    consensusJobSelect.value = consensusState.jobId;
+  }
+  if (consensusQuorumK) {
+    if (snapshot?.quorum_k) {
+      consensusQuorumK.value = snapshot.quorum_k;
+    } else if (!consensusQuorumK.value) {
+      const participantCount = snapshot?.participants?.length ?? 3;
+      consensusQuorumK.value = Math.max(1, Math.min(participantCount, 3));
+    }
+  }
+  if (consensusQuorumN) {
+    if (snapshot?.quorum_n) {
+      consensusQuorumN.value = snapshot.quorum_n;
+    } else if (!consensusQuorumN.value) {
+      const participantCount = snapshot?.participants?.length ?? 3;
+      const quorumK = Number(consensusQuorumK?.value || 1);
+      consensusQuorumN.value = Math.max(quorumK, participantCount);
+    }
+  }
+  if (consensusParticipantsInput && !consensusParticipantsInput.value && snapshot?.participants?.length) {
+    consensusParticipantsInput.value = snapshot.participants.join(",");
+  }
+}
+
+function closeConsensusModal() {
+  if (!consensusModal) return;
+  consensusModal.hidden = true;
 }
 
 async function replayJob(jobId) {
@@ -333,6 +583,21 @@ function handleVerifierUpdate(event) {
     applyVerifierUpdate(data);
   } catch (error) {
     console.warn("Failed to parse verifier update", error);
+  }
+}
+
+function handleConsensusEvent(event) {
+  try {
+    const data = JSON.parse(event.data);
+    if (data && typeof data === "object") {
+      if (data.job_id) {
+        consensusState.jobId = data.job_id;
+      }
+      consensusState.snapshot = data;
+      renderConsensus();
+    }
+  } catch (error) {
+    console.warn("Failed to parse consensus update", error);
   }
 }
 
@@ -505,6 +770,22 @@ async function refreshAll() {
       fail: Number(proof.fail ?? 0),
       error: Number(proof.error ?? 0),
     };
+    if (!consensusState.jobId && Array.isArray(verifierList.reports) && verifierList.reports.length) {
+      consensusState.jobId = verifierList.reports[0].job_id;
+    }
+    if (consensusState.jobId) {
+      try {
+        const consensusStatus = await fetchJson(
+          `/admin/verify/consensus/status?job_id=${encodeURIComponent(consensusState.jobId)}`,
+          { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } },
+        );
+        if (consensusStatus && typeof consensusStatus === "object" && !consensusStatus.error) {
+          consensusState.snapshot = consensusStatus;
+        }
+      } catch (error) {
+        console.debug("Consensus status unavailable", error);
+      }
+    }
     verifierState.jobs = (verifierList.reports || []).map((job) => ({
       job_id: job.job_id,
       script_hash: job.script_hash,
@@ -546,6 +827,7 @@ function connectEventStream() {
     source.addEventListener("refresh", triggerRefresh);
     source.addEventListener("message", triggerRefresh);
     source.addEventListener("verifier_update", handleVerifierUpdate);
+    source.addEventListener("verifier_consensus_update", handleConsensusEvent);
     source.onopen = () => {
       retryDelay = 2000;
     };
