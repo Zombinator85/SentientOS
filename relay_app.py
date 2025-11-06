@@ -7,9 +7,12 @@ import ipaddress
 import json
 import logging
 import os
+import queue
 import secrets
 import socket
+import threading
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -76,6 +79,7 @@ _WEBUI_AUTH_MODE = os.getenv("WEBUI_AUTH_MODE", "cookie").lower()
 _PROCESS_START = time.time()
 _CONSOLE_ENABLED = os.getenv("CONSOLE_ENABLED", "0") != "0"
 _VOICE_ENABLED = os.getenv("VOICE_ENABLED", "0") != "0"
+_VAD_SENSITIVITY = float(os.getenv("VAD_SENSITIVITY", "0.6"))
 _ADMIN_TTL = max(60, int(float(os.getenv("ADMIN_SESSION_TTL_MIN", "120")) * 60))
 _CSRF_ENABLED = os.getenv("CSRF_ENABLED", "0") != "0"
 _ADMIN_ALLOWLIST_RAW = [
@@ -106,7 +110,7 @@ NODE_ROUTER = RoundRobinRouter(registry)
 WATCHDOG = WatchdogService(interval=float(os.getenv("WATCHDOG_INTERVAL_S", "5")))
 if _VOICE_ENABLED:
     _STT_CONFIG = configure_stt()
-    _STT_PIPELINE = StreamingTranscriber(vad_sensitivity=float(os.getenv("VAD_SENSITIVITY", "0.6")))
+    _STT_PIPELINE = StreamingTranscriber(vad_sensitivity=_VAD_SENSITIVITY)
     _TTS_PIPELINE = TtsStreamer(voice=os.getenv("TTS_VOICE", "en_US-amy-medium"))
     _WEBRTC_MANAGER = WebRTCSessionManager(ttl_seconds=_ADMIN_TTL, ice_servers=_ICE_SERVERS)
 else:
@@ -116,11 +120,257 @@ else:
     _WEBRTC_MANAGER = None
 
 
+@dataclass
+class _VoiceSessionState:
+    session_id: str
+    hostname: str
+    transcriber: StreamingTranscriber
+    utterances: list[str] = field(default_factory=list)
+    created_at: float = field(default_factory=time.time)
+    last_event: float = field(default_factory=time.time)
+
+
+class _SseHub:
+    def __init__(self, *, max_queue: int = 32) -> None:
+        self._max_queue = max(4, int(max_queue))
+        self._lock = threading.Lock()
+        self._subscribers: set[queue.Queue] = set()
+
+    def subscribe(self) -> queue.Queue:
+        subscriber: queue.Queue = queue.Queue(maxsize=self._max_queue)
+        with self._lock:
+            self._subscribers.add(subscriber)
+        return subscriber
+
+    def unsubscribe(self, subscriber: queue.Queue) -> None:
+        with self._lock:
+            self._subscribers.discard(subscriber)
+
+    def publish(self, event: str, data: Optional[Dict[str, Any]] = None) -> None:
+        payload = {"event": event, "data": data or {}, "timestamp": time.time()}
+        stale: list[queue.Queue] = []
+        with self._lock:
+            for subscriber in list(self._subscribers):
+                try:
+                    subscriber.put_nowait(payload)
+                except queue.Full:
+                    stale.append(subscriber)
+            for subscriber in stale:
+                self._subscribers.discard(subscriber)
+
+
+_ADMIN_EVENTS = _SseHub()
+_VOICE_SESSIONS: dict[str, _VoiceSessionState] = {}
+_VOICE_LOCK = threading.Lock()
+_VOICE_IDLE_TIMEOUT = float(os.getenv("VOICE_SESSION_IDLE_S", "120"))
+
+
+_registry_register_or_update = registry.register_or_update
+_registry_record_voice_activity = registry.record_voice_activity
+_registry_set_trust_level = registry.set_trust_level
+
+
 def _local_node_id() -> str:
     node_id = registry.local_hostname
     if node_id:
         return node_id
     return socket.gethostname()
+
+
+def _notify_admin(event: str, data: Optional[Dict[str, Any]] = None) -> None:
+    if not _CONSOLE_ENABLED:
+        return
+    _ADMIN_EVENTS.publish(event, data or {})
+
+
+def _create_transcriber() -> StreamingTranscriber:
+    if _STT_PIPELINE is not None:
+        return StreamingTranscriber(vad_sensitivity=_STT_PIPELINE.vad_sensitivity)
+    return StreamingTranscriber(vad_sensitivity=_VAD_SENSITIVITY)
+
+
+def _ensure_voice_session(session_id: str, hostname: str) -> _VoiceSessionState:
+    with _VOICE_LOCK:
+        session = _VOICE_SESSIONS.get(session_id)
+        if session is None:
+            session = _VoiceSessionState(
+                session_id=session_id,
+                hostname=hostname,
+                transcriber=_create_transcriber(),
+            )
+            _VOICE_SESSIONS[session_id] = session
+        elif hostname and session.hostname != hostname:
+            session.hostname = hostname
+        return session
+
+
+def _prune_voice_sessions(now: float) -> None:
+    if not _VOICE_SESSIONS:
+        return
+    expired: list[_VoiceSessionState] = []
+    with _VOICE_LOCK:
+        for session in list(_VOICE_SESSIONS.values()):
+            if now - session.last_event >= _VOICE_IDLE_TIMEOUT:
+                expired.append(session)
+    for session in expired:
+        _complete_voice_session(session, reason="idle_timeout")
+
+
+def _complete_voice_session(
+    session: _VoiceSessionState,
+    *,
+    reason: str,
+    flush: bool = True,
+    extra_meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    if flush:
+        for event in session.transcriber.flush():
+            if event.text:
+                session.utterances.append(event.text)
+            if session.hostname:
+                _registry_record_voice_activity(session.hostname, timestamp=event.timestamp)
+                _notify_admin(
+                    "voice-activity",
+                    {"hostname": session.hostname, "timestamp": event.timestamp},
+                )
+                session.last_event = max(session.last_event, event.timestamp)
+    summary = " ".join(session.utterances).strip()
+    with _VOICE_LOCK:
+        _VOICE_SESSIONS.pop(session.session_id, None)
+    if summary:
+        meta = {"session_id": session.session_id, "reason": reason, "utterances": len(session.utterances)}
+        if extra_meta:
+            meta.update(extra_meta)
+        register_voice_session(summary, hostname=session.hostname, meta=meta)
+        _notify_admin("voice-session", {"session_id": session.session_id})
+    return summary
+
+
+def _consume_transcription_events(
+    session: _VoiceSessionState,
+    hostname: str,
+    events,
+) -> list[Dict[str, Any]]:
+    collected: list[Dict[str, Any]] = []
+    for event in events:
+        payload = {"text": event.text, "final": bool(event.final), "timestamp": event.timestamp}
+        if event.text:
+            session.last_event = max(session.last_event, event.timestamp)
+            if event.final:
+                session.utterances.append(event.text)
+        if hostname:
+            _registry_record_voice_activity(hostname, timestamp=event.timestamp)
+            _notify_admin(
+                "voice-activity",
+                {"hostname": hostname, "timestamp": event.timestamp},
+            )
+        collected.append(payload)
+    return collected
+
+
+def _emit_node_update(record) -> None:
+    if not record:
+        return
+    try:
+        payload = {
+            "hostname": record.hostname,
+            "trust_level": getattr(record, "trust_level", None),
+        }
+    except AttributeError:
+        payload = {}
+    _notify_admin("nodes", payload)
+
+
+def _register_or_update_with_event(*args, **kwargs):  # type: ignore[override]
+    record = _registry_register_or_update(*args, **kwargs)
+    if record:
+        _emit_node_update(record)
+    return record
+
+
+def _set_trust_level_with_event(*args, **kwargs):  # type: ignore[override]
+    record = _registry_set_trust_level(*args, **kwargs)
+    if record:
+        _emit_node_update(record)
+    return record
+
+
+def _record_voice_activity_with_event(*args, **kwargs):  # type: ignore[override]
+    record = _registry_record_voice_activity(*args, **kwargs)
+    if record:
+        _notify_admin(
+            "voice-activity",
+            {"hostname": record.hostname, "timestamp": record.last_voice_activity},
+        )
+    return record
+
+
+registry.register_or_update = _register_or_update_with_event  # type: ignore[assignment]
+registry.set_trust_level = _set_trust_level_with_event  # type: ignore[assignment]
+registry.record_voice_activity = _record_voice_activity_with_event  # type: ignore[assignment]
+
+
+class _AdminStateWatcher(threading.Thread):
+    def __init__(self, *, interval: float = 2.0) -> None:
+        super().__init__(daemon=True)
+        self._interval = max(1.0, float(interval))
+        self._stop = threading.Event()
+        self._last_snapshot: Optional[Dict[str, Any]] = None
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    def _snapshot(self) -> Dict[str, Any]:
+        nodes_summary: list[Dict[str, Any]] = []
+        for node in registry.active_nodes():
+            caps = node.get("capabilities") or {}
+            if isinstance(caps, dict):
+                capability_keys = [
+                    key
+                    for key, value in caps.items()
+                    if value not in (None, False, "", 0)
+                ]
+            else:
+                capability_keys = []
+            nodes_summary.append(
+                {
+                    "hostname": node.get("hostname"),
+                    "trust_level": node.get("trust_level"),
+                    "capabilities": sorted(set(capability_keys)),
+                    "last_voice_activity": int(float(node.get("last_voice_activity") or 0)),
+                }
+            )
+        nodes_summary.sort(key=lambda entry: (entry.get("hostname") or ""))
+        dream_status = dream_loop.status()
+        memory_summary = _memory_summary()
+        return {
+            "nodes": nodes_summary,
+            "dream": {
+                "active": bool(dream_status.get("active")),
+                "last_cycle": dream_status.get("last_cycle"),
+            },
+            "memory": {
+                "total": memory_summary.get("total"),
+                "dream": memory_summary.get("categories", {}).get("dream"),
+            },
+        }
+
+    def run(self) -> None:
+        while not self._stop.wait(self._interval):
+            try:
+                snapshot = self._snapshot()
+            except Exception as exc:  # pragma: no cover - defensive
+                logging.debug("[AdminEvents] snapshot failed: %s", exc, exc_info=True)
+                continue
+            if snapshot != self._last_snapshot:
+                self._last_snapshot = snapshot
+                _notify_admin("refresh", {"snapshot": snapshot})
+
+
+_ADMIN_WATCHER: Optional[_AdminStateWatcher] = None
+if _CONSOLE_ENABLED:
+    _ADMIN_WATCHER = _AdminStateWatcher(interval=float(os.getenv("ADMIN_SSE_INTERVAL_S", "2")))
+    _ADMIN_WATCHER.start()
 
 
 def _build_remote_headers(*, include_secret: bool = True) -> Dict[str, str]:
@@ -242,6 +492,25 @@ def _admin_authorised(*, require_csrf: bool = False) -> bool:
     return True
 
 
+def _authorised_for_sse() -> bool:
+    if not _CONSOLE_ENABLED:
+        return False
+    if not _ip_allowed(_remote_ip()):
+        return False
+    token = request.headers.get(_NODE_HEADER) or request.args.get("token")
+    if NODE_TOKEN and token != NODE_TOKEN:
+        return False
+    session_token = request.cookies.get(pairing_service.session_cookie_name)
+    if session_token and pairing_service.validate_session(session_token):
+        return True
+    header_session = request.headers.get("X-Session-Token")
+    if header_session and pairing_service.validate_session(header_session):
+        return True
+    if NODE_TOKEN and token == NODE_TOKEN:
+        return True
+    return False
+
+
 def _admin_response(payload: Dict[str, Any]) -> Response:
     body = dict(payload)
     token = _csrf_manager.issue()
@@ -322,6 +591,38 @@ def _serve_static(root: Path, asset: str, *, default_mimetype: str = "text/plain
         if hasattr(response, "headers"):
             response.headers["Content-Type"] = mimetype
         return response
+
+
+@app.route("/sse", methods=["GET"])
+def admin_event_stream() -> Response:
+    if not _authorised_for_sse():
+        return Response("Forbidden", status=403)
+
+    subscriber = _ADMIN_EVENTS.subscribe()
+
+    def stream():
+        try:
+            yield "event: refresh\ndata: {}\n\n"
+            while True:
+                try:
+                    message = subscriber.get(timeout=15)
+                except queue.Empty:
+                    yield ": keep-alive\n\n"
+                    continue
+                event = str(message.get("event") or "refresh").strip() or "refresh"
+                data = message.get("data") or {}
+                try:
+                    payload = json.dumps(data)
+                except (TypeError, ValueError):
+                    payload = "{}"
+                yield f"event: {event}\ndata: {payload}\n\n"
+        finally:
+            _ADMIN_EVENTS.unsubscribe(subscriber)
+
+    response = Response(stream(), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 def _sanitise_memories(entries: list[dict], *, decrypt: bool) -> list[dict]:
@@ -612,6 +913,75 @@ def webrtc_add_ice() -> Response:
     except KeyError:
         return jsonify({"error": "unknown_session"}), 404
     return jsonify(updated)
+
+
+@app.route("/voice/stream", methods=["POST"])
+def voice_stream() -> Response:
+    if not _VOICE_ENABLED or _STT_PIPELINE is None:
+        return Response("Voice disabled", status=404)
+    if not (_authorised_for_ui() or request.headers.get("X-Relay-Secret") == RELAY_SECRET):
+        return Response("Forbidden", status=403)
+
+    payload = request.get_json(silent=True) or {}
+    session_id = str(payload.get("session_id") or payload.get("session") or "").strip()
+    if not session_id:
+        return jsonify({"error": "session_id required"}), 400
+
+    provided_hostname = str(payload.get("hostname") or request.headers.get(_NODE_ID_HEADER) or "").strip()
+    hostname = provided_hostname or _local_node_id()
+    now = time.time()
+    _prune_voice_sessions(now)
+    session = _ensure_voice_session(session_id, hostname)
+    hostname = session.hostname
+
+    chunk = payload.get("chunk")
+    if chunk is None:
+        chunk = payload.get("data")
+    encoding = str(payload.get("encoding") or "").lower()
+    response_events: list[Dict[str, Any]] = []
+    if chunk is not None:
+        if isinstance(chunk, (bytes, bytearray)):
+            submitted = bytes(chunk)
+        elif isinstance(chunk, str):
+            if encoding == "base64":
+                try:
+                    submitted = base64.b64decode(chunk)
+                except Exception:
+                    submitted = chunk
+            else:
+                submitted = chunk
+        else:
+            submitted = json.dumps(chunk)
+        response_events.extend(_consume_transcription_events(session, hostname, session.transcriber.submit_audio(submitted)))
+
+    if payload.get("flush"):
+        response_events.extend(_consume_transcription_events(session, hostname, session.transcriber.flush()))
+
+    summary_hint = str(payload.get("summary") or "").strip()
+    if summary_hint:
+        session.utterances.append(summary_hint)
+        session.last_event = now
+
+    result: Dict[str, Any] = {"session_id": session_id, "events": response_events, "finalized": False}
+    if payload.get("complete") or payload.get("final") or payload.get("finalise"):
+        extra_meta = {"client_summary": bool(summary_hint), "hostname": hostname}
+        summary = _complete_voice_session(
+            session,
+            reason="client_finalise",
+            flush=not bool(payload.get("flush")),
+            extra_meta=extra_meta,
+        )
+        if summary:
+            result["summary"] = summary
+        elif summary_hint:
+            register_voice_session(summary_hint, hostname=hostname, meta={"session_id": session_id, "reason": "client_summary"})
+            result["summary"] = summary_hint
+        result["finalized"] = True
+    else:
+        if provided_hostname and session.hostname != provided_hostname:
+            session.hostname = provided_hostname
+
+    return jsonify(result)
 
 
 @app.route("/nodes/trust", methods=["POST"])
@@ -1112,13 +1482,31 @@ def bio_state() -> Response:
 
 
 def register_voice_activity(hostname: str, timestamp: float | None = None) -> None:
-    registry.register_or_update(hostname, "127.0.0.1", last_voice_activity=timestamp or time.time())
+    if not hostname:
+        return
+    record = _registry_record_voice_activity(hostname, timestamp=timestamp)
+    if record is None:
+        record = _registry_register_or_update(hostname, "127.0.0.1", last_voice_activity=timestamp or time.time())
+    if record:
+        _notify_admin(
+            "voice-activity",
+            {"hostname": record.hostname, "timestamp": record.last_voice_activity},
+        )
 
 
-def register_voice_session(summary: str) -> None:
-    fragment = governor.remember_voice_session(summary)
-    if fragment:
-        logging.debug("[Voice] Stored session summary for %s", fragment.get("id"))
+def register_voice_session(
+    summary: str,
+    *,
+    hostname: str | None = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> None:
+    fragment = governor.remember_voice_session(summary, meta=meta)
+    if not fragment:
+        return
+    logging.debug("[Voice] Stored session summary for %s", fragment.get("id"))
+    if hostname:
+        _registry_record_voice_activity(hostname, timestamp=time.time())
+    _notify_admin("memory", {"category": "voice_session"})
 
 
 def register_watchdog_check(name: str, check) -> None:
