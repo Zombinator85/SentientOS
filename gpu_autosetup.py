@@ -94,6 +94,26 @@ def _ensure_faster_whisper_cuda(index_url: str | None = None) -> None:
     subprocess.run(command, check=False)
 
 
+def _ensure_cpu_stt(impl: str, model_size: str) -> None:
+    if os.getenv("GPU_AUTOINSTALL", "0") != "1":
+        _log("stt_cpu_install=skipped")
+        return
+    packages = ["faster-whisper"]
+    if impl != "faster-whisper":
+        packages.append("whispercpp")
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        *packages,
+    ]
+    _log("stt_cpu_install=" + " ".join(command))
+    subprocess.run(command, check=False)
+    _log(f"stt_cpu_model_hint=whisper.cpp::{model_size}")
+
+
 def configure_stt(
     preferred_impl: str | None = None,
     model_size: str | None = None,
@@ -110,6 +130,8 @@ def configure_stt(
         device = "metal"
     if impl == "faster-whisper" and backend == "cuda":
         _ensure_faster_whisper_cuda()
+    if backend == "cpu":
+        _ensure_cpu_stt(impl, size)
     result = {
         "impl": impl,
         "model_size": size,

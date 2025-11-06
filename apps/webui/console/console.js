@@ -102,4 +102,39 @@ async function refreshAll() {
 }
 
 refreshAll();
-setInterval(refreshAll, 10000);
+
+function connectEventStream() {
+  if (typeof EventSource === "undefined") {
+    return false;
+  }
+
+  let retryDelay = 2000;
+  const url = new URL("/sse", window.location.origin);
+  if (window.NODE_TOKEN) {
+    url.searchParams.set("token", window.NODE_TOKEN);
+  }
+
+  const establish = () => {
+    const source = new EventSource(url.toString());
+    const triggerRefresh = () => {
+      refreshAll();
+    };
+    source.addEventListener("refresh", triggerRefresh);
+    source.onmessage = triggerRefresh;
+    source.onopen = () => {
+      retryDelay = 2000;
+    };
+    source.onerror = () => {
+      source.close();
+      setTimeout(establish, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, 30000);
+    };
+  };
+
+  establish();
+  return true;
+}
+
+if (!connectEventStream()) {
+  setInterval(refreshAll, 10000);
+}
