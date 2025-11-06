@@ -8,9 +8,9 @@ import logging
 import os
 import re
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Iterable, List
+from typing import Callable, Dict, Iterable, List, Mapping, Optional
 
 try:  # pragma: no cover - optional dependency during tests
     from verifier_store import VerifierStore
@@ -41,6 +41,24 @@ def _now() -> _dt.datetime:
 
 
 _LAST_REFLECTION: "ReflectionSummary | None" = None
+_REFLECTION_BROADCAST: Optional[Callable[[str, Mapping[str, object]], None]] = None
+_MESH_METRICS_PROVIDER: Optional[Callable[[], Mapping[str, object]]] = None
+
+
+def set_reflection_broadcast(
+    callback: Optional[Callable[[str, Mapping[str, object]], None]]
+) -> None:
+    """Register a broadcast hook invoked when :func:`reflect` completes."""
+
+    global _REFLECTION_BROADCAST
+    _REFLECTION_BROADCAST = callback
+
+
+def set_mesh_metrics_provider(callback: Optional[Callable[[], Mapping[str, object]]]) -> None:
+    """Register a callable that supplements :func:`mesh_metrics`."""
+
+    global _MESH_METRICS_PROVIDER
+    _MESH_METRICS_PROVIDER = callback
 
 
 def _parse_timestamp(value: str | None) -> _dt.datetime:
@@ -246,6 +264,9 @@ def remember_voice_session(
 class ReflectionSummary:
     updated: int
     trimmed_snapshots: int
+    dominant_emotion: str | None = None
+    reflections: int = 0
+    mood_vector: Mapping[str, float] = field(default_factory=dict)
 
 
 def _write_entry(path: Path, entry: dict) -> None:
@@ -329,6 +350,7 @@ def reflect() -> ReflectionSummary:
                 updated += 1
 
     trimmed = 0
+    emotion_vectors: List[dict] = []
     if snapshots:
         buckets: dict[int, tuple[_dt.datetime, dict]] = {}
         for snapshot in snapshots:
@@ -337,6 +359,8 @@ def reflect() -> ReflectionSummary:
             current = buckets.get(bucket)
             if current is None or ts > current[0]:
                 buckets[bucket] = (ts, snapshot)
+            if isinstance(snapshot.get("emotions"), dict):
+                emotion_vectors.append(dict(snapshot["emotions"]))
         keep_ids = {snap["id"] for _, snap in buckets.values() if snap.get("id")}
         for snapshot in snapshots:
             if snapshot.get("id") not in keep_ids:
@@ -347,10 +371,30 @@ def reflect() -> ReflectionSummary:
                 except AttributeError:  # pragma: no cover - legacy compatibility
                     pass
                 trimmed += 1
+    combined_emotions = combine_emotions(emotion_vectors)
+    dominant = dominant_emotion(combined_emotions)
 
     global _LAST_REFLECTION
-    summary = ReflectionSummary(updated=updated, trimmed_snapshots=trimmed)
+    summary = ReflectionSummary(
+        updated=updated,
+        trimmed_snapshots=trimmed,
+        dominant_emotion=dominant,
+        reflections=len(entries),
+        mood_vector=combined_emotions,
+    )
     _LAST_REFLECTION = summary
+    if _REFLECTION_BROADCAST is not None:
+        payload = {
+            "updated": updated,
+            "trimmed": trimmed,
+            "dominant_emotion": dominant,
+            "reflections": summary.reflections,
+            "mood_vector": summary.mood_vector,
+        }
+        try:
+            _REFLECTION_BROADCAST("dream_update", payload)
+        except Exception:  # pragma: no cover - broadcast failures should not abort
+            logging.debug("[MemoryGovernor] dream_update broadcast skipped", exc_info=True)
     return summary
 
 
@@ -386,6 +430,88 @@ def metrics(limit: int = 500) -> dict[str, object]:
         "last_reflection": reflection_summary,
         "verifier": verifier_stats,
     }
+
+
+def _coerce_float(value: object, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def mesh_metrics() -> Dict[str, object]:
+    """Summarise verifier, trust, and council state for the mesh."""
+
+    payload: Dict[str, object] = {
+        "nodes": 0,
+        "verifier": {"ok": 0, "diverged": 0, "inconclusive": 0},
+        "trust_histogram": {},
+        "active_council_sessions": 0,
+        "emotion_consensus": {},
+        "open_goals": [],
+    }
+
+    refresh = getattr(registry, "refresh_from_disk", None)
+    if callable(refresh):
+        try:
+            refresh()
+        except Exception:  # pragma: no cover - defensive
+            logging.debug("[MemoryGovernor] registry refresh failed", exc_info=True)
+
+    try:
+        nodes = registry.active_nodes()
+    except Exception:  # pragma: no cover - defensive
+        nodes = []
+    histogram: Dict[str, int] = {}
+    open_goals: List[str] = []
+    for node in nodes:
+        score = _coerce_float(node.get("trust_score"))
+        bucket = str(int(round(score)))
+        histogram[bucket] = histogram.get(bucket, 0) + 1
+        if isinstance(node.get("open_goals"), list):
+            open_goals.extend(str(goal) for goal in node["open_goals"] if goal)
+    payload["nodes"] = len(nodes)
+    if histogram:
+        payload["trust_histogram"] = histogram
+    if open_goals:
+        payload["open_goals"] = list(dict.fromkeys(open_goals))
+
+    if VerifierStore is not None:
+        try:
+            store = VerifierStore.default()
+            verdicts = store.verdict_counts()
+            ok = 0
+            diverged = 0
+            inconclusive = 0
+            for key, value in verdicts.items():
+                label = str(key).lower()
+                if "ok" in label or "pass" in label:
+                    ok += int(value)
+                elif "diverge" in label or "fail" in label or "reject" in label:
+                    diverged += int(value)
+                else:
+                    inconclusive += int(value)
+            payload["verifier"] = {
+                "ok": ok,
+                "diverged": diverged,
+                "inconclusive": inconclusive,
+            }
+        except Exception:  # pragma: no cover - defensive
+            logging.debug("[MemoryGovernor] verifier summary failed", exc_info=True)
+
+    if _MESH_METRICS_PROVIDER is not None:
+        try:
+            external = _MESH_METRICS_PROVIDER()
+        except Exception:  # pragma: no cover - defensive
+            logging.debug("[MemoryGovernor] mesh metrics provider failed", exc_info=True)
+            external = {}
+        if isinstance(external, Mapping):
+            payload.update(dict(external))
+
+    if _LAST_REFLECTION is not None and getattr(_LAST_REFLECTION, "mood_vector", None):
+        payload.setdefault("emotion_consensus", dict(_LAST_REFLECTION.mood_vector))
+
+    return payload
 
 
 def _verifier_stats() -> dict[str, object]:
@@ -460,6 +586,9 @@ __all__ = [
     "remember_voice_session",
     "reflect",
     "metrics",
+    "mesh_metrics",
+    "set_reflection_broadcast",
+    "set_mesh_metrics_provider",
     "combine_emotions",
     "dominant_emotion",
     "ReflectionSummary",

@@ -35,6 +35,18 @@ const consensusQuorumK = document.getElementById("consensus-quorum-k");
 const consensusQuorumN = document.getElementById("consensus-quorum-n");
 const consensusParticipantsInput = document.getElementById("consensus-participants-input");
 const closeConsensusButton = document.getElementById("close-consensus-modal");
+const meshDreamCount = document.getElementById("mesh-dream-count");
+const meshConsensusCount = document.getElementById("mesh-consensus-count");
+const meshVoicesCount = document.getElementById("mesh-voices-count");
+const meshCloudCount = document.getElementById("mesh-cloud-count");
+const meshTopology = document.getElementById("mesh-topology");
+const meshLastUpdated = document.getElementById("mesh-last-updated");
+const councilTranscript = document.getElementById("council-transcript");
+const councilSessionCount = document.getElementById("council-session-count");
+const autonomyStatus = document.getElementById("autonomy-status");
+const autonomyStartButton = document.getElementById("autonomy-start");
+const autonomyStopButton = document.getElementById("autonomy-stop");
+const triggerReflectionButton = document.getElementById("trigger-reflection");
 
 let csrfToken = null;
 const verifierState = {
@@ -46,6 +58,20 @@ const verifierState = {
 const consensusState = {
   jobId: null,
   snapshot: null,
+};
+
+const meshState = {
+  snapshot: null,
+  metrics: {},
+  voices: [],
+};
+
+const autonomyState = {
+  enabled: false,
+  plans: [],
+  counts: { pending: 0, scheduled: 0, completed: 0 },
+  last_cycle: null,
+  bias_vector: {},
 };
 
 let deferredPrompt = null;
@@ -74,6 +100,39 @@ closeConsensusButton?.addEventListener("click", () => {
 consensusModal?.addEventListener("click", (event) => {
   if (event.target === consensusModal) {
     closeConsensusModal();
+  }
+});
+
+autonomyStartButton?.addEventListener("click", async () => {
+  try {
+    await postJson("/admin/autonomy/start", {});
+    await refreshAutonomy();
+  } catch (error) {
+    console.warn("Failed to start autonomy", error);
+  }
+});
+
+autonomyStopButton?.addEventListener("click", async () => {
+  try {
+    await postJson("/admin/autonomy/stop", {});
+    await refreshAutonomy();
+  } catch (error) {
+    console.warn("Failed to stop autonomy", error);
+  }
+});
+
+triggerReflectionButton?.addEventListener("click", async () => {
+  try {
+    const response = await postJson("/admin/autonomy/reflect", {});
+    if (response?.plans) {
+      autonomyState.plans = response.plans;
+    }
+    if (response?.snapshot) {
+      renderMesh(response.snapshot);
+    }
+    await refreshAutonomy();
+  } catch (error) {
+    console.warn("Failed to trigger reflection", error);
   }
 });
 
@@ -163,6 +222,18 @@ async function fetchJson(url, options) {
   return data;
 }
 
+async function postJson(url, body) {
+  return fetchJson(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Node-Token": window.NODE_TOKEN ?? "",
+      "X-CSRF-Token": csrfToken ?? "",
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
 const STATUS_COLORS = {
   completed: "#22c55e",
   failed: "#f87171",
@@ -207,6 +278,127 @@ function formatTimestamp(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString();
+}
+
+function renderAutonomy(status) {
+  if (!status || typeof status !== "object") return;
+  autonomyState.enabled = Boolean(status.enabled);
+  autonomyState.plans = Array.isArray(status.plans) ? status.plans : [];
+  autonomyState.counts = status.counts || autonomyState.counts;
+  autonomyState.last_cycle = status.last_cycle ?? null;
+  autonomyState.bias_vector = status.bias_vector || {};
+  if (autonomyStartButton) autonomyStartButton.disabled = autonomyState.enabled;
+  if (autonomyStopButton) autonomyStopButton.disabled = !autonomyState.enabled;
+  if (autonomyStatus) {
+    const counts = autonomyState.counts;
+    const total = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+    const nextLabel =
+      autonomyState.last_cycle != null
+        ? `Last cycle ${formatTimestamp(autonomyState.last_cycle * 1000)}.`
+        : "No cycles recorded.";
+    autonomyStatus.innerHTML = `
+      <p><strong>${autonomyState.enabled ? "Autonomy enabled" : "Autonomy paused"}</strong></p>
+      <p>Plans: ${total} • Pending ${counts.pending ?? 0}, Scheduled ${counts.scheduled ?? 0}, Completed ${counts.completed ?? 0}</p>
+      <p>${nextLabel}</p>
+    `;
+  }
+}
+
+async function refreshAutonomy() {
+  try {
+    const autonomy = await fetchJson("/admin/autonomy/status", {
+      headers: { "X-Node-Token": window.NODE_TOKEN ?? "" },
+    });
+    renderAutonomy(autonomy);
+  } catch (error) {
+    console.warn("Failed to refresh autonomy", error);
+  }
+}
+
+function renderCouncilSessions(snapshot) {
+  if (!councilTranscript) return;
+  const sessions = snapshot.council_sessions || {};
+  const entries = Object.values(sessions).flat();
+  councilTranscript.innerHTML = "";
+  if (!entries.length) {
+    councilTranscript.innerHTML = '<p class="empty">No council dialogue yet.</p>';
+    if (councilSessionCount) councilSessionCount.textContent = "No active sessions.";
+    return;
+  }
+  const fragments = entries.slice(-30);
+  fragments.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const wrapper = document.createElement("div");
+    wrapper.className = "council-entry";
+    const meta = document.createElement("div");
+    meta.className = "entry-meta";
+    meta.textContent = `${entry.voice ?? "voice"} • ${entry.role ?? "exchange"}`;
+    const content = document.createElement("div");
+    content.textContent = entry.content ?? "";
+    wrapper.append(meta, content);
+    councilTranscript.append(wrapper);
+  });
+  if (councilSessionCount) {
+    councilSessionCount.textContent = `${Object.keys(sessions).length} active session${Object.keys(sessions).length === 1 ? "" : "s"}`;
+  }
+}
+
+function renderMesh(snapshot) {
+  if (!snapshot) return;
+  const payload = snapshot.snapshot ?? snapshot;
+  const metrics = snapshot.metrics ?? payload.metrics ?? {};
+  const voices = snapshot.voices ?? meshState.voices;
+  meshState.snapshot = payload;
+  meshState.metrics = metrics;
+  meshState.voices = voices;
+  if (meshLastUpdated) {
+    const timestamp = payload.timestamp ? new Date(payload.timestamp * 1000) : new Date();
+    meshLastUpdated.textContent = `Updated ${formatTimestamp(timestamp.getTime())}`;
+  }
+  if (meshVoicesCount) meshVoicesCount.textContent = String(Array.isArray(voices) ? voices.length : 0);
+  if (meshCloudCount) {
+    const advisory = Array.isArray(voices)
+      ? voices.filter((voice) => voice?.config?.advisory).length
+      : 0;
+    meshCloudCount.textContent = String(advisory);
+  }
+  if (meshConsensusCount) {
+    const assignments = payload.assignments || {};
+    const active = Object.values(assignments).filter((value) => value).length;
+    meshConsensusCount.textContent = String(active);
+  }
+  if (meshDreamCount) {
+    const remoteReflections = Number(metrics.remote_reflections ?? 0);
+    const sessions = payload.council_sessions || {};
+    const estimate = remoteReflections || Object.keys(sessions).length;
+    meshDreamCount.textContent = String(estimate);
+  }
+  if (meshTopology) {
+    meshTopology.innerHTML = "";
+    const nodes = Array.isArray(snapshot.nodes) ? snapshot.nodes : [];
+    if (!nodes.length) {
+      meshTopology.innerHTML = '<p class="empty">No mesh nodes registered.</p>';
+    } else {
+      nodes
+        .slice()
+        .sort((a, b) => Number(b.trust ?? 0) - Number(a.trust ?? 0))
+        .forEach((node) => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "mesh-node";
+          const title = document.createElement("strong");
+          title.textContent = node.node_id ?? "node";
+          const trust = document.createElement("span");
+          trust.className = "mesh-trust";
+          trust.textContent = `trust ${Number(node.trust ?? 0).toFixed(2)}`;
+          const details = document.createElement("span");
+          const caps = Array.isArray(node.capabilities) ? node.capabilities.join(", ") : "";
+          details.textContent = caps;
+          wrapper.append(title, trust, details);
+          meshTopology.append(wrapper);
+        });
+    }
+  }
+  renderCouncilSessions(payload);
 }
 
 function formatRelativeAge(createdAtSeconds) {
@@ -601,6 +793,30 @@ function handleConsensusEvent(event) {
   }
 }
 
+function handleMeshUpdate(event) {
+  try {
+    const data = JSON.parse(event.data || "{}");
+    renderMesh(data);
+  } catch (error) {
+    console.warn("Failed to parse mesh update", error);
+  }
+}
+
+function handleDreamUpdate(event) {
+  try {
+    const data = JSON.parse(event.data || "{}");
+    if (meshDreamCount) {
+      const remote = Number(data.reflections ?? data.remote_reflections ?? 0);
+      if (Number.isFinite(remote)) {
+        meshDreamCount.textContent = String(remote);
+        meshState.metrics.remote_reflections = remote;
+      }
+    }
+  } catch (error) {
+    console.warn("Failed to parse dream update", error);
+  }
+}
+
 function renderMemory(summary) {
   memoryInfo.innerHTML = "";
   const fragment = document.createElement("pre");
@@ -635,6 +851,13 @@ function renderDream(dream) {
   const loop = dream.loop ?? {};
   const progress = loop.progress ?? {};
   const goal = dream.active_goal ?? null;
+
+  if (meshDreamCount) {
+    const remote = Number(dream.remote_reflections ?? dream.mesh_reflections ?? 0);
+    const activeLoops = loop.active ? 1 : 0;
+    const total = activeLoops + (Number.isFinite(remote) ? remote : 0);
+    meshDreamCount.textContent = String(total);
+  }
 
   const dominant = mood.dominant ?? "Neutral";
   const intensity = typeof mood.intensity === "number" ? clamp(mood.intensity) : 0;
@@ -751,6 +974,10 @@ async function refreshAll() {
     renderMetrics(status);
     const dream = await fetchJson("/admin/dream", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
     renderDream(dream);
+    const meshStatus = await fetchJson("/admin/mesh/status", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
+    renderMesh(meshStatus?.snapshot ?? meshStatus);
+    const autonomy = await fetchJson("/admin/autonomy/status", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
+    renderAutonomy(autonomy);
     const nodes = await fetchJson("/admin/nodes", { headers: { "X-Node-Token": window.NODE_TOKEN ?? "" } });
     renderNodes(nodes);
     let verifierList = { reports: [] };
@@ -828,6 +1055,8 @@ function connectEventStream() {
     source.addEventListener("message", triggerRefresh);
     source.addEventListener("verifier_update", handleVerifierUpdate);
     source.addEventListener("verifier_consensus_update", handleConsensusEvent);
+    source.addEventListener("mesh_update", handleMeshUpdate);
+    source.addEventListener("dream_update", handleDreamUpdate);
     source.onopen = () => {
       retryDelay = 2000;
     };

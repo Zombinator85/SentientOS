@@ -159,6 +159,7 @@ class NodeRegistry:
         self._lock = threading.RLock()
         self._nodes: Dict[str, NodeRecord] = {}
         self._local_hostname: Optional[str] = None
+        self._last_loaded_mtime: float = 0.0
         self._load()
 
     @classmethod
@@ -177,26 +178,17 @@ class NodeRegistry:
             return self._local_hostname
 
     def _load(self) -> None:
-        if not self._path.exists():
-            return
-        try:
-            payload = json.loads(self._path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return
-        records = payload if isinstance(payload, list) else payload.get("nodes")
-        if not isinstance(records, list):
-            return
-        for entry in records:
-            if not isinstance(entry, dict):
-                continue
-            record = NodeRecord.from_mapping(entry)
-            self._nodes[record.hostname] = record
+        self.refresh_from_disk(force=True)
 
     def _save(self) -> None:
         data = [record.serialise() for record in self._nodes.values()]
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             self._path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            try:
+                self._last_loaded_mtime = self._path.stat().st_mtime
+            except OSError:
+                self._last_loaded_mtime = time.time()
         except OSError:
             # Persistence failures should not crash runtime discovery.
             pass
@@ -274,6 +266,7 @@ class NodeRegistry:
     def prune(self) -> None:
         threshold = time.time() - self._expiry
         removed: List[str] = []
+        self.refresh_from_disk()
         with self._lock:
             for hostname, record in list(self._nodes.items()):
                 if record.last_seen < threshold:
@@ -407,6 +400,7 @@ class NodeRegistry:
             return record
 
     def records(self) -> List[NodeRecord]:
+        self.refresh_from_disk()
         with self._lock:
             return list(self._nodes.values())
 
@@ -430,6 +424,7 @@ class NodeRegistry:
 
     def capability_map(self) -> Dict[str, List[str]]:
         mapping: Dict[str, List[str]] = {}
+        self.refresh_from_disk()
         with self._lock:
             for record in self._nodes.values():
                 if record.trust_level == "blocked":
@@ -439,6 +434,38 @@ class NodeRegistry:
         for key in mapping:
             mapping[key].sort()
         return mapping
+
+    def refresh_from_disk(self, *, force: bool = False) -> None:
+        try:
+            mtime = self._path.stat().st_mtime
+        except OSError:
+            if force:
+                with self._lock:
+                    self._nodes.clear()
+                    self._last_loaded_mtime = 0.0
+            return
+        with self._lock:
+            if not force and mtime <= self._last_loaded_mtime:
+                return
+            try:
+                raw = self._path.read_text(encoding="utf-8")
+            except OSError:
+                return
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                return
+            records = payload if isinstance(payload, list) else payload.get("nodes")
+            if not isinstance(records, list):
+                return
+            nodes: Dict[str, NodeRecord] = {}
+            for entry in records:
+                if not isinstance(entry, dict):
+                    continue
+                record = NodeRecord.from_mapping(entry)
+                nodes[record.hostname] = record
+            self._nodes = nodes
+            self._last_loaded_mtime = mtime
 
 
 class RoundRobinRouter:

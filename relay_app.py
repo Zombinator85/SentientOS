@@ -13,6 +13,7 @@ import secrets
 import socket
 import threading
 import time
+import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -151,11 +152,16 @@ from tts_service import TtsStreamer
 from watchdog_service import WatchdogService
 from webrtc_bridge import WebRTCSessionManager
 from verifier_store import VerifierStore
+from council_adapters import DeepSeekVoice, LocalVoice, OpenAIVoice
+from sentient_autonomy import SentientAutonomyEngine
+from sentient_mesh import MeshJob, MeshSnapshot, SentientMesh
 
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 LOGGER = logging.getLogger(__name__)
+
+_MESH, AUTONOMY = _initialise_mesh()
 
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 _REMOTE_TIMEOUT = float(os.getenv("SENTIENTOS_REMOTE_TIMEOUT", "10"))
@@ -198,6 +204,23 @@ except json.JSONDecodeError:
     _ICE_SERVERS = []
 
 NODE_ROUTER = RoundRobinRouter(registry)
+
+
+def _initialise_mesh() -> tuple[SentientMesh, SentientAutonomyEngine]:
+    voices = [LocalVoice()]
+    mesh = SentientMesh(voices=voices)
+    for factory in (DeepSeekVoice, OpenAIVoice):
+        try:
+            mesh.register_voice(factory())
+        except Exception as exc:  # pragma: no cover - optional dependencies
+            logging.getLogger(__name__).debug(
+                "[Mesh] Skipping %s voice: %s", factory.__name__, exc
+            )
+    autonomy = SentientAutonomyEngine(mesh)
+    if os.getenv("SENTIENT_AUTONOMY_ENABLED", "0") == "1":
+        autonomy.start()
+    governor.set_mesh_metrics_provider(mesh.metrics)
+    return mesh, autonomy
 
 
 WATCHDOG = WatchdogService(interval=float(os.getenv("WATCHDOG_INTERVAL_S", "5")))
@@ -514,6 +537,80 @@ def _notify_admin(event: str, data: Optional[Dict[str, Any]] = None) -> None:
     if not _CONSOLE_ENABLED:
         return
     _ADMIN_EVENTS.publish(event, data or {})
+
+
+def _mesh_refresh_from_registry() -> None:
+    try:
+        nodes = registry.active_nodes()
+    except Exception:  # pragma: no cover - defensive
+        return
+    for record in nodes:
+        node_id = str(record.get("hostname") or record.get("id") or "").strip()
+        if not node_id:
+            continue
+        capabilities_raw = record.get("capabilities") or {}
+        if isinstance(capabilities_raw, Mapping):
+            capabilities = [
+                key
+                for key, value in capabilities_raw.items()
+                if value not in (None, False, "")
+            ]
+        elif isinstance(capabilities_raw, (list, tuple)):
+            capabilities = [str(item) for item in capabilities_raw]
+        else:
+            capabilities = []
+        emotion_vector = record.get("emotion") or record.get("emotions") or {}
+        dream_state = record.get("dream_state") or record.get("dream") or {}
+        load = record.get("load") or record.get("jobs_inflight") or 0.0
+        trust = record.get("trust_score") or 0.0
+        AUTONOMY_HINT = {
+            "roles": record.get("roles", []),
+            "advisory": record.get("trust_level"),
+        }
+        _MESH.update_node(
+            node_id,
+            trust=float(trust),
+            load=float(load),
+            capabilities=capabilities,
+            emotion=emotion_vector if isinstance(emotion_vector, Mapping) else {},
+            dream_state=dream_state if isinstance(dream_state, Mapping) else {},
+            attributes=AUTONOMY_HINT,
+        )
+    local_id = _local_node_id()
+    if local_id:
+        _MESH.update_node(
+            local_id,
+            capabilities=["local"],
+            attributes={"roles": ["core"]},
+        )
+
+
+def _mesh_snapshot_payload(snapshot: Optional[MeshSnapshot] = None) -> Dict[str, object]:
+    if snapshot is None:
+        data = _MESH.status()
+    else:
+        data = snapshot.to_dict()
+    payload = dict(data)
+    payload["voices"] = _MESH.voices_status()
+    payload["metrics"] = _MESH.metrics()
+    payload["nodes"] = _MESH.nodes()
+    try:
+        dream_state = dream_loop.status()
+        payload["metrics"]["remote_reflections"] = dream_state.get("remote_reflections", 0)
+    except Exception:  # pragma: no cover - defensive
+        pass
+    return payload
+
+
+def _broadcast_mesh_update(snapshot: Mapping[str, object] | MeshSnapshot) -> None:
+    if isinstance(snapshot, MeshSnapshot):
+        payload = _mesh_snapshot_payload(snapshot)
+    else:
+        payload = dict(snapshot)
+    _notify_admin("mesh_update", payload)
+
+
+governor.set_reflection_broadcast(lambda event, data: _notify_admin(event, dict(data)))
 
 
 def _create_transcriber() -> StreamingTranscriber:
@@ -1079,6 +1176,9 @@ def _admin_status_payload() -> Dict[str, Any]:
     metrics = _memory_summary()
     status = dream_loop.status()
     pending_goals = metrics.get("categories", {}).get("goal", 0)
+    _mesh_refresh_from_registry()
+    mesh_snapshot = _mesh_snapshot_payload()
+    autonomy_status = AUTONOMY.status()
     return {
         "role": _ROLE,
         "model": os.getenv("SENTIENTOS_MODEL", "unknown"),
@@ -1093,6 +1193,8 @@ def _admin_status_payload() -> Dict[str, Any]:
         "voice": _STT_CONFIG or {},
         "safety_events_1h": count_recent_events(1),
         "verifier": _verifier_status(),
+        "mesh": mesh_snapshot,
+        "autonomy": autonomy_status,
     }
 
 
@@ -1835,6 +1937,102 @@ def admin_status() -> Response:
     return _admin_response(_admin_status_payload())
 
 
+@app.route("/admin/mesh/status", methods=["GET"])
+def admin_mesh_status() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    _mesh_refresh_from_registry()
+    snapshot = _mesh_snapshot_payload()
+    return _admin_response({"snapshot": snapshot})
+
+
+@app.route("/admin/mesh/voices", methods=["GET"])
+def admin_mesh_voices() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    return _admin_response({"voices": _MESH.voices_status()})
+
+
+@app.route("/admin/mesh/sessions", methods=["GET"])
+def admin_mesh_sessions() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    job_id = request.args.get("job_id")
+    try:
+        limit = int(request.args.get("limit", 50))
+    except ValueError:
+        limit = 50
+    sessions = _MESH.sessions(job_id, limit=limit)
+    return _admin_response({"sessions": sessions})
+
+
+@app.route("/admin/mesh/cycle", methods=["POST"])
+def admin_mesh_cycle() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json(silent=True) or {}
+    jobs_payload = payload.get("jobs") or []
+    jobs: List[MeshJob] = []
+    for entry in jobs_payload:
+        if not isinstance(entry, Mapping):
+            continue
+        job_id = str(entry.get("job_id") or f"manual-{uuid.uuid4().hex[:8]}")
+        script = entry.get("script") or {}
+        prompt = str(entry.get("prompt") or "")
+        priority = int(entry.get("priority") or 1)
+        requirements = entry.get("requirements") or []
+        metadata = entry.get("metadata") or {}
+        jobs.append(
+            MeshJob(
+                job_id=job_id,
+                script=script if isinstance(script, Mapping) else {},
+                prompt=prompt,
+                priority=priority,
+                requirements=requirements,
+                metadata=metadata if isinstance(metadata, Mapping) else {},
+            )
+        )
+    _mesh_refresh_from_registry()
+    snapshot = _MESH.cycle(jobs)
+    payload = _mesh_snapshot_payload(snapshot)
+    _broadcast_mesh_update(payload)
+    return _admin_response({"snapshot": payload})
+
+
+@app.route("/admin/autonomy/status", methods=["GET"])
+def admin_autonomy_status() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    return _admin_response(AUTONOMY.status())
+
+
+@app.route("/admin/autonomy/start", methods=["POST"])
+def admin_autonomy_start() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    AUTONOMY.start()
+    return _admin_response(AUTONOMY.status())
+
+
+@app.route("/admin/autonomy/stop", methods=["POST"])
+def admin_autonomy_stop() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    AUTONOMY.stop()
+    return _admin_response(AUTONOMY.status())
+
+
+@app.route("/admin/autonomy/reflect", methods=["POST"])
+def admin_autonomy_reflect() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    plans = AUTONOMY.reflective_cycle(force=True)
+    _mesh_refresh_from_registry()
+    snapshot = _mesh_snapshot_payload()
+    _broadcast_mesh_update(snapshot)
+    return _admin_response({"plans": plans, "snapshot": snapshot})
+
+
 @app.route("/admin/health", methods=["GET"])
 def admin_health() -> Response:
     if not _admin_authorised():
@@ -2232,6 +2430,13 @@ def reflect_sync() -> Response:
         importance_value = 0.35
     importance_value = max(0.1, min(1.0, importance_value))
     summary["importance"] = importance_value
+    try:
+        trust = getattr(record, "trust_score", 0.0)
+        dream_loop.register_remote_reflection(hostname, summary, trust=trust)
+    except AttributeError:
+        pass
+    except Exception:  # pragma: no cover - defensive
+        LOGGER.debug("[Mesh] failed to register remote reflection", exc_info=True)
     try:
         _REFLECTION_SYNC_LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(_REFLECTION_SYNC_LOG, "a", encoding="utf-8") as handle:
