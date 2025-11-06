@@ -45,6 +45,7 @@ class NodeRecord:
     trust_level: str = "provisional"
     last_seen: float = field(default_factory=lambda: time.time())
     upstream_host: Optional[str] = None
+    last_voice_activity: float = 0.0
 
     def serialise(self) -> Dict[str, object]:
         payload: Dict[str, object] = {
@@ -58,6 +59,7 @@ class NodeRecord:
             "trust_level": self.trust_level,
             "last_seen": self.last_seen,
             "upstream_host": self.upstream_host,
+            "last_voice_activity": self.last_voice_activity,
         }
         return payload
 
@@ -89,6 +91,11 @@ class NodeRecord:
         upstream_host = payload.get("upstream_host")
         if upstream_host is not None:
             upstream_host = str(upstream_host)
+        voice_activity = payload.get("last_voice_activity")
+        try:
+            last_voice_activity = float(voice_activity) if voice_activity is not None else 0.0
+        except (TypeError, ValueError):
+            last_voice_activity = 0.0
         return cls(
             hostname=hostname,
             ip=ip,
@@ -100,6 +107,7 @@ class NodeRecord:
             trust_level=trust_level,
             last_seen=last_seen,
             upstream_host=upstream_host,
+            last_voice_activity=last_voice_activity,
         )
 
     @property
@@ -177,6 +185,7 @@ class NodeRegistry:
         pubkey_fingerprint: Optional[str] = None,
         trust_level: Optional[str] = None,
         upstream_host: Optional[str] = None,
+        last_voice_activity: Optional[float] = None,
     ) -> NodeRecord:
         """Record that ``hostname`` is reachable at ``ip``.
 
@@ -202,12 +211,13 @@ class NodeRegistry:
                     trust_level=trust_level or "provisional",
                     last_seen=timestamp,
                     upstream_host=upstream_host,
+                    last_voice_activity=float(last_voice_activity or 0.0),
                 )
                 self._nodes[hostname] = record
             else:
                 record.ip = ip
                 record.port = port
-                if capabilities:
+                if capabilities is not None:
                     record.capabilities = dict(capabilities)
                 if roles is not None:
                     record.roles = [str(role) for role in roles]
@@ -219,6 +229,11 @@ class NodeRegistry:
                     record.trust_level = trust_level
                 if upstream_host is not None:
                     record.upstream_host = upstream_host
+                if last_voice_activity is not None:
+                    try:
+                        record.last_voice_activity = float(last_voice_activity)
+                    except (TypeError, ValueError):
+                        record.last_voice_activity = record.last_voice_activity
                 record.last_seen = max(timestamp, record.last_seen)
             self._save()
             return record
@@ -249,7 +264,8 @@ class NodeRegistry:
         self.prune()
         required_roles = {str(role) for role in roles or []}
         with self._lock:
-            for record in sorted(self._nodes.values(), key=lambda r: r.last_seen, reverse=True):
+            candidates = []
+            for record in self._nodes.values():
                 if self._local_hostname and record.hostname == self._local_hostname:
                     continue
                 if record.trust_level == "blocked":
@@ -260,6 +276,15 @@ class NodeRegistry:
                     continue
                 if required_roles and not (required_roles & set(record.roles)):
                     continue
+                candidates.append(record)
+            candidates.sort(
+                key=lambda rec: (
+                    -(rec.last_voice_activity or 0.0),
+                    rec.trust_level != "trusted",
+                    -rec.last_seen,
+                )
+            )
+            for record in candidates:
                 yield record
 
     def get(self, hostname: str) -> Optional[NodeRecord]:
@@ -282,6 +307,15 @@ class NodeRegistry:
             if not record:
                 return None
             record.token_hash = token_hash
+            self._save()
+            return record
+
+    def record_voice_activity(self, hostname: str, *, timestamp: Optional[float] = None) -> Optional[NodeRecord]:
+        with self._lock:
+            record = self._nodes.get(hostname)
+            if record is None:
+                return None
+            record.last_voice_activity = float(timestamp or time.time())
             self._save()
             return record
 

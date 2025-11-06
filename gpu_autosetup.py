@@ -73,6 +73,54 @@ def install_llama_cpp(backend: str) -> None:
     )
 
 
+def _ensure_faster_whisper_cuda(index_url: str | None = None) -> None:
+    """Install the CUDA wheels for faster-whisper when explicitly requested."""
+
+    if os.getenv("GPU_AUTOINSTALL", "0") != "1":
+        _log("stt_install=skipped")
+        return
+    url = index_url or os.getenv("FASTER_WHISPER_INDEX_URL") or "https://download.pytorch.org/whl/cu118"
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "faster-whisper",
+        "--extra-index-url",
+        url,
+    ]
+    _log("stt_install=" + " ".join(command))
+    subprocess.run(command, check=False)
+
+
+def configure_stt(
+    preferred_impl: str | None = None,
+    model_size: str | None = None,
+) -> dict[str, str]:
+    """Determine the optimal speech-to-text backend for the current node."""
+
+    backend, description = detect_gpu()
+    impl = (preferred_impl or os.getenv("STT_IMPL") or "faster-whisper").lower()
+    size = (model_size or os.getenv("STT_MODEL_SIZE") or "small").lower()
+    device = "cpu"
+    if backend in {"cuda", "rocm"}:
+        device = backend
+    elif backend == "metal":
+        device = "metal"
+    if impl == "faster-whisper" and backend == "cuda":
+        _ensure_faster_whisper_cuda()
+    result = {
+        "impl": impl,
+        "model_size": size,
+        "device": device,
+        "backend": backend,
+        "description": description,
+    }
+    _log("stt_config=" + json.dumps(result))
+    return result
+
+
 if __name__ == "__main__":
     _log(f"platform={platform.platform()}")
     _log(f"python={sys.version.split()[0]}")
@@ -94,3 +142,6 @@ if __name__ == "__main__":
             for key in ("SENTIENTOS_HEADLESS", "LUMOS_AUTO_APPROVE")
         )
     )
+
+
+__all__ = ["detect_gpu", "install_llama_cpp", "configure_stt"]

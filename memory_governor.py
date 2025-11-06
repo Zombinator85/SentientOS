@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, List
@@ -31,6 +32,9 @@ _VALID_CATEGORIES = {
 
 def _now() -> _dt.datetime:
     return _dt.datetime.utcnow().replace(tzinfo=_dt.timezone.utc)
+
+
+_LAST_REFLECTION: "ReflectionSummary | None" = None
 
 
 def _parse_timestamp(value: str | None) -> _dt.datetime:
@@ -199,6 +203,39 @@ def remember(entry: dict, *, importance: float | None = None) -> dict | str:
     return normalised
 
 
+def remember_voice_session(
+    summary: str,
+    *,
+    emotions: dict | None = None,
+    importance: float = 0.4,
+    meta: dict | None = None,
+) -> dict | str:
+    """Capture a voice session summary in encrypted storage when available."""
+
+    summary_text = (summary or "").strip()
+    if not summary_text or _incognito_enabled():
+        return ""
+
+    fragment = {
+        "id": uuid.uuid4().hex,
+        "text": summary_text,
+        "summary": summary_text,
+        "category": "voice_session",
+        "tags": ["voice_session"],
+        "importance": importance,
+        "emotions": emotions or {},
+        "meta": dict(meta or {}),
+        "timestamp": _now().isoformat(),
+        "source": "voice",
+    }
+
+    if secure_store.is_enabled():
+        secure_store.save_fragment(fragment)
+        return fragment
+
+    return remember(fragment, importance=importance)
+
+
 @dataclass
 class ReflectionSummary:
     updated: int
@@ -305,13 +342,50 @@ def reflect() -> ReflectionSummary:
                     pass
                 trimmed += 1
 
-    return ReflectionSummary(updated=updated, trimmed_snapshots=trimmed)
+    global _LAST_REFLECTION
+    summary = ReflectionSummary(updated=updated, trimmed_snapshots=trimmed)
+    _LAST_REFLECTION = summary
+    return summary
+
+
+def _category_counts(limit: int = 500) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    if secure_store.is_enabled():
+        iterator = secure_store.iterate_plaintext(limit=limit)
+    else:
+        iterator = mm.iter_fragments(limit=limit, reverse=True)
+    for entry in iterator:
+        category = str(entry.get("category") or "event")
+        counts[category] = counts.get(category, 0) + 1
+    return counts
+
+
+def metrics(limit: int = 500) -> dict[str, object]:
+    """Expose summary metrics for administrative dashboards."""
+
+    counts = _category_counts(limit=limit)
+    total = sum(counts.values())
+    reflection_summary: dict[str, int] | None = None
+    if _LAST_REFLECTION is not None:
+        reflection_summary = {
+            "updated": _LAST_REFLECTION.updated,
+            "trimmed_snapshots": _LAST_REFLECTION.trimmed_snapshots,
+        }
+    return {
+        "total": total,
+        "categories": counts,
+        "secure_store": secure_store.is_enabled(),
+        "incognito": _incognito_enabled(),
+        "last_reflection": reflection_summary,
+    }
 
 
 __all__ = [
     "recall",
     "remember",
+    "remember_voice_session",
     "reflect",
+    "metrics",
     "combine_emotions",
     "dominant_emotion",
     "ReflectionSummary",

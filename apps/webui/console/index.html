@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SentientOS Console</title>
+    <link rel="manifest" href="/webui/pwa/manifest.webmanifest" />
+    <link rel="stylesheet" href="console.css" />
+  </head>
+  <body>
+    <header>
+      <h1>SentientOS Admin Console</h1>
+      <p class="subtitle">Monitor nodes, memory and health at a glance.</p>
+      <nav>
+        <a href="#overview">Overview</a>
+        <a href="#nodes">Nodes</a>
+        <a href="#memory">Memory</a>
+        <a href="#health">Health</a>
+      </nav>
+    </header>
+    <main>
+      <section id="overview">
+        <h2>Overview</h2>
+        <div id="overview-grid" class="grid"></div>
+      </section>
+      <section id="nodes">
+        <h2>Nodes</h2>
+        <table id="nodes-table">
+          <thead>
+            <tr>
+              <th>Hostname</th>
+              <th>Trust</th>
+              <th>Capabilities</th>
+              <th>Voice Activity</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+      <section id="memory">
+        <h2>Memory</h2>
+        <div id="memory-info"></div>
+      </section>
+      <section id="health">
+        <h2>Health</h2>
+        <div id="health-checks"></div>
+      </section>
+    </main>
+    <footer>
+      <button id="install-button" hidden>Install Console</button>
+    </footer>
+    <script src="console.js" type="module"></script>
+  </body>
+</html>

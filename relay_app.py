@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import ipaddress
 import json
 import logging
 import os
+import secrets
 import socket
 import time
 from pathlib import Path
@@ -35,7 +38,9 @@ from api import actuator
 from emotions import empty_emotion_vector
 from memory_manager import write_mem
 from utils import chunk_message
+import mem_admin
 import mem_export
+import memory_governor as governor
 import secure_memory_storage as secure_store
 from safety_log import count_recent_events
 import dream_loop
@@ -43,9 +48,14 @@ import dream_loop
 import requests
 
 from distributed_memory import encode_payload, synchronizer
+from gpu_autosetup import configure_stt
 from node_discovery import discovery
 from node_registry import NODE_TOKEN, RoundRobinRouter, registry
 from pairing_service import pairing_service
+from stt_service import StreamingTranscriber
+from tts_service import TtsStreamer
+from watchdog_service import WatchdogService
+from webrtc_bridge import WebRTCSessionManager
 
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
@@ -63,8 +73,47 @@ _WEBUI_ROOT = Path(os.getenv("WEBUI_ROOT", "apps/webui"))
 if not _WEBUI_ROOT.is_absolute():
     _WEBUI_ROOT = Path.cwd() / _WEBUI_ROOT
 _WEBUI_AUTH_MODE = os.getenv("WEBUI_AUTH_MODE", "cookie").lower()
+_PROCESS_START = time.time()
+_CONSOLE_ENABLED = os.getenv("CONSOLE_ENABLED", "0") != "0"
+_VOICE_ENABLED = os.getenv("VOICE_ENABLED", "0") != "0"
+_ADMIN_TTL = max(60, int(float(os.getenv("ADMIN_SESSION_TTL_MIN", "120")) * 60))
+_CSRF_ENABLED = os.getenv("CSRF_ENABLED", "0") != "0"
+_ADMIN_ALLOWLIST_RAW = [
+    entry.strip()
+    for entry in (os.getenv("ADMIN_ALLOWLIST") or "127.0.0.1/32").split(",")
+    if entry.strip()
+]
+_ADMIN_ALLOWLIST: list = []
+for entry in _ADMIN_ALLOWLIST_RAW:
+    try:
+        _ADMIN_ALLOWLIST.append(ipaddress.ip_network(entry, strict=False))
+    except ValueError:
+        logging.warning("[Admin] Ignoring invalid CIDR entry: %s", entry)
+
+_CONSOLE_ROOT = (_WEBUI_ROOT / "console").resolve()
+_PWA_ROOT = (_WEBUI_ROOT / "pwa").resolve()
+
+try:
+    _ICE_SERVERS = json.loads(os.getenv("WEBRTC_ICE_SERVERS", "[]"))
+    if not isinstance(_ICE_SERVERS, list):
+        _ICE_SERVERS = []
+except json.JSONDecodeError:
+    _ICE_SERVERS = []
 
 NODE_ROUTER = RoundRobinRouter(registry)
+
+
+WATCHDOG = WatchdogService(interval=float(os.getenv("WATCHDOG_INTERVAL_S", "5")))
+if _VOICE_ENABLED:
+    _STT_CONFIG = configure_stt()
+    _STT_PIPELINE = StreamingTranscriber(vad_sensitivity=float(os.getenv("VAD_SENSITIVITY", "0.6")))
+    _TTS_PIPELINE = TtsStreamer(voice=os.getenv("TTS_VOICE", "en_US-amy-medium"))
+    _WEBRTC_MANAGER = WebRTCSessionManager(ttl_seconds=_ADMIN_TTL, ice_servers=_ICE_SERVERS)
+else:
+    _STT_CONFIG = None
+    _STT_PIPELINE = None
+    _TTS_PIPELINE = None
+    _WEBRTC_MANAGER = None
 
 
 def _local_node_id() -> str:
@@ -84,6 +133,42 @@ def _build_remote_headers(*, include_secret: bool = True) -> Dict[str, str]:
     if node_id:
         headers[_NODE_ID_HEADER] = node_id
     return headers
+
+
+class _CsrfManager:
+    def __init__(self, enabled: bool, ttl_seconds: int) -> None:
+        self.enabled = enabled
+        self._ttl = ttl_seconds
+        self._tokens: Dict[str, float] = {}
+
+    def issue(self) -> str:
+        if not self.enabled:
+            return ""
+        token = secrets.token_urlsafe(32)
+        self._tokens[token] = time.time() + self._ttl
+        self._prune()
+        return token
+
+    def validate(self, token: Optional[str]) -> bool:
+        if not self.enabled:
+            return True
+        if not token:
+            return False
+        self._prune()
+        expiry = self._tokens.get(token)
+        if not expiry or expiry < time.time():
+            self._tokens.pop(token, None)
+            return False
+        return True
+
+    def _prune(self) -> None:
+        now = time.time()
+        for token, expiry in list(self._tokens.items()):
+            if expiry < now:
+                self._tokens.pop(token, None)
+
+
+_csrf_manager = _CsrfManager(_CSRF_ENABLED, _ADMIN_TTL)
 
 
 def _proxy_remote_json(path: str, payload: Dict[str, Any], *, capability: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -126,6 +211,127 @@ def _is_authorised_for_node_routes() -> bool:
     if header_session and pairing_service.validate_session(header_session):
         return True
     return False
+
+
+def _remote_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or "127.0.0.1"
+
+
+def _ip_allowed(ip_address: str) -> bool:
+    if not _ADMIN_ALLOWLIST:
+        return True
+    try:
+        addr = ipaddress.ip_address(ip_address)
+    except ValueError:
+        return False
+    return any(addr in network for network in _ADMIN_ALLOWLIST)
+
+
+def _admin_authorised(*, require_csrf: bool = False) -> bool:
+    if not _CONSOLE_ENABLED:
+        return False
+    if not _ip_allowed(_remote_ip()):
+        return False
+    if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
+        return False
+    if require_csrf and not _csrf_manager.validate(request.headers.get("X-CSRF-Token")):
+        return False
+    return True
+
+
+def _admin_response(payload: Dict[str, Any]) -> Response:
+    body = dict(payload)
+    token = _csrf_manager.issue()
+    if token:
+        body.setdefault("csrf_token", token)
+    response = jsonify(body)
+    if not hasattr(response, "headers"):
+        response = Response(response, status=200)
+        if hasattr(response, "headers"):
+            response.headers["Content-Type"] = "application/json"
+    if token and hasattr(response, "headers"):
+        response.headers["X-CSRF-Token"] = token
+    return response
+
+
+def _gpu_status() -> Dict[str, Any]:
+    if _STT_CONFIG:
+        return {"backend": _STT_CONFIG.get("backend"), "description": _STT_CONFIG.get("description")}
+    return {"backend": "cpu", "description": "CPU"}
+
+
+def _memory_summary() -> Dict[str, Any]:
+    metrics = governor.metrics()
+    metrics["secure_store"] = secure_store.is_enabled()
+    return metrics
+
+
+def _admin_status_payload() -> Dict[str, Any]:
+    metrics = _memory_summary()
+    status = dream_loop.status()
+    pending_goals = metrics.get("categories", {}).get("goal", 0)
+    return {
+        "role": _ROLE,
+        "model": os.getenv("SENTIENTOS_MODEL", "unknown"),
+        "backend": os.getenv("SENTIENTOS_BACKEND", "local"),
+        "uptime_seconds": time.time() - _PROCESS_START,
+        "dream_loop": status,
+        "pending_goals": pending_goals,
+        "mem_entries": metrics.get("total", 0),
+        "webui_enabled": _WEBUI_ENABLED,
+        "gpu": _gpu_status(),
+        "watchdog": WATCHDOG.snapshot(),
+        "voice": _STT_CONFIG or {},
+        "safety_events_1h": count_recent_events(1),
+    }
+
+
+def _guess_mimetype(name: str, default: str = "text/plain") -> str:
+    if name.endswith(".js"):
+        return "text/javascript"
+    if name.endswith(".css"):
+        return "text/css"
+    if name.endswith(".html"):
+        return "text/html"
+    if name.endswith(".webmanifest"):
+        return "application/manifest+json"
+    if name.endswith(".json"):
+        return "application/json"
+    if name.endswith(".png"):
+        return "image/png"
+    return default
+
+
+def _serve_static(root: Path, asset: str, *, default_mimetype: str = "text/plain") -> Response:
+    candidate = (root / asset).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return Response("Not Found", status=404)
+    if not candidate.exists() or not candidate.is_file():
+        return Response("Not Found", status=404)
+    data = candidate.read_bytes()
+    mimetype = _guess_mimetype(asset, default_mimetype)
+    try:
+        return Response(data, status=200, mimetype=mimetype)
+    except TypeError:
+        response = Response(data, status=200)
+        if hasattr(response, "headers"):
+            response.headers["Content-Type"] = mimetype
+        return response
+
+
+def _sanitise_memories(entries: list[dict], *, decrypt: bool) -> list[dict]:
+    cleaned: list[dict] = []
+    for entry in entries:
+        data = dict(entry)
+        if not decrypt:
+            data.pop("text", None)
+        cleaned.append(data)
+    return cleaned
 
 
 def _incognito_enabled() -> bool:
@@ -209,6 +415,25 @@ def webui_root() -> Response:
         return resp
 
 
+@app.route("/console", methods=["GET"])
+def console_root() -> Response:
+    if not _CONSOLE_ENABLED:
+        return Response("Console disabled", status=404)
+    return _serve_static(_CONSOLE_ROOT, "index.html", default_mimetype="text/html")
+
+
+@app.route("/console/<path:asset>", methods=["GET"])
+def console_asset(asset: str) -> Response:
+    if not _CONSOLE_ENABLED:
+        return Response("Console disabled", status=404)
+    return _serve_static(_CONSOLE_ROOT, asset)
+
+
+@app.route("/webui/pwa/<path:asset>", methods=["GET"])
+def pwa_asset(asset: str) -> Response:
+    return _serve_static(_PWA_ROOT, asset)
+
+
 @app.route("/webui/<path:asset>", methods=["GET"])
 def webui_asset(asset: str) -> Response:
     if not _WEBUI_ENABLED:
@@ -251,6 +476,144 @@ def nodes_list_ui() -> Response:
     return jsonify({"nodes": registry.active_nodes(), "capabilities": registry.capability_map()})
 
 
+@app.route("/admin/status", methods=["GET"])
+def admin_status() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    return _admin_response(_admin_status_payload())
+
+
+@app.route("/admin/health", methods=["GET"])
+def admin_health() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    payload = {
+        "watchdog": WATCHDOG.snapshot(),
+        "voice": {"enabled": _VOICE_ENABLED, "config": _STT_CONFIG},
+        "safety_events_1h": count_recent_events(1),
+    }
+    return _admin_response(payload)
+
+
+@app.route("/admin/nodes", methods=["GET"])
+def admin_nodes() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    nodes = registry.active_nodes()
+    groups: Dict[str, list[Dict[str, Any]]] = {"trusted": [], "provisional": [], "blocked": []}
+    for record in nodes:
+        level = str(record.get("trust_level", "provisional"))
+        groups.setdefault(level, []).append(record)
+    payload = {
+        "nodes": nodes,
+        "groups": groups,
+        "capabilities": registry.capability_map(),
+    }
+    return _admin_response(payload)
+
+
+@app.route("/admin/memory/summary", methods=["GET"])
+def admin_memory_summary() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    return _admin_response(_memory_summary())
+
+
+@app.route("/admin/memory/recall", methods=["POST"])
+def admin_memory_recall() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    query = payload.get("query")
+    try:
+        k = max(1, int(payload.get("k", 5)))
+    except (TypeError, ValueError):
+        k = 5
+    decrypt = bool(payload.get("decrypt"))
+    memories = governor.recall(query, k=k)
+    return jsonify({"memories": _sanitise_memories(memories, decrypt=decrypt)})
+
+
+@app.route("/admin/nodes/<hostname>/trust", methods=["POST"])
+def admin_nodes_trust(hostname: str) -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    level = str(payload.get("level") or payload.get("trust_level") or "trusted").strip()
+    record = registry.set_trust_level(hostname, level)
+    if not record:
+        return jsonify({"error": "node not found"}), 404
+    return jsonify(record.serialise())
+
+
+@app.route("/admin/nodes/<hostname>/block", methods=["POST"])
+def admin_nodes_block(hostname: str) -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    record = registry.set_trust_level(hostname, "blocked")
+    if not record:
+        return jsonify({"error": "node not found"}), 404
+    return jsonify(record.serialise())
+
+
+@app.route("/admin/nodes/<hostname>/rekey", methods=["POST"])
+def admin_nodes_rekey(hostname: str) -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    token = str(payload.get("token") or payload.get("node_token") or "").strip()
+    if not token:
+        return jsonify({"error": "token required"}), 400
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    record = registry.store_token(hostname, digest)
+    if not record:
+        return jsonify({"error": "node not found"}), 404
+    return jsonify({"stored": True, "hostname": hostname})
+
+
+@app.route("/admin/rotate-keys", methods=["POST"])
+def admin_rotate_keys() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    result = mem_admin.rotate_keys()
+    return jsonify(result)
+
+
+@app.route("/webrtc/create", methods=["POST"])
+def webrtc_create() -> Response:
+    if not _VOICE_ENABLED or _WEBRTC_MANAGER is None:
+        return Response("Voice disabled", status=404)
+    if not _authorised_for_ui():
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    offer = payload.get("offer")
+    if not isinstance(offer, dict):
+        return jsonify({"error": "offer required"}), 400
+    try:
+        session = _WEBRTC_MANAGER.create_session(offer, token=request.headers.get(_NODE_HEADER))
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    return jsonify(session)
+
+
+@app.route("/webrtc/ice", methods=["POST"])
+def webrtc_add_ice() -> Response:
+    if not _VOICE_ENABLED or _WEBRTC_MANAGER is None:
+        return Response("Voice disabled", status=404)
+    if not _authorised_for_ui():
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    session_id = str(payload.get("session_id") or "").strip()
+    candidate = payload.get("candidate")
+    if not session_id or not isinstance(candidate, dict):
+        return jsonify({"error": "session_id and candidate required"}), 400
+    try:
+        updated = _WEBRTC_MANAGER.add_ice_candidate(session_id, candidate)
+    except KeyError:
+        return jsonify({"error": "unknown_session"}), 404
+    return jsonify(updated)
+
+
 @app.route("/nodes/trust", methods=["POST"])
 def nodes_trust() -> Response:
     if not _authorised_for_ui():
@@ -278,6 +641,52 @@ def nodes_block() -> Response:
     if not record:
         return jsonify({"error": "node not found"}), 404
     return jsonify(record.serialise())
+
+
+@app.route("/admin/webrtc/sessions", methods=["GET"])
+def admin_webrtc_sessions() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    if _WEBRTC_MANAGER is None:
+        return jsonify({"sessions": []})
+    return _admin_response({"sessions": _WEBRTC_MANAGER.list_sessions()})
+
+
+@app.route("/admin/watchdog", methods=["GET"])
+def admin_watchdog_snapshot() -> Response:
+    if not _admin_authorised():
+        return Response("Forbidden", status=403)
+    return _admin_response(WATCHDOG.snapshot())
+
+
+@app.route("/admin/watchdog/register", methods=["POST"])
+def admin_watchdog_register() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    name = str(payload.get("name") or "").strip()
+    host = payload.get("host")
+    port = payload.get("port")
+    if not name or host is None or port is None:
+        return jsonify({"error": "name, host, port required"}), 400
+
+    def restart() -> None:
+        logging.info("[Watchdog] Restart requested for %s", name)
+
+    WATCHDOG.register_port(name, str(host), int(port), restart=restart)
+    return jsonify({"registered": True, "name": name})
+
+
+@app.route("/admin/watchdog/heartbeat", methods=["POST"])
+def admin_watchdog_heartbeat() -> Response:
+    if not _admin_authorised(require_csrf=True):
+        return Response("Forbidden", status=403)
+    payload = request.get_json() or {}
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name required"}), 400
+    WATCHDOG.report_heartbeat(name)
+    return jsonify({"ack": True, "name": name})
 
 
 @app.route("/pair/start", methods=["POST"])
@@ -497,6 +906,35 @@ def status() -> Response:
     return jsonify(payload)
 
 
+@app.route("/health/status", methods=["GET"])
+def health_status() -> Response:
+    payload = {
+        "incognito": _incognito_enabled(),
+        "secure_store": secure_store.is_enabled(),
+        "watchdog": None,
+        "console": {"enabled": _CONSOLE_ENABLED},
+        "voice": {"enabled": _VOICE_ENABLED},
+    }
+    if _VOICE_ENABLED:
+        payload["voice"]["stt"] = _STT_CONFIG
+    payload["watchdog"] = WATCHDOG.snapshot()
+    return jsonify(payload)
+
+
+@app.route("/dreamloop/status", methods=["GET"])
+def dreamloop_status() -> Response:
+    payload: Dict[str, Any] = {}
+    try:
+        payload.update(dream_loop.status())
+    except Exception:  # pragma: no cover - defensive
+        payload["active"] = False
+    payload["dream_loop_enabled"] = dream_loop.is_enabled()
+    payload["watchdog"] = WATCHDOG.snapshot()
+    payload["console"] = {"enabled": _CONSOLE_ENABLED}
+    payload["voice"] = {"enabled": _VOICE_ENABLED, "config": _STT_CONFIG}
+    return jsonify(payload)
+
+
 @app.route("/act", methods=["POST"])
 def act():
     if _ROLE == "thin":
@@ -671,6 +1109,24 @@ def haptics_state() -> Response:
 def bio_state() -> Response:
     path = get_log_path("bio_events.jsonl", "BIO_LOG")
     return jsonify(_read_last(path))
+
+
+def register_voice_activity(hostname: str, timestamp: float | None = None) -> None:
+    registry.register_or_update(hostname, "127.0.0.1", last_voice_activity=timestamp or time.time())
+
+
+def register_voice_session(summary: str) -> None:
+    fragment = governor.remember_voice_session(summary)
+    if fragment:
+        logging.debug("[Voice] Stored session summary for %s", fragment.get("id"))
+
+
+def register_watchdog_check(name: str, check) -> None:
+    WATCHDOG.register_check(name, check)
+
+
+register_watchdog_check("relay", lambda: (True, None))
+WATCHDOG.register_check("memory", lambda: (secure_store.is_enabled(), None))
 
 
 if __name__ == "__main__":
