@@ -4,12 +4,13 @@ import collections
 import datetime
 import hashlib
 import json
+import logging
 import math
 import os
 from datetime import timezone
 from pathlib import Path
 from threading import RLock
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Union
 
 from tools.storage_policy import (
     StoragePolicyConfig as StoragePolicy,
@@ -27,6 +28,8 @@ if not (os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS
     require_lumos_approval()
 else:
     print("[Lumos] Blessing auto-approved (headless mode).")
+
+LOGGER = logging.getLogger(__name__)
 
 # Vector type can be either an embedding vector or bag-of-words mapping
 Vector = Union[List[float], Dict[str, int]]
@@ -71,6 +74,26 @@ SCREEN_DIGEST_PATH.parent.mkdir(parents=True, exist_ok=True)
 GLOW_DIR.mkdir(parents=True, exist_ok=True)
 DIGEST_DIR.mkdir(parents=True, exist_ok=True)
 HIGHLIGHT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Registered callbacks invoked whenever a new reflection is stored.
+ReflectionListener = Callable[[dict], None]
+_REFLECTION_LISTENERS: list[ReflectionListener] = []
+
+
+def add_reflection_listener(listener: ReflectionListener) -> None:
+    """Register *listener* to be invoked after :func:`save_reflection`."""
+
+    _REFLECTION_LISTENERS.append(listener)
+
+
+def _notify_reflection_listeners(summary: dict) -> None:
+    if not _REFLECTION_LISTENERS:
+        return
+    for listener in list(_REFLECTION_LISTENERS):
+        try:
+            listener(dict(summary))
+        except Exception:  # pragma: no cover - defensive
+            LOGGER.debug("Reflection listener %r failed", listener, exc_info=True)
 
 # --- Importance & forgetting heuristics -------------------------------------
 
@@ -976,6 +999,32 @@ def curate_memory() -> dict[str, Any]:
     return {"removed": removed}
 
 
+def _reflection_headline(summary: Mapping[str, object]) -> str:
+    reason = str(summary.get("reason") or "").strip()
+    if reason:
+        base = reason
+    else:
+        status = str(summary.get("status") or "").strip()
+        base = f"Status: {status}" if status else "Reflection recorded"
+    plugin = str(summary.get("plugin") or "").strip()
+    if plugin and not base.lower().startswith(plugin.lower()):
+        return f"[{plugin}] {base}"
+    return base
+
+
+def _reflection_importance(status: str) -> float:
+    status = status.lower()
+    if status == "completed":
+        return 0.7
+    if status in {"failed", "blocked"}:
+        return 0.45
+    if status in {"needs_review", "stuck"}:
+        return 0.5
+    if status:
+        return 0.4
+    return 0.35
+
+
 def save_reflection(
     *,
     parent: str,
@@ -1007,11 +1056,62 @@ def save_reflection(
         "user": user,
         "plugin": plugin,
     }
-    return append_memory(
+    fragment_id = append_memory(
         json.dumps(reflection, ensure_ascii=False),
         tags=["reflection", plugin],
         source="reflector",
     )
+
+    status = ""
+    result_summary: dict[str, object] | str | None = None
+    if isinstance(result, Mapping):
+        status = str(result.get("status") or "")
+        result_summary = {
+            key: result.get(key)
+            for key in ("status", "error", "critique_step", "details")
+            if key in result and result.get(key) is not None
+        }
+    elif result is not None:
+        result_summary = str(result)[:160]
+
+    intent_summary: dict[str, object] | str | None = None
+    if isinstance(intent, Mapping):
+        subset = {
+            key: intent.get(key)
+            for key in ("type", "summary", "action", "skill")
+            if intent.get(key)
+        }
+        text_hint = intent.get("text") or intent.get("description")
+        if text_hint and "text" not in subset:
+            subset["text"] = str(text_hint)[:160]
+        if subset:
+            intent_summary = subset
+    elif intent:
+        intent_summary = str(intent)[:160]
+
+    summary_payload: dict[str, object] = {
+        "reflection_id": fragment_id,
+        "parent": parent,
+        "plugin": plugin or "core",
+        "user": user or None,
+        "timestamp": reflection["timestamp"],
+        "reason": reason,
+        "status": status or None,
+    }
+    if next_step:
+        summary_payload["next"] = next_step
+    if intent_summary:
+        summary_payload["intent"] = intent_summary
+    if result_summary:
+        summary_payload["result"] = result_summary
+
+    summary_payload["importance"] = _reflection_importance(status)
+    summary_payload["headline"] = _reflection_headline(summary_payload)
+
+    if fragment_id != "incognito":
+        _notify_reflection_listeners(summary_payload)
+
+    return fragment_id
 
 
 def recent_reflections(
