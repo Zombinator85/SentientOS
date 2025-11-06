@@ -21,6 +21,7 @@ import memory_manager as mm
 
 from emotion_utils import combine_emotions, dominant_emotion
 import secure_memory_storage as secure_store
+from node_registry import registry
 
 
 _QUERY_OPERATOR = re.compile(r"^(importance)\s*([<>]=?)\s*([0-9.]+)$", re.IGNORECASE)
@@ -389,13 +390,68 @@ def metrics(limit: int = 500) -> dict[str, object]:
 
 def _verifier_stats() -> dict[str, object]:
     if VerifierStore is None:
-        return {"counts": {}, "proof_counts": {}}
+        return {"counts": {}, "proof_counts": {}, "consensus": {}, "trust": {}}
     try:
         store = VerifierStore.default()
         today = _dt.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=_dt.timezone.utc)
-        return store.stats(since=today.timestamp())
+        stats = store.stats(since=today.timestamp())
+        consensus_index = store.consensus_index()
+        finalized = 0
+        ok = 0
+        diverged = 0
+        inconclusive = 0
+        for entry in consensus_index.values():
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("finalized"):
+                finalized += 1
+                verdict = entry.get("final_verdict")
+                if verdict == "VERIFIED_OK":
+                    ok += 1
+                elif verdict == "DIVERGED":
+                    diverged += 1
+                elif verdict == "INCONCLUSIVE":
+                    inconclusive += 1
+            else:
+                inconclusive += 1
+        stats["consensus"] = {
+            "finalized": finalized,
+            "ok": ok,
+            "diverged": diverged,
+            "inconclusive": inconclusive,
+        }
+        stats["trust"] = _trust_histogram()
+        return stats
     except Exception:  # pragma: no cover - defensive
-        return {"counts": {}, "proof_counts": {}}
+        return {"counts": {}, "proof_counts": {}, "consensus": {}, "trust": {}}
+
+
+def _trust_histogram() -> dict[str, int]:
+    buckets = {
+        "<=-4": 0,
+        "-3..-1": 0,
+        "0": 0,
+        "1..3": 0,
+        ">=4": 0,
+    }
+    try:
+        for record in registry.records():
+            if record.capabilities.get("verifier_capable") is not True:
+                continue
+            score = int(record.trust_score)
+            if score <= -4:
+                buckets["<=-4"] += 1
+            elif -3 <= score <= -1:
+                buckets["-3..-1"] += 1
+            elif score == 0:
+                buckets["0"] += 1
+            elif 1 <= score <= 3:
+                buckets["1..3"] += 1
+            else:
+                buckets[">=4"] += 1
+    except Exception:  # pragma: no cover - defensive
+        return {}
+    return {key: value for key, value in buckets.items() if value}
 
 
 __all__ = [

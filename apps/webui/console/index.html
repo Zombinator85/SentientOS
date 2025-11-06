@@ -83,6 +83,36 @@
       <section id="verifier">
         <h2>Verifier</h2>
         <div class="verifier-overview">
+          <article class="consensus-card" id="consensus-card">
+            <header class="consensus-header">
+              <div>
+                <h3>Consensus</h3>
+                <p id="consensus-job-label">No job selected.</p>
+              </div>
+              <button type="button" id="open-consensus-modal" class="ghost-button">Start Consensus</button>
+            </header>
+            <div class="consensus-progress">
+              <div class="progress-track consensus-track">
+                <div class="progress-fill" id="consensus-progress-fill"></div>
+              </div>
+              <div class="progress-label" id="consensus-progress-label">Waiting for votes</div>
+            </div>
+            <div class="consensus-status">
+              <span class="status-chip" id="consensus-status-chip">Idle</span>
+              <span class="consensus-participants" id="consensus-participants">Participants: –</span>
+            </div>
+            <table id="consensus-table">
+              <thead>
+                <tr>
+                  <th>Participant</th>
+                  <th>Verdict</th>
+                  <th>Proof</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </article>
           <div class="verifier-counts" id="verifier-counts"></div>
           <table id="verifier-table">
             <thead>
@@ -108,6 +138,37 @@
         <div id="health-checks"></div>
       </section>
     </main>
+    <div class="consensus-modal-backdrop" id="consensus-modal" hidden>
+      <div class="consensus-modal">
+        <header>
+          <h3>Start Consensus</h3>
+        </header>
+        <form id="consensus-form">
+          <label>
+            Verification Job
+            <select id="consensus-job" required></select>
+          </label>
+          <div class="consensus-grid">
+            <label>
+              Quorum k
+              <input id="consensus-quorum-k" type="number" min="1" required />
+            </label>
+            <label>
+              Quorum n
+              <input id="consensus-quorum-n" type="number" min="1" required />
+            </label>
+          </div>
+          <label>
+            Participants (comma-separated hostnames, optional)
+            <textarea id="consensus-participants-input" rows="3" placeholder="node-a,node-b"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button type="submit" class="primary-button">Launch</button>
+            <button type="button" id="close-consensus-modal" class="ghost-button">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <footer>
       <button id="install-button" hidden>Install Console</button>
     </footer>

@@ -14,7 +14,20 @@ import time
 from datetime import datetime, timezone
 from typing import Dict, Mapping, Optional
 
-import requests
+from types import SimpleNamespace
+
+try:
+    import requests
+except Exception as exc:  # pragma: no cover - optional dependency
+    logging.getLogger(__name__).warning("[MemorySync] requests unavailable (%s); using stub.", exc)
+
+    class _RequestsStubException(Exception):
+        pass
+
+    def _requests_stub_post(*_args, **_kwargs):
+        raise _RequestsStubException("requests unavailable")
+
+    requests = SimpleNamespace(post=_requests_stub_post, RequestException=_RequestsStubException)
 from dotenv import load_dotenv
 
 import memory_manager as mm

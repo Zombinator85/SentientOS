@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import datetime as _dt
 import ast
+import base64
 import operator
 import hashlib
 import json
@@ -12,7 +13,7 @@ import socket
 import time
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from nacl.signing import SigningKey, VerifyKey
 
@@ -126,6 +127,70 @@ class VerificationReport:
         return payload
 
 
+@dataclass(frozen=True)
+class Vote:
+    job_id: str
+    script_hash: str
+    local_verdict: str
+    proof_hash: Optional[str]
+    merkle_root: Optional[str]
+    metrics: Mapping[str, Any]
+    voter_node: str
+    voter_sig: str
+    ts: float
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "job_id": self.job_id,
+            "script_hash": self.script_hash,
+            "local_verdict": self.local_verdict,
+            "proof_hash": self.proof_hash,
+            "merkle_root": self.merkle_root,
+            "metrics": _as_jsonable(self.metrics),
+            "voter_node": self.voter_node,
+            "voter_sig": self.voter_sig,
+            "ts": self.ts,
+        }
+
+    def digest(self) -> str:
+        payload = {
+            "job_id": self.job_id,
+            "local_verdict": self.local_verdict,
+            "merkle_root": self.merkle_root,
+            "proof_hash": self.proof_hash,
+            "script_hash": self.script_hash,
+            "ts": self.ts,
+            "voter_node": self.voter_node,
+        }
+        return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class ConsensusVerdict:
+    job_id: str
+    script_hash: str
+    quorum_k: int
+    quorum_n: int
+    votes: Sequence[Vote]
+    final_verdict: str
+    merkle_root: Optional[str]
+    bundle_sig: Optional[str]
+    finalized_at: Optional[float]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "job_id": self.job_id,
+            "script_hash": self.script_hash,
+            "quorum_k": self.quorum_k,
+            "quorum_n": self.quorum_n,
+            "votes": [vote.to_dict() for vote in self.votes],
+            "final_verdict": self.final_verdict,
+            "merkle_root": self.merkle_root,
+            "bundle_sig": self.bundle_sig,
+            "finalized_at": self.finalized_at,
+        }
+
+
 class SentientVerifier:
     """Perform deterministic replay of Sentient Script executions."""
 
@@ -144,10 +209,17 @@ class SentientVerifier:
         self._pending = 0
         self._last_verdict: Optional[str] = None
         self._last_error: Optional[str] = None
+        self._register_local_capabilities()
 
     # -- public API ---------------------------------------------------------
 
-    def verify_bundle(self, bundle: Mapping[str, Any]) -> VerificationReport:
+    def verify_bundle(
+        self,
+        bundle: Mapping[str, Any],
+        *,
+        job_id_override: Optional[str] = None,
+        persist_bundle: bool = True,
+    ) -> VerificationReport:
         if not isinstance(bundle, Mapping):
             raise ValueError("bundle must be a mapping")
         self._enforce_limits(bundle)
@@ -156,11 +228,12 @@ class SentientVerifier:
         env = bundle.get("env") or {}
         if not isinstance(env, Mapping):
             env = {}
-        report = self.verify_script(script, claimed_run, env=env)
-        try:
-            self._store.save_bundle(report.job_id, dict(bundle))
-        except Exception:  # pragma: no cover - storage failures should not fail verification
-            pass
+        report = self.verify_script(script, claimed_run, env=env, job_id_override=job_id_override)
+        if persist_bundle:
+            try:
+                self._store.save_bundle(report.job_id, dict(bundle))
+            except Exception:  # pragma: no cover - storage failures should not fail verification
+                pass
         return report
 
     def replay_job(self, job_id: str) -> VerificationReport:
@@ -169,7 +242,7 @@ class SentientVerifier:
             raise ValueError("unknown_job")
         if not isinstance(bundle, Mapping):
             raise ValueError("invalid_bundle")
-        return self.verify_bundle(dict(bundle))
+        return self.verify_bundle(dict(bundle), job_id_override=job_id, persist_bundle=False)
 
     def verify_script(
         self,
@@ -177,11 +250,12 @@ class SentientVerifier:
         run_log: Mapping[str, Any] | None,
         *,
         env: Mapping[str, Any] | None = None,
+        job_id_override: Optional[str] = None,
     ) -> VerificationReport:
         script_payload = self._normalise_script(script)
         env_payload = dict(env or {})
         script_hash = self._script_hash(script_payload)
-        job_id = self._generate_job_id()
+        job_id = job_id_override or self._generate_job_id()
         submitted_at = _utcnow_iso()
         from_node = None
         claimed_steps: List[Dict[str, Any]] = []
@@ -268,6 +342,53 @@ class SentientVerifier:
         report.signer_fingerprint = self._fingerprint
         return report
 
+    def make_vote(self, report: VerificationReport) -> Vote:
+        merkle_root = merkle_root_for_report(report)
+        payload = {
+            "job_id": report.job_id,
+            "script_hash": report.script_hash,
+            "proof_hash": report.proof_hash,
+            "merkle_root": merkle_root,
+        }
+        message = _canonical_json(payload).encode("utf-8")
+        signature = self._signing_key.sign(message).signature
+        voter_sig = base64.b64encode(signature).decode("ascii")
+        metrics: Dict[str, Any] = {
+            "score": report.score,
+            "proof_counts": dict(report.proof_counts),
+            "diffs": len(report.diffs),
+        }
+        vote = Vote(
+            job_id=report.job_id,
+            script_hash=report.script_hash,
+            local_verdict=report.verdict,
+            proof_hash=report.proof_hash,
+            merkle_root=merkle_root,
+            metrics=metrics,
+            voter_node=self._local_hostname(),
+            voter_sig=voter_sig,
+            ts=time.time(),
+        )
+        return vote
+
+    def sign_consensus(self, consensus: ConsensusVerdict, *, timestamp: Optional[float] = None) -> ConsensusVerdict:
+        payload = _consensus_signature_payload(consensus)
+        message = _canonical_json(payload).encode("utf-8")
+        signature = self._signing_key.sign(message).signature
+        bundle_sig = base64.b64encode(signature).decode("ascii")
+        finalised = timestamp if timestamp is not None else time.time()
+        return ConsensusVerdict(
+            job_id=consensus.job_id,
+            script_hash=consensus.script_hash,
+            quorum_k=consensus.quorum_k,
+            quorum_n=consensus.quorum_n,
+            votes=tuple(consensus.votes),
+            final_verdict=consensus.final_verdict,
+            merkle_root=consensus.merkle_root,
+            bundle_sig=bundle_sig,
+            finalized_at=finalised,
+        )
+
     def verify_signature(self, report: Mapping[str, Any]) -> bool:
         signature = report.get("signature")
         if not isinstance(signature, str) or not signature:
@@ -294,6 +415,34 @@ class SentientVerifier:
         try:
             self._registry.apply_verification_outcome(hostname, verdict)
         except AttributeError:
+            pass
+
+    def _register_local_capabilities(self) -> None:
+        try:
+            hostname = self._local_hostname()
+            record = self._registry.get(hostname)
+            capabilities: Dict[str, Any] = {"verifier_capable": True}
+            trust_level = "trusted"
+            ip = "127.0.0.1"
+            port = 5000
+            if record is not None:
+                capabilities.update(record.capabilities)
+                trust_level = record.trust_level
+                ip = record.ip
+                port = record.port
+            capabilities["verifier_pubkey"] = base64.b64encode(self._verify_key.encode()).decode("ascii")
+            self._registry.register_or_update(
+                hostname,
+                ip,
+                port=port,
+                capabilities=capabilities,
+                trust_level=trust_level,
+                pubkey_fingerprint=self._fingerprint,
+                roles=getattr(record, "roles", None),
+            )
+            self._registry.set_local_identity(hostname)
+        except Exception:
+            # Registry updates should not prevent verifier startup.
             pass
 
     def _generate_job_id(self) -> str:
@@ -768,6 +917,200 @@ def _as_jsonable(payload: Any) -> Any:
     if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
         return [_as_jsonable(item) for item in payload]
     return payload
+
+
+def merkle_root_for_report(report: VerificationReport | Mapping[str, Any]) -> Optional[str]:
+    proofs: Sequence[Any]
+    if isinstance(report, VerificationReport):
+        proofs = report.proofs
+    elif isinstance(report, Mapping):
+        proofs_obj = report.get("proofs")
+        if isinstance(proofs_obj, Sequence):
+            proofs = list(proofs_obj)
+        else:
+            proofs = []
+    else:
+        proofs = []
+    leaves: List[bytes] = []
+    for raw in proofs:
+        if isinstance(raw, ProofTrace):
+            step = int(raw.step)
+            status = str(raw.status)
+            digest = raw.post or ""
+        elif isinstance(raw, Mapping):
+            step = int(raw.get("step") or 0)
+            status = str(raw.get("status") or "SKIP")
+            digest = raw.get("post_state_digest")
+            if digest is None:
+                digest = raw.get("post")
+            if digest is None:
+                digest = ""
+        else:
+            continue
+        if digest is None:
+            digest = ""
+        payload = f"{step}|{status}|{digest}".encode("utf-8")
+        leaves.append(hashlib.sha256(payload).digest())
+    if not leaves:
+        return None
+    nodes = leaves
+    while len(nodes) > 1:
+        next_level: List[bytes] = []
+        for i in range(0, len(nodes), 2):
+            left = nodes[i]
+            right = nodes[i + 1] if i + 1 < len(nodes) else nodes[i]
+            digest = hashlib.sha256(left + right).digest()
+            next_level.append(digest)
+        nodes = next_level
+    return nodes[0].hex()
+
+
+def merge_votes(votes: Sequence[Vote], quorum_k: int, quorum_n: int) -> ConsensusVerdict:
+    if quorum_k <= 0 or quorum_n <= 0:
+        raise ValueError("quorum thresholds must be positive")
+    if not votes:
+        raise ValueError("votes required to merge")
+    unique: Dict[str, Vote] = {}
+    for vote in sorted(votes, key=lambda item: (item.voter_node, item.ts)):
+        previous = unique.get(vote.voter_node)
+        if previous is None:
+            unique[vote.voter_node] = vote
+            continue
+        if previous.digest() != vote.digest():
+            raise ValueError(f"conflicting vote for node {vote.voter_node}")
+    deduped = list(unique.values())
+    job_ids = {vote.job_id for vote in deduped}
+    script_hashes = {vote.script_hash for vote in deduped}
+    if len(job_ids) != 1 or len(script_hashes) != 1:
+        raise ValueError("votes reference multiple jobs or scripts")
+    tally: Dict[str, List[Vote]] = {}
+    for vote in deduped:
+        tally.setdefault(vote.local_verdict, []).append(vote)
+    verdict_priority = ["VERIFIED_OK", "DIVERGED", "MISMATCH", "INCONCLUSIVE"]
+    winning_verdict = "INCONCLUSIVE"
+    winning_votes: List[Vote] = []
+    max_count = 0
+    for verdict in verdict_priority:
+        candidates = tally.get(verdict, [])
+        if len(candidates) < quorum_k:
+            continue
+        digest_concat = "".join(sorted(vote.digest() for vote in candidates))
+        count = len(candidates)
+        priority = verdict_priority.index(verdict)
+        replace = False
+        if count > max_count:
+            replace = True
+        elif count == max_count and priority < verdict_priority.index(winning_verdict):
+            replace = True
+        elif count == max_count and verdict == winning_verdict:
+            replace = digest_concat < "".join(sorted(vote.digest() for vote in winning_votes))
+        if replace:
+            max_count = count
+            winning_verdict = verdict
+            winning_votes = sorted(candidates, key=_vote_sort_key)
+    majority_merkle: Optional[str] = None
+    if winning_verdict != "INCONCLUSIVE" and winning_votes:
+        roots = {vote.merkle_root for vote in winning_votes if vote.merkle_root}
+        if len(roots) == 1:
+            majority_merkle = next(iter(roots))
+    ordered_votes = tuple(sorted(deduped, key=_vote_sort_key))
+    return ConsensusVerdict(
+        job_id=job_ids.pop(),
+        script_hash=script_hashes.pop(),
+        quorum_k=quorum_k,
+        quorum_n=quorum_n,
+        votes=ordered_votes,
+        final_verdict=winning_verdict,
+        merkle_root=majority_merkle,
+        bundle_sig=None,
+        finalized_at=None,
+    )
+
+
+def verify_vote_signatures(votes: Sequence[Vote], registry: NodeRegistry) -> bool:
+    for vote in votes:
+        try:
+            verify_key = _load_verify_key_for_node(registry, vote.voter_node)
+        except ValueError:
+            return False
+        if verify_key is None:
+            return False
+        try:
+            signature = base64.b64decode(vote.voter_sig)
+        except Exception:
+            return False
+        message = _canonical_json(_vote_signature_payload(vote)).encode("utf-8")
+        try:
+            verify_key.verify(message, signature)
+        except Exception:
+            return False
+    return True
+
+
+def verify_consensus_signatures(consensus: ConsensusVerdict, registry: NodeRegistry) -> bool:
+    if not verify_vote_signatures(consensus.votes, registry):
+        return False
+    if not consensus.bundle_sig:
+        return True
+    hostname = registry.local_hostname
+    if not hostname:
+        return False
+    verify_key = _load_verify_key_for_node(registry, hostname)
+    if verify_key is None:
+        return False
+    try:
+        signature = base64.b64decode(consensus.bundle_sig)
+    except Exception:
+        return False
+    message = _canonical_json(_consensus_signature_payload(consensus)).encode("utf-8")
+    try:
+        verify_key.verify(message, signature)
+    except Exception:
+        return False
+    return True
+
+
+def _load_verify_key_for_node(registry: NodeRegistry, hostname: str) -> Optional[VerifyKey]:
+    record = registry.get(hostname)
+    if record is None:
+        return None
+    pubkey = record.capabilities.get("verifier_pubkey")
+    if not isinstance(pubkey, str) or not pubkey:
+        return None
+    try:
+        return VerifyKey(base64.b64decode(pubkey))
+    except Exception as exc:  # pragma: no cover - invalid key material
+        raise ValueError("invalid verifier key") from exc
+
+
+def _vote_signature_payload(vote: Vote) -> Mapping[str, Any]:
+    return {
+        "job_id": vote.job_id,
+        "script_hash": vote.script_hash,
+        "proof_hash": vote.proof_hash,
+        "merkle_root": vote.merkle_root,
+    }
+
+
+def _vote_sort_key(vote: Vote) -> Tuple[str, float, str]:
+    return (
+        vote.voter_node,
+        float(vote.ts),
+        vote.digest(),
+    )
+
+
+def _consensus_signature_payload(consensus: ConsensusVerdict) -> Mapping[str, Any]:
+    digests = [vote.digest() for vote in sorted(consensus.votes, key=_vote_sort_key)]
+    return {
+        "job_id": consensus.job_id,
+        "script_hash": consensus.script_hash,
+        "quorum_k": consensus.quorum_k,
+        "quorum_n": consensus.quorum_n,
+        "final_verdict": consensus.final_verdict,
+        "merkle_root": consensus.merkle_root,
+        "votes": digests,
+    }
 
 
 _ALLOWED_BIN_OPS: Dict[type, Any] = {
