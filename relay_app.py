@@ -156,6 +156,24 @@ from council_adapters import DeepSeekVoice, LocalVoice, OpenAIVoice
 from sentient_autonomy import SentientAutonomyEngine
 from sentient_mesh import MeshJob, MeshSnapshot, SentientMesh
 
+
+def _initialise_mesh() -> tuple[SentientMesh, SentientAutonomyEngine]:
+    voices = [LocalVoice()]
+    mesh = SentientMesh(voices=voices)
+    for factory in (DeepSeekVoice, OpenAIVoice):
+        try:
+            mesh.register_voice(factory())
+        except Exception as exc:  # pragma: no cover - optional dependencies
+            logging.getLogger(__name__).debug(
+                "[Mesh] Skipping %s voice: %s", factory.__name__, exc
+            )
+    autonomy = SentientAutonomyEngine(mesh)
+    if os.getenv("SENTIENT_AUTONOMY_ENABLED", "0") == "1":
+        autonomy.start()
+    governor.set_mesh_metrics_provider(mesh.metrics)
+    return mesh, autonomy
+
+
 app = Flask(__name__)
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
@@ -204,25 +222,6 @@ except json.JSONDecodeError:
     _ICE_SERVERS = []
 
 NODE_ROUTER = RoundRobinRouter(registry)
-
-
-def _initialise_mesh() -> tuple[SentientMesh, SentientAutonomyEngine]:
-    voices = [LocalVoice()]
-    mesh = SentientMesh(voices=voices)
-    for factory in (DeepSeekVoice, OpenAIVoice):
-        try:
-            mesh.register_voice(factory())
-        except Exception as exc:  # pragma: no cover - optional dependencies
-            logging.getLogger(__name__).debug(
-                "[Mesh] Skipping %s voice: %s", factory.__name__, exc
-            )
-    autonomy = SentientAutonomyEngine(mesh)
-    if os.getenv("SENTIENT_AUTONOMY_ENABLED", "0") == "1":
-        autonomy.start()
-    governor.set_mesh_metrics_provider(mesh.metrics)
-    return mesh, autonomy
-
-
 WATCHDOG = WatchdogService(interval=float(os.getenv("WATCHDOG_INTERVAL_S", "5")))
 if _VOICE_ENABLED:
     _STT_CONFIG = configure_stt()
