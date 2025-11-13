@@ -5,12 +5,17 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from logging_config import get_log_path
-import os
 import json
 import uuid
 import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from sentientos.experiments.criteria_dsl import (
+    CriteriaEvaluationError,
+    CriteriaParseError,
+    evaluate_criteria,
+    parse_criteria,
+)
 
 DATA_FILE = get_log_path("experiments.json", "EXPERIMENTS_FILE")
 AUDIT_FILE = get_log_path("experiment_audit.jsonl", "EXPERIMENT_AUDIT_FILE")
@@ -41,11 +46,50 @@ def _audit(action: str, exp_id: str, **meta: Any) -> None:
         f.write(json.dumps(entry) + "\n")
 
 
+def _snapshot_context(context: Dict[str, Any]) -> Dict[str, Any]:
+    snapshot: Dict[str, Any] = {}
+    for key, value in context.items():
+        if isinstance(value, (int, float, str, bool)) or value is None:
+            snapshot[key] = value
+        else:
+            snapshot[key] = repr(value)
+    return snapshot
+
+
+def _evaluate_experiment_criteria(
+    experiment: Optional[Dict[str, Any]], context: Dict[str, Any]
+) -> Tuple[bool, Optional[str], Optional[str]]:
+    if not isinstance(context, dict):
+        criteria = experiment.get("criteria") if experiment else None
+        return False, criteria, "invalid_context"
+
+    if experiment is None:
+        return False, None, "missing_experiment"
+
+    criteria = experiment.get("criteria")
+    if not criteria:
+        return False, None, "no_criteria"
+
+    try:
+        parsed = parse_criteria(str(criteria))
+    except CriteriaParseError as exc:
+        return False, str(criteria), f"parse_error: {exc}"
+
+    try:
+        result = bool(evaluate_criteria(parsed, context))
+        return result, str(criteria), None
+    except CriteriaEvaluationError as exc:
+        return False, str(criteria), f"evaluation_error: {exc}"
+    except Exception as exc:  # pragma: no cover - defensive
+        return False, str(criteria), f"unexpected_error: {exc}"
+
+
 def auto_propose_experiment(
     description: str,
     conditions: str,
     expected: str,
     *,
+    criteria: Optional[str] = None,
     signals: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Programmatically create and immediately activate an experiment."""
@@ -54,6 +98,7 @@ def auto_propose_experiment(
         conditions,
         expected,
         proposer="auto",
+        criteria=criteria,
     )
     update_status(exp_id, "active")
     _audit("auto_propose", exp_id, signals=signals)
@@ -71,6 +116,7 @@ def propose_experiment(
     expected: str,
     *,
     proposer: Optional[str] = None,
+    criteria: Optional[str] = None,
 ) -> str:
     exp_id = uuid.uuid4().hex[:8]
     data = _load()
@@ -85,6 +131,8 @@ def propose_experiment(
         "triggers": 0,
         "success": 0,
     }
+    if criteria:
+        info["criteria"] = criteria
     data.append(info)
     _save(data)
     _audit("propose", exp_id, by=proposer)
@@ -103,6 +151,12 @@ def get_experiment(exp_id: str) -> Optional[Dict[str, Any]]:
         if e.get("id") == exp_id:
             return e
     return None
+
+
+def evaluate_experiment_success(exp_id: str, context: Dict[str, Any]) -> bool:
+    experiment = get_experiment(exp_id)
+    result, _, _ = _evaluate_experiment_criteria(experiment, context)
+    return result
 
 
 def vote_experiment(exp_id: str, user: str, upvote: bool = True, threshold: int = 2) -> bool:
@@ -150,6 +204,29 @@ def update_status(exp_id: str, status: str) -> bool:
             _audit("status_change", exp_id, status=status)
             return True
     return False
+
+
+def evaluate_and_log_experiment_success(exp_id: str, context: Dict[str, Any]) -> bool:
+    experiment = get_experiment(exp_id)
+    result, criteria, error = _evaluate_experiment_criteria(experiment, context)
+
+    if isinstance(context, dict):
+        context_snapshot: Any = _snapshot_context(context)
+    else:
+        context_snapshot = repr(context)
+
+    meta: Dict[str, Any] = {
+        "criteria": criteria,
+        "context": context_snapshot,
+        "result": result,
+    }
+    if error:
+        meta["error"] = error
+
+    _audit("criteria_evaluation", exp_id, **meta)
+    status = "PASS" if result else "FAIL"
+    print(f"[criteria] Experiment {exp_id}: {status}")
+    return result
 
 
 def record_result(exp_id: str, success: bool) -> bool:
