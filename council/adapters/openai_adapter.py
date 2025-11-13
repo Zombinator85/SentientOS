@@ -7,6 +7,7 @@ require_lumos_approval()
 
 class OpenAIAdapter:
     name = "openai_stub"
+    deterministic = True
     def answer(self, prompt: str) -> str:
         return f"[openai] {prompt}"
     def critique(self, text: str) -> str:

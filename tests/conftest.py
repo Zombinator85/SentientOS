@@ -160,6 +160,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_dashboard_event_stream",
         "tests.test_dashboard_api",
         "tests.test_proof_validity",
+        "tests.test_experiment_adapters",
         "tests.test_hungry_eyes",
         "tests.test_motion_detector",
         "tests.test_mic_monitor",
