@@ -17,14 +17,17 @@ def main() -> None:
     p.add_argument("expected")
     p.add_argument("--criteria")
     p.add_argument("--user")
+    p.add_argument("--requires-consensus", action="store_true")
+    p.add_argument("--quorum-k", type=int)
+    p.add_argument("--quorum-n", type=int)
 
     l = sub.add_parser("list")
     l.add_argument("--status")
 
     v = sub.add_parser("vote")
     v.add_argument("id")
+    v.add_argument("direction", choices=["up", "down"])
     v.add_argument("--user", required=True)
-    v.add_argument("--down", action="store_true")
 
     c = sub.add_parser("comment")
     c.add_argument("id")
@@ -49,20 +52,40 @@ def main() -> None:
             args.expected,
             proposer=args.user,
             criteria=args.criteria,
+            requires_consensus=args.requires_consensus,
+            quorum_k=args.quorum_k,
+            quorum_n=args.quorum_n,
         )
         print(eid)
     elif args.cmd == "list":
         for info in et.list_experiments(args.status):
             rate = info.get("success", 0) / max(1, info.get("triggers", 1))
             dsl_marker = " [DSL]" if info.get("criteria") else ""
+            consensus_marker = ""
+            vote_marker = ""
+            if info.get("requires_consensus"):
+                consensus_marker = " [CONSENSUS]"
+                votes = info.get("votes") or {}
+                approvals = sum(1 for v in votes.values() if v in {"up", True, 1})
+                target = info.get("quorum_n") or info.get("quorum_k") or 0
+                target = max(int(target or 0), 1)
+                vote_marker = f" ({approvals}/{target} votes)"
             print(
                 info["id"],
                 info.get("status"),
                 f"{rate:.2f}",
-                f"{info.get('description', '')}{dsl_marker}",
+                f"{info.get('description', '')}{dsl_marker}{consensus_marker}{vote_marker}",
             )
     elif args.cmd == "vote":
-        et.vote_experiment(args.id, args.user, upvote=not args.down)
+        upvote = args.direction == "up"
+        recorded = et.vote_experiment(args.id, args.user, upvote=upvote)
+        if not recorded:
+            print("Vote rejected or duplicate; no changes recorded.")
+        info = et.get_experiment(args.id)
+        if info:
+            status = info.get("status")
+            if status in {"active", "rejected", "digest_mismatch"}:
+                print(f"Experiment {args.id} is now {status}.")
     elif args.cmd == "comment":
         et.comment_experiment(args.id, args.user, args.text)
     elif args.cmd == "set-status":
