@@ -21,6 +21,9 @@ def experiments() -> object:
             data.get('expected', ''),
             proposer=data.get('user'),
             criteria=data.get('criteria'),
+            requires_consensus=bool(data.get('requires_consensus')),
+            quorum_k=data.get('quorum_k'),
+            quorum_n=data.get('quorum_n'),
         )
         return jsonify({'id': exp_id})
     status = request.args.get('status')
@@ -30,7 +33,8 @@ def experiments() -> object:
 @app.route('/experiments/vote', methods=['POST'])
 def experiments_vote() -> object:
     data = request.get_json() or {}
-    et.vote_experiment(data.get('id', ''), data.get('user', ''), not data.get('down'))
+    direction = data.get('direction') or ('down' if data.get('down') else 'up')
+    et.vote_experiment(data.get('id', ''), data.get('user', ''), direction != 'down')
     return jsonify({'status': 'ok'})
 
 

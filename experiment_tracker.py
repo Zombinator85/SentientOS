@@ -10,6 +10,7 @@ import uuid
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from sentientos.experiments.consensus import compute_experiment_digest
 from sentientos.experiments.criteria_dsl import (
     CriteriaEvaluationError,
     CriteriaParseError,
@@ -117,9 +118,15 @@ def propose_experiment(
     *,
     proposer: Optional[str] = None,
     criteria: Optional[str] = None,
+    requires_consensus: bool = False,
+    quorum_k: Optional[int] = None,
+    quorum_n: Optional[int] = None,
 ) -> str:
     exp_id = uuid.uuid4().hex[:8]
     data = _load()
+    proposed_at = _now()
+    quorum_k_value = quorum_k if quorum_k is not None else 1
+    quorum_n_value = quorum_n if quorum_n is not None else max(quorum_k_value, 1)
     info = {
         "id": exp_id,
         "description": description,
@@ -130,9 +137,15 @@ def propose_experiment(
         "comments": [],
         "triggers": 0,
         "success": 0,
+        "proposer": proposer,
+        "proposed_at": proposed_at,
+        "requires_consensus": bool(requires_consensus),
+        "quorum_k": max(1, quorum_k_value),
+        "quorum_n": max(1, quorum_n_value),
     }
     if criteria:
         info["criteria"] = criteria
+    info["digest"] = compute_experiment_digest(info)
     data.append(info)
     _save(data)
     _audit("propose", exp_id, by=proposer)
@@ -159,22 +172,78 @@ def evaluate_experiment_success(exp_id: str, context: Dict[str, Any]) -> bool:
     return result
 
 
-def vote_experiment(exp_id: str, user: str, upvote: bool = True, threshold: int = 2) -> bool:
+def vote_experiment(
+    exp_id: str,
+    peer_id: str,
+    upvote: bool = True,
+    *,
+    threshold: int = 2,
+) -> bool:
     data = _load()
-    changed = False
+    vote_recorded = False
+    data_changed = False
     for e in data:
-        if e.get("id") == exp_id:
-            votes = e.setdefault("votes", {})
-            votes[user] = 1 if upvote else -1
-            pos = sum(1 for v in votes.values() if v > 0)
-            if pos >= threshold and e.get("status") == "pending":
-                e["status"] = "active"
-            changed = True
-            _audit("vote", exp_id, by=user, value=1 if upvote else -1)
+        if e.get("id") != exp_id:
+            continue
+
+        stored_digest = e.get("digest")
+        computed_digest = compute_experiment_digest(e)
+        if not stored_digest or stored_digest != computed_digest:
+            status = "digest_mismatch"
+            if e.get("status") != status:
+                e["status"] = status
+                _audit("status_change", exp_id, status=status, reason="digest_check")
+                data_changed = True
+            _audit(
+                "vote_rejected",
+                exp_id,
+                by=peer_id,
+                value="up" if upvote else "down",
+                reason="digest_mismatch",
+            )
             break
-    if changed:
+
+        votes = e.setdefault("votes", {})
+        if peer_id in votes:
+            _audit("vote_duplicate", exp_id, by=peer_id)
+            break
+
+        vote_value = "up" if upvote else "down"
+        votes[peer_id] = vote_value
+        vote_recorded = True
+        data_changed = True
+        _audit("vote", exp_id, by=peer_id, value=vote_value)
+
+        if not upvote:
+            if e.get("status") != "rejected":
+                e["status"] = "rejected"
+                _audit("status_change", exp_id, status="rejected", reason="downvote")
+                data_changed = True
+            break
+
+        approvals = sum(
+            1
+            for v in votes.values()
+            if v in {"up", True, 1}
+        )
+
+        if e.get("requires_consensus"):
+            quorum_k = max(1, int(e.get("quorum_k", 1)))
+            # TODO: handle consensus timeout enforcement when federation config arrives.
+            if approvals >= quorum_k and e.get("status") == "pending":
+                e["status"] = "active"
+                _audit("status_change", exp_id, status="active", reason="consensus")
+                data_changed = True
+        else:
+            if approvals >= threshold and e.get("status") == "pending":
+                e["status"] = "active"
+                _audit("status_change", exp_id, status="active", reason="threshold")
+                data_changed = True
+        break
+
+    if data_changed:
         _save(data)
-    return changed
+    return vote_recorded
 
 
 def comment_experiment(exp_id: str, user: str, text: str) -> bool:

@@ -192,6 +192,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_sentient_verifier",
         "tests.test_sentient_verifier_sse",
         "tests.test_sentient_verifier_replay",
+        "tests.test_experiment_consensus",
         "tests.test_verifier_consensus_core",
         "tests.test_verifier_consensus_mesh",
         "tests.test_verifier_consensus_console",
