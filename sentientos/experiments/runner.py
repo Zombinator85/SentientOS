@@ -10,6 +10,7 @@ import experiment_tracker
 from logging_config import get_log_path
 
 from .chain import ExperimentChain, ChainStep
+from sentientos.verify.sentient_verify_loop import execute_experiment_with_adapter
 
 
 ChainProgressCallback = Callable[["ChainStepResult"], None]
@@ -65,20 +66,23 @@ def _log_entry(entry: Dict[str, Any]) -> None:
 def execute_experiment(exp: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a single experiment returning a DSL context."""
 
-    context = exp.get("mock_context")
-    if isinstance(context, dict):
-        return dict(context)
-    return {}
+    context = execute_experiment_with_adapter(exp)
+    return dict(context)
 
 
 def _log_step_result(result: ChainStepResult) -> None:
+    context_snapshot = _snapshot_context(result.context)
     payload = {
         "chain_id": result.chain_id,
         "step_index": result.step_index,
         "experiment_id": result.experiment_id,
         "success": result.success,
-        "context": _snapshot_context(result.context),
+        "context": context_snapshot,
     }
+    if "adapter_name" in context_snapshot:
+        payload["adapter_name"] = context_snapshot["adapter_name"]
+    if "adapter_deterministic" in context_snapshot:
+        payload["adapter_deterministic"] = context_snapshot["adapter_deterministic"]
     if result.error:
         payload["error"] = result.error
     _log_entry(payload)
