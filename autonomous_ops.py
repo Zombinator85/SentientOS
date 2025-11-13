@@ -7,12 +7,10 @@ require_lumos_approval()
 from logging_config import get_log_path
 import json
 import time
-from pathlib import Path
 from typing import Any, Dict, List
 
 import experiment_tracker as et
-import reflex_manager as rm
-from api import actuator
+from sentientos.experiments import hypothesis
 
 
 DATA_STREAMS = [
@@ -70,36 +68,17 @@ def analyze_events(events: List[Dict[str, Any]]) -> None:
         stress = ev.get('stress', 0)
         beta = ev.get('beta', 0)
         if stress > 0.8 and beta > 0.8:
-            exp_id = et.auto_propose_experiment(
-                description='stress beta mitigation',
-                conditions='stress>0.8 & beta>0.8',
-                expected='reduced stress',
-                signals=ev,
-            )
-            rule = rm.ReflexRule(
-                rm.OnDemandTrigger(),
-                [{'type': 'workflow', 'name': 'calm_down'}],
-                name=f'autocalm_{exp_id}',
-            )
-            manager = rm.get_default_manager() or rm.ReflexManager()
-            rm.set_default_manager(manager)
-            manager.auto_generate_rule(rule.trigger, rule.actions, rule.name, signals=ev)
-            actuator.auto_call({'type': 'workflow', 'name': 'calm_down'}, explanation='auto stress mitigation', trace=exp_id)
+            spec = hypothesis.generate_hypothesis(ev)
+            if spec:
+                et.propose_experiment(**spec)
 
 
 def run_loop(interval: float = 60.0) -> None:
-    manager = rm.get_default_manager() or rm.ReflexManager()
-    rm.set_default_manager(manager)
-    manager.start()
-    try:
-        while True:
-            events = scan_streams()
-            if events:
-                analyze_events(events)
-            manager.auto_prune()
-            time.sleep(interval)
-    finally:
-        manager.stop()
+    while True:
+        events = scan_streams()
+        if events:
+            analyze_events(events)
+        time.sleep(interval)
 
 
 if __name__ == '__main__':

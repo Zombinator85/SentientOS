@@ -6,6 +6,7 @@ require_lumos_approval()
 import argparse
 import json
 import experiment_tracker as et
+from sentientos.experiments import hypothesis
 from sentientos.experiments.chain import (
     ChainStep,
     ExperimentChain,
@@ -37,6 +38,9 @@ def main() -> None:
     v.add_argument("id")
     v.add_argument("direction", choices=["up", "down"])
     v.add_argument("--user", required=True)
+
+    sg = sub.add_parser("suggest")
+    sg.add_argument("--event", required=True, help="JSON description of the triggering event")
 
     c = sub.add_parser("comment")
     c.add_argument("id")
@@ -108,6 +112,19 @@ def main() -> None:
                 print(f"Experiment {args.id} is now {status}.")
     elif args.cmd == "comment":
         et.comment_experiment(args.id, args.user, args.text)
+    elif args.cmd == "suggest":
+        try:
+            event = json.loads(args.event)
+            if not isinstance(event, dict):
+                raise ValueError("Event must be a JSON object")
+        except Exception as exc:
+            print(f"Invalid event JSON: {exc}")
+        else:
+            spec = hypothesis.generate_hypothesis(event)
+            if spec:
+                print(json.dumps(spec, indent=2, sort_keys=True))
+            else:
+                print("No hypothesis generated (rate limited or filtered).")
     elif args.cmd == "set-status":
         et.update_status(args.id, args.status)
     elif args.cmd == "eval-criteria":
