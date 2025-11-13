@@ -4,6 +4,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 import argparse
+import json
 import experiment_tracker as et
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
 def main() -> None:
@@ -14,6 +15,7 @@ def main() -> None:
     p.add_argument("description")
     p.add_argument("conditions")
     p.add_argument("expected")
+    p.add_argument("--criteria")
     p.add_argument("--user")
 
     l = sub.add_parser("list")
@@ -33,6 +35,10 @@ def main() -> None:
     s.add_argument("id")
     s.add_argument("status")
 
+    e = sub.add_parser("eval-criteria")
+    e.add_argument("id")
+    e.add_argument("context")
+
     args = parser.parse_args()
     print_banner()
 
@@ -42,18 +48,35 @@ def main() -> None:
             args.conditions,
             args.expected,
             proposer=args.user,
+            criteria=args.criteria,
         )
         print(eid)
     elif args.cmd == "list":
         for info in et.list_experiments(args.status):
             rate = info.get("success", 0) / max(1, info.get("triggers", 1))
-            print(info["id"], info.get("status"), f"{rate:.2f}", info.get("description"))
+            dsl_marker = " [DSL]" if info.get("criteria") else ""
+            print(
+                info["id"],
+                info.get("status"),
+                f"{rate:.2f}",
+                f"{info.get('description', '')}{dsl_marker}",
+            )
     elif args.cmd == "vote":
         et.vote_experiment(args.id, args.user, upvote=not args.down)
     elif args.cmd == "comment":
         et.comment_experiment(args.id, args.user, args.text)
     elif args.cmd == "set-status":
         et.update_status(args.id, args.status)
+    elif args.cmd == "eval-criteria":
+        try:
+            context = json.loads(args.context)
+            if not isinstance(context, dict):
+                raise ValueError("Context JSON must describe an object")
+        except Exception as exc:
+            print(f"Invalid context: {exc}")
+        else:
+            result = et.evaluate_and_log_experiment_success(args.id, context)
+            print("PASS" if result else "FAIL")
     else:
         parser.print_help()
     print_closing()

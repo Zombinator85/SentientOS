@@ -19,7 +19,8 @@ def experiments() -> object:
             data.get('description', ''),
             data.get('conditions', ''),
             data.get('expected', ''),
-            proposer=data.get('user')
+            proposer=data.get('user'),
+            criteria=data.get('criteria'),
         )
         return jsonify({'id': exp_id})
     status = request.args.get('status')
