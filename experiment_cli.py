@@ -6,7 +6,16 @@ require_lumos_approval()
 import argparse
 import json
 import experiment_tracker as et
+from sentientos.experiments.chain import (
+    ChainStep,
+    ExperimentChain,
+    list_chains as list_saved_chains,
+    load_chain,
+    save_chain,
+)
+from sentientos.experiments.runner import run_chain
 from sentient_banner import print_banner, print_closing, ENTRY_BANNER
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=ENTRY_BANNER)
     sub = parser.add_subparsers(dest="cmd")
@@ -41,6 +50,17 @@ def main() -> None:
     e = sub.add_parser("eval-criteria")
     e.add_argument("id")
     e.add_argument("context")
+
+    cn = sub.add_parser("chain-new")
+    cn.add_argument("chain_id")
+    cn.add_argument("sequence")
+    cn.add_argument("--description", default="")
+    cn.add_argument("--max-steps", type=int, default=32)
+
+    cr = sub.add_parser("chain-run")
+    cr.add_argument("chain_id")
+
+    cl = sub.add_parser("chain-list")
 
     args = parser.parse_args()
     print_banner()
@@ -100,6 +120,66 @@ def main() -> None:
         else:
             result = et.evaluate_and_log_experiment_success(args.id, context)
             print("PASS" if result else "FAIL")
+    elif args.cmd == "chain-new":
+        step_ids = [segment.strip() for segment in args.sequence.split(",") if segment.strip()]
+        if not step_ids:
+            print("Chain sequence must include at least one experiment id.")
+        else:
+            steps = {}
+            for idx, step_id in enumerate(step_ids):
+                next_id = step_ids[idx + 1] if idx + 1 < len(step_ids) else None
+                steps[step_id] = ChainStep(id=step_id, on_success=next_id, on_failure=None)
+            try:
+                chain = ExperimentChain(
+                    chain_id=args.chain_id,
+                    description=args.description,
+                    start=step_ids[0],
+                    steps=steps,
+                    max_steps=args.max_steps,
+                )
+            except ValueError as exc:
+                print(f"Failed to create chain: {exc}")
+            else:
+                save_chain(chain)
+                print(f"Chain '{args.chain_id}' saved with {len(step_ids)} steps.")
+    elif args.cmd == "chain-run":
+        chain = load_chain(args.chain_id)
+        if not chain:
+            print(f"Chain '{args.chain_id}' not found.")
+        else:
+            def _progress(step_result):
+                step = chain.steps.get(step_result.experiment_id)
+                if step_result.success is True:
+                    status = "SUCCESS"
+                    next_step = step.on_success if step else None
+                elif step_result.success is False:
+                    status = "FAILURE"
+                    next_step = step.on_failure if step else None
+                else:
+                    status = step_result.error or "SKIPPED"
+                    next_step = None
+
+                if next_step:
+                    print(
+                        f"[chain {chain.chain_id}] step {step_result.step_index}: "
+                        f"{step_result.experiment_id} → {status} → next {next_step}"
+                    )
+                else:
+                    print(
+                        f"[chain {chain.chain_id}] step {step_result.step_index}: "
+                        f"{step_result.experiment_id} → {status} → chain complete"
+                    )
+
+            result = run_chain(chain, progress_callback=_progress)
+            print(f"[chain {chain.chain_id}] outcome: {result.outcome}")
+    elif args.cmd == "chain-list":
+        chains = list(list_saved_chains())
+        if not chains:
+            print("No chains defined.")
+        for chain in chains:
+            print(
+                f"{chain.chain_id}\t{chain.description}\tstart={chain.start}\tsteps={len(chain.steps)}"
+            )
     else:
         parser.print_help()
     print_closing()
