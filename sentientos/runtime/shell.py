@@ -10,6 +10,9 @@ import threading
 from pathlib import Path
 from typing import Dict, Iterable, Mapping, MutableMapping, Optional, Tuple
 
+from sentientos.persona import PersonaLoop, initial_state
+from sentientos.persona_events import collect_recent_events
+
 __all__ = [
     "DEFAULT_RUNTIME_CONFIG",
     "RuntimeShell",
@@ -25,6 +28,12 @@ DEFAULT_RUNTIME_CONFIG: Dict[str, object] = {
     "relay_port": 65432,
     "watchdog_interval": 5.0,
     "windows_mode": True,
+}
+
+DEFAULT_PERSONA_CONFIG: Dict[str, object] = {
+    "enabled": True,
+    "tick_interval_seconds": 60.0,
+    "max_message_length": 200,
 }
 
 
@@ -67,6 +76,8 @@ class RuntimeShell:
             handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
             self._logger.addHandler(handler)
 
+        persona_section = _ensure_persona_config(self._config)
+
         self._process_commands: Dict[str, Tuple[Tuple[str, ...], Dict[str, Optional[object]]]] = {}
         self._processes: Dict[str, subprocess.Popen[bytes]] = {}
         self._stop_event = threading.Event()
@@ -75,6 +86,14 @@ class RuntimeShell:
         self._running = False
         self._watchdog_interval = float(runtime_section.get("watchdog_interval", 5.0))
         self._windows_mode = bool(runtime_section.get("windows_mode", True))
+        self._persona_enabled = bool(persona_section.get("enabled", True))
+        self._persona_tick_interval = float(
+            persona_section.get("tick_interval_seconds", DEFAULT_PERSONA_CONFIG["tick_interval_seconds"])
+        )
+        self._persona_max_message_length = int(
+            persona_section.get("max_message_length", DEFAULT_PERSONA_CONFIG["max_message_length"])
+        )
+        self._persona_loop: Optional[PersonaLoop] = None
         self._log("RuntimeShell initialised", extra=runtime_section)
 
     @property
@@ -96,6 +115,7 @@ class RuntimeShell:
         self.start_llama_server()
         self.start_relay()
         self.start_core()
+        self._start_persona_loop()
         self._monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
         self._monitor_thread.start()
 
@@ -139,6 +159,25 @@ class RuntimeShell:
         self._register_process("autonomous_ops", scheduler_cmd)
         self._log("Core daemons launched", extra={"daemons": list(self._processes.keys())})
 
+    def _start_persona_loop(self) -> None:
+        if not self._persona_enabled:
+            return
+        if not self._persona_loop:
+            self._persona_loop = PersonaLoop(
+                initial_state(),
+                tick_interval_seconds=self._persona_tick_interval,
+                event_source=collect_recent_events,
+                max_message_length=self._persona_max_message_length,
+            )
+        self._persona_loop.start()
+        self._log(
+            "Persona loop launched",
+            extra={
+                "tick_interval_seconds": self._persona_tick_interval,
+                "max_message_length": self._persona_max_message_length,
+            },
+        )
+
     def monitor_processes(self, run_once: bool = False) -> None:
         """Watch managed processes and restart on unexpected exit."""
 
@@ -169,6 +208,9 @@ class RuntimeShell:
         if self._monitor_thread:
             self._monitor_thread.join(timeout=self._watchdog_interval * 2)
             self._monitor_thread = None
+        if self._persona_loop:
+            self._persona_loop.stop()
+            self._persona_loop = None
         with self._lock:
             items = list(self._processes.items())
         for name, process in items:
@@ -233,6 +275,21 @@ def _ensure_runtime_config(config: MutableMapping[str, object]) -> MutableMappin
     return runtime
 
 
+def _ensure_persona_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    persona_section = config.get("persona", {})
+    if not isinstance(persona_section, Mapping):
+        persona_section = {}
+    persona = dict(persona_section)
+    updated = False
+    for key, default in DEFAULT_PERSONA_CONFIG.items():
+        if key not in persona:
+            persona[key] = default
+            updated = True
+    if "persona" not in config or updated:
+        config["persona"] = persona
+    return persona
+
+
 def load_or_init_config(path: Path) -> Dict[str, object]:
     """Load runtime configuration, writing defaults on first run."""
 
@@ -252,7 +309,9 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
     else:
         data = {}
     runtime = _ensure_runtime_config(data)
+    persona = _ensure_persona_config(data)
     data["runtime"] = runtime
+    data["persona"] = persona
     serialized = json.dumps(data, indent=2)
     if existing_text != serialized:
         path.parent.mkdir(parents=True, exist_ok=True)

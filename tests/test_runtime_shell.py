@@ -4,7 +4,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Type
 
 import pytest
 
@@ -55,6 +55,11 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
             "root": str(tmp_path),
         }
     }
+    config["persona"] = {
+        "enabled": True,
+        "tick_interval_seconds": 15.0,
+        "max_message_length": 180,
+    }
     return config
 
 
@@ -72,6 +77,22 @@ def _patch_thread(monkeypatch: pytest.MonkeyPatch) -> None:
             pass
 
     monkeypatch.setattr("sentientos.runtime.shell.threading.Thread", _StubThread)
+
+
+def _patch_persona_loop(monkeypatch: pytest.MonkeyPatch) -> Type[object]:
+    class _StubPersonaLoop:
+        def __init__(self, *args, **kwargs) -> None:
+            self.started = False
+            self.stopped = False
+
+        def start(self) -> None:
+            self.started = True
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    monkeypatch.setattr("sentientos.runtime.shell.PersonaLoop", _StubPersonaLoop)
+    return _StubPersonaLoop
 
 
 def _install_popen_stub(
@@ -105,6 +126,7 @@ def _install_popen_stub(
 
 def test_runtime_shell_startup_order(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
     _patch_thread(monkeypatch)
+    stub_cls = _patch_persona_loop(monkeypatch)
     calls, _ = _install_popen_stub(monkeypatch)
 
     shell = RuntimeShell(runtime_config)
@@ -118,6 +140,8 @@ def test_runtime_shell_startup_order(monkeypatch: pytest.MonkeyPatch, runtime_co
     ]
     assert shell.log_path == Path(runtime_config["runtime"]["root"]) / "logs" / "runtime.log"
     assert shell.runtime_root == Path(runtime_config["runtime"]["root"])
+    assert isinstance(shell._persona_loop, stub_cls)
+    assert shell._persona_loop.started is True
 
     expected_relay_args = [
         "python",
@@ -136,6 +160,7 @@ def test_runtime_shell_startup_order(monkeypatch: pytest.MonkeyPatch, runtime_co
 
 def test_watchdog_restarts_process(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
     _patch_thread(monkeypatch)
+    _patch_persona_loop(monkeypatch)
     calls, processes = _install_popen_stub(monkeypatch)
 
     shell = RuntimeShell(runtime_config)
@@ -157,8 +182,12 @@ def test_config_loader_injects_defaults(tmp_path: Path) -> None:
     for key in DEFAULT_RUNTIME_CONFIG:
         assert key in config["runtime"]
 
+    for key in ("enabled", "tick_interval_seconds", "max_message_length"):
+        assert key in config["persona"]
+
     on_disk = json.loads(config_path.read_text(encoding="utf-8"))
     assert on_disk["runtime"]["windows_mode"] is True
+    assert on_disk["persona"]["enabled"] is True
 
     dirs = ensure_runtime_dirs(config_path.parents[2])
     for expected in ("logs", "models", "config"):
@@ -168,8 +197,28 @@ def test_config_loader_injects_defaults(tmp_path: Path) -> None:
 def test_no_persona_dependency(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
     sys.modules.pop("sentientos.shell", None)
     _patch_thread(monkeypatch)
+    _patch_persona_loop(monkeypatch)
     _, _ = _install_popen_stub(monkeypatch)
     shell = RuntimeShell(runtime_config)
     shell.start()
     assert "sentientos.shell" not in sys.modules
     shell.shutdown()
+
+
+def test_persona_disabled_skips_loop(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
+    runtime_config["persona"]["enabled"] = False
+    _patch_thread(monkeypatch)
+    _patch_persona_loop(monkeypatch)
+    calls, _ = _install_popen_stub(monkeypatch)
+
+    shell = RuntimeShell(runtime_config)
+    shell.start()
+
+    assert shell._persona_loop is None
+    shell.shutdown()
+    assert [name for name, *_ in calls] == [
+        "llama",
+        "relay",
+        "integrity_daemon",
+        "autonomous_ops",
+    ]

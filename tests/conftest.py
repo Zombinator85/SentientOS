@@ -204,6 +204,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_experiment_chain",
         "tests.test_demo_gallery",
         "tests.test_runtime_shell",
+        "tests.test_persona_loop",
     }
     for item in items:
         module_name = item.module.__name__
