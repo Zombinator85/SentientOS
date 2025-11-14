@@ -14,6 +14,7 @@ from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Opti
 
 from sentientos.cathedral import (
     Amendment,
+    AmendmentApplicator,
     CathedralDigest,
     DEFAULT_CATHEDRAL_CONFIG as BASE_CATHEDRAL_CONFIG,
     ReviewResult,
@@ -125,6 +126,7 @@ class RuntimeShell:
         os.environ.setdefault("SENTIENTOS_QUARANTINE_DIR", quarantine_dir)
         self._cathedral_digest = CathedralDigest.from_log(self._cathedral_log_path)
         self._dashboard_notifier: Optional[Callable[[str], None]] = None
+        self._amendment_applicator = AmendmentApplicator(self._config)
 
     @property
     def log_path(self) -> Path:
@@ -161,6 +163,10 @@ class RuntimeShell:
                     "summary": amendment.summary,
                 },
             )
+            apply_result = self._amendment_applicator.apply(amendment)
+            self._config = copy.deepcopy(self._amendment_applicator.runtime_config)
+            self._cathedral_digest = self._cathedral_digest.record_application(amendment, apply_result.status)
+            self._handle_application_result(amendment, apply_result)
         elif status == "quarantined":
             errors = list(result.invariant_errors) + list(result.validation_errors)
             first_error = errors[0] if errors else "Quarantined pending review"
@@ -193,6 +199,50 @@ class RuntimeShell:
             )
 
         return result
+
+    def _handle_application_result(self, amendment: Amendment, apply_result) -> None:
+        status = apply_result.status
+        applied = apply_result.applied
+        skipped = apply_result.skipped
+        errors = apply_result.errors
+
+        if status == "applied":
+            message = f"✅ Amendment {amendment.id} applied"
+        elif status == "partial":
+            message = f"⚠️ Amendment {amendment.id} applied with warnings"
+        elif status == "error":
+            message = f"❌ Amendment {amendment.id} failed to apply"
+        else:
+            message = f"ℹ️ Amendment {amendment.id} made no changes"
+
+        details = {
+            "amendment_id": amendment.id,
+            "status": status,
+            "applied": applied,
+            "skipped": skipped,
+            "errors": errors,
+        }
+        self._log(message, extra=details)
+
+        if self._dashboard_notifier:
+            try:
+                self._dashboard_notifier(message)
+            except Exception:  # pragma: no cover - defensive logging
+                self._log("Failed to notify dashboard", extra={"amendment_id": amendment.id})
+
+        if self._speak_callback is not None:
+            phrase: Optional[str] = None
+            if status == "applied":
+                phrase = "Amendment applied cleanly."
+            elif status == "partial":
+                phrase = "Amendment applied with warnings."
+            elif status == "error":
+                phrase = "Amendment application failed."
+            if phrase:
+                try:
+                    self._speak_callback(phrase)
+                except Exception:  # pragma: no cover - defensive logging
+                    self._log("Failed to emit TTS alert", extra={"amendment_id": amendment.id})
 
     def start(self) -> None:
         """Start all managed services in deterministic order."""

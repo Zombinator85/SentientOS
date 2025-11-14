@@ -26,7 +26,9 @@ def _sample_status(**overrides):
         consensus_mode="single-node",
         last_update_ts=datetime(2024, 5, 20, 12, 0, 0),
         cathedral_accepted=2,
+        cathedral_applied=1,
         cathedral_quarantined=1,
+        last_applied_id="amend-122",
         last_quarantined_id="amend-123",
         last_quarantine_error="Invariant breach",
     )
@@ -59,8 +61,10 @@ def test_console_dashboard_render_includes_status():
     assert "Mixtral-8x7B" in rendered
     assert "mood: calm" in rendered
     assert "Demo step started" in rendered
-    assert "Cathedral: Accepted Amendments: 2" in rendered
-    assert "(last: amend-123)" in rendered
+    assert "Cathedral: Accepted: 2" in rendered
+    assert "Applied: 1" in rendered
+    assert "Last Applied: amend-122" in rendered
+    assert "Last Quarantined: amend-123" in rendered
 
 
 def test_console_dashboard_deterministic_render():
