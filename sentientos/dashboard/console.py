@@ -35,7 +35,9 @@ class DashboardStatus:
     consensus_mode: str
     last_update_ts: datetime
     cathedral_accepted: int = 0
+    cathedral_applied: int = 0
     cathedral_quarantined: int = 0
+    last_applied_id: Optional[str] = None
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
 
@@ -192,11 +194,15 @@ class ConsoleDashboard:
             f"Last: {last_experiment}"
         )
         cathedral_line = (
-            "Cathedral: Accepted Amendments: "
-            f"{status.cathedral_accepted}  |  Quarantined: {status.cathedral_quarantined}"
+            "Cathedral: "
+            f"Accepted: {status.cathedral_accepted}  |  "
+            f"Applied: {status.cathedral_applied}  |  "
+            f"Quarantined: {status.cathedral_quarantined}"
         )
+        if status.last_applied_id:
+            cathedral_line += f"  |  Last Applied: {status.last_applied_id}"
         if status.last_quarantined_id:
-            cathedral_line += f" (last: {status.last_quarantined_id})"
+            cathedral_line += f"  |  Last Quarantined: {status.last_quarantined_id}"
         timestamp = status.last_update_ts.strftime("%Y-%m-%d %H:%M:%S")
 
         lines = [

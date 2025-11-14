@@ -50,6 +50,10 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
     models_dir = data_dir / "models"
     config_dir = data_dir / "config"
     logs_dir = runtime_root / "logs"
+    cathedral_dir = runtime_root / "cathedral"
+    rollback_dir = cathedral_dir / "rollback"
+    for directory in (models_dir, config_dir, logs_dir, cathedral_dir, rollback_dir):
+        directory.mkdir(parents=True, exist_ok=True)
     config = {
         "runtime": {
             **DEFAULT_RUNTIME_CONFIG,
@@ -74,7 +78,11 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
     config["cathedral"] = {
         "review_log": str(runtime_root / "cathedral_review.log"),
         "quarantine_dir": str(runtime_root / "quarantine"),
+        "ledger_path": str(cathedral_dir / "ledger.jsonl"),
+        "rollback_dir": str(rollback_dir),
     }
+    config_path = config_dir / "runtime.json"
+    config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
     return config
 
 
@@ -226,6 +234,8 @@ def test_no_persona_dependency(monkeypatch: pytest.MonkeyPatch, runtime_config: 
 def test_submit_amendment_updates_digest(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object], tmp_path: Path) -> None:
     runtime_config["cathedral"]["review_log"] = str(tmp_path / "review.log")
     runtime_config["cathedral"]["quarantine_dir"] = str(tmp_path / "quarantine")
+    runtime_config["cathedral"]["ledger_path"] = str(tmp_path / "ledger.jsonl")
+    runtime_config["cathedral"]["rollback_dir"] = str(tmp_path / "rollback")
     shell = RuntimeShell(runtime_config)
     notifications: List[str] = []
     shell.register_dashboard_notifier(notifications.append)
@@ -236,13 +246,19 @@ def test_submit_amendment_updates_digest(monkeypatch: pytest.MonkeyPatch, runtim
         id="runtime-clean",
         created_at=datetime(2024, 5, 1, 10, 0, tzinfo=timezone.utc),
         proposer="codex",
-        summary="Update dashboard copy",
-        changes={"actions": ["document_change"]},
-        reason="Aligns output with audit log wording.",
+        summary="Update runtime cadence",
+        changes={
+            "config": {"runtime": {"watchdog_interval": 0.02}},
+            "persona": {"tick_interval_seconds": 12},
+        },
+        reason="Tune runtime loop intervals.",
     )
     clean_result = shell.submit_amendment(clean)
     assert clean_result.status == "accepted"
     assert shell.cathedral_digest.accepted >= 1
+    assert shell.cathedral_digest.applied >= 1
+    assert notifications and notifications[0].startswith("✅ Amendment runtime-clean applied")
+    assert spoken and spoken[0] == "Amendment applied cleanly."
 
     flagged = Amendment(
         id="runtime-unsafe",

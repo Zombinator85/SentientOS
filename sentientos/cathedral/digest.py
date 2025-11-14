@@ -21,6 +21,8 @@ __all__ = [
 DEFAULT_CATHEDRAL_CONFIG = {
     "review_log": str(Path("runtime") / "logs" / "cathedral_review.log"),
     "quarantine_dir": "C:/SentientOS/quarantine",
+    "ledger_path": "C:/SentientOS/cathedral/ledger.jsonl",
+    "rollback_dir": "C:/SentientOS/cathedral/rollback",
 }
 
 
@@ -29,7 +31,9 @@ class CathedralDigest:
     """Aggregated counters derived from review outcomes."""
 
     accepted: int = 0
+    applied: int = 0
     quarantined: int = 0
+    last_applied_id: Optional[str] = None
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
 
@@ -63,12 +67,21 @@ class CathedralDigest:
                                 break
         except OSError:
             return cls()
-        return cls(accepted=accepted, quarantined=quarantined, last_quarantined_id=last_id, last_quarantine_error=last_error)
+        return cls(
+            accepted=accepted,
+            applied=0,
+            quarantined=quarantined,
+            last_applied_id=None,
+            last_quarantined_id=last_id,
+            last_quarantine_error=last_error,
+        )
 
     def to_dict(self) -> dict[str, Optional[str] | int]:
         return {
             "accepted": self.accepted,
+            "applied": self.applied,
             "quarantined": self.quarantined,
+            "last_applied_id": self.last_applied_id,
             "last_quarantined_id": self.last_quarantined_id,
             "last_quarantine_error": self.last_quarantine_error,
         }
@@ -89,6 +102,15 @@ class CathedralDigest:
                 last_quarantine_error=message,
             )
         return self
+
+    def record_application(self, amendment: Amendment, status: str) -> "CathedralDigest":
+        if status not in {"applied", "partial"}:
+            return self
+        return replace(
+            self,
+            applied=self.applied + 1,
+            last_applied_id=amendment.id,
+        )
 
     def timestamp(self) -> str:
         return datetime.now(timezone.utc).isoformat()
