@@ -12,6 +12,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
+from sentientos.cathedral import (
+    Amendment,
+    CathedralDigest,
+    DEFAULT_CATHEDRAL_CONFIG as BASE_CATHEDRAL_CONFIG,
+    ReviewResult,
+    amendment_digest,
+    review_amendment,
+)
 from sentientos.persona import PersonaLoop, initial_state, make_persona_event_source
 from sentientos.persona_events import collect_recent_events
 from sentientos.runtime import bootstrap
@@ -29,6 +37,7 @@ from sentientos.world.sources import (
 __all__ = [
     "DEFAULT_RUNTIME_CONFIG",
     "DEFAULT_DASHBOARD_CONFIG",
+    "DEFAULT_CATHEDRAL_CONFIG",
     "RuntimeShell",
     "ensure_runtime_dirs",
     "load_or_init_config",
@@ -41,6 +50,7 @@ DEFAULT_PERSONA_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["perso
 DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dashboard"])
 DEFAULT_VOICE_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("voice", {}))
 DEFAULT_WORLD_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("world", {}))
+DEFAULT_CATHEDRAL_CONFIG: Dict[str, object] = dict(BASE_CATHEDRAL_CONFIG)
 
 ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 
@@ -69,6 +79,8 @@ class RuntimeShell:
         persona_section = _ensure_persona_config(self._config)
         voice_section = _ensure_voice_config(self._config)
         world_section = _ensure_world_config(self._config)
+        cathedral_section = _ensure_cathedral_config(self._config)
+        self._cathedral_config = dict(cathedral_section)
 
         self._process_commands: Dict[str, Tuple[Tuple[str, ...], Dict[str, Optional[object]]]] = {}
         self._processes: Dict[str, subprocess.Popen[bytes]] = {}
@@ -105,6 +117,15 @@ class RuntimeShell:
         self._configure_voice(voice_section)
         self._log("RuntimeShell initialised", extra=runtime_section)
 
+        review_log = str(cathedral_section.get("review_log") or DEFAULT_CATHEDRAL_CONFIG["review_log"])
+        self._cathedral_log_path = Path(review_log)
+        self._cathedral_log_path.parent.mkdir(parents=True, exist_ok=True)
+        os.environ.setdefault("SENTIENTOS_CATHEDRAL_REVIEW_LOG", str(self._cathedral_log_path))
+        quarantine_dir = str(cathedral_section.get("quarantine_dir") or DEFAULT_CATHEDRAL_CONFIG["quarantine_dir"])
+        os.environ.setdefault("SENTIENTOS_QUARANTINE_DIR", quarantine_dir)
+        self._cathedral_digest = CathedralDigest.from_log(self._cathedral_log_path)
+        self._dashboard_notifier: Optional[Callable[[str], None]] = None
+
     @property
     def log_path(self) -> Path:
         return self._log_path
@@ -116,6 +137,62 @@ class RuntimeShell:
     @property
     def world_bus(self) -> Optional[WorldEventBus]:
         return self._world_bus
+
+    @property
+    def cathedral_digest(self) -> CathedralDigest:
+        return self._cathedral_digest
+
+    def register_dashboard_notifier(self, callback: Optional[Callable[[str], None]]) -> None:
+        self._dashboard_notifier = callback
+
+    def submit_amendment(self, amendment: Amendment) -> ReviewResult:
+        """Run an amendment through the Cathedral review pipeline."""
+
+        result = review_amendment(amendment)
+        self._cathedral_digest = self._cathedral_digest.record(amendment, result)
+
+        status = result.status
+        if status == "accepted":
+            self._log(
+                "Amendment accepted",
+                extra={
+                    "amendment_id": amendment.id,
+                    "digest": amendment_digest(amendment),
+                    "summary": amendment.summary,
+                },
+            )
+        elif status == "quarantined":
+            errors = list(result.invariant_errors) + list(result.validation_errors)
+            first_error = errors[0] if errors else "Quarantined pending review"
+            message = f"⚠️ Amendment {amendment.id} quarantined: {first_error}"
+            self._log(
+                message,
+                extra={
+                    "amendment_id": amendment.id,
+                    "errors": errors,
+                    "quarantine_path": result.quarantine_path,
+                },
+            )
+            if self._dashboard_notifier:
+                try:
+                    self._dashboard_notifier(message)
+                except Exception:  # pragma: no cover - defensive logging
+                    self._log("Failed to notify dashboard", extra={"amendment_id": amendment.id})
+            if self._speak_callback is not None:
+                try:
+                    self._speak_callback("Amendment quarantined due to invariant violation.")
+                except Exception:  # pragma: no cover - defensive logging
+                    self._log("Failed to emit TTS alert", extra={"amendment_id": amendment.id})
+        else:
+            self._log(
+                "Amendment rejected",
+                extra={
+                    "amendment_id": amendment.id,
+                    "errors": list(result.validation_errors) + list(result.invariant_errors),
+                },
+            )
+
+        return result
 
     def start(self) -> None:
         """Start all managed services in deterministic order."""
@@ -525,6 +602,21 @@ def _ensure_dashboard_config(config: MutableMapping[str, object]) -> MutableMapp
     return dashboard
 
 
+def _ensure_cathedral_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    cathedral_section = config.get("cathedral", {})
+    if not isinstance(cathedral_section, Mapping):
+        cathedral_section = {}
+    cathedral = dict(cathedral_section)
+    updated = False
+    for key, default in DEFAULT_CATHEDRAL_CONFIG.items():
+        if key not in cathedral:
+            cathedral[key] = default
+            updated = True
+    if "cathedral" not in config or updated:
+        config["cathedral"] = cathedral
+    return cathedral
+
+
 def load_or_init_config(path: Path) -> Dict[str, object]:
     """Load runtime configuration, writing defaults on first run."""
 
@@ -548,11 +640,13 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
     world = _ensure_world_config(data)
     voice = _ensure_voice_config(data)
     dashboard = _ensure_dashboard_config(data)
+    cathedral = _ensure_cathedral_config(data)
     data["runtime"] = runtime
     data["persona"] = persona
     data["world"] = world
     data["voice"] = voice
     data["dashboard"] = dashboard
+    data["cathedral"] = cathedral
     serialized = json.dumps(data, indent=2)
     if existing_text != serialized:
         config_path.write_text(serialized, encoding="utf-8")

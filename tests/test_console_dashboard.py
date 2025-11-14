@@ -25,6 +25,10 @@ def _sample_status(**overrides):
         last_experiment_result="success",
         consensus_mode="single-node",
         last_update_ts=datetime(2024, 5, 20, 12, 0, 0),
+        cathedral_accepted=2,
+        cathedral_quarantined=1,
+        last_quarantined_id="amend-123",
+        last_quarantine_error="Invariant breach",
     )
     base.update(overrides)
     return DashboardStatus(**base)
@@ -55,6 +59,8 @@ def test_console_dashboard_render_includes_status():
     assert "Mixtral-8x7B" in rendered
     assert "mood: calm" in rendered
     assert "Demo step started" in rendered
+    assert "Cathedral: Accepted Amendments: 2" in rendered
+    assert "(last: amend-123)" in rendered
 
 
 def test_console_dashboard_deterministic_render():

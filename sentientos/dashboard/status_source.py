@@ -173,6 +173,13 @@ def make_status_source(
             mood = persona_state.mood
             last_msg = persona_state.last_reflection
 
+        digest = getattr(shell, "cathedral_digest", None) if shell is not None else None
+        cathedral_cfg = _coerce_mapping(config_mapping.get("cathedral"))
+        accepted = int(getattr(digest, "accepted", cathedral_cfg.get("accepted", 0)) or 0)
+        quarantined = int(getattr(digest, "quarantined", cathedral_cfg.get("quarantined", 0)) or 0)
+        last_q_id = getattr(digest, "last_quarantined_id", cathedral_cfg.get("last_quarantined_id"))
+        last_q_error = getattr(digest, "last_quarantine_error", cathedral_cfg.get("last_quarantine_error"))
+
         return DashboardStatus(
             node_name=node_name,
             model_name=model_name,
@@ -187,6 +194,10 @@ def make_status_source(
             last_experiment_result=experiments.last_result,
             consensus_mode=consensus_mode,
             last_update_ts=now(),
+            cathedral_accepted=accepted,
+            cathedral_quarantined=quarantined,
+            last_quarantined_id=last_q_id if isinstance(last_q_id, str) and last_q_id else None,
+            last_quarantine_error=last_q_error if isinstance(last_q_error, str) else None,
         )
 
     return _status

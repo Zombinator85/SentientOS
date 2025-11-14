@@ -8,6 +8,8 @@ import platform
 from pathlib import Path
 from typing import Dict, Mapping, Optional
 
+from sentientos.cathedral.digest import DEFAULT_CATHEDRAL_CONFIG
+
 _CONFIG_FILENAME = "runtime.json"
 _BASE_ENV_VAR = "SENTIENTOS_BASE_DIR"
 _DEFAULT_MODEL_SUBPATH = Path(
@@ -117,12 +119,15 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         },
     }
 
+    cathedral_defaults: Dict[str, object] = dict(DEFAULT_CATHEDRAL_CONFIG)
+
     return {
         "runtime": runtime_defaults,
         "persona": persona_defaults,
         "world": world_defaults,
         "dashboard": dashboard_defaults,
         "voice": voice_defaults,
+        "cathedral": cathedral_defaults,
     }
 
 
