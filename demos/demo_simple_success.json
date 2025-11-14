@@ -1,0 +1,24 @@
+{
+  "chain_id": "demo_simple_success",
+  "description": "Single-step mock adapter demo that validates a simple DSL criteria.",
+  "start": "demo_simple_step",
+  "max_steps": 4,
+  "steps": {
+    "demo_simple_step": {
+      "experiment": {
+        "description": "Verify mock temperature remains comfortable",
+        "conditions": "Mock adapter warmed and stable",
+        "expected": "Temperature stays above threshold",
+        "adapter": "mock",
+        "action": { "kind": "noop" },
+        "measure": { "kind": "temp_c", "as": "temp_c" },
+        "criteria": "temp_c >= 20.0",
+        "mock_context": {
+          "note": "deterministic baseline"
+        }
+      },
+      "on_success": null,
+      "on_failure": null
+    }
+  }
+}

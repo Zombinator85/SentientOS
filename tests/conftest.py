@@ -202,6 +202,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_sentient_autonomy",
         "tests.test_console_mesh_ui",
         "tests.test_experiment_chain",
+        "tests.test_demo_gallery",
     }
     for item in items:
         module_name = item.module.__name__

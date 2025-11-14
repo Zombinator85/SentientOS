@@ -1,0 +1,61 @@
+{
+  "chain_id": "demo_chain_branch",
+  "description": "Branching mock-adapter demo covering success and recovery paths.",
+  "start": "demo_branch_entry",
+  "max_steps": 6,
+  "steps": {
+    "demo_branch_entry": {
+      "experiment": {
+        "description": "Check baseline temperature before proceeding",
+        "conditions": "Mock adapter idle and ready",
+        "expected": "Temperature meets baseline threshold",
+        "adapter": "mock",
+        "action": { "kind": "noop" },
+        "measure": { "kind": "temp_c", "as": "temp_c" },
+        "criteria": "temp_c >= 21.0",
+        "mock_context": {
+          "stage": "entry"
+        }
+      },
+      "on_success": "demo_branch_success",
+      "on_failure": "demo_branch_recovery"
+    },
+    "demo_branch_success": {
+      "experiment": {
+        "description": "Validate humidity remains controlled",
+        "conditions": "Environment steady after warmup",
+        "expected": "Humidity stays under 60%",
+        "adapter": "mock",
+        "actions": [
+          { "kind": "log", "message": "success-path" }
+        ],
+        "measure": { "kind": "humidity_pct", "as": "humidity_pct" },
+        "criteria": "humidity_pct <= 60.0",
+        "mock_context": {
+          "path": "success"
+        }
+      },
+      "on_success": null,
+      "on_failure": null
+    },
+    "demo_branch_recovery": {
+      "experiment": {
+        "description": "Attempt recovery sequence after low temperature",
+        "conditions": "Mock adapter in recovery mode",
+        "expected": "Recovery reaches safe temperature",
+        "adapter": "mock",
+        "actions": [
+          { "kind": "log", "message": "recovery-path" }
+        ],
+        "measure": { "kind": "temp_c", "as": "temp_c" },
+        "criteria": "temp_c >= 20.5",
+        "mock_context": {
+          "path": "recovery",
+          "temp_c": 22.5
+        }
+      },
+      "on_success": null,
+      "on_failure": null
+    }
+  }
+}

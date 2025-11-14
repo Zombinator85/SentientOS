@@ -36,6 +36,20 @@ This provides the `sentient-api` and `cathedral-gui` commands.
 python scripts/bootstrap_cathedral.py
 ```
 
+## 🧪 Demo Gallery
+
+Run deterministic experiment chains end-to-end without hardware by using the
+demo gallery specifications:
+
+```bash
+python experiment_cli.py demo-list
+python experiment_cli.py demo-run demo_simple_success
+```
+
+Each demo uses the mock adapter, evaluates DSL criteria, and records transcripts
+in the standard experiment chain log. See [`demos/README.md`](demos/README.md)
+for details about the available scenarios.
+
 ### Getting Started in the Dev Container
 
 1. Open the repository in VS Code and select **Reopen in Container** when prompted.
