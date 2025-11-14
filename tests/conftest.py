@@ -205,6 +205,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_demo_gallery",
         "tests.test_console_dashboard",
         "tests.test_runtime_shell",
+        "tests.test_runtime_bootstrap",
         "tests.test_persona_loop",
     }
     for item in items:

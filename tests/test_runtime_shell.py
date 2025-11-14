@@ -43,6 +43,11 @@ class DummyProcess:
 
 @pytest.fixture
 def runtime_config(tmp_path: Path) -> Dict[str, object]:
+    runtime_root = tmp_path
+    data_dir = runtime_root / "sentientos_data"
+    models_dir = data_dir / "models"
+    config_dir = data_dir / "config"
+    logs_dir = runtime_root / "logs"
     config = {
         "runtime": {
             **DEFAULT_RUNTIME_CONFIG,
@@ -52,7 +57,11 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
             "relay_port": 7000,
             "watchdog_interval": 0.01,
             "windows_mode": True,
-            "root": str(tmp_path),
+            "root": str(runtime_root),
+            "logs_dir": str(logs_dir),
+            "data_dir": str(data_dir),
+            "models_dir": str(models_dir),
+            "config_dir": str(config_dir),
         }
     }
     config["persona"] = {
