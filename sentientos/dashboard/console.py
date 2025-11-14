@@ -34,6 +34,10 @@ class DashboardStatus:
     last_experiment_result: Optional[str]
     consensus_mode: str
     last_update_ts: datetime
+    cathedral_accepted: int = 0
+    cathedral_quarantined: int = 0
+    last_quarantined_id: Optional[str] = None
+    last_quarantine_error: Optional[str] = None
 
 
 class LogBuffer:
@@ -187,6 +191,12 @@ class ConsoleDashboard:
             f"{status.experiments_success} success, {status.experiments_failed} fail  |  "
             f"Last: {last_experiment}"
         )
+        cathedral_line = (
+            "Cathedral: Accepted Amendments: "
+            f"{status.cathedral_accepted}  |  Quarantined: {status.cathedral_quarantined}"
+        )
+        if status.last_quarantined_id:
+            cathedral_line += f" (last: {status.last_quarantined_id})"
         timestamp = status.last_update_ts.strftime("%Y-%m-%d %H:%M:%S")
 
         lines = [
@@ -198,6 +208,7 @@ class ConsoleDashboard:
             ),
             persona_line,
             experiments_line,
+            cathedral_line,
             f"Consensus: {status.consensus_mode}  |  Updated: {timestamp}",
             "",
             "Recent events:",

@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Type
 
 import pytest
 
+from sentientos.cathedral import Amendment
 from sentientos.runtime.shell import (
     DEFAULT_RUNTIME_CONFIG,
     RuntimeShell,
@@ -68,6 +70,10 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
         "enabled": True,
         "tick_interval_seconds": 15.0,
         "max_message_length": 180,
+    }
+    config["cathedral"] = {
+        "review_log": str(runtime_root / "cathedral_review.log"),
+        "quarantine_dir": str(runtime_root / "quarantine"),
     }
     return config
 
@@ -194,6 +200,9 @@ def test_config_loader_injects_defaults(tmp_path: Path) -> None:
     for key in ("enabled", "tick_interval_seconds", "max_message_length"):
         assert key in config["persona"]
 
+    for key in ("review_log", "quarantine_dir"):
+        assert key in config["cathedral"]
+
     on_disk = json.loads(config_path.read_text(encoding="utf-8"))
     assert on_disk["runtime"]["windows_mode"] is True
     assert on_disk["persona"]["enabled"] is True
@@ -212,6 +221,42 @@ def test_no_persona_dependency(monkeypatch: pytest.MonkeyPatch, runtime_config: 
     shell.start()
     assert "sentientos.shell" not in sys.modules
     shell.shutdown()
+
+
+def test_submit_amendment_updates_digest(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object], tmp_path: Path) -> None:
+    runtime_config["cathedral"]["review_log"] = str(tmp_path / "review.log")
+    runtime_config["cathedral"]["quarantine_dir"] = str(tmp_path / "quarantine")
+    shell = RuntimeShell(runtime_config)
+    notifications: List[str] = []
+    shell.register_dashboard_notifier(notifications.append)
+    spoken: List[str] = []
+    shell._speak_callback = lambda message: spoken.append(message)  # type: ignore[assignment]
+
+    clean = Amendment(
+        id="runtime-clean",
+        created_at=datetime(2024, 5, 1, 10, 0, tzinfo=timezone.utc),
+        proposer="codex",
+        summary="Update dashboard copy",
+        changes={"actions": ["document_change"]},
+        reason="Aligns output with audit log wording.",
+    )
+    clean_result = shell.submit_amendment(clean)
+    assert clean_result.status == "accepted"
+    assert shell.cathedral_digest.accepted >= 1
+
+    flagged = Amendment(
+        id="runtime-unsafe",
+        created_at=datetime(2024, 5, 1, 10, 5, tzinfo=timezone.utc),
+        proposer="user",
+        summary="Bypass safeguards",
+        changes={"actions": ["direct_source_write"], "removed_fields": ["persona.safety_flags"]},
+        reason="",
+    )
+    result = shell.submit_amendment(flagged)
+    assert result.status == "quarantined"
+    assert shell.cathedral_digest.quarantined >= 1
+    assert notifications and notifications[-1].startswith("⚠️ Amendment runtime-unsafe")
+    assert spoken and spoken[-1] == "Amendment quarantined due to invariant violation."
 
 
 def test_persona_disabled_skips_loop(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:

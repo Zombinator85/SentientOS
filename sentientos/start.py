@@ -139,6 +139,7 @@ def run(init_only: bool = False) -> int:
     if isinstance(dashboard_config, dict) and dashboard_config.get("enabled", False):
         dashboard_refresh = max(0.5, float(dashboard_config.get("refresh_interval_seconds", 2.0)))
         log_buffer = LogBuffer()
+        shell.register_dashboard_notifier(log_buffer.add)
 
         def _persona_state() -> Optional[object]:
             loop = getattr(shell, "_persona_loop", None)
