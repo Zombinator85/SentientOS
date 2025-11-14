@@ -77,6 +77,19 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "max_message_length": 200,
     }
 
+    world_defaults: Dict[str, object] = {
+        "enabled": True,
+        "poll_interval_seconds": 2.0,
+        "idle_pulse_interval_seconds": 60,
+        "scripted_timeline_enabled": False,
+        "scripted_timeline": [],
+        "demo_trigger": {
+            "enabled": False,
+            "demo_name": "demo_simple_success",
+            "trigger_after_seconds": 60,
+        },
+    }
+
     dashboard_defaults: Dict[str, object] = {
         "enabled": True,
         "refresh_interval_seconds": 2.0,
@@ -107,6 +120,7 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
     return {
         "runtime": runtime_defaults,
         "persona": persona_defaults,
+        "world": world_defaults,
         "dashboard": dashboard_defaults,
         "voice": voice_defaults,
     }

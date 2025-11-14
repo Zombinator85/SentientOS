@@ -6,11 +6,13 @@ import argparse
 import logging
 import signal
 import threading
+from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 from .dashboard.console import ConsoleDashboard, LogBuffer
 from .dashboard.status_source import make_log_stream_source, make_status_source
+from .experiments import demo_gallery
 from .runtime.bootstrap import (
     ensure_default_config,
     ensure_runtime_dirs,
@@ -21,6 +23,46 @@ from .runtime.shell import RuntimeShell, load_or_init_config
 
 
 LOGGER = logging.getLogger("sentientos.start")
+
+
+def _run_world_demo(
+    name: str,
+    buffer: LogBuffer,
+    speak_callback: Optional[Callable[[str], None]] = None,
+) -> None:
+    buffer.add(f"World event triggered demo '{name}' starting.")
+    if speak_callback:
+        try:
+            speak_callback(f"Demo {name} starting")
+        except Exception:  # pragma: no cover - defensive logging
+            LOGGER.exception("World demo speak callback failed (start)")
+    try:
+        result = demo_gallery.run_demo(name, stream=lambda line: buffer.add(str(line)))
+    except Exception as exc:  # pragma: no cover - defensive logging
+        buffer.add(f"Demo '{name}' failed: {exc}")
+        if speak_callback:
+            try:
+                speak_callback(f"Demo {name} failed")
+            except Exception:  # pragma: no cover - defensive logging
+                LOGGER.exception("World demo speak callback failed (error)")
+        return
+
+    outcome = getattr(getattr(result, "result", None), "outcome", "").lower()
+    if outcome == "success":
+        buffer.add(f"Demo '{name}' completed successfully.")
+        if speak_callback:
+            try:
+                speak_callback(f"Demo {name} completed successfully")
+            except Exception:  # pragma: no cover - defensive logging
+                LOGGER.exception("World demo speak callback failed (success)")
+    else:
+        outcome_text = outcome or "unknown"
+        buffer.add(f"Demo '{name}' completed with outcome: {outcome_text}")
+        if speak_callback:
+            try:
+                speak_callback(f"Demo {name} completed with outcome {outcome_text}")
+            except Exception:  # pragma: no cover - defensive logging
+                LOGGER.exception("World demo speak callback failed (outcome)")
 
 
 def load_config() -> Dict[str, object]:
@@ -75,7 +117,11 @@ def run(init_only: bool = False) -> int:
     dashboard_thread: Optional[threading.Thread] = None
     dashboard: Optional[ConsoleDashboard] = None
     persona_handler: Optional[logging.Handler] = None
+    world_demo_thread: Optional[threading.Thread] = None
+    world_demo_stop = threading.Event()
+    world_demo_poll_interval = 1.0
     dashboard_refresh = 2.0
+    log_buffer: Optional[LogBuffer] = None
 
     def _signal_handler(_signum: int, _frame: object | None) -> None:
         stop_event.set()
@@ -134,6 +180,46 @@ def run(init_only: bool = False) -> int:
         )
         dashboard_thread.start()
 
+    world_config = config.get("world")
+    if (
+        isinstance(world_config, dict)
+        and world_config.get("enabled", True)
+        and log_buffer is not None
+    ):
+        demo_cfg = world_config.get("demo_trigger")
+        bus = shell.world_bus
+        if (
+            isinstance(demo_cfg, dict)
+            and demo_cfg.get("enabled")
+            and bus is not None
+        ):
+            demo_name = str(demo_cfg.get("demo_name") or "demo_simple_success").strip() or "demo_simple_success"
+            try:
+                poll_interval = float(world_config.get("poll_interval_seconds", 2.0))
+            except (TypeError, ValueError):
+                poll_interval = 2.0
+            world_demo_poll_interval = max(0.5, poll_interval)
+            speak_callback = getattr(shell, "_speak_callback", None)
+
+            def _watch_world_events() -> None:
+                last_ts: Optional[datetime] = None
+                while not world_demo_stop.is_set():
+                    events = bus.drain_since(last_ts)
+                    if events:
+                        last_ts = events[-1].ts
+                        for event in events:
+                            if event.kind == "demo_trigger":
+                                _run_world_demo(demo_name, log_buffer, speak_callback)
+                    if world_demo_stop.wait(world_demo_poll_interval):
+                        break
+
+            world_demo_thread = threading.Thread(
+                target=_watch_world_events,
+                name="WorldDemoTrigger",
+                daemon=True,
+            )
+            world_demo_thread.start()
+
     try:
         while not stop_event.wait(interval):
             pass
@@ -142,6 +228,9 @@ def run(init_only: bool = False) -> int:
             dashboard.stop()
         if dashboard_thread:
             dashboard_thread.join(timeout=dashboard_refresh)
+        world_demo_stop.set()
+        if world_demo_thread:
+            world_demo_thread.join(timeout=world_demo_poll_interval)
         if persona_handler:
             logging.getLogger("sentientos.persona").removeHandler(persona_handler)
         shell.shutdown()

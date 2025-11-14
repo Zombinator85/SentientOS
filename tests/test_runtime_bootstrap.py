@@ -26,7 +26,7 @@ def test_ensure_default_config_creates_file_once(tmp_path: Path) -> None:
     assert config_path.exists()
 
     data = json.loads(config_path.read_text(encoding="utf-8"))
-    assert {"runtime", "persona", "dashboard", "voice"}.issubset(data.keys())
+    assert {"runtime", "persona", "world", "dashboard", "voice"}.issubset(data.keys())
 
     original_content = config_path.read_text(encoding="utf-8")
     second_path = bootstrap.ensure_default_config(paths["config"])
