@@ -207,6 +207,8 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_runtime_shell",
         "tests.test_runtime_bootstrap",
         "tests.test_persona_loop",
+        "tests.test_voice_asr",
+        "tests.test_voice_tts",
     }
     for item in items:
         module_name = item.module.__name__

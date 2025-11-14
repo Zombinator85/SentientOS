@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import os
 import subprocess
 import threading
 from pathlib import Path
-from typing import Dict, Iterable, Mapping, MutableMapping, Optional, Tuple
+from typing import Callable, Dict, Iterable, Mapping, MutableMapping, Optional, Tuple
 
 from sentientos.persona import PersonaLoop, initial_state
 from sentientos.persona_events import collect_recent_events
 from sentientos.runtime import bootstrap
+from sentientos.voice.config import parse_tts_config
+from sentientos.voice.tts import TtsEngine
 
 __all__ = [
     "DEFAULT_RUNTIME_CONFIG",
@@ -27,6 +30,7 @@ _DEFAULT_CONFIG_TEMPLATE = bootstrap.build_default_config()
 DEFAULT_RUNTIME_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["runtime"])
 DEFAULT_PERSONA_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["persona"])
 DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dashboard"])
+DEFAULT_VOICE_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("voice", {}))
 
 ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 
@@ -53,6 +57,7 @@ class RuntimeShell:
             self._logger.addHandler(handler)
 
         persona_section = _ensure_persona_config(self._config)
+        voice_section = _ensure_voice_config(self._config)
 
         self._process_commands: Dict[str, Tuple[Tuple[str, ...], Dict[str, Optional[object]]]] = {}
         self._processes: Dict[str, subprocess.Popen[bytes]] = {}
@@ -70,6 +75,9 @@ class RuntimeShell:
             persona_section.get("max_message_length", DEFAULT_PERSONA_CONFIG["max_message_length"])
         )
         self._persona_loop: Optional[PersonaLoop] = None
+        self._tts_engine: Optional[TtsEngine] = None
+        self._speak_callback: Optional[Callable[[str], None]] = None
+        self._configure_voice(voice_section)
         self._log("RuntimeShell initialised", extra=runtime_section)
 
     @property
@@ -144,6 +152,7 @@ class RuntimeShell:
                 tick_interval_seconds=self._persona_tick_interval,
                 event_source=collect_recent_events,
                 max_message_length=self._persona_max_message_length,
+                speak_callback=self._speak_callback,
             )
         self._persona_loop.start()
         self._log(
@@ -235,6 +244,33 @@ class RuntimeShell:
             payload.update(extra)
         self._logger.info(json.dumps(payload, sort_keys=True))
 
+    def _configure_voice(self, voice_section: Mapping[str, object]) -> None:
+        enabled = bool(voice_section.get("enabled", False))
+        if not enabled:
+            return
+        tts_section = voice_section.get("tts")
+        if not isinstance(tts_section, Mapping):
+            return
+        try:
+            tts_config = parse_tts_config(tts_section)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            self._log("Failed to parse TTS configuration", extra={"error": str(exc)})
+            return
+        if not tts_config.enabled:
+            return
+        engine = TtsEngine(tts_config)
+        self._tts_engine = engine
+        self._speak_callback = engine.speak
+        if self._persona_loop:
+            self._persona_loop.set_speak_callback(self._speak_callback)
+        self._log(
+            "Voice TTS engine initialised",
+            extra={
+                "rate": tts_config.rate,
+                "voice": tts_config.voice_name or "default",
+            },
+        )
+
 
 def _ensure_runtime_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
     runtime_section = config.get("runtime", {})
@@ -269,6 +305,31 @@ def _ensure_persona_config(config: MutableMapping[str, object]) -> MutableMappin
     if "persona" not in config or updated:
         config["persona"] = persona
     return persona
+
+
+def _ensure_voice_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    voice_section = config.get("voice", {})
+    if not isinstance(voice_section, Mapping):
+        voice_section = {}
+    voice = dict(voice_section)
+    defaults = DEFAULT_VOICE_CONFIG
+    updated = False
+    for key, default in defaults.items():
+        if isinstance(default, Mapping):
+            existing = voice.get(key)
+            merged = dict(default)
+            if isinstance(existing, Mapping):
+                merged.update(existing)
+            if voice.get(key) != merged:
+                voice[key] = merged
+                updated = True
+        else:
+            if key not in voice:
+                voice[key] = default
+                updated = True
+    if "voice" not in config or updated:
+        config["voice"] = voice
+    return voice
 
 
 def _ensure_dashboard_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
@@ -307,9 +368,11 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
         data = {}
     runtime = _ensure_runtime_config(data)
     persona = _ensure_persona_config(data)
+    voice = _ensure_voice_config(data)
     dashboard = _ensure_dashboard_config(data)
     data["runtime"] = runtime
     data["persona"] = persona
+    data["voice"] = voice
     data["dashboard"] = dashboard
     serialized = json.dumps(data, indent=2)
     if existing_text != serialized:

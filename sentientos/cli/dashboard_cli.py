@@ -7,12 +7,17 @@ import io
 import logging
 import sys
 import threading
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from sentientos.dashboard.console import ConsoleDashboard, LogBuffer
 from sentientos.dashboard.status_source import make_log_stream_source, make_status_source
 from sentientos.experiments import demo_gallery
 from sentientos.start import load_config
+from sentientos.voice.config import parse_tts_config
+from sentientos.voice.tts import TtsEngine
+
+
+LOGGER = logging.getLogger("sentientos.cli.dashboard")
 
 
 class _BufferLogHandler(logging.Handler):
@@ -38,21 +43,45 @@ def _attach_persona_logger(buffer: LogBuffer) -> Optional[logging.Handler]:
     return handler
 
 
-def _run_demo(name: str, buffer: LogBuffer) -> Optional[demo_gallery.DemoRun]:
+def _run_demo(
+    name: str,
+    buffer: LogBuffer,
+    speak_callback: Optional[Callable[[str], None]] = None,
+) -> Optional[demo_gallery.DemoRun]:
     """Execute a demo and stream results into the dashboard buffer."""
 
     buffer.add(f"Demo '{name}' starting.")
+    if speak_callback:
+        try:
+            speak_callback(f"Demo {name} starting")
+        except Exception:  # pragma: no cover - defensive logging
+            LOGGER.exception("Demo speak callback failed (start)")
     try:
         result = demo_gallery.run_demo(name, stream=lambda line: buffer.add(str(line)))
     except Exception as exc:  # pragma: no cover - defensive logging
         buffer.add(f"Demo '{name}' failed: {exc}")
+        if speak_callback:
+            try:
+                speak_callback(f"Demo {name} failed")
+            except Exception:  # pragma: no cover - defensive logging
+                LOGGER.exception("Demo speak callback failed (error)")
         return None
 
     outcome = result.result.outcome
     if outcome.lower() == "success":
         buffer.add(f"Demo '{name}' completed successfully.")
+        if speak_callback:
+            try:
+                speak_callback(f"Demo {name} completed successfully")
+            except Exception:  # pragma: no cover - defensive logging
+                LOGGER.exception("Demo speak callback failed (success)")
     else:
         buffer.add(f"Demo '{name}' completed with outcome: {outcome}")
+        if speak_callback:
+            try:
+                speak_callback(f"Demo {name} completed with outcome {outcome}")
+            except Exception:  # pragma: no cover - defensive logging
+                LOGGER.exception("Demo speak callback failed (outcome)")
     return result
 
 
@@ -60,11 +89,24 @@ def _build_dashboard(
     *,
     refresh_interval: float,
     output_stream: Optional[io.TextIOBase] = None,
-) -> tuple[ConsoleDashboard, LogBuffer]:
+) -> tuple[ConsoleDashboard, LogBuffer, Optional[Callable[[str], None]]]:
     config = load_config()
     buffer = LogBuffer()
     log_source = make_log_stream_source(buffer)
     status_source = make_status_source(config=config)
+    speak_callback: Optional[Callable[[str], None]] = None
+    voice_section = config.get("voice")
+    if isinstance(voice_section, dict) and voice_section.get("enabled"):
+        tts_section = voice_section.get("tts")
+        if isinstance(tts_section, dict):
+            try:
+                tts_config = parse_tts_config(tts_section)
+            except Exception as exc:  # pragma: no cover - defensive logging
+                LOGGER.warning("Failed to parse TTS config for dashboard: %s", exc)
+            else:
+                if tts_config.enabled:
+                    engine = TtsEngine(tts_config)
+                    speak_callback = engine.speak
     dashboard = ConsoleDashboard(
         status_source,
         log_stream_source=log_source,
@@ -72,7 +114,7 @@ def _build_dashboard(
         log_buffer=buffer,
         output_stream=output_stream,
     )
-    return dashboard, buffer
+    return dashboard, buffer, speak_callback
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -90,7 +132,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    dashboard, buffer = _build_dashboard(
+    dashboard, buffer, speak_callback = _build_dashboard(
         refresh_interval=max(0.5, float(args.refresh_interval)),
         output_stream=sys.stdout,
     )
@@ -102,7 +144,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         demo_name = args.demo_name
 
         def _demo_runner() -> None:
-            _run_demo(demo_name, buffer)
+            _run_demo(demo_name, buffer, speak_callback)
 
         demo_thread = threading.Thread(target=_demo_runner, name="SentientOSDemo", daemon=True)
         demo_thread.start()

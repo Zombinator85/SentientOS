@@ -82,10 +82,33 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "refresh_interval_seconds": 2.0,
     }
 
+    voice_defaults: Dict[str, object] = {
+        "enabled": False,
+        "asr": {
+            "whisper_binary_path": str(base_path / "bin" / "whisper.exe"),
+            "model_path": str(
+                base_path
+                / "sentientos_data"
+                / "models"
+                / "whisper"
+                / "base.en.gguf"
+            ),
+            "language": "en",
+            "max_segment_ms": 30000,
+        },
+        "tts": {
+            "enabled": False,
+            "rate": 180,
+            "volume": 1.0,
+            "voice_name": None,
+        },
+    }
+
     return {
         "runtime": runtime_defaults,
         "persona": persona_defaults,
         "dashboard": dashboard_defaults,
+        "voice": voice_defaults,
     }
 
 
@@ -141,6 +164,17 @@ def validate_model_paths(config: Mapping[str, object], base_dir: Path) -> list[s
             f"llama.cpp server executable not found at {llama_server_path}. "
             "Update runtime.llama_server_path if the binary lives elsewhere."
         )
+
+    voice_section = config.get("voice")
+    if isinstance(voice_section, Mapping):
+        asr_section = voice_section.get("asr")
+        if isinstance(asr_section, Mapping):
+            model_candidate = _resolve_path(asr_section.get("model_path"), base_path)
+            if model_candidate is not None and not model_candidate.exists():
+                warnings.append(
+                    f"Whisper model not found at {model_candidate}. "
+                    "Download a GGUF model and update voice.asr.model_path if necessary."
+                )
 
     return warnings
 
