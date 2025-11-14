@@ -66,6 +66,11 @@ def main() -> None:
 
     cl = sub.add_parser("chain-list")
 
+    dl = sub.add_parser("demo-list")
+
+    dr = sub.add_parser("demo-run")
+    dr.add_argument("name")
+
     args = parser.parse_args()
     print_banner()
 
@@ -197,6 +202,26 @@ def main() -> None:
             print(
                 f"{chain.chain_id}\t{chain.description}\tstart={chain.start}\tsteps={len(chain.steps)}"
             )
+    elif args.cmd == "demo-list":
+        from sentientos.experiments import demo_gallery
+
+        demos = demo_gallery.list_demos()
+        if not demos:
+            print("No demos available.")
+        for item in demos:
+            description = f" - {item.description}" if item.description else ""
+            print(f"{item.demo_id}{description}")
+    elif args.cmd == "demo-run":
+        from sentientos.experiments import demo_gallery
+
+        try:
+            run = demo_gallery.run_demo(args.name, stream=lambda message: print(message))
+        except FileNotFoundError:
+            print(f"Demo '{args.name}' not found.")
+        except ValueError as exc:
+            print(f"Failed to run demo '{args.name}': {exc}")
+        else:
+            print(f"[demo {run.chain.chain_id}] outcome: {run.result.outcome}")
     else:
         parser.print_help()
     print_closing()
