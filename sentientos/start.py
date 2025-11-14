@@ -23,6 +23,15 @@ from .runtime.shell import RuntimeShell, load_or_init_config
 LOGGER = logging.getLogger("sentientos.start")
 
 
+def load_config() -> Dict[str, object]:
+    """Return the runtime configuration, creating defaults if needed."""
+
+    base_dir = get_base_dir()
+    runtime_dirs = ensure_runtime_dirs(base_dir)
+    config_path = ensure_default_config(runtime_dirs["config"])
+    return load_or_init_config(config_path)
+
+
 def _bootstrap_runtime() -> Tuple[Dict[str, object], Path, Dict[str, Path], list[str]]:
     base_dir = get_base_dir()
     runtime_dirs = ensure_runtime_dirs(base_dir)

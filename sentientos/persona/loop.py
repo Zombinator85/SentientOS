@@ -25,6 +25,7 @@ class PersonaLoop:
         event_source: Optional[EventSource] = None,
         max_message_length: int = 200,
         logger: Optional[logging.Logger] = None,
+        speak_callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         self._state = state
         self._tick_interval = max(1.0, float(tick_interval_seconds))
@@ -35,6 +36,7 @@ class PersonaLoop:
         self._thread: Optional[threading.Thread] = None
         self._last_tick: Optional[datetime] = None
         self._lock = threading.Lock()
+        self._speak_callback = speak_callback
 
     @property
     def state(self) -> PersonaState:
@@ -141,6 +143,16 @@ class PersonaLoop:
                 self._state, summary, max_length=self._max_message_length
             )
             self._state.last_reflection = summary
+            speak_callback = self._speak_callback
 
         self._logger.info(message)
+        if speak_callback:
+            try:
+                speak_callback(message)
+            except Exception:  # pragma: no cover - defensive logging
+                self._logger.exception("Persona speak callback failed")
         return message
+
+    def set_speak_callback(self, callback: Optional[Callable[[str], None]]) -> None:
+        with self._lock:
+            self._speak_callback = callback

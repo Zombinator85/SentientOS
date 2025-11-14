@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -27,7 +26,7 @@ def test_ensure_default_config_creates_file_once(tmp_path: Path) -> None:
     assert config_path.exists()
 
     data = json.loads(config_path.read_text(encoding="utf-8"))
-    assert {"runtime", "persona", "dashboard"}.issubset(data.keys())
+    assert {"runtime", "persona", "dashboard", "voice"}.issubset(data.keys())
 
     original_content = config_path.read_text(encoding="utf-8")
     second_path = bootstrap.ensure_default_config(paths["config"])
@@ -41,6 +40,7 @@ def test_validate_model_paths_detects_missing_and_existing(tmp_path: Path) -> No
 
     warnings = bootstrap.validate_model_paths(config, paths["base"])
     assert any("Mixtral" in message for message in warnings)
+    assert any("Whisper" in message for message in warnings)
 
     model_path = Path(config["runtime"]["model_path"])
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,6 +49,10 @@ def test_validate_model_paths_detects_missing_and_existing(tmp_path: Path) -> No
     llama_path = Path(config["runtime"]["llama_server_path"])
     llama_path.parent.mkdir(parents=True, exist_ok=True)
     llama_path.touch()
+
+    voice_model_path = Path(config["voice"]["asr"]["model_path"])
+    voice_model_path.parent.mkdir(parents=True, exist_ok=True)
+    voice_model_path.touch()
 
     warnings = bootstrap.validate_model_paths(config, paths["base"])
     assert warnings == []
