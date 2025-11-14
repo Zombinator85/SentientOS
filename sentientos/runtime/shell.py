@@ -12,49 +12,23 @@ from typing import Dict, Iterable, Mapping, MutableMapping, Optional, Tuple
 
 from sentientos.persona import PersonaLoop, initial_state
 from sentientos.persona_events import collect_recent_events
+from sentientos.runtime import bootstrap
 
 __all__ = [
     "DEFAULT_RUNTIME_CONFIG",
+    "DEFAULT_DASHBOARD_CONFIG",
     "RuntimeShell",
     "ensure_runtime_dirs",
     "load_or_init_config",
 ]
 
 
-DEFAULT_RUNTIME_CONFIG: Dict[str, object] = {
-    "llama_server_path": "C:/SentientOS/bin/llama-server.exe",
-    "model_path": "C:/SentientOS/sentientos_data/models/default.gguf",
-    "relay_host": "127.0.0.1",
-    "relay_port": 65432,
-    "watchdog_interval": 5.0,
-    "windows_mode": True,
-}
+_DEFAULT_CONFIG_TEMPLATE = bootstrap.build_default_config()
+DEFAULT_RUNTIME_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["runtime"])
+DEFAULT_PERSONA_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["persona"])
+DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dashboard"])
 
-DEFAULT_PERSONA_CONFIG: Dict[str, object] = {
-    "enabled": True,
-    "tick_interval_seconds": 60.0,
-    "max_message_length": 200,
-}
-
-
-def ensure_runtime_dirs(base: str | Path = "C:/SentientOS") -> Dict[str, Path]:
-    """Ensure the Windows runtime directory layout exists."""
-
-    base_path = Path(base)
-    logs_dir = base_path / "logs"
-    data_dir = base_path / "sentientos_data"
-    models_dir = data_dir / "models"
-    config_dir = data_dir / "config"
-
-    for directory in (base_path, logs_dir, data_dir, models_dir, config_dir):
-        directory.mkdir(parents=True, exist_ok=True)
-    return {
-        "root": base_path,
-        "logs": logs_dir,
-        "data": data_dir,
-        "models": models_dir,
-        "config": config_dir,
-    }
+ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 
 
 class RuntimeShell:
@@ -63,10 +37,12 @@ class RuntimeShell:
     def __init__(self, config: Mapping[str, object]) -> None:
         self._config = dict(config)
         runtime_section = _ensure_runtime_config(self._config)
-        self._runtime_root = Path(runtime_section.get("root") or "C:/SentientOS")
-        ensure_runtime_dirs(self._runtime_root)
+        runtime_root_value = runtime_section.get("root") or bootstrap.get_base_dir()
+        self._runtime_root = Path(runtime_root_value)
+        bootstrap.ensure_runtime_dirs(self._runtime_root)
 
-        self._log_path = self._runtime_root / "logs" / "runtime.log"
+        logs_dir = runtime_section.get("logs_dir") or (self._runtime_root / "logs")
+        self._log_path = Path(logs_dir) / "runtime.log"
         self._logger = logging.getLogger("sentientos.runtime.shell")
         self._logger.setLevel(logging.INFO)
         self._logger.propagate = False
@@ -265,8 +241,13 @@ def _ensure_runtime_config(config: MutableMapping[str, object]) -> MutableMappin
     if not isinstance(runtime_section, Mapping):
         runtime_section = {}
     runtime = dict(runtime_section)
+    base_override = runtime.get("root")
+    if isinstance(base_override, (str, Path)) and base_override:
+        defaults = bootstrap.build_default_config(Path(base_override)).get("runtime", {})
+    else:
+        defaults = bootstrap.build_default_config().get("runtime", {})
     updated = False
-    for key, default in DEFAULT_RUNTIME_CONFIG.items():
+    for key, default in defaults.items():
         if key not in runtime:
             runtime[key] = default
             updated = True
@@ -290,13 +271,29 @@ def _ensure_persona_config(config: MutableMapping[str, object]) -> MutableMappin
     return persona
 
 
+def _ensure_dashboard_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    dashboard_section = config.get("dashboard", {})
+    if not isinstance(dashboard_section, Mapping):
+        dashboard_section = {}
+    dashboard = dict(dashboard_section)
+    defaults = bootstrap.build_default_config().get("dashboard", {})
+    updated = False
+    for key, default in defaults.items():
+        if key not in dashboard:
+            dashboard[key] = default
+            updated = True
+    if "dashboard" not in config or updated:
+        config["dashboard"] = dashboard
+    return dashboard
+
+
 def load_or_init_config(path: Path) -> Dict[str, object]:
     """Load runtime configuration, writing defaults on first run."""
 
-    if len(path.parents) >= 3:
-        ensure_runtime_dirs(path.parents[2])
-    else:
-        ensure_runtime_dirs()
+    base_dir = path.parents[2] if len(path.parents) >= 3 else bootstrap.get_base_dir()
+    bootstrap.ensure_runtime_dirs(base_dir)
+    config_path = bootstrap.ensure_default_config(path.parent)
+    path = config_path
     existing_text = None
     if path.exists():
         try:
@@ -310,12 +307,13 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
         data = {}
     runtime = _ensure_runtime_config(data)
     persona = _ensure_persona_config(data)
+    dashboard = _ensure_dashboard_config(data)
     data["runtime"] = runtime
     data["persona"] = persona
+    data["dashboard"] = dashboard
     serialized = json.dumps(data, indent=2)
     if existing_text != serialized:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(serialized, encoding="utf-8")
+        config_path.write_text(serialized, encoding="utf-8")
     return data
 
 

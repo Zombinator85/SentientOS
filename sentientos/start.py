@@ -2,29 +2,65 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import signal
 import threading
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from .dashboard.console import ConsoleDashboard, LogBuffer
 from .dashboard.status_source import make_log_stream_source, make_status_source
+from .runtime.bootstrap import (
+    ensure_default_config,
+    ensure_runtime_dirs,
+    get_base_dir,
+    validate_model_paths,
+)
 from .runtime.shell import RuntimeShell, load_or_init_config
 
-_RUNTIME_CONFIG_PATH = Path("C:/SentientOS/sentientos_data/config/runtime.json")
+
+LOGGER = logging.getLogger("sentientos.start")
 
 
-def load_config() -> Dict[str, object]:
-    """Load runtime configuration, injecting defaults on first run."""
+def _bootstrap_runtime() -> Tuple[Dict[str, object], Path, Dict[str, Path], list[str]]:
+    base_dir = get_base_dir()
+    runtime_dirs = ensure_runtime_dirs(base_dir)
+    for name, path in runtime_dirs.items():
+        LOGGER.info("Runtime directory ready: %s -> %s", name, path)
+    config_path = ensure_default_config(runtime_dirs["config"])
+    config = load_or_init_config(config_path)
+    warnings = validate_model_paths(config, runtime_dirs["base"])
+    return config, config_path, runtime_dirs, warnings
 
-    return load_or_init_config(_RUNTIME_CONFIG_PATH)
+
+def _print_init_summary(base_dir: Path, config_path: Path, warnings: list[str]) -> None:
+    print("SentientOS bootstrap complete.")
+    print(f"Base directory: {base_dir}")
+    print(f"Config file: {config_path}")
+    if warnings:
+        print("Warnings detected:")
+        for message in warnings:
+            print(f"  - {message}")
+    else:
+        print("Model paths validated successfully.")
 
 
-def run() -> int:
+def run(init_only: bool = False) -> int:
     """Boot SentientOS runtime shell and block until termination."""
 
-    config = load_config()
+    if not logging.getLogger().handlers:
+        logging.basicConfig(level=logging.INFO)
+
+    config, config_path, runtime_dirs, warnings = _bootstrap_runtime()
+    LOGGER.info("Configuration loaded from %s", config_path)
+    for warning in warnings:
+        LOGGER.warning(warning)
+
+    if init_only:
+        _print_init_summary(runtime_dirs["base"], config_path, warnings)
+        return 0
+
     shell = RuntimeShell(config)
     stop_event = threading.Event()
     dashboard_thread: Optional[threading.Thread] = None
@@ -104,7 +140,14 @@ def run() -> int:
 
 
 def main() -> int:
-    return run()
+    parser = argparse.ArgumentParser(description="Start the SentientOS runtime shell")
+    parser.add_argument(
+        "--init-only",
+        action="store_true",
+        help="Perform bootstrap tasks and exit without launching services.",
+    )
+    args = parser.parse_args()
+    return run(init_only=args.init_only)
 
 
 if __name__ == "__main__":  # pragma: no cover - module entrypoint
