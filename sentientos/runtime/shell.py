@@ -8,14 +8,23 @@ import logging
 import os
 import subprocess
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, Iterable, Mapping, MutableMapping, Optional, Tuple
+from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
-from sentientos.persona import PersonaLoop, initial_state
+from sentientos.persona import PersonaLoop, initial_state, make_persona_event_source
 from sentientos.persona_events import collect_recent_events
 from sentientos.runtime import bootstrap
 from sentientos.voice.config import parse_tts_config
 from sentientos.voice.tts import TtsEngine
+from sentientos.world.bus import WorldEventBus
+from sentientos.world.events import WorldEvent
+from sentientos.world.sources import (
+    DemoTriggerSource,
+    IdlePulseSource,
+    ScriptedTimelineSource,
+    WorldSource,
+)
 
 __all__ = [
     "DEFAULT_RUNTIME_CONFIG",
@@ -31,6 +40,7 @@ DEFAULT_RUNTIME_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["runti
 DEFAULT_PERSONA_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["persona"])
 DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dashboard"])
 DEFAULT_VOICE_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("voice", {}))
+DEFAULT_WORLD_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("world", {}))
 
 ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 
@@ -58,6 +68,7 @@ class RuntimeShell:
 
         persona_section = _ensure_persona_config(self._config)
         voice_section = _ensure_voice_config(self._config)
+        world_section = _ensure_world_config(self._config)
 
         self._process_commands: Dict[str, Tuple[Tuple[str, ...], Dict[str, Optional[object]]]] = {}
         self._processes: Dict[str, subprocess.Popen[bytes]] = {}
@@ -77,6 +88,20 @@ class RuntimeShell:
         self._persona_loop: Optional[PersonaLoop] = None
         self._tts_engine: Optional[TtsEngine] = None
         self._speak_callback: Optional[Callable[[str], None]] = None
+        self._world_enabled = bool(world_section.get("enabled", True))
+        self._world_poll_interval = max(
+            0.5, float(world_section.get("poll_interval_seconds", DEFAULT_WORLD_CONFIG.get("poll_interval_seconds", 2.0)))
+        )
+        self._world_bus: Optional[WorldEventBus] = WorldEventBus() if self._world_enabled else None
+        self._world_sources: List[WorldSource] = []
+        self._world_thread: Optional[threading.Thread] = None
+        self._world_stop_event = threading.Event()
+        self._persona_event_source = make_persona_event_source(
+            self._world_bus if self._world_enabled else None,
+            [collect_recent_events],
+        )
+        if self._world_enabled and self._world_bus is not None:
+            self._world_sources = self._build_world_sources(world_section)
         self._configure_voice(voice_section)
         self._log("RuntimeShell initialised", extra=runtime_section)
 
@@ -87,6 +112,10 @@ class RuntimeShell:
     @property
     def runtime_root(self) -> Path:
         return self._runtime_root
+
+    @property
+    def world_bus(self) -> Optional[WorldEventBus]:
+        return self._world_bus
 
     def start(self) -> None:
         """Start all managed services in deterministic order."""
@@ -99,6 +128,7 @@ class RuntimeShell:
         self.start_llama_server()
         self.start_relay()
         self.start_core()
+        self._start_world_polling()
         self._start_persona_loop()
         self._monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
         self._monitor_thread.start()
@@ -150,7 +180,7 @@ class RuntimeShell:
             self._persona_loop = PersonaLoop(
                 initial_state(),
                 tick_interval_seconds=self._persona_tick_interval,
-                event_source=collect_recent_events,
+                event_source=self._persona_event_source,
                 max_message_length=self._persona_max_message_length,
                 speak_callback=self._speak_callback,
             )
@@ -162,6 +192,124 @@ class RuntimeShell:
                 "max_message_length": self._persona_max_message_length,
             },
         )
+
+    def _start_world_polling(self) -> None:
+        if not self._world_enabled or self._world_bus is None:
+            return
+        if not self._world_sources:
+            return
+        if self._world_thread and self._world_thread.is_alive():
+            return
+        self._world_stop_event.clear()
+        self._world_thread = threading.Thread(
+            target=self._run_world_polling,
+            name="WorldEventPoller",
+            daemon=True,
+        )
+        self._world_thread.start()
+        self._log(
+            "World event poller started",
+            extra={"sources": [type(source).__name__ for source in self._world_sources]},
+        )
+
+    def _run_world_polling(self) -> None:
+        assert self._world_bus is not None
+        while not self._world_stop_event.is_set():
+            for source in self._world_sources:
+                try:
+                    events = source.poll()
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    self._log(
+                        "World source error",
+                        extra={"source": type(source).__name__, "error": str(exc)},
+                    )
+                    continue
+                for event in events:
+                    self._world_bus.push(event)
+            if self._world_stop_event.wait(self._world_poll_interval):
+                break
+
+    def _build_world_sources(self, config: Mapping[str, object]) -> List[WorldSource]:
+        sources: List[WorldSource] = []
+        interval_default = DEFAULT_WORLD_CONFIG.get("idle_pulse_interval_seconds", 60)
+        interval_value = config.get("idle_pulse_interval_seconds", interval_default)
+        interval = self._safe_float(interval_value, float(interval_default))
+        if interval > 0:
+            try:
+                sources.append(IdlePulseSource(interval))
+            except ValueError:
+                pass
+
+        if bool(config.get("scripted_timeline_enabled")):
+            timeline_entries = self._parse_timeline(config.get("scripted_timeline"))
+            if timeline_entries:
+                sources.append(ScriptedTimelineSource(timeline_entries))
+
+        demo_cfg = config.get("demo_trigger")
+        if isinstance(demo_cfg, Mapping) and demo_cfg.get("enabled"):
+            demo_name = str(demo_cfg.get("demo_name") or "demo_simple_success").strip() or "demo_simple_success"
+            default_trigger = DEFAULT_WORLD_CONFIG.get("demo_trigger", {}).get("trigger_after_seconds", 60)
+            trigger = self._safe_float(demo_cfg.get("trigger_after_seconds"), float(default_trigger))
+            sources.append(DemoTriggerSource(demo_name, trigger_after_seconds=trigger))
+
+        return sources
+
+    def _parse_timeline(self, raw: object) -> List[Tuple[float, WorldEvent]]:
+        entries: List[Tuple[float, WorldEvent]] = []
+        if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+            return entries
+        for item in raw:
+            entry = self._coerce_timeline_entry(item)
+            if entry is not None:
+                entries.append(entry)
+        return entries
+
+    def _coerce_timeline_entry(self, item: object) -> Optional[Tuple[float, WorldEvent]]:
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            offset, event = item
+            if isinstance(offset, (int, float)) and isinstance(event, WorldEvent):
+                return float(offset), event
+        if isinstance(item, Mapping):
+            offset_value = item.get("offset_seconds", item.get("offset"))
+            try:
+                offset = float(offset_value)
+            except (TypeError, ValueError):
+                return None
+            payload = item.get("event")
+            event: Optional[WorldEvent]
+            if isinstance(payload, WorldEvent):
+                event = payload
+            elif isinstance(payload, Mapping):
+                event = self._build_world_event_from_mapping(payload)
+            else:
+                event = self._build_world_event_from_mapping(item)
+            if event is None:
+                return None
+            return offset, event
+        return None
+
+    def _build_world_event_from_mapping(self, payload: Mapping[str, object]) -> Optional[WorldEvent]:
+        kind = payload.get("kind")
+        if not isinstance(kind, str) or not kind:
+            return None
+        summary_value = payload.get("summary")
+        summary = str(summary_value).strip() if isinstance(summary_value, str) and summary_value else f"{kind} event"
+        data_value = payload.get("data")
+        if isinstance(data_value, Mapping):
+            event_data = dict(data_value)
+        else:
+            event_data = {}
+            for key in ("subject", "source", "title", "starts_in_minutes", "level", "demo_name"):
+                if key in payload:
+                    event_data[key] = payload[key]
+        return WorldEvent(kind, datetime.now(timezone.utc), summary, event_data)
+
+    @staticmethod
+    def _safe_float(value: object, default: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(default)
 
     def monitor_processes(self, run_once: bool = False) -> None:
         """Watch managed processes and restart on unexpected exit."""
@@ -193,6 +341,10 @@ class RuntimeShell:
         if self._monitor_thread:
             self._monitor_thread.join(timeout=self._watchdog_interval * 2)
             self._monitor_thread = None
+        if self._world_thread:
+            self._world_stop_event.set()
+            self._world_thread.join(timeout=self._world_poll_interval * 2)
+            self._world_thread = None
         if self._persona_loop:
             self._persona_loop.stop()
             self._persona_loop = None
@@ -307,6 +459,31 @@ def _ensure_persona_config(config: MutableMapping[str, object]) -> MutableMappin
     return persona
 
 
+def _ensure_world_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    world_section = config.get("world", {})
+    if not isinstance(world_section, Mapping):
+        world_section = {}
+    world = dict(world_section)
+    defaults = DEFAULT_WORLD_CONFIG
+    updated = False
+    for key, default in defaults.items():
+        if isinstance(default, Mapping):
+            existing = world.get(key)
+            merged = dict(default)
+            if isinstance(existing, Mapping):
+                merged.update(existing)
+            if world.get(key) != merged:
+                world[key] = merged
+                updated = True
+        else:
+            if key not in world:
+                world[key] = default
+                updated = True
+    if "world" not in config or updated:
+        config["world"] = world
+    return world
+
+
 def _ensure_voice_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
     voice_section = config.get("voice", {})
     if not isinstance(voice_section, Mapping):
@@ -368,10 +545,12 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
         data = {}
     runtime = _ensure_runtime_config(data)
     persona = _ensure_persona_config(data)
+    world = _ensure_world_config(data)
     voice = _ensure_voice_config(data)
     dashboard = _ensure_dashboard_config(data)
     data["runtime"] = runtime
     data["persona"] = persona
+    data["world"] = world
     data["voice"] = voice
     data["dashboard"] = dashboard
     serialized = json.dumps(data, indent=2)

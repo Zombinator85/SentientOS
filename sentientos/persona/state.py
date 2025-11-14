@@ -77,6 +77,21 @@ def update_from_pulse(state: PersonaState, pulse_event: Dict[str, Any]) -> Perso
             state.last_reflection = f"monitoring {component}"
         elif status == "ok" and state.mood in {"alert", "concerned"}:
             state.mood = "focused"
+    elif kind == "world":
+        world_kind = str(pulse_event.get("world_kind") or "").lower()
+        summary = str(pulse_event.get("summary") or "").strip()
+        data = pulse_event.get("data")
+        world_data = dict(data) if isinstance(data, dict) else {}
+        _adjust_mood_for_world_event(state, world_kind, world_data)
+        if summary:
+            state.last_reflection = summary
+        snapshot = state.pulse_snapshot.setdefault("world", [])
+        snapshot.append({
+            "world_kind": world_kind,
+            "summary": summary,
+            "data": world_data,
+            "ts": pulse_event.get("ts"),
+        })
     else:
         misc_events = state.pulse_snapshot.setdefault("events", [])
         misc_events.append(dict(pulse_event))
@@ -107,4 +122,39 @@ def adjust_mood_for_outcome(state: PersonaState, success: bool) -> PersonaState:
     else:
         state.mood = "alert" if state.energy > 0.5 else "concerned"
         state.energy = _clamp_energy(state.energy - 0.05)
+    return state
+
+
+def _adjust_mood_for_world_event(
+    state: PersonaState,
+    world_kind: str,
+    data: Dict[str, Any],
+) -> PersonaState:
+    level = str(data.get("level") or "").lower()
+    positive = False
+    focused = False
+
+    if world_kind in {"message", "heartbeat", "demo_trigger"}:
+        positive = True
+    elif world_kind == "system_load":
+        if level in {"high", "busy"}:
+            focused = True
+        elif level in {"medium"}:
+            focused = True
+        else:
+            positive = True
+    elif world_kind == "calendar":
+        focused = True
+
+    if focused:
+        state.mood = "focused" if state.energy >= 0.4 else "alert"
+        state.energy = _clamp_energy(state.energy - 0.01)
+    elif positive:
+        if state.energy < 0.3:
+            state.mood = "tired"
+        elif state.energy < 0.6:
+            state.mood = "calm"
+        else:
+            state.mood = "curious"
+        state.energy = _clamp_energy(state.energy + 0.02)
     return state

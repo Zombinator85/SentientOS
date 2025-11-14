@@ -87,6 +87,43 @@ class PersonaLoop:
                 return "Quietly tending the cadence while I recharge."
             return "All systems look steady."
 
+        def _join_descriptions(parts: List[str]) -> str:
+            if not parts:
+                return "something new"
+            if len(parts) == 1:
+                return parts[0]
+            return ", ".join(parts[:-1]) + f" and {parts[-1]}"
+
+        world_events = [e for e in events if e.get("kind") == "world"]
+        if world_events:
+            descriptors: List[str] = []
+            urgent = False
+            for event in world_events:
+                world_kind = str(event.get("world_kind") or "")
+                data = event.get("data") if isinstance(event.get("data"), dict) else {}
+                if world_kind == "message":
+                    descriptors.append("a new message")
+                elif world_kind == "calendar":
+                    descriptors.append("an upcoming calendar item")
+                    urgent = True
+                elif world_kind == "system_load":
+                    level = str(data.get("level") or "").lower()
+                    if level in {"high", "busy", "medium"}:
+                        descriptors.append("busy system load")
+                        urgent = True
+                    else:
+                        descriptors.append("a calm system load")
+                elif world_kind == "heartbeat":
+                    descriptors.append("the idle pulse")
+                elif world_kind == "demo_trigger":
+                    descriptors.append("a demo opportunity")
+                elif world_kind:
+                    descriptors.append(world_kind)
+            description = _join_descriptions([d for d in descriptors if d])
+            if urgent:
+                return f"I noticed {description} — staying focused and ready."
+            return f"I noticed {description} and I’m feeling calm and curious."
+
         experiment_failures = [
             e for e in events if e.get("kind") == "experiment_result" and not e.get("success")
         ]
