@@ -28,14 +28,17 @@ DEFAULT_CATHEDRAL_CONFIG = {
 
 @dataclass(frozen=True)
 class CathedralDigest:
-    """Aggregated counters derived from review outcomes."""
+    """Aggregated counters derived from review and rollback outcomes."""
 
     accepted: int = 0
     applied: int = 0
     quarantined: int = 0
+    rollbacks: int = 0
+    auto_reverts: int = 0
     last_applied_id: Optional[str] = None
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
+    last_reverted_id: Optional[str] = None
 
     @classmethod
     def from_log(cls, path: Path) -> "CathedralDigest":
@@ -71,9 +74,12 @@ class CathedralDigest:
             accepted=accepted,
             applied=0,
             quarantined=quarantined,
+            rollbacks=0,
+            auto_reverts=0,
             last_applied_id=None,
             last_quarantined_id=last_id,
             last_quarantine_error=last_error,
+            last_reverted_id=None,
         )
 
     def to_dict(self) -> dict[str, Optional[str] | int]:
@@ -81,9 +87,12 @@ class CathedralDigest:
             "accepted": self.accepted,
             "applied": self.applied,
             "quarantined": self.quarantined,
+            "rollbacks": self.rollbacks,
+            "auto_reverts": self.auto_reverts,
             "last_applied_id": self.last_applied_id,
             "last_quarantined_id": self.last_quarantined_id,
             "last_quarantine_error": self.last_quarantine_error,
+            "last_reverted_id": self.last_reverted_id,
         }
 
     def record(self, amendment: Amendment, result: "ReviewResult") -> "CathedralDigest":
@@ -110,6 +119,25 @@ class CathedralDigest:
             self,
             applied=self.applied + 1,
             last_applied_id=amendment.id,
+        )
+
+    def record_rollback(self, amendment_id: str, status: str, *, auto: bool) -> "CathedralDigest":
+        if status not in {"success", "partial"}:
+            return self
+        auto_increment = 1 if auto else 0
+        return replace(
+            self,
+            rollbacks=self.rollbacks + 1,
+            auto_reverts=self.auto_reverts + auto_increment,
+            last_reverted_id=amendment_id,
+        )
+
+    def record_post_apply_quarantine(self, amendment: Amendment, reason: str) -> "CathedralDigest":
+        return replace(
+            self,
+            quarantined=self.quarantined + 1,
+            last_quarantined_id=amendment.id,
+            last_quarantine_error=reason,
         )
 
     def timestamp(self) -> str:

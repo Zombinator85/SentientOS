@@ -178,9 +178,16 @@ def make_status_source(
         accepted = int(getattr(digest, "accepted", cathedral_cfg.get("accepted", 0)) or 0)
         applied = int(getattr(digest, "applied", cathedral_cfg.get("applied", 0)) or 0)
         quarantined = int(getattr(digest, "quarantined", cathedral_cfg.get("quarantined", 0)) or 0)
+        rollbacks = int(getattr(digest, "rollbacks", cathedral_cfg.get("rollbacks", 0)) or 0)
+        auto_reverts = int(getattr(digest, "auto_reverts", cathedral_cfg.get("auto_reverts", 0)) or 0)
         last_applied_id = getattr(digest, "last_applied_id", cathedral_cfg.get("last_applied_id"))
         last_q_id = getattr(digest, "last_quarantined_id", cathedral_cfg.get("last_quarantined_id"))
         last_q_error = getattr(digest, "last_quarantine_error", cathedral_cfg.get("last_quarantine_error"))
+        last_reverted_id = getattr(
+            digest,
+            "last_reverted_id",
+            cathedral_cfg.get("last_reverted_id"),
+        )
 
         return DashboardStatus(
             node_name=node_name,
@@ -199,9 +206,12 @@ def make_status_source(
             cathedral_accepted=accepted,
             cathedral_applied=applied,
             cathedral_quarantined=quarantined,
+            cathedral_rollbacks=rollbacks,
+            cathedral_auto_reverts=auto_reverts,
             last_applied_id=last_applied_id if isinstance(last_applied_id, str) and last_applied_id else None,
             last_quarantined_id=last_q_id if isinstance(last_q_id, str) and last_q_id else None,
             last_quarantine_error=last_q_error if isinstance(last_q_error, str) else None,
+            last_reverted_id=last_reverted_id if isinstance(last_reverted_id, str) and last_reverted_id else None,
         )
 
     return _status

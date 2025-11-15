@@ -18,11 +18,15 @@ from sentientos.cathedral import (
     CathedralDigest,
     DEFAULT_CATHEDRAL_CONFIG as BASE_CATHEDRAL_CONFIG,
     ReviewResult,
+    RollbackEngine,
+    RollbackResult,
     amendment_digest,
+    evaluate_invariants,
+    quarantine_amendment,
     review_amendment,
 )
 from sentientos.persona import PersonaLoop, initial_state, make_persona_event_source
-from sentientos.persona_events import collect_recent_events
+from sentientos.persona_events import collect_recent_events, publish_event
 from sentientos.runtime import bootstrap
 from sentientos.voice.config import parse_tts_config
 from sentientos.voice.tts import TtsEngine
@@ -127,6 +131,13 @@ class RuntimeShell:
         self._cathedral_digest = CathedralDigest.from_log(self._cathedral_log_path)
         self._dashboard_notifier: Optional[Callable[[str], None]] = None
         self._amendment_applicator = AmendmentApplicator(self._config)
+        self._rollback_engine = RollbackEngine(
+            self._config,
+            self._amendment_applicator.rollback_dir,
+            self._amendment_applicator.ledger_path,
+        )
+        self._last_rollback_ts: Optional[datetime] = None
+        self._bootstrap_recovery()
 
     @property
     def log_path(self) -> Path:
@@ -165,8 +176,10 @@ class RuntimeShell:
             )
             apply_result = self._amendment_applicator.apply(amendment)
             self._config = copy.deepcopy(self._amendment_applicator.runtime_config)
+            self._rollback_engine.runtime_config = copy.deepcopy(self._config)
             self._cathedral_digest = self._cathedral_digest.record_application(amendment, apply_result.status)
             self._handle_application_result(amendment, apply_result)
+            self._run_post_apply_checks(amendment, apply_result)
         elif status == "quarantined":
             errors = list(result.invariant_errors) + list(result.validation_errors)
             first_error = errors[0] if errors else "Quarantined pending review"
@@ -243,6 +256,242 @@ class RuntimeShell:
                     self._speak_callback(phrase)
                 except Exception:  # pragma: no cover - defensive logging
                     self._log("Failed to emit TTS alert", extra={"amendment_id": amendment.id})
+
+    def _run_post_apply_checks(self, amendment: Amendment, apply_result) -> None:
+        status = getattr(apply_result, "status", "")
+        if status not in {"applied", "partial"}:
+            return
+        violations = evaluate_invariants(amendment)
+        if not violations:
+            return
+        message = (
+            f"Amendment {amendment.id} violated invariants after application. Auto-reverted."
+        )
+        extra = {"amendment_id": amendment.id, "violations": violations}
+        self._log(message, extra=extra)
+        if self._dashboard_notifier:
+            try:
+                self._dashboard_notifier(message)
+            except Exception:  # pragma: no cover - defensive logging
+                self._log("Failed to notify dashboard", extra={"amendment_id": amendment.id})
+
+        rollback_result = self.rollback(
+            amendment.id,
+            auto=True,
+            reason="Invariant violation after apply",
+        )
+
+        quarantine_reasons = list(dict.fromkeys(violations + ["Invalidated after apply"]))
+        quarantine_path = quarantine_amendment(amendment, quarantine_reasons)
+        self._cathedral_digest = self._cathedral_digest.record_post_apply_quarantine(
+            amendment, violations[0]
+        )
+        self._log(
+            "Amendment quarantined after auto-revert",
+            extra={
+                "amendment_id": amendment.id,
+                "violations": violations,
+                "quarantine_path": quarantine_path,
+                "rollback_status": rollback_result.status,
+            },
+        )
+
+    def rollback(
+        self,
+        amendment_id: str,
+        *,
+        auto: bool = False,
+        reason: Optional[str] = None,
+    ) -> RollbackResult:
+        if not amendment_id:
+            raise ValueError("amendment_id is required for rollback")
+
+        start_message = f"Initiating rollback for amendment {amendment_id}…"
+        log_extra: Dict[str, object] = {"amendment_id": amendment_id, "auto": auto}
+        if reason:
+            log_extra["reason"] = reason
+        self._log(start_message, extra=log_extra)
+        if self._dashboard_notifier:
+            try:
+                self._dashboard_notifier("Initiating rollback…")
+            except Exception:  # pragma: no cover - defensive logging
+                self._log("Failed to notify dashboard", extra={"amendment_id": amendment_id})
+
+        result = self._rollback_engine.revert(amendment_id, auto=auto)
+
+        if result.status in {"success", "partial"}:
+            self._config = copy.deepcopy(self._rollback_engine.runtime_config)
+            self._amendment_applicator.runtime_config = copy.deepcopy(self._config)
+            self._cathedral_digest = self._cathedral_digest.record_rollback(
+                amendment_id, result.status, auto=auto
+            )
+            completion_message = "Rollback complete."
+            completion_extra: Dict[str, object] = {
+                "amendment_id": amendment_id,
+                "auto": auto,
+                "status": result.status,
+                "reverted": result.reverted,
+                "skipped": result.skipped,
+            }
+            if reason:
+                completion_extra["reason"] = reason
+            self._log(completion_message, extra=completion_extra)
+            if self._dashboard_notifier:
+                try:
+                    self._dashboard_notifier(completion_message)
+                except Exception:  # pragma: no cover - defensive logging
+                    self._log("Failed to notify dashboard", extra={"amendment_id": amendment_id})
+            publish_event({
+                "kind": "cathedral",
+                "event": "rollback",
+                "amendment_id": amendment_id,
+                "auto": auto,
+            })
+            self._last_rollback_ts = datetime.now(timezone.utc)
+            if auto and self._speak_callback is not None:
+                try:
+                    self._speak_callback("A change violated system integrity. I reverted to a safe state.")
+                except Exception:  # pragma: no cover - defensive logging
+                    self._log("Failed to emit TTS alert", extra={"amendment_id": amendment_id})
+        else:
+            if result.status == "not_found":
+                failure_message = "Rollback metadata not found."
+            else:
+                failure_message = "Rollback failed — see logs."
+            failure_extra: Dict[str, object] = {
+                "amendment_id": amendment_id,
+                "auto": auto,
+                "status": result.status,
+                "errors": result.errors,
+            }
+            if reason:
+                failure_extra["reason"] = reason
+            self._log(failure_message, extra=failure_extra)
+            if self._dashboard_notifier:
+                try:
+                    self._dashboard_notifier(failure_message)
+                except Exception:  # pragma: no cover - defensive logging
+                    self._log("Failed to notify dashboard", extra={"amendment_id": amendment_id})
+
+        return result
+
+    def _bootstrap_recovery(self) -> None:
+        mismatch = self._detect_bootstrap_mismatch()
+        if mismatch is None:
+            return
+        amendment_id, details = mismatch
+        self._log(
+            "Configuration mismatch detected on startup; initiating rollback",
+            extra={"amendment_id": amendment_id, "mismatches": details},
+        )
+        self.rollback(
+            amendment_id,
+            auto=True,
+            reason="Configuration mismatch detected during bootstrap",
+        )
+
+    def _detect_bootstrap_mismatch(self) -> Optional[Tuple[str, Dict[str, Dict[str, Any]]]]:
+        ledger_path = self._amendment_applicator.ledger_path
+        if not ledger_path.exists():
+            return None
+        try:
+            lines = ledger_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return None
+
+        last_apply: Optional[Mapping[str, Any]] = None
+        for raw in lines:
+            if not raw.strip():
+                continue
+            try:
+                entry = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(entry, Mapping):
+                continue
+            event = entry.get("event")
+            if event not in (None, "apply", "application"):
+                continue
+            if isinstance(entry.get("applied"), Mapping):
+                last_apply = entry
+
+        if last_apply is None:
+            return None
+
+        applied_snapshot = last_apply.get("applied")
+        if not isinstance(applied_snapshot, Mapping):
+            return None
+
+        expected = self._extract_applied_values(applied_snapshot)
+        if not expected:
+            return None
+
+        mismatches: Dict[str, Dict[str, Any]] = {}
+        for path, expected_value in expected.items():
+            domain = path[0]
+            segments = path[1:]
+            actual = self._resolve_config_value(domain, segments, self._config)
+            if actual != expected_value:
+                mismatches[self._format_path(domain, segments)] = {
+                    "expected": expected_value,
+                    "actual": actual,
+                }
+
+        if not mismatches:
+            return None
+
+        amendment_id = str(last_apply.get("amendment_id") or "").strip()
+        if not amendment_id:
+            return None
+        return amendment_id, mismatches
+
+    def _extract_applied_values(
+        self, applied_snapshot: Mapping[str, Any]
+    ) -> Dict[Tuple[str, ...], Any]:
+        values: Dict[Tuple[str, ...], Any] = {}
+        for domain, snapshot in applied_snapshot.items():
+            if not isinstance(snapshot, Mapping):
+                continue
+            self._collect_applied_values(str(domain), snapshot, (), values)
+        return values
+
+    def _collect_applied_values(
+        self,
+        domain: str,
+        snapshot: Mapping[str, Any],
+        prefix: Tuple[str, ...],
+        values: Dict[Tuple[str, ...], Any],
+    ) -> None:
+        for key, value in snapshot.items():
+            key_str = str(key)
+            if isinstance(value, Mapping) and "value" in value:
+                values[(domain,) + prefix + (key_str,)] = copy.deepcopy(value["value"])
+            elif isinstance(value, Mapping):
+                self._collect_applied_values(domain, value, prefix + (key_str,), values)
+
+    def _resolve_config_value(
+        self,
+        domain: str,
+        segments: Tuple[str, ...],
+        config: Mapping[str, Any],
+    ) -> Any:
+        if domain == "config":
+            current: Any = config
+        else:
+            section = config.get(domain)
+            if not isinstance(section, Mapping):
+                return None
+            current = section
+        for segment in segments:
+            if not isinstance(current, Mapping):
+                return None
+            current = current.get(segment)
+        return copy.deepcopy(current)
+
+    def _format_path(self, domain: str, segments: Tuple[str, ...]) -> str:
+        parts = [domain]
+        parts.extend(segments)
+        return ".".join(parts)
 
     def start(self) -> None:
         """Start all managed services in deterministic order."""

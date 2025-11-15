@@ -28,9 +28,12 @@ def _sample_status(**overrides):
         cathedral_accepted=2,
         cathedral_applied=1,
         cathedral_quarantined=1,
+        cathedral_rollbacks=1,
+        cathedral_auto_reverts=1,
         last_applied_id="amend-122",
         last_quarantined_id="amend-123",
         last_quarantine_error="Invariant breach",
+        last_reverted_id="amend-121",
     )
     base.update(overrides)
     return DashboardStatus(**base)
@@ -63,7 +66,10 @@ def test_console_dashboard_render_includes_status():
     assert "Demo step started" in rendered
     assert "Cathedral: Accepted: 2" in rendered
     assert "Applied: 1" in rendered
+    assert "Rollbacks: 1" in rendered
+    assert "Auto-Reverts: 1" in rendered
     assert "Last Applied: amend-122" in rendered
+    assert "Last Reverted: amend-121" in rendered
     assert "Last Quarantined: amend-123" in rendered
 
 

@@ -82,6 +82,12 @@ class PersonaLoop:
         return filtered
 
     def _build_summary(self, events: List[Dict[str, object]]) -> str:
+        cathedral_events = [
+            event for event in events if event.get("kind") == "cathedral" and event.get("event") == "rollback"
+        ]
+        if cathedral_events:
+            return "I detected an inconsistency and restored my previous stable configuration."
+
         if not events:
             if self._state.mood in {"tired", "idle"}:
                 return "Quietly tending the cadence while I recharge."

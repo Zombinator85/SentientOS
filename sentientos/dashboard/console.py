@@ -37,9 +37,12 @@ class DashboardStatus:
     cathedral_accepted: int = 0
     cathedral_applied: int = 0
     cathedral_quarantined: int = 0
+    cathedral_rollbacks: int = 0
+    cathedral_auto_reverts: int = 0
     last_applied_id: Optional[str] = None
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
+    last_reverted_id: Optional[str] = None
 
 
 class LogBuffer:
@@ -197,10 +200,13 @@ class ConsoleDashboard:
             "Cathedral: "
             f"Accepted: {status.cathedral_accepted}  |  "
             f"Applied: {status.cathedral_applied}  |  "
-            f"Quarantined: {status.cathedral_quarantined}"
+            f"Rollbacks: {status.cathedral_rollbacks}  |  "
+            f"Auto-Reverts: {status.cathedral_auto_reverts}"
         )
         if status.last_applied_id:
             cathedral_line += f"  |  Last Applied: {status.last_applied_id}"
+        if status.last_reverted_id:
+            cathedral_line += f"  |  Last Reverted: {status.last_reverted_id}"
         if status.last_quarantined_id:
             cathedral_line += f"  |  Last Quarantined: {status.last_quarantined_id}"
         timestamp = status.last_update_ts.strftime("%Y-%m-%d %H:%M:%S")
