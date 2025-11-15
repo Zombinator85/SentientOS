@@ -6,9 +6,9 @@ import io
 import sys
 import threading
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence
 
 __all__ = [
     "DashboardStatus",
@@ -43,6 +43,14 @@ class DashboardStatus:
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
     last_reverted_id: Optional[str] = None
+    federation_enabled: bool = False
+    federation_node: Optional[str] = None
+    federation_fingerprint: Optional[str] = None
+    federation_peer_total: int = 0
+    federation_healthy: int = 0
+    federation_drift: int = 0
+    federation_incompatible: int = 0
+    federation_peers: Dict[str, str] = field(default_factory=dict)
 
 
 class LogBuffer:
@@ -209,6 +217,21 @@ class ConsoleDashboard:
             cathedral_line += f"  |  Last Reverted: {status.last_reverted_id}"
         if status.last_quarantined_id:
             cathedral_line += f"  |  Last Quarantined: {status.last_quarantined_id}"
+        if status.federation_enabled:
+            fingerprint = status.federation_fingerprint or "n/a"
+            node_label = status.federation_node or status.node_name
+            federation_line = (
+                "Federation: "
+                f"Enabled  |  Node: {node_label} (fingerprint: {fingerprint})  |  "
+                f"Peers: {status.federation_peer_total}  Healthy: {status.federation_healthy}  "
+                f"Drift: {status.federation_drift}  Incompatible: {status.federation_incompatible}"
+            )
+        else:
+            federation_line = "Federation: disabled"
+        peer_lines: List[str] = []
+        if status.federation_peers:
+            for peer, level in list(status.federation_peers.items())[:3]:
+                peer_lines.append(f"    {peer}: {level.upper()}")
         timestamp = status.last_update_ts.strftime("%Y-%m-%d %H:%M:%S")
 
         lines = [
@@ -221,10 +244,13 @@ class ConsoleDashboard:
             persona_line,
             experiments_line,
             cathedral_line,
+            federation_line,
             f"Consensus: {status.consensus_mode}  |  Updated: {timestamp}",
             "",
             "Recent events:",
         ]
+
+        lines.extend(peer_lines)
 
         recent = self._log_buffer.get_recent(self._recent_event_limit)
         if not recent:

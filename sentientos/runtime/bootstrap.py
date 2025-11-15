@@ -121,6 +121,15 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
 
     cathedral_defaults: Dict[str, object] = dict(DEFAULT_CATHEDRAL_CONFIG)
 
+    federation_state_dir = base_path / "federation" / "state"
+    federation_defaults: Dict[str, object] = {
+        "enabled": False,
+        "node_name": "local-node",
+        "state_file": str(federation_state_dir / "local-node.json"),
+        "poll_interval_seconds": 10,
+        "peers": [],
+    }
+
     return {
         "runtime": runtime_defaults,
         "persona": persona_defaults,
@@ -128,6 +137,7 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "dashboard": dashboard_defaults,
         "voice": voice_defaults,
         "cathedral": cathedral_defaults,
+        "federation": federation_defaults,
     }
 
 
