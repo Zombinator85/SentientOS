@@ -168,10 +168,19 @@ class AmendmentApplicator:
         snapshot = {
             "original": self._last_original,
             "applied": applied,
+            "digest": amendment_digest(amendment),
         }
         snapshot_path = self._rollback_dir / f"{amendment.id}.json"
         serialised = json.dumps(snapshot, indent=2, sort_keys=True)
         snapshot_path.write_text(serialised, encoding="utf-8")
+
+    @property
+    def ledger_path(self) -> Path:
+        return self._ledger_path
+
+    @property
+    def rollback_dir(self) -> Path:
+        return self._rollback_dir
 
     def _record_original(self, domain: str, path: Iterable[str], value: Any) -> None:
         cursor = self._last_original.setdefault(domain, {})
