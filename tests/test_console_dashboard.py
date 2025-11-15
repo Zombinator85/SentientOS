@@ -34,6 +34,14 @@ def _sample_status(**overrides):
         last_quarantined_id="amend-123",
         last_quarantine_error="Invariant breach",
         last_reverted_id="amend-121",
+        federation_enabled=True,
+        federation_node="APRIL-PC01",
+        federation_fingerprint="abcd1234",
+        federation_peer_total=2,
+        federation_healthy=1,
+        federation_drift=1,
+        federation_incompatible=0,
+        federation_peers={"peerA": "ok", "peerB": "drift"},
     )
     base.update(overrides)
     return DashboardStatus(**base)
@@ -71,6 +79,8 @@ def test_console_dashboard_render_includes_status():
     assert "Last Applied: amend-122" in rendered
     assert "Last Reverted: amend-121" in rendered
     assert "Last Quarantined: amend-123" in rendered
+    assert "Federation: Enabled" in rendered
+    assert "peerB: DRIFT" in rendered
 
 
 def test_console_dashboard_deterministic_render():

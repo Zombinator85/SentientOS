@@ -85,6 +85,7 @@ class RuntimeShell:
         voice_section = _ensure_voice_config(self._config)
         world_section = _ensure_world_config(self._config)
         cathedral_section = _ensure_cathedral_config(self._config)
+        _ensure_federation_config(self._config)
         self._cathedral_config = dict(cathedral_section)
 
         self._process_commands: Dict[str, Tuple[Tuple[str, ...], Dict[str, Optional[object]]]] = {}
@@ -122,6 +123,25 @@ class RuntimeShell:
         self._configure_voice(voice_section)
         self._log("RuntimeShell initialised", extra=runtime_section)
 
+        federation_config, federation_warnings = load_federation_config(
+            self._config,
+            runtime_root=self._runtime_root,
+        )
+        self._federation_config = federation_config
+        self._federation_poller: Optional[FederationPoller] = None
+        if federation_warnings:
+            for warning in federation_warnings:
+                self._log("Federation configuration warning", extra={"warning": warning})
+        if self._federation_config.enabled:
+            self._log(
+                "Federation enabled",
+                extra={
+                    "node": self._federation_config.node_id.name,
+                    "fingerprint": self._federation_config.node_id.fingerprint,
+                    "peers": [peer.node_name for peer in self._federation_config.peers],
+                },
+            )
+
         review_log = str(cathedral_section.get("review_log") or DEFAULT_CATHEDRAL_CONFIG["review_log"])
         self._cathedral_log_path = Path(review_log)
         self._cathedral_log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -154,6 +174,23 @@ class RuntimeShell:
     @property
     def cathedral_digest(self) -> CathedralDigest:
         return self._cathedral_digest
+
+    @property
+    def config(self) -> Mapping[str, object]:
+        return self._config
+
+    @property
+    def federation_config(self):
+        return self._federation_config
+
+    @property
+    def ledger_path(self) -> Path:
+        return self._amendment_applicator.ledger_path
+
+    def get_federation_state(self) -> FederationState:
+        if self._federation_poller:
+            return self._federation_poller.state
+        return FederationState()
 
     def register_dashboard_notifier(self, callback: Optional[Callable[[str], None]]) -> None:
         self._dashboard_notifier = callback
@@ -506,6 +543,7 @@ class RuntimeShell:
         self.start_core()
         self._start_world_polling()
         self._start_persona_loop()
+        self._start_federation_poller()
         self._monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
         self._monitor_thread.start()
 
@@ -604,6 +642,15 @@ class RuntimeShell:
                     self._world_bus.push(event)
             if self._world_stop_event.wait(self._world_poll_interval):
                 break
+
+    def _start_federation_poller(self) -> None:
+        if not getattr(self, "_federation_config", None):
+            return
+        if not self._federation_config.enabled:
+            return
+        if self._federation_poller is None:
+            self._federation_poller = FederationPoller(self._federation_config, self, self._log)
+        self._federation_poller.start()
 
     def _build_world_sources(self, config: Mapping[str, object]) -> List[WorldSource]:
         sources: List[WorldSource] = []
@@ -724,6 +771,9 @@ class RuntimeShell:
         if self._persona_loop:
             self._persona_loop.stop()
             self._persona_loop = None
+        if self._federation_poller:
+            self._federation_poller.stop()
+            self._federation_poller = None
         with self._lock:
             items = list(self._processes.items())
         for name, process in items:
@@ -860,6 +910,17 @@ def _ensure_world_config(config: MutableMapping[str, object]) -> MutableMapping[
     return world
 
 
+def _ensure_federation_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    section = config.get("federation", {})
+    if not isinstance(section, Mapping):
+        section = {}
+    defaults = bootstrap.build_default_config().get("federation", {})
+    federation = dict(defaults)
+    federation.update(section)
+    config["federation"] = federation
+    return federation
+
+
 def _ensure_voice_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
     voice_section = config.get("voice", {})
     if not isinstance(voice_section, Mapping):
@@ -957,3 +1018,5 @@ def _handler_targets(path: Path, handler: logging.Handler) -> bool:
         return False
     handler_path = Path(getattr(handler, "baseFilename", ""))
     return handler_path == path
+from sentientos.federation.config import load_federation_config
+from sentientos.federation.poller import FederationPoller, FederationState

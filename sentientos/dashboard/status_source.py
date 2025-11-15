@@ -6,7 +6,7 @@ import json
 import platform
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
 import experiment_tracker
 
@@ -153,6 +153,7 @@ def make_status_source(
     config_mapping: Mapping[str, Any] = config or {}
     runtime = _coerce_mapping(config_mapping.get("runtime"))
     persona_cfg = _coerce_mapping(config_mapping.get("persona"))
+    federation_cfg = _coerce_mapping(config_mapping.get("federation"))
 
     node_name = runtime.get("node_name")
     if not isinstance(node_name, str) or not node_name:
@@ -166,6 +167,41 @@ def make_status_source(
         persona_state = _resolve_persona_state(persona_state_getter)
         experiments = _collect_experiment_summary()
         model_status = _detect_model_status(shell, config_mapping)
+
+        federation_enabled = bool(federation_cfg.get("enabled", False))
+        federation_node: Optional[str] = None
+        federation_fp: Optional[str] = None
+        federation_peer_total = 0
+        federation_healthy = 0
+        federation_drift = 0
+        federation_incompatible = 0
+        federation_peers: Dict[str, str] = {}
+
+        if shell is not None:
+            config_obj = getattr(shell, "federation_config", None)
+            if config_obj is not None:
+                federation_enabled = bool(getattr(config_obj, "enabled", False))
+                node_id = getattr(config_obj, "node_id", None)
+                if node_id is not None:
+                    federation_node = getattr(node_id, "name", None)
+                    federation_fp = getattr(node_id, "fingerprint", None)
+                peers = getattr(config_obj, "peers", []) or []
+                federation_peer_total = len(peers)
+                if hasattr(shell, "get_federation_state"):
+                    state = shell.get_federation_state()
+                    counts = state.counts()
+                    federation_healthy = counts.get("healthy", 0)
+                    federation_drift = counts.get("drift", 0)
+                    federation_incompatible = counts.get("incompatible", 0)
+                    federation_peers = {name: report.level for name, report in state.peer_reports.items()}
+        if federation_node is None:
+            candidate = federation_cfg.get("node_name")
+            if isinstance(candidate, str) and candidate:
+                federation_node = candidate
+        if not federation_peer_total:
+            peers_cfg = federation_cfg.get("peers")
+            if isinstance(peers_cfg, list):
+                federation_peer_total = len(peers_cfg)
 
         mood: Optional[str] = None
         last_msg: Optional[str] = None
@@ -212,6 +248,14 @@ def make_status_source(
             last_quarantined_id=last_q_id if isinstance(last_q_id, str) and last_q_id else None,
             last_quarantine_error=last_q_error if isinstance(last_q_error, str) else None,
             last_reverted_id=last_reverted_id if isinstance(last_reverted_id, str) and last_reverted_id else None,
+            federation_enabled=federation_enabled,
+            federation_node=federation_node,
+            federation_fingerprint=federation_fp,
+            federation_peer_total=federation_peer_total,
+            federation_healthy=federation_healthy,
+            federation_drift=federation_drift,
+            federation_incompatible=federation_incompatible,
+            federation_peers=federation_peers,
         )
 
     return _status
