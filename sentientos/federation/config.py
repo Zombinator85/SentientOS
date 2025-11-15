@@ -128,6 +128,10 @@ def load_federation_config(
     runtime_root.mkdir(parents=True, exist_ok=True)
     state_dir = runtime_root / "federation" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
+    replay_dir = runtime_root / "federation" / "replay"
+    replay_dir.mkdir(parents=True, exist_ok=True)
+    quarantine_dir = runtime_root / "federation" / "quarantine"
+    quarantine_dir.mkdir(parents=True, exist_ok=True)
 
     peers: List[PeerConfig] = []
     for raw_peer in federation_section.get("peers", []):

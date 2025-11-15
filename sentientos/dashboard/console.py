@@ -55,6 +55,7 @@ class DashboardStatus:
     federation_incompatible: int = 0
     federation_peers: Dict[str, str] = field(default_factory=dict)
     federation_sync: Dict[str, Dict[str, object]] = field(default_factory=dict)
+    federation_replay: List[Dict[str, object]] = field(default_factory=list)
     federation_cluster_unstable: bool = False
     federation_guard_cathedral: str = "ALLOW"
     federation_guard_experiments: str = "ALLOW"
@@ -291,6 +292,59 @@ class ConsoleDashboard:
             remaining = len(values) - limit
             return f"{', '.join(values[:limit])} (+{remaining} more)"
 
+        def _replay_indicator(severity: str) -> str:
+            severity = severity.lower()
+            if severity == "none":
+                return "✓ aligned"
+            if severity == "low":
+                return "≈ drift (low)"
+            if severity == "medium":
+                return "Δ drift (medium)"
+            if severity == "high":
+                return "⚠ drift (high)"
+            return severity.upper()
+
+        def _summarise_replay(entry: Mapping[str, object]) -> str:
+            highlights: List[str] = []
+            missing = entry.get("missing") if isinstance(entry, Mapping) else {}
+            extra = entry.get("extra") if isinstance(entry, Mapping) else {}
+            details = entry.get("details") if isinstance(entry, Mapping) else {}
+            if isinstance(missing, Mapping):
+                for key, values in missing.items():
+                    if isinstance(values, (list, tuple)) and values:
+                        highlights.append(f"{len(values)} missing {key}")
+                    elif values:
+                        highlights.append(f"missing {key}")
+            if isinstance(extra, Mapping):
+                for key, values in extra.items():
+                    if isinstance(values, (list, tuple)) and values:
+                        highlights.append(f"{len(values)} unexpected {key}")
+                    elif values:
+                        highlights.append(f"unexpected {key}")
+            if isinstance(details, Mapping) and not highlights:
+                runtime = details.get("runtime")
+                dream = details.get("dream")
+                if isinstance(runtime, Mapping) and runtime:
+                    highlights.append("config mismatch")
+                if isinstance(dream, Mapping) and dream.get("reflection_divergence"):
+                    highlights.append("reflection divergence")
+            if not highlights:
+                highlights.append("aligned")
+            return "; ".join(highlights)
+
+        replay_lines: List[str] = ["FEDERATION REPLAY"]
+        if status.federation_replay:
+            for entry in status.federation_replay[:3]:
+                peer = entry.get("peer") if isinstance(entry, Mapping) else None
+                peer_name = str(peer or "peer")
+                severity = str(entry.get("severity") if isinstance(entry, Mapping) else "none")
+                indicator = _replay_indicator(severity)
+                summary = _summarise_replay(entry if isinstance(entry, Mapping) else {})
+                replay_lines.append(f"  {peer_name}:    {indicator} — {summary}")
+        else:
+            replay_lines.append("  (no replay data yet)")
+        replay_lines.append("")
+
         sync_lines: List[str] = []
         if status.federation_sync:
             sync_lines.append("    Sync:")
@@ -337,10 +391,15 @@ class ConsoleDashboard:
             cathedral_line,
             federation_line,
             guard_line,
-            f"Consensus: {status.consensus_mode}  |  Updated: {timestamp}",
-            "",
-            "Recent events:",
         ]
+        lines.extend(replay_lines)
+        lines.extend(
+            [
+                f"Consensus: {status.consensus_mode}  |  Updated: {timestamp}",
+                "",
+                "Recent events:",
+            ]
+        )
 
         if reflection_line:
             lines.insert(3, reflection_line)

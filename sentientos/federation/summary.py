@@ -118,6 +118,49 @@ def _coerce_mapping(value: object) -> MutableMapping[str, Any]:
     return {}
 
 
+def _serialise_meta_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).isoformat()
+    if isinstance(value, Mapping):
+        return {str(k): _serialise_meta_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_serialise_meta_value(v) for v in value]
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return str(value)
+
+
+def _collect_persona_meta(runtime) -> Dict[str, Any]:
+    getter = getattr(runtime, "get_persona_snapshot", None)
+    if callable(getter):
+        try:
+            snapshot = getter()
+        except Exception:  # pragma: no cover - defensive
+            return {}
+        if isinstance(snapshot, Mapping):
+            return {str(k): _serialise_meta_value(v) for k, v in snapshot.items()}
+    return {}
+
+
+def _collect_dream_meta(runtime) -> Dict[str, Any]:
+    getter = getattr(runtime, "get_dream_snapshot", None)
+    status_callable = getattr(runtime, "dream_loop_status", None)
+    data = None
+    if callable(getter):
+        try:
+            data = getter()
+        except Exception:  # pragma: no cover - defensive
+            data = None
+    if data is None and callable(status_callable):
+        try:
+            data = status_callable()
+        except Exception:  # pragma: no cover - defensive
+            data = None
+    if isinstance(data, Mapping):
+        return {str(k): _serialise_meta_value(v) for k, v in data.items()}
+    return {}
+
+
 def _read_ledger_state(ledger_path: Path) -> tuple[str, int]:
     if not ledger_path.exists():
         return "", 0
@@ -387,6 +430,14 @@ def build_local_summary(runtime) -> FederationSummary:
         if cathedral_index or experiment_index:
             indexes = SummaryIndexes(cathedral=cathedral_index, experiments=experiment_index)
 
+    persona_meta = _collect_persona_meta(runtime)
+    dream_meta = _collect_dream_meta(runtime)
+    meta: Dict[str, Any] = {"runtime_root": str(runtime_root)}
+    if persona_meta:
+        meta["persona"] = persona_meta
+    if dream_meta:
+        meta["dream"] = dream_meta
+
     return FederationSummary(
         node_name=node_id.name,
         fingerprint=node_id.fingerprint,
@@ -403,7 +454,7 @@ def build_local_summary(runtime) -> FederationSummary:
             dsl_version=_EXPERIMENT_DSL_VERSION,
         ),
         config=ConfigState(config_digest=config_digest),
-        meta={"runtime_root": str(runtime_root)},
+        meta=meta,
         indexes=indexes,
     )
 

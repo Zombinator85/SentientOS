@@ -14,7 +14,7 @@ from .summary import (
     read_peer_summary,
 )
 from .drift import DriftReport, DriftLevel, compare_summaries
-from .poller import FederationPoller, FederationState
+from .poller import FederationPoller, FederationState, PeerReplaySnapshot
 from .window import FederationWindow, build_window
 from .sync_view import (
     SyncStatus,
@@ -25,6 +25,8 @@ from .sync_view import (
     compute_experiment_sync,
     build_peer_sync_view,
 )
+from .replay import PassiveReplay, ReplayResult
+from .delta import DeltaResult, ReplaySeverity, compute_delta
 
 __all__ = [
     "NodeId",
@@ -40,11 +42,17 @@ __all__ = [
     "summary_digest",
     "write_local_summary",
     "read_peer_summary",
+    "PassiveReplay",
+    "ReplayResult",
+    "DeltaResult",
+    "ReplaySeverity",
+    "compute_delta",
     "DriftReport",
     "DriftLevel",
     "compare_summaries",
     "FederationPoller",
     "FederationState",
+    "PeerReplaySnapshot",
     "FederationWindow",
     "build_window",
     "SyncStatus",
