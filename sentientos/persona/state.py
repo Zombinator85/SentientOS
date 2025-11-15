@@ -17,6 +17,7 @@ class PersonaState:
     mood: Mood = "calm"
     energy: float = 1.0
     last_reflection: Optional[str] = None
+    recent_reflection: Optional[str] = None
     last_update_ts: Optional[datetime] = None
     pulse_snapshot: Dict[str, Any] = field(default_factory=dict)
 
@@ -28,6 +29,7 @@ class PersonaState:
             mood=self.mood,
             energy=self.energy,
             last_reflection=self.last_reflection,
+            recent_reflection=self.recent_reflection,
             last_update_ts=self.last_update_ts,
             pulse_snapshot=dict(self.pulse_snapshot),
         )

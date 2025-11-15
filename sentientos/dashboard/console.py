@@ -51,6 +51,13 @@ class DashboardStatus:
     federation_drift: int = 0
     federation_incompatible: int = 0
     federation_peers: Dict[str, str] = field(default_factory=dict)
+    dream_loop_enabled: bool = False
+    dream_loop_running: bool = False
+    dream_loop_last_focus: Optional[str] = None
+    dream_loop_last_shard_ts: Optional[datetime] = None
+    glow_journal_size: int = 0
+    glow_last_summary: Optional[str] = None
+    persona_recent_reflection: Optional[str] = None
 
 
 class LogBuffer:
@@ -193,6 +200,24 @@ class ConsoleDashboard:
         else:
             persona_line = "Persona: disabled"
 
+        reflection_line: Optional[str] = None
+        if status.persona_recent_reflection:
+            reflection_line = f"Reflection: {status.persona_recent_reflection}"
+        elif status.glow_last_summary:
+            reflection_line = f"Last Reflection: {status.glow_last_summary}"
+
+        if status.dream_loop_enabled:
+            loop_state = "running" if status.dream_loop_running else "stopped"
+            memory_line = (
+                f"Memory: Dream Loop {loop_state}  |  Glow Journal Size: {status.glow_journal_size}"
+            )
+            if status.dream_loop_last_shard_ts:
+                stamp = status.dream_loop_last_shard_ts.strftime("%Y-%m-%d %H:%M:%S")
+                focus = status.dream_loop_last_focus or "n/a"
+                memory_line += f"  |  Last Shard: {stamp} (focus={focus})"
+        else:
+            memory_line = "Memory: Dream Loop disabled"
+
         last_experiment = "None recorded"
         if status.last_experiment_desc:
             outcome = status.last_experiment_result or "unknown"
@@ -242,6 +267,7 @@ class ConsoleDashboard:
                 f"Status: {model_status}"
             ),
             persona_line,
+            memory_line,
             experiments_line,
             cathedral_line,
             federation_line,
@@ -249,6 +275,9 @@ class ConsoleDashboard:
             "",
             "Recent events:",
         ]
+
+        if reflection_line:
+            lines.insert(3, reflection_line)
 
         lines.extend(peer_lines)
 
