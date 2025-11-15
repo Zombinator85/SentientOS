@@ -84,6 +84,25 @@ class PersonaLoop:
         return filtered
 
     def _build_summary(self, events: List[Dict[str, object]]) -> str:
+        replay_events = [event for event in events if event.get("kind") == "federation_replay"]
+        if replay_events:
+            order = {"none": 0, "low": 1, "medium": 2, "high": 3}
+            best = max(
+                replay_events,
+                key=lambda event: order.get(str(event.get("severity") or "none").lower(), 0),
+            )
+            severity = str(best.get("severity") or "none").lower()
+            peer = str(best.get("peer") or "").strip() or None
+            if severity == "high":
+                return "Severe divergence detected; I am suspending Cathedral changes."
+            if severity == "medium":
+                if peer:
+                    return f"I’m noticing significant divergence from peer {peer}. I’ll hold large updates."
+                return "Some experiment sequences diverge; I will slow self-modification."
+            if severity == "low":
+                return "Peers differ slightly in memory, nothing concerning."
+            return "Federation calm. Everyone is aligned."
+
         cathedral_events = [
             event for event in events if event.get("kind") == "cathedral" and event.get("event") == "rollback"
         ]

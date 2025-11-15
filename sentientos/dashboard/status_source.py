@@ -146,6 +146,88 @@ def _collect_experiment_summary() -> _ExperimentSummary:
     return _ExperimentSummary(total_runs, successes, failures, last_description, last_result)
 
 
+def _compute_replay_sync_percent(delta_payload: Mapping[str, Any]) -> int:
+    sections = ["amendment", "experiment", "chain", "dream", "runtime"]
+    total = len(sections)
+    mismatched = 0
+    for name in sections:
+        section = delta_payload.get(name)
+        if isinstance(section, Mapping) and section:
+            mismatched += 1
+    matched = max(0, total - mismatched)
+    return int(round((matched / total) * 100))
+
+
+def _extract_replay_missing(delta_payload: Mapping[str, Any]) -> Dict[str, List[str]]:
+    result: Dict[str, List[str]] = {}
+    amendment = delta_payload.get("amendment")
+    if isinstance(amendment, Mapping):
+        missing = amendment.get("missing_amendments")
+        if isinstance(missing, (list, tuple)) and missing:
+            result["amendments"] = [str(value) for value in missing if value]
+    experiment = delta_payload.get("experiment")
+    if isinstance(experiment, Mapping):
+        missing = experiment.get("missing_experiments")
+        if isinstance(missing, (list, tuple)) and missing:
+            result["experiments"] = [str(value) for value in missing if value]
+    return result
+
+
+def _extract_replay_extra(delta_payload: Mapping[str, Any]) -> Dict[str, List[str]]:
+    result: Dict[str, List[str]] = {}
+    amendment = delta_payload.get("amendment")
+    if isinstance(amendment, Mapping):
+        extra = amendment.get("unexpected_amendments")
+        if isinstance(extra, (list, tuple)) and extra:
+            result["amendments"] = [str(value) for value in extra if value]
+    experiment = delta_payload.get("experiment")
+    if isinstance(experiment, Mapping):
+        extra = experiment.get("unexpected_experiments")
+        if isinstance(extra, (list, tuple)) and extra:
+            result["experiments"] = [str(value) for value in extra if value]
+    return result
+
+
+def _normalise_replay_state(raw: Any) -> List[Dict[str, Any]]:
+    if isinstance(raw, Mapping):
+        iterable = raw.items()
+    elif isinstance(raw, Iterable):
+        iterable = enumerate(raw)
+    else:
+        return []
+    entries: List[Dict[str, Any]] = []
+    for key, snapshot in iterable:
+        if snapshot is None:
+            continue
+        peer = getattr(snapshot, "peer", None) or (str(key) if key is not None else "peer")
+        severity = str(getattr(snapshot, "severity", "none"))
+        last_seen = getattr(snapshot, "last_seen", None)
+        if isinstance(last_seen, datetime):
+            seen = last_seen.astimezone(timezone.utc).isoformat()
+        else:
+            seen = None
+        delta = getattr(snapshot, "delta", None)
+        payload: Mapping[str, Any] = {}
+        if delta is not None:
+            exporter = getattr(delta, "to_payload", None)
+            if callable(exporter):
+                try:
+                    payload = exporter()
+                except Exception:
+                    payload = {}
+        entry = {
+            "peer": peer,
+            "severity": severity,
+            "last_seen": seen,
+            "details": payload,
+            "sync_percent": _compute_replay_sync_percent(payload),
+            "missing": _extract_replay_missing(payload),
+            "extra": _extract_replay_extra(payload),
+        }
+        entries.append(entry)
+    return sorted(entries, key=lambda item: item.get("peer") or "")
+
+
 def _resolve_persona_state(
     persona_state_getter: Optional[Callable[[], Optional[PersonaState]]],
 ) -> Optional[PersonaState]:
@@ -199,6 +281,7 @@ def make_status_source(
         guard_experiments = "ALLOW_HIGH"
         window = None
         federation_sync: Dict[str, Dict[str, object]] = {}
+        federation_replay_entries: List[Dict[str, object]] = []
 
         if shell is not None:
             config_obj = getattr(shell, "federation_config", None)
@@ -245,6 +328,13 @@ def make_status_source(
                                     "missing_peer": list(getattr(experiments, "missing_peer_ids", []) or []),
                                 },
                             }
+                replay_getter = getattr(shell, "get_federation_replay_state", None)
+                if callable(replay_getter):
+                    try:
+                        raw_replay = replay_getter()
+                    except Exception:
+                        raw_replay = {}
+                    federation_replay_entries = _normalise_replay_state(raw_replay)
         if federation_node is None:
             candidate = federation_cfg.get("node_name")
             if isinstance(candidate, str) and candidate:
@@ -364,6 +454,7 @@ def make_status_source(
             federation_drift=federation_drift,
             federation_incompatible=federation_incompatible,
             federation_peers=federation_peers,
+            federation_replay=federation_replay_entries,
             federation_cluster_unstable=federation_cluster_unstable,
             federation_guard_cathedral=guard_cathedral,
             federation_guard_experiments=guard_experiments,

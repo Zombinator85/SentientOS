@@ -262,6 +262,33 @@ class RuntimeShell:
                 status["last_created_at"] = self._coerce_datetime(created)
         return status
 
+    def get_dream_snapshot(self) -> Dict[str, object]:
+        snapshot = self.dream_loop_status()
+        created = snapshot.get("last_created_at")
+        if isinstance(created, datetime):
+            snapshot["last_created_at"] = created.astimezone(timezone.utc)
+        return snapshot
+
+    def get_persona_snapshot(self) -> Optional[Dict[str, object]]:
+        loop = self._persona_loop
+        if loop is None:
+            return None
+        state = loop.state
+        if state is None:
+            return None
+        snapshot: Dict[str, object] = {
+            "mood": state.mood,
+            "energy": state.energy,
+            "last_reflection": state.last_reflection,
+            "recent_reflection": state.recent_reflection,
+        }
+        if state.last_update_ts is not None:
+            ts = state.last_update_ts
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            snapshot["last_update_ts"] = ts.astimezone(timezone.utc)
+        return snapshot
+
     def get_federation_state(self) -> FederationState:
         if self._federation_poller:
             return self._federation_poller.state
@@ -276,6 +303,16 @@ class RuntimeShell:
         if self._federation_poller:
             return self._federation_poller.get_peer_sync_views()
         return {}
+
+    def get_federation_replay_state(self):
+        if self._federation_poller:
+            return self._federation_poller.get_replay_state()
+        return {}
+
+    def replay_peer(self, peer_id: str):
+        if self._federation_poller:
+            return self._federation_poller.replay_peer(peer_id)
+        return None
 
     def consume_guard_events_since(self, since_ts: datetime) -> List[Dict[str, object]]:
         cutoff = since_ts
