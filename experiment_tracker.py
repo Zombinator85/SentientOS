@@ -92,6 +92,7 @@ def auto_propose_experiment(
     *,
     criteria: Optional[str] = None,
     signals: Optional[Dict[str, Any]] = None,
+    risk_level: str = "medium",
 ) -> str:
     """Programmatically create and immediately activate an experiment."""
     exp_id = propose_experiment(
@@ -100,6 +101,7 @@ def auto_propose_experiment(
         expected,
         proposer="auto",
         criteria=criteria,
+        risk_level=risk_level,
     )
     update_status(exp_id, "active")
     _audit("auto_propose", exp_id, signals=signals)
@@ -121,6 +123,7 @@ def propose_experiment(
     requires_consensus: bool = False,
     quorum_k: Optional[int] = None,
     quorum_n: Optional[int] = None,
+    risk_level: Optional[str] = None,
 ) -> str:
     exp_id = uuid.uuid4().hex[:8]
     data = _load()
@@ -145,6 +148,8 @@ def propose_experiment(
     }
     if criteria:
         info["criteria"] = criteria
+    if risk_level:
+        info["risk_level"] = str(risk_level)
     info["digest"] = compute_experiment_digest(info)
     data.append(info)
     _save(data)

@@ -35,10 +35,13 @@ class CathedralDigest:
     quarantined: int = 0
     rollbacks: int = 0
     auto_reverts: int = 0
+    pending_federation: int = 0
+    held_federation: int = 0
     last_applied_id: Optional[str] = None
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
     last_reverted_id: Optional[str] = None
+    last_pending_id: Optional[str] = None
 
     @classmethod
     def from_log(cls, path: Path) -> "CathedralDigest":
@@ -89,10 +92,13 @@ class CathedralDigest:
             "quarantined": self.quarantined,
             "rollbacks": self.rollbacks,
             "auto_reverts": self.auto_reverts,
+            "pending_federation": self.pending_federation,
+            "held_federation": self.held_federation,
             "last_applied_id": self.last_applied_id,
             "last_quarantined_id": self.last_quarantined_id,
             "last_quarantine_error": self.last_quarantine_error,
             "last_reverted_id": self.last_reverted_id,
+            "last_pending_id": self.last_pending_id,
         }
 
     def record(self, amendment: Amendment, result: "ReviewResult") -> "CathedralDigest":
@@ -138,6 +144,27 @@ class CathedralDigest:
             quarantined=self.quarantined + 1,
             last_quarantined_id=amendment.id,
             last_quarantine_error=reason,
+        )
+
+    def record_pending_federation(self, amendment: Amendment) -> "CathedralDigest":
+        return replace(
+            self,
+            pending_federation=self.pending_federation + 1,
+            held_federation=self.held_federation + 1,
+            last_pending_id=amendment.id,
+        )
+
+    def resolve_pending_federation(self, amendment_id: str) -> "CathedralDigest":
+        pending = max(0, self.pending_federation - 1)
+        last_pending = self.last_pending_id
+        if pending == 0:
+            last_pending = None
+        elif amendment_id == self.last_pending_id:
+            last_pending = amendment_id
+        return replace(
+            self,
+            pending_federation=pending,
+            last_pending_id=last_pending,
         )
 
     def timestamp(self) -> str:

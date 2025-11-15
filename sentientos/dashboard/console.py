@@ -39,10 +39,13 @@ class DashboardStatus:
     cathedral_quarantined: int = 0
     cathedral_rollbacks: int = 0
     cathedral_auto_reverts: int = 0
+    cathedral_pending_federation: int = 0
+    cathedral_held_federation: int = 0
     last_applied_id: Optional[str] = None
     last_quarantined_id: Optional[str] = None
     last_quarantine_error: Optional[str] = None
     last_reverted_id: Optional[str] = None
+    last_pending_id: Optional[str] = None
     federation_enabled: bool = False
     federation_node: Optional[str] = None
     federation_fingerprint: Optional[str] = None
@@ -51,6 +54,10 @@ class DashboardStatus:
     federation_drift: int = 0
     federation_incompatible: int = 0
     federation_peers: Dict[str, str] = field(default_factory=dict)
+    federation_cluster_unstable: bool = False
+    federation_guard_cathedral: str = "ALLOW"
+    federation_guard_experiments: str = "ALLOW"
+    experiments_held_federation: int = 0
     dream_loop_enabled: bool = False
     dream_loop_running: bool = False
     dream_loop_last_focus: Optional[str] = None
@@ -227,7 +234,7 @@ class ConsoleDashboard:
             "Experiments: "
             f"{status.experiments_run} total  |  "
             f"{status.experiments_success} success, {status.experiments_failed} fail  |  "
-            f"Last: {last_experiment}"
+            f"Last: {last_experiment}  |  Held (federation): {status.experiments_held_federation}"
         )
         cathedral_line = (
             "Cathedral: "
@@ -242,17 +249,31 @@ class ConsoleDashboard:
             cathedral_line += f"  |  Last Reverted: {status.last_reverted_id}"
         if status.last_quarantined_id:
             cathedral_line += f"  |  Last Quarantined: {status.last_quarantined_id}"
+        if status.last_pending_id:
+            cathedral_line += f"  |  Last Held: {status.last_pending_id}"
+        cathedral_line += (
+            f"  |  Pending (federation): {status.cathedral_pending_federation}"
+            f"  |  Held Total: {status.cathedral_held_federation}"
+        )
         if status.federation_enabled:
             fingerprint = status.federation_fingerprint or "n/a"
             node_label = status.federation_node or status.node_name
+            cluster_state = "UNSTABLE" if status.federation_cluster_unstable else "HEALTHY"
             federation_line = (
                 "Federation: "
                 f"Enabled  |  Node: {node_label} (fingerprint: {fingerprint})  |  "
                 f"Peers: {status.federation_peer_total}  Healthy: {status.federation_healthy}  "
-                f"Drift: {status.federation_drift}  Incompatible: {status.federation_incompatible}"
+                f"Drift: {status.federation_drift}  Incompatible: {status.federation_incompatible}  |  "
+                f"Cluster: {cluster_state}"
+            )
+            guard_line = (
+                "Guard: "
+                f"Cathedral={status.federation_guard_cathedral}  "
+                f"Experiments={status.federation_guard_experiments}"
             )
         else:
             federation_line = "Federation: disabled"
+            guard_line = "Guard: Cathedral=ALLOW_HIGH  Experiments=ALLOW_HIGH"
         peer_lines: List[str] = []
         if status.federation_peers:
             for peer, level in list(status.federation_peers.items())[:3]:
@@ -271,6 +292,7 @@ class ConsoleDashboard:
             experiments_line,
             cathedral_line,
             federation_line,
+            guard_line,
             f"Consensus: {status.consensus_mode}  |  Updated: {timestamp}",
             "",
             "Recent events:",

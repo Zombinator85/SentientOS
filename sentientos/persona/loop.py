@@ -90,14 +90,20 @@ class PersonaLoop:
         if cathedral_events:
             return "I detected an inconsistency and restored my previous stable configuration."
 
+        guard_holds = [
+            event for event in events if event.get("kind") == "federation_guard" and event.get("state") == "hold"
+        ]
+        if guard_holds:
+            return "I’m noticing disagreement across nodes, so I’m pausing high-impact changes until we’re aligned again."
+
         federation_events = [
             event
             for event in events
-            if event.get("kind") == "federation"
-            and str(event.get("level") or "").lower() in {"drift", "incompatible"}
+            if event.get("kind") in {"federation", "federation_guard"}
+            and str(event.get("state") or event.get("level") or "").lower() in {"drift", "incompatible", "unstable"}
         ]
         if federation_events:
-            return "I’m seeing some disagreement between nodes. I’m holding steady to my current covenant until we reconcile."
+            return "I’m noticing disagreement across nodes, so I’m pausing high-impact changes until we’re aligned again."
 
         if not events:
             if self._state.mood in {"tired", "idle"}:

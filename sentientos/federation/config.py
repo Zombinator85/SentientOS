@@ -27,6 +27,9 @@ class FederationConfig:
     state_file: str
     peers: List[PeerConfig]
     poll_interval_seconds: int
+    max_drift_peers: int
+    max_incompatible_peers: int
+    max_missing_peers: int
 
 
 def _coerce_mapping(value: object) -> MutableMapping[str, object]:
@@ -68,6 +71,25 @@ def load_federation_config(
 
     node_name = str(federation_section.get("node_name") or runtime_section.get("node_name") or "local-node")
     poll_interval = int(federation_section.get("poll_interval_seconds") or 10)
+    drift_section = _coerce_mapping(federation_section.get("drift"))
+
+    def _threshold(name: str, default: int) -> int:
+        value = drift_section.get(name)
+        if value in {None, ""}:
+            return default
+        try:
+            coerced = int(value)
+        except (TypeError, ValueError):
+            warnings.append(f"Invalid federation drift threshold for {name}; using {default}")
+            return default
+        if coerced < 0:
+            warnings.append(f"federation drift threshold {name} must be non-negative; using {default}")
+            return default
+        return coerced
+
+    max_drift_peers = _threshold("max_drift_peers", 0)
+    max_incompatible_peers = _threshold("max_incompatible_peers", 0)
+    max_missing_peers = _threshold("max_missing_peers", 0)
     enabled = bool(federation_section.get("enabled", False))
 
     state_file_value = federation_section.get("state_file") or ""
@@ -117,6 +139,9 @@ def load_federation_config(
             state_file=str(state_file),
             peers=peers,
             poll_interval_seconds=max(1, poll_interval),
+            max_drift_peers=max_drift_peers,
+            max_incompatible_peers=max_incompatible_peers,
+            max_missing_peers=max_missing_peers,
         ),
         warnings,
     )

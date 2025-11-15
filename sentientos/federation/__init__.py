@@ -13,6 +13,7 @@ from .summary import (
 )
 from .drift import DriftReport, DriftLevel, compare_summaries
 from .poller import FederationPoller, FederationState
+from .window import FederationWindow, build_window
 
 __all__ = [
     "NodeId",
@@ -31,4 +32,6 @@ __all__ = [
     "compare_summaries",
     "FederationPoller",
     "FederationState",
+    "FederationWindow",
+    "build_window",
 ]
