@@ -4,6 +4,8 @@ import logging
 import time
 from typing import List
 
+import pytest
+
 from sentientos.persona import PersonaLoop, decay_energy, initial_state, update_from_pulse
 
 
@@ -161,3 +163,21 @@ def test_federation_guard_hold_prompts_pause_message() -> None:
     assert handler.records, "expected persona heartbeat log"
     assert "pausing high-impact changes" in handler.records[0].getMessage()
     assert "pausing high-impact changes" in message
+
+
+@pytest.mark.parametrize(
+    "status, expected",
+    [
+        ("ahead_of_me", "governance changes I haven’t received"),
+        ("behind_me", "I’m ahead of some peers"),
+        ("divergent", "divergence in governance history"),
+    ],
+)
+def test_persona_sync_events_shape_summary(status: str, expected: str) -> None:
+    state = initial_state()
+    events = [
+        {"kind": "federation", "event": "cathedral_sync_state", "status": status},
+    ]
+    loop = PersonaLoop(state, tick_interval_seconds=5.0, event_source=lambda: list(events))
+    summary = loop._build_summary(events)
+    assert expected in summary

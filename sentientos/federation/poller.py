@@ -5,13 +5,14 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Mapping, Optional
 
 from sentientos.persona_events import publish_event
 
 from .config import FederationConfig, PeerConfig
 from .drift import DriftLevel, DriftReport, compare_summaries
-from .summary import build_local_summary, read_peer_summary, write_local_summary
+from .summary import FederationSummary, build_local_summary, read_peer_summary, write_local_summary
+from .sync_view import PeerSyncView, build_peer_sync_view
 from .window import FederationWindow, build_window
 
 
@@ -39,6 +40,8 @@ class FederationPoller:
         self._lock = threading.Lock()
         self._last_levels: Dict[str, DriftLevel] = {}
         self._window: Optional[FederationWindow] = None
+        self._peer_sync_views: Dict[str, PeerSyncView] = {}
+        self._last_sync_status: Dict[str, str] = {}
 
     @property
     def state(self) -> FederationState:
@@ -51,6 +54,10 @@ class FederationPoller:
     def get_window(self) -> Optional[FederationWindow]:
         with self._lock:
             return self._window
+
+    def get_peer_sync_views(self) -> Dict[str, PeerSyncView]:
+        with self._lock:
+            return dict(self._peer_sync_views)
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -82,10 +89,16 @@ class FederationPoller:
         write_local_summary(summary, self.config.state_file)
 
         reports: Dict[str, DriftReport] = {}
+        peer_sync_views: Dict[str, PeerSyncView] = {}
         for peer in self.config.peers:
-            report = self._evaluate_peer(peer, summary)
-            if report is not None:
-                reports[peer.node_name] = report
+            report, peer_summary = self._evaluate_peer(peer, summary)
+            reports[peer.node_name] = report
+            if peer_summary is not None:
+                try:
+                    view = build_peer_sync_view(summary, peer_summary)
+                except Exception:  # pragma: no cover - defensive
+                    continue
+                peer_sync_views[peer.node_name] = view
 
         now = datetime.now(timezone.utc)
         with self._lock:
@@ -99,9 +112,12 @@ class FederationPoller:
                 max_drift_peers=self.config.max_drift_peers,
                 max_incompatible_peers=self.config.max_incompatible_peers,
                 max_missing_peers=self.config.max_missing_peers,
+                peer_sync=peer_sync_views,
             )
+            self._peer_sync_views = dict(peer_sync_views)
             window = self._window
         self._emit_aggregate_event(reports)
+        self._emit_sync_events(peer_sync_views)
         if window is not None:
             callback = getattr(self.runtime, "on_federation_window", None)
             if callable(callback):
@@ -110,7 +126,7 @@ class FederationPoller:
                 except Exception:  # pragma: no cover - defensive
                     self.log_cb("Federation window callback failed; continuing")
 
-    def _evaluate_peer(self, peer: PeerConfig, local_summary) -> DriftReport:
+    def _evaluate_peer(self, peer: PeerConfig, local_summary) -> tuple[DriftReport, Optional[FederationSummary]]:
         peer_summary = read_peer_summary(peer.state_file)
         if peer_summary is None:
             report = DriftReport(peer=peer.node_name, level="incompatible", reasons=["Missing or invalid summary"])
@@ -136,7 +152,7 @@ class FederationPoller:
                     "ts": datetime.now(timezone.utc).isoformat(),
                 }
             )
-        return report
+        return report, peer_summary
 
     @staticmethod
     def _is_worse(current: DriftLevel, previous: DriftLevel) -> bool:
@@ -156,3 +172,26 @@ class FederationPoller:
                     "ts": datetime.now(timezone.utc).isoformat(),
                 }
             )
+
+    def _emit_sync_events(self, views: Mapping[str, PeerSyncView]) -> None:
+        interesting = {"ahead_of_me", "divergent"}
+        for peer, view in views.items():
+            status = getattr(view.cathedral, "status", "unknown")
+            previous = self._last_sync_status.get(peer)
+            self._last_sync_status[peer] = status
+            if status not in interesting or status == previous:
+                continue
+            publish_event(
+                {
+                    "kind": "federation",
+                    "event": "cathedral_sync_state",
+                    "peer": peer,
+                    "status": status,
+                    "missing_local_ids": list(view.cathedral.missing_local_ids),
+                    "missing_peer_ids": list(view.cathedral.missing_peer_ids),
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        for peer in list(self._last_sync_status.keys()):
+            if peer not in views:
+                self._last_sync_status.pop(peer, None)

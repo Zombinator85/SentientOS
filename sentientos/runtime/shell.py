@@ -36,6 +36,7 @@ from sentientos.experiments.federation_guard import (
     set_window_provider as set_experiment_window_provider,
 )
 from sentientos.federation.window import FederationWindow
+from sentientos.federation.sync_view import PeerSyncView
 from sentientos.voice.config import parse_tts_config
 from sentientos.voice.tts import TtsEngine
 from sentientos.world.bus import WorldEventBus
@@ -270,6 +271,11 @@ class RuntimeShell:
         if self._federation_poller:
             return self._federation_poller.get_window()
         return None
+
+    def get_peer_sync_views(self) -> Dict[str, PeerSyncView]:
+        if self._federation_poller:
+            return self._federation_poller.get_peer_sync_views()
+        return {}
 
     def consume_guard_events_since(self, since_ts: datetime) -> List[Dict[str, object]]:
         cutoff = since_ts
@@ -1221,7 +1227,11 @@ def _ensure_federation_config(config: MutableMapping[str, object]) -> MutableMap
         section = {}
     defaults = bootstrap.build_default_config().get("federation", {})
     federation = dict(defaults)
+    indexes_value = section.get("indexes") if isinstance(section, Mapping) else None
+    indexes_present = isinstance(indexes_value, Mapping)
     federation.update(section)
+    if not indexes_present:
+        federation.pop("indexes", None)
     config["federation"] = federation
     return federation
 

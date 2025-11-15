@@ -133,6 +133,10 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "state_file": str(federation_state_dir / "local-node.json"),
         "poll_interval_seconds": 10,
         "peers": [],
+        "indexes": {
+            "max_cathedral_ids": 64,
+            "max_experiment_ids": 32,
+        },
     }
 
     dream_loop_defaults: Dict[str, object] = {

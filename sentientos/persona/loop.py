@@ -96,6 +96,21 @@ class PersonaLoop:
         if guard_holds:
             return "I’m noticing disagreement across nodes, so I’m pausing high-impact changes until we’re aligned again."
 
+        sync_events = [
+            event
+            for event in events
+            if event.get("kind") == "federation"
+            and event.get("event") == "cathedral_sync_state"
+        ]
+        if sync_events:
+            statuses = {str(event.get("status") or "").lower() for event in sync_events}
+            if "divergent" in statuses:
+                return "I’ve detected a divergence in governance history between nodes. I’m staying anchored to my current covenant and logging this carefully."
+            if "ahead_of_me" in statuses:
+                return "Some peers have governance changes I haven’t received yet; I’m holding my current configuration until we reconcile."
+            if "behind_me" in statuses:
+                return "I’m ahead of some peers in governance; I’ll be cautious with high-impact changes while we remain unsynchronized."
+
         federation_events = [
             event
             for event in events

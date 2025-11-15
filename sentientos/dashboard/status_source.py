@@ -198,6 +198,7 @@ def make_status_source(
         guard_cathedral = "ALLOW_HIGH"
         guard_experiments = "ALLOW_HIGH"
         window = None
+        federation_sync: Dict[str, Dict[str, object]] = {}
 
         if shell is not None:
             config_obj = getattr(shell, "federation_config", None)
@@ -222,6 +223,28 @@ def make_status_source(
                         window = window_fn()
                     except Exception:
                         window = None
+                sync_getter = getattr(shell, "get_peer_sync_views", None)
+                if callable(sync_getter):
+                    try:
+                        sync_views = sync_getter()
+                    except Exception:
+                        sync_views = {}
+                    if isinstance(sync_views, Mapping):
+                        for peer_name, view in sync_views.items():
+                            cathedral = getattr(view, "cathedral", None)
+                            experiments = getattr(view, "experiments", None)
+                            federation_sync[str(peer_name)] = {
+                                "cathedral": {
+                                    "status": getattr(cathedral, "status", "unknown"),
+                                    "missing_local": list(getattr(cathedral, "missing_local_ids", []) or []),
+                                    "missing_peer": list(getattr(cathedral, "missing_peer_ids", []) or []),
+                                },
+                                "experiments": {
+                                    "status": getattr(experiments, "status", "unknown"),
+                                    "missing_local": list(getattr(experiments, "missing_local_ids", []) or []),
+                                    "missing_peer": list(getattr(experiments, "missing_peer_ids", []) or []),
+                                },
+                            }
         if federation_node is None:
             candidate = federation_cfg.get("node_name")
             if isinstance(candidate, str) and candidate:
@@ -344,6 +367,7 @@ def make_status_source(
             federation_cluster_unstable=federation_cluster_unstable,
             federation_guard_cathedral=guard_cathedral,
             federation_guard_experiments=guard_experiments,
+            federation_sync=federation_sync,
             experiments_held_federation=experiments_held_total,
             dream_loop_enabled=dream_loop_enabled,
             dream_loop_running=dream_loop_running,

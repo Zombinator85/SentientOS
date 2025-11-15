@@ -8,7 +8,7 @@ import threading
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Mapping
 
 __all__ = [
     "DashboardStatus",
@@ -54,6 +54,7 @@ class DashboardStatus:
     federation_drift: int = 0
     federation_incompatible: int = 0
     federation_peers: Dict[str, str] = field(default_factory=dict)
+    federation_sync: Dict[str, Dict[str, object]] = field(default_factory=dict)
     federation_cluster_unstable: bool = False
     federation_guard_cathedral: str = "ALLOW"
     federation_guard_experiments: str = "ALLOW"
@@ -278,6 +279,49 @@ class ConsoleDashboard:
         if status.federation_peers:
             for peer, level in list(status.federation_peers.items())[:3]:
                 peer_lines.append(f"    {peer}: {level.upper()}")
+
+        def _summarise_ids(items: object, limit: int = 3) -> str:
+            if not isinstance(items, list):
+                return "none"
+            values = [str(item) for item in items if isinstance(item, str) and item]
+            if not values:
+                return "none"
+            if len(values) <= limit:
+                return ", ".join(values)
+            remaining = len(values) - limit
+            return f"{', '.join(values[:limit])} (+{remaining} more)"
+
+        sync_lines: List[str] = []
+        if status.federation_sync:
+            sync_lines.append("    Sync:")
+            for peer, data in list(sorted(status.federation_sync.items()))[:3]:
+                snapshot = data if isinstance(data, Mapping) else {}
+                cat = snapshot.get("cathedral", {}) if isinstance(snapshot, Mapping) else {}
+                exp = snapshot.get("experiments", {}) if isinstance(snapshot, Mapping) else {}
+                cat_status = str(cat.get("status") or "unknown").upper()
+                cat_parts: List[str] = []
+                local_missing = _summarise_ids(cat.get("missing_local"))
+                peer_missing = _summarise_ids(cat.get("missing_peer"))
+                if local_missing != "none":
+                    cat_parts.append(f"missing: {local_missing}")
+                if peer_missing != "none":
+                    cat_parts.append(f"missing_peer: {peer_missing}")
+                line = f"        {peer}: Cathedral {cat_status}"
+                if cat_parts:
+                    line += f" ({'; '.join(cat_parts)})"
+                exp_status = str(exp.get("status") or "unknown").upper()
+                exp_parts: List[str] = []
+                exp_local = _summarise_ids(exp.get("missing_local"))
+                exp_peer = _summarise_ids(exp.get("missing_peer"))
+                if exp_local != "none":
+                    exp_parts.append(f"missing: {exp_local}")
+                if exp_peer != "none":
+                    exp_parts.append(f"missing_peer: {exp_peer}")
+                line += f", Experiments {exp_status}"
+                if exp_parts:
+                    line += f" ({'; '.join(exp_parts)})"
+                sync_lines.append(line)
+
         timestamp = status.last_update_ts.strftime("%Y-%m-%d %H:%M:%S")
 
         lines = [
@@ -302,6 +346,7 @@ class ConsoleDashboard:
             lines.insert(3, reflection_line)
 
         lines.extend(peer_lines)
+        lines.extend(sync_lines)
 
         recent = self._log_buffer.get_recent(self._recent_event_limit)
         if not recent:

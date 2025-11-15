@@ -30,6 +30,8 @@ class FederationConfig:
     max_drift_peers: int
     max_incompatible_peers: int
     max_missing_peers: int
+    max_cathedral_ids: int = 0
+    max_experiment_ids: int = 0
 
 
 def _coerce_mapping(value: object) -> MutableMapping[str, object]:
@@ -92,6 +94,29 @@ def load_federation_config(
     max_missing_peers = _threshold("max_missing_peers", 0)
     enabled = bool(federation_section.get("enabled", False))
 
+    indexes_section = federation_section.get("indexes")
+    indexes_present = isinstance(indexes_section, Mapping)
+    indexes = _coerce_mapping(indexes_section)
+
+    def _index_limit(name: str, default: int) -> int:
+        if not indexes_present:
+            return 0
+        value = indexes.get(name)
+        if value in {None, ""}:
+            return default
+        try:
+            coerced = int(value)
+        except (TypeError, ValueError):
+            warnings.append(f"Invalid federation index limit for {name}; using {default}")
+            return default
+        if coerced < 0:
+            warnings.append(f"Federation index limit {name} must be non-negative; using {default}")
+            return default
+        return coerced
+
+    max_cathedral_ids = _index_limit("max_cathedral_ids", 64)
+    max_experiment_ids = _index_limit("max_experiment_ids", 32)
+
     state_file_value = federation_section.get("state_file") or ""
     state_file, error = _normalise_state_file(state_file_value, runtime_root)
     if error:
@@ -142,6 +167,8 @@ def load_federation_config(
             max_drift_peers=max_drift_peers,
             max_incompatible_peers=max_incompatible_peers,
             max_missing_peers=max_missing_peers,
+            max_cathedral_ids=max_cathedral_ids,
+            max_experiment_ids=max_experiment_ids,
         ),
         warnings,
     )
