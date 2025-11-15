@@ -140,3 +140,24 @@ def test_reflection_loader_updates_state() -> None:
 
     assert reflection in message
     assert state.recent_reflection == reflection
+
+
+def test_federation_guard_hold_prompts_pause_message() -> None:
+    state = initial_state()
+    events = [
+        {"kind": "federation_guard", "state": "hold", "risk": "high"},
+    ]
+    logger, handler = _collecting_logger()
+    loop = PersonaLoop(
+        state,
+        tick_interval_seconds=10.0,
+        event_source=lambda: list(events),
+        max_message_length=160,
+        logger=logger,
+    )
+
+    message = loop._tick_once()
+
+    assert handler.records, "expected persona heartbeat log"
+    assert "pausing high-impact changes" in handler.records[0].getMessage()
+    assert "pausing high-impact changes" in message

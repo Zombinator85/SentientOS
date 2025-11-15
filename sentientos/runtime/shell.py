@@ -8,9 +8,10 @@ import logging
 import os
 import subprocess
 import threading
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
+from typing import Callable, Deque, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
 
 from sentientos.cathedral import (
     Amendment,
@@ -25,9 +26,16 @@ from sentientos.cathedral import (
     quarantine_amendment,
     review_amendment,
 )
+from sentientos.cathedral.federation_guard import GuardDecision, should_accept_amendment
 from sentientos.persona import PersonaLoop, initial_state, make_persona_event_source
 from sentientos.persona_events import collect_recent_events, publish_event
 from sentientos.runtime import bootstrap
+from sentientos.experiments.federation_guard import (
+    ExperimentGuardDecision,
+    set_event_sink as set_experiment_guard_sink,
+    set_window_provider as set_experiment_window_provider,
+)
+from sentientos.federation.window import FederationWindow
 from sentientos.voice.config import parse_tts_config
 from sentientos.voice.tts import TtsEngine
 from sentientos.world.bus import WorldEventBus
@@ -127,9 +135,15 @@ class RuntimeShell:
         self._world_sources: List[WorldSource] = []
         self._world_thread: Optional[threading.Thread] = None
         self._world_stop_event = threading.Event()
+        self._guard_events: Deque[Dict[str, object]] = deque(maxlen=128)
+        self._guard_lock = threading.Lock()
+        self._guard_event_buffer: Deque[Dict[str, object]] = deque(maxlen=16)
+        self._pending_federation_amendments: Dict[str, Amendment] = {}
+        self._cathedral_guard_hold_total = 0
+        self._experiment_guard_hold_total = 0
         self._persona_event_source = make_persona_event_source(
             self._world_bus if self._world_enabled else None,
-            [collect_recent_events],
+            [collect_recent_events, self._persona_guard_event_source],
         )
         if self._world_enabled and self._world_bus is not None:
             self._world_sources = self._build_world_sources(world_section)
@@ -180,6 +194,8 @@ class RuntimeShell:
         )
         self._last_rollback_ts: Optional[datetime] = None
         self._bootstrap_recovery()
+        set_experiment_window_provider(self.federation_window)
+        set_experiment_guard_sink(self._handle_experiment_guard_event)
 
     @property
     def log_path(self) -> Path:
@@ -250,8 +266,191 @@ class RuntimeShell:
             return self._federation_poller.state
         return FederationState()
 
+    def federation_window(self) -> Optional[FederationWindow]:
+        if self._federation_poller:
+            return self._federation_poller.get_window()
+        return None
+
+    def consume_guard_events_since(self, since_ts: datetime) -> List[Dict[str, object]]:
+        cutoff = since_ts
+        if cutoff.tzinfo is None:
+            cutoff = cutoff.replace(tzinfo=timezone.utc)
+        else:
+            cutoff = cutoff.astimezone(timezone.utc)
+        with self._guard_lock:
+            return [event for event in self._guard_events if event.get("ts") > cutoff]
+
+    def _persona_guard_event_source(self) -> List[Dict[str, object]]:
+        events: List[Dict[str, object]] = []
+        window = self.federation_window()
+        if window and window.is_cluster_unstable:
+            events.append(
+                {
+                    "kind": "federation_guard",
+                    "state": "unstable",
+                    "ts": datetime.now(timezone.utc),
+                }
+            )
+        with self._guard_lock:
+            while self._guard_event_buffer:
+                events.append(self._guard_event_buffer.popleft())
+        return events
+
+    def _record_guard_event(self, category: str, decision: str, payload: Dict[str, object]) -> None:
+        event = dict(payload)
+        event.update({
+            "category": category,
+            "decision": decision,
+            "ts": datetime.now(timezone.utc),
+        })
+        with self._guard_lock:
+            self._guard_events.append(event)
+            if decision.lower() == "hold":
+                persona_event = {
+                    "kind": "federation_guard",
+                    "state": "hold",
+                    "category": category,
+                    "payload": dict(payload),
+                    "ts": event["ts"],
+                }
+                self._guard_event_buffer.append(persona_event)
+
+    def _handle_experiment_guard_event(
+        self,
+        decision: ExperimentGuardDecision,
+        payload: Dict[str, object],
+    ) -> None:
+        decision_text = str(decision)
+        experiment_id = str(payload.get("experiment_id") or "unknown")
+        risk_level = str(payload.get("risk_level") or "medium")
+        message: Optional[str] = None
+        if decision_text == "hold":
+            self._experiment_guard_hold_total += 1
+            message = (
+                f"Experiments: holding {experiment_id} due to federation instability "
+                f"(risk={risk_level})"
+            )
+        elif decision_text == "warn":
+            message = (
+                f"Experiments: running {experiment_id} with drift warnings "
+                f"(risk={risk_level})"
+            )
+        if message:
+            self._log(message, extra={"experiment_id": experiment_id, "decision": decision_text})
+            self._notify_dashboard(message)
+        self._record_guard_event(
+            "experiments",
+            decision_text,
+            {"experiment_id": experiment_id, "risk_level": risk_level},
+        )
+
+    def _hold_amendment_for_federation(
+        self,
+        amendment: Amendment,
+        window: Optional[FederationWindow],
+    ) -> None:
+        self._pending_federation_amendments[amendment.id] = amendment
+        self._cathedral_digest = self._cathedral_digest.record_pending_federation(amendment)
+        self._cathedral_guard_hold_total += 1
+        message = (
+            f"Cathedral: holding amendment {amendment.id} due to federation instability "
+            f"(risk={amendment.risk_level})"
+        )
+        self._log(message, extra={"amendment_id": amendment.id, "risk_level": amendment.risk_level})
+        self._notify_dashboard(message)
+        publish_event(
+            {
+                "kind": "cathedral",
+                "event": "amendment_held",
+                "amendment_id": amendment.id,
+                "risk_level": amendment.risk_level,
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "window_unstable": bool(window.is_cluster_unstable) if window else True,
+            }
+        )
+        self._record_guard_event(
+            "cathedral",
+            "hold",
+            {"amendment_id": amendment.id, "risk_level": amendment.risk_level},
+        )
+
+    def _apply_amendment_with_guard(
+        self,
+        amendment: Amendment,
+        decision: GuardDecision,
+        *,
+        from_pending: bool = False,
+    ):
+        message: Optional[str] = None
+        if from_pending:
+            if decision == "warn":
+                message = (
+                    f"Cathedral: applying pending amendment {amendment.id} with drift warnings "
+                    f"(risk={amendment.risk_level})"
+                )
+            else:
+                message = (
+                    f"Cathedral: applying pending amendment {amendment.id} after federation recovery "
+                    f"(risk={amendment.risk_level})"
+                )
+        elif decision == "warn":
+            message = (
+                f"Cathedral: applying amendment {amendment.id} with drift warnings "
+                f"(risk={amendment.risk_level})"
+            )
+        if message:
+            self._log(message, extra={"amendment_id": amendment.id, "decision": decision})
+            self._notify_dashboard(message)
+            publish_event(
+                {
+                    "kind": "cathedral",
+                    "event": "amendment_guard",
+                    "decision": decision,
+                    "amendment_id": amendment.id,
+                    "risk_level": amendment.risk_level,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        if decision in {"warn", "hold"}:
+            self._record_guard_event(
+                "cathedral",
+                decision,
+                {"amendment_id": amendment.id, "risk_level": amendment.risk_level},
+            )
+        apply_result = self._amendment_applicator.apply(amendment)
+        self._config = copy.deepcopy(self._amendment_applicator.runtime_config)
+        self._rollback_engine.runtime_config = copy.deepcopy(self._config)
+        self._cathedral_digest = self._cathedral_digest.record_application(amendment, apply_result.status)
+        if from_pending:
+            self._cathedral_digest = self._cathedral_digest.resolve_pending_federation(amendment.id)
+        self._handle_application_result(amendment, apply_result)
+        self._run_post_apply_checks(amendment, apply_result)
+        return apply_result
+
+    def _attempt_pending_amendments(self, window: FederationWindow) -> None:
+        if not window.is_quorum_healthy:
+            return
+        pending_items = list(self._pending_federation_amendments.items())
+        for amendment_id, amendment in pending_items:
+            decision = should_accept_amendment(window, getattr(amendment, "risk_level", "medium"))
+            if decision == "hold":
+                continue
+            self._pending_federation_amendments.pop(amendment_id, None)
+            self._apply_amendment_with_guard(amendment, decision, from_pending=True)
+
+    def on_federation_window(self, window: FederationWindow) -> None:
+        self._attempt_pending_amendments(window)
+
     def register_dashboard_notifier(self, callback: Optional[Callable[[str], None]]) -> None:
         self._dashboard_notifier = callback
+
+    def _notify_dashboard(self, message: str) -> None:
+        if not self._dashboard_notifier:
+            return
+        try:
+            self._dashboard_notifier(message)
+        except Exception:  # pragma: no cover - defensive logging
+            self._log("Failed to notify dashboard", extra={"message": message})
 
     def submit_amendment(self, amendment: Amendment) -> ReviewResult:
         """Run an amendment through the Cathedral review pipeline."""
@@ -269,12 +468,12 @@ class RuntimeShell:
                     "summary": amendment.summary,
                 },
             )
-            apply_result = self._amendment_applicator.apply(amendment)
-            self._config = copy.deepcopy(self._amendment_applicator.runtime_config)
-            self._rollback_engine.runtime_config = copy.deepcopy(self._config)
-            self._cathedral_digest = self._cathedral_digest.record_application(amendment, apply_result.status)
-            self._handle_application_result(amendment, apply_result)
-            self._run_post_apply_checks(amendment, apply_result)
+            window = self.federation_window()
+            decision = should_accept_amendment(window, getattr(amendment, "risk_level", "medium"))
+            if decision == "hold":
+                self._hold_amendment_for_federation(amendment, window)
+                return result
+            apply_result = self._apply_amendment_with_guard(amendment, decision)
         elif status == "quarantined":
             errors = list(result.invariant_errors) + list(result.validation_errors)
             first_error = errors[0] if errors else "Quarantined pending review"
@@ -878,6 +1077,8 @@ class RuntimeShell:
         if self._federation_poller:
             self._federation_poller.stop()
             self._federation_poller = None
+        set_experiment_guard_sink(None)
+        set_experiment_window_provider(None)
         with self._lock:
             items = list(self._processes.items())
         for name, process in items:

@@ -12,6 +12,7 @@ from sentientos.persona_events import publish_event
 from .config import FederationConfig, PeerConfig
 from .drift import DriftLevel, DriftReport, compare_summaries
 from .summary import build_local_summary, read_peer_summary, write_local_summary
+from .window import FederationWindow, build_window
 
 
 @dataclass
@@ -37,6 +38,7 @@ class FederationPoller:
         self._state = FederationState()
         self._lock = threading.Lock()
         self._last_levels: Dict[str, DriftLevel] = {}
+        self._window: Optional[FederationWindow] = None
 
     @property
     def state(self) -> FederationState:
@@ -45,6 +47,10 @@ class FederationPoller:
                 last_poll_ts=self._state.last_poll_ts,
                 peer_reports=dict(self._state.peer_reports),
             )
+
+    def get_window(self) -> Optional[FederationWindow]:
+        with self._lock:
+            return self._window
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -85,7 +91,24 @@ class FederationPoller:
         with self._lock:
             self._state.last_poll_ts = now
             self._state.peer_reports = reports
+            self._window = build_window(
+                self.config.node_id,
+                reports,
+                now,
+                expected_peer_count=len(self.config.peers),
+                max_drift_peers=self.config.max_drift_peers,
+                max_incompatible_peers=self.config.max_incompatible_peers,
+                max_missing_peers=self.config.max_missing_peers,
+            )
+            window = self._window
         self._emit_aggregate_event(reports)
+        if window is not None:
+            callback = getattr(self.runtime, "on_federation_window", None)
+            if callable(callback):
+                try:
+                    callback(window)
+                except Exception:  # pragma: no cover - defensive
+                    self.log_cb("Federation window callback failed; continuing")
 
     def _evaluate_peer(self, peer: PeerConfig, local_summary) -> DriftReport:
         peer_summary = read_peer_summary(peer.state_file)

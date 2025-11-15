@@ -37,6 +37,8 @@ def _sample_status(**overrides):
         cathedral_quarantined=1,
         cathedral_rollbacks=1,
         cathedral_auto_reverts=1,
+        cathedral_pending_federation=0,
+        cathedral_held_federation=0,
         last_applied_id="amend-122",
         last_quarantined_id="amend-123",
         last_quarantine_error="Invariant breach",
@@ -49,6 +51,10 @@ def _sample_status(**overrides):
         federation_drift=1,
         federation_incompatible=0,
         federation_peers={"peerA": "ok", "peerB": "drift"},
+        federation_cluster_unstable=False,
+        federation_guard_cathedral="ALLOW_HIGH",
+        federation_guard_experiments="ALLOW_HIGH",
+        experiments_held_federation=0,
     )
     base.update(overrides)
     return DashboardStatus(**base)

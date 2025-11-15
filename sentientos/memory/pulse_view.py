@@ -41,6 +41,7 @@ def collect_recent_pulse(runtime, since_ts: datetime) -> List[PulseEvent]:
     pulses.extend(_collect_rollback_events(runtime, cutoff))
     pulses.extend(_collect_world_events(runtime, cutoff))
     pulses.extend(_collect_federation_reports(runtime, cutoff))
+    pulses.extend(_collect_guard_events(runtime, cutoff))
     pulses.extend(_collect_persona_reflection(runtime, cutoff))
     pulses = [event for event in pulses if event.ts > cutoff]
     return sorted(pulses, key=lambda event: event.ts)
@@ -240,6 +241,46 @@ def _collect_federation_reports(runtime, cutoff: datetime) -> List[PulseEvent]:
                 severity=severity,
                 source=f"federation.{peer}",
                 payload={"peer": peer, "level": level, "reasons": reasons},
+            )
+        )
+    return pulses
+
+
+def _collect_guard_events(runtime, cutoff: datetime) -> List[PulseEvent]:
+    consumer = getattr(runtime, "consume_guard_events_since", None)
+    if not callable(consumer):
+        return []
+    try:
+        events = consumer(cutoff)
+    except Exception:
+        return []
+    pulses: List[PulseEvent] = []
+    for event in events:
+        ts = event.get("ts")
+        if not isinstance(ts, datetime) or ts <= cutoff:
+            continue
+        category = str(event.get("category") or "")
+        decision = str(event.get("decision") or "").lower()
+        if category == "cathedral":
+            kind: PulseKind = "cathedral"
+        elif category == "experiments":
+            kind = "experiment"
+        else:
+            kind = "federation"
+        if decision == "hold":
+            severity: Severity = "warn"
+        elif decision == "warn":
+            severity = "warn"
+        else:
+            severity = "info"
+        payload = {key: value for key, value in event.items() if key != "ts"}
+        pulses.append(
+            PulseEvent(
+                ts=ts,
+                kind=kind,
+                severity=severity,
+                source=f"guard.{category or 'unknown'}",
+                payload=payload,
             )
         )
     return pulses

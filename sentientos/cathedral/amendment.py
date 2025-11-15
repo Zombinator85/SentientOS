@@ -45,6 +45,14 @@ def _ensure_datetime(value: Any) -> datetime:
     raise TypeError("created_at must be datetime or ISO8601 string")
 
 
+def _coerce_risk_level(value: Any) -> str:
+    if isinstance(value, str) and value.strip():
+        lowered = value.strip().lower()
+        if lowered in {"low", "medium", "high"}:
+            return lowered
+    return "medium"
+
+
 @dataclass(frozen=True)
 class Amendment:
     """Structured description of a proposed Cathedral change."""
@@ -54,7 +62,8 @@ class Amendment:
     proposer: str
     summary: str
     changes: Dict[str, Any]
-    reason: str
+    reason: str = ""
+    risk_level: str = "medium"
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -64,6 +73,7 @@ class Amendment:
         # Normalise created_at for deterministic serialisation.
         object.__setattr__(self, "created_at", _ensure_datetime(self.created_at))
         object.__setattr__(self, "changes", dict(self._canonical_changes()))
+        object.__setattr__(self, "risk_level", _coerce_risk_level(self.risk_level))
 
     def _canonical_changes(self) -> Dict[str, Any]:
         return _canonicalize(self.changes)  # type: ignore[return-value]
@@ -78,6 +88,7 @@ class Amendment:
             "summary": self.summary,
             "changes": self._canonical_changes(),
             "reason": self.reason,
+            "risk_level": self.risk_level,
         }
 
     def serialize(self) -> str:
@@ -104,6 +115,7 @@ class Amendment:
             summary=str(payload.get("summary") or ""),
             changes=changes,
             reason=str(payload.get("reason") or ""),
+            risk_level=_coerce_risk_level(payload.get("risk_level")),
         )
 
 

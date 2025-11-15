@@ -10,6 +10,7 @@ import experiment_tracker
 from logging_config import get_log_path
 
 from .chain import ExperimentChain, ChainStep
+from .federation_guard import current_window, emit_guard_event, should_run_experiment
 from sentientos.verify.sentient_verify_loop import execute_experiment_with_adapter
 
 
@@ -61,6 +62,23 @@ def _log_entry(entry: Dict[str, Any]) -> None:
     record.setdefault("timestamp", _now())
     with CHAIN_LOG_PATH.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record) + "\n")
+
+
+def _log_guard_decision(
+    chain_id: str,
+    experiment_id: str,
+    decision: str,
+    risk_level: str,
+) -> None:
+    _log_entry(
+        {
+            "chain_id": chain_id,
+            "experiment_id": experiment_id,
+            "event": "federation_guard",
+            "decision": decision,
+            "risk_level": risk_level,
+        }
+    )
 
 
 def execute_experiment(exp: Dict[str, Any]) -> Dict[str, Any]:
@@ -154,6 +172,37 @@ def run_chain(
             outcome = "pending_consensus"
             final_experiment_id = step.id
             break
+
+        risk_level = str(experiment.get("risk_level") or "medium")
+        window = current_window()
+        guard_decision = should_run_experiment(window, risk_level)
+        if guard_decision in {"warn", "hold"}:
+            emit_guard_event(
+                guard_decision,
+                {
+                    "chain_id": chain.chain_id,
+                    "experiment_id": step.id,
+                    "risk_level": risk_level,
+                    "window_unstable": bool(window.is_cluster_unstable) if window else False,
+                },
+            )
+            _log_guard_decision(chain.chain_id, step.id, guard_decision, risk_level)
+            if guard_decision == "hold":
+                result = ChainStepResult(
+                    chain_id=chain.chain_id,
+                    step_index=step_index,
+                    experiment_id=step.id,
+                    success=None,
+                    context={},
+                    error="held_due_to_federation",
+                )
+                history.append(result)
+                _log_step_result(result)
+                if progress_callback:
+                    progress_callback(result)
+                outcome = "held_federation"
+                final_experiment_id = step.id
+                break
 
         try:
             context = execute_experiment(experiment)

@@ -11,6 +11,8 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 import experiment_tracker
 
 from sentientos.persona.state import PersonaState
+from sentientos.cathedral.federation_guard import should_accept_amendment
+from sentientos.experiments.federation_guard import should_run_experiment
 
 from .console import DashboardStatus, LogBuffer
 
@@ -192,6 +194,10 @@ def make_status_source(
         federation_drift = 0
         federation_incompatible = 0
         federation_peers: Dict[str, str] = {}
+        federation_cluster_unstable = False
+        guard_cathedral = "ALLOW_HIGH"
+        guard_experiments = "ALLOW_HIGH"
+        window = None
 
         if shell is not None:
             config_obj = getattr(shell, "federation_config", None)
@@ -210,6 +216,12 @@ def make_status_source(
                     federation_drift = counts.get("drift", 0)
                     federation_incompatible = counts.get("incompatible", 0)
                     federation_peers = {name: report.level for name, report in state.peer_reports.items()}
+                window_fn = getattr(shell, "federation_window", None)
+                if callable(window_fn):
+                    try:
+                        window = window_fn()
+                    except Exception:
+                        window = None
         if federation_node is None:
             candidate = federation_cfg.get("node_name")
             if isinstance(candidate, str) and candidate:
@@ -218,6 +230,11 @@ def make_status_source(
             peers_cfg = federation_cfg.get("peers")
             if isinstance(peers_cfg, list):
                 federation_peer_total = len(peers_cfg)
+
+        if window is not None:
+            federation_cluster_unstable = bool(getattr(window, "is_cluster_unstable", False))
+        guard_cathedral = f"{should_accept_amendment(window, 'high').upper()}_HIGH"
+        guard_experiments = f"{should_run_experiment(window, 'high').upper()}_HIGH"
 
         mood: Optional[str] = None
         last_msg: Optional[str] = None
@@ -234,6 +251,8 @@ def make_status_source(
         quarantined = int(getattr(digest, "quarantined", cathedral_cfg.get("quarantined", 0)) or 0)
         rollbacks = int(getattr(digest, "rollbacks", cathedral_cfg.get("rollbacks", 0)) or 0)
         auto_reverts = int(getattr(digest, "auto_reverts", cathedral_cfg.get("auto_reverts", 0)) or 0)
+        pending_federation = int(getattr(digest, "pending_federation", 0) or 0)
+        held_federation = int(getattr(digest, "held_federation", 0) or 0)
         last_applied_id = getattr(digest, "last_applied_id", cathedral_cfg.get("last_applied_id"))
         last_q_id = getattr(digest, "last_quarantined_id", cathedral_cfg.get("last_quarantined_id"))
         last_q_error = getattr(digest, "last_quarantine_error", cathedral_cfg.get("last_quarantine_error"))
@@ -242,6 +261,11 @@ def make_status_source(
             "last_reverted_id",
             cathedral_cfg.get("last_reverted_id"),
         )
+        last_pending_id = getattr(digest, "last_pending_id", cathedral_cfg.get("last_pending_id"))
+
+        experiments_held_total = 0
+        if shell is not None:
+            experiments_held_total = int(getattr(shell, "_experiment_guard_hold_total", 0) or 0)
 
         dream_loop_enabled = bool(dream_cfg.get("enabled", False))
         dream_loop_running = False
@@ -302,10 +326,13 @@ def make_status_source(
             cathedral_quarantined=quarantined,
             cathedral_rollbacks=rollbacks,
             cathedral_auto_reverts=auto_reverts,
+            cathedral_pending_federation=pending_federation,
+            cathedral_held_federation=held_federation,
             last_applied_id=last_applied_id if isinstance(last_applied_id, str) and last_applied_id else None,
             last_quarantined_id=last_q_id if isinstance(last_q_id, str) and last_q_id else None,
             last_quarantine_error=last_q_error if isinstance(last_q_error, str) else None,
             last_reverted_id=last_reverted_id if isinstance(last_reverted_id, str) and last_reverted_id else None,
+            last_pending_id=last_pending_id if isinstance(last_pending_id, str) and last_pending_id else None,
             federation_enabled=federation_enabled,
             federation_node=federation_node,
             federation_fingerprint=federation_fp,
@@ -314,6 +341,10 @@ def make_status_source(
             federation_drift=federation_drift,
             federation_incompatible=federation_incompatible,
             federation_peers=federation_peers,
+            federation_cluster_unstable=federation_cluster_unstable,
+            federation_guard_cathedral=guard_cathedral,
+            federation_guard_experiments=guard_experiments,
+            experiments_held_federation=experiments_held_total,
             dream_loop_enabled=dream_loop_enabled,
             dream_loop_running=dream_loop_running,
             dream_loop_last_focus=dream_loop_focus,
