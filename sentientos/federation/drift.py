@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Literal
+from typing import Dict, List, Literal, Optional
 
 from .summary import FederationSummary
+from .sync_view import PeerSyncView, build_peer_sync_view
 
 DriftLevel = Literal["ok", "warn", "drift", "incompatible"]
 
@@ -34,6 +35,11 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
     reasons: List[str] = []
     level: DriftLevel = "ok"
 
+    try:
+        sync_view: Optional[PeerSyncView] = build_peer_sync_view(local, peer)
+    except Exception:  # pragma: no cover - defensive
+        sync_view = None
+
     same_digest = local.cathedral.last_applied_digest == peer.cathedral.last_applied_digest
     same_config = local.config.config_digest == peer.config.config_digest
     same_dsl = local.experiments.dsl_version == peer.experiments.dsl_version
@@ -47,7 +53,7 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
                 f"Different DSL version (local={local.experiments.dsl_version}, peer={peer.experiments.dsl_version})"
             )
         )
-        return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+        return _finalise_report(peer.node_name, level, reasons, sync_view)
 
     if not same_config and not same_digest:
         level = "incompatible"
@@ -56,7 +62,7 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
                 f"Config and Cathedral digests differ (local={local.config.config_digest}, peer={peer.config.config_digest})"
             )
         )
-        return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+        return _finalise_report(peer.node_name, level, reasons, sync_view)
 
     if peer_height < local_height and not same_digest:
         level = "incompatible"
@@ -65,7 +71,7 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
                 f"Peer ledger behind (local={local_height}, peer={peer_height}) with divergent digest"
             )
         )
-        return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+        return _finalise_report(peer.node_name, level, reasons, sync_view)
 
     if same_digest and same_config:
         if peer_height != local_height:
@@ -84,7 +90,7 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
             )
         if not reasons:
             reasons.append("State aligned")
-        return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+        return _finalise_report(peer.node_name, level, reasons, sync_view)
 
     if same_digest:
         # Matching Cathedral digest but config diverged
@@ -94,7 +100,7 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
                 f"Config digest mismatch (local={local.config.config_digest}, peer={peer.config.config_digest})"
             )
         )
-        return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+        return _finalise_report(peer.node_name, level, reasons, sync_view)
 
     if peer_height >= local_height:
         level = "drift"
@@ -109,7 +115,7 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
                     f"Peer ledger height {peer_height} exceeds local {local_height}"
                 )
             )
-        return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+        return _finalise_report(peer.node_name, level, reasons, sync_view)
 
     level = "incompatible"
     reasons.append(
@@ -117,4 +123,28 @@ def compare_summaries(local: FederationSummary, peer: FederationSummary) -> Drif
             f"Unclassified divergence (local_digest={local.cathedral.last_applied_digest}, peer_digest={peer.cathedral.last_applied_digest})"
         )
     )
-    return DriftReport(peer=peer.node_name, level=level, reasons=reasons)
+    return _finalise_report(peer.node_name, level, reasons, sync_view)
+
+
+def _finalise_report(peer_name: str, level: DriftLevel, reasons: List[str], sync_view: Optional[PeerSyncView]) -> DriftReport:
+    if sync_view is not None and level == "drift":
+        _append_sync_reasons(reasons, sync_view)
+    return DriftReport(peer=peer_name, level=level, reasons=reasons)
+
+
+def _append_sync_reasons(reasons: List[str], sync_view: PeerSyncView) -> None:
+    cathedral_status = getattr(sync_view.cathedral, "status", "unknown")
+    if cathedral_status == "ahead_of_me" and "peer_ahead_cathedral" not in reasons:
+        reasons.append("peer_ahead_cathedral")
+    elif cathedral_status == "behind_me" and "peer_behind_cathedral" not in reasons:
+        reasons.append("peer_behind_cathedral")
+    elif cathedral_status == "divergent" and "cathedral_history_divergent" not in reasons:
+        reasons.append("cathedral_history_divergent")
+
+    experiment_status = getattr(sync_view.experiments, "status", "unknown")
+    if experiment_status == "ahead_of_me" and "peer_ahead_experiments" not in reasons:
+        reasons.append("peer_ahead_experiments")
+    elif experiment_status == "behind_me" and "peer_behind_experiments" not in reasons:
+        reasons.append("peer_behind_experiments")
+    elif experiment_status == "divergent" and "experiments_divergent" not in reasons:
+        reasons.append("experiments_divergent")

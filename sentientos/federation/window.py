@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Mapping
+from typing import Dict, Mapping, Optional, TYPE_CHECKING
 
 from .drift import DriftReport
 from .identity import NodeId
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .sync_view import PeerSyncView
 
 __all__ = ["FederationWindow", "build_window"]
 
@@ -26,6 +29,7 @@ class FederationWindow:
     missing_count: int
     is_quorum_healthy: bool
     is_cluster_unstable: bool
+    peer_sync: Dict[str, "PeerSyncView"] = field(default_factory=dict)
 
     @property
     def total_peers(self) -> int:
@@ -45,6 +49,7 @@ def build_window(
     max_drift_peers: int = 0,
     max_incompatible_peers: int = 0,
     max_missing_peers: int = 0,
+    peer_sync: Optional[Mapping[str, "PeerSyncView"]] = None,
 ) -> FederationWindow:
     """Deterministically aggregate per-peer :class:`DriftReport` objects."""
 
@@ -85,6 +90,8 @@ def build_window(
             or missing_count > max_missing
         )
 
+    peer_sync_map = dict(peer_sync or {})
+
     return FederationWindow(
         local_node=local_node,
         ts=now,
@@ -96,5 +103,6 @@ def build_window(
         missing_count=missing_count,
         is_quorum_healthy=is_quorum_healthy,
         is_cluster_unstable=is_cluster_unstable,
+        peer_sync=peer_sync_map,
     )
 

@@ -54,6 +54,12 @@ def _sample_status(**overrides):
         federation_cluster_unstable=False,
         federation_guard_cathedral="ALLOW_HIGH",
         federation_guard_experiments="ALLOW_HIGH",
+        federation_sync={
+            "peerA": {
+                "cathedral": {"status": "ahead_of_me", "missing_local": ["A5"], "missing_peer": []},
+                "experiments": {"status": "aligned", "missing_local": [], "missing_peer": []},
+            }
+        },
         experiments_held_federation=0,
     )
     base.update(overrides)
@@ -94,6 +100,7 @@ def test_console_dashboard_render_includes_status():
     assert "Last Quarantined: amend-123" in rendered
     assert "Federation: Enabled" in rendered
     assert "peerB: DRIFT" in rendered
+    assert "Sync:" in rendered
     assert "Memory: Dream Loop running" in rendered
     assert "Glow Journal Size: 3" in rendered
     assert "Reflection: I’ve been running experiments and learning." in rendered
