@@ -104,6 +104,10 @@ def run(init_only: bool = False) -> int:
         logging.basicConfig(level=logging.INFO)
 
     config, config_path, runtime_dirs, warnings = _bootstrap_runtime()
+    override_config = load_config()
+    if isinstance(override_config, dict):
+        for key, value in override_config.items():
+            config[key] = value
     LOGGER.info("Configuration loaded from %s", config_path)
     for warning in warnings:
         LOGGER.warning(warning)

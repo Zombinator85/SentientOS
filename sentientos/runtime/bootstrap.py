@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Dict, Mapping, Optional
 
 from sentientos.cathedral.digest import DEFAULT_CATHEDRAL_CONFIG
+from sentientos.memory.mounts import ensure_memory_mounts
 
 _CONFIG_FILENAME = "runtime.json"
 _BASE_ENV_VAR = "SENTIENTOS_BASE_DIR"
@@ -37,9 +38,12 @@ def ensure_runtime_dirs(base_dir: Optional[Path] = None) -> Dict[str, Path]:
     data_dir = base_path / "sentientos_data"
     models_dir = data_dir / "models"
     config_dir = data_dir / "config"
+    memory_dir = base_path / "memory"
 
-    for directory in (base_path, logs_dir, data_dir, models_dir, config_dir):
+    for directory in (base_path, logs_dir, data_dir, models_dir, config_dir, memory_dir):
         directory.mkdir(parents=True, exist_ok=True)
+
+    ensure_memory_mounts(base_path)
 
     return {
         "base": base_path,
@@ -47,6 +51,7 @@ def ensure_runtime_dirs(base_dir: Optional[Path] = None) -> Dict[str, Path]:
         "data": data_dir,
         "models": models_dir,
         "config": config_dir,
+        "memory": memory_dir,
     }
 
 
@@ -130,6 +135,12 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "peers": [],
     }
 
+    dream_loop_defaults: Dict[str, object] = {
+        "enabled": True,
+        "interval_seconds": 60,
+        "max_recent_shards": 5,
+    }
+
     return {
         "runtime": runtime_defaults,
         "persona": persona_defaults,
@@ -138,6 +149,7 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "voice": voice_defaults,
         "cathedral": cathedral_defaults,
         "federation": federation_defaults,
+        "dream_loop": dream_loop_defaults,
     }
 
 

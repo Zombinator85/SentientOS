@@ -122,3 +122,21 @@ def test_loop_start_and_stop() -> None:
     time.sleep(0.12)
     loop.stop()
     assert loop.is_running() is False
+
+
+def test_reflection_loader_updates_state() -> None:
+    state = initial_state()
+    reflection = "I’ve been grounding myself."
+    logger, _ = _collecting_logger()
+    loop = PersonaLoop(
+        state,
+        tick_interval_seconds=30.0,
+        event_source=lambda: [],
+        logger=logger,
+        reflection_loader=lambda: reflection,
+    )
+
+    message = loop._tick_once()
+
+    assert reflection in message
+    assert state.recent_reflection == reflection

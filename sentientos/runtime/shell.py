@@ -38,11 +38,21 @@ from sentientos.world.sources import (
     ScriptedTimelineSource,
     WorldSource,
 )
+from sentientos.memory import (
+    DreamLoop,
+    MemoryMounts,
+    count_glow_shards,
+    ensure_memory_mounts,
+    most_recent_glow_entry,
+    render_reflection_line,
+    validate_memory_mounts,
+)
 
 __all__ = [
     "DEFAULT_RUNTIME_CONFIG",
     "DEFAULT_DASHBOARD_CONFIG",
     "DEFAULT_CATHEDRAL_CONFIG",
+    "DEFAULT_DREAM_LOOP_CONFIG",
     "RuntimeShell",
     "ensure_runtime_dirs",
     "load_or_init_config",
@@ -56,6 +66,7 @@ DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["das
 DEFAULT_VOICE_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("voice", {}))
 DEFAULT_WORLD_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("world", {}))
 DEFAULT_CATHEDRAL_CONFIG: Dict[str, object] = dict(BASE_CATHEDRAL_CONFIG)
+DEFAULT_DREAM_LOOP_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dream_loop"])
 
 ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 
@@ -69,6 +80,8 @@ class RuntimeShell:
         runtime_root_value = runtime_section.get("root") or bootstrap.get_base_dir()
         self._runtime_root = Path(runtime_root_value)
         bootstrap.ensure_runtime_dirs(self._runtime_root)
+        self._memory_mounts: MemoryMounts = ensure_memory_mounts(self._runtime_root)
+        validate_memory_mounts(self._memory_mounts, self._runtime_root)
 
         logs_dir = runtime_section.get("logs_dir") or (self._runtime_root / "logs")
         self._log_path = Path(logs_dir) / "runtime.log"
@@ -123,6 +136,15 @@ class RuntimeShell:
         self._configure_voice(voice_section)
         self._log("RuntimeShell initialised", extra=runtime_section)
 
+        dream_loop_section = _ensure_dream_loop_config(self._config)
+        self._dream_loop_enabled = bool(dream_loop_section.get("enabled", DEFAULT_DREAM_LOOP_CONFIG["enabled"]))
+        interval_default = int(DEFAULT_DREAM_LOOP_CONFIG.get("interval_seconds", 60))
+        self._dream_loop_interval = max(5, int(dream_loop_section.get("interval_seconds", interval_default)))
+        self._dream_loop_max_recent = int(
+            dream_loop_section.get("max_recent_shards", DEFAULT_DREAM_LOOP_CONFIG.get("max_recent_shards", 5))
+        )
+        self._dream_loop: Optional[DreamLoop] = None
+
         federation_config, federation_warnings = load_federation_config(
             self._config,
             runtime_root=self._runtime_root,
@@ -168,6 +190,10 @@ class RuntimeShell:
         return self._runtime_root
 
     @property
+    def memory_mounts(self) -> MemoryMounts:
+        return self._memory_mounts
+
+    @property
     def world_bus(self) -> Optional[WorldEventBus]:
         return self._world_bus
 
@@ -186,6 +212,38 @@ class RuntimeShell:
     @property
     def ledger_path(self) -> Path:
         return self._amendment_applicator.ledger_path
+
+    def dream_loop_status(self) -> Dict[str, object]:
+        status: Dict[str, object] = {
+            "enabled": self._dream_loop_enabled,
+            "running": False,
+            "last_shard_id": None,
+            "last_focus": None,
+            "last_summary": None,
+            "last_created_at": None,
+            "shard_count": count_glow_shards(self._memory_mounts),
+        }
+        if self._dream_loop:
+            loop_status = self._dream_loop.status()
+            status.update(loop_status)
+            status["running"] = self._dream_loop.is_running()
+            if status.get("last_summary") is None:
+                entry = most_recent_glow_entry(self._memory_mounts)
+                if entry:
+                    status["last_summary"] = entry.get("summary")
+                    status["last_focus"] = status.get("last_focus") or entry.get("focus")
+                    status["last_shard_id"] = status.get("last_shard_id") or entry.get("id")
+                    if status.get("last_created_at") is None:
+                        status["last_created_at"] = self._coerce_datetime(entry.get("created_at"))
+        else:
+            entry = most_recent_glow_entry(self._memory_mounts)
+            if entry:
+                status["last_shard_id"] = entry.get("id")
+                status["last_focus"] = entry.get("focus")
+                status["last_summary"] = entry.get("summary")
+                created = entry.get("created_at")
+                status["last_created_at"] = self._coerce_datetime(created)
+        return status
 
     def get_federation_state(self) -> FederationState:
         if self._federation_poller:
@@ -543,6 +601,7 @@ class RuntimeShell:
         self.start_core()
         self._start_world_polling()
         self._start_persona_loop()
+        self._start_dream_loop()
         self._start_federation_poller()
         self._monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
         self._monitor_thread.start()
@@ -597,13 +656,36 @@ class RuntimeShell:
                 event_source=self._persona_event_source,
                 max_message_length=self._persona_max_message_length,
                 speak_callback=self._speak_callback,
+                reflection_loader=self._load_recent_reflection,
             )
+        else:
+            self._persona_loop.set_reflection_loader(self._load_recent_reflection)
         self._persona_loop.start()
         self._log(
             "Persona loop launched",
             extra={
                 "tick_interval_seconds": self._persona_tick_interval,
                 "max_message_length": self._persona_max_message_length,
+            },
+        )
+
+    def _start_dream_loop(self) -> None:
+        if not self._dream_loop_enabled:
+            return
+        if self._dream_loop is None:
+            self._dream_loop = DreamLoop(
+                self,
+                self._memory_mounts,
+                interval_seconds=self._dream_loop_interval,
+                log_cb=lambda message, extra=None: self._log(message, extra=extra),
+                max_recent_shards=self._dream_loop_max_recent,
+            )
+        self._dream_loop.start()
+        self._log(
+            "Dream loop launched",
+            extra={
+                "interval_seconds": self._dream_loop_interval,
+                "max_recent_shards": self._dream_loop_max_recent,
             },
         )
 
@@ -728,11 +810,30 @@ class RuntimeShell:
         return WorldEvent(kind, datetime.now(timezone.utc), summary, event_data)
 
     @staticmethod
+    def _coerce_datetime(value: object) -> Optional[datetime]:
+        if isinstance(value, datetime):
+            return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if isinstance(value, str) and value.strip():
+            text = value.strip()
+            if text.endswith("Z"):
+                text = text[:-1] + "+00:00"
+            try:
+                parsed = datetime.fromisoformat(text)
+            except ValueError:
+                return None
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return None
+
+    @staticmethod
     def _safe_float(value: object, default: float) -> float:
         try:
             return float(value)
         except (TypeError, ValueError):
             return float(default)
+
+    def _load_recent_reflection(self) -> Optional[str]:
+        entry = most_recent_glow_entry(self._memory_mounts)
+        return render_reflection_line(entry)
 
     def monitor_processes(self, run_once: bool = False) -> None:
         """Watch managed processes and restart on unexpected exit."""
@@ -771,6 +872,9 @@ class RuntimeShell:
         if self._persona_loop:
             self._persona_loop.stop()
             self._persona_loop = None
+        if self._dream_loop:
+            self._dream_loop.stop()
+            self._dream_loop = None
         if self._federation_poller:
             self._federation_poller.stop()
             self._federation_poller = None
@@ -962,6 +1066,17 @@ def _ensure_dashboard_config(config: MutableMapping[str, object]) -> MutableMapp
     return dashboard
 
 
+def _ensure_dream_loop_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    section = config.get("dream_loop", {})
+    if not isinstance(section, Mapping):
+        section = {}
+    defaults = bootstrap.build_default_config().get("dream_loop", {})
+    dream_loop = dict(defaults)
+    dream_loop.update(section)
+    config["dream_loop"] = dream_loop
+    return dream_loop
+
+
 def _ensure_cathedral_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
     cathedral_section = config.get("cathedral", {})
     if not isinstance(cathedral_section, Mapping):
@@ -1001,12 +1116,14 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
     voice = _ensure_voice_config(data)
     dashboard = _ensure_dashboard_config(data)
     cathedral = _ensure_cathedral_config(data)
+    dream_loop = _ensure_dream_loop_config(data)
     data["runtime"] = runtime
     data["persona"] = persona
     data["world"] = world
     data["voice"] = voice
     data["dashboard"] = dashboard
     data["cathedral"] = cathedral
+    data["dream_loop"] = dream_loop
     serialized = json.dumps(data, indent=2)
     if existing_text != serialized:
         config_path.write_text(serialized, encoding="utf-8")

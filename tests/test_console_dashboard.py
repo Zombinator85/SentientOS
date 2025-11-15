@@ -18,6 +18,7 @@ def _sample_status(**overrides):
         persona_enabled=True,
         persona_mood="calm",
         last_persona_msg="All systems steady.",
+        persona_recent_reflection="I’ve been running experiments and learning.",
         experiments_run=5,
         experiments_success=4,
         experiments_failed=1,
@@ -25,6 +26,12 @@ def _sample_status(**overrides):
         last_experiment_result="success",
         consensus_mode="single-node",
         last_update_ts=datetime(2024, 5, 20, 12, 0, 0),
+        dream_loop_enabled=True,
+        dream_loop_running=True,
+        dream_loop_last_focus="experiments",
+        dream_loop_last_shard_ts=datetime(2024, 5, 20, 11, 59, 0),
+        glow_journal_size=3,
+        glow_last_summary="I ran experiments that mostly succeeded.",
         cathedral_accepted=2,
         cathedral_applied=1,
         cathedral_quarantined=1,
@@ -81,6 +88,9 @@ def test_console_dashboard_render_includes_status():
     assert "Last Quarantined: amend-123" in rendered
     assert "Federation: Enabled" in rendered
     assert "peerB: DRIFT" in rendered
+    assert "Memory: Dream Loop running" in rendered
+    assert "Glow Journal Size: 3" in rendered
+    assert "Reflection: I’ve been running experiments and learning." in rendered
 
 
 def test_console_dashboard_deterministic_render():

@@ -26,6 +26,7 @@ class PersonaLoop:
         max_message_length: int = 200,
         logger: Optional[logging.Logger] = None,
         speak_callback: Optional[Callable[[str], None]] = None,
+        reflection_loader: Optional[Callable[[], Optional[str]]] = None,
     ) -> None:
         self._state = state
         self._tick_interval = max(1.0, float(tick_interval_seconds))
@@ -37,6 +38,7 @@ class PersonaLoop:
         self._last_tick: Optional[datetime] = None
         self._lock = threading.Lock()
         self._speak_callback = speak_callback
+        self._reflection_loader = reflection_loader
 
     @property
     def state(self) -> PersonaState:
@@ -191,6 +193,10 @@ class PersonaLoop:
                 update_from_pulse(self._state, event)
 
             summary = self._build_summary(events)
+            reflection_line = self._load_recent_reflection()
+            if reflection_line:
+                summary = f"{summary} {reflection_line}".strip()
+                self._state.recent_reflection = reflection_line
             message = format_persona_message(
                 self._state, summary, max_length=self._max_message_length
             )
@@ -208,3 +214,21 @@ class PersonaLoop:
     def set_speak_callback(self, callback: Optional[Callable[[str], None]]) -> None:
         with self._lock:
             self._speak_callback = callback
+
+    def set_reflection_loader(self, loader: Optional[Callable[[], Optional[str]]]) -> None:
+        with self._lock:
+            self._reflection_loader = loader
+
+    def _load_recent_reflection(self) -> Optional[str]:
+        loader = self._reflection_loader
+        if loader is None:
+            return None
+        try:
+            reflection = loader()
+        except Exception:  # pragma: no cover - defensive logging
+            self._logger.exception("Persona reflection loader failed")
+            return None
+        if reflection:
+            text = str(reflection).strip()
+            return text if text else None
+        return None

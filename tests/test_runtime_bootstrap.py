@@ -15,6 +15,7 @@ def test_ensure_runtime_dirs_creates_expected_layout(tmp_path: Path) -> None:
     assert paths["data"] == base_dir / "sentientos_data"
     assert paths["models"] == base_dir / "sentientos_data" / "models"
     assert paths["config"] == base_dir / "sentientos_data" / "config"
+    assert paths["memory"] == base_dir / "memory"
 
     for directory in paths.values():
         assert directory.exists()
@@ -26,7 +27,7 @@ def test_ensure_default_config_creates_file_once(tmp_path: Path) -> None:
     assert config_path.exists()
 
     data = json.loads(config_path.read_text(encoding="utf-8"))
-    assert {"runtime", "persona", "world", "dashboard", "voice"}.issubset(data.keys())
+    assert {"runtime", "persona", "world", "dashboard", "voice", "dream_loop"}.issubset(data.keys())
 
     original_content = config_path.read_text(encoding="utf-8")
     second_path = bootstrap.ensure_default_config(paths["config"])

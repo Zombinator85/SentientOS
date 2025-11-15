@@ -44,6 +44,21 @@ def _coerce_mapping(value: Mapping[str, Any] | None) -> Mapping[str, Any]:
     return {}
 
 
+def _parse_datetime(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value.strip():
+        text = value.strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        return parsed
+    return None
+
+
 def _detect_model_name(config: Mapping[str, Any]) -> str:
     runtime = _coerce_mapping(config.get("runtime"))
     model_path = runtime.get("model_path")
@@ -154,6 +169,7 @@ def make_status_source(
     runtime = _coerce_mapping(config_mapping.get("runtime"))
     persona_cfg = _coerce_mapping(config_mapping.get("persona"))
     federation_cfg = _coerce_mapping(config_mapping.get("federation"))
+    dream_cfg = _coerce_mapping(config_mapping.get("dream_loop"))
 
     node_name = runtime.get("node_name")
     if not isinstance(node_name, str) or not node_name:
@@ -205,9 +221,11 @@ def make_status_source(
 
         mood: Optional[str] = None
         last_msg: Optional[str] = None
+        recent_reflection: Optional[str] = None
         if persona_enabled and persona_state is not None:
             mood = persona_state.mood
             last_msg = persona_state.last_reflection
+            recent_reflection = getattr(persona_state, "recent_reflection", None)
 
         digest = getattr(shell, "cathedral_digest", None) if shell is not None else None
         cathedral_cfg = _coerce_mapping(config_mapping.get("cathedral"))
@@ -225,6 +243,45 @@ def make_status_source(
             cathedral_cfg.get("last_reverted_id"),
         )
 
+        dream_loop_enabled = bool(dream_cfg.get("enabled", False))
+        dream_loop_running = False
+        dream_loop_focus: Optional[str] = None
+        dream_loop_ts: Optional[datetime] = None
+        glow_journal_size = 0
+        glow_summary: Optional[str] = None
+
+        if shell is not None:
+            status_callable = getattr(shell, "dream_loop_status", None)
+            status_info = None
+            if callable(status_callable):
+                try:
+                    status_info = status_callable()
+                except Exception:
+                    status_info = None
+            elif isinstance(status_callable, Mapping):
+                status_info = status_callable
+            if isinstance(status_info, Mapping):
+                dream_loop_enabled = bool(status_info.get("enabled", dream_loop_enabled))
+                dream_loop_running = bool(status_info.get("running", False))
+                focus_value = status_info.get("last_focus")
+                if isinstance(focus_value, str) and focus_value:
+                    dream_loop_focus = focus_value
+                ts_value = status_info.get("last_created_at")
+                parsed_ts = _parse_datetime(ts_value)
+                if parsed_ts is not None:
+                    dream_loop_ts = parsed_ts
+                elif isinstance(ts_value, datetime):
+                    dream_loop_ts = ts_value
+                glow_journal_size = int(status_info.get("shard_count", 0) or 0)
+                summary_value = status_info.get("last_summary")
+                if isinstance(summary_value, str) and summary_value:
+                    glow_summary = summary_value
+                shard_id = status_info.get("last_shard_id")
+                if glow_summary is None and isinstance(shard_id, str) and shard_id:
+                    glow_summary = shard_id
+        else:
+            glow_journal_size = int(dream_cfg.get("journal_size", 0) or 0)
+
         return DashboardStatus(
             node_name=node_name,
             model_name=model_name,
@@ -232,6 +289,7 @@ def make_status_source(
             persona_enabled=persona_enabled,
             persona_mood=mood,
             last_persona_msg=last_msg,
+            persona_recent_reflection=recent_reflection,
             experiments_run=experiments.total,
             experiments_success=experiments.success,
             experiments_failed=experiments.failure,
@@ -256,6 +314,12 @@ def make_status_source(
             federation_drift=federation_drift,
             federation_incompatible=federation_incompatible,
             federation_peers=federation_peers,
+            dream_loop_enabled=dream_loop_enabled,
+            dream_loop_running=dream_loop_running,
+            dream_loop_last_focus=dream_loop_focus,
+            dream_loop_last_shard_ts=dream_loop_ts,
+            glow_journal_size=glow_journal_size,
+            glow_last_summary=glow_summary,
         )
 
     return _status
