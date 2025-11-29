@@ -1,6 +1,6 @@
 # Release Provenance & Verification
 
-SentientOS v1.1.0-rc bundles full provenance material for both the Python/Rust codebase and the container images.
+SentientOS v1.2.0-beta bundles full provenance material for both the Python/Rust codebase and the container images.
 
 ## SBOM generation
 
@@ -19,7 +19,7 @@ matching `sentientos-sbom.json` manifests for the CPU and CUDA images.
 Images pushed from CI are signed with [cosign](https://github.com/sigstore/cosign). To verify a release:
 
 ```bash
-cosign verify ghcr.io/sentientos/runtime:1.1.0-rc --key cosign.pub
+cosign verify ghcr.io/sentientos/runtime:1.2.0-beta --key cosign.pub
 ```
 
 The public key `cosign.pub` is shipped alongside the release notes. Verification prints the digest and the annotations used for

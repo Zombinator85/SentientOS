@@ -1,6 +1,6 @@
 # SentientOS Autonomy Operations
 
-This document describes the autonomy hardening controls introduced for the v1.1.0-beta rehearsal cycle. The features are driven
+This document describes the autonomy hardening controls introduced for the v1.2.0-beta rehearsal cycle. The features are driven
 through `config.yaml` and `SENTIENTOS_*` environment overrides. The defaults are deliberately conservative so every subsystem must
 be opted into explicitly in production.
 
@@ -123,7 +123,7 @@ peer review completes.
 
 ### Service Level Objectives
 
-SentientOS v1.1.0-rc promotes a baseline set of SLOs encoded in `config.slos.yaml`. They are exposed in `/admin/status` and `/admin/metrics` with gauges prefixed `sentientos_slo*`.
+SentientOS v1.2.0-beta promotes a baseline set of SLOs encoded in `config.slos.yaml`. They are exposed in `/admin/status` and `/admin/metrics` with gauges prefixed `sentientos_slo*`.
 
 | SLO | Target | Measurement |
 | --- | --- | --- |
