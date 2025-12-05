@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 import requests  # type: ignore[import]
 
-BASE_URL = os.getenv("RELAY_URL", "http://localhost:5000")
+BASE_URL = os.getenv("RELAY_URL", "http://localhost:3928")
 LOG_PATH = Path(os.getenv("RELAY_LOG", "logs/relay_log.jsonl"))
 BRIDGE_LOG = Path(os.getenv("MODEL_BRIDGE_LOG", "logs/model_bridge_log.jsonl"))
 

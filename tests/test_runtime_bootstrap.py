@@ -40,7 +40,7 @@ def test_validate_model_paths_detects_missing_and_existing(tmp_path: Path) -> No
     config = bootstrap.build_default_config(paths["base"])
 
     warnings = bootstrap.validate_model_paths(config, paths["base"])
-    assert any("Mixtral" in message for message in warnings)
+    assert any("Mistral" in message for message in warnings)
     assert any("Whisper" in message for message in warnings)
 
     model_path = Path(config["runtime"]["model_path"])

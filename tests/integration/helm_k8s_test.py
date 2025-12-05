@@ -42,9 +42,9 @@ def test_placeholder(tmp_path: Path) -> None:
             "app=relay",
             "--timeout=180s",
         ], check=True)
-        pf = subprocess.Popen(["kubectl", "port-forward", "service/relay", "5000:5000"])
+        pf = subprocess.Popen(["kubectl", "port-forward", "service/relay", "3928:3928"])
         try:
-            status = _wait_for_status("http://localhost:5000/status")
+            status = _wait_for_status("http://localhost:3928/status")
             assert status == 200
         finally:
             pf.terminate()

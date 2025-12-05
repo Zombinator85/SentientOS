@@ -133,7 +133,7 @@ PS> python -m scripts.prepare_secondary_build --verify-cuda
 
 Key flags you can use to customise the run:
 
-- `--model PATH` – override the default Mixtral GGUF path.
+- `--model PATH` – override the default Mistral GGUF path.
 - `--n-predict 128` – request a longer sample.
 - `--verify-port 8090` – change the temporary HTTP port in case 8088 is busy.
 

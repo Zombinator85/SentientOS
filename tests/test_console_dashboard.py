@@ -13,7 +13,7 @@ from sentientos.experiments.runner import ChainRunResult
 def _sample_status(**overrides):
     base = dict(
         node_name="APRIL-PC01",
-        model_name="Mixtral-8x7B",
+        model_name="Mistral-7B",
         model_status="online",
         persona_enabled=True,
         persona_mood="calm",
@@ -88,7 +88,7 @@ def test_console_dashboard_render_includes_status():
     dashboard.run_once()
     rendered = output.getvalue()
     assert "APRIL-PC01" in rendered
-    assert "Mixtral-8x7B" in rendered
+    assert "Mistral-7B" in rendered
     assert "mood: calm" in rendered
     assert "Demo step started" in rendered
     assert "Cathedral: Accepted: 2" in rendered

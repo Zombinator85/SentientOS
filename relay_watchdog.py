@@ -21,7 +21,7 @@ except Exception:  # pragma: no cover - optional
     requests = None
 
 CHECK_INTERVAL = float(os.getenv("RELAY_CHECK_SEC", "5"))
-CHECK_URLS: List[str] = [u.strip() for u in os.getenv("RELAY_URLS", "http://localhost:5000/status").split(",") if u.strip()]
+CHECK_URLS: List[str] = [u.strip() for u in os.getenv("RELAY_URLS", "http://localhost:3928/status").split(",") if u.strip()]
 RESTART_CMD = os.getenv("RELAY_RESTART_CMD", "")
 LOG_FILE = get_log_path("daemon_watchdog.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

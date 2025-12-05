@@ -1,7 +1,7 @@
-# Windows Local Model Setup (Mixtral-8x7B GGUF)
+# Windows Local Model Setup (Mistral-7B GGUF)
 
 This guide consolidates everything required to run SentientOS on Windows with a
-locally hosted Mixtral-8x7B GGUF build. Follow each section to prepare the
+locally hosted Mistral-7B GGUF build. Follow each section to prepare the
 environment, download the repository, configure the model path, and launch the
 runtime/GUI stack.
 
@@ -72,7 +72,7 @@ pip install --upgrade --force-reinstall --extra-index-url https://abetlen.github
 Systems without CUDA can omit the extra index; the CPU-only wheel is installed by
 default.
 
-## 5. Prepare Local Mixtral Assets
+## 5. Prepare Local Mistral Assets
 
 1. Download the `mistral-7b-instruct-v0.2.Q4_K_M.gguf` build from a trusted
    source (lmstudio.ai, Hugging Face mirror, or your internal model registry).
@@ -112,6 +112,13 @@ SENTIENTOS_MODEL_KIND=gguf
 SENTIENTOS_MODEL_SERVER=http://127.0.0.1:8080    # optional if using an HTTP bridge
 ```
 
+The llama.cpp bindings default to the `mistral-instruct` chat template exposed
+by the GGUF metadata and use the 32,768-token context length baked into the
+file. GPU offload is enabled automatically when CUDA is detected (`n_gpu_layers`
+set to `-1`), falling back to CPU when not. To switch to another GGUF variant,
+point both `LOCAL_MODEL_PATH` and `SENTIENTOS_MODEL_PATH` at the new file and
+restart the stack.
+
 You can change the storage root if you do not want `sentientos_data` in the
 repository tree:
 
@@ -142,8 +149,8 @@ Open a second PowerShell window with the virtual environment activated and run:
 sentientos-chat
 ```
 
-Visit <http://localhost:5000> in your browser to confirm the chat surface is
-responding. Requests route to the Mixtral-8x7B backend configured earlier.
+Visit <http://localhost:3928> in your browser to confirm the chat surface is
+responding. Requests route to the Mistral-7B backend configured earlier.
 
 ### Start the full cathedral stack (optional)
 
@@ -176,7 +183,7 @@ Confirm both the service and task run at least once before relying on them.
 
 - [ ] `.env` contains valid `SENTIENTOS_MODEL_PATH` (and
       `SENTIENTOS_MODEL_SERVER` if required).
-- [ ] Local Mixtral runtime produces completions through the chosen interface.
+- [ ] Local Mistral runtime produces completions through the chosen interface.
 - [ ] `sentientosd` starts without Python stack traces.
 - [ ] `logs/` folder fills with `sentientosd.log` and `model_bridge_log.jsonl`
       entries.

@@ -16,7 +16,7 @@ import requests
 from ocr_utils import ocr_chat_bubbles
 
 FOLDER = Path(os.getenv("OCR_WATCH", "screenshots"))
-RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
+RELAY_URL = os.getenv("RELAY_URL", "http://localhost:3928/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "secret")
 LOG_FILE = get_log_path("ocr_relay.jsonl", "OCR_RELAY_LOG")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

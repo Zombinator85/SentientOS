@@ -73,7 +73,7 @@ def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:
         "llama_server_path": str(base_path / _DEFAULT_LLAMA_EXECUTABLE),
         "model_path": str(base_path / _DEFAULT_MODEL_SUBPATH),
         "relay_host": "127.0.0.1",
-        "relay_port": 5005,
+        "relay_port": 3928,
         "watchdog_interval": 5,
         "windows_mode": True,
     }
@@ -198,7 +198,7 @@ def validate_model_paths(config: Mapping[str, object], base_dir: Path) -> list[s
     if model_path is not None and not model_path.exists():
         warnings.append(
             f"Expected model file not found at {model_path}. "
-            "Place the Mixtral GGUF in this location before running the demo."
+            "Place the Mistral GGUF in this location before running the demo."
         )
 
     llama_server_path = _resolve_path(

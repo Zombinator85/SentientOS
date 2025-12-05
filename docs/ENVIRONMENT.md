@@ -69,12 +69,12 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
 | `BOT_TOKEN_DEEPSEEK` | Telegram token for the DeepSeek bot | *(none)* |
 | `TG_SECRET` | Secret used for Telegram webhooks | `your-telegram-secret` |
-| `RELAY_URL` | URL of the local relay service | `http://localhost:5000/relay` |
+| `RELAY_URL` | URL of the local relay service | `http://localhost:3928/relay` |
 | `RELAY_CHECK_SEC` | Seconds between relay health checks | `5` |
 | `RELAY_LOG` | Path to the relay service log | `logs/relay_log.jsonl` |
 | `RELAY_LOG_LEVEL` | Logging level for the relay service | `INFO` |
 | `RELAY_RESTART_CMD` | Command used to restart the relay daemon | *(none)* |
-| `RELAY_URLS` | Comma-separated relay status URLs to monitor | `http://localhost:5000/status` |
+| `RELAY_URLS` | Comma-separated relay status URLs to monitor | `http://localhost:3928/status` |
 | `GPT4_MODEL` | Model slug for GPT‑4 tasks | `openai/gpt-4o` |
 | `DEEPSEEK_MODEL` | Model slug for DeepSeek tasks | `deepseek-ai/deepseek-r1-distill-llama-70b-free` |
 | `EMBED_MODEL` | Embedding model for memory search | `all-MiniLM-L6-v2` |
@@ -114,7 +114,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `BACKCHANNEL_DELAY` | Seconds of idle time before voice loop stops | `5` |
 | `BRIDGE_CHECK_SEC` | Interval for bridge watchdog checks | `5` |
 | `BRIDGE_RESTART_CMD` | Command used to restart the Neos bridge | *(none)* |
-| `BRIDGE_URLS` | Comma‑separated bridge URLs to monitor | `http://localhost:5000/relay` |
+| `BRIDGE_URLS` | Comma‑separated bridge URLs to monitor | `http://localhost:3928/relay` |
 | `CATHEDRAL_BIRTH` | ISO date of the cathedral founding | `2023-01-01` |
 | `CONSENT_CONFIG` | Path to consent dashboard config | `config/consent.json` |
 | `COUNCIL_CONFIG` | Path to council onboarding config | `config/council.json` |

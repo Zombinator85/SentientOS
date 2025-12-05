@@ -15,7 +15,9 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
-from sentientos.local_model import LocalModel, ModelLoadError
+from llama_cpp import Llama
+
+from sentientos.local_model import ModelLoadError
 
 _GUI_BUS: Any | None
 try:
@@ -31,73 +33,87 @@ except Exception:  # pragma: no cover - optional dependency
 _LOG_PATH = get_log_path("model_bridge_log.jsonl", "MODEL_BRIDGE_LOG")
 _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-_MODEL_SLUG = os.getenv(
-    "MODEL_SLUG", "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+_DEFAULT_MODEL_NAME = "Mistral-7B Instruct v0.2 (GGUF)"
+_DEFAULT_MODEL_PATH = Path(
+    "sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 )
+_DEFAULT_CONTEXT_LENGTH = 32768
+_DEFAULT_CHAT_TEMPLATE = "mistral-instruct"
+
+_MODEL_SLUG = os.getenv("MODEL_SLUG", _DEFAULT_MODEL_NAME)
 _PROVIDER: str | None = None
 _WRAPPER: Callable[[List[Dict[str, str]]], str] | None = None
+_LLAMA: Llama | None = None
+
+
+def _detect_model_path() -> Path:
+    explicit = os.getenv("SENTIENTOS_MODEL_PATH") or os.getenv("LOCAL_MODEL_PATH")
+    if explicit:
+        return Path(explicit)
+
+    base = Path(os.getenv("SENTIENTOS_BASE_DIR", Path.cwd()))
+    return base / _DEFAULT_MODEL_PATH
+
+
+def _detect_gpu_layers() -> int:
+    try:
+        import torch
+
+        return -1 if torch.cuda.is_available() else 0
+    except Exception:  # pragma: no cover - optional dependency
+        return 0
+
+
+def _initialise_llama() -> Llama:
+    model_path = _detect_model_path()
+    if not model_path.exists():
+        raise ModelLoadError(f"Model file not found at {model_path}")
+
+    return Llama(
+        model_path=str(model_path),
+        n_ctx=_DEFAULT_CONTEXT_LENGTH,
+        n_gpu_layers=_detect_gpu_layers(),
+        chat_format=_DEFAULT_CHAT_TEMPLATE,
+    )
 
 
 def load_model() -> Callable[[List[Dict[str, str]]], str]:
     """Return a callable to send prompts to the configured model."""
-    global _PROVIDER, _MODEL_SLUG, _WRAPPER
+
+    global _PROVIDER, _MODEL_SLUG, _WRAPPER, _LLAMA
+
     if _WRAPPER is not None:
         return _WRAPPER
+
     load_dotenv()
-    raw_slug = os.getenv("MODEL_SLUG", _MODEL_SLUG)
-    if not raw_slug:
-        raw_slug = "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
-    if "/" in raw_slug:
-        provider, model = raw_slug.split("/", 1)
-    else:
-        provider, model = "sentientos", raw_slug
-        raw_slug = f"{provider}/{model}"
-    _MODEL_SLUG = raw_slug
+    provider = os.getenv("MODEL_PROVIDER", "llama_cpp").strip().lower()
     _PROVIDER = provider
+
     if provider == "openai":
         if openai is None:
             raise RuntimeError("openai package not available")
         openai.api_key = os.getenv("OPENAI_API_KEY", "")
+        model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        _MODEL_SLUG = f"openai/{model}"
 
         def _call(msgs: List[Dict[str, str]]) -> str:
             resp = openai.ChatCompletion.create(model=model, messages=msgs)
             return str(resp.choices[0].message.content)
 
-    elif provider == "llama_cpp":
-        import requests
-
-        host = os.getenv("MODEL_HOST", "127.0.0.1")
-        port = os.getenv("MODEL_PORT", "8080")
-        endpoint = os.getenv("MODEL_ENDPOINT", "/completion")
-        url = f"http://{host}:{port}{endpoint}"
-        default_n_predict = int(os.getenv("MODEL_N_PREDICT", "256"))
-
-        def _call(msgs: List[Dict[str, str]]) -> str:
-            payload = {"prompt": msgs[-1]["content"], "n_predict": default_n_predict}
-            resp = requests.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=60,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if isinstance(data, dict):
-                for key in ("content", "response", "text"):
-                    if key in data and isinstance(data[key], str):
-                        return str(data[key])
-            return json.dumps(data)
-
     elif provider == "huggingface":
         import requests
 
-        url = f"https://api-inference.huggingface.co/models/{model}"
+    model = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
         token = os.getenv("HF_API_TOKEN")
         headers = {"Authorization": f"Bearer {token}"} if token else {}
+        _MODEL_SLUG = f"huggingface/{model}"
 
         def _call(msgs: List[Dict[str, str]]) -> str:
             resp = requests.post(
-                url, json={"inputs": msgs[-1]["content"]}, headers=headers, timeout=30
+                f"https://api-inference.huggingface.co/models/{model}",
+                json={"inputs": msgs[-1]["content"]},
+                headers=headers,
+                timeout=30,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -107,29 +123,23 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
                 return str(data["generated_text"])
             return json.dumps(data)
 
-    elif provider == "sentientos":
+    else:
         try:
-            local_model = LocalModel.autoload()
-        except ModelLoadError as exc:
-            raise RuntimeError(f"Local model unavailable: {exc}") from exc
+            _LLAMA = _initialise_llama()
+        except Exception as exc:  # pragma: no cover - runtime guard
+            raise RuntimeError(f"Local Mistral backend unavailable: {exc}") from exc
+
+        _MODEL_SLUG = _DEFAULT_MODEL_NAME
 
         def _call(msgs: List[Dict[str, str]]) -> str:
-            return local_model.generate(msgs[-1]["content"])
-
-    else:  # local python shim
-        path = Path(os.getenv("LOCAL_MODEL_PATH", "local_model.py"))
-
-        def _call(msgs: List[Dict[str, str]]) -> str:
-            if path.exists():
-                import importlib.util
-
-                spec = importlib.util.spec_from_file_location("local_model", path)
-                if spec and spec.loader:
-                    mod = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(mod)
-                    if hasattr(mod, "generate"):
-                        return str(mod.generate(msgs[-1]["content"]))
-            return "[local] " + msgs[-1]["content"]
+            assert _LLAMA is not None
+            response = _LLAMA.create_chat_completion(messages=msgs)
+            choice = response.get("choices", [{}])[0]
+            message = choice.get("message", {}) if isinstance(choice, dict) else {}
+            content = message.get("content", "") if isinstance(message, dict) else ""
+            if not isinstance(content, str):
+                content = json.dumps(content)
+            return content
 
     _WRAPPER = _call
     return _call

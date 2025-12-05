@@ -87,7 +87,7 @@ each subsystem.
 
 ### Local LLM
 
-* **Engine:** Mixtral-8x7B via llama.cpp (GGUF).
+* **Engine:** Mistral-7B via llama.cpp (GGUF).
 * **Configuration:** Model directory under `models/llm/`; optional
   `LLAMA_CPP_GPU` environment flag advertises GPU offload state to the
   readiness report.

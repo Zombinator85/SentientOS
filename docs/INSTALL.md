@@ -87,7 +87,13 @@ must report `PASS` before deploying to production. Rerun with
 | OCR | `tesseract` executable and optional `TESSDATA_PREFIX` |
 | Browser | Chromium/Firefox headless binary detected |
 | GUI | `xdotool` (Linux) or platform GUI bridge configured |
-| LLM | Mixtral-8x7B GGUF directory + optional GPU offload hint |
+| LLM | Mistral-7B GGUF directory + optional GPU offload hint |
+
+The default llama.cpp bridge consumes the `mistral-7b-instruct-v0.2.Q4_K_M.gguf`
+weights from `sentientos_data/models/mistral-7b/`, enabling the `mistral-instruct`
+chat template with a 32,768-token context window. GPU offload is auto-detected
+(`n_gpu_layers=-1` when CUDA is available) and can be overridden by pointing
+`SENTIENTOS_MODEL_PATH` at an alternate GGUF file.
 
 ## 7. Post-Install Actions
 

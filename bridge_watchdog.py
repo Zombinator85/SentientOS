@@ -18,7 +18,7 @@ try:
 except Exception:  # pragma: no cover - optional
     requests = None
 
-WATCH_URLS: List[str] = [u.strip() for u in os.getenv("BRIDGE_URLS", "http://localhost:5000/relay").split(",") if u.strip()]
+WATCH_URLS: List[str] = [u.strip() for u in os.getenv("BRIDGE_URLS", "http://localhost:3928/relay").split(",") if u.strip()]
 CHECK_INTERVAL = float(os.getenv("BRIDGE_CHECK_SEC", "5"))
 RESTART_CMD = os.getenv("BRIDGE_RESTART_CMD", "")
 LOG_FILE = get_log_path("bridge_watchdog.jsonl")
