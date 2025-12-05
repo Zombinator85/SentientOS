@@ -1,4 +1,5 @@
 import importlib
+import importlib
 import sys
 import types
 from pathlib import Path
@@ -9,31 +10,31 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 
-def _prepare_mixtral(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def _prepare_mistral(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     data_root = tmp_path / "data"
     monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(data_root))
     monkeypatch.delenv("SENTIENTOS_MODEL_CONFIG", raising=False)
     monkeypatch.delenv("SENTIENTOS_MODEL_PATH", raising=False)
     monkeypatch.delenv("LOCAL_MODEL_PATH", raising=False)
-    mixtral_path = (
+    mistral_path = (
         data_root
         / "models"
-        / "mixtral-8x7b"
-        / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+        / "mistral-7b"
+        / "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
     )
-    mixtral_path.parent.mkdir(parents=True, exist_ok=True)
-    mixtral_path.write_bytes(b"gguf")
+    mistral_path.parent.mkdir(parents=True, exist_ok=True)
+    mistral_path.write_bytes(b"gguf")
 
 
-def test_chat_endpoint_uses_mixtral_backend(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    _prepare_mixtral(monkeypatch, tmp_path)
+def test_chat_endpoint_uses_mistral_backend(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _prepare_mistral(monkeypatch, tmp_path)
 
     class DummyLlama:
         def __init__(self, **_: object) -> None:
             pass
 
         def __call__(self, prompt: str, **__: object) -> dict:
-            return {"choices": [{"text": f"Mixtral test reply: {prompt}"}]}
+            return {"choices": [{"text": f"Mistral test reply: {prompt}"}]}
 
     monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=DummyLlama))
 
@@ -46,5 +47,5 @@ def test_chat_endpoint_uses_mixtral_backend(monkeypatch: pytest.MonkeyPatch, tmp
     response = client.post("/chat", json={"message": "Hello"})
     assert response.status_code == 200
     payload = response.json()
-    assert "Mixtral test reply" in payload["response"]
+    assert "Mistral test reply" in payload["response"]
     assert "placeholder" not in payload["response"].lower()

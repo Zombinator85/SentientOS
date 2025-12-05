@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -10,13 +12,15 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-from utils.system_paths import find_ollama
 
 load_dotenv()
 
 os.environ.setdefault("LUMOS_AUTO_APPROVE", "1")
 os.environ.setdefault("SENTIENTOS_HEADLESS", "1")
-os.environ["OLLAMA_PATH"] = find_ollama() or ""
+os.environ.setdefault(
+    "MODEL_PATH",
+    "C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+)
 
 require_admin_banner()
 if not (os.getenv("LUMOS_AUTO_APPROVE") == "1" or os.getenv("SENTIENTOS_HEADLESS") == "1"):
@@ -93,7 +97,7 @@ def main() -> None:
     ensure_stub(Path("model_bridge.py"), BRIDGE_STUB)
     ensure_stub(Path("tests/test_cathedral_boot.py"), TEST_STUB)
     log_event("complete")
-    print("[SentientOS] Model: Mixtral 8x7B Instruct (GGUF)")
+    print("[SentientOS] Model: Mistral 7B Instruct (GGUF)")
     print(f"[SentientOS] GPU Backend: {_read_gpu_description()}")
     print("[SentientOS] Relay bound to http://127.0.0.1:5000")
     print("[SentientOS] Lumos approval auto-granted (headless)")

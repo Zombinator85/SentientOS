@@ -31,7 +31,9 @@ except Exception:  # pragma: no cover - optional dependency
 _LOG_PATH = get_log_path("model_bridge_log.jsonl", "MODEL_BRIDGE_LOG")
 _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-_MODEL_SLUG = os.getenv("MODEL_SLUG", "sentientos/mixtral-8x7b-instruct")
+_MODEL_SLUG = os.getenv(
+    "MODEL_SLUG", "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+)
 _PROVIDER: str | None = None
 _WRAPPER: Callable[[List[Dict[str, str]]], str] | None = None
 
@@ -44,7 +46,7 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
     load_dotenv()
     raw_slug = os.getenv("MODEL_SLUG", _MODEL_SLUG)
     if not raw_slug:
-        raw_slug = "sentientos/mixtral-8x7b-instruct"
+        raw_slug = "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
     if "/" in raw_slug:
         provider, model = raw_slug.split("/", 1)
     else:
@@ -61,23 +63,29 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
             resp = openai.ChatCompletion.create(model=model, messages=msgs)
             return str(resp.choices[0].message.content)
 
-    elif provider == "mixtral":
+    elif provider == "llama_cpp":
         import requests
 
-        url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        host = os.getenv("MODEL_HOST", "127.0.0.1")
+        port = os.getenv("MODEL_PORT", "8080")
+        endpoint = os.getenv("MODEL_ENDPOINT", "/completion")
+        url = f"http://{host}:{port}{endpoint}"
+        default_n_predict = int(os.getenv("MODEL_N_PREDICT", "256"))
 
         def _call(msgs: List[Dict[str, str]]) -> str:
+            payload = {"prompt": msgs[-1]["content"], "n_predict": default_n_predict}
             resp = requests.post(
-                f"{url}/api/chat",
-                json={"model": model, "messages": msgs},
+                url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
                 timeout=60,
             )
             resp.raise_for_status()
             data = resp.json()
             if isinstance(data, dict):
-                msg = data.get("message") or data.get("choices", [{}])[0].get("message")
-                if isinstance(msg, dict) and "content" in msg:
-                    return str(msg["content"])
+                for key in ("content", "response", "text"):
+                    if key in data and isinstance(data[key], str):
+                        return str(data[key])
             return json.dumps(data)
 
     elif provider == "huggingface":

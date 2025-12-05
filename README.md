@@ -78,7 +78,7 @@ communicates through local files or sockets.
   * Load a local LLM via `sentientos.local_model.LocalModel`. Set
     `LOCAL_MODEL_PATH` and `SENTIENTOS_MODEL_PATH` to point at the Mixtral-8x7B
     GGUF file (defaults to
-    `C:/SentientOS/sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf`).
+   `C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf`).
   * Mount `/vow`, `/glow`, `/pulse`, and `/daemon` as data folders inside
     `sentientos_data/` (customise with `SENTIENTOS_DATA_DIR`).
   * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
@@ -206,7 +206,7 @@ Run `python .env.sync.autofill.py` to create `.env` with safe defaults.
 | Key             | Example                 |
 | --------------- | ----------------------- |
 | OPENAI_API_KEY  | sk-...                  |
-| MODEL_SLUG      | mixtral-8x7b-instruct   |
+| MODEL_SLUG      | llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf |
 | SYSTEM_PROMPT   | You are Lumos...        |
 | ENABLE_TTS      | true                    |
 | TTS_ENGINE      | pyttsx3                 |

@@ -74,13 +74,13 @@ default.
 
 ## 5. Prepare Local Mixtral Assets
 
-1. Download the `mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf` build from a trusted
+1. Download the `mistral-7b-instruct-v0.2.Q4_K_M.gguf` build from a trusted
    source (lmstudio.ai, Hugging Face mirror, or your internal model registry).
 2. Create the canonical directory so SentientOS finds the weights by default:
 
    ```powershell
-   mkdir C:\SentientOS\sentientos_data\models\mixtral-8x7b
-   move .\mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf C:\SentientOS\sentientos_data\models\mixtral-8x7b
+   mkdir C:\SentientOS\sentientos_data\models\mistral-7b
+   move .\mistral-7b-instruct-v0.2.Q4_K_M.gguf C:\SentientOS\sentientos_data\models\mistral-7b
    ```
 
 3. Optionally copy the accompanying metadata JSON next to the GGUF file if your
@@ -104,9 +104,9 @@ python .env.sync.autofill.py
 Then edit `.env` and set the local model variables:
 
 ```env
-MODEL_SLUG=mixtral-8x7b-instruct
-LOCAL_MODEL_PATH=C:/SentientOS/sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf
-SENTIENTOS_MODEL_PATH=C:/SentientOS/sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf
+MODEL_SLUG=mistral-7b-instruct
+LOCAL_MODEL_PATH=C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+SENTIENTOS_MODEL_PATH=C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf
 SENTIENTOS_MODEL_ENGINE=llama_cpp
 SENTIENTOS_MODEL_KIND=gguf
 SENTIENTOS_MODEL_SERVER=http://127.0.0.1:8080    # optional if using an HTTP bridge

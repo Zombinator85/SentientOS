@@ -24,7 +24,7 @@ def test_cli_reads_updated_env(tmp_path, monkeypatch):
 
     pm.create_profile("default")
     env_path = pm.PROFILES_DIR / "default" / ".env"
-    env_path.write_text("MODEL_SLUG=mixtral\n")
+    env_path.write_text("MODEL_SLUG=llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf\n")
     pm.switch_profile("default")
 
     def run_cli() -> str:
@@ -36,7 +36,7 @@ def test_cli_reads_updated_env(tmp_path, monkeypatch):
         )
         return cp.stdout.strip()
 
-    assert run_cli() == "mixtral"
+    assert run_cli() == "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 
     env_path.write_text("MODEL_SLUG=openai/gpt-4o\n")
     pm.switch_profile("default")

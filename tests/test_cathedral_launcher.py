@@ -9,7 +9,6 @@ require_lumos_approval()
 import importlib
 import os
 import sys
-import subprocess
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -46,12 +45,12 @@ def test_prompt_cloud_inference(monkeypatch, tmp_path):
     env.write_text("EXAMPLE=1")
     monkeypatch.setattr("builtins.input", lambda prompt="": "y")
     cl.prompt_cloud_inference(env)
-    assert "MIXTRAL_CLOUD_ONLY=1" in env.read_text()
+    assert "MODEL_REMOTE_ONLY=1" in env.read_text()
 
     # second call should not prompt again
     monkeypatch.setattr("builtins.input", lambda prompt="": (_ for _ in ()).throw(Exception("asked")))
     cl.prompt_cloud_inference(env)
-    assert env.read_text().count("MIXTRAL_CLOUD_ONLY") == 1
+    assert env.read_text().count("MODEL_REMOTE_ONLY") == 1
 
 
 def test_prompt_cloud_inference_no(monkeypatch, tmp_path):
@@ -59,28 +58,25 @@ def test_prompt_cloud_inference_no(monkeypatch, tmp_path):
     env.write_text("EXAMPLE=1")
     monkeypatch.setattr("builtins.input", lambda prompt="": "n")
     cl.prompt_cloud_inference(env)
-    assert "MIXTRAL_CLOUD_ONLY=0" in env.read_text()
+    assert "MODEL_REMOTE_ONLY=0" in env.read_text()
 
 
-def test_check_ollama(monkeypatch, capsys):
-    monkeypatch.setattr(cl.shutil, "which", lambda name: None)
-    assert not cl.check_ollama()
-    out = capsys.readouterr().out
-    assert "Ollama binary not found" in out
+def test_check_llama_server(monkeypatch):
+    class DummyConn:
+        def __enter__(self):
+            return self
 
+        def __exit__(self, *exc: object) -> None:
+            return None
 
-def test_pull_mixtral_model(monkeypatch, capsys):
-    monkeypatch.setattr(subprocess, "check_call", lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError()))
-    assert not cl.pull_mixtral_model()
-    out = capsys.readouterr().out
-    assert "ollama not found" in out
-
-
-def test_check_mixtral_model(monkeypatch):
-    monkeypatch.setattr(subprocess, "check_output", lambda *a, **k: "mixtral")
-    assert cl.check_mixtral_model()
-    monkeypatch.setattr(subprocess, "check_output", lambda *a, **k: "")
-    assert not cl.check_mixtral_model()
+    monkeypatch.setattr(cl.socket, "create_connection", lambda *a, **k: DummyConn())
+    assert cl.check_llama_server()
+    monkeypatch.setattr(
+        cl.socket,
+        "create_connection",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("no route")),
+    )
+    assert not cl.check_llama_server()
 
 
 def test_check_python_version(monkeypatch):

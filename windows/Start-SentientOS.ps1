@@ -13,7 +13,7 @@ if (Test-Path $VenvPath) {
 }
 
 Write-Host "[SentientOS] Launching llama.cpp server..."
-Start-Process -FilePath (Join-Path $root "bin/llama-server.exe") -ArgumentList "--model", (Join-Path $root "sentientos_data/models/default.gguf") -WindowStyle Hidden
+Start-Process -FilePath (Join-Path $root "bin/llama-server.exe") -ArgumentList "--model", "C:\SentientOS\sentientos_data\models\mistral-7b\mistral-7b-instruct-v0.2.Q4_K_M.gguf" -WindowStyle Hidden
 
 Write-Host "[SentientOS] Launching Relay API server..."
 Start-Process -FilePath "python" -ArgumentList "-m", "sentientos.oracle_relay", "--host", "127.0.0.1", "--port", "65432" -WindowStyle Hidden

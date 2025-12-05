@@ -37,13 +37,13 @@ models/
 ├── whisper/
 │   └── base.en.gguf
 ├── llm/
-│   └── mixtral-8x7b-instruct.Q4_K_M.gguf
+│   └── mistral-7b-instruct-v0.2.Q4_K_M.gguf
 └── vision/
     └── sentinel-ocr-base.onnx
 ```
 
 * Place Whisper GGUF models under `models/whisper/`.
-* Copy the Mixtral-8x7B GGUF artefact to `models/llm/`.
+* Copy the Mistral-7B GGUF artefact to `models/llm/`.
 * (Optional) Additional OCR or vision assets may live under `models/vision/`.
 
 ## 4. Environment Configuration

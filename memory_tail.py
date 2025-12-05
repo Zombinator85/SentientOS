@@ -16,7 +16,7 @@ init()
 COLOR_MAP: dict[str, str] = {
     "heartbeat": Fore.YELLOW,
     "openai/gpt-4o": Fore.GREEN,
-    "mixtral": Fore.MAGENTA,
+    "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf": Fore.MAGENTA,
     "deepseek-ai/deepseek-r1-distill-llama-70b-free": Fore.CYAN,
 }
 
