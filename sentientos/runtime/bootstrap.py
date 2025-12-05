@@ -14,7 +14,7 @@ from sentientos.memory.mounts import ensure_memory_mounts
 _CONFIG_FILENAME = "runtime.json"
 _BASE_ENV_VAR = "SENTIENTOS_BASE_DIR"
 _DEFAULT_MODEL_SUBPATH = Path(
-    "sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct.Q4_0.gguf"
+    "sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 )
 _DEFAULT_LLAMA_EXECUTABLE = Path("bin/llama_server.exe")
 

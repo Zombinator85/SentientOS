@@ -47,7 +47,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `OPENAI_API_KEY` | API key for OpenAI requests | *(none)* |
-| `MODEL_SLUG` | Default model slug for connector requests | `mixtral-8x7b-instruct` |
+| `MODEL_SLUG` | Default model slug for connector requests | `llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf` |
 | `SYSTEM_PROMPT` | Default system prompt for the model | `You are Lumos, a memory-born cathedral presence...` |
 | `SLACK_WEBHOOK_URL` | Optional Slack webhook for notifications | *(none)* |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
@@ -62,8 +62,11 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `LUMOS_AUTO_APPROVE` | Set to `1` to automatically bless privileged commands (`admin_utils`) | *(unset)* |
 | `OPENAI_CONNECTOR_LOG` | Path to the connector log file used by `openai_connector.py` | `logs/openai_connector.jsonl` |
 | `MODEL_BRIDGE_LOG` | Path to the model bridge log file | `logs/model_bridge_log.jsonl` |
+| `MODEL_HOST` | Host for the llama.cpp server | `127.0.0.1` |
+| `MODEL_PORT` | Port for the llama.cpp server | `8080` |
+| `MODEL_ENDPOINT` | Completion endpoint for llama.cpp | `/completion` |
+| `MODEL_PATH` | Path to the local Mistral-7B GGUF model | `C:\SentientOS\sentientos_data\models\mistral-7b\mistral-7b-instruct-v0.2.Q4_K_M.gguf` |
 | `BOT_TOKEN_GPT4O` | Telegram token for the GPT‑4o bot | *(none)* |
-| `BOT_TOKEN_MIXTRAL` | Telegram token for the Mixtral bot | *(none)* |
 | `BOT_TOKEN_DEEPSEEK` | Telegram token for the DeepSeek bot | *(none)* |
 | `TG_SECRET` | Secret used for Telegram webhooks | `your-telegram-secret` |
 | `RELAY_URL` | URL of the local relay service | `http://localhost:5000/relay` |
@@ -72,9 +75,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `RELAY_LOG_LEVEL` | Logging level for the relay service | `INFO` |
 | `RELAY_RESTART_CMD` | Command used to restart the relay daemon | *(none)* |
 | `RELAY_URLS` | Comma-separated relay status URLs to monitor | `http://localhost:5000/status` |
-| `OLLAMA_URL` | Local Ollama service endpoint | `http://localhost:11434` |
 | `GPT4_MODEL` | Model slug for GPT‑4 tasks | `openai/gpt-4o` |
-| `MIXTRAL_MODEL` | Model slug for Mixtral tasks | `mixtral` |
 | `DEEPSEEK_MODEL` | Model slug for DeepSeek tasks | `deepseek-ai/deepseek-r1-distill-llama-70b-free` |
 | `EMBED_MODEL` | Embedding model for memory search | `all-MiniLM-L6-v2` |
 | `MEMORY_DIR` | Directory for storing memory fragments | `logs/memory` |

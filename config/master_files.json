@@ -11,8 +11,8 @@
 
   "models": [
     {
-      "name": "mixtral-8x7b-instruct",
-      "path": "C:/SentientOS/sentientos_data/models/mixtral-8x7b/mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf",
+      "name": "mistral-7b-instruct-v0.2",
+      "path": "C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
       "kind": "gguf"
     }
   ]

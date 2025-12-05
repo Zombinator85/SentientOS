@@ -29,8 +29,8 @@ def _default_model_path() -> Path:
         _repo_root()
         / "sentientos_data"
         / "models"
-        / "mixtral-8x7b"
-        / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+        / "mistral-7b"
+        / "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
     )
 
 

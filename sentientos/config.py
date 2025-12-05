@@ -190,14 +190,14 @@ def _default_candidates(data_root: Path) -> List[ModelCandidate]:
         base_path = (
             data_root
             / "models"
-            / "mixtral-8x7b"
-            / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf"
+            / "mistral-7b"
+            / "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
         )
     candidates.append(
         ModelCandidate(
             path=base_path,
             engine=os.environ.get(_MODEL_ENGINE_ENV, "auto"),
-            name="Mixtral-8x7B Instruct (GGUF)",
+            name="Mistral-7B Instruct (GGUF)",
         )
     )
 

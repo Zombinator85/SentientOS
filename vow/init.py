@@ -87,7 +87,7 @@ REMOTE_PUBLIC_KEY_FILE = KEY_DIR / "remote_public.key"
 CONFIG_FILE = Path("/vow/config.yaml")
 DEFAULT_CONFIG = {
     "model_path": "/models",
-    "fallback_order": ["mixtral", "13b", "mock"],
+    "fallback_order": ["mistral", "13b", "mock"],
     "prune_retention_days": 30,
     "sync_interval": 300,
     "confirmation_rules": ["rm", "shutdown", "format"],
@@ -119,9 +119,9 @@ FEDERATION_METHOD = str(CONFIG.get("federation_method", "local_mount"))
 
 MODEL_BASE_PATH = Path(CONFIG["model_path"])
 MODEL_PATHS = {
-    "mixtral": MODEL_BASE_PATH
-    / "mixtral-8x7b"
-    / "mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf",
+    "mistral": MODEL_BASE_PATH
+    / "mistral-7b"
+    / "mistral-7b-instruct-v0.2.Q4_K_M.gguf",
     "13b": MODEL_BASE_PATH / "gpt-oss-13b",
     # Legacy GPT-OSS 120B builds require extreme hardware and must be configured manually.
     "legacy-120b": MODEL_BASE_PATH / "gpt-oss-120b-quantized",
@@ -322,7 +322,7 @@ def load_model() -> None:
             if _load_llama(path):
                 return
         else:
-            label = "Mixtral" if size == "mixtral" else size
+            label = "Mistral" if size == "mistral" else size
             if _load_transformer(path, label):
                 return
 

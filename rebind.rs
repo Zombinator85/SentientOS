@@ -9,7 +9,7 @@ use tokio::time::sleep;
 
 static PORT_TO_NAME: &[(&str, &str)] = &[
     ("9977", "gpt4o"),
-    ("9988", "mixtral"),
+    ("9988", "mistral"),
     ("9966", "deepseek"),
 ];
 

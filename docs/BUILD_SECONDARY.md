@@ -77,12 +77,12 @@ ready to serve SentientOS.
 
 ## 6. Launch the CUDA secondary server
 
-Start the server with the mixtral model path configured in
+Start the server with the mistral model path configured in
 `config/master_files.json`:
 
 ```powershell
 PS> ..\build\bin\Release\llama-server.exe `
-        --model "C:\SentientOS\sentientos_data\models\mixtral-8x7b\mixtral-8x7b-instruct-v0.1.Q4_K_M.gguf" `
+        --model "C:\SentientOS\sentientos_data\models\mistral-7b\mistral-7b-instruct-v0.2.Q4_K_M.gguf" `
         --host 127.0.0.1 `
         --port 8080
 ```
@@ -102,7 +102,7 @@ the default `C:\SentientOS\sentientos_data\models` directory.
   server_embed` to regenerate the headers.
 - **Model path mismatches** – Update `config/master_files.json` with the
   absolute Windows path to your GGUF model.  The shipped configuration expects
-  the mixtral-8x7b model under `C:\SentientOS\sentientos_data\models`.
+  the mistral-7b model under `C:\SentientOS\sentientos_data\models`.
 
 With these steps the SentientOSsecondary module becomes a first-class, auditable
 component of the SentientOS deployment pipeline.

@@ -9,6 +9,7 @@ require_lumos_approval()
 
 import os
 import platform
+import socket
 import subprocess
 import sys
 import shutil
@@ -174,11 +175,11 @@ def check_gpu() -> bool:
 def prompt_cloud_inference(env_path: Path) -> None:
     """Ask the user whether to use cloud inference and persist the answer."""
     text = env_path.read_text(encoding="utf-8") if env_path.exists() else ""
-    if "MIXTRAL_CLOUD_ONLY=" in text:
+    if "MODEL_REMOTE_ONLY=" in text:
         return
     resp = input("GPU not detected. Use cloud inference? [y/N] ")
     use_cloud = resp.strip().lower() in {"y", "yes"}
-    set_cloud_preference(env_path, use_cloud)
+    set_remote_only(env_path, use_cloud)
 
 
 def check_python_version() -> bool:
@@ -228,76 +229,34 @@ def ensure_log_dir() -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
 
-
-
-
-def check_ollama() -> bool:
-    if shutil.which("ollama") is not None:
-        return True
-    print("Ollama binary not found. Install from https://ollama.com")
-    log("Ollama binary missing")
-    return False
-
-
-def install_ollama() -> None:
-    system = platform.system().lower()
-    if system in {"linux", "darwin"}:
-        cmd = "curl -fsSL https://ollama.com/install.sh | sh"
-        subprocess.call(cmd, shell=True)
-    elif system == "windows":
-        subprocess.call("winget install Ollama.Ollama -s winget", shell=True)
-    else:
-        print("Please install Ollama from https://ollama.com")
-        log("Ollama missing")
-
-
-def pull_mixtral_model() -> bool:
+def check_llama_server() -> bool:
+    host = os.getenv("MODEL_HOST", "127.0.0.1")
+    port = int(os.getenv("MODEL_PORT", "8080"))
+    endpoint = os.getenv("MODEL_ENDPOINT", "/completion")
     try:
-        subprocess.check_call(["ollama", "pull", "mixtral"])
-        return True
-    except FileNotFoundError:
-        print("Cannot pull Mixtral model: ollama not found")
-        log("mixtral pull failed: ollama missing")
-    except subprocess.CalledProcessError as exc:
-        print(f"Failed to pull Mixtral model: {exc}")
-        log("mixtral pull failed")
-    except Exception as exc:  # pragma: no cover - unexpected
-        print(f"Unexpected error pulling Mixtral model: {exc}")
-        log("mixtral pull unexpected")
-    return False
+        with socket.create_connection((host, port), timeout=2):
+            return True
+    except OSError:
+        print(f"llama.cpp server not reachable at {host}:{port}{endpoint}")
+        log("llama.cpp server unreachable")
+        return False
 
 
-def check_mixtral_model() -> bool:
-    """Return True if the mixtral model exists for Ollama."""
-    try:
-        out = subprocess.check_output(["ollama", "list"], text=True)
-        return "mixtral" in out.lower()
-    except FileNotFoundError:
-        log("mixtral check failed: ollama missing")
-    except Exception as exc:  # pragma: no cover - unexpected
-        log(f"mixtral check failed: {exc}")
-    return False
-
-
-def set_cloud_preference(env_path: Path, use_cloud: bool) -> None:
-    """Write MIXTRAL_CLOUD_ONLY to ``env_path``."""
+def set_remote_only(env_path: Path, use_cloud: bool) -> None:
+    """Persist remote-only preference to ``env_path``."""
     lines: list[str] = []
     if env_path.exists():
         lines = env_path.read_text(encoding="utf-8").splitlines()
     updated = False
     for i, line in enumerate(lines):
-        if line.startswith("MIXTRAL_CLOUD_ONLY"):
-            lines[i] = f"MIXTRAL_CLOUD_ONLY={'1' if use_cloud else '0'}"
+        if line.startswith("MODEL_REMOTE_ONLY"):
+            lines[i] = f"MODEL_REMOTE_ONLY={'1' if use_cloud else '0'}"
             updated = True
             break
     if not updated:
-        lines.append(f"MIXTRAL_CLOUD_ONLY={'1' if use_cloud else '0'}")
+        lines.append(f"MODEL_REMOTE_ONLY={'1' if use_cloud else '0'}")
     env_path.write_text("\n".join(lines))
-    log("Mixtral cloud-only mode " + ("enabled" if use_cloud else "disabled"))
-
-
-def enable_cloud_only(env_path: Path) -> None:
-    set_cloud_preference(env_path, True)
+    log("remote_only=" + ("1" if use_cloud else "0"))
 
 
 def launch_background(
@@ -344,22 +303,8 @@ def main(argv: Optional[list[str]] | None = None) -> int:
     gpu_ok = check_gpu()
     if not gpu_ok:
         prompt_cloud_inference(env_path)
-
-    if not check_ollama():
-        install_ollama()
-
-    ollama_ok = check_ollama()
-    if ollama_ok and gpu_ok:
-        if not check_mixtral_model() and not pull_mixtral_model():
-            set_cloud_preference(env_path, True)
-            print("Using Mixtral cloud-only mode")
-    else:
-        set_cloud_preference(env_path, True)
-        if not ollama_ok:
-            log("Ollama unavailable")
-
-    if ollama_ok:
-        launch_background(["ollama", "serve"])
+    if not check_llama_server():
+        log("llama.cpp backend not reachable; awaiting manual launch")
 
     relay_script = Path("sentientos_relay.py")
     if not relay_script.exists():

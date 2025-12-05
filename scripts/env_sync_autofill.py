@@ -25,7 +25,7 @@ def autofill_env() -> None:
     added = {}
     mapping = {
         "OPENAI_API_KEY": "",
-        "MODEL_SLUG": "mixtral-8x7b-instruct",
+        "MODEL_SLUG": "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
         "SYSTEM_PROMPT": "You are Lumos...",
         "ENABLE_TTS": "true",
         "TTS_ENGINE": "pyttsx3",
