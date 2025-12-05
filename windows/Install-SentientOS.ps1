@@ -89,7 +89,7 @@ if (Test-Path $configPath) {
             $modelPath = Join-Path $BaseDir $modelPathValue
         }
         if (-not (Test-Path $modelPath)) {
-            Write-Warning "Mixtral model not found at $modelPath. Please place your GGUF file here before running the demo."
+            Write-Warning "Mistral model not found at $modelPath. Please place your GGUF file here before running the demo."
         }
     }
 } else {

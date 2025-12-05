@@ -15,7 +15,7 @@ from mic_bridge import recognize_from_mic
 from tts_bridge import speak_async, stop, adapt_persona, backchannel
 import emotion_memory as em
 
-RELAY_URL = os.getenv("RELAY_URL", "http://localhost:5000/relay")
+RELAY_URL = os.getenv("RELAY_URL", "http://localhost:3928/relay")
 RELAY_SECRET = os.getenv("RELAY_SECRET", "test-secret")
 VOICE_MODEL = os.getenv("VOICE_MODEL", "openai/gpt-4o")
 BACKCHANNEL_DELAY = float(os.getenv("BACKCHANNEL_DELAY", "5"))

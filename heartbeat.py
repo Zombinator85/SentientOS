@@ -9,7 +9,7 @@ import requests
 from datetime import datetime, UTC
 from emotions import empty_emotion_vector
 
-RELAY_URL = "http://localhost:5000/relay"
+RELAY_URL = "http://localhost:3928/relay"
 SECRET = "lumos_april_bridge_secure"
 MODEL = "openai/gpt-4o"
 INTERVAL = 300  # every 5 minutes

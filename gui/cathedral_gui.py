@@ -75,7 +75,7 @@ def launch_processes() -> None:
         _LOGS.append("model_bridge launched")
 
 
-def fetch_status(url: str = "http://localhost:5000/status") -> Dict[str, Any]:
+def fetch_status(url: str = "http://localhost:3928/status") -> Dict[str, Any]:
     """Return status info from the relay."""
     if requests is None:
         return {"uptime": "n/a", "last_heartbeat": "n/a"}

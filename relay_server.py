@@ -6,6 +6,12 @@ import json
 import time
 from pathlib import Path
 
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
 from pygments import highlight
@@ -13,6 +19,7 @@ from pygments.formatters import HtmlFormatter
 from pygments.lexers import DiffLexer
 from pydantic import BaseModel
 
+from sentientos.privilege import require_admin_banner, require_lumos_approval
 from sentientos.local_model import LocalModel, ModelLoadError
 
 require_admin_banner()
@@ -22,7 +29,7 @@ MODEL: LocalModel | None = None
 
 
 def load_model() -> None:
-    """Attempt to load the Mixtral GGUF backend through LocalModel."""
+    """Attempt to load the Mistral GGUF backend through LocalModel."""
 
     global MODEL
     try:
@@ -273,5 +280,5 @@ def codex_patch(patch_id: str) -> HTMLResponse:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    uvicorn.run(app, host="0.0.0.0", port=3928)
 

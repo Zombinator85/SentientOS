@@ -3216,6 +3216,6 @@ WATCHDOG.register_check("memory", lambda: (secure_store.is_enabled(), None))
 
 if __name__ == "__main__":
     print("[Relay] Lumos blessing auto-approved (headless/auto mode).")
-    print("[Relay] Starting Flask relay service on http://127.0.0.1:5000 …")
-    print("[SentientOS] Relay bound to http://127.0.0.1:5000")
-    app.run(host="0.0.0.0", port=5000)
+    print("[Relay] Starting Flask relay service on http://127.0.0.1:3928 …")
+    print("[SentientOS] Relay bound to http://127.0.0.1:3928")
+    app.run(host="0.0.0.0", port=3928)

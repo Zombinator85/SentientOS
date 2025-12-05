@@ -167,8 +167,8 @@ def observe_since() -> object:
 def start_cathedral():
     from flask_stub import app  # or your actual app import
     logging.basicConfig(level=logging.INFO)
-    logging.info("~@ SentientOS now listening on port 5000.")
-    app.run(port=5000)
+    logging.info("~@ SentientOS now listening on port 3928.")
+    app.run(port=3928)
 
 
 if __name__ == "__main__":

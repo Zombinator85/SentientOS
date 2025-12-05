@@ -852,6 +852,19 @@ class RuntimeShell:
         runtime = _ensure_runtime_config(self._config)
         llama_path = str(runtime.get("llama_server_path"))
         model_path = str(runtime.get("model_path"))
+        if not Path(llama_path).exists():
+            self._log(
+                "llama.cpp server binary missing; skipping launch",
+                extra={"path": llama_path, "severity": "warning"},
+            )
+            return
+
+        if not Path(model_path).exists():
+            self._log(
+                "Model file missing; skipping llama.cpp launch",
+                extra={"path": model_path, "severity": "warning"},
+            )
+            return
         command = [llama_path, "--model", model_path]
         self._register_process("llama", command)
         self._log("llama.cpp server launched", extra={"command": command})
@@ -859,7 +872,7 @@ class RuntimeShell:
     def start_relay(self) -> None:
         runtime = _ensure_runtime_config(self._config)
         host = str(runtime.get("relay_host", "127.0.0.1"))
-        port = str(runtime.get("relay_port", 65432))
+        port = str(runtime.get("relay_port", 3928))
         command = [
             "python",
             "-m",

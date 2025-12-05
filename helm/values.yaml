@@ -1,4 +1,4 @@
-relayPort: 5000
+relayPort: 3928
 bridges:
   - name: bridge1
     port: 9977

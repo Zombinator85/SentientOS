@@ -2,15 +2,15 @@ version: '3.9'
 services:
   relay:
     image: python:3.11-slim
-    command: ["python", "-m", "http.server", "5000"]
+    command: ["python", "-m", "http.server", "3928"]
     ports:
-      - "5000:5000"
+      - "3928:3928"
     volumes:
       - ./scripts:/scripts:ro
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys;\n\
 import time;\n\
-url='http://localhost:5000';\n\
+url='http://localhost:3928';\n\
 \n\
 try:\n\
     urllib.request.urlopen(url)\n\

@@ -63,7 +63,7 @@ For non-interactive CI, trigger the `Codex CI` workflow or execute `./scripts/ci
 > 📘 **Need the full walkthrough?** Follow
 > [`docs/WINDOWS_LOCAL_MODEL_SETUP.md`](docs/WINDOWS_LOCAL_MODEL_SETUP.md) for a
 > line-by-line Windows checklist that covers prerequisites, environment
-> creation, Mixtral-8x7B placement, and service scheduling.
+> creation, Mistral-7B placement, and service scheduling.
 
 The minimal Windows stack ships with a local runtime daemon, a browser-based
 chat experience, and self-updating Git integration. Everything runs offline and
@@ -76,9 +76,12 @@ communicates through local files or sockets.
   script).
 * **Responsibilities:**
   * Load a local LLM via `sentientos.local_model.LocalModel`. Set
-    `LOCAL_MODEL_PATH` and `SENTIENTOS_MODEL_PATH` to point at the Mixtral-8x7B
+    `LOCAL_MODEL_PATH` and `SENTIENTOS_MODEL_PATH` to point at the Mistral-7B
     GGUF file (defaults to
    `C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf`).
+    The runtime auto-detects GPU offload (`n_gpu_layers=-1` when CUDA is
+    available) and applies the 32,768-token context length defined in the
+    GGUF metadata using the `mistral-instruct` chat template.
   * Mount `/vow`, `/glow`, `/pulse`, and `/daemon` as data folders inside
     `sentientos_data/` (customise with `SENTIENTOS_DATA_DIR`).
   * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
@@ -105,7 +108,7 @@ python -m sentientos.windows_service install
 
 * **Backend:** FastAPI app (`sentientos.chat_service.APP`) exposing `/chat`.
 * **Frontend:** Minimal HTML/JS chatbox served from the same FastAPI instance on
-  `http://localhost:5000`.
+  `http://localhost:3928`.
 * **Run:**
 
   ```bash
@@ -174,8 +177,8 @@ Automatically set up the environment and start all services:
 ```bash
 python cathedral_launcher.py
 ```
-The launcher creates `.env` and `logs/` if missing, checks for Ollama,
-pulls the Mixtral model when possible, and then opens the local dashboard.
+The launcher creates `.env` and `logs/` if missing, checks for llama.cpp server,
+pulls the Mistral model when possible, and then opens the local dashboard.
 
 ### 🛠️ Bundled Launcher
 Create packaged executables for any platform:

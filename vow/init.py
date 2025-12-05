@@ -246,9 +246,9 @@ def ensure_mounts() -> None:
         path.mkdir(parents=True, exist_ok=True)
 
 def load_model() -> None:
-    """Load the preferred local Mixtral model from disk.
+    """Load the preferred local Mistral model from disk.
 
-    The daemon prioritises the Mixtral-8x7B GGUF path and gracefully falls
+    The daemon prioritises the Mistral-7B GGUF path and gracefully falls
     back to smaller archives or mock output. Legacy GPT-OSS 120B builds are
     only available for operators with extreme hardware and must be configured
     manually.
@@ -290,7 +290,7 @@ def load_model() -> None:
             print(f"Failed to initialise llama.cpp backend: {exc}")
             return False
         MODEL = _LlamaPipeline(llama)
-        print(f"Mixtral backend loaded from {path}")
+        print(f"Mistral backend loaded from {path}")
         return True
 
     def _load_transformer(path: Path, label: str) -> bool:
@@ -522,7 +522,7 @@ def request_relay(task: str, context: str) -> tuple[str | None, str, float]:
     start = time.time()
     try:
         resp = requests.post(
-            "http://april-pc.local:5000/relay", json=payload, timeout=5
+            "http://april-pc.local:3928/relay", json=payload, timeout=5
         )
         latency_ms = (time.time() - start) * 1000
         data = (
@@ -637,7 +637,7 @@ def pulse_daemon(stop: threading.Event) -> None:
         if now - last_ping >= 30:
             ping_start = time.time()
             try:
-                requests.get("http://april-pc.local:5000/ping", timeout=2)
+                requests.get("http://april-pc.local:3928/ping", timeout=2)
                 relay_status = "online"
                 relay_latency_ms = (time.time() - ping_start) * 1000
             except Exception:  # pragma: no cover - best effort
@@ -764,7 +764,7 @@ def sync_glow() -> bool:
             with open(path, "rb") as f:
                 files = {"file": (path.name, f, "text/plain")}
                 requests.post(
-                    "http://april-pc.local:5000/sync/glow",
+                    "http://april-pc.local:3928/sync/glow",
                     files=files,
                     timeout=5,
                 )
@@ -804,7 +804,7 @@ def sync_ledger() -> bool:
     payload = "\n".join(to_send)
     try:
         requests.post(
-            "http://april-pc.local:5000/sync/ledger",
+            "http://april-pc.local:3928/sync/ledger",
             data=payload,
             timeout=5,
         )
@@ -833,7 +833,7 @@ def pull_sync_glow() -> None:
             last = 0.0
     try:
         resp = requests.get(
-            "http://april-pc.local:5000/sync/pull/glow",
+            "http://april-pc.local:3928/sync/pull/glow",
             params={"since": last},
             timeout=5,
         )
@@ -883,7 +883,7 @@ def pull_sync_ledger(queue: Queue) -> None:
         last = LEDGER_PULL_STATE.read_text(encoding="utf-8").strip()
     try:
         resp = requests.get(
-            "http://april-pc.local:5000/sync/pull/ledger",
+            "http://april-pc.local:3928/sync/pull/ledger",
             params={"since": last},
             timeout=5,
         )
