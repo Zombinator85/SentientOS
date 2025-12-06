@@ -13,6 +13,7 @@ import logging
 import time
 from pathlib import Path
 import http.client
+import socket
 
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
@@ -31,6 +32,18 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger("relay_server")
 
 MODEL: LocalModel | None = None
+
+
+def _ensure_port_available(port: int) -> None:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(1)
+        result = sock.connect_ex(("127.0.0.1", port))
+        if result == 0:
+            LOGGER.fatal("Port %s is already in use; cannot start relay server", port)
+            raise SystemExit(1)
+
+
+_ensure_port_available(3928)
 
 
 def _check_llama_server() -> bool:

@@ -7,6 +7,7 @@ from sentientos import __version__
 require_admin_banner()
 require_lumos_approval()
 
+import json
 import os
 import platform
 import socket
@@ -27,6 +28,7 @@ import tkinter.messagebox as messagebox
 MIN_VERSION = (3, 11)
 LOG_PATH = get_log_path("cathedral_launcher.log")
 UPDATES_DIR = Path(".updates")
+HARDWARE_PROFILE = Path("config/hardware_profile.json")
 
 REQUIRED_MODULES = ["llama_cpp", "python_multipart", "pygments", "cpuinfo"]
 CUDA_SEARCH_PATHS = [
@@ -191,17 +193,17 @@ def check_updates() -> None:
         log(f"update_check_failed:{e}")
 
 
-def check_gpu() -> bool:
+def check_gpu() -> tuple[bool, bool]:
     runtime_present = detect_cuda_runtime()
     try:
         import torch  # type: ignore
 
         has = torch.cuda.is_available() or runtime_present
         log(f"gpu_available={has}")
-        return bool(has)
+        return bool(has), runtime_present
     except Exception as exc:
         log(f"gpu_check_failed: {exc}")
-        return runtime_present
+        return runtime_present, runtime_present
 
 
 def prompt_cloud_inference(env_path: Path) -> None:
@@ -260,6 +262,19 @@ def ensure_log_dir() -> Path:
     path = get_log_path("dummy").parent
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def save_hardware_profile(gpu_ok: bool, cuda_ok: bool, avx_ok: bool) -> None:
+    profile = {
+        "gpu": gpu_ok,
+        "cuda_runtime": cuda_ok,
+        "avx": avx_ok,
+        "model_precision": "Q4_K_M" if avx_ok else "Q4_K",
+        "mode": "gpu" if (gpu_ok and cuda_ok) else "cpu",
+    }
+    HARDWARE_PROFILE.parent.mkdir(parents=True, exist_ok=True)
+    HARDWARE_PROFILE.write_text(json.dumps(profile, indent=2))
+    log_json(PUBLIC_LOG, {"event": "hardware_profile", "data": profile})
 
 
 def detect_avx() -> bool:
@@ -369,8 +384,9 @@ def main(argv: Optional[list[str]] | None = None) -> int:
     if not ensure_required_modules():
         return 1
 
-    gpu_ok = check_gpu()
-    detect_avx()
+    gpu_ok, cuda_runtime = check_gpu()
+    avx_ok = detect_avx()
+    save_hardware_profile(gpu_ok, cuda_runtime, avx_ok)
     if not gpu_ok:
         prompt_cloud_inference(env_path)
     if not check_llama_server():

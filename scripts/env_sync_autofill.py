@@ -9,6 +9,7 @@ require_lumos_approval()
 import datetime
 import json
 from pathlib import Path
+import subprocess
 
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,6 +24,7 @@ def autofill_env() -> None:
     else:
         lines = []
     added = {}
+    repairs = {}
     mapping = {
         "OPENAI_API_KEY": "",
         "MODEL_SLUG": "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
@@ -38,11 +40,19 @@ def autofill_env() -> None:
         if k not in keys:
             lines.append(f"{k}={v}")
             added[k] = v
+    venv_dir = Path(".venv")
+    if not venv_dir.exists():
+        subprocess.run(["python", "-m", "venv", str(venv_dir)], check=False)
+        repairs["venv_created"] = True
+    elif not (venv_dir / "Scripts" / "python.exe").exists() and not (venv_dir / "bin" / "python").exists():
+        subprocess.run(["python", "-m", "venv", str(venv_dir)], check=False)
+        repairs["venv_repaired"] = True
     if added:
         env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         entry = {
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
             "added": added,
+            "repairs": repairs,
         }
         with ENV_LOG.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
