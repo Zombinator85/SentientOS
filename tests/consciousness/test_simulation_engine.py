@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from simulation_engine import (
+from sentientos.consciousness.simulation_engine import (
     DEFAULT_LOG_PATH,
     DEFAULT_PULSE_STATE,
     SimulationEngine,

@@ -1,8 +1,13 @@
-"""Autonomous goal scaffold for the SentientOS Consciousness Layer.
+# NOTE:
+# This module is part of the Consciousness Layer scaffolding.
+# It does not perform autonomous execution.
+# All operations must be driven by explicit orchestrator calls.
+# Guardrails and covenant autoalignment remain authoritative.
+"""Goal-selection scaffolding for the Consciousness Layer.
 
-References the Consciousness Layer overview in ``docs/CONSCIOUSNESS_LAYER.md``
-and exposes a ``run_cycle`` hook for kernel orchestration. The implementation
-keeps goals minimal, auditable, and covenant-aligned.
+The kernel keeps goals minimal, auditable, and covenant-aligned, exposing a
+``run_cycle`` hook for kernel orchestration. See
+``docs/CONSCIOUSNESS_LAYER.md`` for architectural context.
 """
 from __future__ import annotations
 
@@ -12,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Callable, Dict, List, Mapping, Optional
 
 from sentientos.daemons import pulse_bus
-from sentientos.glow import self_state
+from sentientos.glow.self_state import load as load_self_state, update as update_self_state
 from sentientos.integrity import covenant_autoalign
 
 logger = logging.getLogger(__name__)
@@ -136,12 +141,12 @@ class SentienceKernel:
         if goal:
             payload["last_generated_goal"] = goal
             payload["goal_context"] = goal.get("context", {})
-        return self_state.update(payload, path=self._self_path)
+        return update_self_state(payload, path=self._self_path)
 
     def run_cycle(self) -> Dict[str, object]:
         covenant_autoalign.autoalign_before_cycle()
         self._last_cycle = datetime.now(timezone.utc)
-        glow_state = self_state.load(path=self._self_path)
+        glow_state = load_self_state(path=self._self_path)
         should_generate, trigger = self._should_generate_goal(glow_state)
         report: Dict[str, object] = {
             "timestamp": self._last_cycle.isoformat(),

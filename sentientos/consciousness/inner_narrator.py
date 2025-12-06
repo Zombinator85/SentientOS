@@ -1,10 +1,15 @@
-"""Inner Narrator for deterministic, private introspection.
-
-This module produces bounded natural-language reflections over the latest
-Pulse Bus 2.0 snapshot and current self-model. Reflections remain internal and
-only update self-model state or introspection storage.
-"""
 from __future__ import annotations
+
+# NOTE:
+# This module is part of the Consciousness Layer scaffolding.
+# It does not perform autonomous execution.
+# All operations must be driven by explicit orchestrator calls.
+# Guardrails and covenant autoalignment remain authoritative.
+"""Narrator scaffold that records bounded introspection outputs.
+
+Reflections remain internal and only update self-model state or introspection
+storage.
+"""
 
 import json
 import os
@@ -12,7 +17,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Mapping, Tuple
 
-from sentientos.glow import self_state
+from sentientos.glow.self_state import (
+    DEFAULT_SELF_STATE,
+    save as save_self_state,
+    validate as validate_self_state,
+)
 from sentientos.integrity import covenant_autoalign
 
 # The narrator remains intentionally quiet; avoid noisy logging that could
@@ -163,7 +172,7 @@ def run_cycle(
 
     covenant_autoalign.autoalign_before_cycle()
     reflection, mood, focus, attention_level = generate_reflection(pulse_snapshot, self_model)
-    updated_model: Dict[str, object] = {**self_state.DEFAULT_SELF_STATE, **dict(self_model)}
+    updated_model: Dict[str, object] = {**DEFAULT_SELF_STATE, **dict(self_model)}
     updated_model.update(
         {
             "last_reflection_summary": reflection,
@@ -172,8 +181,8 @@ def run_cycle(
             "last_focus": focus,
         }
     )
-    validated = self_state.validate(updated_model)
-    self_state.save(validated)
+    validated = validate_self_state(updated_model)
+    save_self_state(validated)
     write_introspection_entry(
         reflection,
         focus,

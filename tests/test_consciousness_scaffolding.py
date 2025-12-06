@@ -1,15 +1,15 @@
 import importlib
 
-from attention_arbitrator import AttentionArbitrator, PulseEvent
+from sentientos.consciousness.attention_arbitrator import AttentionArbitrator, PulseEvent
 from sentientos.daemons import pulse_bus
 from sentientos.glow import self_state
 
 
 MODULE_NAMES = [
-    "attention_arbitrator",
-    "sentience_kernel",
-    "inner_narrator",
-    "simulation_engine",
+    "sentientos.consciousness.attention_arbitrator",
+    "sentientos.consciousness.sentience_kernel",
+    "sentientos.consciousness.inner_narrator",
+    "sentientos.consciousness.simulation_engine",
 ]
 
 

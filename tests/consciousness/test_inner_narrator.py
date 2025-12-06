@@ -6,7 +6,12 @@ from typing import Dict
 
 import pytest
 
-from inner_narrator import generate_reflection, run_cycle, validate_reflection, write_introspection_entry
+from sentientos.consciousness.inner_narrator import (
+    generate_reflection,
+    run_cycle,
+    validate_reflection,
+    write_introspection_entry,
+)
 from sentientos.glow import self_state
 
 
