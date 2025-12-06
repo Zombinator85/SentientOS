@@ -1,5 +1,4 @@
-"""
-Simulation Engine scaffold for private counterfactual reasoning.
+"""Simulation Engine scaffold for private counterfactual reasoning.
 
 Supports lightweight, deterministic simulations that can be consumed by the
 Sentience Kernel before emitting proposals.

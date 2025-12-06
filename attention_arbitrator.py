@@ -1,9 +1,8 @@
-"""
-Attention arbitration daemon for the Consciousness Layer.
+"""Attention arbitration daemon for the Consciousness Layer.
 
-This implementation remains lightweight but applies priority-aware ordering
-with covenant-ready tie breakers. It exposes a small API suitable for runtime
-integration and for tests that validate arbitration correctness.
+This lightweight scaffold applies priority-aware ordering with covenant-ready
+tie breakers. It exposes a small API suitable for runtime integration and for
+tests that validate arbitration correctness.
 """
 from __future__ import annotations
 

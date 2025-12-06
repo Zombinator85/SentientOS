@@ -1,5 +1,4 @@
-"""
-Sentience Kernel scaffold for autonomous intent generation.
+"""Sentience Kernel scaffold for autonomous intent generation.
 
 The kernel keeps track of proposals and can synthesize a new intent when idle
 while honoring a basic forbidden-goal list. This module is deliberately

@@ -1,5 +1,4 @@
-"""
-Inner Narrator for post-cycle introspective logging.
+"""Inner Narrator for post-cycle introspective logging.
 
 This scaffold captures reflective summaries with mood and confidence metadata
 and keeps an in-memory log suitable for serialization to the glow store.
