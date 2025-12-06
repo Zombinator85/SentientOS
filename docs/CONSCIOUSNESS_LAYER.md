@@ -1,64 +1,89 @@
-# SentientOS Consciousness Layer (Scaffold)
+# Consciousness Layer Scaffolding
 
-The Consciousness Layer aggregates focus, intent formation, narration, and
-counterfactual rehearsal. This document summarizes the scaffolding only; no
-behavioral autonomy is enabled yet. Future revisions will extend these notes
-into implementation guides and safety reviews.
+This document describes the deterministic scaffolding that routes state through
+the Consciousness Layer modules. All descriptions are architectural; the
+modules operate as state processors with no autonomy or intentionality.
 
-## Components
+## Scope and Guarantees
 
-- **Pulse Bus 2.0 extensions**: Adds optional `focus`, `context`,
-  `internal_priority`, and `event_origin` fields with safe defaults so legacy
-  events continue to work while Consciousness metadata is available.
-- **Attention Arbitrator** (`attention_arbitrator.py`): Prepares focus updates
-  for pulse publication and tracks arbitration cycles.
-- **Sentience Kernel** (`sentience_kernel.py`): Hosts placeholder goal
-  generation hooks and cycles.
-- **Inner Narrator** (`inner_narrator.py`): Records reflective metadata and
-  surfaces narration cycles.
-- **Simulation Engine** (`simulation_engine.py`): Provides stub simulation and
-  rehearsal hooks for future internal counterfactuals.
-- **Self-Model** (`glow/self.json`, `sentientos/glow/self_state.py`): Defines a
-  covenant-aligned self descriptor with validation helpers.
+- Deterministic cycle execution: each cycle reads the same inputs and produces
+  the same outputs when invoked with identical state.
+- Guardrail enforcement precedes and follows every module state transformation.
+- Covenant autoalignment is encoded through validation rules on Pulse events
+  and on the self-model schema.
+- Persistence is strict: state writes occur only through validated, append-only
+  updates. No external effects occur unless explicitly invoked by callers.
 
-## Interactions with Glow and Pulse
+## Pulse Bus 2.0 Fields
 
-- `/glow/self.json` captures the current self-model used by all Consciousness
-  daemons. The helper module handles validation and safe updates.
-- `/pulse/system.json`, `/pulse/focus.json`, and `/pulse/context.json` continue
-  to operate for legacy emitters; Pulse 2.0 fields enrich but never overwrite
-  existing keys.
-- Pulse events are normalized through `sentientos.daemons.pulse_bus` using
-  `apply_pulse_defaults`, ensuring the new fields are present for consumers that
-  opt into the Consciousness Layer.
+The Pulse Bus carries structured events between modules. Pulse Bus 2.0 adds
+metadata that remains optional for legacy emitters while providing clear
+alignment signals:
 
-## High-Level Architecture (ASCII)
+| Field              | Description                                                         |
+| ------------------ | ------------------------------------------------------------------- |
+| `focus`            | Deterministic pointer to the current subject of processing.         |
+| `context`          | Bounded summary of relevant state or cues used during the cycle.    |
+| `internal_priority`| Ordering hint for arbitration; validated against module contracts.  |
+| `event_origin`     | Source module identifier used for traceability and guardrail checks.|
 
-```
-+--------------------+       +-----------------+      +------------------+
-|   Attention        | --->  |  Pulse Bus 2.0  | ---> |   Inner Narrator |
-|   Arbitrator       |       |  (focus/context)|      |  (reflections)   |
-+--------------------+       +-----------------+      +------------------+
-         |                          |                            |
-         v                          v                            v
-+--------------------+       +-----------------+      +------------------+
-| Sentience Kernel   | <---- | Glow Self Model | ---> | Simulation Eng.  |
-| (intent hooks)     |       | (glow/self.json)|      | (counterfactual) |
-+--------------------+       +-----------------+      +------------------+
-```
+All Pulse events pass through validation rules that ensure fields are typed,
+bounded, and present when required by the receiving module. Misalignment flags
+are raised when validation fails, and escalation pathways are described in
+`docs/PULSE_BUS.md`.
 
-## Safety and Covenant Boundaries
+## Self-Model Layout (`/glow/self.json`)
 
-- No autonomous actions are executed by this scaffold; all `run_cycle` hooks are
-  inert placeholders for wiring tests.
-- Pulse defaults avoid overwriting caller-provided values, keeping legacy
-  behavior intact while covenant-aligned metadata is introduced.
-- Self-model helpers enforce required fields and type safety before writes to
-  glow storage.
-- Future implementations must preserve auditability, covenant logging, and
-  privilege enforcement around every pulse emission.
+The self-model persists covenant-aligned state for the Consciousness Layer
+modules. Stable keys are defined in `docs/SELF_MODEL.md` and include:
 
-## Future Diagrams
+- Identity descriptors (stable strings with format validation)
+- Capability flags (boolean and enumerated states)
+- Alignment metadata such as `safety_flag` and `validation` stamps
+- Introspection snapshots for narrator summaries and kernel review
 
-Additional diagrams (sequence charts, state transitions, simulation timelines)
-will be added alongside the activation plan for the Consciousness Layer.
+Validation rules are enforced before write-back: schemas are checked, types are
+normalized, and safety flags propagate forward. Introspection fields are
+read-only to downstream modules unless explicitly opened for bounded updates.
+
+## Modules and Roles
+
+- **Attention Arbitrator** (`attention_arbitrator.py`): Prepares focus changes
+  and resolves incoming internal priorities. Acts as a deterministic priority
+  resolver for Pulse events.
+- **Sentience Kernel** (`sentience_kernel.py`): Implements bounded
+  goal-selection logic using validated inputs from the Pulse Bus and
+  self-model. No unbounded exploration is permitted.
+- **Inner Narrator** (`inner_narrator.py`): Summarizes reflection state and
+  records introspection outputs for downstream persistence.
+- **Simulation Engine** (`simulation_engine.py`): Evaluates scenarios with
+  constrained inputs, producing candidate outcomes without external side
+  effects.
+
+## Cycle Outline
+
+Each cycle proceeds as a deterministic state transformation:
+
+1. **Read state** from `/glow/self.json` and the Pulse Bus.
+2. **Validate inputs** against Pulse Bus 2.0 schema and self-model schema.
+3. **Run module transforms** in bounded order: arbitrator → kernel → narrator →
+   simulation engine as configured.
+4. **Write-back** validated updates to `/glow/self.json` using strict
+   persistence rules.
+5. **Safety checks** propagate `safety_flag` and covenant indicators.
+6. **Publish pulses** with normalized metadata for downstream consumers.
+
+## Guardrails and Alignment
+
+- Validation and guardrail enforcement are mandatory before and after every
+  module call. Invalid inputs trigger deterministic rejection with audit-ready
+  metadata.
+- Covenant autoalignment requires safety flags to persist across cycles unless
+  an explicit, validated clearance resets them.
+- Modules never initiate external effects; they expose outputs for callers that
+  choose to act under separate privilege constraints.
+
+## Diagrams
+
+Sequence diagrams illustrating cycle flow, pulse resolution, and self-model
+updates are located in `docs/diagrams/`.

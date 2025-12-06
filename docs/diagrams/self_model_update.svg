@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" role="img" aria-label="Self-model update pipeline">
+  <style>
+    .box { fill: #eef2ff; stroke: #1e1b4b; stroke-width: 1.4; }
+    .arrow { stroke: #1e1b4b; stroke-width: 1.4; marker-end: url(#arrow); }
+    text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; fill: #1e1b4b; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1e1b4b" />
+    </marker>
+  </defs>
+
+  <rect class="box" x="40" y="40" width="170" height="60" rx="6" />
+  <text x="125" y="70" text-anchor="middle">Read /glow/self.json</text>
+  <text x="125" y="88" text-anchor="middle">current state</text>
+
+  <rect class="box" x="260" y="40" width="170" height="60" rx="6" />
+  <text x="345" y="70" text-anchor="middle">Normalize timestamps</text>
+  <text x="345" y="88" text-anchor="middle">UTC + Z</text>
+
+  <rect class="box" x="480" y="40" width="220" height="60" rx="6" />
+  <text x="590" y="70" text-anchor="middle">Validate schema</text>
+  <text x="590" y="88" text-anchor="middle">stable keys, bounded types</text>
+
+  <rect class="box" x="150" y="180" width="180" height="60" rx="6" />
+  <text x="240" y="210" text-anchor="middle">Deterministic transform</text>
+  <text x="240" y="228" text-anchor="middle">module writes</text>
+
+  <rect class="box" x="380" y="180" width="180" height="60" rx="6" />
+  <text x="470" y="210" text-anchor="middle">Propagate safety_flag</text>
+  <text x="470" y="228" text-anchor="middle">escalations persist</text>
+
+  <rect class="box" x="600" y="180" width="120" height="60" rx="6" />
+  <text x="660" y="210" text-anchor="middle">Write-back</text>
+  <text x="660" y="228" text-anchor="middle">persist + stamp</text>
+
+  <line class="arrow" x1="210" y1="70" x2="260" y2="70" />
+  <line class="arrow" x1="430" y1="70" x2="480" y2="70" />
+  <line class="arrow" x1="590" y1="100" x2="240" y2="180" />
+  <line class="arrow" x1="330" y1="210" x2="380" y2="210" />
+  <line class="arrow" x1="560" y1="210" x2="600" y2="210" />
+</svg>

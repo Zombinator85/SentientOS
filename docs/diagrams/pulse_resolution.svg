@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" role="img" aria-label="Pulse resolution sequence">
+  <style>
+    .box { fill: #ecfeff; stroke: #0f172a; stroke-width: 1.4; }
+    .arrow { stroke: #0f172a; stroke-width: 1.4; marker-end: url(#arrow); }
+    text { font-family: 'Segoe UI', Arial, sans-serif; font-size: 14px; fill: #0f172a; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f172a" />
+    </marker>
+  </defs>
+
+  <rect class="box" x="40" y="40" width="150" height="60" rx="6" />
+  <text x="115" y="70" text-anchor="middle">Kernel</text>
+  <text x="115" y="88" text-anchor="middle">candidate events</text>
+
+  <rect class="box" x="230" y="40" width="150" height="60" rx="6" />
+  <text x="305" y="70" text-anchor="middle">Narrator</text>
+  <text x="305" y="88" text-anchor="middle">summaries</text>
+
+  <rect class="box" x="420" y="40" width="150" height="60" rx="6" />
+  <text x="495" y="70" text-anchor="middle">Simulation</text>
+  <text x="495" y="88" text-anchor="middle">scenario scoring</text>
+
+  <rect class="box" x="610" y="150" width="110" height="60" rx="6" />
+  <text x="665" y="180" text-anchor="middle">Publish</text>
+
+  <rect class="box" x="260" y="150" width="150" height="60" rx="6" />
+  <text x="335" y="176" text-anchor="middle">Arbitrator</text>
+  <text x="335" y="194" text-anchor="middle">deterministic selection</text>
+
+  <rect class="box" x="450" y="260" width="150" height="60" rx="6" />
+  <text x="525" y="290" text-anchor="middle">Validation</text>
+  <text x="525" y="308" text-anchor="middle">Pulse Bus 2.0</text>
+
+  <line class="arrow" x1="190" y1="70" x2="230" y2="70" />
+  <line class="arrow" x1="380" y1="70" x2="420" y2="70" />
+
+  <line class="arrow" x1="115" y1="100" x2="335" y2="150" />
+  <line class="arrow" x1="305" y1="100" x2="335" y2="150" />
+  <line class="arrow" x1="495" y1="100" x2="335" y2="150" />
+
+  <line class="arrow" x1="410" y1="180" x2="610" y2="180" />
+  <line class="arrow" x1="665" y1="210" x2="525" y2="260" />
+</svg>
