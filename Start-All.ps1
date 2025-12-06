@@ -10,6 +10,7 @@ Start-All.ps1 - Self-healing SentientOS launcher for Windows
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+[System.Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
 
 # Paths
 $RootPath = "C:\\SentientOS"
@@ -17,6 +18,7 @@ $ConfigDir = Join-Path $RootPath "config"
 $HardwareProfilePath = Join-Path $ConfigDir "hardware_profile.json"
 $ModelPreferencePath = Join-Path $ConfigDir "model_preference.txt"
 $ModelPathFile = Join-Path $ConfigDir "model_path.txt"
+$ModelMirrorConfig = Join-Path $ConfigDir "model_mirrors.json"
 $VenvPath = Join-Path $RootPath ".venv"
 $VenvActivate = Join-Path $VenvPath "Scripts\\Activate.ps1"
 $PythonExe = Join-Path $VenvPath "Scripts\\python.exe"
@@ -26,6 +28,7 @@ $CathedralLauncher = Join-Path $RootPath "cathedral_launcher.py"
 $ModelsDir = Join-Path $RootPath "sentientos_data\\models"
 $DefaultModelDir = Join-Path $ModelsDir "mistral-7b"
 $DefaultModel = Join-Path $DefaultModelDir "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+$ModelDownloadLog = Join-Path $RootPath "logs\\model_download.log"
 $RepairLog = Join-Path $RootPath "logs\\self_repair.log"
 
 # Configuration
@@ -40,6 +43,7 @@ $MaxComponentRetries = 3
 $RequiredPythonVersion = "3.11"
 $RequiredLlamaCppVersion = "0.2.90"
 $DefaultModelUrl = "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf?download=1"
+$DefaultModelMd5 = ""
 $DefaultModelSha256 = "e6dfd3bd27cfa6f0595b234d79ce31775f5f52a12ca6c5075463996f856b503d"
 
 $Diagnostics = @()
@@ -56,6 +60,13 @@ function Write-RepairLog {
     Ensure-Directory -Path (Split-Path $RepairLog -Parent)
     $timestamp = (Get-Date).ToString("s") + "Z"
     Add-Content -Path $RepairLog -Value "$timestamp`t$Message"
+}
+
+function Write-ModelDownloadLog {
+    param([string]$Message)
+    Ensure-Directory -Path (Split-Path $ModelDownloadLog -Parent)
+    $timestamp = (Get-Date).ToString("s") + "Z"
+    Add-Content -Path $ModelDownloadLog -Value "$timestamp`t$Message"
 }
 
 function Write-Status { param([string]$Message) Write-Host "[*] $Message" -ForegroundColor Cyan }
@@ -104,73 +115,218 @@ function Detect-UploadMisbehavior {
     return ($msg -match "content-length" -or $msg -match "request entity" -or $msg -match "PUT")
 }
 
-function Test-Checksum {
-    param([string]$Path, [string]$Sha256)
-    if (-not $Sha256) { return $true }
+function Test-Checksums {
+    param(
+        [string]$Path,
+        [string]$Sha256,
+        [string]$Md5
+    )
     if (-not (Test-Path $Path)) { return $false }
-    $hash = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
-    return $hash -eq $Sha256.ToLowerInvariant()
+    $shaActual = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+    $md5Actual = (Get-FileHash -Algorithm MD5 -Path $Path).Hash.ToLowerInvariant()
+    if ($Sha256 -and $shaActual -ne $Sha256.ToLowerInvariant()) { return $false }
+    if ($Md5 -and $md5Actual -ne $Md5.ToLowerInvariant()) { return $false }
+    return $true
 }
 
-function Download-ModelSafe {
+function Get-ChecksumSummary {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) { return @{ sha256 = $null; md5 = $null } }
+    return @{
+        sha256 = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+        md5    = (Get-FileHash -Algorithm MD5 -Path $Path).Hash.ToLowerInvariant()
+    }
+}
+
+function Get-MirrorList {
     param(
-        [string]$Uri,
+        [string]$ResourceKey,
+        [hashtable]$Defaults
+    )
+    $mirrors = @()
+    if (Test-Path $ModelMirrorConfig) {
+        try {
+            $json = Get-Content -Path $ModelMirrorConfig -Raw | ConvertFrom-Json -ErrorAction Stop
+            $mirrorEntries = $json.$ResourceKey
+            if ($mirrorEntries) {
+                foreach ($entry in $mirrorEntries) {
+                    if ($entry.url) { $mirrors += [pscustomobject]@{ Name = $entry.name; Url = $entry.url } }
+                }
+            }
+        } catch {
+            Write-Warn "Failed to parse mirror config: $($_.Exception.Message)"
+            Write-RepairLog "Mirror configuration invalid; falling back to defaults for $ResourceKey"
+        }
+    }
+    if (-not $mirrors -and $Defaults) {
+        foreach ($key in $Defaults.Keys) {
+            $mirrors += [pscustomobject]@{ Name = $key; Url = $Defaults[$key] }
+        }
+    }
+    return $mirrors
+}
+
+function Expand-ArchiveIfNeeded {
+    param([string]$ArchivePath, [string]$Destination)
+    $extension = [System.IO.Path]::GetExtension($ArchivePath).ToLowerInvariant()
+    switch ($extension) {
+        '.gz' {
+            $target = $Destination
+            $sourceStream = [System.IO.File]::OpenRead($ArchivePath)
+            $gzipStream = $null
+            $targetStream = $null
+            try {
+                $gzipStream = New-Object System.IO.Compression.GzipStream($sourceStream, [System.IO.Compression.CompressionMode]::Decompress)
+                $targetStream = [System.IO.File]::Open($Destination, [System.IO.FileMode]::Create)
+                try {
+                    $buffer = New-Object byte[] 8192
+                    while (($read = $gzipStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                        $targetStream.Write($buffer, 0, $read)
+                    }
+                } finally { if ($targetStream) { $targetStream.Dispose() } }
+            } finally {
+                if ($gzipStream) { $gzipStream.Dispose() }
+                if ($sourceStream) { $sourceStream.Dispose() }
+            }
+            return $Destination
+        }
+        '.zip' {
+            $tempDir = Join-Path ([System.IO.Path]::GetDirectoryName($Destination)) "zip_extract"
+            if (Test-Path $tempDir) { Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue }
+            Ensure-Directory -Path $tempDir
+            try {
+                [System.IO.Compression.ZipFile]::ExtractToDirectory($ArchivePath, $tempDir)
+                $firstFile = Get-ChildItem -Path $tempDir -File -Recurse | Select-Object -First 1
+                if (-not $firstFile) { throw "Zip archive empty" }
+                Copy-Item -Path $firstFile.FullName -Destination $Destination -Force
+            } finally {
+                Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            return $Destination
+        }
+        Default { return $ArchivePath }
+    }
+}
+
+function Invoke-ResumableDownload {
+    param(
+        [string]$ResourceKey,
+        [string]$ResourceName,
         [string]$Destination,
-        [string]$Sha256 = ""
+        [string]$Sha256 = "",
+        [string]$Md5 = "",
+        [hashtable]$DefaultMirrors
     )
 
     Ensure-Directory -Path (Split-Path $Destination -Parent)
+    $tempPath = "$Destination.tmp"
+    $mirrors = Get-MirrorList -ResourceKey $ResourceKey -Defaults $DefaultMirrors
+    if (-not $mirrors) { Fail "No download mirrors defined for $ResourceName" }
+
+    $existingCheck = Test-Checksums -Path $Destination -Sha256 $Sha256 -Md5 $Md5
+    if ($existingCheck) {
+        Write-Status "$ResourceName already present with valid checksum; skipping download"
+        Write-RepairLog "$ResourceName already verified; no download needed"
+        return
+    } elseif (Test-Path $Destination) {
+        $summary = Get-ChecksumSummary -Path $Destination
+        Write-Warn "$ResourceName present but checksum mismatch; deleting corrupt file"
+        Write-RepairLog "$ResourceName checksum mismatch (sha256=$($summary.sha256); md5=$($summary.md5)); removing and retrying"
+        Remove-Item -Path $Destination -Force
+    }
+
     $attempt = 0
-    $fallbackUsed = $false
-    while ($attempt -lt 5) {
-        $attempt++
-        $delay = [math]::Pow(2, $attempt - 1)
-        Write-Status "Downloading model (attempt $attempt) via GET: $Uri"
-        try {
-            Invoke-WebRequest -Uri $Uri -OutFile $Destination -Method GET -UseBasicParsing -TimeoutSec 120 -MaximumRedirection 5
-            if (-not (Test-Checksum -Path $Destination -Sha256 $Sha256)) {
-                throw "Checksum mismatch after download"
-            }
-            $size = (Get-Item $Destination).Length
-            if ($size -lt 100MB) { throw "Downloaded file too small ($size bytes)" }
-            Write-Ok "Download complete via Invoke-WebRequest"
-            return
-        } catch {
-            $needsFallback = Detect-UploadMisbehavior -Error $_
-            if ($needsFallback -and -not $fallbackUsed) {
-                Write-Warn "Invoke-WebRequest behaved like upload; switching to WebClient"
-                $fallbackUsed = $true
-                try {
-                    $client = New-Object System.Net.WebClient
-                    $client.DownloadFile($Uri, $Destination)
-                    if (-not (Test-Checksum -Path $Destination -Sha256 $Sha256)) { throw "Checksum mismatch after WebClient" }
-                    $size = (Get-Item $Destination).Length
-                    if ($size -lt 100MB) { throw "Downloaded file too small ($size bytes)" }
-                    Write-Ok "Download complete via WebClient fallback"
-                    return
-                } catch {
-                    Write-Warn "WebClient fallback failed: $($_.Exception.Message)"
-                }
-            }
+    for ($mirrorIndex = 0; $mirrorIndex -lt $mirrors.Count; $mirrorIndex++) {
+        $mirror = $mirrors[$mirrorIndex]
+        $mirrorName = if ($mirror.Name) { $mirror.Name } else { "mirror" }
+        $mirrorUrl = $mirror.Url
+        $isLastMirror = ($mirrorIndex -eq $mirrors.Count - 1)
+        for ($retry = 1; $retry -le 3; $retry++) {
+            $attempt++
+            $backoff = [math]::Pow(2, $attempt - 1)
+            Write-Status "Downloading $ResourceName from $mirrorName (attempt $attempt)"
+            Write-ModelDownloadLog "$ResourceName attempt $attempt via $mirrorName: $mirrorUrl"
             try {
-                Write-Warn "Attempting BITS fallback"
-                Start-BitsTransfer -Source $Uri -Destination $Destination -DisplayName "SentientOSModel"
-                if (-not (Test-Checksum -Path $Destination -Sha256 $Sha256)) { throw "Checksum mismatch after BITS" }
-                $size = (Get-Item $Destination).Length
-                if ($size -lt 100MB) { throw "Downloaded file too small ($size bytes)" }
-                Write-Ok "Download complete via BITS"
+                $existingBytes = 0
+                if (Test-Path $tempPath) { $existingBytes = (Get-Item $tempPath).Length }
+                $handler = New-Object System.Net.Http.HttpClientHandler
+                $client = New-Object System.Net.Http.HttpClient($handler)
+                $client.Timeout = [TimeSpan]::FromMinutes(60)
+                $request = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $mirrorUrl)
+                if ($existingBytes -gt 0) { $request.Headers.Range = New-Object System.Net.Http.Headers.RangeHeaderValue($existingBytes, $null) }
+                $response = $client.SendAsync($request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
+                if ($response.StatusCode -eq 416 -or $response.StatusCode -eq 412) {
+                    Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+                    throw "Server rejected range resume; restarting download"
+                }
+                if ($response.StatusCode -eq 200 -and $existingBytes -gt 0) {
+                    Write-ModelDownloadLog "Server ignored Range header; restarting full download for $ResourceName"
+                    $existingBytes = 0
+                    Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+                    $response.Dispose()
+                    $request.Dispose()
+                    $client.Dispose()
+                    $handler.Dispose()
+                    $retry--
+                    continue
+                }
+                $contentLength = $response.Content.Headers.ContentLength
+                $expectedTotal = if ($contentLength) { $contentLength + $existingBytes } else { $null }
+                $stream = $response.Content.ReadAsStreamAsync().Result
+                $fileStream = [System.IO.File]::Open($tempPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::Write)
+                try {
+                    $fileStream.Seek($existingBytes, [System.IO.SeekOrigin]::Begin) | Out-Null
+                    $buffer = New-Object byte[] 8192
+                    $readTotal = $existingBytes
+                    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+                    $nextLog = [TimeSpan]::FromSeconds(5)
+                    while (($read = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+                        $fileStream.Write($buffer, 0, $read)
+                        $readTotal += $read
+                        if ($stopwatch.Elapsed -ge $nextLog) {
+                            $speed = if ($stopwatch.Elapsed.TotalSeconds -gt 0) { ($readTotal / $stopwatch.Elapsed.TotalSeconds) } else { 0 }
+                            $percent = if ($expectedTotal) { [math]::Round(($readTotal / $expectedTotal) * 100, 2) } else { 0 }
+                            $eta = if ($speed -gt 0 -and $expectedTotal) { [TimeSpan]::FromSeconds(($expectedTotal - $readTotal) / $speed) } else { $null }
+                            $etaText = if ($eta) { $eta.ToString() } else { "n/a" }
+                            Write-ModelDownloadLog "$ResourceName progress: $percent% ($([math]::Round($readTotal/1MB,2)) MB) ETA $etaText"
+                            $nextLog = $stopwatch.Elapsed.Add([TimeSpan]::FromSeconds(5))
+                        }
+                    }
+                } finally {
+                    $fileStream.Dispose()
+                    $stream.Dispose()
+                    $response.Dispose()
+                    $request.Dispose()
+                    $client.Dispose()
+                    $handler.Dispose()
+                }
+
+                $finalPath = Expand-ArchiveIfNeeded -ArchivePath $tempPath -Destination $Destination
+                $checks = Get-ChecksumSummary -Path $finalPath
+                Write-ModelDownloadLog "$ResourceName downloaded (sha256=$($checks.sha256); md5=$($checks.md5))"
+                $valid = Test-Checksums -Path $finalPath -Sha256 $Sha256 -Md5 $Md5
+                if (-not $valid) {
+                    Write-Warn "$ResourceName checksum mismatch after download; deleting temp"
+                    Write-RepairLog "$ResourceName checksum mismatch from $mirrorName; retrying"
+                    Remove-Item -Path $finalPath -Force -ErrorAction SilentlyContinue
+                    Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds $backoff
+                    continue
+                }
+                if ($finalPath -ne $Destination) { Move-Item -Path $finalPath -Destination $Destination -Force }
+                Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+                Write-RepairLog "$ResourceName downloaded successfully from $mirrorName"
+                Write-Ok "$ResourceName download complete"
                 return
             } catch {
-                Write-Warn "BITS fallback failed: $($_.Exception.Message)"
-            }
-            if ($attempt -lt 5) {
-                Write-Warn "Retrying in $delay seconds..."
-                Start-Sleep -Seconds $delay
-            } else {
-                Fail "Unable to download model after multiple attempts. Last error: $($_.Exception.Message)"
+                Write-Warn "$ResourceName attempt $attempt failed via $mirrorName: $($_.Exception.Message)"
+                Write-RepairLog "$ResourceName attempt $attempt failed via $mirrorName: $($_.Exception.Message)"
+                Remove-Item -Path $tempPath -Force -ErrorAction SilentlyContinue
+                if ($retry -lt 3 -or -not $isLastMirror) { Start-Sleep -Seconds $backoff }
             }
         }
     }
+    Fail "Unable to download $ResourceName after $attempt attempts"
 }
 
 function Ensure-PathExists {
@@ -220,26 +376,36 @@ function Ensure-Dependencies {
 function Ensure-LlamaBinary {
     if (-not (Test-Path $LlamaExe)) {
         Write-Warn "llama-server.exe missing; attempting to download prebuilt binary"
-        $llamaUrl = "https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-server.exe"
-        Download-ModelSafe -Uri $llamaUrl -Destination $LlamaExe
-        Write-RepairLog "Fetched llama-server.exe from upstream release"
+        $defaults = @{ "github-release" = "https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-server.exe" }
+        Invoke-ResumableDownload -ResourceKey "llama-server" -ResourceName "llama-server.exe" -Destination $LlamaExe -DefaultMirrors $defaults
+        Write-RepairLog "Fetched llama-server.exe from configured mirrors"
     }
-    Add-Diagnostic "llama-server.exe" (Test-Path $LlamaExe) "Present"
+    $binaryHealthy = Test-Checksums -Path $LlamaExe -Sha256 "" -Md5 ""
+    Add-Diagnostic "llama-server.exe" $binaryHealthy "Present"
 }
 
 function Ensure-Model {
     Ensure-Directory -Path $DefaultModelDir
     $gguf = Get-ChildItem -Path $DefaultModelDir -Filter "*.gguf" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($gguf -and -not (Test-Checksums -Path $gguf.FullName -Sha256 $DefaultModelSha256 -Md5 $DefaultModelMd5)) {
+        $summary = Get-ChecksumSummary -Path $gguf.FullName
+        Write-Warn "Existing GGUF failed checksum; removing before redownload"
+        Write-RepairLog "Existing GGUF failed checksum (sha256=$($summary.sha256); md5=$($summary.md5))"
+        Remove-Item -Path $gguf.FullName -Force -ErrorAction SilentlyContinue
+        $gguf = $null
+    }
     if (-not $gguf) {
         Write-Warn "GGUF model missing; downloading safe default"
-        Download-ModelSafe -Uri $DefaultModelUrl -Destination $DefaultModel -Sha256 $DefaultModelSha256
+        $defaults = @{ "huggingface" = $DefaultModelUrl }
+        Invoke-ResumableDownload -ResourceKey "mistral-7b-instruct-v0.2.Q4_K_M.gguf" -ResourceName "Mistral-7B default model" -Destination $DefaultModel -Sha256 $DefaultModelSha256 -Md5 $DefaultModelMd5 -DefaultMirrors $defaults
         Write-RepairLog "Downloaded default GGUF model"
         $gguf = Get-Item $DefaultModel
     }
     $absolute = (Resolve-Path $gguf.FullName).Path
     Ensure-Directory -Path $ConfigDir
     $absolute | Out-File -FilePath $ModelPathFile -Force -Encoding utf8
-    Add-Diagnostic "GGUF model" $true "Located at $absolute"
+    $modelHealthy = Test-Checksums -Path $absolute -Sha256 $DefaultModelSha256 -Md5 $DefaultModelMd5
+    Add-Diagnostic "GGUF model" $modelHealthy "Located at $absolute"
     return $absolute
 }
 
