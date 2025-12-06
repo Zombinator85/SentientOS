@@ -178,7 +178,12 @@ Automatically set up the environment and start all services:
 python cathedral_launcher.py
 ```
 The launcher creates `.env` and `logs/` if missing, checks for llama.cpp server,
-pulls the Mistral model when possible, and then opens the local dashboard.
+pulls the Mistral model when possible, and then opens the local dashboard. Override
+relay/model/web UI ports with `--relay-port`/`RELAY_PORT`, `--model-port`/`MODEL_PORT`,
+and `--webui-port`/`WEBUI_PORT` as needed. Structured launch telemetry is written to
+`logs/cathedral.log`, and the relay must report healthy before bridges are started.
+Wrap `run_cathedral.sh` (or the launcher itself) in your supervisor/systemd service
+if you want optional auto-restarts after failures.
 
 ### 🛠️ Bundled Launcher
 Create packaged executables for any platform:

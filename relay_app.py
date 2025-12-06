@@ -198,6 +198,8 @@ _PROCESS_START = time.time()
 _CONSOLE_ENABLED = os.getenv("CONSOLE_ENABLED", "0") != "0"
 _VOICE_ENABLED = os.getenv("VOICE_ENABLED", "0") != "0"
 _VAD_SENSITIVITY = float(os.getenv("VAD_SENSITIVITY", "0.6"))
+_RELAY_HOST = os.getenv("RELAY_HOST", "0.0.0.0")
+_RELAY_PORT = int(os.getenv("RELAY_PORT", "3928"))
 _ADMIN_TTL = max(60, int(float(os.getenv("ADMIN_SESSION_TTL_MIN", "120")) * 60))
 _CSRF_ENABLED = os.getenv("CSRF_ENABLED", "0") != "0"
 _ADMIN_ALLOWLIST_RAW = [
@@ -3216,6 +3218,6 @@ WATCHDOG.register_check("memory", lambda: (secure_store.is_enabled(), None))
 
 if __name__ == "__main__":
     print("[Relay] Lumos blessing auto-approved (headless/auto mode).")
-    print("[Relay] Starting Flask relay service on http://127.0.0.1:3928 …")
-    print("[SentientOS] Relay bound to http://127.0.0.1:3928")
-    app.run(host="0.0.0.0", port=3928)
+    print(f"[Relay] Starting Flask relay service on http://{_RELAY_HOST}:{_RELAY_PORT} …")
+    print(f"[SentientOS] Relay bound to http://{_RELAY_HOST}:{_RELAY_PORT}")
+    app.run(host=_RELAY_HOST, port=_RELAY_PORT)
