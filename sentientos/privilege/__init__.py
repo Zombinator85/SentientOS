@@ -7,6 +7,7 @@ from ..admin_utils import (
     print_privilege_banner,
     require_admin,
     require_admin_banner,
+    require_covenant_alignment,
     require_lumos_approval,
 )
 
@@ -14,6 +15,7 @@ __all__ = [
     "is_admin",
     "print_privilege_banner",
     "require_admin_banner",
+    "require_covenant_alignment",
     "require_lumos_approval",
     "require_admin",
 ]

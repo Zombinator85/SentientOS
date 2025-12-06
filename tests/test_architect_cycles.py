@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 import architect_daemon
-from sentientos.shell import LumosDashboard
+from sentientos.shell import SystemDashboard
 
 class _FakeClock:
     def __init__(self) -> None:
@@ -273,7 +273,7 @@ def test_dashboard_cycles_panel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     summary = json.loads(files[0].read_text(encoding="utf-8"))
 
     logger = _DummyLogger()
-    dashboard = LumosDashboard(
+    dashboard = SystemDashboard(
         logger,
         ledger_path=ledger_path,
         file_explorer=SimpleNamespace(),

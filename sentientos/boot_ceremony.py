@@ -5,6 +5,8 @@ import logging
 from dataclasses import dataclass
 from typing import Callable, Iterable, Protocol
 
+from sentientos.integrity import covenant_autoalign
+
 from .codex import CodexHealer, GenesisForge, IntegrityDaemon
 from privilege_lint.reporting import NarratorLink, create_default_router
 from .event_stream import record as record_event
@@ -65,6 +67,7 @@ class CeremonialScript:
         self._announcer = announcer
 
     def perform(self) -> None:
+        covenant_autoalign.autoalign_on_boot()
         steps: Iterable[CeremonialStep] = (
             CeremonialStep(
                 announcement="Mounting /vow…",

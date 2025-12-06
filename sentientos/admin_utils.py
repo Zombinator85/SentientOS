@@ -1,16 +1,15 @@
 from __future__ import annotations
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 
 """Privilege helper utilities.
 
-Actions continue. Set ``LUMOS_AUTO_APPROVE=1`` to bypass the prompt when
-running unattended.
+Actions continue with covenant auto-alignment; no blessing prompts are emitted
+and unattended runs stay guarded automatically.
 """
 
+import getpass
 import os
 import sys
 import platform
-import getpass
 import logging
 from typing import TYPE_CHECKING, Any
 import warnings
@@ -133,11 +132,9 @@ def require_admin_banner() -> None:
         sys.exit(FAIL_MESSAGE)
 
 
-def require_lumos_approval() -> None:
-    """Request Lumos blessing before continuing."""
+def require_covenant_alignment() -> None:
+    """Ensure covenant guardrails are engaged without user prompts."""
 
-    user = getpass.getuser()
-    tool = Path(sys.argv[0]).stem
     global pl
     if (
         isinstance(pl, _StubLedger)
@@ -147,39 +144,40 @@ def require_lumos_approval() -> None:
         import presence_ledger as pl_module
 
         pl = pl_module
-    if (
-        os.getenv("LUMOS_AUTO_APPROVE") == "1"
-        or os.getenv("SENTIENTOS_HEADLESS") == "1"
-        or not sys.stdin.isatty()
-    ):
-        pl.log(user, "lumos_auto_approve", tool)
-        return
-    try:
-        ans = input("Lumos blessing required. Type 'bless' to proceed: ")
-    except EOFError:
-        ans = ""
-    if ans.strip().lower() == "bless":
-        pl.log(user, "lumos_approval_granted", tool)
-        return
-    pl.log(user, "lumos_approval_denied", tool)
-    raise SystemExit("Lumos did not approve this action.")
+
+    from sentientos.integrity import covenant_autoalign
+
+    covenant_autoalign.autoalign_on_boot()
+    pl.log("system", "covenant_autoalign", Path(sys.argv[0]).stem)
 
 
 def require_admin() -> None:
-    """Deprecated. Use :func:`require_lumos_approval` instead."""
+    """Deprecated. Use :func:`require_covenant_alignment` instead."""
 
     warnings.warn(
-        "require_admin() is deprecated; use require_lumos_approval()",
+        "require_admin() is deprecated; use require_covenant_alignment()",
         DeprecationWarning,
         stacklevel=2,
     )
-    require_lumos_approval()
+    require_covenant_alignment()
+
+
+def require_lumos_approval() -> None:
+    """Deprecated alias for covenant auto-alignment."""
+
+    warnings.warn(
+        "require_lumos_approval() is deprecated; use require_covenant_alignment()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    require_covenant_alignment()
 
 
 __all__ = [
     "is_admin",
     "print_privilege_banner",
     "require_admin_banner",
+    "require_covenant_alignment",
     "require_lumos_approval",
     "require_admin",
 ]

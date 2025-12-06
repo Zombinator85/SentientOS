@@ -7,7 +7,7 @@ from typing import Mapping
 import pytest
 
 import architect_daemon
-from sentientos.shell import LumosDashboard
+from sentientos.shell import SystemDashboard
 
 
 class _FakeClock:
@@ -323,7 +323,7 @@ def test_dashboard_reflects_adjustments(tmp_path: Path, monkeypatch: pytest.Monk
         daemon._failure_streak = 4
         _finalize_cycle(daemon, request2, fake_clock, status="blocked")
     logger = _DummyLogger()
-    dashboard = LumosDashboard(
+    dashboard = SystemDashboard(
         logger,
         ledger_path=ledger_path,
         file_explorer=SimpleNamespace(),

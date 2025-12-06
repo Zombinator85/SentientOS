@@ -36,7 +36,7 @@ __all__ = [
     "Taskbar",
     "FileExplorer",
     "CodexConsole",
-    "LumosDashboard",
+    "SystemDashboard",
     "SentientShell",
 ]
 
@@ -464,7 +464,7 @@ class CodexConsole:
         return result
 
 
-class LumosDashboard:
+class SystemDashboard:
     """Aggregates health, ledger, and codex veil state for quick review."""
 
     def __init__(
@@ -1064,7 +1064,7 @@ class SentientShell:
                 manager_kwargs["pulse_publisher"] = pulse_publisher
             manager_instance = driver_manager_module.DriverManager(**manager_kwargs)
         self._driver_manager = manager_instance
-        self._dashboard = LumosDashboard(
+        self._dashboard = SystemDashboard(
             self._logger,
             ledger_path=self._logger.ledger_path,
             file_explorer=self._file_explorer,
@@ -1113,7 +1113,7 @@ class SentientShell:
         )
         self._start_menu.register_application(
             ShellApplication(
-                name="Lumos Dashboard",
+                name="System Dashboard",
                 launch=self.open_lumos_dashboard,
                 categories=["system", "monitoring"],
                 description="View daemons, pulses, drivers, and veil requests.",
@@ -1168,7 +1168,7 @@ class SentientShell:
         return self._codex_console
 
     @property
-    def dashboard(self) -> LumosDashboard:
+    def dashboard(self) -> SystemDashboard:
         return self._dashboard
 
     @property
@@ -1192,7 +1192,7 @@ class SentientShell:
 
     def open_lumos_dashboard(self) -> dict[str, object]:
         snapshot = self._dashboard.refresh()
-        self._taskbar.open_application("Lumos Dashboard", snapshot)
+        self._taskbar.open_application("System Dashboard", snapshot)
         return snapshot
 
     def install_recommended_driver(self, device_id: str) -> dict[str, object]:
@@ -1261,5 +1261,9 @@ class SentientShell:
 
     def install_via_drag_and_drop(self, path: Path | str) -> Mapping[str, object]:
         return self._installer.drag_and_drop(Path(path))
+
+
+# Backwards compatibility for legacy dashboards; prefer :class:`SystemDashboard`.
+LumosDashboard = SystemDashboard
 
 

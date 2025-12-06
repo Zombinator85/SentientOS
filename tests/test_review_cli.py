@@ -49,12 +49,12 @@ def test_status_and_persona(tmp_path):
     assert loaded["chapters"][0]["status"] == "approved"
     os.environ["MEMORY_DIR"] = str(tmp_path)
     importlib.reload(up)
-    up.update_profile(user="bob", persona="Lumos")
+    up.update_profile(user="bob", persona="system")
     proc = subprocess.run([
         "python",
         "review_cli.py",
         str(sb),
         "--whoami",
     ], capture_output=True, text=True)
-    assert "Lumos" in proc.stdout
+    assert "system" in proc.stdout
 

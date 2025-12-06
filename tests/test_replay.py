@@ -29,7 +29,7 @@ def test_replay_cli(tmp_path, capsys, monkeypatch):
 
 def test_avatar_callback(tmp_path, monkeypatch):
     sb = tmp_path / "sb.json"
-    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "text": "hi", "mood": "calm", "persona": "Lumos", "t_start": 0, "t_end": 0.1}]}))
+    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "text": "hi", "mood": "calm", "persona": "system", "t_start": 0, "t_end": 0.1}]}))
     calls = []
     def fake_run(cmd, shell=True, check=False):
         calls.append(cmd)

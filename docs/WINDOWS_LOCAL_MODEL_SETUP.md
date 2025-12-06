@@ -8,6 +8,10 @@ runtime/GUI stack.
 > **Scope.** The steps below assume an offline-first workstation with admin
 > access. Commands use PowerShell syntax unless noted otherwise.
 
+> **Alignment.** The runtime now auto-engages the covenant alignment engine at
+> boot and before each cycle. No "bless" prompts or persona approvals are
+> required on Windows; the guardrails run autonomously.
+
 ## 1. Prerequisites
 
 1. Install **Python 3.12 (64-bit)** and enable "Add python.exe to PATH".

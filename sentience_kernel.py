@@ -13,6 +13,7 @@ from typing import Callable, Dict, List, Mapping, Optional
 
 from sentientos.daemons import pulse_bus
 from sentientos.glow import self_state
+from sentientos.integrity import covenant_autoalign
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +138,7 @@ class SentienceKernel:
         return self_state.update(payload, path=self._self_path)
 
     def run_cycle(self) -> Dict[str, object]:
+        covenant_autoalign.autoalign_before_cycle()
         self._last_cycle = datetime.now(timezone.utc)
         glow_state = self_state.load(path=self._self_path)
         should_generate, trigger = self._should_generate_goal(glow_state)
