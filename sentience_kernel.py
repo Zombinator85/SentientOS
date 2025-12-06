@@ -120,9 +120,10 @@ class SentienceKernel:
             "focus": focus,
             "context": goal.get("context", {}),
             "internal_priority": goal.get("priority", 0.0),
-            "event_origin": "sentience_kernel",
+            "event_origin": "system",
         }
-        return self._emitter(event)
+        enriched = pulse_bus.apply_pulse_defaults(event)
+        return self._emitter(enriched)
 
     def _update_self_model(
         self, *, goal: GoalDict | None, result: str, attention_hint: str | None, novelty_score: float

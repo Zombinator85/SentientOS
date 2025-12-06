@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, Mapping, Tuple
 
 from sentientos.glow import self_state
-from sentientos.storage import ensure_mounts
+from sentientos.integrity import covenant_autoalign
 
 # The narrator remains intentionally quiet; avoid noisy logging that could
 # escape the privacy boundary.
@@ -123,14 +123,24 @@ def generate_reflection(
     return reflection, mood, focus, attention_level
 
 
+def _default_introspection_log() -> Path:
+    return Path(os.getenv("SENTIENTOS_INTROSPECTION_LOG", "/daemon/logs/introspection.jsonl"))
+
+
+def _introspection_log_path(log_path: Path | None = None) -> Path:
+    """Resolve the introspection log path, creating parents as needed."""
+
+    target = Path(log_path) if log_path else _default_introspection_log()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target
+
+
 def write_introspection_entry(
-    reflection: str, focus: str, mood: str, cycle: object | None
+    reflection: str, focus: str, mood: str, cycle: object | None, *, log_path: Path | None = None
 ) -> Path:
     """Append an introspection entry within the glow mount."""
 
-    mounts = ensure_mounts()
-    target = mounts["glow"] / "introspection.jsonl"
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target = _introspection_log_path(log_path)
     entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "reflection": reflection,
@@ -146,9 +156,12 @@ def write_introspection_entry(
     return target
 
 
-def run_cycle(pulse_snapshot: Mapping[str, object], self_model: Mapping[str, object]) -> str:
+def run_cycle(
+    pulse_snapshot: Mapping[str, object], self_model: Mapping[str, object], *, log_path: Path | None = None
+) -> str:
     """Generate and store an internal reflection without emitting externally."""
 
+    covenant_autoalign.autoalign_before_cycle()
     reflection, mood, focus, attention_level = generate_reflection(pulse_snapshot, self_model)
     updated_model: Dict[str, object] = {**self_state.DEFAULT_SELF_STATE, **dict(self_model)}
     updated_model.update(
@@ -161,7 +174,13 @@ def run_cycle(pulse_snapshot: Mapping[str, object], self_model: Mapping[str, obj
     )
     validated = self_state.validate(updated_model)
     self_state.save(validated)
-    write_introspection_entry(reflection, focus, mood, pulse_snapshot.get("cycle") or pulse_snapshot.get("cycle_id"))
+    write_introspection_entry(
+        reflection,
+        focus,
+        mood,
+        pulse_snapshot.get("cycle") or pulse_snapshot.get("cycle_id"),
+        log_path=log_path,
+    )
     return reflection
 
 
