@@ -1,0 +1,5 @@
+# Preferred model and hardware selections used by cathedral_launcher.py
+# Uncomment and edit the entries below to pin launch defaults.
+# mode=auto|cpu|gpu|remote
+# model_path=/absolute/path/to/your/model.gguf
+# precision=Q4_K_M
