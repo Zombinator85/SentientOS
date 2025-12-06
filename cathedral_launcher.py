@@ -28,11 +28,41 @@ MIN_VERSION = (3, 11)
 LOG_PATH = get_log_path("cathedral_launcher.log")
 UPDATES_DIR = Path(".updates")
 
+REQUIRED_MODULES = ["llama_cpp", "python_multipart", "pygments", "cpuinfo"]
+CUDA_SEARCH_PATHS = [
+    Path("C:/Windows/System32"),
+    Path("C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8/bin"),
+]
+
 
 def log(msg: str) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(msg + "\n")
+
+
+def ensure_venv_active() -> bool:
+    marker = os.environ.get("VIRTUAL_ENV") or ""
+    active = Path(marker).name == ".venv" or Path(sys.prefix).name == ".venv"
+    if not active:
+        print("[FATAL] .venv is not active. Please activate .\\.venv before launching.")
+        log("venv_missing")
+    return active
+
+
+def ensure_required_modules() -> bool:
+    missing: list[str] = []
+    for module in REQUIRED_MODULES:
+        try:
+            __import__(module)
+        except Exception as exc:
+            log(f"module_missing:{module}:{exc}")
+            missing.append(module)
+    if missing:
+        print("[FATAL] Missing modules: " + ", ".join(missing))
+        print("Run `pip install -r requirements.txt` inside the .venv to self-heal.")
+        return False
+    return True
 
 
 def check_self_update() -> None:
@@ -162,14 +192,16 @@ def check_updates() -> None:
 
 
 def check_gpu() -> bool:
+    runtime_present = detect_cuda_runtime()
     try:
         import torch  # type: ignore
-        has = torch.cuda.is_available()
+
+        has = torch.cuda.is_available() or runtime_present
         log(f"gpu_available={has}")
         return bool(has)
     except Exception as exc:
         log(f"gpu_check_failed: {exc}")
-        return False
+        return runtime_present
 
 
 def prompt_cloud_inference(env_path: Path) -> None:
@@ -228,6 +260,37 @@ def ensure_log_dir() -> Path:
     path = get_log_path("dummy").parent
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def detect_avx() -> bool:
+    try:
+        from cpuinfo import get_cpu_info
+
+        flags = get_cpu_info().get("flags", [])
+        has_avx = "avx" in flags or "avx2" in flags
+        log(f"avx_supported={has_avx}")
+        if not has_avx:
+            print("[WARN] AVX not detected; CPU inference will be slower.")
+        return bool(has_avx)
+    except Exception as exc:  # pragma: no cover - detection best-effort
+        log(f"avx_detection_failed:{exc}")
+        return False
+
+
+def detect_cuda_runtime() -> bool:
+    for path in CUDA_SEARCH_PATHS:
+        if not path.exists():
+            continue
+        if any(path.glob("cudart64*.dll")):
+            if os.name == "nt" and hasattr(os, "add_dll_directory"):
+                try:
+                    os.add_dll_directory(str(path))
+                except OSError:
+                    pass
+            log(f"cuda_runtime_found:{path}")
+            return True
+    log("cuda_runtime_missing")
+    return False
 
 def check_llama_server() -> bool:
     host = os.getenv("MODEL_HOST", "127.0.0.1")
@@ -292,6 +355,8 @@ def main(argv: Optional[list[str]] | None = None) -> int:
 
     if not check_python_version():
         return 1
+    if not ensure_venv_active():
+        return 1
     ensure_pip()
     ensure_virtualenv()
     try:
@@ -299,8 +364,13 @@ def main(argv: Optional[list[str]] | None = None) -> int:
     except subprocess.CalledProcessError as exc:
         print(f"Dependency installation failed: {exc}")
         log("pip install failed")
+        return 1
+
+    if not ensure_required_modules():
+        return 1
 
     gpu_ok = check_gpu()
+    detect_avx()
     if not gpu_ok:
         prompt_cloud_inference(env_path)
     if not check_llama_server():

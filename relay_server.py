@@ -9,8 +9,10 @@ from pathlib import Path
 from __future__ import annotations
 
 import json
+import logging
 import time
 from pathlib import Path
+import http.client
 
 from fastapi import FastAPI, File, Request, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse
@@ -25,22 +27,38 @@ from sentientos.local_model import LocalModel, ModelLoadError
 require_admin_banner()
 require_lumos_approval()
 
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger("relay_server")
+
 MODEL: LocalModel | None = None
+
+
+def _check_llama_server() -> bool:
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", 8080, timeout=2)
+        conn.request("GET", "/")
+        resp = conn.getresponse()
+        return resp.status < 500
+    except Exception:
+        return False
 
 
 def load_model() -> None:
     """Attempt to load the Mistral GGUF backend through LocalModel."""
 
     global MODEL
+    if not _check_llama_server():
+        LOGGER.fatal("llama.cpp server is not reachable on 127.0.0.1:8080")
+        raise SystemExit(1)
     try:
         MODEL = LocalModel.autoload()
-        print(f"Local model initialised: {MODEL.describe()}")
+        LOGGER.info("Local model initialised: %s", MODEL.describe())
     except ModelLoadError as exc:  # pragma: no cover - best effort
-        print(f"Local model load failed: {exc}")
-        MODEL = None
+        LOGGER.fatal("Local model load failed: %s", exc)
+        raise SystemExit(1) from exc
     except Exception as exc:  # pragma: no cover - best effort
-        print(f"Unexpected model initialisation failure: {exc}")
-        MODEL = None
+        LOGGER.fatal("Unexpected model initialisation failure: %s", exc)
+        raise SystemExit(1) from exc
 
 
 load_model()

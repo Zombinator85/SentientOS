@@ -26,6 +26,7 @@ def autofill_env() -> None:
     mapping = {
         "OPENAI_API_KEY": "",
         "MODEL_SLUG": "llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
+        "SENTIENTOS_MODEL_PATH": "C:/SentientOS/sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf",
         "SYSTEM_PROMPT": "You are Lumos...",
         "ENABLE_TTS": "true",
         "TTS_ENGINE": "pyttsx3",
