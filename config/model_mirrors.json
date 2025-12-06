@@ -1,0 +1,18 @@
+{
+  "llama-server": [
+    {
+      "name": "github-release",
+      "url": "https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-server.exe"
+    }
+  ],
+  "mistral-7b-instruct-v0.2.Q4_K_M.gguf": [
+    {
+      "name": "huggingface-primary",
+      "url": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf?download=1"
+    },
+    {
+      "name": "huggingface-direct",
+      "url": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+    }
+  ]
+}
