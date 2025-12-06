@@ -26,7 +26,7 @@ def reset_state(tmp_path, monkeypatch):
 
 
 def _sign_event(signing_key: SigningKey, event: dict) -> dict:
-    payload = copy.deepcopy(event)
+    payload = pulse_bus.apply_pulse_defaults(copy.deepcopy(event))
     payload.setdefault("priority", "info")
     signature = signing_key.sign(pulse_bus._serialize_for_signature(payload)).signature
     payload["signature"] = base64.b64encode(signature).decode("ascii")

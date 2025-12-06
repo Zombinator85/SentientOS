@@ -34,6 +34,8 @@ def test_emotion_pump_model_bridge_log_fields(tmp_path: Path, monkeypatch) -> No
     log = tmp_path / "log.jsonl"
     monkeypatch.setenv("MODEL_BRIDGE_LOG", str(log))
     monkeypatch.setenv("MODEL_SLUG", "openai/gpt-4o")
+    monkeypatch.setenv("MODEL_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4o")
     sys.modules.setdefault("dotenv", types.SimpleNamespace(load_dotenv=lambda: None))
     stub = types.SimpleNamespace(
         ChatCompletion=types.SimpleNamespace(
@@ -43,6 +45,7 @@ def test_emotion_pump_model_bridge_log_fields(tmp_path: Path, monkeypatch) -> No
         )
     )
     monkeypatch.setitem(sys.modules, "openai", stub)
+    monkeypatch.setitem(sys.modules, "llama_cpp", types.SimpleNamespace(Llama=object))
     import model_bridge as mb
     reload(mb)
     mb.send_message("hi", system_prompt="sys", emotion="Joy", emit=False)
