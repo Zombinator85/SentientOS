@@ -1,8 +1,8 @@
-"""Helpers for managing the Consciousness Layer self-model state."""
 from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Dict, Mapping
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SELF_STATE: Dict[str, object] = {
     "identity": "SentientOS",
-    "mood": "neutral",
+    "mood": "stable",
     "confidence": 0.5,
     "last_focus": None,
     "last_cycle_result": None,
@@ -22,6 +22,8 @@ DEFAULT_SELF_STATE: Dict[str, object] = {
     "attention_hint": None,
     "internal_goal": None,
     "introspection_flag": False,
+    "last_reflection_summary": "",
+    "attention_level": "baseline",
 }
 
 
@@ -30,7 +32,7 @@ def _default_self_path(path: Path | None = None) -> Path:
         return path
     mounts = ensure_mounts()
     repo_glow = Path("glow")
-    if repo_glow.exists():
+    if repo_glow.exists() and os.environ.get("SENTIENTOS_DATA_DIR") is None:
         return repo_glow / "self.json"
     glow_root = mounts.get("glow", Path.cwd() / "glow")
     glow_root.mkdir(parents=True, exist_ok=True)
@@ -73,6 +75,16 @@ def validate(state: Mapping[str, object]) -> Dict[str, object]:
         raise TypeError("Last cycle result must be a string or null")
     if not isinstance(validated["introspection_flag"], bool):
         raise TypeError("Introspection flag must be a boolean")
+    if validated.get("last_reflection_summary") is not None and not isinstance(
+        validated.get("last_reflection_summary"), str
+    ):
+        raise TypeError("Last reflection summary must be a string or null")
+    if validated.get("attention_level") is not None and not isinstance(
+        validated.get("attention_level"), str
+    ):
+        raise TypeError("Attention level must be a string or null")
+    if validated.get("last_focus") is not None and not isinstance(validated.get("last_focus"), str):
+        raise TypeError("Last focus must be a string or null")
     return validated
 
 

@@ -1,8 +1,15 @@
 {
   "identity": "SentientOS",
-  "mood": "neutral",
+  "mood": "stable",
   "confidence": 0.5,
   "last_focus": null,
   "internal_goal": null,
-  "introspection_flag": false
+  "introspection_flag": false,
+  "last_reflection_summary": "",
+  "attention_level": "baseline",
+  "last_cycle_result": null,
+  "novelty_score": 0.0,
+  "last_generated_goal": null,
+  "goal_context": {},
+  "attention_hint": null
 }
