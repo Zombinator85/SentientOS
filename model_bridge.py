@@ -7,16 +7,17 @@ require_admin_banner()  # Sanctuary Privilege Ritual
 require_lumos_approval()
 """Dynamic model bridge for routing prompts to LLM backends."""
 
-from dotenv import load_dotenv
-from logging_config import get_log_path
 import json
+import logging
 import os
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from dotenv import load_dotenv
 from llama_cpp import Llama
 
+from logging_config import get_log_path
 from sentientos.local_model import ModelLoadError
 
 _GUI_BUS: Any | None
@@ -33,9 +34,12 @@ except Exception:  # pragma: no cover - optional dependency
 _LOG_PATH = get_log_path("model_bridge_log.jsonl", "MODEL_BRIDGE_LOG")
 _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+_LOGGER = logging.getLogger(__name__)
+
 _DEFAULT_MODEL_NAME = "Mistral-7B Instruct v0.2 (GGUF)"
-_DEFAULT_MODEL_PATH = Path(
-    "sentientos_data/models/mistral-7b/mistral-7b-instruct-v0.2.Q4_K_M.gguf"
+_BOUND_MODEL_PATH = Path(
+    "C:/SentientOS/sentientos_data/models/mistral-7b/"
+    "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 )
 _DEFAULT_CONTEXT_LENGTH = 32768
 _DEFAULT_CHAT_TEMPLATE = "mistral-instruct"
@@ -47,34 +51,89 @@ _LLAMA: Llama | None = None
 
 
 def _detect_model_path() -> Path:
+    """Resolve the model path, honoring an explicit override when allowed."""
+
     explicit = os.getenv("SENTIENTOS_MODEL_PATH") or os.getenv("LOCAL_MODEL_PATH")
-    if explicit:
+    override_allowed = os.getenv("SENTIENTOS_ALLOW_MODEL_OVERRIDE") == "1"
+    if explicit and override_allowed:
+        _LOGGER.info("Using explicitly provided model path: %s", explicit)
         return Path(explicit)
 
-    base = Path(os.getenv("SENTIENTOS_BASE_DIR", Path.cwd()))
-    return base / _DEFAULT_MODEL_PATH
+    return _BOUND_MODEL_PATH
 
 
 def _detect_gpu_layers() -> int:
     try:
         import torch
 
-        return -1 if torch.cuda.is_available() else 0
+        if torch.cuda.is_available():
+            return -1
     except Exception:  # pragma: no cover - optional dependency
-        return 0
+        _LOGGER.debug("torch unavailable for GPU detection")
+
+    if _has_cuda_runtime():
+        return -1
+    return 0
+
+
+def _has_cuda_runtime() -> bool:
+    cuda_paths = [
+        Path("C:/Windows/System32"),
+        Path("C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.8/bin"),
+    ]
+    for path in cuda_paths:
+        if not path.exists():
+            continue
+        if any(path.glob("cudart64*.dll")):
+            if os.name == "nt" and hasattr(os, "add_dll_directory"):
+                try:
+                    os.add_dll_directory(str(path))
+                except OSError:
+                    pass
+            return True
+    return False
+
+
+def _avx_supported() -> bool:
+    try:
+        from cpuinfo import get_cpu_info
+
+        info = get_cpu_info()
+        flags = info.get("flags") or []
+        return "avx" in flags or "avx2" in flags
+    except Exception:  # pragma: no cover - optional dependency
+        _LOGGER.debug("cpuinfo unavailable for AVX detection")
+        return False
 
 
 def _initialise_llama() -> Llama:
     model_path = _detect_model_path()
     if not model_path.exists():
+        _LOGGER.fatal("Required model missing: %s", model_path)
         raise ModelLoadError(f"Model file not found at {model_path}")
 
-    return Llama(
-        model_path=str(model_path),
-        n_ctx=_DEFAULT_CONTEXT_LENGTH,
-        n_gpu_layers=_detect_gpu_layers(),
-        chat_format=_DEFAULT_CHAT_TEMPLATE,
-    )
+    stat = model_path.stat()
+    if stat.st_size < 3 * 1024 * 1024 * 1024:
+        _LOGGER.fatal(
+            "Model file too small (%s bytes) at %s", stat.st_size, model_path
+        )
+        raise ModelLoadError(
+            "Model file appears incomplete; expected at least 3GB of weights"
+        )
+
+    if not _avx_supported():
+        _LOGGER.warning("AVX not reported; performance may degrade")
+
+    try:
+        return Llama(
+            model_path=str(model_path),
+            n_ctx=_DEFAULT_CONTEXT_LENGTH,
+            n_gpu_layers=_detect_gpu_layers(),
+            chat_format=_DEFAULT_CHAT_TEMPLATE,
+        )
+    except Exception as exc:
+        _LOGGER.fatal("llama.cpp initialisation failed: %s", exc)
+        raise ModelLoadError(f"Local Mistral backend unavailable: {exc}") from exc
 
 
 def load_model() -> Callable[[List[Dict[str, str]]], str]:
@@ -127,6 +186,7 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
         try:
             _LLAMA = _initialise_llama()
         except Exception as exc:  # pragma: no cover - runtime guard
+            _LOGGER.fatal("Failed to load GGUF model: %s", exc)
             raise RuntimeError(f"Local Mistral backend unavailable: {exc}") from exc
 
         _MODEL_SLUG = _DEFAULT_MODEL_NAME
