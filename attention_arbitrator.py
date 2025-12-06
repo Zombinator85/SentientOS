@@ -52,7 +52,7 @@ class PulseEvent:
     timestamp: Optional[float] = None
     context: Dict[str, Any] = field(default_factory=dict)
     focus: Optional[str] = None
-    internal_priority: Optional[str] = None
+    internal_priority: Optional[str] = "baseline"
     event_origin: str = "local"
 
     def score(self) -> tuple:

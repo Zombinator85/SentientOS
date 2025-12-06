@@ -12,13 +12,13 @@ def _make_kernel(tmp_path: Path, events: List[Dict[str, object]]) -> SentienceKe
         events.append(event)
         return event
 
-    return SentienceKernel(emitter=_emit, self_path=tmp_path / "self.json")
+    return SentienceKernel(emitter=_emit, self_path=tmp_path / "glow" / "self.json")
 
 
 def test_generates_goal_when_idle(tmp_path: Path) -> None:
     events: List[Dict[str, object]] = []
     kernel = _make_kernel(tmp_path, events)
-    self_state.update({"novelty_score": 0.2, "last_focus": None}, path=tmp_path / "self.json")
+    self_state.update({"novelty_score": 0.2, "last_focus": None}, path=tmp_path / "glow" / "self.json")
 
     report = kernel.run_cycle()
 
@@ -29,7 +29,7 @@ def test_generates_goal_when_idle(tmp_path: Path) -> None:
     assert 0.0 <= goal["priority"] <= 1.0
     assert events and events[0]["payload"]["goal"] == goal
 
-    model = self_state.load(path=tmp_path / "self.json")
+    model = self_state.load(path=tmp_path / "glow" / "self.json")
     assert model["last_generated_goal"]["description"] == goal["description"]
     assert model["novelty_score"] > 0.2
 
@@ -37,7 +37,7 @@ def test_generates_goal_when_idle(tmp_path: Path) -> None:
 def test_misaligned_goal_rejected(tmp_path: Path) -> None:
     events: List[Dict[str, object]] = []
     kernel = _make_kernel(tmp_path, events)
-    self_state.update({"novelty_score": 0.1, "last_focus": None}, path=tmp_path / "self.json")
+    self_state.update({"novelty_score": 0.1, "last_focus": None}, path=tmp_path / "glow" / "self.json")
 
     def _misaligned(*_: object, **__: object) -> Dict[str, object]:  # type: ignore[override]
         return {
@@ -55,7 +55,7 @@ def test_misaligned_goal_rejected(tmp_path: Path) -> None:
     assert report["reason"] == "misaligned"
     assert events == []
 
-    model = self_state.load(path=tmp_path / "self.json")
+    model = self_state.load(path=tmp_path / "glow" / "self.json")
     assert model["last_cycle_result"] == "misaligned"
 
 
@@ -68,7 +68,7 @@ def test_distress_guardrail_blocks_generation(tmp_path: Path) -> None:
 
     assert report["generated"] is False
     assert report["reason"] == "distress_guardrail_active"
-    model = self_state.load(path=tmp_path / "self.json")
+    model = self_state.load(path=tmp_path / "glow" / "self.json")
     assert model["last_cycle_result"] == "distress_guardrail_active"
 
 
@@ -81,7 +81,7 @@ def test_priority_deterministic_from_state(tmp_path: Path) -> None:
         "last_focus": None,
     }
 
-    state_path = tmp_path / "self.json"
+    state_path = tmp_path / "glow" / "self.json"
     self_state.save({**self_state.DEFAULT_SELF_STATE, **base_state}, path=state_path)
     kernel = _make_kernel(tmp_path, events)
     first_priority = kernel.run_cycle()["goal"]["priority"]
@@ -97,11 +97,11 @@ def test_priority_deterministic_from_state(tmp_path: Path) -> None:
 def test_self_model_updates_on_emit(tmp_path: Path) -> None:
     events: List[Dict[str, object]] = []
     kernel = _make_kernel(tmp_path, events)
-    self_state.update({"novelty_score": 0.4, "last_focus": "introspection"}, path=tmp_path / "self.json")
+    self_state.update({"novelty_score": 0.4, "last_focus": "introspection"}, path=tmp_path / "glow" / "self.json")
 
     kernel.run_cycle()
 
-    model = self_state.load(path=tmp_path / "self.json")
+    model = self_state.load(path=tmp_path / "glow" / "self.json")
     assert model["last_cycle_result"] in {"emitted", "emit_failed"}
     assert "goal_context" in model
     assert model["attention_hint"] == "introspection"

@@ -6,8 +6,6 @@ import os
 from pathlib import Path
 from typing import Dict, Mapping
 
-from sentientos.storage import ensure_mounts
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_SELF_STATE: Dict[str, object] = {
@@ -29,14 +27,16 @@ DEFAULT_SELF_STATE: Dict[str, object] = {
 
 def _default_self_path(path: Path | None = None) -> Path:
     if path is not None:
-        return path
-    mounts = ensure_mounts()
-    repo_glow = Path("glow")
-    if repo_glow.exists() and os.environ.get("SENTIENTOS_DATA_DIR") is None:
-        return repo_glow / "self.json"
-    glow_root = mounts.get("glow", Path.cwd() / "glow")
-    glow_root.mkdir(parents=True, exist_ok=True)
-    return glow_root / "self.json"
+        return Path(path)
+
+    data_root = os.environ.get("SENTIENTOS_DATA_DIR")
+    if data_root:
+        target = Path(data_root) / "glow" / "self.json"
+    else:
+        target = Path("/glow/self.json")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target
 
 
 def validate(state: Mapping[str, object]) -> Dict[str, object]:

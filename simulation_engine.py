@@ -20,6 +20,7 @@ from sentientos.integrity import covenant_autoalign
 logger = logging.getLogger(__name__)
 
 DEFAULT_LOG_PATH = Path("/daemon/logs/simulation.jsonl")
+DEFAULT_PULSE_STATE = Path("/pulse/system.json")
 
 
 @dataclass(frozen=True)
@@ -51,35 +52,46 @@ class SimulationEngine:
         *,
         deterministic_seed: str | None = None,
         log_path: Path | str = DEFAULT_LOG_PATH,
-        pulse_root: Path | str = Path("pulse"),
+        pulse_state_path: Path | str = DEFAULT_PULSE_STATE,
         self_path: Path | None = None,
     ) -> None:
         self.history: List[SimulationResult] = []
         self._last_cycle: datetime | None = None
         self._seed = deterministic_seed or "sentientos_mindseye"
         self._log_path = Path(log_path)
-        self._pulse_root = Path(pulse_root)
+        self._pulse_state_path = Path(pulse_state_path)
         self._self_path = self_path
         self._last_summary: str | None = None
         self._last_transcript: Sequence[SimulationMessage] = []
 
     def _load_pulse_metadata(self) -> Dict[str, object]:
-        def _load(path: Path, default: Mapping[str, object]) -> Mapping[str, object]:
-            try:
-                return json.loads(path.read_text())
-            except FileNotFoundError:
-                return dict(default)
-            except json.JSONDecodeError:
-                return dict(default)
+        default_state: Mapping[str, object] = {"focus": {}, "context": {}, "events": [], "warnings": []}
+        try:
+            state = json.loads(self._pulse_state_path.read_text())
+            if not isinstance(state, Mapping):
+                raise ValueError("Pulse system metadata must be a JSON object")
+        except (FileNotFoundError, json.JSONDecodeError, ValueError):
+            state = dict(default_state)
 
-        focus = _load(self._pulse_root / "focus.json", {"topic": None})
-        context = _load(self._pulse_root / "context.json", {"summary": "", "window": []})
-        return {"focus": focus, "context": context}
+        focus = state.get("focus") if isinstance(state.get("focus"), Mapping) else {}
+        context = state.get("context") if isinstance(state.get("context"), Mapping) else {}
+        events = state.get("events") if isinstance(state.get("events"), list) else []
+        warnings = state.get("warnings") if isinstance(state.get("warnings"), list) else []
+        attention = state.get("attention") if isinstance(state.get("attention"), Mapping) else {}
+        return {"focus": focus, "context": context, "events": events, "warnings": warnings, "attention": attention}
 
     def _deterministic_score(self, *parts: str) -> float:
         seed_material = "|".join([self._seed, *parts])
         digest = hashlib.sha256(seed_material.encode("utf-8")).hexdigest()
         return int(digest[:8], 16) / 0xFFFFFFFF
+
+    @staticmethod
+    def _resolve_focus_target(focus: Mapping[str, object]) -> str | None:
+        for key in ("topic", "focus", "target"):
+            candidate = focus.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+        return None
 
     def _build_agent_message(
         self, *, agent: str, hypothesis: str, focus: Mapping[str, object], mood: str, round_id: int
@@ -191,17 +203,24 @@ class SimulationEngine:
     def run_cycle(self) -> None:
         covenant_autoalign.autoalign_before_cycle()
         glow_state = self_state.load(path=self._self_path)
+        pulse_state = self._load_pulse_metadata()
+        focus_meta = pulse_state.get("focus") if isinstance(pulse_state.get("focus"), Mapping) else {}
+        context = pulse_state.get("context") if isinstance(pulse_state.get("context"), Mapping) else {}
+        focus_target = self._resolve_focus_target(focus_meta) or "introspection"
         pulse_meta = apply_pulse_defaults(
             {
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "source_daemon": "simulation_engine",
                 "event_type": "simulation",
-                "payload": {},
-                **self._load_pulse_metadata(),
+                "payload": {"focus": focus_meta, "context": context},
+                "focus": focus_target,
+                "context": context,
+                "internal_priority": "baseline",
+                "event_origin": "system",
+                **pulse_state,
             }
         )
-        focus = pulse_meta.get("focus") if isinstance(pulse_meta.get("focus"), Mapping) else {}
-        context = pulse_meta.get("context") if isinstance(pulse_meta.get("context"), Mapping) else {}
+        focus = focus_meta
         hypothesis = f"stability check for {glow_state.get('identity', 'SentientOS')}"
 
         result = self.run(
@@ -222,12 +241,13 @@ class SimulationEngine:
         )
 
         self._last_cycle = datetime.now(timezone.utc)
+        attention_hint = focus_target
         self_state.update(
             {
                 "last_cycle_result": result.summary,
                 "last_reflection_summary": result.summary,
-                "attention_hint": focus.get("topic") if isinstance(focus, Mapping) else None,
-                "last_focus": focus.get("topic") if isinstance(focus, Mapping) else None,
+                "attention_hint": attention_hint,
+                "last_focus": attention_hint,
             },
             path=self._self_path,
         )

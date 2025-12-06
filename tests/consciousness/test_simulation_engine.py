@@ -5,6 +5,7 @@ import pytest
 
 from simulation_engine import (
     DEFAULT_LOG_PATH,
+    DEFAULT_PULSE_STATE,
     SimulationEngine,
     SimulationGuardViolation,
     SimulationMessage,
@@ -14,19 +15,19 @@ from sentientos.daemons import pulse_bus
 
 
 def _bootstrap_self_model(tmp_path: Path) -> Path:
-    target = tmp_path / "self.json"
+    target = tmp_path / "glow" / "self.json"
     self_state.save(self_state.DEFAULT_SELF_STATE, path=target)
     return target
 
 
 def _bootstrap_pulse(tmp_path: Path, *, focus_topic: str | None = None) -> Path:
-    pulse_root = tmp_path / "pulse"
-    pulse_root.mkdir()
+    pulse_path = tmp_path / "pulse" / "system.json"
+    pulse_path.parent.mkdir()
     focus_payload = {"topic": focus_topic, "priority": "normal", "source": "tests"}
-    (pulse_root / "focus.json").write_text(json.dumps(focus_payload))
     context_payload = {"summary": "", "window": [], "last_update": None}
-    (pulse_root / "context.json").write_text(json.dumps(context_payload))
-    return pulse_root
+    pulse_state = {"focus": focus_payload, "context": context_payload, "events": [], "warnings": []}
+    pulse_path.write_text(json.dumps(pulse_state))
+    return pulse_path
 
 
 def test_simulation_determinism(tmp_path: Path) -> None:
@@ -34,8 +35,8 @@ def test_simulation_determinism(tmp_path: Path) -> None:
     pulse_root = _bootstrap_pulse(tmp_path, focus_topic="stability")
     engine = SimulationEngine(
         deterministic_seed="council-seed",
-        log_path=tmp_path / "sim.jsonl",
-        pulse_root=pulse_root,
+        log_path=tmp_path / "daemon" / "logs" / "simulation.jsonl",
+        pulse_state_path=pulse_root,
         self_path=self_path,
     )
 
@@ -62,8 +63,8 @@ def test_simulation_determinism(tmp_path: Path) -> None:
 def test_simulation_privacy_isolation(tmp_path: Path) -> None:
     self_path = _bootstrap_self_model(tmp_path)
     pulse_root = _bootstrap_pulse(tmp_path, focus_topic="privacy")
-    log_path = tmp_path / DEFAULT_LOG_PATH.name
-    engine = SimulationEngine(log_path=log_path, pulse_root=pulse_root, self_path=self_path)
+    log_path = tmp_path / "daemon" / "logs" / DEFAULT_LOG_PATH.name
+    engine = SimulationEngine(log_path=log_path, pulse_state_path=pulse_root, self_path=self_path)
 
     engine.run_cycle()
 
@@ -72,14 +73,18 @@ def test_simulation_privacy_isolation(tmp_path: Path) -> None:
     assert len(log_lines) == 1
     logged = json.loads(log_lines[0])
     assert logged["transcript"]
-    assert log_path.parent == tmp_path
+    assert log_path.parent.name == "logs"
     assert not pulse_bus.pending_events()
 
 
 def test_simulation_updates_self_model(tmp_path: Path) -> None:
     self_path = _bootstrap_self_model(tmp_path)
     pulse_root = _bootstrap_pulse(tmp_path, focus_topic="introspection")
-    engine = SimulationEngine(log_path=tmp_path / "sim.jsonl", pulse_root=pulse_root, self_path=self_path)
+    engine = SimulationEngine(
+        log_path=tmp_path / "daemon" / "logs" / "simulation.jsonl",
+        pulse_state_path=pulse_root,
+        self_path=self_path,
+    )
 
     engine.run_cycle()
 
@@ -92,7 +97,11 @@ def test_simulation_updates_self_model(tmp_path: Path) -> None:
 def test_attention_feedback_respects_focus_metadata(tmp_path: Path) -> None:
     self_path = _bootstrap_self_model(tmp_path)
     pulse_root = _bootstrap_pulse(tmp_path, focus_topic="focus-loop")
-    engine = SimulationEngine(log_path=tmp_path / "sim.jsonl", pulse_root=pulse_root, self_path=self_path)
+    engine = SimulationEngine(
+        log_path=tmp_path / "daemon" / "logs" / "simulation.jsonl",
+        pulse_state_path=pulse_root,
+        self_path=self_path,
+    )
 
     engine.run_cycle()
 

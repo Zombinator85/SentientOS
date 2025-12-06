@@ -13,6 +13,7 @@ from sentientos.glow import self_state
 @pytest.fixture(autouse=True)
 def sentientos_data_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     monkeypatch.setenv("SENTIENTOS_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_INTROSPECTION_LOG", str(tmp_path / "daemon" / "logs" / "introspection.jsonl"))
     return tmp_path
 
 
@@ -45,7 +46,7 @@ def test_run_cycle_updates_self_model(tmp_path: Path) -> None:
     assert stored["mood"] in {"stable", "curious", "uncertain"}
     assert stored["novelty_score"] == starting_model["novelty_score"]
 
-    log_path = Path(tmp_path) / "glow" / "introspection.jsonl"
+    log_path = Path(tmp_path) / "daemon" / "logs" / "introspection.jsonl"
     assert log_path.exists()
     entry = json.loads(log_path.read_text().splitlines()[-1])
     assert entry["reflection"] == reflection
@@ -61,9 +62,15 @@ def test_validate_reflection_guards() -> None:
 
 def test_write_introspection_entry_privacy(tmp_path: Path) -> None:
     reflection = "System cycle stable; noticed runtime. Internal interpretation steady; mood stable."
-    path = write_introspection_entry(reflection, focus="runtime", mood="stable", cycle=3)
+    path = write_introspection_entry(
+        reflection,
+        focus="runtime",
+        mood="stable",
+        cycle=3,
+        log_path=Path(tmp_path) / "daemon" / "logs" / "introspection.jsonl",
+    )
 
-    assert path.parent.name == "glow"
+    assert path.parent.name == "logs"
     data = json.loads(path.read_text().splitlines()[-1])
     assert data["focus"] == "runtime"
     assert data["mood"] == "stable"
