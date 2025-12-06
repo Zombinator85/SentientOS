@@ -15,6 +15,11 @@ DEFAULT_SELF_STATE: Dict[str, object] = {
     "mood": "neutral",
     "confidence": 0.5,
     "last_focus": None,
+    "last_cycle_result": None,
+    "novelty_score": 0.0,
+    "last_generated_goal": None,
+    "goal_context": {},
+    "attention_hint": None,
     "internal_goal": None,
     "introspection_flag": False,
 }
@@ -48,6 +53,24 @@ def validate(state: Mapping[str, object]) -> Dict[str, object]:
     if not isinstance(confidence, (int, float)):
         raise TypeError("Self confidence must be numeric")
     validated["confidence"] = float(confidence)
+    novelty_score = validated.get("novelty_score", 0.0)
+    if not isinstance(novelty_score, (int, float)):
+        raise TypeError("Self novelty_score must be numeric")
+    validated["novelty_score"] = float(novelty_score)
+    if not isinstance(validated.get("goal_context", {}), dict):
+        raise TypeError("Self goal_context must be a dictionary")
+    if validated.get("attention_hint") is not None and not isinstance(
+        validated.get("attention_hint"), str
+    ):
+        raise TypeError("Attention hint must be a string or null")
+    if validated.get("last_generated_goal") is not None and not isinstance(
+        validated.get("last_generated_goal"), dict
+    ):
+        raise TypeError("Last generated goal must be a dictionary or null")
+    if validated.get("last_cycle_result") is not None and not isinstance(
+        validated.get("last_cycle_result"), str
+    ):
+        raise TypeError("Last cycle result must be a string or null")
     if not isinstance(validated["introspection_flag"], bool):
         raise TypeError("Introspection flag must be a boolean")
     return validated

@@ -216,6 +216,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_voice_asr",
         "tests.test_voice_tts",
         "tests.test_consciousness_scaffolding",
+        "tests.consciousness.test_sentience_kernel",
     }
     for item in items:
         module_name = item.module.__name__
@@ -224,6 +225,7 @@ def pytest_collection_modifyitems(config, items):
             item.name != "test_placeholder"
             and not item.name.startswith("test_emotion_pump")
             and "tests/e2e/" not in path_str
+            and "tests/consciousness/" not in path_str
             and module_name not in allowed_modules
         ):
             item.add_marker(pytest.mark.skip(reason="legacy test disabled"))
