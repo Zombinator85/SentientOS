@@ -1,0 +1,7 @@
+{
+  "gpu": false,
+  "cuda_runtime": false,
+  "avx": false,
+  "model_precision": "Q4_K",
+  "mode": "cpu"
+}

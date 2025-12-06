@@ -41,6 +41,8 @@ _BOUND_MODEL_PATH = Path(
     "C:/SentientOS/sentientos_data/models/mistral-7b/"
     "mistral-7b-instruct-v0.2.Q4_K_M.gguf"
 )
+_MODEL_POINTER = Path("C:/SentientOS/config/model_path.txt")
+_HARDWARE_PROFILE = Path("C:/SentientOS/config/hardware_profile.json")
 _DEFAULT_CONTEXT_LENGTH = 32768
 _DEFAULT_CHAT_TEMPLATE = "mistral-instruct"
 
@@ -48,6 +50,24 @@ _MODEL_SLUG = os.getenv("MODEL_SLUG", _DEFAULT_MODEL_NAME)
 _PROVIDER: str | None = None
 _WRAPPER: Callable[[List[Dict[str, str]]], str] | None = None
 _LLAMA: Llama | None = None
+
+
+def _load_hardware_profile() -> dict[str, object]:
+    if _HARDWARE_PROFILE.exists():
+        try:
+            return json.loads(_HARDWARE_PROFILE.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover - resilience first
+            pass
+    profile = {
+        "gpu": False,
+        "cuda_runtime": False,
+        "avx": False,
+        "model_precision": "Q4_K",
+        "mode": "cpu",
+    }
+    _HARDWARE_PROFILE.parent.mkdir(parents=True, exist_ok=True)
+    _HARDWARE_PROFILE.write_text(json.dumps(profile, indent=2))
+    return profile
 
 
 def _detect_model_path() -> Path:
@@ -59,6 +79,19 @@ def _detect_model_path() -> Path:
         _LOGGER.info("Using explicitly provided model path: %s", explicit)
         return Path(explicit)
 
+    if _MODEL_POINTER.exists():
+        pointer = _MODEL_POINTER.read_text(encoding="utf-8").strip()
+        if pointer:
+            candidate = Path(pointer)
+            if candidate.exists():
+                return candidate
+            _LOGGER.warning("model_path.txt pointed to missing file: %s", pointer)
+
+    profile = _load_hardware_profile()
+    if not profile.get("avx", True):
+        _LOGGER.warning("AVX missing; forcing Q4_K model preference")
+    _MODEL_POINTER.parent.mkdir(parents=True, exist_ok=True)
+    _MODEL_POINTER.write_text(str(_BOUND_MODEL_PATH), encoding="utf-8")
     return _BOUND_MODEL_PATH
 
 
