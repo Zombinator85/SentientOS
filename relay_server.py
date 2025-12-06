@@ -8,8 +8,10 @@ from pathlib import Path
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
+import os
 import time
 from pathlib import Path
 import http.client
@@ -28,10 +30,34 @@ from sentientos.local_model import LocalModel, ModelLoadError
 require_admin_banner()
 require_lumos_approval()
 
-logging.basicConfig(level=logging.INFO)
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "relay.log"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler(),
+    ],
+)
 LOGGER = logging.getLogger("relay_server")
 
 MODEL: LocalModel | None = None
+BACKEND_READY = False
+
+
+class RelayConfig(BaseModel):
+    relay_host: str = "0.0.0.0"
+    relay_port: int = int(os.environ.get("RELAY_PORT", 3928))
+    llama_host: str = os.environ.get("LLAMA_HOST", "127.0.0.1")
+    llama_port: int = int(os.environ.get("LLAMA_PORT", 8080))
+    llama_retries: int = int(os.environ.get("LLAMA_RETRIES", 5))
+    llama_retry_delay: float = float(os.environ.get("LLAMA_RETRY_DELAY", 1.0))
+
+
+CONFIG = RelayConfig()
 
 
 def _ensure_port_available(port: int) -> None:
@@ -43,12 +69,9 @@ def _ensure_port_available(port: int) -> None:
             raise SystemExit(1)
 
 
-_ensure_port_available(3928)
-
-
 def _check_llama_server() -> bool:
     try:
-        conn = http.client.HTTPConnection("127.0.0.1", 8080, timeout=2)
+        conn = http.client.HTTPConnection(CONFIG.llama_host, CONFIG.llama_port, timeout=2)
         conn.request("GET", "/")
         resp = conn.getresponse()
         return resp.status < 500
@@ -56,25 +79,60 @@ def _check_llama_server() -> bool:
         return False
 
 
+def _wait_for_llama_server() -> bool:
+    for attempt in range(1, CONFIG.llama_retries + 1):
+        if _check_llama_server():
+            LOGGER.info(
+                "llama.cpp server is reachable on %s:%s (attempt %s)",
+                CONFIG.llama_host,
+                CONFIG.llama_port,
+                attempt,
+            )
+            return True
+        LOGGER.warning(
+            "llama.cpp server not reachable on %s:%s (attempt %s/%s); retrying in %.1fs",
+            CONFIG.llama_host,
+            CONFIG.llama_port,
+            attempt,
+            CONFIG.llama_retries,
+            CONFIG.llama_retry_delay,
+        )
+        time.sleep(CONFIG.llama_retry_delay)
+    LOGGER.error(
+        "llama.cpp server unreachable after %s attempts on %s:%s",
+        CONFIG.llama_retries,
+        CONFIG.llama_host,
+        CONFIG.llama_port,
+    )
+    return False
+
+
 def load_model() -> None:
     """Attempt to load the Mistral GGUF backend through LocalModel."""
 
     global MODEL
-    if not _check_llama_server():
-        LOGGER.fatal("llama.cpp server is not reachable on 127.0.0.1:8080")
-        raise SystemExit(1)
+    if not _wait_for_llama_server():
+        raise RuntimeError("llama.cpp server not reachable")
     try:
         MODEL = LocalModel.autoload()
         LOGGER.info("Local model initialised: %s", MODEL.describe())
     except ModelLoadError as exc:  # pragma: no cover - best effort
         LOGGER.fatal("Local model load failed: %s", exc)
-        raise SystemExit(1) from exc
+        raise RuntimeError("Local model load failed") from exc
     except Exception as exc:  # pragma: no cover - best effort
         LOGGER.fatal("Unexpected model initialisation failure: %s", exc)
-        raise SystemExit(1) from exc
+        raise RuntimeError("Unexpected model initialisation failure") from exc
 
 
-load_model()
+def initialise_backend() -> None:
+    global BACKEND_READY
+
+    LOGGER.info(
+        "Starting relay backend (llama.cpp at %s:%s)", CONFIG.llama_host, CONFIG.llama_port
+    )
+    load_model()
+    BACKEND_READY = True
+    LOGGER.info("Relay backend ready; accepting requests")
 
 LOG_PATH = Path("relay_logs.jsonl")
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
@@ -84,6 +142,15 @@ CODEX_SESSION_FILE = Path("/daemon/logs/codex_session.json")
 app = FastAPI()
 
 
+@app.on_event("startup")
+def on_startup() -> None:
+    try:
+        initialise_backend()
+    except Exception as exc:  # pragma: no cover - startup failure should exit
+        LOGGER.error("Relay startup failed: %s", exc)
+        raise
+
+
 class RelayRequest(BaseModel):
     task: str
     context: str = ""
@@ -91,6 +158,8 @@ class RelayRequest(BaseModel):
 
 @app.post("/relay")
 def relay(req: RelayRequest) -> dict:
+    if not BACKEND_READY:
+        raise HTTPException(status_code=503, detail="Backend not ready")
     prompt = f"{req.context}\n{req.task}".strip()
     start = time.time()
     if MODEL is not None:
@@ -118,7 +187,18 @@ def relay(req: RelayRequest) -> dict:
 
 @app.get("/ping")
 def ping() -> dict:
-    return {"status": "ok"}
+    return {"status": "ok", "backend_ready": BACKEND_READY}
+
+
+@app.get("/health")
+def health() -> dict:
+    status = "ready" if BACKEND_READY else "starting"
+    return {
+        "status": status,
+        "backend_ready": BACKEND_READY,
+        "llama_host": CONFIG.llama_host,
+        "llama_port": CONFIG.llama_port,
+    }
 
 
 @app.post("/sync/glow")
@@ -309,7 +389,55 @@ def codex_patch(patch_id: str) -> HTMLResponse:
 
 
 if __name__ == "__main__":
-    import uvicorn
+    parser = argparse.ArgumentParser(description="Relay server")
+    parser.add_argument("--host", default=CONFIG.relay_host, help="Relay bind host")
+    parser.add_argument("--port", type=int, default=CONFIG.relay_port, help="Relay bind port")
+    parser.add_argument(
+        "--llama-host", default=CONFIG.llama_host, help="llama.cpp host to poll"
+    )
+    parser.add_argument(
+        "--llama-port",
+        type=int,
+        default=CONFIG.llama_port,
+        help="llama.cpp port to poll",
+    )
+    parser.add_argument(
+        "--llama-retries",
+        type=int,
+        default=CONFIG.llama_retries,
+        help="Number of times to poll llama.cpp before failing",
+    )
+    parser.add_argument(
+        "--llama-retry-delay",
+        type=float,
+        default=CONFIG.llama_retry_delay,
+        help="Seconds to wait between llama.cpp polls",
+    )
+    args = parser.parse_args()
 
-    uvicorn.run(app, host="0.0.0.0", port=3928)
+    CONFIG = RelayConfig(
+        relay_host=args.host,
+        relay_port=args.port,
+        llama_host=args.llama_host,
+        llama_port=args.llama_port,
+        llama_retries=args.llama_retries,
+        llama_retry_delay=args.llama_retry_delay,
+    )
+
+    _ensure_port_available(CONFIG.relay_port)
+    LOGGER.info(
+        "Starting relay server on %s:%s (llama.cpp at %s:%s)",
+        CONFIG.relay_host,
+        CONFIG.relay_port,
+        CONFIG.llama_host,
+        CONFIG.llama_port,
+    )
+
+    try:
+        import uvicorn
+
+        uvicorn.run(app, host=CONFIG.relay_host, port=CONFIG.relay_port)
+    except Exception as exc:  # pragma: no cover - startup failure should exit
+        LOGGER.error("Relay server failed to start: %s", exc)
+        raise SystemExit(1) from exc
 
