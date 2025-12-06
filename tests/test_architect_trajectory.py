@@ -9,7 +9,7 @@ from typing import Mapping
 import pytest
 
 import architect_daemon
-from sentientos.shell import LumosDashboard
+from sentientos.shell import SystemDashboard
 
 
 class _FakeClock:
@@ -241,7 +241,7 @@ def test_dashboard_includes_trajectory_metrics(
     assert reports
 
     logger = _DummyLogger()
-    dashboard = LumosDashboard(
+    dashboard = SystemDashboard(
         logger,
         ledger_path=ledger_path,
         file_explorer=SimpleNamespace(),

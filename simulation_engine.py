@@ -15,6 +15,7 @@ from typing import Dict, List, Mapping, Sequence
 
 from sentientos.daemons.pulse_bus import apply_pulse_defaults
 from sentientos.glow import self_state
+from sentientos.integrity import covenant_autoalign
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +189,7 @@ class SimulationEngine:
         return self._last_transcript
 
     def run_cycle(self) -> None:
+        covenant_autoalign.autoalign_before_cycle()
         glow_state = self_state.load(path=self._self_path)
         pulse_meta = apply_pulse_defaults(
             {

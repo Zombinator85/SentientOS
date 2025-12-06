@@ -12,6 +12,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Dict, Iterable, Literal, Mapping, MutableMapping, Tuple
 
 from .amendment import Amendment, amendment_digest
+from sentientos.integrity import covenant_autoalign
 
 __all__ = ["AmendmentApplicator", "ApplyResult"]
 
@@ -102,6 +103,7 @@ class AmendmentApplicator:
     def apply(self, amendment: Amendment) -> ApplyResult:
         """Deterministically apply the amendment to runtime configuration."""
 
+        covenant_autoalign.autoalign_after_amendment()
         applied: Dict[str, Any] = {}
         skipped: Dict[str, Any] = {}
         errors: Dict[str, str] = {}
@@ -140,6 +142,7 @@ class AmendmentApplicator:
             self.runtime_config = proposed
             self._write_ledger_entry(amendment, applied, skipped)
             self._write_rollback_snapshot(amendment, applied)
+        covenant_autoalign.autoalign_after_amendment()
         return ApplyResult(status=status, applied=applied, skipped=skipped, errors=errors)
 
     def _persist_configuration(self, config: Mapping[str, Any]) -> None:

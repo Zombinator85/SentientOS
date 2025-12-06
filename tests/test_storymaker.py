@@ -173,11 +173,11 @@ def test_multi_user_persona(tmp_path, monkeypatch):
         chapters=True,
         storyboard=str(sb),
         user="alice",
-        persona="Lumos",
+        persona="system",
     )
     data = json.loads(sb.read_text())
     assert data["chapters"][0]["user"] == "alice"
-    assert data["chapters"][0]["persona"] == "Lumos"
+    assert data["chapters"][0]["persona"] == "system"
 
 
 def test_branch_creation(tmp_path, monkeypatch):

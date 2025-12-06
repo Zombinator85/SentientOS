@@ -11,12 +11,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Stub privilege checks before importing modules that may call them on import
 builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
-builtins.require_lumos_approval = lambda *a, **k: None  # type: ignore[attr-defined]
+builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
 
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+from sentientos.privilege import require_admin_banner, require_covenant_alignment
 
 require_admin_banner()
-require_lumos_approval()
+require_covenant_alignment()
 # The admin banner checks can exit the process during module import if not
 # stubbed ahead of time. Stub them here so test discovery doesn't trip the
 # privilege checks.
@@ -217,6 +217,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_voice_tts",
         "tests.test_consciousness_scaffolding",
         "tests.consciousness.test_sentience_kernel",
+        "tests.integrity.test_covenant_autoalign",
     }
     for item in items:
         module_name = item.module.__name__
@@ -227,6 +228,8 @@ def pytest_collection_modifyitems(config, items):
             and "tests/e2e/" not in path_str
             and "tests/consciousness/" not in path_str
             and module_name not in allowed_modules
+            and not module_name.startswith("tests.integrity.")
+            and "no_legacy_skip" not in item.keywords
         ):
             item.add_marker(pytest.mark.skip(reason="legacy test disabled"))
         if 'requires_node' in item.keywords and not HAS_NODE:

@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sentientos.daemons import pulse_bus
 from sentientos.glow import self_state
+from sentientos.integrity import covenant_autoalign
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,7 @@ class AttentionArbitratorDaemon:
         self._last_cycle: datetime | None = None
 
     def run_cycle(self) -> None:
+        covenant_autoalign.autoalign_before_cycle()
         glow_state = self_state.load()
         winner = self.arbitrator.choose_focus()
         logger.debug(

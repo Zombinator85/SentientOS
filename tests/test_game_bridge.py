@@ -19,7 +19,7 @@ def test_logging(tmp_path, monkeypatch):
     monkeypatch.setenv("GAME_BRIDGE_LOG", str(log))
     importlib.reload(gb)
 
-    gb.avatar_ritual_bridge("minecraft", "Lumos", "crowned", "0,0,0")
+    gb.avatar_ritual_bridge("minecraft", "system", "crowned", "0,0,0")
     gb.build_sanctuary("valheim", "Shrine", "1,2,3")
     gb.presence_pulse("minecraft", "active")
 

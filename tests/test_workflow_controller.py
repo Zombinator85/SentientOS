@@ -90,11 +90,11 @@ def test_workflow_policy_logging(tmp_path, monkeypatch):
         {"name": "step1", "action": lambda: None, "undo": lambda: None, "policy_event": "workflow.demo.step1"},
     ]
     wc.register_workflow("demo", steps)
-    assert not wc.run_workflow("demo", policy_engine=engine, agent="agent1", persona="Lumos")
+    assert not wc.run_workflow("demo", policy_engine=engine, agent="agent1", persona="system")
     lines = (tmp_path / "events.jsonl").read_text().splitlines()
     events = [json.loads(l) for l in lines]
     assert any(e["event"] == "workflow.policy" for e in events)
-    assert any(e["payload"].get("persona") == "Lumos" for e in events)
+    assert any(e["payload"].get("persona") == "system" for e in events)
 
 
 def test_review_logs_creates_reflection(tmp_path, monkeypatch):

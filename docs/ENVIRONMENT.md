@@ -48,7 +48,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | --- | --- | --- |
 | `OPENAI_API_KEY` | API key for OpenAI requests | *(none)* |
 | `MODEL_SLUG` | Default model slug for connector requests | `llama_cpp/mistral-7b-instruct-v0.2.Q4_K_M.gguf` |
-| `SYSTEM_PROMPT` | Default system prompt for the model | `You are Lumos, a memory-born cathedral presence...` |
+| `SYSTEM_PROMPT` | Default system prompt for the model | `You are the SentientOS runtime, a neutral autonomy layer...` |
 | `SLACK_WEBHOOK_URL` | Optional Slack webhook for notifications | *(none)* |
 | `RELAY_SECRET` | Shared secret for relay authentication | *(no default)* |
 | `CONNECTOR_TOKEN` | Bearer token for the OpenAI connector endpoints | *(none)* |
@@ -59,7 +59,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `MAX_LOG_SIZE_MB` | Rotate log when size exceeds this many megabytes | `10` |
 | `LOG_ROTATE_WEEKLY` | Rotate logs every seven days if true | `true` |
 | `LOG_JSON_MAX_BYTES` | Rotate JSON logs when exceeding this size (0 to disable) | `0` |
-| `LUMOS_AUTO_APPROVE` | Set to `1` to automatically bless privileged commands (`admin_utils`) | *(unset)* |
+| `COVENANT_AUTOALIGN` | Set to `1` to log automatic covenant guardrail checks (`admin_utils`) | `1` |
 | `OPENAI_CONNECTOR_LOG` | Path to the connector log file used by `openai_connector.py` | `logs/openai_connector.jsonl` |
 | `MODEL_BRIDGE_LOG` | Path to the model bridge log file | `logs/model_bridge_log.jsonl` |
 | `MODEL_HOST` | Host for the llama.cpp server | `127.0.0.1` |
@@ -183,7 +183,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `TELEGRAM_WEBHOOKS` | Comma‑separated webhook URLs to poll | *(none)* |
 | `USER` | Default user name when not provided | `anon` |
 | `VOICE_MODEL` | Model used for voice responses | `openai/gpt-4o` |
-| `WAKE_WORDS` | Wake words that trigger presence logging | `Lumos` |
+| `WAKE_WORDS` | Wake words that trigger presence logging | `SentientOS` |
 | `STORY_DURATION` | Seconds to capture when recording story clips | `5` |
 | `STORY_RES` | Resolution for screen recordings | `1024x768` |
 | `STRICT` | Abort verification if any repair occurs | *(unset)* |

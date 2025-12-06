@@ -182,7 +182,7 @@ def test_codex_console_prompt_and_trace(shell_environment):
 def test_cli_harness_start_menu_and_install(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys):
     class StubStartMenu:
         def __init__(self) -> None:
-            self.apps = ["File Explorer", "Lumos Dashboard"]
+            self.apps = ["File Explorer", "System Dashboard"]
 
         def list_applications(self):
             return list(self.apps)
@@ -218,8 +218,8 @@ def test_cli_harness_start_menu_and_install(monkeypatch: pytest.MonkeyPatch, tmp
     assert shell_cli.main(["start-menu", "--list"]) == 0
     assert "File Explorer" in capsys.readouterr().out
 
-    assert shell_cli.main(["start-menu", "--search", "Lumos"]) == 0
-    assert "Lumos Dashboard" in capsys.readouterr().out
+    assert shell_cli.main(["start-menu", "--search", "System"]) == 0
+    assert "System Dashboard" in capsys.readouterr().out
 
     package = tmp_path / "demo.deb"
     package.write_text("pkg", encoding="utf-8")
