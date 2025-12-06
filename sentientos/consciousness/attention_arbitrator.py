@@ -1,8 +1,13 @@
-"""Consciousness Layer attention arbitrator scaffold.
+# NOTE:
+# This module is part of the Consciousness Layer scaffolding.
+# It does not perform autonomous execution.
+# All operations must be driven by explicit orchestrator calls.
+# Guardrails and covenant autoalignment remain authoritative.
+"""Deterministic attention arbitrator scaffolding.
 
 This module tracks arbitration inputs for the Consciousness Layer described in
 ``docs/CONSCIOUSNESS_LAYER.md``. It preserves the previous lightweight
-structures while exposing the ``run_cycle`` hook expected by the new runtime
+structures while exposing the ``run_cycle`` hook expected by the runtime
 wiring.
 """
 from __future__ import annotations
@@ -13,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sentientos.daemons import pulse_bus
-from sentientos.glow import self_state
+from sentientos.glow.self_state import load as load_self_state
 from sentientos.integrity import covenant_autoalign
 
 logger = logging.getLogger(__name__)
@@ -192,7 +197,7 @@ class AttentionArbitratorDaemon:
 
     def run_cycle(self) -> None:
         covenant_autoalign.autoalign_before_cycle()
-        glow_state = self_state.load()
+        glow_state = load_self_state()
         winner = self.arbitrator.choose_focus()
         logger.debug(
             "Attention arbitrator scaffold cycle executed",
@@ -203,6 +208,16 @@ class AttentionArbitratorDaemon:
             },
         )
         self._last_cycle = datetime.now(timezone.utc)
+
+    def choose_focus(self) -> PulseEvent | None:
+        """Expose deterministic focus resolution for callers and tests."""
+
+        return self.arbitrator.choose_focus()
+
+    def telemetry_snapshot(self) -> Dict[str, Any]:
+        """Proxy telemetry for observability and testing."""
+
+        return self.arbitrator.telemetry_snapshot()
 
 
 _DAEMON = AttentionArbitratorDaemon()

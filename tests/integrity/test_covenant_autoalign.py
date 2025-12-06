@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from attention_arbitrator import AttentionArbitratorDaemon
-from sentience_kernel import SentienceKernel
-from simulation_engine import SimulationEngine
+from sentientos.consciousness.attention_arbitrator import AttentionArbitratorDaemon
+from sentientos.consciousness.sentience_kernel import SentienceKernel
+from sentientos.consciousness.simulation_engine import SimulationEngine
 from sentientos.boot_ceremony import BootAnnouncer, CeremonialScript, EventEmitter
 from sentientos.cathedral.amendment import Amendment
 from sentientos.cathedral.apply import AmendmentApplicator
@@ -48,29 +48,39 @@ def test_consciousness_cycle_invokes_autoalign(monkeypatch, tmp_path):
     monkeypatch.setattr(covenant_autoalign, "autoalign_before_cycle", lambda: calls.append("cycle"))
 
     monkeypatch.setattr(
-        "sentience_kernel.self_state.load", lambda path=None: {"novelty_score": 0.0, "last_focus": None}
+        "sentientos.consciousness.sentience_kernel.load_self_state",
+        lambda path=None: {"novelty_score": 0.0, "last_focus": None},
     )
-    monkeypatch.setattr("sentience_kernel.self_state.update", lambda payload, path=None: payload)
-    monkeypatch.setattr("sentience_kernel.pulse_bus.publish", lambda payload: payload)
+    monkeypatch.setattr(
+        "sentientos.consciousness.sentience_kernel.update_self_state", lambda payload, path=None: payload
+    )
+    monkeypatch.setattr("sentientos.consciousness.sentience_kernel.pulse_bus.publish", lambda payload: payload)
 
     kernel = SentienceKernel(self_path=str(tmp_path / "self.json"))
     kernel.run_cycle()
 
-    monkeypatch.setattr("simulation_engine.self_state.load", lambda path=None: {"identity": "system"})
-    monkeypatch.setattr("simulation_engine.apply_pulse_defaults", lambda payload: payload)
+    monkeypatch.setattr(
+        "sentientos.consciousness.simulation_engine.load_self_state", lambda path=None: {"identity": "system"}
+    )
+    monkeypatch.setattr("sentientos.consciousness.simulation_engine.apply_pulse_defaults", lambda payload: payload)
 
     class _Result:
         summary = "ok"
         transcript = []
         confidence = 1.0
 
-    monkeypatch.setattr("simulation_engine.SimulationEngine.run", lambda self, **__: _Result())
-    monkeypatch.setattr("simulation_engine.SimulationEngine._write_private_log", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "sentientos.consciousness.simulation_engine.SimulationEngine.run", lambda self, **__: _Result()
+    )
+    monkeypatch.setattr(
+        "sentientos.consciousness.simulation_engine.SimulationEngine._write_private_log",
+        lambda *a, **k: None,
+    )
 
     engine = SimulationEngine(self_path=Path(tmp_path / "sim.json"))
     engine.run_cycle()
 
-    monkeypatch.setattr("attention_arbitrator.self_state.load", lambda: {})
+    monkeypatch.setattr("sentientos.consciousness.attention_arbitrator.load_self_state", lambda: {})
     AttentionArbitratorDaemon().run_cycle()
 
     assert calls == ["cycle", "cycle", "cycle"]

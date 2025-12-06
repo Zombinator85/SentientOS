@@ -1,25 +1,32 @@
-"""Consciousness Layer simulation engine scaffold.
-
-Provides the placeholder simulation hooks described in
-``docs/CONSCIOUSNESS_LAYER.md`` and exposes a ``run_cycle`` entrypoint.
-"""
 from __future__ import annotations
+
+# NOTE:
+# This module is part of the Consciousness Layer scaffolding.
+# It does not perform autonomous execution.
+# All operations must be driven by explicit orchestrator calls.
+# Guardrails and covenant autoalignment remain authoritative.
+"""Deterministic simulation engine for bounded internal scenarios.
+
+The engine follows the architectural outline in ``docs/CONSCIOUSNESS_LAYER.md``
+and exposes a ``run_cycle`` entrypoint.
+"""
 
 import hashlib
 import json
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Mapping, Sequence
 
 from sentientos.daemons.pulse_bus import apply_pulse_defaults
-from sentientos.glow import self_state
+from sentientos.glow.self_state import load as load_self_state, update as update_self_state
 from sentientos.integrity import covenant_autoalign
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LOG_PATH = Path("/daemon/logs/simulation.jsonl")
+DEFAULT_LOG_PATH = Path(os.getenv("SENTIENTOS_SIMULATION_LOG", "/daemon/logs/simulation.jsonl"))
 DEFAULT_PULSE_STATE = Path("/pulse/system.json")
 
 
@@ -202,7 +209,7 @@ class SimulationEngine:
 
     def run_cycle(self) -> None:
         covenant_autoalign.autoalign_before_cycle()
-        glow_state = self_state.load(path=self._self_path)
+        glow_state = load_self_state(path=self._self_path)
         pulse_state = self._load_pulse_metadata()
         focus_meta = pulse_state.get("focus") if isinstance(pulse_state.get("focus"), Mapping) else {}
         context = pulse_state.get("context") if isinstance(pulse_state.get("context"), Mapping) else {}
@@ -242,10 +249,17 @@ class SimulationEngine:
 
         self._last_cycle = datetime.now(timezone.utc)
         attention_hint = focus_target
-        self_state.update(
+        existing_reflection = glow_state.get("last_reflection_summary")
+        safe_reflection = (
+            existing_reflection
+            if isinstance(existing_reflection, str) and existing_reflection.strip()
+            else result.summary
+        )
+
+        update_self_state(
             {
                 "last_cycle_result": result.summary,
-                "last_reflection_summary": result.summary,
+                "last_reflection_summary": safe_reflection,
                 "attention_hint": attention_hint,
                 "last_focus": attention_hint,
             },

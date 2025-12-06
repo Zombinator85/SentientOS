@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List
 
-from sentience_kernel import SentienceKernel
+from sentientos.consciousness.sentience_kernel import SentienceKernel
 from sentientos.glow import self_state
 
 

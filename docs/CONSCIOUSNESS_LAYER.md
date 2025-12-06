@@ -4,6 +4,14 @@ This document describes the deterministic scaffolding that routes state through
 the Consciousness Layer modules. All descriptions are architectural; the
 modules operate as state processors with no autonomy or intentionality.
 
+## Scaffolding Only Disclaimer
+
+- Consciousness Layer modules are inert and never self-initiate cycles.
+- Covenant autoalignment is the authoritative safety mechanism for all state
+  transitions and metadata handling.
+- No external calls, network actions, or privileged operations occur unless an
+  orchestrator invokes them explicitly.
+
 ## Scope and Guarantees
 
 - Deterministic cycle execution: each cycle reads the same inputs and produces
@@ -48,15 +56,16 @@ read-only to downstream modules unless explicitly opened for bounded updates.
 
 ## Modules and Roles
 
-- **Attention Arbitrator** (`attention_arbitrator.py`): Prepares focus changes
-  and resolves incoming internal priorities. Acts as a deterministic priority
-  resolver for Pulse events.
-- **Sentience Kernel** (`sentience_kernel.py`): Implements bounded
-  goal-selection logic using validated inputs from the Pulse Bus and
-  self-model. No unbounded exploration is permitted.
-- **Inner Narrator** (`inner_narrator.py`): Summarizes reflection state and
-  records introspection outputs for downstream persistence.
-- **Simulation Engine** (`simulation_engine.py`): Evaluates scenarios with
+- **Attention Arbitrator** (`sentientos/consciousness/attention_arbitrator.py`):
+  Prepares focus changes and resolves incoming internal priorities. Acts as a
+  deterministic priority resolver for Pulse events.
+- **Sentience Kernel** (`sentientos/consciousness/sentience_kernel.py`):
+  Implements bounded goal-selection logic using validated inputs from the Pulse
+  Bus and self-model. No unbounded exploration is permitted.
+- **Inner Narrator** (`sentientos/consciousness/inner_narrator.py`): Summarizes
+  reflection state and records introspection outputs for downstream
+  persistence.
+- **Simulation Engine** (`sentientos/consciousness/simulation_engine.py`): Evaluates scenarios with
   constrained inputs, producing candidate outcomes without external side
   effects.
 

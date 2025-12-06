@@ -6,10 +6,10 @@ from typing import Dict, List
 
 import pytest
 
-from attention_arbitrator import AttentionArbitratorDaemon, PulseEvent
-from inner_narrator import run_cycle as narrator_run_cycle
-from sentience_kernel import SentienceKernel
-from simulation_engine import SimulationEngine
+from sentientos.consciousness.attention_arbitrator import AttentionArbitratorDaemon, PulseEvent
+from sentientos.consciousness.inner_narrator import run_cycle as narrator_run_cycle
+from sentientos.consciousness.sentience_kernel import SentienceKernel
+from sentientos.consciousness.simulation_engine import SimulationEngine
 from sentientos.daemons import pulse_bus
 from sentientos.glow import self_state
 from sentientos.integrity import covenant_autoalign
