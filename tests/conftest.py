@@ -215,6 +215,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_world_sources",
         "tests.test_voice_asr",
         "tests.test_voice_tts",
+        "tests.test_consciousness_scaffolding",
     }
     for item in items:
         module_name = item.module.__name__
