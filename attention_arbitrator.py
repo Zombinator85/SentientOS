@@ -10,12 +10,34 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sentientos.daemons import pulse_bus
 from sentientos.glow import self_state
 
 logger = logging.getLogger(__name__)
+
+ALLOWED_EVENT_ORIGINS = {"local", "system", "peer", "reflection", "sensor"}
+PRIORITY_ORDER = {
+    "urgent": 0,
+    "high": 1,
+    "normal": 2,
+    "low": 3,
+}
+INTERNAL_PRIORITY_ORDER = {
+    "critical": -2.0,
+    "elevated": -1.0,
+    "baseline": 0.0,
+    "routine": 0.5,
+    "low": 1.0,
+}
+ORIGIN_ORDER = {
+    "local": 0,
+    "system": 1,
+    "reflection": 2,
+    "sensor": 3,
+    "peer": 4,
+}
 
 
 @dataclass
@@ -35,14 +57,8 @@ class PulseEvent:
     def score(self) -> tuple:
         """Return ordering metrics; higher priority first."""
 
-        priority_order = {
-            "urgent": 0,
-            "high": 1,
-            "normal": 2,
-            "low": 3,
-        }
         return (
-            priority_order.get(self.priority, 2),
+            PRIORITY_ORDER.get(self.priority, PRIORITY_ORDER["normal"]),
             -len(self.context),
             self.timestamp or 0.0,
         )
@@ -67,35 +83,121 @@ class AttentionArbitrator:
     def __init__(self) -> None:
         self.history: List[PulseEvent] = []
         self.last_focus: Optional[PulseEvent] = None
+        self._last_decision: Dict[str, Any] = {}
 
     def submit(self, event: PulseEvent) -> None:
         self.history.append(event)
 
     def choose_focus(self) -> Optional[PulseEvent]:
         if not self.history:
-            return None
-        self.history.sort(key=lambda e: e.score())
-        self.last_focus = self.history[0]
-        return self.last_focus
+            self._record_decision("no_events", skipped=0)
+            return self.last_focus
+
+        valid_events: List[tuple[PulseEvent, Tuple[int, float, int, int, int, float]]] = []
+        skipped = 0
+        for event in self.history:
+            if not self._validate_event(event):
+                skipped += 1
+                continue
+            score = self._score(event)
+            valid_events.append((event, score))
+
+        if not valid_events:
+            self._record_decision("no_valid_events", skipped=skipped)
+            return self.last_focus
+
+        valid_events.sort(key=lambda item: item[1])
+        winner = valid_events[0][0]
+        self.last_focus = winner
+        self.history.clear()
+        self._record_decision("focus_selected", skipped=skipped, winner=winner)
+        return winner
 
     def reset(self) -> None:
         self.history.clear()
         self.last_focus = None
+        self._last_decision = {}
+
+    def telemetry_snapshot(self) -> Dict[str, Any]:
+        """Return a lightweight snapshot describing the last arbitration."""
+
+        return {
+            "last_focus": getattr(self.last_focus, "focus", None),
+            "last_origin": getattr(self.last_focus, "event_origin", None),
+            "last_decision": self._last_decision,
+        }
+
+    def _score(self, event: PulseEvent) -> Tuple[int, float, int, int, int, float]:
+        priority_score = PRIORITY_ORDER.get(event.priority, PRIORITY_ORDER["normal"])
+        internal = event.internal_priority
+        internal_score = INTERNAL_PRIORITY_ORDER.get(internal, 0.0)
+        if isinstance(internal, (int, float)):
+            internal_score = float(internal)
+
+        origin_score = ORIGIN_ORDER.get(event.event_origin, len(ORIGIN_ORDER))
+        focus_bias = 0 if self.last_focus and event.focus == self.last_focus.focus else 1
+        context_depth = -len(event.context)
+        timestamp_bias = -float(event.timestamp or datetime.now(timezone.utc).timestamp())
+        return (priority_score, internal_score, origin_score, focus_bias, context_depth, timestamp_bias)
+
+    def _validate_event(self, event: PulseEvent) -> bool:
+        try:
+            pulse_bus.apply_pulse_defaults(event.to_pulse())
+        except Exception:  # pragma: no cover - defensive guardrail
+            logger.warning("Pulse event failed schema defaults", extra={"event": event})
+            return False
+
+        if event.event_origin not in ALLOWED_EVENT_ORIGINS:
+            logger.warning(
+                "Rejected pulse with unsupported origin", extra={"event_origin": event.event_origin}
+            )
+            return False
+        if not isinstance(event.context, dict):
+            logger.warning("Rejected pulse with invalid context", extra={"context_type": type(event.context)})
+            return False
+        if event.internal_priority is not None and not isinstance(
+            event.internal_priority, (str, int, float)
+        ):
+            logger.warning(
+                "Rejected pulse with invalid internal priority",
+                extra={"internal_priority": event.internal_priority},
+            )
+            return False
+        if event.focus is not None and not isinstance(event.focus, str):
+            logger.warning("Rejected pulse with invalid focus", extra={"focus_type": type(event.focus)})
+            return False
+        return True
+
+    def _record_decision(self, reason: str, *, skipped: int, winner: PulseEvent | None = None) -> None:
+        self._last_decision = {
+            "reason": reason,
+            "skipped": skipped,
+            "selected": getattr(winner, "focus", None),
+            "origin": getattr(winner, "event_origin", None),
+            "priority": getattr(winner, "priority", None),
+        }
+        logger.info(
+            "Attention arbitration decision",
+            extra={"decision": self._last_decision, "history_size": len(self.history)},
+        )
 
 
 class AttentionArbitratorDaemon:
     """Placeholder consciousness daemon for focus arbitration cycles."""
 
     def __init__(self) -> None:
+        self.arbitrator = AttentionArbitrator()
         self._last_cycle: datetime | None = None
 
     def run_cycle(self) -> None:
         glow_state = self_state.load()
+        winner = self.arbitrator.choose_focus()
         logger.debug(
             "Attention arbitrator scaffold cycle executed",
             extra={
                 "identity": glow_state.get("identity"),
-                "last_focus": glow_state.get("last_focus"),
+                "last_focus": getattr(winner, "focus", glow_state.get("last_focus")),
+                "decision": self.arbitrator.telemetry_snapshot(),
             },
         )
         self._last_cycle = datetime.now(timezone.utc)

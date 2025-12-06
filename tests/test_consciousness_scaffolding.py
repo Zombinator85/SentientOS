@@ -1,5 +1,6 @@
 import importlib
 
+from attention_arbitrator import AttentionArbitrator, PulseEvent
 from sentientos.daemons import pulse_bus
 from sentientos.glow import self_state
 
@@ -41,3 +42,61 @@ def test_self_state_defaults_round_trip(tmp_path):
     assert loaded["identity"] == "SentientOS"
     updated = self_state.update({"mood": "curious"}, path=target)
     assert updated["mood"] == "curious"
+
+
+def test_attention_arbitrator_uses_pulse_metadata():
+    arbitrator = AttentionArbitrator()
+    arbitrator.submit(
+        PulseEvent(
+            payload={"id": "peer_high"},
+            priority="high",
+            internal_priority="routine",
+            event_origin="peer",
+            focus="peer_focus",
+            timestamp=1.0,
+        )
+    )
+    arbitrator.submit(
+        PulseEvent(
+            payload={"id": "local_critical"},
+            priority="high",
+            internal_priority="critical",
+            event_origin="local",
+            focus="local_focus",
+            context={"topic": "safety"},
+            timestamp=2.0,
+        )
+    )
+
+    winner = arbitrator.choose_focus()
+    assert winner is not None
+    assert winner.focus == "local_focus"
+    telemetry = arbitrator.telemetry_snapshot()
+    assert telemetry["last_decision"]["priority"] == "high"
+
+
+def test_attention_arbitrator_guardrails_and_fallback():
+    arbitrator = AttentionArbitrator()
+    arbitrator.submit(
+        PulseEvent(
+            payload={"id": "invalid_origin"},
+            priority="urgent",
+            event_origin="unauthorized",
+            focus="unsafe",
+        )
+    )
+    arbitrator.submit(
+        PulseEvent(
+            payload={"id": "valid"},
+            priority="normal",
+            event_origin="system",
+            focus="safe",
+            timestamp=5.0,
+        )
+    )
+
+    winner = arbitrator.choose_focus()
+    assert winner is not None
+    assert winner.focus == "safe"
+    telemetry = arbitrator.telemetry_snapshot()
+    assert telemetry["last_decision"]["skipped"] == 1
