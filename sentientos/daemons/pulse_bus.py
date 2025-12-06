@@ -26,6 +26,29 @@ _REQUIRED_FIELDS = {"timestamp", "source_daemon", "event_type", "payload"}
 _VALID_PRIORITIES = {"info", "warning", "critical"}
 _DEFAULT_PRIORITY = "info"
 
+PULSE_V2_SCHEMA: Dict[str, Dict[str, object]] = {
+    "focus": {
+        "type": (str, type(None)),
+        "description": "Optional attention target identifier.",
+        "default": None,
+    },
+    "context": {
+        "type": dict,
+        "description": "Arbitration-provided contextual metadata.",
+        "default": dict,
+    },
+    "internal_priority": {
+        "type": (str, int, float, type(None)),
+        "description": "Internal ordering hint separate from external priority.",
+        "default": "baseline",
+    },
+    "event_origin": {
+        "type": str,
+        "description": "Origin hint for arbitration and auditing.",
+        "default": "local",
+    },
+}
+
 _HISTORY_ROOT_ENV = "PULSE_HISTORY_ROOT"
 _SIGNING_KEY_ENV = "PULSE_SIGNING_KEY"
 _VERIFY_KEY_ENV = "PULSE_VERIFY_KEY"
@@ -77,6 +100,31 @@ def _serialize_for_signature(event: PulseEvent) -> bytes:
     payload.pop("signature", None)
     payload.pop("source_peer", None)
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def apply_pulse_defaults(event: PulseEvent) -> PulseEvent:
+    """Apply Pulse Bus 2.0 defaults without overwriting existing keys."""
+
+    enriched = copy.deepcopy(event)
+    for field, meta in PULSE_V2_SCHEMA.items():
+        if field not in enriched:
+            default_value = meta["default"]
+            enriched[field] = default_value() if callable(default_value) else copy.deepcopy(default_value)
+    return enriched
+
+
+def _validate_extended_fields(event: PulseEvent) -> None:
+    for field, meta in PULSE_V2_SCHEMA.items():
+        if field not in event:
+            continue
+        expected = meta["type"]
+        if not isinstance(event[field], expected):
+            readable = (
+                expected.__name__
+                if isinstance(expected, type)
+                else ", ".join(t.__name__ for t in expected)  # type: ignore[arg-type]
+            )
+            raise TypeError(f"Pulse field '{field}' must be of type {readable}")
 
 
 class _SignatureManager:
@@ -341,7 +389,7 @@ class _PulseBus:
     def _normalize_event(self, event: PulseEvent) -> PulseEvent:
         if not isinstance(event, dict):
             raise TypeError("Pulse events must be dictionaries")
-        normalized = copy.deepcopy(event)
+        normalized = apply_pulse_defaults(event)
         normalized.pop("signature", None)
         missing = _REQUIRED_FIELDS - normalized.keys()
         if missing:
@@ -355,6 +403,7 @@ class _PulseBus:
             normalized["timestamp"] = str(timestamp)
         normalized["source_daemon"] = str(normalized["source_daemon"])
         normalized["event_type"] = str(normalized["event_type"])
+        _validate_extended_fields(normalized)
         priority_value = normalized.get("priority", _DEFAULT_PRIORITY)
         if isinstance(priority_value, str):
             priority_value = priority_value.lower()
@@ -476,6 +525,7 @@ def reset() -> None:
 
 __all__ = [
     "PulseEvent",
+    "PULSE_V2_SCHEMA",
     "PulseSubscription",
     "publish",
     "replay",
@@ -484,5 +534,6 @@ __all__ = [
     "consume_events",
     "ingest",
     "verify",
+    "apply_pulse_defaults",
     "reset",
 ]

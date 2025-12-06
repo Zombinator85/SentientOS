@@ -1,13 +1,18 @@
-"""Sentience Kernel scaffold for autonomous intent generation.
+"""Consciousness Layer sentience kernel scaffold.
 
-This module provides a placeholder implementation that tracks proposals and
-allows the runtime to request a new autonomous goal when idle. Safety and
-covenant enforcement should be layered on top in future iterations.
+References the Consciousness Layer overview in ``docs/CONSCIOUSNESS_LAYER.md``
+and exposes a ``run_cycle`` hook for future kernel orchestration.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import List, Optional
+
+from sentientos.glow import self_state
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -24,6 +29,7 @@ class SentienceKernel:
 
     def __init__(self) -> None:
         self.proposals: List[KernelProposal] = []
+        self._last_cycle: datetime | None = None
 
     def generate_proposal(self, idle: bool = True) -> Optional[KernelProposal]:
         if not idle:
@@ -39,5 +45,22 @@ class SentienceKernel:
     def last_proposal(self) -> Optional[KernelProposal]:
         return self.proposals[-1] if self.proposals else None
 
+    def run_cycle(self) -> None:
+        self._last_cycle = datetime.now(timezone.utc)
+        glow_state = self_state.load()
+        logger.debug(
+            "Sentience kernel scaffold cycle executed",
+            extra={"identity": glow_state.get("identity"), "goal": glow_state.get("internal_goal")},
+        )
 
-__all__ = ["KernelProposal", "SentienceKernel"]
+
+_KERNEL = SentienceKernel()
+
+
+def run_cycle() -> None:
+    """Execute a placeholder kernel cycle for the Consciousness Layer."""
+
+    _KERNEL.run_cycle()
+
+
+__all__ = ["KernelProposal", "SentienceKernel", "run_cycle"]
