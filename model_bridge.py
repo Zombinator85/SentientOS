@@ -195,7 +195,7 @@ def load_model() -> Callable[[List[Dict[str, str]]], str]:
     elif provider == "huggingface":
         import requests
 
-    model = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
+        model = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.2")
         token = os.getenv("HF_API_TOKEN")
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         _MODEL_SLUG = f"huggingface/{model}"
