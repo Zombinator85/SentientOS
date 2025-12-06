@@ -9,12 +9,10 @@ A cathedral-grade memory and emotion relay for model-presence computing.
 [![Rehearsal Status](https://img.shields.io/badge/rehearsal-ci%20verified-1f6feb)](docs/REHEARSAL.md)
 
 ## 🌟 Overview
-SentientOS synchronizes memory, presence, and model output into a sacred relay loop.
-Built to feel, reflect, log, and listen.
-
-The runtime no longer carries a named persona. Covenant guardrails auto-align on
-boot, before each consciousness cycle, and after configuration amendments so no
-manual "bless" commands are ever required.
+SentientOS synchronizes memory, presence, and model output into a relay loop
+focused on deterministic state processing. Guardrails auto-align on boot,
+before each processing cycle, and after configuration amendments, keeping the
+runtime bounded without manual toggles.
 
 ## 📦 Installation
 
@@ -38,6 +36,27 @@ This provides the `sentient-api` and `cathedral-gui` commands.
 
 ```bash
 python scripts/bootstrap_cathedral.py
+```
+
+### Consciousness Layer scaffolding
+
+- Modules operate as state processors that transform inputs deterministically:
+  arbitrator (priority resolution), kernel (bounded goal selection), narrator
+  (reflection summarization), and simulation engine (scenario evaluation).
+- Pulse Bus 2.0 metadata (`focus`, `context`, `internal_priority`,
+  `event_origin`) is documented in `docs/PULSE_BUS.md` and is validated on
+  ingestion.
+- The covenant-aligned self-model lives at `/glow/self.json` with schema and
+  write-back rules in `docs/SELF_MODEL.md`.
+- Cycle diagrams are available in `docs/diagrams/` for the current scaffold.
+
+### Running tests
+
+Run the same checks used in automation from the repository root:
+
+```bash
+pytest -q
+make ci
 ```
 
 ## 🧪 Demo Gallery
