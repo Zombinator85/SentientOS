@@ -32,6 +32,7 @@ dependencies = [
     "pytest>=7,<8",
     "colorama>=0.4,<1",
     "PyYAML>=6,<7",
+    "pdfrw>=0.4,<1",
     "pyttsx3>=2,<3",
     "SpeechRecognition>=3,<4",
     "sounddevice>=0.4,<1",

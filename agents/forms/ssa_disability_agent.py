@@ -15,6 +15,7 @@ from agents.forms.browser_plan import BrowserPlan, BrowserStep, build_click_step
 from agents.forms.screenshot_plan import ScreenshotPlan, build_screenshot_request
 from agents.forms.schema_validator import validate_profile
 from agents.forms.selector_loader import get_page, load_selectors
+from agents.forms.pdf_prep import SSA827Prefill
 from agents.forms import page_router
 from agents.forms.page_router import PAGE_FLOW
 from agents.forms.oracle_session import OracleSession
@@ -131,6 +132,10 @@ class SSADisabilityAgent:
             execution_log.append({"page": page, "action": "screenshot", "result": screenshot_result})
 
         return {"status": "execution_complete", "log": execution_log, "pages": PAGE_FLOW}
+
+    def prefill_ssa_827(self, approval_flag: bool) -> Dict[str, Any]:
+        instance = SSA827Prefill(self.profile, approval_flag)
+        return instance.prefill_pdf()
 
     def _find_profile_value(self, key: str) -> Optional[Any]:
         def _search(node: Any) -> Optional[Any]:
