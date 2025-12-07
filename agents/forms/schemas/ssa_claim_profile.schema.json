@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SSA Claimant Profile",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "claimant": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "first": { "type": "string" },
+            "last": { "type": "string" }
+          }
+        },
+        "ssn_last4": { "type": "string" },
+        "dob": { "type": "string" }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "phone": { "type": "string" },
+        "email": { "type": "string" }
+      }
+    },
+    "address": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "line1": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "zip": { "type": "string" }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "primary": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "secondary": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "work": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "last_worked_date": { "type": "string" }
+      }
+    },
+    "medical": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "providers": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "benefits_context": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "programs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "consents": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "ssa_827_release": { "type": "boolean" }
+      }
+    }
+  }
+}
