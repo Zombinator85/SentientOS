@@ -9,10 +9,17 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional
 
+from version_consensus import VersionConsensus
+from vow_digest import canonical_vow_digest
+
 from sentientos.consciousness.recursion_guard import (
     RecursionGuard,
     RecursionLimitExceeded,
 )
+
+# Exposed for orchestration layers to wire into external consensus handling
+# without enforcing network activity or self-scheduling within this module.
+vc = VersionConsensus(canonical_vow_digest())
 
 
 def load_attention_arbitrator() -> type:
