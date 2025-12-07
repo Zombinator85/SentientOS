@@ -9,6 +9,11 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional
 
+from sentientos.consciousness.recursion_guard import (
+    RecursionGuard,
+    RecursionLimitExceeded,
+)
+
 
 def load_attention_arbitrator() -> type:
     """Safely import the AttentionArbitrator class without side effects."""
@@ -110,6 +115,25 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
     return None
 
 
+def daemon_heartbeat() -> bool:
+    """Placeholder heartbeat hook for deterministic liveness checks."""
+
+    return True
+
+
+def _heartbeat_or_interrupt() -> Optional[Dict[str, object]]:
+    if daemon_heartbeat():
+        return None
+    return {
+        "status": "error",
+        "error": "heartbeat_interrupt",
+        "message": "Daemon heartbeat check failed",
+    }
+
+
+_RECURSION_GUARD = RecursionGuard()
+
+
 def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
     """Execute a single Consciousness Layer cycle when explicitly invoked.
 
@@ -121,17 +145,44 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
     if not isinstance(context, Mapping):
         raise TypeError("context must be a mapping")
 
-    pulse_updates = _maybe_run_arbitrator(context)
-    kernel_updates = _maybe_run_kernel(context)
-    introspection_output = _maybe_run_narrator(context)
-    simulation_output = _maybe_run_simulation(context)
+    try:
+        with _RECURSION_GUARD.enter():
+            heartbeat = _heartbeat_or_interrupt()
+            if heartbeat:
+                return heartbeat
 
-    return {
-        "pulse_updates": pulse_updates,
-        "self_model_updates": kernel_updates,
-        "introspection_output": introspection_output,
-        "simulation_output": simulation_output,
-    }
+            pulse_updates = _maybe_run_arbitrator(context)
+
+            heartbeat = _heartbeat_or_interrupt()
+            if heartbeat:
+                return heartbeat
+
+            kernel_updates = _maybe_run_kernel(context)
+
+            heartbeat = _heartbeat_or_interrupt()
+            if heartbeat:
+                return heartbeat
+
+            introspection_output = _maybe_run_narrator(context)
+
+            heartbeat = _heartbeat_or_interrupt()
+            if heartbeat:
+                return heartbeat
+
+            simulation_output = _maybe_run_simulation(context)
+
+            return {
+                "pulse_updates": pulse_updates,
+                "self_model_updates": kernel_updates,
+                "introspection_output": introspection_output,
+                "simulation_output": simulation_output,
+            }
+    except RecursionLimitExceeded as exc:
+        return {
+            "status": "error",
+            "error": "recursion_limit_exceeded",
+            "message": str(exc),
+        }
 
 
 __all__ = [
@@ -139,5 +190,6 @@ __all__ = [
     "load_sentience_kernel",
     "load_inner_narrator",
     "load_simulation_engine",
+    "daemon_heartbeat",
     "run_consciousness_cycle",
 ]
