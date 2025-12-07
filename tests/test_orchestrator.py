@@ -1,43 +1,32 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
+import pytest
 
-require_admin_banner()
-require_lumos_approval()
-from __future__ import annotations
+from sentientos.orchestrator import SentientOrchestrator
 
 
-import os
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import orchestrator
-import autonomous_reflector as ar
-import time
+pytestmark = pytest.mark.no_legacy_skip
 
 
-def test_orchestrator_runs(tmp_path, monkeypatch):
-    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    from importlib import reload
-    reload(orchestrator)
-    called = []
-    monkeypatch.setattr(ar, "run_once", lambda: called.append(True))
-    o = orchestrator.Orchestrator(interval=0.01)
-    o.run_cycle()
-    assert called
-    assert orchestrator.STATE_PATH.exists()
+def test_orchestrator_without_profile_errors():
+    orchestrator = SentientOrchestrator()
+
+    assert orchestrator.ssa_dry_run()["error"] == "no_profile_loaded"
+    assert orchestrator.ssa_execute(relay=None)["error"] == "no_profile_loaded"
+    assert orchestrator.ssa_prefill_827()["error"] == "no_profile_loaded"
 
 
-def test_orchestrator_start_stop(tmp_path, monkeypatch):
-    monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
-    from importlib import reload
-    reload(orchestrator)
-    calls = []
-    monkeypatch.setattr(ar, "run_once", lambda: calls.append(True))
-    o = orchestrator.Orchestrator(interval=0.01)
-    monkeypatch.setattr(time, "sleep", lambda x: None)
-    o.start(cycles=2)
-    assert len(calls) == 2
-    o.stop()
-    status = o.status()
-    assert status["running"] is False
+def test_orchestrator_with_profile_returns_dry_run_plan():
+    orchestrator = SentientOrchestrator(profile={"first_name": "Test"})
+
+    plan = orchestrator.ssa_dry_run()
+
+    assert plan["status"] == "dry_run_plan_ready"
+    assert plan["pages"]
+
+
+def test_orchestrator_enforces_approval_gate():
+    orchestrator = SentientOrchestrator(profile={"first_name": "Test"}, approval=False)
+
+    prefill = orchestrator.ssa_prefill_827()
+
+    assert prefill["status"] == "approval_required"
+

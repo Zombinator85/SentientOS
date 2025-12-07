@@ -1,79 +1,58 @@
-# Architecture Overview
+# SentientOS Final Architecture Overview
 
-SentientOS is organised around the Codex autonomy loop.  The loop now combines
-purposeful amendment generation, covenantal integrity checks, HungryEyes
-anomaly scoring, automated test feedback, and staged commits.
+This document summarizes the integrated SentientOS surfaces exposed by the
+orchestrator and CLI. No new subsystems are introduced; the goal is to present
+the stabilized, deterministic pathways for developers.
 
-## Unified Codex Amendment Pipeline
+## Path A: Integrity envelope
 
-1. **GapSeeker & GenesisForge** collect TODO/FIXME markers, failing-test
-   manifests, and outdated documentation hints.  Each signal becomes a
-   targeted amendment proposal with a unique fingerprint so duplicate work is
-   avoided.
-2. **Pulse Bus** persists and signs every proposal event.  The integrity
-   pipeline subscribes to these events to guarantee that every amendment is
-   reviewed.
-3. **Covenant IntegrityDaemon** executes proof verification and probe checks.
-   Violations are quarantined with full ledger entries and remain available for
-   CodexHealer triage.
-4. **HungryEyes Sentinel** scores each successful proof report.  High-risk
-   amendments are held for manual blessing; low-risk proposals continue to test
-   execution automatically.
-5. **Test Feedback Gate** runs `pytest -q` and, when available, `make ci`.  Only
-   amendments that satisfy both covenant checks and tests transition to the
-   "approved" state.
-6. **SpecAmender Commit Strategy** batches minor maintenance approvals (default
-   five-minute window) while shipping major fixes immediately with descriptive
-   commit messages.  Commit timestamps are recorded so the cadence is
-   observable.
-7. **CodexHealer** prunes quarantined or failed amendments once their expiry
-   window lapses, keeping the state lean.
+- **Canonical vow digest** anchors immutable resources via
+  `vow_digest.canonical_vow_digest()`.
+- **Version consensus** compares local state with the canonical digest using
+  `version_consensus.VersionConsensus`.
+- **Drift reporting** remains deterministic and self-referential when invoked
+  via `compute_system_diagnostics()`.
+- **Cycle gate** reports readiness state without scheduling work.
 
-The resulting lifecycle is illustrated below.
+## Path B: SSA Agent stages (0–6)
+
+- **Stage 0–2**: deterministic selector routing and dry-run planning.
+- **Stage 3–4**: screenshot planning and optional OracleRelay execution gated by
+  explicit approval.
+- **Stage 5–6**: review bundle assembly and export guarded by approval flags and
+  redaction routines.
+
+## Determinism and approval gates
+
+- No background scheduling or persistence occurs unless an approval flag is
+  provided.
+- CLI commands that modify or emit sensitive artifacts require `--approve`.
+- Orchestrator methods return deterministic status payloads when approval is
+  withheld.
+
+## CLI architecture
+
+The `sentientos` CLI is argparse-based and prints JSON for every command. The
+entry point defers to `SentientOrchestrator` and helper utilities for profile
+loading, system diagnostics, and redacted bundle summaries.
 
 ```
-                   +------------------+
-                   |  GenesisForge    |
-                   |  (GapSeeker)     |
-                   +---------+--------+
-                             |
-                   codex.amendment_proposed
-                             v
-+------------------+     dual control     +--------------------+
-| Covenant checks  |--------------------->| HungryEyes Sentinel|
-| (IntegrityDaemon)|                      |  (risk scoring)    |
-+--------+---------+                      +----------+---------+
-         |                                         |
-         | ledger + proof                          |
-         +-------------------+---------------------+
-                             |
-                verdict + risk assessment
-                             v
-                  Automated Test Gate
-                             |
-                 approved / quarantined / failed
-                             |
-              +--------------+---------------+
-              |      SpecAmender & commits    |
-              +--------------+---------------+
-                             |
-                       CodexHealer pruning
+sentientos cycle
+sentientos ssa dry-run --profile PROFILE.json
+sentientos ssa execute --profile PROFILE.json --approve
+sentientos ssa prefill-827 --profile PROFILE.json --approve
+sentientos ssa review --bundle BUNDLE.json
+sentientos integrity
+sentientos version
 ```
 
-## HungryEyes Continuous Learning
+## Orchestrator flow
 
-The integrated integrity pipeline retrains HungryEyes every ten processed
-amendments.  Ledger history, quarantine payloads, and optional simulated
-negative examples (drop JSON files into
-`sentientos_data/daemon/integrity/simulated_negatives/`) provide training data.
-Retraining updates the sentinel in place so subsequent proposals inherit the
-refined risk model without restarting the daemon.
-
-## Commit Cadence and Batching
-
-Approved amendments carry a priority label.  Major fixes (for example, failing
-tests) are committed immediately with their proposal summary as the commit
-message.  Minor maintenance items accumulate until the batching window expires
-(5 minutes by default) or at least three approvals are ready, producing a
-single "Codex maintenance batch" commit.  Each commit updates the Codex state so
-subsequent cycles understand when the last push occurred.
+1. Optional profile + approval flag instantiate `SentientOrchestrator`.
+2. Consciousness cycles call directly into `run_consciousness_cycle` for a
+   deterministic report.
+3. SSA commands delegate to `SSADisabilityAgent` for dry-runs, execution,
+   prefill, and review bundle assembly.
+4. Approval gates block privileged actions and exports while still returning
+   deterministic payloads.
+5. CLI commands surface the same flows for developer-facing usage.

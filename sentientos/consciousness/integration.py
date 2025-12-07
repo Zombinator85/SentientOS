@@ -35,6 +35,16 @@ def get_version_consensus_summary() -> dict:
     return vc.summary()
 
 
+def integrity_summary() -> dict:
+    """Deterministic integrity snapshot for debugging only."""
+
+    return {
+        "canonical_vow_digest": canonical_vow_digest(),
+        "version_consensus": vc.summary(),
+        "cycle_gate": cycle_gate_status(),
+    }
+
+
 def load_attention_arbitrator() -> type:
     """Safely import the AttentionArbitrator class without side effects."""
 
@@ -233,4 +243,5 @@ __all__ = [
     "daemon_heartbeat",
     "cycle_gate_status",
     "run_consciousness_cycle",
+    "integrity_summary",
 ]
