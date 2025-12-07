@@ -1,6 +1,6 @@
 # SSA Disability Agent Form Infrastructure
 
-Stage-1 introduces deterministic structures for navigating SSA disability forms without any browser automation or network calls. Stage-2 adds dry-run browser planning that still performs **zero** automation while describing how an orchestrator could drive form completion. Stage-3 layers in deterministic screenshot planning and an inert OracleRelay bridge stub that returns structured payloads without touching a browser.
+Stage-1 introduces deterministic structures for navigating SSA disability forms without any browser automation or network calls. Stage-2 adds dry-run browser planning that still performs **zero** automation while describing how an orchestrator could drive form completion. Stage-3 layers in deterministic screenshot planning and an inert OracleRelay bridge stub that returns structured payloads without touching a browser. Stage-4 introduces a permission-gated OracleRelay execution layer that allows real browser automation once explicitly approved, captures screenshots only as in-memory bytes, and prohibits any file writes or persistence.
 
 ## Selector maps
 - Source: `agents/forms/maps/ssa_selectors.yaml`

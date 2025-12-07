@@ -17,6 +17,7 @@ from agents.forms.schema_validator import validate_profile
 from agents.forms.selector_loader import get_page, load_selectors
 from agents.forms import page_router
 from agents.forms.page_router import PAGE_FLOW
+from agents.forms.oracle_session import OracleSession
 
 
 SCHEMA_PATH = Path(__file__).with_name("schemas").joinpath("ssa_claim_profile.schema.json")
@@ -78,6 +79,58 @@ class SSADisabilityAgent:
     def build_screenshot_plan(self) -> ScreenshotPlan:
         requests = [build_screenshot_request(page) for page in PAGE_FLOW]
         return ScreenshotPlan(requests)
+
+    def execute(self, relay, approval_flag: bool) -> Dict[str, Any]:
+        browser_plan = self.build_dry_run_plan()
+        screenshot_plan = self.build_screenshot_plan()
+        session = OracleSession(relay, approval_flag)
+
+        if not approval_flag:
+            return {"status": "approval_required"}
+
+        execution_log = []
+
+        for page in PAGE_FLOW:
+            structure = self.get_page_structure(page)
+            url = structure.get("url") if structure else None
+            if url:
+                nav_result = session.navigate(url)
+                execution_log.append({"page": page, "action": "navigate", "result": nav_result})
+
+            fields = structure.get("fields", {}) if structure else {}
+            for field_name, selector in (fields or {}).items():
+                value = self._find_profile_value(field_name)
+                if value is not None:
+                    fill_result = session.fill(selector, str(value))
+                    execution_log.append(
+                        {
+                            "page": page,
+                            "action": "fill",
+                            "field": field_name,
+                            "selector": selector,
+                            "value": value,
+                            "result": fill_result,
+                        }
+                    )
+
+            actions = structure.get("actions", {}) if structure else {}
+            next_selector = (actions or {}).get("next")
+            if next_selector:
+                click_result = session.click(next_selector)
+                execution_log.append(
+                    {
+                        "page": page,
+                        "action": "click",
+                        "target": "next",
+                        "selector": next_selector,
+                        "result": click_result,
+                    }
+                )
+
+            screenshot_result = session.screenshot()
+            execution_log.append({"page": page, "action": "screenshot", "result": screenshot_result})
+
+        return {"status": "execution_complete", "log": execution_log, "pages": PAGE_FLOW}
 
     def _find_profile_value(self, key: str) -> Optional[Any]:
         def _search(node: Any) -> Optional[Any]:
