@@ -29,6 +29,13 @@ modules operate as state processors with no autonomy or intentionality.
   executes when a higher-level orchestrator calls it.
 - No timers, schedulers, or autonomous triggers are present; the facade is
   inert until invoked.
+- A depth-limited `RecursionGuard` (default max depth 7) wraps the entire
+  cycle. Exceeding the guard returns a structured
+  `{"status": "error", "error": "recursion_limit_exceeded"}` payload instead
+  of raising.
+- A deterministic `daemon_heartbeat()` check runs before each major phase. If
+  it ever reports false, the cycle stops and returns a structured
+  `heartbeat_interrupt` result without side effects.
 - Results are returned as a structured dict with `pulse_updates`,
   `self_model_updates`, `introspection_output`, and `simulation_output` keys to
   keep downstream callers explicit and deterministic.
