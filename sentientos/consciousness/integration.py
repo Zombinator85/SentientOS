@@ -3,7 +3,9 @@
 This module wires the Consciousness Layer scaffolding behind a single
 `run_consciousness_cycle` function without introducing any autonomous
 execution. Every call is deterministic and must be explicitly triggered by a
-higher-level orchestrator.
+higher-level orchestrator. It also exposes Stage-0 federation primitives for
+passive drift awareness with no mutation, enforcement, scheduling, or network
+activity.
 """
 from __future__ import annotations
 
@@ -20,6 +22,12 @@ from sentientos.consciousness.recursion_guard import (
 # Exposed for orchestration layers to wire into external consensus handling
 # without enforcing network activity or self-scheduling within this module.
 vc = VersionConsensus(canonical_vow_digest())
+
+
+def get_version_consensus_summary() -> dict:
+    """Return a passive summary of the current canonical digest state."""
+
+    return vc.summary()
 
 
 def load_attention_arbitrator() -> type:
@@ -193,6 +201,7 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
 
 
 __all__ = [
+    "get_version_consensus_summary",
     "load_attention_arbitrator",
     "load_sentience_kernel",
     "load_inner_narrator",
