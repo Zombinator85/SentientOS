@@ -3,7 +3,8 @@ This module defines deterministic structures for SSA form automation without
 any browser automation, network calls, or scheduling behavior. Stage-1 adds
 selector map loading and logical routing helpers while keeping interactions
 purely structural. Stage-2 introduces dry-run planning of browser actions that
-remains entirely inert while preparing for future OracleRelay execution.
+remains entirely inert while preparing for future OracleRelay execution. Stage-
+3 adds deterministic screenshot planning hooks without driving a browser.
 """
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from agents.forms.browser_plan import BrowserPlan, BrowserStep, build_click_step, build_fill_step
+from agents.forms.screenshot_plan import ScreenshotPlan, build_screenshot_request
 from agents.forms.schema_validator import validate_profile
 from agents.forms.selector_loader import get_page, load_selectors
 from agents.forms import page_router
@@ -41,8 +43,14 @@ class SSADisabilityAgent:
         return validate_profile(self.profile, str(SCHEMA_PATH))
 
     def dry_run(self) -> Dict[str, Any]:
-        plan = self.build_dry_run_plan()
-        return {"status": "dry_run_plan_ready", "plan": plan.as_list(), "pages": PAGE_FLOW}
+        browser_plan = self.build_dry_run_plan()
+        screenshot_plan = self.build_screenshot_plan()
+        return {
+            "status": "dry_run_plan_ready",
+            "browser_plan": browser_plan.as_list(),
+            "screenshot_plan": screenshot_plan.as_list(),
+            "pages": PAGE_FLOW,
+        }
 
     def get_page_structure(self, page: str) -> Dict[str, Any]:
         return get_page(page, self.selectors)
@@ -66,6 +74,10 @@ class SSADisabilityAgent:
                 steps.append(build_click_step(page, "next", actions["next"]))
 
         return BrowserPlan(steps)
+
+    def build_screenshot_plan(self) -> ScreenshotPlan:
+        requests = [build_screenshot_request(page) for page in PAGE_FLOW]
+        return ScreenshotPlan(requests)
 
     def _find_profile_value(self, key: str) -> Optional[Any]:
         def _search(node: Any) -> Optional[Any]:
