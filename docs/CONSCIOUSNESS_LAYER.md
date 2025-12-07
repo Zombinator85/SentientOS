@@ -29,6 +29,10 @@ modules operate as state processors with no autonomy or intentionality.
   executes when a higher-level orchestrator calls it.
 - No timers, schedulers, or autonomous triggers are present; the facade is
   inert until invoked.
+- Stage-1 narrative-goal gating is passive and deterministic: the integration
+  layer checks a placeholder `current_narrative_goal()` value and requires
+  `narrative_goal_satisfied(...)` before executing a cycle. The predicate never
+  schedules or triggers actions; it only guards entry.
 - A depth-limited `RecursionGuard` (default max depth 7) wraps the entire
   cycle. Exceeding the guard returns a structured
   `{"status": "error", "error": "recursion_limit_exceeded"}` payload instead
