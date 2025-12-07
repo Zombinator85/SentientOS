@@ -1,6 +1,6 @@
 # SSA Disability Agent Form Infrastructure
 
-Stage-1 introduces deterministic structures for navigating SSA disability forms without any browser automation or network calls.
+Stage-1 introduces deterministic structures for navigating SSA disability forms without any browser automation or network calls. Stage-2 adds dry-run browser planning that still performs **zero** automation while describing how an orchestrator could drive form completion.
 
 ## Selector maps
 - Source: `agents/forms/maps/ssa_selectors.yaml`
@@ -11,5 +11,10 @@ Stage-1 introduces deterministic structures for navigating SSA disability forms 
 - Source: `agents/forms/page_router.py`
 - The routing table is purely logical, modeling the ordered flow of SSA pages without performing navigation.
 - Use `next_page` and `page_index` to step through pages deterministically.
+
+## Dry-run browser plans
+- Sources: `agents/forms/browser_plan.py`, `agents/forms/ssa_disability_agent.py`
+- Behavior: builds ordered, structured action plans (fill + click intents) using profile data and selector maps without touching any browser or network.
+- Future: these inert plans are intended for OracleRelay or similar orchestration layers to consume once live automation is permitted.
 
 These components keep the agent predictable and testable before adding live browser interactions.
