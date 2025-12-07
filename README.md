@@ -50,6 +50,14 @@ python scripts/bootstrap_cathedral.py
   write-back rules in `docs/SELF_MODEL.md`.
 - Cycle diagrams are available in `docs/diagrams/` for the current scaffold.
 
+#### Integration Layer (Caller-Driven Only)
+
+- `sentientos.consciousness.integration.run_consciousness_cycle(context)`
+  exposes a deterministic, synchronous hook for orchestrators.
+- The facade is dormant until explicitly invoked; there are no schedulers,
+  timers, or background triggers calling it on behalf of the system.
+- SentientOS does not run consciousness cycles automatically.
+
 ### Running tests
 
 Run the same checks used in automation from the repository root:
