@@ -1,0 +1,32 @@
+login:
+  url: "https://ssa.gov/disability/login"
+  fields:
+    username: "#username"
+    password: "#password"
+  actions:
+    submit: "button[type=submit]"
+
+contact_info:
+  fields:
+    phone: "#contactPhone"
+    email: "#contactEmail"
+    address_line1: "#addr1"
+    address_city: "#city"
+    address_state: "#state"
+    address_zip: "#zip"
+  actions:
+    next: "button[type=submit]"
+
+conditions:
+  fields:
+    primary_condition: "#primaryCond"
+    secondary_condition: "#secondaryCond"
+  actions:
+    next: "button[type=submit]"
+
+work_history:
+  fields:
+    last_worked_date: "#lastWorkedDate"
+    employer_name: "#employer"
+  actions:
+    next: "button[type=submit]"
