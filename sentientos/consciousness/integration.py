@@ -18,6 +18,10 @@ from sentientos.consciousness.recursion_guard import (
     RecursionGuard,
     RecursionLimitExceeded,
 )
+from sentientos.consciousness.narrative_goal import (
+    current_narrative_goal,
+    narrative_goal_satisfied,
+)
 
 # Exposed for orchestration layers to wire into external consensus handling
 # without enforcing network activity or self-scheduling within this module.
@@ -137,12 +141,12 @@ def daemon_heartbeat() -> bool:
 
 
 def _heartbeat_or_interrupt() -> Optional[Dict[str, object]]:
-    if daemon_heartbeat():
+    heartbeat_ok = daemon_heartbeat() and narrative_goal_satisfied(current_narrative_goal())
+    if heartbeat_ok:
         return None
     return {
-        "status": "error",
-        "error": "heartbeat_interrupt",
-        "message": "Daemon heartbeat check failed",
+        "status": "narrative_goal_block",
+        "ok": False,
     }
 
 
@@ -198,6 +202,12 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
             "error": "recursion_limit_exceeded",
             "message": str(exc),
         }
+
+
+def get_current_narrative_goal() -> str:
+    """Expose the current narrative goal placeholder for callers."""
+
+    return current_narrative_goal()
 
 
 __all__ = [
