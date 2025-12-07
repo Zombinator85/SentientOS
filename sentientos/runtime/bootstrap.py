@@ -8,6 +8,11 @@ import platform
 from pathlib import Path
 from typing import Dict, Mapping, Optional
 
+try:
+    from sentientos.consciousness.integration import run_consciousness_cycle
+except Exception:  # pragma: no cover - optional dependency path
+    run_consciousness_cycle = None
+
 from sentientos.cathedral.digest import DEFAULT_CATHEDRAL_CONFIG
 from sentientos.memory.mounts import ensure_memory_mounts
 
@@ -53,6 +58,16 @@ def ensure_runtime_dirs(base_dir: Optional[Path] = None) -> Dict[str, Path]:
         "config": config_dir,
         "memory": memory_dir,
     }
+
+
+def optional_consciousness_cycle(system_context: Mapping[str, object]) -> Optional[Dict[str, object]]:
+    """Expose the Consciousness Layer integration for opt-in callers."""
+
+    if run_consciousness_cycle is None:
+        return None
+    if not isinstance(system_context, Mapping):
+        return None
+    return run_consciousness_cycle(system_context)
 
 
 def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:

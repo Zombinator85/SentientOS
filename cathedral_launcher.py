@@ -19,13 +19,18 @@ import venv
 from pathlib import Path
 import webbrowser
 import time
-from typing import Optional, Dict
+from typing import Dict, Mapping, Optional
 
 import requests
 import tkinter.messagebox as messagebox
 
 from logging_config import get_log_path
 from cathedral_const import PUBLIC_LOG, log_json
+
+try:
+    from sentientos.consciousness.integration import run_consciousness_cycle
+except Exception:  # pragma: no cover - optional dependency path
+    run_consciousness_cycle = None
 
 MIN_VERSION = (3, 11)
 CATHEDRAL_LOG = get_log_path("cathedral.log")
@@ -48,6 +53,16 @@ CUDA_SEARCH_PATHS = [
 def log_event(event: str, *, level: str = "INFO", data: Optional[Dict[str, object]] = None) -> None:
     payload = {"event": event, "level": level, "data": data or {}}
     log_json(CATHEDRAL_LOG, payload)
+
+
+def optional_consciousness_cycle(system_context: Mapping[str, object]) -> Optional[Dict[str, object]]:
+    """Expose the Consciousness Layer integration without scheduling it."""
+
+    if run_consciousness_cycle is None:
+        return None
+    if not isinstance(system_context, Mapping):
+        return None
+    return run_consciousness_cycle(system_context)
 
 
 def ensure_venv_active() -> bool:

@@ -22,6 +22,18 @@ modules operate as state processors with no autonomy or intentionality.
 - Persistence is strict: state writes occur only through validated, append-only
   updates. No external effects occur unless explicitly invoked by callers.
 
+## Integration Layer (Caller-Driven Only)
+
+- The integration facade lives at `sentientos/consciousness/integration.py`.
+- It exposes `run_consciousness_cycle(context)` as a synchronous hook that only
+  executes when a higher-level orchestrator calls it.
+- No timers, schedulers, or autonomous triggers are present; the facade is
+  inert until invoked.
+- Results are returned as a structured dict with `pulse_updates`,
+  `self_model_updates`, `introspection_output`, and `simulation_output` keys to
+  keep downstream callers explicit and deterministic.
+- SentientOS does not run consciousness cycles automatically.
+
 ## Pulse Bus 2.0 Fields
 
 The Pulse Bus carries structured events between modules. Pulse Bus 2.0 adds
