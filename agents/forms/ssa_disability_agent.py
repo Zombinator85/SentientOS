@@ -16,6 +16,7 @@ from agents.forms.screenshot_plan import ScreenshotPlan, build_screenshot_reques
 from agents.forms.schema_validator import validate_profile
 from agents.forms.selector_loader import get_page, load_selectors
 from agents.forms.pdf_prep import SSA827Prefill
+from agents.forms.review_bundle import SSAReviewBundle
 from agents.forms import page_router
 from agents.forms.page_router import PAGE_FLOW
 from agents.forms.oracle_session import OracleSession
@@ -136,6 +137,25 @@ class SSADisabilityAgent:
     def prefill_ssa_827(self, approval_flag: bool) -> Dict[str, Any]:
         instance = SSA827Prefill(self.profile, approval_flag)
         return instance.prefill_pdf()
+
+    def build_review_bundle(self, execution_result: Dict[str, Any], pdf_bytes: bytes) -> SSAReviewBundle:
+        screenshots = []
+        for entry in execution_result.get("log", []):
+            result = entry.get("result", {})
+            if isinstance(result, dict) and result.get("status") == "screenshot":
+                image_bytes = result.get("bytes")
+                if image_bytes is not None:
+                    screenshots.append(image_bytes)
+
+        return SSAReviewBundle(
+            execution_log=execution_result.get("log", []),
+            screenshot_bytes=screenshots,
+            pdf_bytes=pdf_bytes,
+            profile=self.profile,
+        )
+
+    def export_review_bundle(self, bundle: SSAReviewBundle, approved: bool) -> Dict[str, Any]:
+        return bundle.as_archive(approved)
 
     def _find_profile_value(self, key: str) -> Optional[Any]:
         def _search(node: Any) -> Optional[Any]:
