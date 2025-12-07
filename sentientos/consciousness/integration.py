@@ -14,6 +14,7 @@ from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional
 from version_consensus import VersionConsensus
 from vow_digest import canonical_vow_digest
 
+from sentientos.consciousness.cycle_gate import build_cycle_gate
 from sentientos.consciousness.recursion_guard import (
     RecursionGuard,
     RecursionLimitExceeded,
@@ -150,6 +151,19 @@ def _heartbeat_or_interrupt() -> Optional[Dict[str, object]]:
     }
 
 
+def cycle_gate_status() -> dict:
+    """Stage-2 passive rate-limiter reporting for consciousness cycles.
+
+    This helper surfaces deterministic readiness state without scheduling or
+    blocking any execution paths.
+    """
+
+    recursion_ok = True
+    heartbeat_ok = daemon_heartbeat() and narrative_goal_satisfied(current_narrative_goal())
+    narrative_ok = narrative_goal_satisfied(current_narrative_goal())
+    return build_cycle_gate(recursion_ok, heartbeat_ok, narrative_ok).as_dict()
+
+
 _RECURSION_GUARD = RecursionGuard()
 
 
@@ -217,5 +231,6 @@ __all__ = [
     "load_inner_narrator",
     "load_simulation_engine",
     "daemon_heartbeat",
+    "cycle_gate_status",
     "run_consciousness_cycle",
 ]
