@@ -1,66 +1,53 @@
-import inspect
-from typing import Dict, List
-
-import pytest
-
 from sentientos.identity import IdentityManager
 
 
-def test_identity_manager_importable():
-    assert IdentityManager is not None
-
-
-def test_identity_manager_methods_exist():
+def test_identity_manager_initial_state():
     manager = IdentityManager()
-    for method in (
-        "log_event",
-        "get_events",
-        "summarize",
-        "get_self_concept",
-        "update_self_concept",
-    ):
-        assert hasattr(manager, method)
+    assert manager.get_events() == []
+    assert manager.get_self_concept() == {}
 
 
-def test_identity_manager_signatures():
-    log_sig = inspect.signature(IdentityManager.log_event)
-    assert list(log_sig.parameters.keys()) == ["self", "event_type", "description"]
-    assert log_sig.parameters["event_type"].annotation is str
-    assert log_sig.parameters["description"].annotation is str
-
-    events_sig = inspect.signature(IdentityManager.get_events)
-    assert list(events_sig.parameters.keys()) == ["self", "limit"]
-    assert events_sig.parameters["limit"].default == 50
-    assert events_sig.parameters["limit"].annotation is int
-    assert events_sig.return_annotation == List[Dict[str, str]]
-
-    summarize_sig = inspect.signature(IdentityManager.summarize)
-    assert list(summarize_sig.parameters.keys()) == ["self"]
-    assert summarize_sig.return_annotation is str
-
-    self_concept_sig = inspect.signature(IdentityManager.get_self_concept)
-    assert list(self_concept_sig.parameters.keys()) == ["self"]
-    assert self_concept_sig.return_annotation == Dict[str, str]
-
-    update_sig = inspect.signature(IdentityManager.update_self_concept)
-    assert list(update_sig.parameters.keys()) == ["self", "key", "value"]
-    assert update_sig.parameters["key"].annotation is str
-    assert update_sig.parameters["value"].annotation is str
-
-
-def test_identity_manager_placeholders_raise():
+def test_log_event_records_monotonic_timestamps():
     manager = IdentityManager()
-    with pytest.raises(NotImplementedError):
-        manager.log_event("test", "description")
+    manager.log_event("boot", "System initialized")
+    manager.log_event("reflection", "Self-check complete")
 
-    with pytest.raises(NotImplementedError):
-        manager.get_events()
+    assert manager.get_events() == [
+        {"timestamp": 1, "type": "boot", "description": "System initialized"},
+        {"timestamp": 2, "type": "reflection", "description": "Self-check complete"},
+    ]
 
-    with pytest.raises(NotImplementedError):
-        manager.summarize()
 
-    with pytest.raises(NotImplementedError):
-        manager.get_self_concept()
+def test_get_events_returns_defensive_copies():
+    manager = IdentityManager()
+    manager.log_event("boot", "System initialized")
 
-    with pytest.raises(NotImplementedError):
-        manager.update_self_concept("trait", "value")
+    external_view = manager.get_events()
+    external_view[0]["description"] = "tampered"
+
+    assert manager.get_events()[0]["description"] == "System initialized"
+
+
+def test_self_concept_overwrite_and_copy():
+    manager = IdentityManager()
+    manager.update_self_concept("role", "observer")
+    manager.update_self_concept("role", "participant")
+
+    snapshot = manager.get_self_concept()
+    assert snapshot == {"role": "participant"}
+
+    snapshot["role"] = "tampered"
+    assert manager.get_self_concept()["role"] == "participant"
+
+
+def test_summarize_is_deterministic():
+    manager = IdentityManager()
+    manager.log_event("boot", "System initialized")
+    manager.log_event("reflection", "Self-check complete")
+    manager.log_event("reflection", "Documented startup")
+    manager.update_self_concept("role", "participant")
+    manager.update_self_concept("status", "online")
+
+    summary = manager.summarize()
+
+    assert summary == "Identity summary: 3 events, 2 event types, 2 self-concept traits."
