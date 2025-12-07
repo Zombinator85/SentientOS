@@ -15,7 +15,7 @@ MINIMAL_PROFILE = {
 }
 
 
-EXPECTED_STEPS = [
+EXPECTED_BROWSER_PLAN = [
     {
         "page": "login",
         "action_type": "fill_username",
@@ -109,21 +109,26 @@ EXPECTED_STEPS = [
 ]
 
 
-def test_build_dry_run_plan_creates_expected_steps():
-    agent = SSADisabilityAgent(profile=MINIMAL_PROFILE)
-    plan = agent.build_dry_run_plan()
-    assert plan.as_list() == EXPECTED_STEPS
+EXPECTED_SCREENSHOT_PLAN = [
+    {"page": "login", "type": "screenshot"},
+    {"page": "contact_info", "type": "screenshot"},
+    {"page": "conditions", "type": "screenshot"},
+    {"page": "work_history", "type": "screenshot"},
+]
 
 
-def test_dry_run_returns_structured_plan_bundle():
+def test_dry_run_includes_browser_and_screenshot_plans():
     agent = SSADisabilityAgent(profile=MINIMAL_PROFILE)
     payload = agent.dry_run()
+
     assert payload["status"] == "dry_run_plan_ready"
-    assert payload["browser_plan"] == EXPECTED_STEPS
-    assert payload["screenshot_plan"] == [
-        {"page": "login", "type": "screenshot"},
-        {"page": "contact_info", "type": "screenshot"},
-        {"page": "conditions", "type": "screenshot"},
-        {"page": "work_history", "type": "screenshot"},
-    ]
+    assert payload["browser_plan"] == EXPECTED_BROWSER_PLAN
+    assert payload["screenshot_plan"] == EXPECTED_SCREENSHOT_PLAN
     assert payload["pages"] == ["login", "contact_info", "conditions", "work_history"]
+
+
+def test_build_screenshot_plan_is_deterministic():
+    agent = SSADisabilityAgent(profile=MINIMAL_PROFILE)
+    screenshot_plan = agent.build_screenshot_plan()
+
+    assert screenshot_plan.as_list() == EXPECTED_SCREENSHOT_PLAN
