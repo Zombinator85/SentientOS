@@ -10,4 +10,5 @@ __all__ = [
     "sentience_kernel",
     "inner_narrator",
     "simulation_engine",
+    "cycle_gate",
 ]
