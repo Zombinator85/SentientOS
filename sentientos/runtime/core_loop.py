@@ -21,6 +21,7 @@ from sentientos.logging.events import (
     log_simulation_cycle,
     log_debug_federation_digest,
     log_debug_federation_consensus,
+    log_debug_config_snapshot,
 )
 
 from .interfaces import CycleInput, CycleOutput, InnerWorldReport
@@ -99,8 +100,14 @@ class CoreLoop:
         log_debug_federation_digest(inner_report.get("federation_digest", {}))
         log_debug_federation_consensus(inner_report.get("federation_consensus", {}))
 
+        config_snapshot = None
+        if not inner_report.get("simulation_mode"):
+            config_snapshot = inner_report.get("config_snapshot")
+            if config_snapshot is not None:
+                log_debug_config_snapshot(config_snapshot)
+
         state_snapshot["innerworld"] = inner_report
-        return {
+        result = {
             "cycle_state": state_snapshot,
             "innerworld": inner_report,
             "simulation": simulation_report,
@@ -117,3 +124,8 @@ class CoreLoop:
             "federation_digest": inner_report.get("federation_digest"),
             "federation_consensus": inner_report.get("federation_consensus"),
         }
+
+        if config_snapshot is not None:
+            result["config_snapshot"] = config_snapshot
+
+        return result

@@ -92,3 +92,9 @@ def log_debug_federation_consensus(report: dict):
     """Emit debug information for federation consensus reports."""
 
     logger.debug(f"[federation-consensus] {report}")
+
+
+def log_debug_config_snapshot(snapshot: dict):
+    """Emit debug information for sanitized configuration snapshots."""
+
+    logger.debug(f"[config-snapshot] {snapshot}")
