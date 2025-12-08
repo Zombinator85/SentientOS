@@ -5,6 +5,7 @@ from __future__ import annotations
 __version__: str = "1.2.0-beta"
 
 from .core import Core
+from .inner_world_orchestrator import InnerWorldOrchestrator
 from .orchestrator import SentientOrchestrator
 from .privilege import (
     is_admin,
@@ -17,6 +18,7 @@ from .privilege import (
 __all__ = [
     "__version__",
     "Core",
+    "InnerWorldOrchestrator",
     "SentientOrchestrator",
     "is_admin",
     "print_privilege_banner",
