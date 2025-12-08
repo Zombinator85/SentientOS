@@ -7,7 +7,12 @@ import logging
 from typing import Any, MutableMapping
 
 from sentientos.innerworld import InnerWorldOrchestrator
-from sentientos.logging.events import log_ethics_report, log_innerworld_cycle, log_simulation_cycle
+from sentientos.logging.events import (
+    log_ethics_report,
+    log_history_summary,
+    log_innerworld_cycle,
+    log_simulation_cycle,
+)
 
 from .interfaces import CycleInput, CycleOutput, InnerWorldReport
 
@@ -69,10 +74,14 @@ class CoreLoop:
                 self._logger.debug("[innerworld-simulation] %s", simulation_report)
                 log_simulation_cycle(simulation_report)
 
+        history_summary = self.innerworld.get_history_summary()
+        log_history_summary(history_summary)
+
         state_snapshot["innerworld"] = inner_report
         return {
             "cycle_state": state_snapshot,
             "innerworld": inner_report,
             "simulation": simulation_report,
             "ethics": ethics_report,
+            "innerworld_history_summary": history_summary,
         }

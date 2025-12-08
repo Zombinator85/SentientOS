@@ -32,3 +32,9 @@ def log_ethics_report(report: Dict[str, Any]) -> None:
     logger.debug(
         f"[ethics] conflicts={report.get('conflicts')} values={report.get('values')}"
     )
+
+
+def log_history_summary(summary: Dict[str, Any]) -> None:
+    """Emit a debug-level summary of the current cycle history."""
+
+    logger.debug(f"[innerworld-history] summary={summary}")
