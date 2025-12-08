@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List, Mapping
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping
 
 from sentientos.ethics_core import EthicalCore
 from sentientos.identity import IdentityManager
@@ -23,6 +23,9 @@ from sentientos.federation import (
     FederationDigest,
     FederationConsensusSentinel,
 )
+
+if TYPE_CHECKING:
+    from sentientos.runtime.config_sanitizer import ConfigSanitizer
 
 
 class InnerWorldOrchestrator:
@@ -44,6 +47,10 @@ class InnerWorldOrchestrator:
         self.autobio = AutobiographicalCompressor()
         self.federation_digest = FederationDigest()
         self.consensus_sentinel = FederationConsensusSentinel()
+        from sentientos.runtime.config_sanitizer import ConfigSanitizer
+
+        self.config_sanitizer = ConfigSanitizer()
+        self.config = self._build_config()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -123,6 +130,7 @@ class InnerWorldOrchestrator:
             "meta": deepcopy(meta_notes_copy),
             "ethics": deepcopy(ethics_report),
             "timestamp": float(cycle_id),
+            "simulation_mode": simulation,
         }
 
         if not simulation:
@@ -177,14 +185,17 @@ class InnerWorldOrchestrator:
             report["value_drift"] = drift
             report["autobiography"] = self.autobio.get_entries()
 
+            identity_summary = self.get_identity_summary()
+            config_snapshot = self.get_config_snapshot()
             local_digest = self.federation_digest.compute_digest(
-                identity_summary=self.get_identity_summary(),
-                config=self.get_config_snapshot(),
+                identity_summary=identity_summary,
+                config=config_snapshot.get("config", {}),
             )
             consensus_report = self.consensus_sentinel.compare(local_digest)
 
             report["federation_digest"] = local_digest
             report["federation_consensus"] = consensus_report
+            report["config_snapshot"] = config_snapshot
 
         return report
 
@@ -239,8 +250,8 @@ class InnerWorldOrchestrator:
     def get_identity_summary(self):
         return self.self_narrative.summarize_identity()
 
-    def get_config_snapshot(self) -> Dict[str, Any]:
-        """Return deterministic configuration invariants for federation digests."""
+    def _build_config(self) -> Dict[str, Any]:
+        """Construct the raw configuration snapshot for sanitization."""
 
         return {
             "core_values": deepcopy(self.ethics.list_values()),
@@ -283,3 +294,9 @@ class InnerWorldOrchestrator:
                 },
             },
         }
+
+    def get_config_snapshot(self) -> Dict[str, Any]:
+        """Return a sanitized configuration snapshot for deterministic consumers."""
+
+        raw_config = deepcopy(self.config)
+        return self.config_sanitizer.sanitize(raw_config)

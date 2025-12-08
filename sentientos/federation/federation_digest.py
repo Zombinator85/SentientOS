@@ -30,6 +30,7 @@ class FederationDigest:
         """Generate a stable digest for the provided identity and config snapshots."""
 
         identity_snapshot = deepcopy(identity_summary or {})
+        # Config is guaranteed sanitized and deterministic by ConfigSanitizer.
         config_snapshot = deepcopy(config or {})
 
         components = {
