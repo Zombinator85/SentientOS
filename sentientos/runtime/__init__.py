@@ -7,6 +7,8 @@ from .bootstrap import (
     get_base_dir,
     validate_model_paths,
 )
+from .core_loop import CoreLoop
+from .runtime import Runtime
 from .shell import (
     DEFAULT_DASHBOARD_CONFIG,
     DEFAULT_DREAM_LOOP_CONFIG,
@@ -26,4 +28,6 @@ __all__ = [
     "get_base_dir",
     "validate_model_paths",
     "build_default_config",
+    "CoreLoop",
+    "Runtime",
 ]
