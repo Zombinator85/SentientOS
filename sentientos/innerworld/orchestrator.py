@@ -10,6 +10,7 @@ from sentientos.identity import IdentityManager
 from sentientos.inner_experience import InnerExperience
 from sentientos.metacognition import MetaMonitor
 from sentientos.innerworld.history import CycleHistory
+from sentientos.innerworld.reflection import CycleReflectionEngine
 from sentientos.innerworld.simulation import SimulationEngine
 from sentientos.logging.events import log_ethics_report
 
@@ -24,6 +25,7 @@ class InnerWorldOrchestrator:
         self.ethics = EthicalCore()
         self.ethical_core = self.ethics
         self.history = CycleHistory()
+        self.reflection_engine = CycleReflectionEngine()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -104,6 +106,8 @@ class InnerWorldOrchestrator:
 
         self.history.record(report)
 
+        report["innerworld_reflection"] = self.get_reflection_summary()
+
         return report
 
     def evaluate_ethics(self, plan, context):
@@ -146,3 +150,7 @@ class InnerWorldOrchestrator:
 
     def get_history_summary(self):
         return self.history.summarize()
+
+    def get_reflection_summary(self):
+        history = self.history.get_all()
+        return self.reflection_engine.reflect(history)

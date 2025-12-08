@@ -38,3 +38,9 @@ def log_history_summary(summary: Dict[str, Any]) -> None:
     """Emit a debug-level summary of the current cycle history."""
 
     logger.debug(f"[innerworld-history] summary={summary}")
+
+
+def log_debug_reflection(summary: Dict[str, Any]) -> None:
+    """Emit a debug-level summary of the current reflection snapshot."""
+
+    logger.debug(f"[innerworld-reflection] summary={summary}")
