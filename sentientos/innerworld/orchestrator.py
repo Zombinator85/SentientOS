@@ -9,6 +9,7 @@ from sentientos.ethics_core import EthicalCore
 from sentientos.identity import IdentityManager
 from sentientos.inner_experience import InnerExperience
 from sentientos.metacognition import MetaMonitor
+from sentientos.innerworld.simulation import SimulationEngine
 
 
 class InnerWorldOrchestrator:
@@ -20,6 +21,7 @@ class InnerWorldOrchestrator:
         self.meta_monitor = MetaMonitor()
         self.ethical_core = EthicalCore()
         self._cycle_counter = 0
+        self._simulation_engine: SimulationEngine | None = None
 
     def _summarize_qualia_changes(
         self, previous: Dict[str, float], current: Dict[str, float]
@@ -94,6 +96,14 @@ class InnerWorldOrchestrator:
             "ethics": deepcopy(ethical_result),
             "timestamp": float(cycle_id),
         }
+
+    def run_simulation(self, hypothetical_state: Mapping[str, Any]) -> Dict[str, Any]:
+        """Convenience wrapper for SimulationEngine."""
+
+        if self._simulation_engine is None:
+            self._simulation_engine = SimulationEngine()
+
+        return self._simulation_engine.simulate(self, dict(hypothetical_state))
 
     def start_cycle(self, input_state: Mapping[str, Any]) -> Dict[str, Any]:
         """Legacy entrypoint mapped to :py:meth:`run_cycle`."""
