@@ -12,6 +12,7 @@ from sentientos.metacognition import MetaMonitor
 from sentientos.innerworld.history import CycleHistory
 from sentientos.innerworld.reflection import CycleReflectionEngine
 from sentientos.innerworld.simulation import SimulationEngine
+from sentientos.innerworld.cognitive_report import CognitiveReportGenerator
 from sentientos.logging.events import log_ethics_report
 
 
@@ -26,6 +27,7 @@ class InnerWorldOrchestrator:
         self.ethical_core = self.ethics
         self.history = CycleHistory()
         self.reflection_engine = CycleReflectionEngine()
+        self.cognitive_reporter = CognitiveReportGenerator()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -59,11 +61,14 @@ class InnerWorldOrchestrator:
         self.identity_manager.log_event("qualia_update", summary)
         return qualia_snapshot
 
-    def run_cycle(self, input_state: Mapping[str, Any]) -> Dict[str, Any]:
+    def run_cycle(self, input_state: Mapping[str, Any], simulation: bool = False) -> Dict[str, Any]:
         """Run a deterministic inner-world coordination cycle."""
 
-        self._cycle_counter += 1
-        cycle_id = self._cycle_counter
+        if simulation:
+            cycle_id = self._cycle_counter + 1
+        else:
+            self._cycle_counter += 1
+            cycle_id = self._cycle_counter
         state_copy = dict(input_state)
         self.identity_manager.log_event("cycle_start", f"Cycle {cycle_id} started.")
 
@@ -104,9 +109,22 @@ class InnerWorldOrchestrator:
             "timestamp": float(cycle_id),
         }
 
-        self.history.record(report)
+        if not simulation:
+            self.history.record(report)
 
-        report["innerworld_reflection"] = self.get_reflection_summary()
+            history_summary = self.history.summarize()
+            reflection_summary = self.reflection_engine.reflect(self.history.get_all())
+            report["innerworld_reflection"] = deepcopy(reflection_summary)
+
+            ethical_summary = report.get("ethics")
+            simulation_summary = report.get("simulation")
+            report["cognitive_report"] = self.cognitive_reporter.generate(
+                history_summary=history_summary,
+                reflection_summary=reflection_summary,
+                latest_cycle=report,
+                ethical_report=ethical_summary,
+                simulation_report=simulation_summary,
+            )
 
         return report
 

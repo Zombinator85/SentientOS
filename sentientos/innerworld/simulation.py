@@ -20,7 +20,7 @@ class SimulationEngine:
             context=sandbox_state,
         )
 
-        report = sandbox_orchestrator.run_cycle(sandbox_state)
+        report = sandbox_orchestrator.run_cycle(sandbox_state, simulation=True)
 
         sanitized_report: Dict[str, Any] = deepcopy(report)
         sanitized_report["ethics"] = deepcopy(ethics)

@@ -44,3 +44,9 @@ def log_debug_reflection(summary: Dict[str, Any]) -> None:
     """Emit a debug-level summary of the current reflection snapshot."""
 
     logger.debug(f"[innerworld-reflection] summary={summary}")
+
+
+def log_debug_cognitive_report(report: Dict[str, Any]) -> None:
+    """Emit a debug-level summary of the current cognitive report."""
+
+    logger.debug(f"[cognitive-report] report={report}")
