@@ -24,6 +24,13 @@ class InnerWorldReport(TypedDict, total=False):
     timestamp: float
 
 
+class SimulationReport(TypedDict, total=False):
+    simulated: bool
+    hypothetical_state: Mapping[str, Any]
+    report: InnerWorldReport
+
+
 class CycleOutput(TypedDict, total=False):
     cycle_state: MutableMapping[str, Any]
     innerworld: InnerWorldReport
+    simulation: SimulationReport

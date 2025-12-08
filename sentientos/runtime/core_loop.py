@@ -7,7 +7,7 @@ import logging
 from typing import Any, MutableMapping
 
 from sentientos.innerworld import InnerWorldOrchestrator
-from sentientos.logging.events import log_innerworld_cycle
+from sentientos.logging.events import log_innerworld_cycle, log_simulation_cycle
 
 from .interfaces import CycleInput, CycleOutput, InnerWorldReport
 
@@ -30,6 +30,7 @@ class CoreLoop:
 
         state_snapshot: MutableMapping[str, Any] = dict(cycle_state)
         inner_report: InnerWorldReport = {}
+        simulation_report: dict[str, Any] = {}
         try:
             inner_report = self.innerworld.run_cycle(deepcopy(state_snapshot))
         except Exception as exc:  # pragma: no cover - defensive guard
@@ -39,5 +40,25 @@ class CoreLoop:
             self._logger.debug("[innerworld-cycle] %s", inner_report)
             log_innerworld_cycle(inner_report)
 
+        plan_candidate = state_snapshot.get("plan")
+        if plan_candidate is not None:
+            hypothetical_state = {
+                "plan": deepcopy(plan_candidate),
+                "context": deepcopy(state_snapshot.get("context", {})),
+                "inputs": deepcopy(state_snapshot),
+            }
+            try:
+                simulation_report = self.innerworld.run_simulation(hypothetical_state)
+            except Exception as exc:  # pragma: no cover - defensive guard
+                self._logger.debug("[innerworld-simulation] failed: %s", exc)
+                simulation_report = {}
+            else:
+                self._logger.debug("[innerworld-simulation] %s", simulation_report)
+                log_simulation_cycle(simulation_report)
+
         state_snapshot["innerworld"] = inner_report
-        return {"cycle_state": state_snapshot, "innerworld": inner_report}
+        return {
+            "cycle_state": state_snapshot,
+            "innerworld": inner_report,
+            "simulation": simulation_report,
+        }
