@@ -1,0 +1,43 @@
+"""Core cognition loop integration for SentientOS runtime."""
+
+from __future__ import annotations
+
+from copy import deepcopy
+import logging
+from typing import Any, MutableMapping
+
+from sentientos.innerworld import InnerWorldOrchestrator
+from sentientos.logging.events import log_innerworld_cycle
+
+from .interfaces import CycleInput, CycleOutput, InnerWorldReport
+
+LOGGER = logging.getLogger(__name__)
+
+
+class CoreLoop:
+    """Drive deterministic cognition cycles with passive introspection."""
+
+    def __init__(
+        self,
+        innerworld: InnerWorldOrchestrator | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        self.innerworld = innerworld or InnerWorldOrchestrator()
+        self._logger = logger or LOGGER
+
+    def run_cycle(self, cycle_state: CycleInput) -> CycleOutput:
+        """Execute a single cognition cycle with inner-world introspection."""
+
+        state_snapshot: MutableMapping[str, Any] = dict(cycle_state)
+        inner_report: InnerWorldReport = {}
+        try:
+            inner_report = self.innerworld.run_cycle(deepcopy(state_snapshot))
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self._logger.debug("[innerworld-cycle] failed: %s", exc)
+            inner_report = {"cycle_id": getattr(self.innerworld, "_cycle_counter", 0), "meta": []}
+        else:
+            self._logger.debug("[innerworld-cycle] %s", inner_report)
+            log_innerworld_cycle(inner_report)
+
+        state_snapshot["innerworld"] = inner_report
+        return {"cycle_state": state_snapshot, "innerworld": inner_report}
