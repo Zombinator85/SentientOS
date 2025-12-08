@@ -11,6 +11,7 @@ from sentientos.logging.events import (
     log_ethics_report,
     log_history_summary,
     log_innerworld_cycle,
+    log_debug_reflection,
     log_simulation_cycle,
 )
 
@@ -76,6 +77,8 @@ class CoreLoop:
 
         history_summary = self.innerworld.get_history_summary()
         log_history_summary(history_summary)
+        reflection_summary = self.innerworld.get_reflection_summary()
+        log_debug_reflection(reflection_summary)
 
         state_snapshot["innerworld"] = inner_report
         return {
@@ -84,4 +87,5 @@ class CoreLoop:
             "simulation": simulation_report,
             "ethics": ethics_report,
             "innerworld_history_summary": history_summary,
+            "innerworld_reflection": reflection_summary,
         }

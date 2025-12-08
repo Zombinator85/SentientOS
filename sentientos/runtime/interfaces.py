@@ -34,3 +34,6 @@ class CycleOutput(TypedDict, total=False):
     cycle_state: MutableMapping[str, Any]
     innerworld: InnerWorldReport
     simulation: SimulationReport
+    ethics: Mapping[str, Any]
+    innerworld_history_summary: Mapping[str, Any]
+    innerworld_reflection: Mapping[str, Any]
