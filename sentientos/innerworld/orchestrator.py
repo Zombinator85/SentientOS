@@ -9,6 +9,7 @@ from sentientos.ethics_core import EthicalCore
 from sentientos.identity import IdentityManager
 from sentientos.inner_experience import InnerExperience
 from sentientos.metacognition import MetaMonitor
+from sentientos.innerworld.history import CycleHistory
 from sentientos.innerworld.simulation import SimulationEngine
 from sentientos.logging.events import log_ethics_report
 
@@ -22,6 +23,7 @@ class InnerWorldOrchestrator:
         self.meta_monitor = MetaMonitor()
         self.ethics = EthicalCore()
         self.ethical_core = self.ethics
+        self.history = CycleHistory()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -90,7 +92,7 @@ class InnerWorldOrchestrator:
         }
 
         meta_notes_copy = [note.copy() for note in meta_notes]
-        return {
+        report = {
             "cycle_id": cycle_id,
             "qualia": deepcopy(qualia_snapshot),
             "identity": deepcopy(identity_snapshot),
@@ -99,6 +101,10 @@ class InnerWorldOrchestrator:
             "ethics": deepcopy(ethics_report),
             "timestamp": float(cycle_id),
         }
+
+        self.history.record(report)
+
+        return report
 
     def evaluate_ethics(self, plan, context):
         """Evaluate ethics using the orchestrator's EthicalCore without side effects."""
@@ -134,3 +140,9 @@ class InnerWorldOrchestrator:
             "self_concept": self.identity_manager.get_self_concept(),
             "identity_events": self.identity_manager.get_events(),
         }
+
+    def get_history(self):
+        return self.history.get_all()
+
+    def get_history_summary(self):
+        return self.history.summarize()
