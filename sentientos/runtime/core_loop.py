@@ -19,6 +19,8 @@ from sentientos.logging.events import (
     log_debug_value_drift,
     log_debug_autobio,
     log_simulation_cycle,
+    log_debug_federation_digest,
+    log_debug_federation_consensus,
 )
 
 from .interfaces import CycleInput, CycleOutput, InnerWorldReport
@@ -94,6 +96,8 @@ class CoreLoop:
         log_debug_dialogue(inner_report.get("inner_dialogue", []))
         log_debug_value_drift(inner_report.get("value_drift", {}))
         log_debug_autobio(inner_report.get("autobiography", []))
+        log_debug_federation_digest(inner_report.get("federation_digest", {}))
+        log_debug_federation_consensus(inner_report.get("federation_consensus", {}))
 
         state_snapshot["innerworld"] = inner_report
         return {
@@ -110,4 +114,6 @@ class CoreLoop:
             "inner_dialogue": inner_report.get("inner_dialogue"),
             "value_drift": inner_report.get("value_drift"),
             "autobiography": inner_report.get("autobiography"),
+            "federation_digest": inner_report.get("federation_digest"),
+            "federation_consensus": inner_report.get("federation_consensus"),
         }
