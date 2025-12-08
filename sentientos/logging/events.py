@@ -80,3 +80,15 @@ def log_debug_autobio(entries: list):
     """Emit debug information for autobiography entries."""
 
     logger.debug(f"[autobio] entries={entries}")
+
+
+def log_debug_federation_digest(data: dict):
+    """Emit debug information for federation digest snapshots."""
+
+    logger.debug(f"[federation-digest] {data}")
+
+
+def log_debug_federation_consensus(report: dict):
+    """Emit debug information for federation consensus reports."""
+
+    logger.debug(f"[federation-consensus] {report}")

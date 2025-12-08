@@ -1,6 +1,8 @@
 """Filesystem-based federation primitives for SentientOS."""
 
 from .identity import NodeId
+from .federation_digest import FederationDigest
+from .consensus_sentinel import FederationConsensusSentinel
 from .config import PeerConfig, FederationConfig, load_federation_config
 from .summary import (
     FederationSummary,
@@ -62,4 +64,6 @@ __all__ = [
     "compute_cathedral_sync",
     "compute_experiment_sync",
     "build_peer_sync_view",
+    "FederationDigest",
+    "FederationConsensusSentinel",
 ]

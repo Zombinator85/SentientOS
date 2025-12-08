@@ -19,6 +19,10 @@ from sentientos.innerworld.inner_dialogue import InnerDialogueEngine
 from sentientos.innerworld.value_drift import ValueDriftSentinel
 from sentientos.innerworld.autobio_compressor import AutobiographicalCompressor
 from sentientos.logging.events import log_ethics_report
+from sentientos.federation import (
+    FederationDigest,
+    FederationConsensusSentinel,
+)
 
 
 class InnerWorldOrchestrator:
@@ -38,6 +42,8 @@ class InnerWorldOrchestrator:
         self.dialogue = InnerDialogueEngine()
         self.value_drift = ValueDriftSentinel()
         self.autobio = AutobiographicalCompressor()
+        self.federation_digest = FederationDigest()
+        self.consensus_sentinel = FederationConsensusSentinel()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -171,6 +177,15 @@ class InnerWorldOrchestrator:
             report["value_drift"] = drift
             report["autobiography"] = self.autobio.get_entries()
 
+            local_digest = self.federation_digest.compute_digest(
+                identity_summary=self.get_identity_summary(),
+                config=self.get_config_snapshot(),
+            )
+            consensus_report = self.consensus_sentinel.compare(local_digest)
+
+            report["federation_digest"] = local_digest
+            report["federation_consensus"] = consensus_report
+
         return report
 
     def evaluate_ethics(self, plan, context):
@@ -223,3 +238,48 @@ class InnerWorldOrchestrator:
 
     def get_identity_summary(self):
         return self.self_narrative.summarize_identity()
+
+    def get_config_snapshot(self) -> Dict[str, Any]:
+        """Return deterministic configuration invariants for federation digests."""
+
+        return {
+            "core_values": deepcopy(self.ethics.list_values()),
+            "tone_constraints": {
+                "dialogue_max_lines": self.dialogue.max_lines,
+                "qualia_order": list(self.self_narrative.QUALIA_ORDER),
+                "ethical_order": list(self.self_narrative.ETHICAL_ORDER),
+            },
+            "ethical_rules": {
+                "safety_risk_threshold": 0.5,
+                "complexity_threshold": 10,
+                "transparency_required": True,
+            },
+            "dialogue_templates": {
+                "driver_priority": [
+                    "conflict_severity",
+                    "conflict_count",
+                    "qualia_tension",
+                    "reflection_volatility",
+                    "identity_shift",
+                    "metacog_density",
+                ],
+                "identity_template": "Identity remains qualia={qualia_status}, ethics={ethical_signal}, metacognition={metacog}.",
+            },
+            "spotlight_rules": {
+                "conflict_threshold": 2,
+                "tension_rising_min": 1.0,
+                "metacog_dense_min": 3,
+            },
+            "drift_thresholds": {
+                "ethical": {
+                    "none": 0.0,
+                    "low": 0.5,
+                    "moderate": 1.5,
+                },
+                "identity_variability": {
+                    "none": 1,
+                    "emerging": 2,
+                    "significant": 3,
+                },
+            },
+        }
