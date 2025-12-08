@@ -56,3 +56,27 @@ def log_debug_narrative(summary: Dict[str, Any]) -> None:
     """Emit a debug-level summary of the current narrative snapshot."""
 
     logger.debug(f"[narrative] identity_summary={summary}")
+
+
+def log_debug_spotlight(data: Dict[str, Any]):
+    """Emit debug information for workspace spotlight."""
+
+    logger.debug(f"[spotlight] {data}")
+
+
+def log_debug_dialogue(lines: list):
+    """Emit debug information for inner dialogue lines."""
+
+    logger.debug(f"[dialogue] {lines}")
+
+
+def log_debug_value_drift(drift: Dict[str, Any]):
+    """Emit debug information for value drift."""
+
+    logger.debug(f"[value-drift] {drift}")
+
+
+def log_debug_autobio(entries: list):
+    """Emit debug information for autobiography entries."""
+
+    logger.debug(f"[autobio] entries={entries}")

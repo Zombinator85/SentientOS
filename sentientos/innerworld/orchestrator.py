@@ -14,6 +14,10 @@ from sentientos.innerworld.reflection import CycleReflectionEngine
 from sentientos.innerworld.simulation import SimulationEngine
 from sentientos.innerworld.cognitive_report import CognitiveReportGenerator
 from sentientos.innerworld.self_narrative import SelfNarrativeEngine
+from sentientos.innerworld.global_workspace import GlobalWorkspace
+from sentientos.innerworld.inner_dialogue import InnerDialogueEngine
+from sentientos.innerworld.value_drift import ValueDriftSentinel
+from sentientos.innerworld.autobio_compressor import AutobiographicalCompressor
 from sentientos.logging.events import log_ethics_report
 
 
@@ -30,6 +34,10 @@ class InnerWorldOrchestrator:
         self.reflection_engine = CycleReflectionEngine()
         self.cognitive_reporter = CognitiveReportGenerator()
         self.self_narrative = SelfNarrativeEngine()
+        self.workspace = GlobalWorkspace()
+        self.dialogue = InnerDialogueEngine()
+        self.value_drift = ValueDriftSentinel()
+        self.autobio = AutobiographicalCompressor()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -129,6 +137,39 @@ class InnerWorldOrchestrator:
             )
 
             self.self_narrative.update_chapter(report["cognitive_report"])
+
+            spotlight = self.workspace.compute_spotlight(
+                qualia=report.get("qualia", {}),
+                meta_notes=report.get("meta", []),
+                ethics=report.get("ethics"),
+                reflection=reflection_summary,
+                identity_summary=self.get_identity_summary(),
+            )
+
+            dialogue_lines = self.dialogue.generate(
+                spotlight=spotlight,
+                reflection=reflection_summary,
+                cognitive_report=report["cognitive_report"],
+            )
+
+            self.value_drift.record_cycle(
+                ethics=report.get("ethics", {}),
+                identity_summary=self.get_identity_summary(),
+            )
+
+            drift = self.value_drift.detect_drift()
+
+            compressed_entry = self.autobio.compress(
+                chapters=self.self_narrative.get_chapters(),
+                reflection_summary=reflection_summary,
+                identity_summary=self.get_identity_summary(),
+            )
+            self.autobio.record(compressed_entry)
+
+            report["workspace_spotlight"] = spotlight
+            report["inner_dialogue"] = dialogue_lines
+            report["value_drift"] = drift
+            report["autobiography"] = self.autobio.get_entries()
 
         return report
 
