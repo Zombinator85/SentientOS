@@ -10,6 +10,7 @@ from sentientos.identity import IdentityManager
 from sentientos.inner_experience import InnerExperience
 from sentientos.metacognition import MetaMonitor
 from sentientos.innerworld.simulation import SimulationEngine
+from sentientos.logging.events import log_ethics_report
 
 
 class InnerWorldOrchestrator:
@@ -19,7 +20,8 @@ class InnerWorldOrchestrator:
         self.inner_experience = InnerExperience()
         self.identity_manager = IdentityManager()
         self.meta_monitor = MetaMonitor()
-        self.ethical_core = EthicalCore()
+        self.ethics = EthicalCore()
+        self.ethical_core = self.ethics
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -72,8 +74,9 @@ class InnerWorldOrchestrator:
 
         plan = state_copy.get("plan", {})
         plan_dict = plan if isinstance(plan, dict) else {}
-        ethical_result = self.ethical_core.evaluate_plan(plan_dict)
-        conflicts = ethical_result.get("conflicts") or []
+        ethics_report = self.ethics.evaluate(plan=plan_dict, context=assembled_state)
+        log_ethics_report(ethics_report)
+        conflicts = ethics_report.get("conflicts") or []
         if conflicts:
             summary = "; ".join(
                 f"{conflict.get('value')}: {conflict.get('reason')}" for conflict in conflicts
@@ -93,9 +96,14 @@ class InnerWorldOrchestrator:
             "identity": deepcopy(identity_snapshot),
             "metacog": deepcopy(meta_notes_copy),
             "meta": deepcopy(meta_notes_copy),
-            "ethics": deepcopy(ethical_result),
+            "ethics": deepcopy(ethics_report),
             "timestamp": float(cycle_id),
         }
+
+    def evaluate_ethics(self, plan, context):
+        """Evaluate ethics using the orchestrator's EthicalCore without side effects."""
+
+        return self.ethics.evaluate(plan=plan, context=context)
 
     def run_simulation(self, hypothetical_state: Mapping[str, Any]) -> Dict[str, Any]:
         """Convenience wrapper for SimulationEngine."""

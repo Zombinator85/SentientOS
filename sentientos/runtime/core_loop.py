@@ -7,7 +7,7 @@ import logging
 from typing import Any, MutableMapping
 
 from sentientos.innerworld import InnerWorldOrchestrator
-from sentientos.logging.events import log_innerworld_cycle, log_simulation_cycle
+from sentientos.logging.events import log_ethics_report, log_innerworld_cycle, log_simulation_cycle
 
 from .interfaces import CycleInput, CycleOutput, InnerWorldReport
 
@@ -31,6 +31,7 @@ class CoreLoop:
         state_snapshot: MutableMapping[str, Any] = dict(cycle_state)
         inner_report: InnerWorldReport = {}
         simulation_report: dict[str, Any] = {}
+        ethics_report: dict[str, Any] = {}
         try:
             inner_report = self.innerworld.run_cycle(deepcopy(state_snapshot))
         except Exception as exc:  # pragma: no cover - defensive guard
@@ -39,6 +40,18 @@ class CoreLoop:
         else:
             self._logger.debug("[innerworld-cycle] %s", inner_report)
             log_innerworld_cycle(inner_report)
+
+        current_plan = state_snapshot.get("plan")
+        try:
+            ethics_report = self.innerworld.ethics.evaluate(
+                plan=current_plan,
+                context=cycle_state,
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard
+            self._logger.debug("[innerworld-ethics] failed: %s", exc)
+            ethics_report = {}
+        else:
+            log_ethics_report(ethics_report)
 
         plan_candidate = state_snapshot.get("plan")
         if plan_candidate is not None:
@@ -61,4 +74,5 @@ class CoreLoop:
             "cycle_state": state_snapshot,
             "innerworld": inner_report,
             "simulation": simulation_report,
+            "ethics": ethics_report,
         }

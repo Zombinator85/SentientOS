@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Mapping, Any
 
 _CORE_VALUES: List[Dict[str, int]] = [
     {"name": "integrity", "priority": 10},
@@ -14,6 +14,26 @@ _CORE_VALUES: List[Dict[str, int]] = [
 
 class EthicalCore:
     """Evaluate plans and expose core value references."""
+
+    def evaluate(self, plan: Mapping[str, object] | None, context: Mapping[str, Any] | None) -> Dict[str, object]:
+        """Deterministically evaluate a plan within a provided context.
+
+        The evaluation is side-effect free and returns defensive copies to
+        prevent callers from mutating internal state.
+        """
+
+        plan_payload: Dict[str, object] = {}
+        if isinstance(plan, Mapping):
+            plan_payload = {key: value for key, value in plan.items()}
+
+        plan_result = self.evaluate_plan(plan_payload)
+        conflicts = plan_result.get("conflicts") or []
+
+        return {
+            "ok": bool(plan_result.get("ok", True)),
+            "conflicts": [dict(conflict) for conflict in conflicts],
+            "values": self.list_values(),
+        }
 
     def evaluate_plan(self, plan: Dict[str, object]) -> Dict[str, object]:
         """Assess a proposed plan for ethical alignment using deterministic rules."""
