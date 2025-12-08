@@ -14,6 +14,10 @@ from sentientos.logging.events import (
     log_debug_reflection,
     log_debug_cognitive_report,
     log_debug_narrative,
+    log_debug_spotlight,
+    log_debug_dialogue,
+    log_debug_value_drift,
+    log_debug_autobio,
     log_simulation_cycle,
 )
 
@@ -86,6 +90,10 @@ class CoreLoop:
         identity_summary = self.innerworld.get_identity_summary()
         log_debug_narrative(identity_summary)
         narrative_chapters = self.innerworld.get_narrative_chapters()
+        log_debug_spotlight(inner_report.get("workspace_spotlight", {}))
+        log_debug_dialogue(inner_report.get("inner_dialogue", []))
+        log_debug_value_drift(inner_report.get("value_drift", {}))
+        log_debug_autobio(inner_report.get("autobiography", []))
 
         state_snapshot["innerworld"] = inner_report
         return {
@@ -98,4 +106,8 @@ class CoreLoop:
             "cognitive_report": cognitive_report,
             "narrative_chapters": narrative_chapters,
             "identity_summary": identity_summary,
+            "workspace_spotlight": inner_report.get("workspace_spotlight"),
+            "inner_dialogue": inner_report.get("inner_dialogue"),
+            "value_drift": inner_report.get("value_drift"),
+            "autobiography": inner_report.get("autobiography"),
         }
