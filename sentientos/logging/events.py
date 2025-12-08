@@ -50,3 +50,9 @@ def log_debug_cognitive_report(report: Dict[str, Any]) -> None:
     """Emit a debug-level summary of the current cognitive report."""
 
     logger.debug(f"[cognitive-report] report={report}")
+
+
+def log_debug_narrative(summary: Dict[str, Any]) -> None:
+    """Emit a debug-level summary of the current narrative snapshot."""
+
+    logger.debug(f"[narrative] identity_summary={summary}")

@@ -37,3 +37,5 @@ class CycleOutput(TypedDict, total=False):
     ethics: Mapping[str, Any]
     innerworld_history_summary: Mapping[str, Any]
     innerworld_reflection: Mapping[str, Any]
+    narrative_chapters: list[Mapping[str, Any]]
+    identity_summary: Mapping[str, Any]

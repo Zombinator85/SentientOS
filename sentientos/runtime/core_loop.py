@@ -13,6 +13,7 @@ from sentientos.logging.events import (
     log_innerworld_cycle,
     log_debug_reflection,
     log_debug_cognitive_report,
+    log_debug_narrative,
     log_simulation_cycle,
 )
 
@@ -82,6 +83,9 @@ class CoreLoop:
         log_debug_reflection(reflection_summary)
         cognitive_report = inner_report.get("cognitive_report", {})
         log_debug_cognitive_report(cognitive_report)
+        identity_summary = self.innerworld.get_identity_summary()
+        log_debug_narrative(identity_summary)
+        narrative_chapters = self.innerworld.get_narrative_chapters()
 
         state_snapshot["innerworld"] = inner_report
         return {
@@ -92,4 +96,6 @@ class CoreLoop:
             "innerworld_history_summary": history_summary,
             "innerworld_reflection": reflection_summary,
             "cognitive_report": cognitive_report,
+            "narrative_chapters": narrative_chapters,
+            "identity_summary": identity_summary,
         }
