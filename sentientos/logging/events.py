@@ -24,3 +24,11 @@ def log_simulation_cycle(report: Dict[str, Any]) -> None:
         f"[innerworld-sim] qualia={report['report'].get('qualia')} "
         f"meta={report['report'].get('metacog')}"
     )
+
+
+def log_ethics_report(report: Dict[str, Any]) -> None:
+    """Emit a debug-level summary of an ethical evaluation."""
+
+    logger.debug(
+        f"[ethics] conflicts={report.get('conflicts')} values={report.get('values')}"
+    )

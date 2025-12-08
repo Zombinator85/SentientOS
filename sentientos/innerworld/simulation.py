@@ -15,9 +15,15 @@ class SimulationEngine:
         sandbox_state = deepcopy(hypothetical_state or {})
         sandbox_orchestrator = deepcopy(orchestrator)
 
+        ethics = sandbox_orchestrator.evaluate_ethics(
+            plan=sandbox_state.get("plan"),
+            context=sandbox_state,
+        )
+
         report = sandbox_orchestrator.run_cycle(sandbox_state)
 
         sanitized_report: Dict[str, Any] = deepcopy(report)
+        sanitized_report["ethics"] = deepcopy(ethics)
         sanitized_report["cycle_id"] = -1
         sanitized_report["timestamp"] = None
 
