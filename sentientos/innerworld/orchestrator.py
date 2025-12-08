@@ -13,6 +13,7 @@ from sentientos.innerworld.history import CycleHistory
 from sentientos.innerworld.reflection import CycleReflectionEngine
 from sentientos.innerworld.simulation import SimulationEngine
 from sentientos.innerworld.cognitive_report import CognitiveReportGenerator
+from sentientos.innerworld.self_narrative import SelfNarrativeEngine
 from sentientos.logging.events import log_ethics_report
 
 
@@ -28,6 +29,7 @@ class InnerWorldOrchestrator:
         self.history = CycleHistory()
         self.reflection_engine = CycleReflectionEngine()
         self.cognitive_reporter = CognitiveReportGenerator()
+        self.self_narrative = SelfNarrativeEngine()
         self._cycle_counter = 0
         self._simulation_engine: SimulationEngine | None = None
 
@@ -126,6 +128,8 @@ class InnerWorldOrchestrator:
                 simulation_report=simulation_summary,
             )
 
+            self.self_narrative.update_chapter(report["cognitive_report"])
+
         return report
 
     def evaluate_ethics(self, plan, context):
@@ -172,3 +176,9 @@ class InnerWorldOrchestrator:
     def get_reflection_summary(self):
         history = self.history.get_all()
         return self.reflection_engine.reflect(history)
+
+    def get_narrative_chapters(self):
+        return self.self_narrative.get_chapters()
+
+    def get_identity_summary(self):
+        return self.self_narrative.summarize_identity()

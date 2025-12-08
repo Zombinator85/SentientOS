@@ -5,6 +5,7 @@ from .cognitive_report import CognitiveReportGenerator
 from .orchestrator import InnerWorldOrchestrator
 from .reflection import CycleReflectionEngine
 from .simulation import SimulationEngine
+from .self_narrative import SelfNarrativeEngine
 
 __all__ = [
     "CycleHistory",
@@ -12,4 +13,5 @@ __all__ = [
     "InnerWorldOrchestrator",
     "CycleReflectionEngine",
     "SimulationEngine",
+    "SelfNarrativeEngine",
 ]
