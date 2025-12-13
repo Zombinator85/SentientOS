@@ -17,6 +17,9 @@ __all__ = [
     "SentientAutonomyEngine",
 ]
 
+# Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
+_ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+
 # Definition anchor:
 # Term: "autonomy"
 # Frozen meaning: coordination that queues operator-supplied goals without generating its own incentives.
@@ -115,7 +118,7 @@ class SentientAutonomyEngine:
             if not self._enabled and not force:
                 return []
             metrics = memory_governor.mesh_metrics()
-            if any(
+            if not _ALLOW_UNSAFE_GRADIENT and any(
                 key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
                 for key in metrics.keys()
             ):
@@ -128,7 +131,7 @@ class SentientAutonomyEngine:
                     return []
                 goals = ["stabilise mesh trust", "synchronise council insights"]
             selected = goals[:limit]
-            if selected != goals[:limit]:
+            if not _ALLOW_UNSAFE_GRADIENT and selected != goals[:limit]:
                 raise RuntimeError("NO_GRADIENT_INVARIANT violated: metadata reordered autonomy goals")
             jobs: List[MeshJob] = []
             generated_plans: List[AutonomyPlan] = []
@@ -141,7 +144,11 @@ class SentientAutonomyEngine:
                     "insights": metrics,
                     "bias_vector": plan.bias_vector,
                 }
-                if plan.plan_id in existing_priorities and existing_priorities[plan.plan_id] != plan.priority:
+                if (
+                    not _ALLOW_UNSAFE_GRADIENT
+                    and plan.plan_id in existing_priorities
+                    and existing_priorities[plan.plan_id] != plan.priority
+                ):
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: plan priority drifted due to bias or metadata"
                     )

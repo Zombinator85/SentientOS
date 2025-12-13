@@ -35,6 +35,9 @@ try:
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 
+# Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
+_ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+
 
 def _load_config(path: Path) -> Dict[str, Any]:
     if not path.exists():
@@ -98,7 +101,7 @@ class PolicyEngine:
     # -- Evaluation ---------------------------------------------------------
     def evaluate(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Evaluate an event and return actions triggered."""
-        if any(
+        if not _ALLOW_UNSAFE_GRADIENT and any(
             key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
             for key in event.keys()
         ):
@@ -114,7 +117,9 @@ class PolicyEngine:
         for action in actions:
             for key in action.keys():
                 lowered = str(key).lower()
-                if any(token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")):
+                if not _ALLOW_UNSAFE_GRADIENT and any(
+                    token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
+                ):
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: action payload contains gradient-bearing field"
                     )

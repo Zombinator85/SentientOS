@@ -1,0 +1,29 @@
+name: Invariant Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+    env:
+      SENTIENTOS_HEADLESS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+      - name: Run invariant tests
+        run: |
+          python -m pytest \
+            tests/test_sentient_autonomy.py \
+            tests/test_sentient_mesh_scheduler.py \
+            tests/test_policy_engine.py \
+            tests/test_prompt_assembler.py \
+            tests/test_capability_ledger.py
