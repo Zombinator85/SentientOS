@@ -18,6 +18,11 @@ __all__ = [
     "SentientMesh",
 ]
 
+# Definition anchor:
+# Term: "trust"
+# Frozen meaning: telemetry reliability score for mesh routing, not loyalty or obligation.
+# See: SEMANTIC_GLOSSARY.md#trust
+
 # Boundary assertion:
 # This module describes deterministic scheduling state; trust/emotion fields are telemetry summaries, not loyalty or preference encoders.
 # Assignment calculations do not grant privileges or incentives beyond reporting.

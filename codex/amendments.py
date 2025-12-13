@@ -172,6 +172,10 @@ class SpecAmender:
         self._integrity_daemon = IntegrityDaemon(self._integration_root, now=now)
 
         self._signals: Dict[str, Dict[str, Any]] = {}
+        # Definition anchor:
+        # Term: "preference"
+        # Frozen meaning: operator-configured weightings influencing selection, not desires or intentions.
+        # See: SEMANTIC_GLOSSARY.md#preference
         self._state: Dict[str, Any] = {
             "thresholds": {},
             "preferences": {},
