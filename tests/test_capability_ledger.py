@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import json
+import sys
 from typing import Any
 
 import pytest
 import capability_ledger
+import capability_ledger_cli
 import reflexion_loop
 from log_utils import read_json
 
@@ -144,3 +147,62 @@ def test_inspection_remains_read_only(monkeypatch, tmp_path) -> None:
     assert insight["status"] == "success"
     assert inspection == tuple(before_inspection)
     assert read_json(ledger.path) == before_inspection
+
+
+def test_capability_ledger_export_is_deterministic(monkeypatch, tmp_path, capsys) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    importlib.reload(capability_ledger)
+    importlib.reload(capability_ledger_cli)
+    importlib.reload(reflexion_loop)
+
+    goal = {"id": "plan-003", "text": "export goal", "plan": ["alpha", "beta", "gamma"]}
+    result = {"status": "finished"}
+
+    monkeypatch.setattr(reflexion_loop.mm, "latest_observation", lambda include_embedding=False: None)
+    monkeypatch.setattr(reflexion_loop.mm, "append_memory", lambda *_, **__: None)
+
+    reflexion_loop.record_insight(goal, result)
+
+    ledger = capability_ledger.CapabilityGrowthLedger()
+    manual_entry = capability_ledger.CapabilityLedgerEntry(
+        axis=capability_ledger.CapabilityAxis.CAPABILITY_COVERAGE,
+        measurement_method="manual/export",
+        delta="documented",
+        version_id="export-version",
+        git_commit="export-commit",
+    )
+    ledger.record(manual_entry)
+
+    stored_before = read_json(ledger.path)
+    expected_json = json.dumps(list(capability_ledger.inspect()), separators=(",", ":")) + "\n"
+
+    monkeypatch.setattr(sys, "argv", ["capability-ledger", "--format", "json"])
+    capability_ledger_cli.main()
+
+    json_output = capsys.readouterr().out
+    assert json_output == expected_json
+    assert read_json(ledger.path) == stored_before
+    assert goal["plan"] == ["alpha", "beta", "gamma"]
+
+    filtered_expected = "".join(
+        json.dumps(row, separators=(",", ":")) + "\n"
+        for row in capability_ledger.inspect(version_id="export-version")
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "capability-ledger",
+            "--format",
+            "jsonl",
+            "--version-id",
+            "export-version",
+            "--git-commit",
+            "export-commit",
+        ],
+    )
+    capability_ledger_cli.main()
+    jsonl_output = capsys.readouterr().out
+    assert jsonl_output == filtered_expected
+    assert read_json(ledger.path) == stored_before
+    assert goal["plan"] == ["alpha", "beta", "gamma"]

@@ -25,15 +25,40 @@ def _parse_args() -> argparse.Namespace:
         "--until",
         help="Return entries recorded at or before this ISO 8601 timestamp.",
     )
+    parser.add_argument(
+        "--version-id",
+        help="Filter entries by recorded version identifier.",
+    )
+    parser.add_argument(
+        "--git-commit",
+        help="Filter entries by recorded git commit hash.",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["json", "jsonl"],
+        default="json",
+        help="Choose between JSON array output or newline-delimited JSON (JSONL).",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
     ledger = CapabilityGrowthLedger()
-    entries = ledger.inspect(axis=args.axis, since=args.since, until=args.until)
-    json.dump(list(entries), sys.stdout, indent=2)
-    sys.stdout.write("\n")
+    entries = ledger.inspect(
+        axis=args.axis,
+        since=args.since,
+        until=args.until,
+        version_id=args.version_id,
+        git_commit=args.git_commit,
+    )
+    if args.format == "jsonl":
+        for entry in entries:
+            sys.stdout.write(json.dumps(entry, separators=(",", ":")))
+            sys.stdout.write("\n")
+    else:
+        sys.stdout.write(json.dumps(list(entries), separators=(",", ":")))
+        sys.stdout.write("\n")
 
 
 if __name__ == "__main__":
