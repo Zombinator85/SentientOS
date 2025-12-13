@@ -5,6 +5,7 @@ Add the banner, `from __future__ import annotations`, an optional docstring,
 and only then your other imports.
 
 🔧 Dev setup: `pip install -e .[dev]`
+Dev extras install PyYAML so pytest fixtures that load YAML assets stay usable.
 
 Quick-start minimal:
 
