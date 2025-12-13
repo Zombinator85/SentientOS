@@ -45,6 +45,8 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     ledger = CapabilityGrowthLedger()
+    # Boundary assertion: CLI exports are audit artifacts only; do not treat
+    # them as optimization signals, planning inputs, or prompt material.
     entries = ledger.inspect(
         axis=args.axis,
         since=args.since,

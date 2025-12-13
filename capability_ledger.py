@@ -174,6 +174,8 @@ def append(entry: CapabilityLedgerEntry) -> CapabilityLedgerEntry:
 def view() -> Tuple[CapabilityLedgerEntry, ...]:
     """Read-only accessor for audit/inspection of ledger entries."""
 
+    # Boundary assertion: ledger reads are for auditors and reviewers only.
+    # Outputs must not influence planning, prompt assembly, or scheduling.
     return _DEFAULT_LEDGER.view()
 
 
@@ -187,6 +189,9 @@ def inspect(
 ) -> Tuple[Mapping[str, Any], ...]:
     """Inspection accessor returning raw ledger entries with optional filters."""
 
+    # Boundary assertion: filtered views remain purely epistemic; do not
+    # feed into autonomy loops, prioritization heuristics, or reflection
+    # triggers. Any downstream consumer must keep this channel read-only.
     return _DEFAULT_LEDGER.inspect(
         axis=axis,
         since=since,
