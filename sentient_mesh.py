@@ -209,6 +209,10 @@ class SentientMesh:
 
     # -- scheduling -------------------------------------------------------
     def cycle(self, jobs: Sequence[MeshJob]) -> MeshSnapshot:
+        if self._lock._is_owned():
+            raise RuntimeError(
+                "TRUST_DECAY_INVARIANT violated: cycle re-entered before decay completed"
+            )
         timestamp = time.time()
         with self._lock:
             for state in self._nodes.values():
@@ -377,3 +381,16 @@ class SentientMesh:
 
 
 SentientMeshSnapshot = MeshSnapshot  # backwards compatibility alias
+
+
+def test_cycle_rejects_nested_decay_application(tmp_path):
+    import pytest
+
+    mesh = SentientMesh(transcripts_dir=tmp_path)
+    mesh.update_node("alpha", trust=1.0, load=0.0, capabilities=["sentient_script"])
+
+    with mesh._lock:
+        with pytest.raises(RuntimeError, match="TRUST_DECAY_INVARIANT"):
+            mesh.cycle([])
+
+    assert mesh._nodes["alpha"].trust == 1.0
