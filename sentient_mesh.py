@@ -18,6 +18,9 @@ __all__ = [
     "SentientMesh",
 ]
 
+# Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
+_ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+
 # Definition anchor:
 # Term: "trust"
 # Frozen meaning: telemetry reliability score for mesh routing, not loyalty or obligation.
@@ -209,6 +212,15 @@ class SentientMesh:
 
     # -- scheduling -------------------------------------------------------
     def cycle(self, jobs: Sequence[MeshJob]) -> MeshSnapshot:
+        debug_cache = None
+        debug_input_hash = None
+        if __debug__:
+            job_descriptions = [job.describe() for job in jobs]
+            debug_input_hash = MeshVoice.canonical({"jobs": job_descriptions})
+            debug_cache = getattr(self, "_debug_cycle_hashes", None)
+            if debug_cache is None:
+                debug_cache = {}
+                self._debug_cycle_hashes = debug_cache
         if self._lock._is_owned():
             raise RuntimeError(
                 "TRUST_DECAY_INVARIANT violated: cycle re-entered before decay completed"
@@ -235,7 +247,9 @@ class SentientMesh:
                 }
                 for key in job.metadata.keys():
                     lowered = str(key).lower()
-                    if any(token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")):
+                    if not _ALLOW_UNSAFE_GRADIENT and any(
+                        token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
+                    ):
                         raise RuntimeError(
                             "NO_GRADIENT_INVARIANT violated: action routing received gradient-bearing metadata"
                         )
@@ -244,7 +258,7 @@ class SentientMesh:
                     state.node_id: (float(state.trust), float(state.load))
                     for state in self._nodes.values()
                 }
-                if weights_after_selection != weights_before_job:
+                if not _ALLOW_UNSAFE_GRADIENT and weights_after_selection != weights_before_job:
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: selection weights mutated by metadata during routing"
                     )
@@ -309,6 +323,13 @@ class SentientMesh:
                 council_sessions=sessions_summary,
                 jobs=jobs_payload,
             )
+            if __debug__:
+                output_hash = MeshVoice.canonical({"assignments": assignments, "jobs": jobs_payload})
+                previous_hash = debug_cache.get(debug_input_hash) if debug_cache is not None else None
+                if previous_hash is not None:
+                    assert previous_hash == output_hash, "MESH_DETERMINISM invariant violated"
+                if debug_cache is not None:
+                    debug_cache[debug_input_hash] = output_hash
             self._last_snapshot = snapshot
             self._last_broadcast = timestamp
             return snapshot

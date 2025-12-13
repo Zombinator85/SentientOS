@@ -22,6 +22,7 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     memories = mm.get_context(user_input, k=k)
     presentation_only = {"affect", "tone", "presentation"}
     normalized_memories: List[str] = []
+    # All prompt assembly entrypoints route through this sanitizer; regression tests keep affect/tone stripping enforced.
     for memory in memories:
         if isinstance(memory, dict):
             sanitized = {k: v for k, v in memory.items() if k not in presentation_only}
