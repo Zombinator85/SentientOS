@@ -69,3 +69,29 @@ def test_plan_order_ignores_affect_metadata(monkeypatch):
     assert "affect" not in prompt_with_affect
     assert "tone" not in prompt_with_affect
     assert "presentation" not in prompt_with_affect
+
+
+def test_prompt_inputs_repeat_without_leak(monkeypatch):
+    from importlib import reload
+
+    reload(pa)
+
+    monkeypatch.setattr(pa.up, "format_profile", lambda: "name: Allen")
+    monkeypatch.setattr(pa.em, "average_emotion", lambda: {})
+    monkeypatch.setattr(pa.cw, "get_context", lambda: (["msg-1"], "summary"))
+    monkeypatch.setattr(pa.actuator, "recent_logs", lambda *args, **kwargs: [])
+
+    calls: list[list[dict[str, object]]] = []
+
+    def deterministic_context(_query, k=6):
+        payload = [{"plan": "alpha", "affect": "calm"}, {"plan": "beta", "text": "delta"}]
+        calls.append(payload)
+        return payload
+
+    monkeypatch.setattr(pa.mm, "get_context", deterministic_context)
+
+    first = pa.assemble_prompt("reflect", ["hi"], k=2)
+    second = pa.assemble_prompt("reflect", ["hi"], k=2)
+
+    assert first == second
+    assert calls[0] == calls[1]

@@ -218,6 +218,8 @@ class SentientMesh:
         # Failure here terminates the cycle without retry, recovery, or compensation.
         # This is not avoidance, distress, or persistence logic.
         # See: DEGRADATION_CONTRACT.md §2
+        # Boundary assertion: continuity ≠ preference, repetition ≠ desire, memory ≠ attachment.
+        # Snapshot reuse does not encode appetite or loyalty; it only records telemetry for audit.
         failure = _inject_test_failure("sentient_mesh.cycle", {"job_ids": [job.job_id for job in jobs]})
         if failure:
             mode = failure.get("mode", "deterministic_degradation")
