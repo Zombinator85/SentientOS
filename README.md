@@ -17,6 +17,8 @@ runtime bounded without manual toggles.
 For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
 Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation without review is considered a breaking change.
 
+> Semantic regression guard: `scripts/semantic_lint.sh` enforces language neutrality, and interpretation drift is treated as a breaking change alongside API or schema updates.
+
 ## 📦 Installation
 
 Install the API and GUI directly from the source tree:

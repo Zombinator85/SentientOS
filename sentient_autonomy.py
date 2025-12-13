@@ -32,6 +32,12 @@ __all__ = [
 # that is incorrect. The queue is a deterministic list of operator-supplied or policy-derived strings with no appetite or desire.
 # See: INTERPRETATION_DRIFT_SIGNALS.md §Agency language and §Persistence framing.
 
+# Boundary assertion:
+# This module does not reference or consult the Capability Growth Ledger.
+# Ledger entries are post-hoc descriptive artifacts only.
+# No metric here alters action selection, scheduling, or persistence.
+# See: CAPABILITY_GROWTH_LEDGER.md, NAIR_CONFORMANCE_AUDIT.md
+
 
 @dataclass
 class AutonomyPlan:

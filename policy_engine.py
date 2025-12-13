@@ -16,6 +16,11 @@ require_lumos_approval()
 # Policies are loaded and applied deterministically after approval; there is no reward loop or goal-seeking intent.
 # See: INTERPRETATION_DRIFT_SIGNALS.md §Reward inference and §Teleology creep.
 
+# Boundary assertion:
+# This policy loader does not reference or consult the Capability Growth Ledger.
+# Ledger entries document structural deltas only and never affect approvals, routing, or persistence.
+# See: CAPABILITY_GROWTH_LEDGER.md, NAIR_CONFORMANCE_AUDIT.md
+
 import json
 import time
 import re
