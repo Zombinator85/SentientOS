@@ -79,6 +79,7 @@ def record_insight(goal: Dict[str, Any], result: Dict[str, Any], consensus: Dict
             delta=f"goal={goal.get('id', '') or 'unknown'} status={insight['status']}",
             notes="Epistemic reflection entry only; no behavioural effect.",
             evidence={"lesson": insight["lesson"], "adjustment": insight["adjustment"]},
+            source={"module": "reflection", "hook": "reflexion_loop.record_insight"},
         )
     )
     return insight

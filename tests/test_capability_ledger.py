@@ -42,6 +42,10 @@ def test_capability_ledger_does_not_change_plan_order(monkeypatch, tmp_path) -> 
     assert entry["delta"].endswith("status=success")
     assert emotion == "neutral"
     assert consent == "epistemic"
+    assert entry["source"] == {
+        "module": "reflection",
+        "hook": "reflexion_loop.record_insight",
+    }
 
 
 def test_capability_ledger_inspection_matches_storage(monkeypatch, tmp_path) -> None:
@@ -65,6 +69,7 @@ def test_capability_ledger_inspection_matches_storage(monkeypatch, tmp_path) -> 
 
     stored_entries = read_json(ledger.path)
     assert stored_entries, "ledger should contain recorded entries"
+    assert all(entry.get("source") == {"module": "manual", "hook": entry["measurement_method"]} for entry in stored_entries)
 
     axis_filtered = ledger.inspect(axis=capability_ledger.CapabilityAxis.STRUCTURAL_RICHNESS)
     assert axis_filtered == (stored_entries[0],)
@@ -170,6 +175,7 @@ def test_capability_ledger_export_is_deterministic(monkeypatch, tmp_path, capsys
         delta="documented",
         version_id="export-version",
         git_commit="export-commit",
+        source={"module": "manual", "hook": "capability_ledger_cli"},
     )
     ledger.record(manual_entry)
 

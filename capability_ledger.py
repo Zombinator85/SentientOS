@@ -31,6 +31,7 @@ class CapabilityLedgerEntry:
     evidence: Mapping[str, Any] | None = None
     version_id: str | None = None
     git_commit: str | None = None
+    source: Mapping[str, str] | None = None
 
     def to_record(self) -> dict[str, Any]:
         record: dict[str, Any] = {
@@ -45,12 +46,18 @@ class CapabilityLedgerEntry:
             record["version_id"] = self.version_id
         if self.git_commit:
             record["git_commit"] = self.git_commit
+        if self.source:
+            record["source"] = {
+                "module": str(self.source.get("module", "")),
+                "hook": str(self.source.get("hook", "")),
+            }
         return record
 
     @classmethod
     def from_record(cls, record: Mapping[str, Any]) -> "CapabilityLedgerEntry":
         axis_value = CapabilityAxis(str(record["axis"]))
         evidence = record.get("evidence")
+        source = record.get("source")
         return cls(
             axis=axis_value,
             measurement_method=str(record.get("measurement_method", "")),
@@ -59,6 +66,12 @@ class CapabilityLedgerEntry:
             evidence=dict(evidence) if isinstance(evidence, Mapping) else None,
             version_id=str(record["version_id"]) if record.get("version_id") else None,
             git_commit=str(record["git_commit"]) if record.get("git_commit") else None,
+            source={
+                "module": str(source.get("module", "")),
+                "hook": str(source.get("hook", "")),
+            }
+            if isinstance(source, Mapping)
+            else None,
         )
 
 
@@ -78,7 +91,8 @@ class CapabilityGrowthLedger:
         return self._path
 
     def record(self, entry: CapabilityLedgerEntry) -> CapabilityLedgerEntry:
-        enriched = self._with_version_metadata(entry)
+        enriched = self._with_source_metadata(entry)
+        enriched = self._with_version_metadata(enriched)
         append_json(self._path, enriched.to_record(), emotion="neutral", consent="epistemic")
         return enriched
 
@@ -139,6 +153,13 @@ class CapabilityGrowthLedger:
             return entry
 
         return replace(entry, version_id=resolved_version, git_commit=resolved_commit)
+
+    def _with_source_metadata(self, entry: CapabilityLedgerEntry) -> CapabilityLedgerEntry:
+        if entry.source:
+            return entry
+
+        hook = entry.measurement_method or "unspecified"
+        return replace(entry, source={"module": "manual", "hook": hook})
 
 
 _DEFAULT_LEDGER = CapabilityGrowthLedger()
