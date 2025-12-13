@@ -76,6 +76,10 @@ class PolicyEngine:
 
     def apply_policy(self, path: str, approvers: Optional[List[str]] = None) -> None:
         """Replace active policy set with ``path`` contents."""
+        # Boundary assertion:
+        # Failure here terminates the swap without retry, recovery, or compensation.
+        # This is not avoidance, distress, or persistence logic.
+        # See: DEGRADATION_CONTRACT.md §2
         if approvers is not None:
             approved = final_approval.request_approval(
                 f"policy {path}", approvers=approvers

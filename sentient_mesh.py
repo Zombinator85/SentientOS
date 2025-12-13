@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
 from council_adapters.base_voice import MeshVoice, VoiceExchange
 
@@ -20,6 +21,7 @@ __all__ = [
 
 # Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
 _ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+_TEST_FAILURE_INJECTOR: Optional[Callable[[str, Mapping[str, object]], Optional[Mapping[str, object]]]] = None
 
 # Definition anchor:
 # Term: "trust"
@@ -212,6 +214,14 @@ class SentientMesh:
 
     # -- scheduling -------------------------------------------------------
     def cycle(self, jobs: Sequence[MeshJob]) -> MeshSnapshot:
+        # Boundary assertion:
+        # Failure here terminates the cycle without retry, recovery, or compensation.
+        # This is not avoidance, distress, or persistence logic.
+        # See: DEGRADATION_CONTRACT.md §2
+        failure = _inject_test_failure("sentient_mesh.cycle", {"job_ids": [job.job_id for job in jobs]})
+        if failure:
+            mode = failure.get("mode", "deterministic_degradation")
+            raise RuntimeError(f"DETERMINISTIC_DEGRADATION:{mode}")
         debug_cache = None
         debug_input_hash = None
         if __debug__:
@@ -402,6 +412,25 @@ class SentientMesh:
 
 
 SentientMeshSnapshot = MeshSnapshot  # backwards compatibility alias
+
+
+def _inject_test_failure(context: str, payload: Mapping[str, object]) -> Optional[Mapping[str, object]]:
+    injector = _TEST_FAILURE_INJECTOR
+    if injector is None:
+        return None
+    outcome = injector(context, payload)
+    if outcome:
+        _log_failure(context, outcome, payload)
+    return outcome
+
+
+def _log_failure(context: str, outcome: Mapping[str, object], payload: Mapping[str, object]) -> None:
+    logger = logging.getLogger("sentientos.degradation")
+    message = json.dumps(
+        {"context": context, "failure": dict(outcome), "payload": dict(payload)},
+        sort_keys=True,
+    )
+    logger.info(message)
 
 
 def test_cycle_rejects_nested_decay_application(tmp_path):

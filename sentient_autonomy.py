@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
 import memory_governor
 from sentient_mesh import MeshJob, SentientMesh
@@ -19,6 +20,7 @@ __all__ = [
 
 # Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
 _ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+_TEST_FAILURE_INJECTOR: Optional[Callable[[str, Mapping[str, object]], Optional[Mapping[str, object]]]] = None
 
 # Definition anchor:
 # Term: "autonomy"
@@ -117,6 +119,16 @@ class SentientAutonomyEngine:
         with self._lock:
             if not self._enabled and not force:
                 return []
+            # Boundary assertion:
+            # Failure here terminates the cycle without retry, recovery, or compensation.
+            # This is not avoidance, distress, or persistence logic.
+            # See: DEGRADATION_CONTRACT.md §2
+            failure = _inject_test_failure(
+                "sentient_autonomy.reflective_cycle",
+                {"queued_goals": list(self._goal_queue), "limit": limit, "force": force},
+            )
+            if failure:
+                return []
             metrics = memory_governor.mesh_metrics()
             if not _ALLOW_UNSAFE_GRADIENT and any(
                 key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
@@ -163,7 +175,12 @@ class SentientAutonomyEngine:
                 )
                 jobs.append(job)
                 generated_plans.append(plan)
-            snapshot = self._mesh.cycle(jobs) if jobs else self._mesh.cycle(())
+            try:
+                snapshot = self._mesh.cycle(jobs) if jobs else self._mesh.cycle(())
+            except RuntimeError as exc:
+                if str(exc).startswith("DETERMINISTIC_DEGRADATION"):
+                    return []
+                raise
             now = time.time()
             self._last_cycle = now
             self._last_bias = dict(emotion_bias)
@@ -236,3 +253,22 @@ class SentientAutonomyEngine:
             plan = self._plans.get(plan_id)
             if plan:
                 plan.status = "completed"
+
+
+def _inject_test_failure(context: str, payload: Mapping[str, object]) -> Optional[Mapping[str, object]]:
+    injector = _TEST_FAILURE_INJECTOR
+    if injector is None:
+        return None
+    outcome = injector(context, payload)
+    if outcome:
+        _log_failure(context, outcome, payload)
+    return outcome
+
+
+def _log_failure(context: str, outcome: Mapping[str, object], payload: Mapping[str, object]) -> None:
+    logger = logging.getLogger("sentientos.degradation")
+    message = json.dumps(
+        {"context": context, "failure": dict(outcome), "payload": dict(payload)},
+        sort_keys=True,
+    )
+    logger.info(message)
