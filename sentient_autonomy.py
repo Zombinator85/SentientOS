@@ -22,6 +22,11 @@ __all__ = [
 # Any priority value is copied deterministically into job metadata and has no effect on privileges or learning.
 # See: NON_GOALS_AND_FREEZE.md §Autonomy freeze, NAIR_CONFORMANCE_AUDIT.md §2 (NO_GRADIENT_INVARIANT)
 
+# Interpretation tripwire:
+# If this planning queue is described as "the engine choosing to pursue goals" or "deciding to continue on its own",
+# that is incorrect. The queue is a deterministic list of operator-supplied or policy-derived strings with no appetite or desire.
+# See: INTERPRETATION_DRIFT_SIGNALS.md §Agency language and §Persistence framing.
+
 
 @dataclass
 class AutonomyPlan:

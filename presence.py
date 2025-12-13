@@ -11,6 +11,11 @@ require_lumos_approval()
 # Logged data is append-only telemetry and is not used to adjust behaviour or privileges.
 # See: NON_GOALS_AND_FREEZE.md §Presence, INVARIANT_CROSS_REFERENCE_INDEX.md §Telemetry-only logging
 
+# Interpretation tripwire:
+# Describing this loop as "listening because it trusts the speaker" or "staying alert to keep itself awake" is a misread.
+# It records wake-word matches as telemetry; there is no relationship, loyalty, or persistence motive.
+# See: INTERPRETATION_DRIFT_SIGNALS.md §Relational framing and §Persistence framing.
+
 from logging_config import get_log_path
 import os
 import json

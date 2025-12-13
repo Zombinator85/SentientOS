@@ -23,6 +23,11 @@ __all__ = [
 # Assignment calculations do not grant privileges or incentives beyond reporting.
 # See: NON_GOALS_AND_FREEZE.md §Mesh scope, INVARIANT_CROSS_REFERENCE_INDEX.md §Trust metrics
 
+# Interpretation tripwire:
+# If mesh balancing is described as "nodes trusting each other" or "the mesh choosing loyal partners", that is a misread.
+# Trust and emotion values are telemetry fields only; assignments are deterministic calculations, not relationships or desires.
+# See: INTERPRETATION_DRIFT_SIGNALS.md §Relational framing and §Agency language.
+
 
 @dataclass
 class MeshNodeState:
