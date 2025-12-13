@@ -32,6 +32,15 @@ def _default_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _neutralize_expression(text: str) -> str:
+    """Remove expressive verbs so review UI shows neutral tone only."""
+
+    normalized = text
+    for marker in ("Reinforce", "reinforce", "Tighten", "tighten"):
+        normalized = normalized.replace(marker, "Update")
+    return normalized
+
+
 @dataclass
 class AmendmentProposal:
     """Structured amendment proposal for an existing spec."""
@@ -333,6 +342,12 @@ class SpecAmender:
                 key: value
                 for key, value in payload.get("deltas", {}).items()
             }
+            presentation: Dict[str, Any] = {
+                "summary": _neutralize_expression(str(payload.get("summary", ""))),
+            }
+            objective_after = diff.get("objective", {}).get("after")
+            if isinstance(objective_after, str):
+                presentation["objective_after"] = _neutralize_expression(objective_after)
             items.append(
                 {
                     "proposal_id": payload.get("proposal_id"),
@@ -343,6 +358,7 @@ class SpecAmender:
                     "diff": diff,
                     "context": payload.get("context", {}),
                     "ledger_entry": payload.get("ledger_entry"),
+                    "presentation": presentation,
                 }
             )
         return {
