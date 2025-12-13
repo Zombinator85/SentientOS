@@ -17,6 +17,11 @@ __all__ = [
     "SentientAutonomyEngine",
 ]
 
+# Boundary assertion:
+# This module does not originate goals, preferences, or incentives; it schedules operator-supplied strings without reward loops.
+# Any priority value is copied deterministically into job metadata and has no effect on privileges or learning.
+# See: NON_GOALS_AND_FREEZE.md §Autonomy freeze, NAIR_CONFORMANCE_AUDIT.md §2 (NO_GRADIENT_INVARIANT)
+
 
 @dataclass
 class AutonomyPlan:

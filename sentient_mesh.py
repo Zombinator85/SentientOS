@@ -18,6 +18,11 @@ __all__ = [
     "SentientMesh",
 ]
 
+# Boundary assertion:
+# This module describes deterministic scheduling state; trust/emotion fields are telemetry summaries, not loyalty or preference encoders.
+# Assignment calculations do not grant privileges or incentives beyond reporting.
+# See: NON_GOALS_AND_FREEZE.md §Mesh scope, INVARIANT_CROSS_REFERENCE_INDEX.md §Trust metrics
+
 
 @dataclass
 class MeshNodeState:

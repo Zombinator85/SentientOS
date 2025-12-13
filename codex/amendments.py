@@ -10,6 +10,12 @@ import json
 import uuid
 
 
+# Boundary assertion:
+# This module records specification amendments and routes them for review; it does not generate policies, goals, or incentives autonomously.
+# All changes require external proposals and explicit approvals; no learning or optimisation occurs here.
+# See: NON_GOALS_AND_FREEZE.md §Governance freeze, NAIR_CONFORMANCE_AUDIT.md §2 (NO_GRADIENT_INVARIANT)
+
+
 from .integrity_daemon import IntegrityDaemon, IntegrityViolation
 from privilege_lint.reporting import (
     NarratorLink,

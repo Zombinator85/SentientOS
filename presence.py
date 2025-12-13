@@ -6,6 +6,11 @@ require_admin_banner()
 require_lumos_approval()
 """Presence detection service for wake words and transcripts."""
 
+# Boundary assertion:
+# This module only records wake-word events and raw transcript snippets; it does not infer identity, affinity, or relational state.
+# Logged data is append-only telemetry and is not used to adjust behaviour or privileges.
+# See: NON_GOALS_AND_FREEZE.md §Presence, INVARIANT_CROSS_REFERENCE_INDEX.md §Telemetry-only logging
+
 from logging_config import get_log_path
 import os
 import json
