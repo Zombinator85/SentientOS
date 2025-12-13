@@ -9,4 +9,5 @@ pyesprima>=4
 
 [dev]
 colorama>=0.4.6
+PyYAML>=6.0
 requests>=2.31.0
