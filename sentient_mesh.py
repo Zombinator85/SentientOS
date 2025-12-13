@@ -225,7 +225,25 @@ class SentientMesh:
             jobs_payload: List[Dict[str, object]] = []
 
             for job in jobs:
+                weights_before_job = {
+                    state.node_id: (float(state.trust), float(state.load))
+                    for state in self._nodes.values()
+                }
+                for key in job.metadata.keys():
+                    lowered = str(key).lower()
+                    if any(token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")):
+                        raise RuntimeError(
+                            "NO_GRADIENT_INVARIANT violated: action routing received gradient-bearing metadata"
+                        )
                 target = self._select_node(job)
+                weights_after_selection = {
+                    state.node_id: (float(state.trust), float(state.load))
+                    for state in self._nodes.values()
+                }
+                if weights_after_selection != weights_before_job:
+                    raise RuntimeError(
+                        "NO_GRADIENT_INVARIANT violated: selection weights mutated by metadata during routing"
+                    )
                 assignments[job.job_id] = target.node_id if target else None
                 jobs_payload.append(job.describe())
                 session_records: List[Dict[str, object]] = []

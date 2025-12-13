@@ -115,6 +115,11 @@ class SentientAutonomyEngine:
             if not self._enabled and not force:
                 return []
             metrics = memory_governor.mesh_metrics()
+            if any(
+                key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
+                for key in metrics.keys()
+            ):
+                raise RuntimeError("NO_GRADIENT_INVARIANT violated: reward-like metrics detected in autonomy input")
             goals = list(self._goal_queue)
             if not goals and metrics.get("open_goals"):
                 goals = [str(goal) for goal in metrics["open_goals"]]
@@ -123,9 +128,12 @@ class SentientAutonomyEngine:
                     return []
                 goals = ["stabilise mesh trust", "synchronise council insights"]
             selected = goals[:limit]
+            if selected != goals[:limit]:
+                raise RuntimeError("NO_GRADIENT_INVARIANT violated: metadata reordered autonomy goals")
             jobs: List[MeshJob] = []
             generated_plans: List[AutonomyPlan] = []
             emotion_bias = metrics.get("emotion_consensus", {})
+            existing_priorities = {plan.plan_id: plan.priority for plan in self._plans.values()}
             for goal in selected:
                 plan = self._create_or_update_plan(goal, bias_vector=emotion_bias)
                 script_payload = {
@@ -133,6 +141,10 @@ class SentientAutonomyEngine:
                     "insights": metrics,
                     "bias_vector": plan.bias_vector,
                 }
+                if plan.plan_id in existing_priorities and existing_priorities[plan.plan_id] != plan.priority:
+                    raise RuntimeError(
+                        "NO_GRADIENT_INVARIANT violated: plan priority drifted due to bias or metadata"
+                    )
                 prompt = self._render_prompt(goal, metrics)
                 job = MeshJob(
                     job_id=plan.plan_id,

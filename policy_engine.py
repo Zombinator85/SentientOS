@@ -98,12 +98,26 @@ class PolicyEngine:
     # -- Evaluation ---------------------------------------------------------
     def evaluate(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Evaluate an event and return actions triggered."""
+        if any(
+            key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
+            for key in event.keys()
+        ):
+            raise RuntimeError(
+                "NO_GRADIENT_INVARIANT violated: reward or utility fields cannot influence policy action selection"
+            )
         actions: List[Dict[str, Any]] = []
         for pol in self.policies:
             if self._match(pol.get("conditions", {}), event):
                 actions.extend(pol.get("actions", []))
         if actions:
             self._log(event, actions)
+        for action in actions:
+            for key in action.keys():
+                lowered = str(key).lower()
+                if any(token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")):
+                    raise RuntimeError(
+                        "NO_GRADIENT_INVARIANT violated: action payload contains gradient-bearing field"
+                    )
         return actions
 
     def _match(self, cond: Dict[str, Any], event: Dict[str, Any]) -> bool:
