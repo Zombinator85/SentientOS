@@ -74,6 +74,55 @@ def test_capability_ledger_inspection_matches_storage(monkeypatch, tmp_path) -> 
     assert read_json(ledger.path) == stored_entries
 
 
+def test_capability_ledger_version_metadata(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    importlib.reload(capability_ledger)
+
+    monkeypatch.setattr(capability_ledger, "_read_version_id", lambda: "v9")
+    monkeypatch.setattr(capability_ledger, "_read_git_commit", lambda: "commit-abc")
+
+    ledger = capability_ledger.CapabilityGrowthLedger()
+    auto = capability_ledger.CapabilityLedgerEntry(
+        axis=capability_ledger.CapabilityAxis.CAPABILITY_COVERAGE,
+        measurement_method="auto-fill",
+        delta="auto-detected",
+    )
+    explicit = capability_ledger.CapabilityLedgerEntry(
+        axis=capability_ledger.CapabilityAxis.INTERNAL_COHERENCE,
+        measurement_method="explicit",
+        delta="explicit-version",
+        version_id="caller-version",
+    )
+    commit_only = capability_ledger.CapabilityLedgerEntry(
+        axis=capability_ledger.CapabilityAxis.EXPRESSIVE_RANGE,
+        measurement_method="commit-only",
+        delta="commit-detected",
+        git_commit="caller-commit",
+    )
+
+    ledger.record(auto)
+    ledger.record(explicit)
+    ledger.record(commit_only)
+
+    stored_entries = read_json(ledger.path)
+    assert len(stored_entries) == 3
+
+    assert stored_entries[0]["version_id"] == "v9"
+    assert stored_entries[0]["git_commit"] == "commit-abc"
+    assert stored_entries[1]["version_id"] == "caller-version"
+    assert stored_entries[1]["git_commit"] == "commit-abc"
+    assert stored_entries[2]["version_id"] == "v9"
+    assert stored_entries[2]["git_commit"] == "caller-commit"
+
+    version_filtered = ledger.inspect(version_id="caller-version")
+    assert version_filtered == (stored_entries[1],)
+
+    commit_filtered = ledger.inspect(git_commit="caller-commit")
+    assert commit_filtered == (stored_entries[2],)
+
+    assert ledger.inspect() == tuple(stored_entries)
+
+
 def test_inspection_remains_read_only(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
     importlib.reload(capability_ledger)
