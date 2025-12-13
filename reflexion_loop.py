@@ -12,6 +12,7 @@ import datetime
 import json
 from typing import Any, Dict, Mapping
 
+from capability_ledger import CapabilityAxis, CapabilityLedgerEntry, append as append_capability_entry
 import memory_manager as mm
 
 
@@ -70,6 +71,15 @@ def record_insight(goal: Dict[str, Any], result: Dict[str, Any], consensus: Dict
         json.dumps({"reflexion": insight}, ensure_ascii=False),
         tags=["reflection", "reflexion", goal.get("id", "")],
         source="reflexion_loop",
+    )
+    append_capability_entry(
+        CapabilityLedgerEntry(
+            axis=CapabilityAxis.INTERNAL_COHERENCE,
+            measurement_method="reflexion_loop.record_insight",
+            delta=f"goal={goal.get('id', '') or 'unknown'} status={insight['status']}",
+            notes="Epistemic reflection entry only; no behavioural effect.",
+            evidence={"lesson": insight["lesson"], "adjustment": insight["adjustment"]},
+        )
     )
     return insight
 
