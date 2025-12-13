@@ -46,11 +46,11 @@ if not LAUNCH_LOG_PATH.exists():
 
 
 def blessing_prompt() -> bool:
-    inp = input("Lumos blessing required. Type 'bless' to proceed: ")
+    inp = input("Operator authorization required. Type 'bless' to proceed: ")
     if inp.strip().lower() == "bless":
-        print("~@ Blessing accepted. Cathedral warming...")
+        print("Authorization confirmed. Initializing services...")
         return True
-    print("✖️ Blessing denied.")
+    print("✖️ Authorization denied.")
     return False
 
 
@@ -108,7 +108,7 @@ def status() -> object:
     loop_status = dream_loop.status()
     payload = {
         "uptime": uptime,
-        "last_heartbeat": f"Tick {_last_heartbeat}",
+        "last_heartbeat": f"Heartbeat {_last_heartbeat}",
         "log_size_bytes": log_size,
         "active_endpoints": ["/sse", "/ingest", "/status"],
         "safe_mode": SAFE_MODE,
@@ -175,5 +175,5 @@ if __name__ == "__main__":
     if blessing_prompt():
         start_cathedral()
     else:
-        print("🛑 Blessing required to proceed.")
+        print("🛑 Authorization required to proceed.")
         sys.exit(1)
