@@ -191,6 +191,8 @@ class SentientMesh:
     def cycle(self, jobs: Sequence[MeshJob]) -> MeshSnapshot:
         timestamp = time.time()
         with self._lock:
+            for state in self._nodes.values():
+                state.trust *= 0.9
             assignments: Dict[str, Optional[str]] = {}
             trust_vector: Dict[str, float] = {
                 node_id: state.trust for node_id, state in self._nodes.items()

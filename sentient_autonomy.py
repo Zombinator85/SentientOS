@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import uuid
@@ -48,7 +49,7 @@ class AutonomyPlan:
 class SentientAutonomyEngine:
     """Produces new Sentient Script plans based on mesh state."""
 
-    def __init__(self, mesh: SentientMesh) -> None:
+    def __init__(self, mesh: SentientMesh, *, allow_fallback_goals: Optional[bool] = None) -> None:
         self._mesh = mesh
         self._plans: Dict[str, AutonomyPlan] = {}
         self._goal_queue: List[str] = []
@@ -56,6 +57,8 @@ class SentientAutonomyEngine:
         self._enabled = False
         self._last_cycle: Optional[float] = None
         self._last_bias: Mapping[str, float] = {}
+        env_fallback = os.getenv("SENTIENT_AUTONOMY_ENABLE_FALLBACK", "1")
+        self._fallback_enabled = allow_fallback_goals if allow_fallback_goals is not None else env_fallback not in {"0", "false", "False"}
 
     # -- lifecycle --------------------------------------------------------
     def start(self) -> None:
@@ -90,6 +93,8 @@ class SentientAutonomyEngine:
             if not goals and metrics.get("open_goals"):
                 goals = [str(goal) for goal in metrics["open_goals"]]
             if not goals:
+                if not self._fallback_enabled:
+                    return []
                 goals = ["stabilise mesh trust", "synchronise council insights"]
             selected = goals[:limit]
             jobs: List[MeshJob] = []
