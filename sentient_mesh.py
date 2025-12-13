@@ -33,6 +33,11 @@ __all__ = [
 # Trust and emotion values are telemetry fields only; assignments are deterministic calculations, not relationships or desires.
 # See: INTERPRETATION_DRIFT_SIGNALS.md §Relational framing and §Agency language.
 
+# Boundary assertion:
+# This scheduler does not reference or consult the Capability Growth Ledger.
+# Ledger entries are descriptive audit notes only and never influence routing or prioritisation.
+# See: CAPABILITY_GROWTH_LEDGER.md, NAIR_CONFORMANCE_AUDIT.md
+
 
 @dataclass
 class MeshNodeState:

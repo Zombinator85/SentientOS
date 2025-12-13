@@ -21,6 +21,11 @@ require_lumos_approval()
 # It records wake-word matches as telemetry; there is no relationship, loyalty, or persistence motive.
 # See: INTERPRETATION_DRIFT_SIGNALS.md §Relational framing and §Persistence framing.
 
+# Boundary assertion:
+# This presence monitor does not reference or consult the Capability Growth Ledger.
+# Ledger records are post-hoc descriptors and never alter logging cadence or alert routing.
+# See: CAPABILITY_GROWTH_LEDGER.md, NAIR_CONFORMANCE_AUDIT.md
+
 from logging_config import get_log_path
 import os
 import json
