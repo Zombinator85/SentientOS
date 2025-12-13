@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Tuple
+import subprocess
 
 from logging_config import get_log_path
 from log_utils import append_json, read_json
@@ -28,6 +29,8 @@ class CapabilityLedgerEntry:
     delta: str
     notes: str = ""
     evidence: Mapping[str, Any] | None = None
+    version_id: str | None = None
+    git_commit: str | None = None
 
     def to_record(self) -> dict[str, Any]:
         record: dict[str, Any] = {
@@ -38,6 +41,10 @@ class CapabilityLedgerEntry:
         }
         if self.evidence:
             record["evidence"] = dict(self.evidence)
+        if self.version_id:
+            record["version_id"] = self.version_id
+        if self.git_commit:
+            record["git_commit"] = self.git_commit
         return record
 
     @classmethod
@@ -50,6 +57,8 @@ class CapabilityLedgerEntry:
             delta=str(record.get("delta", "")),
             notes=str(record.get("notes", "")),
             evidence=dict(evidence) if isinstance(evidence, Mapping) else None,
+            version_id=str(record["version_id"]) if record.get("version_id") else None,
+            git_commit=str(record["git_commit"]) if record.get("git_commit") else None,
         )
 
 
@@ -69,8 +78,9 @@ class CapabilityGrowthLedger:
         return self._path
 
     def record(self, entry: CapabilityLedgerEntry) -> CapabilityLedgerEntry:
-        append_json(self._path, entry.to_record(), emotion="neutral", consent="epistemic")
-        return entry
+        enriched = self._with_version_metadata(entry)
+        append_json(self._path, enriched.to_record(), emotion="neutral", consent="epistemic")
+        return enriched
 
     def view(self) -> Tuple[CapabilityLedgerEntry, ...]:
         raw_entries: Iterable[Mapping[str, Any]] = read_json(self._path)
@@ -83,6 +93,8 @@ class CapabilityGrowthLedger:
         axis: CapabilityAxis | str | None = None,
         since: str | None = None,
         until: str | None = None,
+        version_id: str | None = None,
+        git_commit: str | None = None,
     ) -> Tuple[Mapping[str, Any], ...]:
         """Return raw ledger rows filtered by axis and optional time window."""
 
@@ -97,6 +109,12 @@ class CapabilityGrowthLedger:
             if axis_value and str(row.get("axis")) != axis_value:
                 continue
 
+            if version_id and str(row.get("version_id")) != version_id:
+                continue
+
+            if git_commit and str(row.get("git_commit")) != git_commit:
+                continue
+
             timestamp_value = row.get("timestamp")
             entry_dt = _parse_iso8601(str(timestamp_value)) if timestamp_value else None
             if (since_dt or until_dt) and not entry_dt:
@@ -109,6 +127,18 @@ class CapabilityGrowthLedger:
             selected.append(dict(row))
 
         return tuple(selected)
+
+    def _with_version_metadata(self, entry: CapabilityLedgerEntry) -> CapabilityLedgerEntry:
+        if entry.version_id and entry.git_commit:
+            return entry
+
+        resolved_version = entry.version_id or _read_version_id()
+        resolved_commit = entry.git_commit or _read_git_commit()
+
+        if resolved_version == entry.version_id and resolved_commit == entry.git_commit:
+            return entry
+
+        return replace(entry, version_id=resolved_version, git_commit=resolved_commit)
 
 
 _DEFAULT_LEDGER = CapabilityGrowthLedger()
@@ -127,11 +157,42 @@ def view() -> Tuple[CapabilityLedgerEntry, ...]:
 
 
 def inspect(
-    *, axis: CapabilityAxis | str | None = None, since: str | None = None, until: str | None = None
+    *,
+    axis: CapabilityAxis | str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    version_id: str | None = None,
+    git_commit: str | None = None,
 ) -> Tuple[Mapping[str, Any], ...]:
     """Inspection accessor returning raw ledger entries with optional filters."""
 
-    return _DEFAULT_LEDGER.inspect(axis=axis, since=since, until=until)
+    return _DEFAULT_LEDGER.inspect(
+        axis=axis,
+        since=since,
+        until=until,
+        version_id=version_id,
+        git_commit=git_commit,
+    )
+
+
+def _read_version_id() -> str | None:
+    try:
+        return Path("VERSION").read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
+
+
+def _read_git_commit() -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+        )
+    except (OSError, ValueError):
+        return None
+    if result.returncode != 0:
+        return None
+    commit = result.stdout.strip()
+    return commit or None
 
 
 __all__ = [
