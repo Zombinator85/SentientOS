@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Tuple
@@ -52,6 +53,11 @@ class CapabilityLedgerEntry:
         )
 
 
+def _parse_iso8601(value: str) -> datetime:
+    normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+    return datetime.fromisoformat(normalized)
+
+
 class CapabilityGrowthLedger:
     """Append-only ledger for epistemic capability metrics."""
 
@@ -71,6 +77,39 @@ class CapabilityGrowthLedger:
         parsed: List[CapabilityLedgerEntry] = [CapabilityLedgerEntry.from_record(row) for row in raw_entries]
         return tuple(parsed)
 
+    def inspect(
+        self,
+        *,
+        axis: CapabilityAxis | str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+    ) -> Tuple[Mapping[str, Any], ...]:
+        """Return raw ledger rows filtered by axis and optional time window."""
+
+        axis_value = CapabilityAxis(axis).value if axis is not None else None
+        raw_entries: Iterable[Mapping[str, Any]] = read_json(self._path)
+
+        since_dt = _parse_iso8601(since) if since else None
+        until_dt = _parse_iso8601(until) if until else None
+
+        selected: List[Mapping[str, Any]] = []
+        for row in raw_entries:
+            if axis_value and str(row.get("axis")) != axis_value:
+                continue
+
+            timestamp_value = row.get("timestamp")
+            entry_dt = _parse_iso8601(str(timestamp_value)) if timestamp_value else None
+            if (since_dt or until_dt) and not entry_dt:
+                continue
+            if since_dt and entry_dt and entry_dt < since_dt:
+                continue
+            if until_dt and entry_dt and entry_dt > until_dt:
+                continue
+
+            selected.append(dict(row))
+
+        return tuple(selected)
+
 
 _DEFAULT_LEDGER = CapabilityGrowthLedger()
 
@@ -87,10 +126,19 @@ def view() -> Tuple[CapabilityLedgerEntry, ...]:
     return _DEFAULT_LEDGER.view()
 
 
+def inspect(
+    *, axis: CapabilityAxis | str | None = None, since: str | None = None, until: str | None = None
+) -> Tuple[Mapping[str, Any], ...]:
+    """Inspection accessor returning raw ledger entries with optional filters."""
+
+    return _DEFAULT_LEDGER.inspect(axis=axis, since=since, until=until)
+
+
 __all__ = [
     "CapabilityAxis",
     "CapabilityLedgerEntry",
     "CapabilityGrowthLedger",
     "append",
     "view",
+    "inspect",
 ]
