@@ -16,7 +16,7 @@ INTERVAL = 300  # every 5 minutes
 
 
 def heartbeat():
-    """Send a heartbeat message at regular intervals."""
+    """Send a transport keepalive for monitoring continuity (not a presence signal)."""
     while True:
         payload = {
             "message": f"__heartbeat__ {datetime.now(UTC).isoformat()}",

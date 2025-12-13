@@ -58,7 +58,7 @@ The Sentient Verifier module is the auditing counterpart to Sentient Script exec
 - **Automatic**
   - On every privileged capability action (policy updates, governor interventions).
   - Periodically (e.g., cron) verify a rolling window of recent runs.
-  - On trust decay or missed heartbeats detected via node registry expiry checks.【F:node_registry.py†L88-L160】
+  - On trust decay or missed keepalive heartbeats detected via node registry expiry checks; heartbeat events are transport-level continuity markers only, not liveness or agency indicators.【F:node_registry.py†L88-L160】
 - **Reactive**
   - Signature mismatch detected during script ingestion (re-run plus escalate).
   - Manual investigator request through CLI or dashboard.

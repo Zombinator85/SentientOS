@@ -37,9 +37,10 @@ modules operate as state processors with no autonomy or intentionality.
   cycle. Exceeding the guard returns a structured
   `{"status": "error", "error": "recursion_limit_exceeded"}` payload instead
   of raising.
-- A deterministic `daemon_heartbeat()` check runs before each major phase. If
-  it ever reports false, the cycle stops and returns a structured
-  `heartbeat_interrupt` result without side effects.
+- A deterministic `daemon_heartbeat()` keepalive check runs before each major
+  phase. If it ever reports false, the cycle stops and returns a structured
+  `heartbeat_interrupt` result without side effects; the check is transport
+  continuity only and must not be treated as a liveness or persistence signal.
 - Results are returned as a structured dict with `pulse_updates`,
   `self_model_updates`, `introspection_output`, and `simulation_output` keys to
   keep downstream callers explicit and deterministic.

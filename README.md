@@ -236,7 +236,7 @@ The resulting binary or app is placed in `dist/` and runs without a Python insta
 ### 📡 Endpoints
 | Route   | Purpose                |
 | ------- | ---------------------- |
-| `/sse`  | Live heartbeat stream  |
+| `/sse`  | Transport keepalive stream for SSE continuity (not a presence signal)  |
 | `/ingest` | Log a memory          |
 | `/status` | Uptime + log summary  |
 
@@ -327,7 +327,7 @@ In addition to summary presence logs, WDM now emits live events to `logs/presenc
 API: GET /presence/stream (SSE endpoint for dashboards)
 
 ## Federation Presence
-SentientOS can now pull heartbeat and presence data from multiple nodes into `logs/federation_log.jsonl`.
+SentientOS can now pull heartbeat and presence data from multiple nodes into `logs/federation_log.jsonl`; heartbeat entries are transport-level keepalives only and must not be treated as liveness or agency indicators.
 
 Configure peers in `config/federation.yaml`.
 
