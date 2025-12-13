@@ -6,6 +6,11 @@ require_admin_banner()
 require_lumos_approval()
 """Presence detection service for wake words and transcripts."""
 
+# Definition anchor:
+# Term: "presence"
+# Frozen meaning: telemetry logging of wake-word detection and transcript snippets only.
+# See: SEMANTIC_GLOSSARY.md#presence
+
 # Boundary assertion:
 # This module only records wake-word events and raw transcript snippets; it does not infer identity, affinity, or relational state.
 # Logged data is append-only telemetry and is not used to adjust behaviour or privileges.

@@ -17,6 +17,11 @@ __all__ = [
     "SentientAutonomyEngine",
 ]
 
+# Definition anchor:
+# Term: "autonomy"
+# Frozen meaning: coordination that queues operator-supplied goals without generating its own incentives.
+# See: SEMANTIC_GLOSSARY.md#autonomy
+
 # Boundary assertion:
 # This module does not originate goals, preferences, or incentives; it schedules operator-supplied strings without reward loops.
 # Any priority value is copied deterministically into job metadata and has no effect on privileges or learning.
@@ -31,6 +36,11 @@ __all__ = [
 @dataclass
 class AutonomyPlan:
     """Generated plan produced by the autonomy engine."""
+
+    # Definition anchor:
+    # Terms: "goal", "plan"
+    # Frozen meaning: goals are operator- or policy-specified strings; plans are deterministic payloads derived from them.
+    # See: SEMANTIC_GLOSSARY.md#goal and SEMANTIC_GLOSSARY.md#plan
 
     plan_id: str
     goal: str

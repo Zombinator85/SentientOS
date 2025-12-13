@@ -15,6 +15,7 @@ before each processing cycle, and after configuration amendments, keeping the
 runtime bounded without manual toggles.
 
 For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
+Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation without review is considered a breaking change.
 
 ## 📦 Installation
 
