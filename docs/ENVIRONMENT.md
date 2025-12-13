@@ -105,7 +105,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `ARCHIVE_DIR` | Location for blessed archive exports | `archives` |
 | `AVATAR_DREAM_DIR` | Directory for avatar dream logs | `dreams` |
 | `AVATAR_GIFT_DIR` | Directory for generated artifact gifts | `gifts` |
-| `AVATAR_RECEIVER_CMD` | Command executed when heartbeat fails | *(none)* |
+| `AVATAR_RECEIVER_CMD` | Command executed when heartbeat keepalive fails | *(none)* |
 | `AVATAR_MEMORY_LINK_LOG` | Path for avatar memory link records | `logs/avatar_memory_link.jsonl` |
 | `AVATAR_COUNCIL_LOG` | Council voting history for avatars | `logs/avatar_council_log.jsonl` |
 | `AVATAR_RETIRE_LOG` | Log of avatar retirement events | `logs/avatar_retirement.jsonl` |
@@ -142,7 +142,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `FEDERATION_TRUST_LOG` | Ledger of federation trust actions | `logs/federation_trust.jsonl` |
 | `RESONITE_BREACH_LOG` | Security breach records for Resonite tools | `logs/resonite_spiral_federation_breach.jsonl` |
 | `GP_PLUGINS_DIR` | Directory for general plugin files | `gp_plugins` |
-| `HEARTBEAT_PORT` | UDP port for avatar heartbeat messages | `9001` |
+| `HEARTBEAT_PORT` | UDP port for avatar heartbeat keepalive messages | `9001` |
 | `MASTER_CHECK_IMMUTABLE` | Enforce immutability checks on rituals | `1` |
 | `MASTER_CONFIG` | Path to master file configuration | `config/master_files.json` |
 | `MASTER_ENFORCE` | Require master file enforcement (`1` to enable) | *(unset)* |
@@ -197,6 +197,8 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `PRESENCE_ANALYTICS_LOG` | Path for presence analytics logs | `logs/presence_analytics.jsonl` |
 | `EXPERIMENT_SELF_HEAL_PLUGIN` | Enable self-healing plugin (`1` to enable) | *(unset)* |
 | `SELF_HEAL_PLUGIN_LOG` | Path for self-healing plugin log | `logs/self_heal_plugin.jsonl` |
+
+> **Heartbeat semantics:** heartbeat/keepalive signals (including UDP heartbeats and SSE ticks) exist solely to keep monitoring streams connected. They must not be interpreted as liveness, persistence preference, or self-maintenance intent.
 
 ### Audit and Self‑Defense Logs
 

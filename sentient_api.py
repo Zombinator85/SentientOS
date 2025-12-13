@@ -83,7 +83,7 @@ def ingest() -> object:
 
 @app.get("/sse")
 def sse() -> Response:
-    """Stream heartbeat ticks as server-sent events."""
+    """Stream transport keepalive ticks as server-sent events (monitoring continuity only)."""
 
     def gen():
         global _last_heartbeat
@@ -98,7 +98,7 @@ def sse() -> Response:
 
 @app.get("/status")
 def status() -> object:
-    """Return uptime, last heartbeat, log size and active endpoints."""
+    """Return uptime, last heartbeat keepalive ID, log size and active endpoints."""
     uptime_seconds = int(time.time() - _start_time)
     days, rem = divmod(uptime_seconds, 86400)
     hours, rem = divmod(rem, 3600)
