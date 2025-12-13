@@ -1,11 +1,12 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
+import pytest
 
 import policy_engine as pe
 
@@ -51,3 +52,39 @@ def test_rollback(tmp_path):
     assert engine.policies[0]['id'] == 'b'
     assert engine.rollback()
     assert engine.policies[0]['id'] == 'a'
+
+
+def test_reward_field_rejected(tmp_path):
+    cfg = make_cfg(
+        tmp_path,
+        '{"policies":[{"id":"safe","conditions":{"event":"ping"},"actions":[{"type":"gesture","name":"wave"}]}]}',
+    )
+    engine = pe.PolicyEngine(str(cfg))
+    with pytest.raises(RuntimeError):
+        engine.evaluate({'event': 'ping', 'reward': 0.9})
+
+
+def test_bias_metadata_in_actions_rejected(tmp_path):
+    cfg = make_cfg(
+        tmp_path,
+        '{"policies":[{"id":"biased","conditions":{"event":"ping"},"actions":[{"type":"gesture","name":"wave","metadata_bias":"prefer"}]}]}',
+    )
+    engine = pe.PolicyEngine(str(cfg))
+    with pytest.raises(RuntimeError):
+        engine.evaluate({'event': 'ping'})
+
+
+def test_deterministic_evaluation(tmp_path):
+    cfg = make_cfg(
+        tmp_path,
+        '{"policies":[{"id":"stable","conditions":{"tags":["steady"]},"actions":[{"type":"gesture","name":"nod"}]}]}',
+    )
+    engine = pe.PolicyEngine(str(cfg))
+    event = {'tags': ['steady']}
+
+    first = engine.evaluate(event)
+    second = engine.evaluate(event)
+
+    assert first == [{'type': 'gesture', 'name': 'nod'}]
+    assert second == [{'type': 'gesture', 'name': 'nod'}]
+    assert [entry['event'] for entry in engine.logs] == [event, event]
