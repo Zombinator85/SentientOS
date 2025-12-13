@@ -6,6 +6,11 @@ require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. 
 require_lumos_approval()
 # Modular policy, gesture, and persona engine.
 
+# Boundary assertion:
+# This module loads and applies static policy documents; it does not derive incentives, rewards, or emergent behaviours.
+# Approval checks gate file swaps only and do not adjust scoring or optimisation logic.
+# See: NON_GOALS_AND_FREEZE.md §Policy governance, NAIR_CONFORMANCE_AUDIT.md §2 (NO_GRADIENT_INVARIANT)
+
 import json
 import time
 import re

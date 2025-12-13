@@ -14,6 +14,8 @@ focused on deterministic state processing. Guardrails auto-align on boot,
 before each processing cycle, and after configuration amendments, keeping the
 runtime bounded without manual toggles.
 
+For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
+
 ## 📦 Installation
 
 Install the API and GUI directly from the source tree:
