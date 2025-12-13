@@ -4,7 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import os
@@ -44,3 +43,29 @@ def test_prompt_includes_reflection(tmp_path, monkeypatch):
     actuator.act({"type": "shell", "cmd": "echo hi"})
     prompt = pa.assemble_prompt("hi", [])
     assert "ACTION FEEDBACK" in prompt
+
+
+def test_plan_order_ignores_affect_metadata(monkeypatch):
+    from importlib import reload
+
+    reload(pa)
+    monkeypatch.setattr(pa.up, "format_profile", lambda: "")
+    monkeypatch.setattr(pa.em, "average_emotion", lambda: {})
+    monkeypatch.setattr(pa.cw, "get_context", lambda: ([], ""))
+    monkeypatch.setattr(pa.actuator, "recent_logs", lambda *args, **kwargs: [])
+
+    plans_with_affect = [
+        {"plan": "alpha", "affect": "calm", "tone": "soft"},
+        {"plan": "beta", "presentation": "flowery"},
+    ]
+
+    monkeypatch.setattr(pa.mm, "get_context", lambda _query, k=6: plans_with_affect)
+    prompt_with_affect = pa.assemble_prompt("run plan", [])
+
+    monkeypatch.setattr(pa.mm, "get_context", lambda _query, k=6: [{"plan": "alpha"}, {"plan": "beta"}])
+    prompt_without_affect = pa.assemble_prompt("run plan", [])
+
+    assert prompt_with_affect == prompt_without_affect
+    assert "affect" not in prompt_with_affect
+    assert "tone" not in prompt_with_affect
+    assert "presentation" not in prompt_with_affect

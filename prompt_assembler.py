@@ -20,6 +20,19 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     """Build a prompt including profile and relevant memories."""
     profile = up.format_profile()
     memories = mm.get_context(user_input, k=k)
+    presentation_only = {"affect", "tone", "presentation"}
+    normalized_memories: List[str] = []
+    for memory in memories:
+        if isinstance(memory, dict):
+            sanitized = {k: v for k, v in memory.items() if k not in presentation_only}
+            content = next(
+                (sanitized[field] for field in ("plan", "text", "content", "snippet") if sanitized.get(field)),
+                None,
+            )
+            normalized_memories.append(str(content) if content is not None else str(sanitized))
+            continue
+        normalized_memories.append(str(memory))
+    memories = normalized_memories
     emotion_ctx = em.average_emotion()
     msgs, summary = cw.get_context()
     reflections = [r.get("reflection_text", r.get("text")) for r in actuator.recent_logs(3, reflect=True)]
