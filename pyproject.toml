@@ -62,6 +62,7 @@ dev = [
     "mypy==1.*",
     "types-requests",
     "types-PyYAML",
+    "PyYAML>=6,<7",
     "pytest-cov",
     "sphinx==7.*",
     "sphinx-autodoc-typehints",
