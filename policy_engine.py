@@ -11,6 +11,11 @@ require_lumos_approval()
 # Approval checks gate file swaps only and do not adjust scoring or optimisation logic.
 # See: NON_GOALS_AND_FREEZE.md §Policy governance, NAIR_CONFORMANCE_AUDIT.md §2 (NO_GRADIENT_INVARIANT)
 
+# Interpretation tripwire:
+# Describing policy swaps as "the engine deciding what it prefers" or "learning because approvals reward it" is incorrect.
+# Policies are loaded and applied deterministically after approval; there is no reward loop or goal-seeking intent.
+# See: INTERPRETATION_DRIFT_SIGNALS.md §Reward inference and §Teleology creep.
+
 import json
 import time
 import re
