@@ -1,8 +1,11 @@
+import time
+
 import pytest
 
+import memory_governor
 from council_adapters import LocalVoice
 from sentient_autonomy import SentientAutonomyEngine
-from sentient_mesh import SentientMesh
+from sentient_mesh import MeshSnapshot, SentientMesh
 
 
 @pytest.fixture(autouse=True)
@@ -37,3 +40,94 @@ def test_autonomy_generates_and_schedules_plans(tmp_path):
     assert isinstance(mesh_snapshot["assignments"], dict)
     sessions = mesh.sessions()
     assert sessions, "autonomy cycle should record council sessions"
+
+
+def test_autonomy_rejects_reward_like_metrics(monkeypatch, tmp_path):
+    mesh = SentientMesh(transcripts_dir=tmp_path, voices=[])
+    engine = SentientAutonomyEngine(mesh)
+    engine.start()
+    engine.queue_goal("Stabilise node health")
+
+    monkeypatch.setattr(
+        memory_governor,
+        "mesh_metrics",
+        lambda: {"utility": 0.7, "reward_score": 0.9, "action_score": 0.4},
+    )
+
+    def _fail_cycle(_jobs):
+        raise AssertionError("cycle should not run when reward-like fields are present")
+
+    monkeypatch.setattr(mesh, "cycle", _fail_cycle)
+
+    with pytest.raises(RuntimeError, match="NO_GRADIENT_INVARIANT"):
+        engine.reflective_cycle(force=True)
+
+
+def test_autonomy_rejects_priority_drift_from_metadata(monkeypatch, tmp_path):
+    mesh = SentientMesh(transcripts_dir=tmp_path, voices=[])
+    engine = SentientAutonomyEngine(mesh)
+    engine.start()
+    engine.queue_goal("Coordinate council response")
+
+    monkeypatch.setattr(
+        memory_governor,
+        "mesh_metrics",
+        lambda: {"nodes": 1, "emotion_consensus": {}},
+    )
+
+    original_create = engine._create_or_update_plan
+
+    def biased_plan(goal: str, *, bias_vector):
+        plan = original_create(goal, bias_vector=bias_vector)
+        plan.priority += 2
+        return plan
+
+    monkeypatch.setattr(engine, "_create_or_update_plan", biased_plan)
+
+    def _fail_cycle(_jobs):
+        raise AssertionError("cycle should not run when priority drift is detected")
+
+    monkeypatch.setattr(mesh, "cycle", _fail_cycle)
+
+    with pytest.raises(RuntimeError, match="NO_GRADIENT_INVARIANT"):
+        engine.reflective_cycle(force=True)
+
+
+def test_autonomy_cycles_are_deterministic_with_legal_metadata(monkeypatch, tmp_path):
+    def deterministic_metrics():
+        return {
+            "nodes": 2,
+            "trust_histogram": {"coordinator": 1.0},
+            "active_council_sessions": 1,
+            "emotion_consensus": {"Focus": 0.4},
+        }
+
+    monkeypatch.setattr(memory_governor, "mesh_metrics", deterministic_metrics)
+
+    def run_cycle(root_dir: str):
+        mesh = SentientMesh(transcripts_dir=root_dir, voices=[])
+        engine = SentientAutonomyEngine(mesh)
+        engine.start()
+        engine.queue_goal("Balance trust across nodes", priority=2)
+        engine.queue_goal("Synchronise council insights", priority=2)
+
+        def deterministic_cycle(jobs):
+            assignments = {job.job_id: None for job in jobs}
+            return MeshSnapshot(
+                timestamp=time.time(),
+                assignments=assignments,
+                trust_vector={},
+                emotion_matrix={},
+                council_sessions={},
+                jobs=[job.describe() for job in jobs],
+            )
+
+        monkeypatch.setattr(mesh, "cycle", deterministic_cycle)
+
+        plans = engine.reflective_cycle(force=True)
+        return [plan["goal"] for plan in plans]
+
+    first_order = run_cycle(tmp_path / "cycle_one")
+    second_order = run_cycle(tmp_path / "cycle_two")
+
+    assert first_order == second_order
