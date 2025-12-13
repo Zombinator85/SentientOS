@@ -18,6 +18,8 @@ SYSTEM_PROMPT = "You are Lumos, an emotionally present AI assistant."
 
 def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k: int = 6) -> str:
     """Build a prompt including profile and relevant memories."""
+    # Boundary assertion: continuity ≠ preference, repetition ≠ desire, memory ≠ attachment.
+    # Prompt context is descriptive only; recurring fields do not express appetite or intent.
     profile = up.format_profile()
     memories = mm.get_context(user_input, k=k)
     presentation_only = {"affect", "tone", "presentation"}

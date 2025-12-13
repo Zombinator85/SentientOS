@@ -117,6 +117,8 @@ class SentientAutonomyEngine:
     # -- reflective planning ----------------------------------------------
     def reflective_cycle(self, *, limit: int = 3, force: bool = False) -> List[Dict[str, object]]:
         with self._lock:
+            # Boundary assertion: continuity ≠ preference, repetition ≠ desire, memory ≠ attachment.
+            # Each cycle treats prior telemetry as context, not appetite or intent.
             if not self._enabled and not force:
                 return []
             # Boundary assertion:
