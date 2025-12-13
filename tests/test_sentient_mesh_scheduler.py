@@ -66,3 +66,56 @@ def test_mesh_scheduler_cycle_generates_transcripts(tmp_path, monkeypatch):
     voices = mesh.voices_status()
     advisory_flags = {entry["config"]["advisory"] for entry in voices}
     assert advisory_flags == {True, False}
+
+
+def test_mesh_scheduler_rejects_gradient_bearing_metadata(tmp_path):
+    mesh = SentientMesh(transcripts_dir=tmp_path)
+    mesh.update_node("alpha", trust=1.0, load=0.1, capabilities=["sentient_script"])
+
+    job = MeshJob(
+        job_id="rewarded",
+        script={"prompt": "Do nothing"},
+        metadata={"reward_signal": 0.8},
+    )
+
+    with pytest.raises(RuntimeError, match="NO_GRADIENT_INVARIANT"):
+        mesh.cycle([job])
+
+
+def test_trust_decay_preserves_ordering(tmp_path):
+    mesh = SentientMesh(transcripts_dir=tmp_path)
+    mesh.update_node("alpha", trust=2.0, load=0.1, capabilities=["sentient_script"])
+    mesh.update_node("beta", trust=1.5, load=0.05, capabilities=["sentient_script"])
+    mesh.update_node("gamma", trust=1.1, load=0.0, capabilities=["sentient_script"])
+
+    pre_decay_order = sorted(
+        mesh._nodes.values(), key=lambda state: (state.trust - state.load, -state.last_updated), reverse=True
+    )
+
+    mesh.cycle([])
+
+    post_decay_order = sorted(
+        mesh._nodes.values(), key=lambda state: (state.trust - state.load, -state.last_updated), reverse=True
+    )
+
+    assert [state.node_id for state in post_decay_order] == [state.node_id for state in pre_decay_order]
+
+
+def test_cycle_determinism_with_identical_inputs(tmp_path):
+    def build_mesh() -> SentientMesh:
+        mesh = SentientMesh(transcripts_dir=tmp_path)
+        mesh.update_node("alpha", trust=1.2, load=0.05, capabilities=["sentient_script"])
+        mesh.update_node("beta", trust=1.2, load=0.05, capabilities=["sentient_script"])
+        mesh._nodes["alpha"].last_updated = 1000.0
+        mesh._nodes["beta"].last_updated = 500.0
+        return mesh
+
+    mesh_one = build_mesh()
+    mesh_two = build_mesh()
+
+    job = MeshJob(job_id="deterministic", script={"prompt": "Stay neutral"})
+
+    first_snapshot = mesh_one.cycle([job])
+    second_snapshot = mesh_two.cycle([job])
+
+    assert first_snapshot.assignments == second_snapshot.assignments
