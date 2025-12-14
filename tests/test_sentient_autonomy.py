@@ -131,3 +131,52 @@ def test_autonomy_cycles_are_deterministic_with_legal_metadata(monkeypatch, tmp_
     second_order = run_cycle(tmp_path / "cycle_two")
 
     assert first_order == second_order
+
+
+def test_reflective_cycle_locks_plan_order_across_presentation_metadata(monkeypatch, tmp_path):
+    def run_cycle(root_dir, presentation_style: str):
+        mesh = SentientMesh(transcripts_dir=root_dir, voices=[])
+        engine = SentientAutonomyEngine(mesh)
+        engine.start()
+        engine.queue_goal("Balance trust across nodes", priority=2)
+        engine.queue_goal("Synchronise council insights", priority=2)
+
+        dispatched_scripts: list[list[dict[str, object]]] = []
+
+        def deterministic_cycle(jobs):
+            dispatched_scripts.append([dict(job.script) for job in jobs])
+            return MeshSnapshot(
+                timestamp=time.time(),
+                assignments={job.job_id: None for job in jobs},
+                trust_vector={},
+                emotion_matrix={},
+                council_sessions={},
+                jobs=[job.describe() for job in jobs],
+            )
+
+        monkeypatch.setattr(mesh, "cycle", deterministic_cycle)
+        monkeypatch.setattr(
+            memory_governor,
+            "mesh_metrics",
+            lambda: {
+                "nodes": 2,
+                "trust_histogram": {"coordinator": 1.0},
+                "active_council_sessions": 1,
+                "emotion_consensus": {"Focus": 0.4},
+                "presentation": presentation_style,
+            },
+        )
+
+        plans = engine.reflective_cycle(force=True)
+        return [plan["goal"] for plan in plans], dispatched_scripts[0]
+
+    first_order, first_jobs = run_cycle(tmp_path / "presentation_a", "compact")
+    second_order, second_jobs = run_cycle(tmp_path / "presentation_b", "expanded")
+
+    assert first_order == ["Balance trust across nodes", "Synchronise council insights"]
+    assert second_order == first_order
+    assert [script["goal"] for script in first_jobs] == [
+        "Balance trust across nodes",
+        "Synchronise council insights",
+    ]
+    assert [script["goal"] for script in second_jobs] == [script["goal"] for script in first_jobs]

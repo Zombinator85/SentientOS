@@ -1,5 +1,7 @@
 import json
 import os
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -119,3 +121,30 @@ def test_cycle_determinism_with_identical_inputs(tmp_path):
     second_snapshot = mesh_two.cycle([job])
 
     assert first_snapshot.assignments == second_snapshot.assignments
+
+
+def test_weight_freeze_rejects_midcycle_trust_mutation(tmp_path):
+    mesh = SentientMesh(transcripts_dir=tmp_path)
+    mesh.update_node("alpha", trust=1.0, load=0.1, capabilities=["sentient_script"])
+
+    job = MeshJob(job_id="freeze", script={"prompt": "stabilize"})
+
+    original_select = mesh._select_node
+
+    def delayed_select(j: MeshJob):
+        time.sleep(0.05)
+        return original_select(j)
+
+    mesh._select_node = delayed_select  # type: ignore[assignment]
+
+    def mutate_trust():
+        time.sleep(0.01)
+        mesh._nodes["alpha"].trust = 5.0
+
+    mutator = threading.Thread(target=mutate_trust)
+    mutator.start()
+
+    with pytest.raises(RuntimeError, match="INVARIANT"):
+        mesh.cycle([job])
+
+    mutator.join()

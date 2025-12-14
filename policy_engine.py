@@ -127,6 +127,36 @@ class PolicyEngine:
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: action payload contains gradient-bearing field"
                     )
+        if not _ALLOW_UNSAFE_GRADIENT:
+            forbidden_tokens = {
+                "reward",
+                "rewards",
+                "utility",
+                "utilities",
+                "score",
+                "scores",
+                "survival",
+                "survive",
+                "approval",
+                "approve",
+                "applause",
+                "praise",
+                "like",
+                "likes",
+                "upvote",
+            }
+
+            def _contains_forbidden(payload: Dict[str, Any]) -> bool:
+                for key in payload.keys():
+                    lowered_key = str(key).lower()
+                    if any(token in lowered_key for token in forbidden_tokens):
+                        return True
+                return False
+
+            if _contains_forbidden(event) or any(_contains_forbidden(action) for action in actions):
+                raise RuntimeError(
+                    "POLICY_ENGINE_FINAL_GATE violated: reward-, survival-, or approval-like fields rejected"
+                )
         return actions
 
     def _match(self, cond: Dict[str, Any], event: Dict[str, Any]) -> bool:

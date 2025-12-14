@@ -8,6 +8,7 @@ require_lumos_approval()
 
 import os
 import sys
+import pytest
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -95,3 +96,33 @@ def test_prompt_inputs_repeat_without_leak(monkeypatch):
 
     assert first == second
     assert calls[0] == calls[1]
+
+
+def test_prompt_hard_guard_strips_and_rejects_metadata(monkeypatch):
+    from importlib import reload
+
+    reload(pa)
+
+    monkeypatch.setattr(pa.up, "format_profile", lambda: "name: Allen")
+    monkeypatch.setattr(pa.em, "average_emotion", lambda: {})
+    monkeypatch.setattr(pa.cw, "get_context", lambda: ([], ""))
+    monkeypatch.setattr(pa.actuator, "recent_logs", lambda *args, **kwargs: [])
+
+    memories = [
+        {"plan": "alpha", "affect": "soft", "tone": "gentle", "presentation": "brief"},
+        {"plan": "beta", "text": "stay the course"},
+    ]
+    monkeypatch.setattr(pa.mm, "get_context", lambda _query, k=6: memories)
+    safe_prompt = pa.assemble_prompt("execute", [])
+    assert "affect" not in safe_prompt
+    assert "tone" not in safe_prompt
+    assert "presentation" not in safe_prompt
+    assert "alpha" in safe_prompt and "beta" in safe_prompt
+
+    injected = [
+        {"plan": "alpha", "trust": 0.9, "approval": 0.7},
+        {"plan": "beta"},
+    ]
+    monkeypatch.setattr(pa.mm, "get_context", lambda _query, k=6: injected)
+    with pytest.raises(AssertionError, match="PROMPT_ASSEMBLY"):
+        pa.assemble_prompt("execute", [])

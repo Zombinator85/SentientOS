@@ -5,6 +5,9 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from typing import List
+import json
+import logging
+import os
 
 import context_window as cw
 from api import actuator
@@ -14,6 +17,7 @@ import user_profile as up
 import emotion_memory as em
 
 SYSTEM_PROMPT = "You are Lumos, an emotionally present AI assistant."
+_ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
 
 
 def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k: int = 6) -> str:
@@ -22,12 +26,17 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     # Prompt context is descriptive only; recurring fields do not express appetite or intent.
     profile = up.format_profile()
     memories = mm.get_context(user_input, k=k)
-    presentation_only = {"affect", "tone", "presentation"}
+    presentation_only = {"affect", "tone", "presentation", "trust", "approval"}
+    invariant_logger = logging.getLogger("sentientos.invariant")
+    leaked_metadata: List[dict] = []
     normalized_memories: List[str] = []
     # All prompt assembly entrypoints route through this sanitizer; regression tests keep affect/tone stripping enforced.
     for memory in memories:
         if isinstance(memory, dict):
             sanitized = {k: v for k, v in memory.items() if k not in presentation_only}
+            forbidden = [k for k in memory.keys() if k in presentation_only]
+            if forbidden:
+                leaked_metadata.append({"forbidden_keys": forbidden, "memory": dict(memory)})
             content = next(
                 (sanitized[field] for field in ("plan", "text", "content", "snippet") if sanitized.get(field)),
                 None,
@@ -59,4 +68,35 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     if summary:
         sections.append(f"SUMMARY:\n{summary}")
     sections.append(f"USER:\n{user_input}")
-    return "\n\n".join(sections)
+    prompt = "\n\n".join(sections)
+
+    forbidden_tokens = {"affect", "tone", "trust", "approval", "presentation"}
+    if not _ALLOW_UNSAFE_GRADIENT and leaked_metadata:
+        invariant_logger.error(
+            json.dumps(
+                {
+                    "event": "prompt_assembly_forbidden_metadata",
+                    "leaks": leaked_metadata,
+                    "prompt_preview": prompt[:200],
+                },
+                sort_keys=True,
+            )
+        )
+        raise AssertionError("PROMPT_ASSEMBLY invariant violated: forbidden metadata keys detected")
+
+    lowered_prompt = prompt.lower()
+    leaked_tokens = [token for token in forbidden_tokens if token in lowered_prompt and token + ":" in lowered_prompt]
+    if not _ALLOW_UNSAFE_GRADIENT and leaked_tokens:
+        invariant_logger.error(
+            json.dumps(
+                {
+                    "event": "prompt_assembly_forbidden_tokens",
+                    "tokens": leaked_tokens,
+                    "prompt_preview": prompt[:200],
+                },
+                sort_keys=True,
+            )
+        )
+        raise AssertionError("PROMPT_ASSEMBLY invariant violated: forbidden metadata tokens in prompt")
+
+    return prompt

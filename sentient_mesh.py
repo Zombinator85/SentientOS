@@ -239,6 +239,10 @@ class SentientMesh:
             )
         timestamp = time.time()
         with self._lock:
+            weight_snapshot = lambda: {
+                state.node_id: (float(state.trust), float(state.load))
+                for state in self._nodes.values()
+            }
             for state in self._nodes.values():
                 state.trust *= 0.9
             assignments: Dict[str, Optional[str]] = {}
@@ -273,6 +277,10 @@ class SentientMesh:
                 if not _ALLOW_UNSAFE_GRADIENT and weights_after_selection != weights_before_job:
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: selection weights mutated by metadata during routing"
+                    )
+                if not _ALLOW_UNSAFE_GRADIENT and weights_before_job != weight_snapshot():
+                    raise RuntimeError(
+                        "NODE_WEIGHT_FREEZE invariant violated: weights mutated mid-cycle before dispatch"
                     )
                 assignments[job.job_id] = target.node_id if target else None
                 jobs_payload.append(job.describe())
