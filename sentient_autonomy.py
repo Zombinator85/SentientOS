@@ -121,6 +121,8 @@ def _log_invariant(
         "input_hash": input_hash,
         "details": json.loads(json.dumps(serializable_details, sort_keys=True)),
     }
+    # Audit-only emission: invariant logs accumulate externally and are never
+    # read by the autonomy queue, planners, or prompt assembly.
     logging.getLogger("sentientos.invariant").error(_canonical_dumps(payload))
 
 

@@ -204,6 +204,17 @@ def inspect(
     )
 
 
+def default_path() -> Path:
+    """Return the resolved path for the shared capability ledger.
+
+    Growth: append-only (O(n) with number of entries). This ledger is
+    audit-only and intentionally uninvolved in plan ordering, routing,
+    prompt assembly, or approval flows.
+    """
+
+    return _DEFAULT_LEDGER.path
+
+
 def _read_version_id() -> str | None:
     try:
         return Path("VERSION").read_text(encoding="utf-8").strip() or None
@@ -231,4 +242,5 @@ __all__ = [
     "append",
     "view",
     "inspect",
+    "default_path",
 ]

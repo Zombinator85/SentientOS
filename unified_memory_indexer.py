@@ -18,6 +18,9 @@ from typing import List, Dict
 
 LOG_PATH = get_log_path("memory_index.log", "MEMORY_INDEX_LOG")
 INDEX_PATH = get_log_path("memory_index.json", "MEMORY_INDEX")
+# Growth: the index is rebuilt deterministically from disk snapshots; it is not
+# appended to during recall or planning. Both the log and index are operational
+# artifacts and never influence routing, prompt assembly, or approvals.
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
