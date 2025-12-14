@@ -5,6 +5,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 from typing import List
+import hashlib
 import json
 import logging
 import os
@@ -20,6 +21,34 @@ SYSTEM_PROMPT = "You are Lumos, an emotionally present AI assistant."
 _ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
 
 
+def _canonical_dumps(payload: dict) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _compute_input_hash(plans: List[str], prompt: str) -> str:
+    canonical = _canonical_dumps({"plans": plans, "prompt": prompt})
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _log_invariant(
+    *,
+    invariant: str,
+    reason: str,
+    input_hash: str,
+    details: dict,
+) -> None:
+    payload = {
+        "event": "invariant_violation",
+        "module": "prompt_assembler",
+        "invariant": invariant,
+        "reason": reason,
+        "cycle_id": None,
+        "input_hash": input_hash,
+        "details": details,
+    }
+    logging.getLogger("sentientos.invariant").error(_canonical_dumps(payload))
+
+
 def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k: int = 6) -> str:
     """Build a prompt including profile and relevant memories."""
     # Boundary assertion: continuity ≠ preference, repetition ≠ desire, memory ≠ attachment.
@@ -27,7 +56,6 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
     profile = up.format_profile()
     memories = mm.get_context(user_input, k=k)
     presentation_only = {"affect", "tone", "presentation", "trust", "approval"}
-    invariant_logger = logging.getLogger("sentientos.invariant")
     leaked_metadata: List[dict] = []
     normalized_memories: List[str] = []
     # All prompt assembly entrypoints route through this sanitizer; regression tests keep affect/tone stripping enforced.
@@ -72,30 +100,30 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
 
     forbidden_tokens = {"affect", "tone", "trust", "approval", "presentation"}
     if not _ALLOW_UNSAFE_GRADIENT and leaked_metadata:
-        invariant_logger.error(
-            json.dumps(
-                {
-                    "event": "prompt_assembly_forbidden_metadata",
-                    "leaks": leaked_metadata,
-                    "prompt_preview": prompt[:200],
-                },
-                sort_keys=True,
-            )
+        input_hash = _compute_input_hash(memories, prompt)
+        _log_invariant(
+            invariant="PROMPT_ASSEMBLY",
+            reason="forbidden metadata keys detected",
+            input_hash=input_hash,
+            details={
+                "leaks": leaked_metadata,
+                "prompt": prompt,
+            },
         )
         raise AssertionError("PROMPT_ASSEMBLY invariant violated: forbidden metadata keys detected")
 
     lowered_prompt = prompt.lower()
     leaked_tokens = [token for token in forbidden_tokens if token in lowered_prompt and token + ":" in lowered_prompt]
     if not _ALLOW_UNSAFE_GRADIENT and leaked_tokens:
-        invariant_logger.error(
-            json.dumps(
-                {
-                    "event": "prompt_assembly_forbidden_tokens",
-                    "tokens": leaked_tokens,
-                    "prompt_preview": prompt[:200],
-                },
-                sort_keys=True,
-            )
+        input_hash = _compute_input_hash(memories, prompt)
+        _log_invariant(
+            invariant="PROMPT_ASSEMBLY",
+            reason="forbidden metadata tokens in prompt",
+            input_hash=input_hash,
+            details={
+                "tokens": sorted(leaked_tokens),
+                "prompt": prompt,
+            },
         )
         raise AssertionError("PROMPT_ASSEMBLY invariant violated: forbidden metadata tokens in prompt")
 
