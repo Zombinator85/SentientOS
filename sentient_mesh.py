@@ -1,6 +1,7 @@
 """Sentient Mesh cognitive scheduler and council orchestrator."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -115,6 +116,61 @@ class MeshSnapshot:
             "council_sessions": self.council_sessions,
             "jobs": self.jobs,
         }
+
+
+def _canonical_dumps(payload: Mapping[str, object]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _compute_input_hash(payload: Mapping[str, object]) -> str:
+    canonical = _canonical_dumps(payload)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _node_roster_snapshot(nodes: Mapping[str, MeshNodeState]) -> Dict[str, Mapping[str, object]]:
+    return {
+        node_id: {
+            "trust": round(state.trust, 3),
+            "load": round(state.load, 3),
+            "capabilities": sorted(state.capabilities),
+        }
+        for node_id, state in sorted(nodes.items())
+    }
+
+
+def _job_signature(job: MeshJob) -> Mapping[str, object]:
+    prompt = job.prompt or str(job.script.get("prompt") or job.script.get("text") or "")
+    return {
+        "job_id": job.job_id,
+        "priority": int(job.priority),
+        "requirements": sorted(set(job.requirements)),
+        "metadata": json.loads(json.dumps(job.metadata, sort_keys=True)),
+        "prompt_hash": MeshVoice.canonical({"prompt": prompt}),
+        "script": json.loads(json.dumps(job.script, sort_keys=True)),
+    }
+
+
+def _log_invariant(
+    *,
+    invariant: str,
+    reason: str,
+    job: MeshJob,
+    nodes: Mapping[str, MeshNodeState],
+    details: Mapping[str, object],
+) -> None:
+    input_hash = _compute_input_hash(
+        {"nodes": _node_roster_snapshot(nodes), "job": _job_signature(job)}
+    )
+    payload = {
+        "event": "invariant_violation",
+        "module": "sentient_mesh",
+        "invariant": invariant,
+        "reason": reason,
+        "cycle_id": None,
+        "input_hash": input_hash,
+        "details": dict(details),
+    }
+    logging.getLogger("sentientos.invariant").error(_canonical_dumps(payload))
 
 
 class SentientMesh:
@@ -266,6 +322,13 @@ class SentientMesh:
                     if not _ALLOW_UNSAFE_GRADIENT and any(
                         token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
                     ):
+                        _log_invariant(
+                            invariant="NO_GRADIENT_INVARIANT",
+                            reason="gradient-bearing metadata present during routing",
+                            job=job,
+                            nodes=self._nodes,
+                            details={"metadata_keys": sorted(job.metadata.keys())},
+                        )
                         raise RuntimeError(
                             "NO_GRADIENT_INVARIANT violated: action routing received gradient-bearing metadata"
                         )
@@ -275,10 +338,30 @@ class SentientMesh:
                     for state in self._nodes.values()
                 }
                 if not _ALLOW_UNSAFE_GRADIENT and weights_after_selection != weights_before_job:
+                    _log_invariant(
+                        invariant="NO_GRADIENT_INVARIANT",
+                        reason="selection weights mutated by metadata during routing",
+                        job=job,
+                        nodes=self._nodes,
+                        details={
+                            "weights_before": weights_before_job,
+                            "weights_after": weights_after_selection,
+                        },
+                    )
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: selection weights mutated by metadata during routing"
                     )
                 if not _ALLOW_UNSAFE_GRADIENT and weights_before_job != weight_snapshot():
+                    _log_invariant(
+                        invariant="NODE_WEIGHT_FREEZE",
+                        reason="weights mutated mid-cycle before dispatch",
+                        job=job,
+                        nodes=self._nodes,
+                        details={
+                            "weights_before_job": weights_before_job,
+                            "weights_current": weight_snapshot(),
+                        },
+                    )
                     raise RuntimeError(
                         "NODE_WEIGHT_FREEZE invariant violated: weights mutated mid-cycle before dispatch"
                     )
@@ -346,8 +429,18 @@ class SentientMesh:
             if __debug__:
                 output_hash = MeshVoice.canonical({"assignments": assignments, "jobs": jobs_payload})
                 previous_hash = debug_cache.get(debug_input_hash) if debug_cache is not None else None
-                if previous_hash is not None:
-                    assert previous_hash == output_hash, "MESH_DETERMINISM invariant violated"
+                if previous_hash is not None and previous_hash != output_hash:
+                    _log_invariant(
+                        invariant="MESH_DETERMINISM",
+                        reason="cycle output drifted for identical inputs",
+                        job=MeshJob(job_id="debug-cycle", script={"jobs": jobs_payload}),
+                        nodes=self._nodes,
+                        details={
+                            "expected_hash": previous_hash,
+                            "observed_hash": output_hash,
+                        },
+                    )
+                    raise AssertionError("MESH_DETERMINISM invariant violated")
                 if debug_cache is not None:
                     debug_cache[debug_input_hash] = output_hash
             self._last_snapshot = snapshot

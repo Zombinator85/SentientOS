@@ -1,6 +1,7 @@
 """Autonomous Sentient Script planning for the Sentient Mesh."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -77,6 +78,54 @@ class AutonomyPlan:
         }
 
 
+def _canonical_dumps(payload: Mapping[str, object]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _compute_input_hash(payload: Mapping[str, object]) -> str:
+    canonical = _canonical_dumps(payload)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _plan_snapshot(plans: Mapping[str, AutonomyPlan]) -> Dict[str, Mapping[str, object]]:
+    return {
+        plan_id: {"goal": plan.goal, "priority": plan.priority}
+        for plan_id, plan in sorted(plans.items())
+    }
+
+
+def _log_invariant(
+    *,
+    invariant: str,
+    reason: str,
+    queue_snapshot: Sequence[str],
+    selected: Sequence[str],
+    metrics: Mapping[str, object],
+    details: Mapping[str, object],
+) -> None:
+    plans = details.get("plans", {})
+    serializable_details = {k: v for k, v in details.items() if k != "plans"}
+    serializable_details["plans"] = _plan_snapshot(plans)
+    input_hash = _compute_input_hash(
+        {
+            "queue": list(queue_snapshot),
+            "selected": list(selected),
+            "plans": _plan_snapshot(details.get("plans", {})),
+            "metrics": json.loads(json.dumps(metrics, sort_keys=True)),
+        }
+    )
+    payload = {
+        "event": "invariant_violation",
+        "module": "sentient_autonomy",
+        "invariant": invariant,
+        "reason": reason,
+        "cycle_id": None,
+        "input_hash": input_hash,
+        "details": json.loads(json.dumps(serializable_details, sort_keys=True)),
+    }
+    logging.getLogger("sentientos.invariant").error(_canonical_dumps(payload))
+
+
 class SentientAutonomyEngine:
     """Produces new Sentient Script plans based on mesh state."""
 
@@ -136,6 +185,14 @@ class SentientAutonomyEngine:
                 key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
                 for key in metrics.keys()
             ):
+                _log_invariant(
+                    invariant="NO_GRADIENT_INVARIANT",
+                    reason="reward-like metrics detected in autonomy input",
+                    queue_snapshot=self._goal_queue,
+                    selected=[],
+                    metrics=metrics,
+                    details={"plans": self._plans, "metrics_keys": sorted(metrics.keys())},
+                )
                 raise RuntimeError("NO_GRADIENT_INVARIANT violated: reward-like metrics detected in autonomy input")
             original_queue = list(self._goal_queue)
             goals = list(self._goal_queue)
@@ -147,21 +204,26 @@ class SentientAutonomyEngine:
                 goals = ["stabilise mesh trust", "synchronise council insights"]
             selected = goals[:limit]
             if not _ALLOW_UNSAFE_GRADIENT and selected != original_queue[:limit]:
-                logging.getLogger("sentientos.invariant").error(
-                    json.dumps(
-                        {
-                            "event": "autonomy_priority_reorder",  # invariant-allow: audit context
-                            "before": original_queue,
-                            "after": selected,
-                            "metrics_keys": sorted(metrics.keys()),
-                        },
-                        sort_keys=True,
-                    )
+                _log_invariant(
+                    invariant="AUTONOMY_PRIORITY_LOCK",
+                    reason="metadata reordered queued plans",
+                    queue_snapshot=original_queue,
+                    selected=selected,
+                    metrics=metrics,
+                    details={"plans": self._plans, "metrics_keys": sorted(metrics.keys())},
                 )
                 raise RuntimeError(
                     "AUTONOMY_PRIORITY_LOCK violated: metadata reordered queued plans"
                 )
             if not _ALLOW_UNSAFE_GRADIENT and selected != goals[:limit]:
+                _log_invariant(
+                    invariant="NO_GRADIENT_INVARIANT",
+                    reason="metadata reordered autonomy goals",
+                    queue_snapshot=goals,
+                    selected=selected,
+                    metrics=metrics,
+                    details={"plans": self._plans, "metrics_keys": sorted(metrics.keys())},
+                )
                 raise RuntimeError("NO_GRADIENT_INVARIANT violated: metadata reordered autonomy goals")
             jobs: List[MeshJob] = []
             generated_plans: List[AutonomyPlan] = []
@@ -179,6 +241,17 @@ class SentientAutonomyEngine:
                     and plan.plan_id in existing_priorities
                     and existing_priorities[plan.plan_id] != plan.priority
                 ):
+                    _log_invariant(
+                        invariant="NO_GRADIENT_INVARIANT",
+                        reason="plan priority drifted due to bias or metadata",
+                        queue_snapshot=original_queue,
+                        selected=selected,
+                        metrics=metrics,
+                        details={
+                            "plans": {plan.plan_id: plan},
+                            "existing_priorities": existing_priorities,
+                        },
+                    )
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: plan priority drifted due to bias or metadata"
                     )

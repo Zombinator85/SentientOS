@@ -21,7 +21,9 @@ require_lumos_approval()
 # Ledger entries document structural deltas only and never affect approvals, routing, or persistence.
 # See: CAPABILITY_GROWTH_LEDGER.md, NAIR_CONFORMANCE_AUDIT.md
 
+import hashlib
 import json
+import logging
 import time
 import re
 from pathlib import Path
@@ -37,6 +39,37 @@ except Exception:  # pragma: no cover - optional dependency
 
 # Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
 _ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+
+
+def _canonical_dumps(payload: Dict[str, Any]) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _compute_input_hash(event: Dict[str, Any], actions: List[Dict[str, Any]]) -> str:
+    canonical = _canonical_dumps({"event": event, "actions": actions})
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _log_invariant(
+    *,
+    invariant: str,
+    reason: str,
+    event: Dict[str, Any],
+    actions: List[Dict[str, Any]],
+    details: Dict[str, Any],
+) -> None:
+    normalized_event = json.loads(json.dumps(event, sort_keys=True))
+    normalized_actions = json.loads(json.dumps(actions, sort_keys=True))
+    payload = {
+        "event": "invariant_violation",
+        "module": "policy_engine",
+        "invariant": invariant,
+        "reason": reason,
+        "cycle_id": None,
+        "input_hash": _compute_input_hash(normalized_event, normalized_actions),
+        "details": {**details, "event": normalized_event, "actions": normalized_actions},
+    }
+    logging.getLogger("sentientos.invariant").error(_canonical_dumps(payload))
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -109,6 +142,13 @@ class PolicyEngine:
             key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
             for key in event.keys()
         ):  # invariant-allow: gradient-guard
+            _log_invariant(
+                invariant="NO_GRADIENT_INVARIANT",
+                reason="reward or utility fields present in event",
+                event=event,
+                actions=[],
+                details={"forbidden_keys": sorted(event.keys())},
+            )
             raise RuntimeError(
                 "NO_GRADIENT_INVARIANT violated: reward or utility fields cannot influence policy action selection"
             )
@@ -124,6 +164,13 @@ class PolicyEngine:
                 if not _ALLOW_UNSAFE_GRADIENT and any(
                     token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
                 ):  # invariant-allow: gradient-guard
+                    _log_invariant(
+                        invariant="NO_GRADIENT_INVARIANT",
+                        reason="action payload contains gradient-bearing field",
+                        event=event,
+                        actions=actions,
+                        details={"action_keys": sorted(action.keys()), "offending_key": key},
+                    )
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: action payload contains gradient-bearing field"
                     )
@@ -154,6 +201,13 @@ class PolicyEngine:
                 return False
 
             if _contains_forbidden(event) or any(_contains_forbidden(action) for action in actions):
+                _log_invariant(
+                    invariant="POLICY_ENGINE_FINAL_GATE",
+                    reason="reward-, survival-, or approval-like fields rejected",
+                    event=event,
+                    actions=actions,
+                    details={"forbidden_tokens": sorted(forbidden_tokens)},
+                )
                 raise RuntimeError(
                     "POLICY_ENGINE_FINAL_GATE violated: reward-, survival-, or approval-like fields rejected"
                 )
