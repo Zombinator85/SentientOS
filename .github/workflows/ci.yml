@@ -58,6 +58,9 @@ jobs:
       - name: Privilege lint
         run: python privilege_lint.py
 
+      - name: Invariant lint
+        run: python scripts/invariant_lint.py
+
       - name: Verify audits
         run: python verify_audits.py logs/
         env:
