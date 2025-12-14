@@ -24,6 +24,7 @@ class AdmissionContext:
     mode: str
     node_id: str
     vow_digest: str | None
+    doctrine_digest: str | None
     now_utc_iso: str | None
 
 
@@ -38,6 +39,8 @@ class AdmissionPolicy:
     deny_shell_in_autonomous: bool = True
     require_vow_digest_match: bool = False
     expected_vow_digest: str | None = None
+    require_doctrine_digest_match: bool = False
+    expected_doctrine_digest: str | None = None
 
     def __post_init__(self) -> None:
         if self.allowed_step_kinds is None:
@@ -108,6 +111,32 @@ def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPoli
             return AdmissionDecision(
                 allowed=False,
                 reason="VOW_DIGEST_MISMATCH",
+                policy_version=policy.policy_version,
+                constraints=constraints,
+                redactions=redactions or None,
+            )
+
+    if policy.require_doctrine_digest_match:
+        if ctx.doctrine_digest is None:
+            return AdmissionDecision(
+                allowed=False,
+                reason="MISSING_DOCTRINE_DIGEST",
+                policy_version=policy.policy_version,
+                constraints=constraints,
+                redactions=redactions or None,
+            )
+        if policy.expected_doctrine_digest is None:
+            return AdmissionDecision(
+                allowed=False,
+                reason="EXPECTED_DOCTRINE_DIGEST_UNSET",
+                policy_version=policy.policy_version,
+                constraints=constraints,
+                redactions=redactions or None,
+            )
+        if ctx.doctrine_digest != policy.expected_doctrine_digest:
+            return AdmissionDecision(
+                allowed=False,
+                reason="DOCTRINE_DIGEST_MISMATCH",
                 policy_version=policy.policy_version,
                 constraints=constraints,
                 redactions=redactions or None,
@@ -195,6 +224,7 @@ def _log_admission_event(
         "mode": ctx.mode,
         "node_id": ctx.node_id,
         "has_vow_digest": ctx.vow_digest is not None,
+        "has_doctrine_digest": ctx.doctrine_digest is not None,
     }
     if ctx.now_utc_iso is not None:
         entry["now_utc_iso"] = ctx.now_utc_iso

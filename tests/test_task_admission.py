@@ -9,12 +9,17 @@ import task_executor
 pytestmark = pytest.mark.no_legacy_skip
 
 
-def make_ctx(mode: str = "interactive", vow_digest: str | None = None) -> task_admission.AdmissionContext:
+def make_ctx(
+    mode: str = "interactive",
+    vow_digest: str | None = None,
+    doctrine_digest: str | None = None,
+) -> task_admission.AdmissionContext:
     return task_admission.AdmissionContext(
         actor="codex",
         mode=mode,
         node_id="node-a",
         vow_digest=vow_digest,
+        doctrine_digest=doctrine_digest,
         now_utc_iso="2024-01-01T00:00:00Z",
     )
 
@@ -88,6 +93,23 @@ def test_vow_digest_mismatch():
 
     assert decision.allowed is False
     assert decision.reason == "VOW_DIGEST_MISMATCH"
+
+
+def test_doctrine_digest_mismatch():
+    steps = (
+        task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),
+    )
+    task = task_executor.Task(task_id="doctrine-mismatch", objective="noop", steps=steps)
+    policy = task_admission.AdmissionPolicy(
+        policy_version="v1",
+        require_doctrine_digest_match=True,
+        expected_doctrine_digest="expected",
+    )
+
+    decision = task_admission.admit(task, make_ctx(doctrine_digest="different"), policy)
+
+    assert decision.allowed is False
+    assert decision.reason == "DOCTRINE_DIGEST_MISMATCH"
 
 
 def test_decision_is_deterministic():
