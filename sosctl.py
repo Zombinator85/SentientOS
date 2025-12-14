@@ -9,11 +9,11 @@ import platform
 import subprocess
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-from sentientos.autonomy import AutonomyRuntime, run_rehearsal
-from sentientos.config import load_runtime_config
-from sentientos.perception.screen_ocr import ScreenOCR
+if TYPE_CHECKING:  # pragma: no cover - runtime import guard
+    from sentientos.autonomy import AutonomyRuntime, run_rehearsal
+    from sentientos.perception.screen_ocr import ScreenOCR
 
 
 def _cycles_from_duration(duration: str, profile: str) -> int:
@@ -36,10 +36,19 @@ def _parse_duration(value: str) -> float:
 
 
 def _service_action(action: str, *, unit_override: str | None = None) -> dict[str, object]:
+    try:  # optional dependency for YAML-based service rendering
+        import yaml  # type: ignore[import-not-found]
+
+        has_yaml = True
+    except ImportError:
+        has_yaml = False
+
     override = os.getenv("SENTIENTOS_SERVICE_PLATFORM")
     system = override.lower() if override else platform.system().lower()
     dry_run = os.getenv("SENTIENTOS_SERVICE_DRY_RUN", "0").lower() in {"1", "true", "yes"}
+    notices: list[dict[str, str]] = []
     commands: list[list[str]] = []
+    rendering_required = action == "install"
     if system.startswith("win"):
         script = Path(__file__).parent / "packaging" / "windows" / "sentientos_windows_service.ps1"
         command = ["powershell.exe", "-File", str(script), "-Action", action]
@@ -53,13 +62,31 @@ def _service_action(action: str, *, unit_override: str | None = None) -> dict[st
             commands.append(["systemctl", "enable", "--now", "sentientos.service"])
         else:
             commands.append(["systemctl", action, "sentientos.service"])
+
+    if rendering_required and not has_yaml:
+        notice = {
+            "dependency": "PyYAML",
+            "effect": "service rendering skipped",
+            "mode": "dry-run" if dry_run else "required",
+        }
+        if dry_run:
+            notices.append(notice)
+        else:
+            raise RuntimeError("PyYAML is required to render service configuration; install it or use --dry-run")
     executed: list[list[str]] = []
     for command in commands:
         executed.append(command)
         if dry_run:
             continue
         subprocess.run(command, check=True)
-    return {"action": action, "commands": executed, "dry_run": dry_run, "system": system}
+    return {
+        "action": action,
+        "commands": executed,
+        "dry_run": dry_run,
+        "notices": notices,
+        "system": system,
+        "yaml_available": has_yaml,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -128,8 +155,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def handle(args: argparse.Namespace) -> int:
-    config = load_runtime_config()
-    runtime = AutonomyRuntime.from_config(config)
+    if args.command == "service":
+        response = _service_action(args.action, unit_override=args.unit)
+        print(json.dumps(response, indent=2))
+        return 0
+
+    from sentientos.autonomy import AutonomyRuntime, run_rehearsal
+    from sentientos.config import load_runtime_config
+
+    runtime = AutonomyRuntime.from_config(load_runtime_config())
+
     if args.command == "rehearse":
         cycles = args.cycles
         if args.duration:
@@ -178,10 +213,6 @@ def handle(args: argparse.Namespace) -> int:
         runtime.metrics.persist_prometheus()
         print(json.dumps({"status": "ok"}))
         return 0
-    if args.command == "service":
-        response = _service_action(args.action, unit_override=args.unit)
-        print(json.dumps(response, indent=2))
-        return 0
     if args.command == "say":
         runtime.tts._config.enable = True
         runtime.tts.enqueue(args.text, corr_id="cli")
@@ -195,6 +226,8 @@ def handle(args: argparse.Namespace) -> int:
         print(json.dumps(observation or {}))
         return 0
     if args.command == "screen-ocr-smoke":
+        from sentientos.perception.screen_ocr import ScreenOCR
+
         runtime.config.screen.enable = True
         runtime.screen = ScreenOCR(
             runtime.config.screen,
