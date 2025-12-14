@@ -41,6 +41,8 @@ def _now() -> _dt.datetime:
 
 
 _LAST_REFLECTION: "ReflectionSummary | None" = None
+# Growth rate: reflection summaries are overwritten per run (O(1)) and are
+# broadcast-only telemetry that never participates in plan ordering or routing.
 _REFLECTION_BROADCAST: Optional[Callable[[str, Mapping[str, object]], None]] = None
 _MESH_METRICS_PROVIDER: Optional[Callable[[], Mapping[str, object]]] = None
 

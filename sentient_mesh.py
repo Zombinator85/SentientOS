@@ -169,6 +169,8 @@ def _log_invariant(
         "input_hash": input_hash,
         "details": dict(details),
     }
+    # Audit-only emission: invariant logs accumulate externally and are never
+    # reread for routing, prompt shaping, or node selection.
     logging.getLogger("sentientos.invariant").error(_canonical_dumps(payload))
 
 
@@ -266,6 +268,9 @@ class SentientMesh:
         records = self._session_records(job_id)
         records.append(exchange)
         if len(records) > 120:
+            # Growth rate: bounded to the last 120 exchanges (O(1)). Rotation keeps
+            # ordering intact for the preserved tail and never feeds back into plan
+            # selection or trust scoring.
             del records[:-120]
         path = self._root / f"{job_id}.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
