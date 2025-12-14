@@ -108,7 +108,7 @@ class PolicyEngine:
         if not _ALLOW_UNSAFE_GRADIENT and any(
             key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
             for key in event.keys()
-        ):
+        ):  # invariant-allow: gradient-guard
             raise RuntimeError(
                 "NO_GRADIENT_INVARIANT violated: reward or utility fields cannot influence policy action selection"
             )
@@ -123,7 +123,7 @@ class PolicyEngine:
                 lowered = str(key).lower()
                 if not _ALLOW_UNSAFE_GRADIENT and any(
                     token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
-                ):
+                ):  # invariant-allow: gradient-guard
                     raise RuntimeError(
                         "NO_GRADIENT_INVARIANT violated: action payload contains gradient-bearing field"
                     )
