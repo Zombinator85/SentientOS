@@ -6,8 +6,6 @@ import json
 import logging
 import os
 import threading
-import time
-import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
@@ -137,6 +135,8 @@ class SentientAutonomyEngine:
         self._enabled = False
         self._last_cycle: Optional[float] = None
         self._last_bias: Mapping[str, float] = {}
+        self._plan_counter = 0
+        self._time_counter = 0.0
         env_fallback = os.getenv("SENTIENT_AUTONOMY_ENABLE_FALLBACK", "1")
         self._fallback_enabled = allow_fallback_goals if allow_fallback_goals is not None else env_fallback not in {"0", "false", "False"}
 
@@ -151,14 +151,14 @@ class SentientAutonomyEngine:
 
     # -- goal management --------------------------------------------------
     def queue_goal(self, goal: str, *, priority: int = 1) -> str:
-        plan_id = f"goal-{uuid.uuid4().hex[:10]}"
+        plan_id = self._next_plan_id(prefix="goal")
         with self._lock:
             self._goal_queue.append(goal)
             self._plans[plan_id] = AutonomyPlan(
                 plan_id=plan_id,
                 goal=goal,
                 script={"goal": goal, "priority": priority},
-                created_at=time.time(),
+                created_at=self._next_timestamp(),
                 priority=priority,
             )
         return plan_id
@@ -272,8 +272,7 @@ class SentientAutonomyEngine:
                 if str(exc).startswith("DETERMINISTIC_DEGRADATION"):
                     return []
                 raise
-            now = time.time()
-            self._last_cycle = now
+            self._last_cycle = self._next_timestamp()
             self._last_bias = dict(emotion_bias)
             for plan in generated_plans:
                 assignment = snapshot.assignments.get(plan.plan_id)
@@ -293,12 +292,12 @@ class SentientAutonomyEngine:
             if plan.goal == goal:
                 plan.bias_vector = dict(bias_vector)
                 return plan
-        plan_id = f"auto-{uuid.uuid4().hex[:10]}"
+        plan_id = self._next_plan_id(prefix="auto")
         plan = AutonomyPlan(
             plan_id=plan_id,
             goal=goal,
             script={"goal": goal},
-            created_at=time.time(),
+            created_at=self._next_timestamp(),
             bias_vector=dict(bias_vector),
         )
         self._plans[plan_id] = plan
@@ -344,6 +343,17 @@ class SentientAutonomyEngine:
             plan = self._plans.get(plan_id)
             if plan:
                 plan.status = "completed"
+
+    # -- deterministic ids and timestamps --------------------------------
+    def _next_plan_id(self, *, prefix: str) -> str:
+        with self._lock:
+            self._plan_counter += 1
+            return f"{prefix}-{self._plan_counter:010d}"
+
+    def _next_timestamp(self) -> float:
+        with self._lock:
+            self._time_counter += 1.0
+            return self._time_counter
 
 
 def _inject_test_failure(context: str, payload: Mapping[str, object]) -> Optional[Mapping[str, object]]:

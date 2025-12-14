@@ -96,13 +96,14 @@ class PolicyEngine:
         self.personas: Dict[str, Dict[str, Any]] = {}
         self.logs: List[Dict[str, Any]] = []
         self.history: List[Dict[str, Any]] = []
+        self._load_sequence = 0
         self.load()
 
     def load(self) -> None:
         data = _load_config(self.path)
         self.personas = data.get("personas", {})
         self.policies = data.get("policies", [])
-        self.history.append({"timestamp": time.time(), "data": data})
+        self._record_history(data)
 
     def reload(self) -> None:
         self.load()
@@ -122,7 +123,7 @@ class PolicyEngine:
         if not approved:
             return
         new_data = _load_config(Path(path))
-        self.history.append({"timestamp": time.time(), "data": new_data})
+        self._record_history(new_data)
         self.personas = new_data.get("personas", {})
         self.policies = new_data.get("policies", [])
 
@@ -237,6 +238,10 @@ class PolicyEngine:
             "event": event,
             "actions": actions,
         })
+
+    def _record_history(self, data: Dict[str, Any]) -> None:
+        self._load_sequence += 1
+        self.history.append({"sequence": self._load_sequence, "data": data})
 
 
 # -- CLI ----------------------------------------------------------------------

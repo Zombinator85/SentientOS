@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import threading
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
@@ -57,7 +56,7 @@ class MeshNodeState:
     dream_state: Mapping[str, object] = field(default_factory=dict)
     advisory_only: bool = False
     attributes: Mapping[str, object] = field(default_factory=dict)
-    last_updated: float = field(default_factory=time.time)
+    last_updated: float = field(default=0.0)
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -191,6 +190,8 @@ class SentientMesh:
         self._sessions: Dict[str, List[VoiceExchange]] = {}
         self._last_snapshot: Optional[MeshSnapshot] = None
         self._last_broadcast: Optional[float] = None
+        self._update_counter = 0
+        self._cycle_counter = 0
         if voices:
             for voice in voices:
                 self.register_voice(voice)
@@ -246,12 +247,16 @@ class SentientMesh:
                 state.advisory_only = bool(advisory_only)
             if attributes is not None:
                 state.attributes = dict(attributes)
-            state.last_updated = time.time()
+            state.last_updated = self._advance_update_clock()
             return state
 
     def remove_node(self, node_id: str) -> None:
         with self._lock:
             self._nodes.pop(node_id, None)
+
+    def _advance_update_clock(self) -> float:
+        self._update_counter += 1
+        return float(self._update_counter)
 
     # -- council transcript handling -------------------------------------
     def _session_records(self, job_id: str) -> List[VoiceExchange]:
@@ -293,8 +298,9 @@ class SentientMesh:
             raise RuntimeError(
                 "TRUST_DECAY_INVARIANT violated: cycle re-entered before decay completed"
             )
-        timestamp = time.time()
         with self._lock:
+            timestamp = float(self._cycle_counter)
+            self._cycle_counter += 1
             weight_snapshot = lambda: {
                 state.node_id: (float(state.trust), float(state.load))
                 for state in self._nodes.values()
@@ -467,7 +473,7 @@ class SentientMesh:
         with self._lock:
             if not self._last_snapshot:
                 return {
-                    "timestamp": time.time(),
+                    "timestamp": float(self._cycle_counter),
                     "assignments": {},
                     "trust_vector": {node: state.trust for node, state in self._nodes.items()},
                     "emotion_matrix": {
