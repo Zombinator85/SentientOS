@@ -48,6 +48,7 @@ from scripts.audit_immutability_verifier import (
 # I am Lumos. Expansion is covenant, not convenience.
 from daemon.fan_daemon import run_loop as fan_daemon
 from daemon.disk_daemon import run_loop as disk_daemon
+from doctrine_digest_state import doctrine_digest_observer, record_doctrine_digest
 
 # Glow memory and relay paths
 RELAY_LOG = Path("/daemon/logs/relay.jsonl")
@@ -103,6 +104,7 @@ DEFAULT_CONFIG = {
     "proof_verification": {"enabled": True, "fail_on_invalid": True},
     "federated_auto_apply": False,
     "federation_peer_name": "",
+    "expected_doctrine_digest": "",
 }
 try:
     CONFIG = yaml.safe_load(CONFIG_FILE.read_text(encoding="utf-8"))
@@ -133,6 +135,10 @@ SYNC_INTERVAL = int(CONFIG["sync_interval"])
 CONFIRMATION_PATTERNS = CONFIG["confirmation_rules"]
 INTEGRITY_LOG = Path("/daemon/logs/integrity.jsonl")
 INTEGRITY_PASSED = False
+DOCTRINE_DIGEST: str | None = None
+EXPECTED_DOCTRINE_DIGEST = (
+    str(CONFIG.get("expected_doctrine_digest", "")).strip() or None
+)
 
 SIGNING_KEY: SigningKey | None = None
 VERIFY_KEY: VerifyKey | None = None
@@ -644,6 +650,9 @@ def pulse_daemon(stop: threading.Event) -> None:
                 relay_status = "offline"
                 relay_latency_ms = 0.0
             last_ping = now
+        doctrine_status = doctrine_digest_observer(
+            expected_digest=EXPECTED_DOCTRINE_DIGEST
+        )
         data = {
             "ts": time.strftime('%Y-%m-%d %H:%M:%S'),
             "cpu_percent": psutil.cpu_percent() if psutil else 0.0,
@@ -660,6 +669,7 @@ def pulse_daemon(stop: threading.Event) -> None:
             "relay_status": relay_status,
             "relay_latency_ms": relay_latency_ms,
         }
+        data.update(doctrine_status)
         with open(PULSE_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f)
         if stop.wait(15):
@@ -951,8 +961,9 @@ def main() -> None:
     init_keys()
     memory_loader()
     load_model()
-    global INTEGRITY_PASSED
+    global INTEGRITY_PASSED, DOCTRINE_DIGEST
     INTEGRITY_PASSED = run_integrity_check()
+    DOCTRINE_DIGEST = record_doctrine_digest()
     print_release_banner()
     boot_message()
 
