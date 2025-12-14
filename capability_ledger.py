@@ -84,7 +84,9 @@ class CapabilityGrowthLedger:
     """Append-only ledger for epistemic capability metrics."""
 
     def __init__(self, path: Path | None = None) -> None:
-        self._path = path or get_log_path("capability_growth_ledger.jsonl", "CAPABILITY_GROWTH_LEDGER")
+        resolved = path or get_log_path("capability_growth_ledger.jsonl", "CAPABILITY_GROWTH_LEDGER")
+        candidate = Path(resolved)
+        self._path = candidate if candidate.is_absolute() else candidate.resolve()
 
     @property
     def path(self) -> Path:
@@ -167,7 +169,8 @@ _DEFAULT_LEDGER = CapabilityGrowthLedger()
 
 def append(entry: CapabilityLedgerEntry) -> CapabilityLedgerEntry:
     """Record a deterministic capability ledger entry (append-only)."""
-
+    # Boundary assertion: global ledger is append-only across restarts; callers must not
+    # treat persisted observations as mutable preferences or routing signals.
     return _DEFAULT_LEDGER.record(entry)
 
 

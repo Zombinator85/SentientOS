@@ -5,6 +5,9 @@ import json
 import sys
 from pathlib import Path
 import builtins
+import json
+
+import types
 
 # Ensure the repository root is on sys.path before importing project modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -12,6 +15,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # Stub privilege checks before importing modules that may call them on import
 builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
 builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
+
+yaml_stub = types.ModuleType("yaml")
+def _safe_yaml(text, *_, **__):
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except Exception:
+        return {}
+
+
+yaml_stub.safe_load = _safe_yaml
+sys.modules.setdefault("yaml", yaml_stub)
+
+pdfrw_stub = types.ModuleType("pdfrw")
+pdfrw_stub.PdfDict = dict
+pdfrw_stub.PdfReader = lambda *_a, **_k: None
+pdfrw_stub.PdfWriter = type(
+    "PdfWriterStub",
+    (),
+    {
+        "addpage": lambda *_a, **_k: None,
+        "write": lambda *_a, **_k: None,
+    },
+)
+sys.modules.setdefault("pdfrw", pdfrw_stub)
 
 from sentientos.privilege import require_admin_banner, require_covenant_alignment
 
@@ -196,11 +225,12 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_experiment_consensus",
         "tests.test_verifier_consensus_core",
         "tests.test_verifier_consensus_mesh",
-        "tests.test_verifier_consensus_console",
-        "tests.test_sentient_mesh_scheduler",
-        "tests.test_council_adapters",
-        "tests.test_sentient_autonomy",
-        "tests.test_console_mesh_ui",
+        "tests.test_verifier_consensus_console", 
+        "tests.test_sentient_mesh_scheduler", 
+        "tests.test_council_adapters", 
+        "tests.test_sentient_autonomy", 
+        "tests.test_restart_determinism", 
+        "tests.test_console_mesh_ui", 
         "tests.test_experiment_chain",
         "tests.test_demo_gallery",
         "tests.test_console_dashboard",
