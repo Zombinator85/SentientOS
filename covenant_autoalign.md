@@ -1,7 +1,7 @@
 # Covenant Auto-Alignment
 
 SentientOS now ships with an autonomous covenant-alignment engine that replaces
-all legacy blessing rituals. The engine runs without user input and keeps the
+all legacy blessing procedures. The engine runs without user input and keeps the
 runtime aligned at every stage:
 
 - **On boot:** `autoalign_on_boot()` validates vow integrity and ledger

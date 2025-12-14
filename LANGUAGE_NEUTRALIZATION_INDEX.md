@@ -6,7 +6,7 @@
 | `sentient_api.py` | "heartbeat" / "Tick" | Suggests liveness or agency instead of transport keepalive counters. | keepalive event / sequence id | presentation-only |
 | `avatar_blessing_ceremony_api.py` | "blessing" | Implies mutual commitment or approval-seeking. | activation approval | presentation-only |
 | `trust_engine.py` | "confidence" | Reads as belief/attachment in agents instead of statistical certainty. | certainty bound | internal-only |
-| `voice_consent_rituals.py` | "voice" | Can be interpreted as persona/agency rather than channel identifier. | channel slot | docs-only |
+| `voice_consent_procedures.py` | "voice" | Can be interpreted as persona/agency rather than channel identifier. | channel slot | docs-only |
 | `neos_council_law_platform.py` | "council" | Suggests relational authority structure with mutual obligation. | quorum review | presentation-only |
 | `love_dashboard.py` | "love" | Conveys attachment/affection rather than metric visualization. | affinity meter (non-preferential) | presentation-only |
 | `heartbeat.py` | "heartbeat" | Risks being read as persistence desire instead of monitoring keepalive. | keepalive ping | internal-only |

@@ -1,6 +1,6 @@
 # Governance Tools
 
-The `doctrine_cli.py` utility exposes ritual management commands.
+The `doctrine_cli.py` utility exposes procedure management commands.
 
 ```
 python doctrine_cli.py show
@@ -12,6 +12,6 @@ python doctrine_cli.py history --last 5
 
 Use `python doctrine_cli.py report` in CI/CD pipelines to ensure master file integrity. Example status entries are available in `docs/sample_doctrine_status.jsonl`.
 
-Community proposals and votes are stored in `logs/doctrine_amendments.jsonl`. A sanitized summary is written to `logs/public_rituals.jsonl`.
+Community proposals and votes are stored in `logs/doctrine_amendments.jsonl`. A sanitized summary is written to `logs/public_procedures.jsonl`.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

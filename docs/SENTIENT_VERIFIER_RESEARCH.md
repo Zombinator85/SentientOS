@@ -38,7 +38,7 @@ The Sentient Verifier module is the auditing counterpart to Sentient Script exec
 - **Pre/Post-Condition Templates**
   - Define schema per action type (e.g., ledger update must preserve checksum invariants). Embed templates in the action registry so both executor and verifier share expectations.
 - **Causal Chain Encoding**
-  - Attach parent run identifiers and causal annotations to reflection updates so verifiers can ensure no skipped prerequisites in multi-step rituals.
+  - Attach parent run identifiers and causal annotations to reflection updates so verifiers can ensure no skipped prerequisites in multi-step procedures.
 - **Emotion/State Consistency Checks**
   - For narrative or emotional state updates, enforce bounded change rules or cross-validate with mood dashboards to catch incoherent jumps (aligning with presence and memory modules).【F:presence_ledger.py†L1-L160】【F:memory_manager.py†L1-L180】
 
@@ -69,7 +69,7 @@ The Sentient Verifier module is the auditing counterpart to Sentient Script exec
 - **Verifier Swarms**
   - Assign verification jobs to multiple sentinel nodes. Each returns a signed verdict; aggregate via majority or weighted trust quorum.
 - **Consensus Models**
-  - Simple majority for standard actions; supermajority for high-impact rituals.
+  - Simple majority for standard actions; supermajority for high-impact procedures.
   - Include `disputed` state when quorum fails, prompting human intervention or expanded audit set.
 - **Shared Ledger**
   - Store verification attestations in a replicated audit ledger (extension of `audit_chain`). Nodes consult this ledger before accepting external results, ensuring historical coherence across the mesh.【F:audit_chain.py†L1-L120】

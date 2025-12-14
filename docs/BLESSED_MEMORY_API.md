@@ -4,4 +4,4 @@ A proposed interface for consent-driven access to select audit logs. External to
 
 This draft describes a simple HTTP endpoint that returns log excerpts after verifying user consent tokens. Implementation is left for future discussion.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

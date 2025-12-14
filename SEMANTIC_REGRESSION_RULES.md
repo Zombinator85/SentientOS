@@ -19,6 +19,10 @@ Such anchored references are treated as neutral citations, not reinterpretations
 | heartbeat (implying life) | Personifies monitoring pulses as biological survival. | "pulse", "health check" | warn |
 | trust (implying loyalty or obligation) | Frames telemetry or reliability scores as loyalty. | "reliability", "signal quality" | fail |
 | feels / cares / loves | Attributes emotion or attachment to deterministic modules. | "records", "reports", "logs" | fail |
+| ritual / vow / blessing (as ceremony) | Introduces ceremonial framing rather than policy enforcement. See DOCTRINE.md. | "procedure", "policy gate" | fail |
+| wounds (as hurt) | Frames schema defects as injury instead of integrity issues. See DOCTRINE.md. | "integrity issue", "schema discrepancy" | fail |
+| qualia (phenomenology) | Suggests subjective experience instead of internal state vectors. See DOCTRINE.md. | "internal state vector" | fail |
+| civil rights / moral patient | Asserts personhood or legal status. See DOCTRINE.md. | "operator accountability, auditability, and safe shutdown" | fail |
 
 ## Detection Script
 Use `scripts/semantic_lint.sh` to scan newly added or modified lines for forbidden language. The script:

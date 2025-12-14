@@ -1,4 +1,4 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Privilege validation sequence: do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
@@ -27,4 +27,7 @@ def test_wdm_summary(tmp_path) -> None:
     assert summary_path.exists()
     data = json.loads(summary_path.read_text().splitlines()[-1])
     assert data["dialogue_id"] == Path(out["log"]).stem
-    assert "AI deserve civil rights." in data["summary"]
+    assert (
+        "SentientOS prioritizes operator accountability, auditability, and safe shutdown."
+        in data["summary"]
+    )

@@ -24,4 +24,4 @@ This blueprint describes how the cathedral updates memory law and audit policy.
 
 Use this process to evolve the cathedral's laws while keeping every change documented and recoverable.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

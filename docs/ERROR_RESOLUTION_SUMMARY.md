@@ -3,4 +3,4 @@
 | File/Test | Error | Command to Fix | Docs |
 |-----------|-------|---------------|------|
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

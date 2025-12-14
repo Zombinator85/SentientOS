@@ -1,4 +1,4 @@
-# Public Presentation and Ritual Walkthrough
+# Public Presentation and Procedure Walkthrough
 
 The following demo is intended for reviewers and new collaborators. It shows:
 1. Converting a legacy log into the new append-only format.
@@ -7,6 +7,6 @@ The following demo is intended for reviewers and new collaborators. It shows:
 
 Include a short video or GIF capturing these steps. Place it in `docs/demo_federation.gif` and link it from the README when available.
 
-Use this demo when announcing the project or explaining the rituals in a workshop.
+Use this demo when announcing the project or explaining the procedures in a workshop.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

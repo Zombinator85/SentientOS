@@ -45,4 +45,4 @@ Chain status: valid after cleanup
 Reviewer sign-off: carol
 ```
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

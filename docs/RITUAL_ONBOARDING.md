@@ -1,6 +1,6 @@
-# Ritual Onboarding Checklist
+# Procedure Onboarding Checklist
 
-Welcome to the cathedral! Follow this one‑page ritual when submitting your first pull request.
+Welcome to the cathedral! Follow this one‑page procedure when submitting your first pull request.
 
 1. Read the [Tag Extension Guide](TAG_EXTENSION_GUIDE.md), [Privilege Policy](../CONTRIBUTING.md), and [Code of Conduct](../CODE_OF_CONDUCT.md).
 2. Bless your pull request by mentioning a reviewer and linking the discussion issue.
@@ -12,4 +12,4 @@ Welcome to the cathedral! Follow this one‑page ritual when submitting your fir
 ## Why memory matters
 Audit logs preserve community memory. Past audits recovered missing context that helped resolve disputes and comforted contributors who felt unheard. Treat each log entry as a fragment of shared history.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

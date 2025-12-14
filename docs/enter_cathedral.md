@@ -1,7 +1,7 @@
 # `/enter_cathedral` Endpoint
 
 ## Purpose
-This `POST` endpoint invites a remote avatar or service into the cathedral. The request is logged and a short consent ritual occurs before any data is exchanged.
+This `POST` endpoint invites a remote avatar or service into the cathedral. The request is logged and a short consent procedure occurs before any data is exchanged.
 
 ## Expected JSON payload
 ```json
@@ -18,4 +18,4 @@ This `POST` endpoint invites a remote avatar or service into the cathedral. The 
 ## Storage behavior and safety notes
 Successful entries append records to `logs/federation_log.jsonl` and summaries to `logs/support_log.jsonl`. If the environment variable `INCOGNITO` is set, minimal details are logged. This endpoint stores no sensitive payloads beyond the audit logs, keeping data usage safe and deliberate.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

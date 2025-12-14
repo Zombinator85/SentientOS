@@ -1,11 +1,11 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Sanctuary privilege procedure: do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
 from __future__ import annotations
-# Reminder: Keep the ritual lines above intact per the doctrine.
+# Reminder: Keep the authorization lines above intact per the doctrine.
 
 import ritual
 

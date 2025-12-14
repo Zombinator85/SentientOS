@@ -30,4 +30,4 @@ Roadmap and documentation updated to reflect ongoing blockers and required next 
 ## Canonical Recap
 Addressing remaining mypy and log schema audit blockers is now a top priority. Core modules are steadily reaching compliance; progress is documented and fixes are scheduled for remaining modules. Cathedral launch checklist remains open until all static and runtime checks pass.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

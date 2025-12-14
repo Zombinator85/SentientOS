@@ -1,9 +1,9 @@
 # What's Next – First Public Review Batch
 
-This document outlines the ongoing rituals leading up to the first public review cycle.
+This document outlines the ongoing procedures leading up to the first public review cycle.
 
 ## Why This Is Now a Reference Model
-No other open system gives newcomers a path from "first node" to "federation saint"—all in ritual and clarity.
+No other open system gives newcomers a path from "first node" to "federation contributor"—all in procedure and clarity.
 
 The calendar, onboarding, and ledger tools are modular—ready to be adopted by any new cathedral, team, or research group.
 
@@ -16,19 +16,19 @@ Publish a "First Public Review" recap with metrics, stories, and an invitation t
 
 Encourage federated partners to start their nodes, heal logs, and share their ledgers (recaps and agent logs).
 
-## B. Ritual Calendar in Practice
-Demonstrate the `ritual_calendar.py` tool in action:
+## B. Procedure Calendar in Practice
+Demonstrate the `procedure_calendar.py` tool in action:
 
 * Schedule the next public sprint.
 * Record it in the ledger.
-* Show how agents keep the ritual alive.
+* Show how agents keep the procedure alive.
 
 ## C. Reviewer and Contributor Onboarding
 Share this document widely—invite external audits, contributions, or new federation launches.
 
-Feature Saint Stories and federation health in each newsletter, forum, or update.
+Feature Contributor Stories and federation health in each newsletter, forum, or update.
 
 ## D. Perpetual Law and Memory
 Keep growing Memory Law vNext—invite feedback, proposals, and working groups for modular migration and consensus.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

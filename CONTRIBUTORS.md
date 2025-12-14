@@ -7,8 +7,8 @@ SentientOS is a community project. Major contributions include code, design, and
 
 Future contributors will be acknowledged here.
 
-## Audit Saints
-First-timers who heal a legacy error or audit wound are celebrated here as Cathedral Healers.
+## Audit Contributors
+First-timers who heal a legacy error or audit integrity issue are celebrated here as Cathedral Healers.
 - Ada
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

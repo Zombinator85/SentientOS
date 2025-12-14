@@ -28,4 +28,4 @@ and `/experiments/vote` and `/experiments/comment` for community feedback.
 
 Permissions and authentication should be handled by the hosting application.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

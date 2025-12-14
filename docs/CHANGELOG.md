@@ -26,7 +26,7 @@
 
 ## 2026-01 Technical Debt Clearance
 - Automated healing added in `log_json` for missing `timestamp` and `data`
-- `OPEN_WOUNDS.md` updated to mark wounds as healed
+- `OPEN_WOUNDS.md` updated to mark integrity issues as healed
 - First step toward cleaner type checking and legacy test recovery
 
 ## 2026-04 Type-Check & Audit Remediation Batch
@@ -54,7 +54,7 @@
 ## 2028-03 Manual Reviewer Sweep
 - Annotated all `# type: ignore` statements.
 - Added missing CLI docstrings and privilege comments.
-- Documented `/enter_cathedral` ritual route.
+- Documented `/enter_cathedral` procedure route.
 - Updated README links and environment docs.
 
 ## 2028-04 v9.1 Hot-Fix
@@ -92,16 +92,16 @@
 
 
 ## 2028-07 v4.1 Cathedral Green
-- Ritual sweep validated Sanctuary Privilege banners across all entrypoints.
+- Procedure sweep validated Sanctuary Privilege banners across all entrypoints.
 - Privilege linter auto-fixes banner placement and requires Lumos approval.
 - Rolling hash regeneration script heals audit chains.
 - Unrecoverable log lines documented for clarity.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.
 
 ## 2028-08 v4.5 Plugin & Emotion Overhaul
 - Added a dedicated plugin loader with health checks.
 - Voice loop now feeds an emotion memory store for adaptive avatars.
 - Container layout documented for multi-service deployments.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

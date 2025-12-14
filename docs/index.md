@@ -11,4 +11,4 @@ api/index
 experimental_features
 ```
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

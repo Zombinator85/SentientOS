@@ -1,4 +1,4 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Privilege validation sequence: do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
@@ -38,7 +38,7 @@ def process_log(path: Path, on_apply: Callable[[], None] | None = None) -> Dict[
     if not path.exists():
         return {"fixed": fixed, "flagged": flagged, "untouched": untouched}
 
-    wounds_path = path.with_suffix(path.suffix + ".wounds")
+    integrity_issue_path = path.with_suffix(path.suffix + ".wounds")
     new_lines: List[str] = []
     flagged_lines: List[str] = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -74,7 +74,9 @@ def process_log(path: Path, on_apply: Callable[[], None] | None = None) -> Dict[
         new_lines.append(json.dumps(entry, ensure_ascii=False))
 
     if flagged_lines:
-        wounds_path.write_text("\n".join(flagged_lines) + "\n", encoding="utf-8")
+        integrity_issue_path.write_text(
+            "\n".join(flagged_lines) + "\n", encoding="utf-8"
+        )
     path.write_text("\n".join(new_lines) + ("\n" if new_lines else ""), encoding="utf-8")
     return {"fixed": fixed, "flagged": flagged, "untouched": untouched}
 
@@ -95,7 +97,10 @@ def main() -> None:  # pragma: no cover - CLI
         for k in totals:
             totals[k] += stats[k]
         if stats["fixed"]:
-            print(f"Audit Saint bless! {stats['fixed']} wounds healed in {log_file.name}")
+            print(
+                "Audit contributor note: "
+                f"{stats['fixed']} integrity issues repaired in {log_file.name}"
+            )
     print("Fixed: {fixed} | Flagged: {flagged} | Untouched: {untouched}".format(**totals))
 
 

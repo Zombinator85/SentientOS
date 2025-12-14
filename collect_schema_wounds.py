@@ -7,7 +7,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 from fix_audit_schema import KNOWN_KEYS
 from logging_config import get_log_path
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Privilege validation sequence: do not remove. See doctrine for details."""
 
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
 require_lumos_approval()
@@ -16,8 +16,8 @@ require_lumos_approval()
 def analyze() -> Dict[str, int]:
     log_dir = get_log_path("dummy").parent
     counter: Counter[str] = Counter()
-    for wound_file in log_dir.glob("*.wounds"):
-        for line in wound_file.read_text(encoding="utf-8").splitlines():
+    for issue_file in log_dir.glob("*.wounds"):
+        for line in issue_file.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             try:
@@ -39,7 +39,7 @@ def analyze() -> Dict[str, int]:
 
 def main() -> None:
     stats = analyze()
-    out_path = Path("docs/SCHEMA_WOUND_STATS.json")
+    out_path = Path("docs/SCHEMA_INTEGRITY_ISSUE_STATS.json")
     out_path.write_text(json.dumps(stats, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(stats, indent=2))
 

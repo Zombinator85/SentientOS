@@ -16,4 +16,4 @@ Emotional context travels through a dedicated loop. `voice_loop.py` captures aud
 
 A typical deployment runs multiple containers: one for the core API and plugin manager, another for the voice and emotion services, and optional sidecars for data persistence. Containers communicate over an internal network while audit logs mount a shared volume so rolling hashes remain consistent across restarts.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

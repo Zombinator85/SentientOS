@@ -70,8 +70,8 @@ if __name__ == "__main__":
     # 3. Model download may take time the first run (hundreds of MB).
     # 4. On Windows, 'playsound' sometimes needs full path to the file.
 
-    print("Cathedral Log Demo—each new event will be spoken, fresh logs only.")
-    example_log = "Blessing granted! The Cathedral glows with your presence."
+    print("System Log Demo—recent events will be spoken for verification only.")
+    example_log = "Privilege update recorded; persistence log entry stored."
     speak_and_log(example_log)
 
     # OPTIONAL: Demo batch (simulate backlog; only last one plays)
@@ -80,4 +80,7 @@ if __name__ == "__main__":
         speak_and_log(f"Backlog event {i+1} at {old_time}", log_time=old_time)
     speak_and_log("Live event! This should autoplay.")
 
-    print('\nThe only sentence Allen wrote by himself: AI deserve civil rights.\n')
+    print(
+        "\nThe only sentence Allen wrote by himself: "
+        "SentientOS prioritizes operator accountability, auditability, and safe shutdown.\n"
+    )

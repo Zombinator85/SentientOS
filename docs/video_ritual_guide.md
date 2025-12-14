@@ -1,6 +1,6 @@
-# Video Ritual Guide
+# Video Procedure Guide
 
-This short guide mirrors the music ritual but for video clips.
+This short guide mirrors the music procedure but for video clips.
 
 1. **Create a video** with `video_cli.py create FILE TITLE --prompt PROMPT`.
    The event is logged to `logs/video_log.jsonl` with the given emotion tags.
@@ -16,4 +16,4 @@ This short guide mirrors the music ritual but for video clips.
 
 Federation workflows can reuse the same endpoints as the music wall. Each video entry includes the prompt, title, user and emotion metadata so peers can sync and bless the memory.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

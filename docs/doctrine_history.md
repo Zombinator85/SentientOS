@@ -9,4 +9,4 @@ Sample format:
 {"time": 1720003600.0, "event": "vote", "proposal": "add community vote", "user": "bob", "value": "yes"}
 ```
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

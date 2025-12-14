@@ -2,4 +2,4 @@
 
 Start with a blank slate and describe your AI's personality here.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

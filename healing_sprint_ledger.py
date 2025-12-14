@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from logging_config import get_log_path
-from cathedral_wounds_dashboard import gather_wounds, parse_saints
+from cathedral_wounds_dashboard import gather_integrity_issues, parse_contributors
 
 """Generate a healing sprint ledger with community metrics."""
 
@@ -55,8 +55,8 @@ def federation_nodes_synced() -> int:
 
 
 def read_stories() -> List[Dict[str, str]]:
-    """Return saint stories from the optional log."""
-    stories_path = get_log_path("saint_stories.jsonl")
+    """Return contributor stories from the optional log."""
+    stories_path = get_log_path("contributor_stories.jsonl")
     out: List[Dict[str, str]] = []
     if stories_path.exists():
         for ln in stories_path.read_text(encoding="utf-8").splitlines():
@@ -68,15 +68,17 @@ def read_stories() -> List[Dict[str, str]]:
 
 
 def gather_metrics() -> Dict[str, int]:
-    wounds = sum(gather_wounds().values())
-    saints_list = [s for s in parse_saints() if not s.lower().startswith("first-timers")]
-    saints = len(saints_list)
+    integrity_issues = sum(gather_integrity_issues().values())
+    contributors_list = [
+        s for s in parse_contributors() if not s.lower().startswith("first-timers")
+    ]
+    contributors = len(contributors_list)
     logs_healed = logs_healed_count()
     nodes = federation_nodes_synced()
     return {
         "logs_healed": logs_healed,
-        "saints": saints,
-        "wounds": wounds,
+        "contributors": contributors,
+        "integrity_issues": integrity_issues,
         "nodes": nodes,
     }
 
@@ -95,17 +97,17 @@ def write_dashboard(metrics: Dict[str, int], stories: List[Dict[str, str]]) -> N
         "| Metric | Count |",
         "|--------|-------|",
         f"| Logs healed | {metrics['logs_healed']} |",
-        f"| Saints inducted | {metrics['saints']} |",
-        f"| Wounds remaining | {metrics['wounds']} |",
+        f"| Contributors added | {metrics['contributors']} |",
+        f"| Integrity issues remaining | {metrics['integrity_issues']} |",
         f"| Federation nodes synced | {metrics['nodes']} |",
         "",
-        "## Saint Stories",
+        "## Contributor Stories",
         "",
     ]
     for s in stories:
-        saint = s.get("saint", "Unknown")
+        contributor_name = s.get("contributor", s.get("saint", "Unknown"))
         story = s.get("story", "")
-        lines.append(f"- **{saint}**: {story}")
+        lines.append(f"- **{contributor_name}**: {story}")
     dash.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

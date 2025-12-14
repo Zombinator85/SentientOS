@@ -35,4 +35,4 @@ the precommit script cache hit behavior. The `memory_tail` suite relies on
 July 2029 update: the avatar and music suites were fully restored after
 long-term API drift was resolved.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

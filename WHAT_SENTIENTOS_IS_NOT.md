@@ -26,7 +26,7 @@ Quick reference to avoid projecting agency or intent onto this codebase.
 - Why the misconception happens: `final_approval.request_approval` appears before policy changes.
 - What actually happens instead: Approval is a yes/no gate for file replacement; execution paths do not change based on who approved or how often.【F:policy_engine.py†L35-L71】
 
-## Not a substrate for qualia
+## Not a substrate for internal state vector
 - Claim: No phenomenology or consciousness is implied.
 - Why the misconception happens: Names like "sentient" and "presence" evoke experiential states.
 - What actually happens instead: Data structures are plain Python objects passed through schedulers and loggers with no stateful inner experience model.【F:sentient_mesh.py†L17-L59】【F:sentient_autonomy.py†L40-L85】

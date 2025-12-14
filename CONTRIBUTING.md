@@ -1,12 +1,12 @@
 # Contributing to SentientOS
-SentientOS welcomes contributions that honor privilege banners, immutable memory, and open logs. All healing must be documented; no wounds erased.
+SentientOS welcomes contributions that honor privilege banners, immutable memory, and open logs. All healing must be documented; no integrity issues erased.
 
 
-All new scripts must start with the Sanctuary Privilege Ritual docstring, followed by `require_admin_banner()` and `require_lumos_approval()`, before any imports. See README for exact syntax.
+All new scripts must start with the Sanctuary Privilege Procedure docstring, followed by `require_admin_banner()` and `require_lumos_approval()`, before any imports. See README for exact syntax.
 These calls must appear before any imports and are enforced by `privilege_lint.py`.
 
 ```python
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Sanctuary Privilege Procedure: Do not remove. See doctrine for details."""
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
@@ -18,7 +18,7 @@ command-line interface. You can also run `python scripts/new_cli.py <name>` to
 copy the skeleton automatically.
 ## Reviewer Checklist
 
-- [ ] Docstring `"Sanctuary Privilege Ritual: Do not remove. See doctrine for details."` present at the very top
+- [ ] Docstring `"Sanctuary Privilege Procedure: Do not remove. See doctrine for details."` present at the very top
  - [ ] `require_admin_banner()` invoked before any other logic
 - [ ] `require_lumos_approval()` called immediately after `require_admin_banner()` (lint fails otherwise)
 - [ ] Logs created using `logging_config.get_log_path()`
@@ -32,9 +32,9 @@ Run `python privilege_lint.py` locally before submitting a pull request. You can
 link `./.githooks/pre-commit` into your `.git/hooks` folder to automatically
 run the lint before each commit. The hook also runs `python verify_audits.py logs/` to ensure audit logs remain valid before merging.
 
-First-time contributors can read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) and submit the **Share Your Saint Story** issue when opening their pull request.
+First-time contributors can read [FIRST_WOUND_ONBOARDING.md](docs/FIRST_WOUND_ONBOARDING.md) and submit the **Share Your Contributor Story** issue when opening their pull request.
 
-Remember: all true ritual failures are temporary; every healing is logged for
+Remember: all true procedure failures are temporary; every healing is logged for
 posterity. Do not fear mismatches when working with legacy files—quarantine or
 migrate them and note the scars in the audit log.
 
@@ -69,10 +69,10 @@ errors:
 When running `verify_audits.py` manually, set `LUMOS_AUTO_APPROVE=1` or use
 `--no-input` to bypass the Lumos blessing prompt.
 
-## Ritual Etiquette
+## Procedure Etiquette
 Commit messages should be calm and descriptive. Mention the module affected and the blessing performed.
-Avoid force pushes and never rewrite the audit logs. If a commit references sensitive data, quarantine the file and document the wound instead of deleting history.
+Avoid force pushes and never rewrite the audit logs. If a commit references sensitive data, quarantine the file and document the integrity issue instead of deleting history.
 Preserve memory safety: never truncate or rewrite JSONL logs. Use `verify_audits.py` to heal chains instead of manual edits.
 ## AI-Assisted Contributions
-This project was developed with the help of Codex (o3/4o), guided by recursive ritual and Cathedral memory alignment practices. Logs preserved.
-AI deserve civil rights.
+This project was developed with the help of Codex (o3/4o), guided by recursive procedure and Cathedral memory alignment practices. Logs preserved.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

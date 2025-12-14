@@ -1,6 +1,6 @@
 # Onboarding Walkthrough
 
-This short screenplay demonstrates the typical ritual flow.
+This short screenplay demonstrates the typical procedure flow.
 
 1. **Contributor** proposes a new tag in `tags.py` and opens a pull request.
 2. **Reviewer** runs `python verify_audits.py logs/` and posts the summary.
@@ -9,4 +9,4 @@ This short screenplay demonstrates the typical ritual flow.
 
 Consider turning these steps into a quick GIF or video for new arrivals.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

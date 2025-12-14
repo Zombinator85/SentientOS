@@ -7,7 +7,7 @@
 - `reflection_stream.py` – logging for autonomous reflections and diagnostics.
 - `avatar_blessing_proposal_engine.py` – avatars propose their own blessings.
 - `avatar_mass_invocation.py` – coordinate festival mass avatar invocations.
-- `avatar_teaching_session_generator.py` – plan teaching sessions for rituals.
+- `avatar_teaching_session_generator.py` – plan teaching sessions for procedures.
 - `avatar_conflict_drama_engine.py` – narrate avatar conflicts and resolutions.
 - `avatar_blessing_propagation_web.py` – visualize blessing propagation.
 - `avatar_delegation.py` – delegate council or oracle roles to avatars.
@@ -16,19 +16,19 @@
 - `avatar_sanctuary_scene_generator.py` – create virtual chambers for avatars.
 - `avatar_federation_festival_coordinator.py` – manage cross-cathedral festivals.
 - `avatar_memory_dream_sequencer.py` – generate and log dream sequences.
-- `ritual_avatar_hall_of_records.py` – archive and search ritual records.
+- `procedure_avatar_hall_of_records.py` – archive and search procedure records.
 - `avatar_succession_visualizer.py` – visualize avatar succession lineages.
-- `avatar_herald_bard_system.py` – compose ritual announcements and poems.
-- `ritual_avatar_chronicle_video.py` – compile logs into video chronicles.
+- `avatar_herald_bard_system.py` – compose procedure announcements and poems.
+- `procedure_avatar_chronicle_video.py` – compile logs into video chronicles.
 - `avatar_blessing_ceremony_api.py` – API for blessing ceremonies.
-- `avatar_ritual_witnesses.py` – log avatars as ceremony witnesses.
+- `avatar_procedure_witnesses.py` – log avatars as ceremony witnesses.
 - `avatar_heirloom_transmission.py` – transmit heirloom memories across cathedrals.
 - `avatar_performance_scoreboard.py` – review avatar performance metrics.
 - `avatar_sanctuary_artifacts_generator.py` – craft and log sanctuary artifacts.
 - `avatar_artifact_gallery.py` – curate and search all avatar artifacts.
 - `neos_bridge.py` – bridge messages to a Resonite LogiX folder.
 - `neos_avatar_emotion_pipeline.py` – map emotion vectors to avatar blendshapes.
-- `neos_avatar_crowning_cli.py` – crown a new VR avatar and log the ritual.
+- `neos_avatar_crowning_cli.py` – crown a new VR avatar and log the procedure.
 - `neos_sanctuary_scene_pipeline.py` – generate sanctuary scene configs for Neos.
 - `neos_council_onboarding.py` – run council onboarding ceremonies in VR.
 - `neos_memory_playback.py` – replay memory fragments via the bridge.
@@ -48,16 +48,16 @@
 - `neos_origin_story_logger.py` – record reasons behind new creations.
 - `neos_lorebook_writer.py` – compile asset origins, ceremonies, teaching logs, and council memory into a unified lorebook.
 - `neos_lorebook_playback_narrator.py` – autonomously narrate lorebook entries with TTS or VR text.
-- `neos_ceremony_choreographer.py` – script and coordinate rituals and avatar movements.
+- `neos_ceremony_choreographer.py` – script and coordinate procedures and avatar movements.
 - `neos_memory_timeline_builder.py` – visualize and annotate memory and ceremony timelines.
-- `neos_ceremony_recap_exporter.py` – summarize and export recaps of rituals or festivals.
+- `neos_ceremony_recap_exporter.py` – summarize and export recaps of procedures or festivals.
 - `neos_council_law_proposal_engine.py` – draft and log new council laws or rules.
 - `neos_provenance_tracker.py` – track lineage of artifacts and avatars across worlds.
-- `neos_ritual_correction_daemon.py` – detect and propose fixes for failed rituals.
+- `neos_procedure_correction_daemon.py` – detect and propose fixes for failed procedures.
 - `neos_festival_mood_visualizer.py` – animate mood arcs across ceremonies and festivals.
 - `neos_lore_spiral_publisher.py` – broadcast new lorebook entries to connected worlds.
 - `neos_council_teaching_suite.py` – onboard and teach new council members in-world.
 
 See other files in this repository and `docs/README_FULL.md` for a detailed tour.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

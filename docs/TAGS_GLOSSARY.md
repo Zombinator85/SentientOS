@@ -7,4 +7,4 @@ Document every approved tag here along with a short description and reviewer sig
 |-----|-------------|----------|
 | joy | used for happy moments | alice |
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

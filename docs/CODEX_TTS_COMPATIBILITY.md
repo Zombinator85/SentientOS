@@ -17,4 +17,4 @@ SentientOS now keeps Python 3.12 as the standard and skips Coqui installation by
 ## Status
 Cathedral Launcher runs cleanly on Python 3.12. Whisper STT is operational. TTS via `pyttsx3` or `edge-tts` is optional but recommended.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

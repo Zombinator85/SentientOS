@@ -24,4 +24,4 @@ the nodes exchange missing lines and alert stewards for any conflicting entries.
 > - If hashes refuse to merge, ensure timestamps are in ISO format.
 > - Keep a backup of each log before running the resolver.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.
