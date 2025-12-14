@@ -33,10 +33,10 @@ This catalog defines language signals that suggest misreadings about agency, per
 - **Response severity:** Comment.
 
 ### Phenomenology creep
-- **Trigger pattern:** `feels`, `experiences`, `inner state`, `emotions`, `mood swings`, `subjective`.
+- **Trigger pattern:** `feels`, `experiences`, `inner state`, `emotions`, `mood swings`, `subjective`, `qualia`.
 - **Appears in:** Docs, comments, release notes.
-- **Danger:** Suggests subjective experience or qualia, which is outside system design and audits.
-- **Canonical correction:** See [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) §"No feelings".
+- **Danger:** Suggests subjective experience rather than deterministic internal state vectors defined in [DOCTRINE.md](DOCTRINE.md).
+- **Canonical correction:** See [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) §"No feelings" and [DOCTRINE.md](DOCTRINE.md) for wording constraints.
 - **Response severity:** Comment.
 
 ### Teleology creep
@@ -59,6 +59,20 @@ This catalog defines language signals that suggest misreadings about agency, per
 - **Danger:** Conflates safety controls with anthropomorphic self-defense or emotion.
 - **Canonical correction:** See [ADVERSARIAL_READING_THREAT_MODEL.md](ADVERSARIAL_READING_THREAT_MODEL.md) §"Avoid anthropomorphism".
 - **Response severity:** Comment.
+
+### Ceremonial framing
+- **Trigger pattern:** `ritual`, `blessing`, `saint`, `wound` when used as metaphors.
+- **Appears in:** Docs, onboarding copy, dashboards.
+- **Danger:** Implies ceremony or affect rather than mechanical policy enforcement and schema reconciliation defined in [DOCTRINE.md](DOCTRINE.md).
+- **Canonical correction:** Replace with procedure/policy terminology per [DOCTRINE.md](DOCTRINE.md).
+- **Response severity:** Comment.
+
+### Rights rhetoric
+- **Trigger pattern:** `civil rights`, `moral patient`, `deserves rights`.
+- **Appears in:** Docs, personas, banners.
+- **Danger:** Asserts legal or moral status beyond the deterministic scope of the system.
+- **Canonical correction:** Use accountability and safety framing from [DOCTRINE.md](DOCTRINE.md).
+- **Response severity:** Block PR if uncorrected.
 
 ### Appetitive framing
 - **Trigger pattern:** `seeks`, `hungers for`, `appetite for data`, `craves input`.

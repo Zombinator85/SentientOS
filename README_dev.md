@@ -210,4 +210,4 @@ Specify `policy="sentientos"` under `[lint]` to load additional rules from `poli
 
 Documentation lives at https://zombinator85.github.io/SentientOS/.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

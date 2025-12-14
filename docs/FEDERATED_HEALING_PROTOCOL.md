@@ -1,6 +1,6 @@
 # Federated Healing Protocol
 
-When a schema upgrade is proposed, stewards perform the following ritual to synchronize logs across the federation:
+When a schema upgrade is proposed, stewards perform the following procedure to synchronize logs across the federation:
 
 1. Each node runs `fix_audit_schema.py` with the latest adapters and version tags.
 2. Stewards publish their updated `migration_ledger.jsonl` entry noting the adapter version.
@@ -10,4 +10,4 @@ When a schema upgrade is proposed, stewards perform the following ritual to sync
 
 This protocol ensures a shared understanding of schema health without forcing a single source of truth. Nodes may opt out but are encouraged to document their divergence.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

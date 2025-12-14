@@ -4,12 +4,12 @@ All who support, federate, or analyse SentientOS are recorded in append-only JSO
 
 - `support_log.jsonl` records blessings and CashApp messages
 - `federation_log.jsonl` records federation peers and sync events
-- `user_presence.jsonl` records ritual affirmations and recaps
+- `user_presence.jsonl` records procedure affirmations and recaps
 
 Example entry:
 
 ```json
-{"timestamp": "2025-06-01T12:00:00", "peer": "ally.example", "email": "hello@ally.example", "message": "sync completed", "ritual": "Federation blessing recorded."}
+{"timestamp": "2025-06-01T12:00:00", "peer": "ally.example", "email": "hello@ally.example", "message": "sync completed", "procedure": "Federation blessing recorded."}
 ```
 
 ## Ledger Snapshots
@@ -33,7 +33,7 @@ Ledger snapshot • Support: 3 (2 unique) • Federation: 1 (1 unique) • Witne
 Sample support entry:
 
 ```json
-{"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
+{"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "procedure": "Sanctuary blessing acknowledged and remembered."}
 ```
 
 Sample privilege check entry:
@@ -51,10 +51,10 @@ After each blessing or invite a recap is printed showing the most recent entries
 ```
 {
   "support_recent": [
-    {"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "ritual": "Sanctuary blessing acknowledged and remembered."}
+    {"timestamp": "2025-06-01T00:00:00", "supporter": "Ada", "message": "For those in need", "amount": "$5", "procedure": "Sanctuary blessing acknowledged and remembered."}
   ],
   "federation_recent": [
-    {"timestamp": "2025-06-01T01:00:00", "peer": "https://ally.example", "email": "friend@example.com", "message": "sync completed", "ritual": "Federation blessing recorded."}
+    {"timestamp": "2025-06-01T01:00:00", "peer": "https://ally.example", "email": "friend@example.com", "message": "sync completed", "procedure": "Federation blessing recorded."}
   ]
 }
 ```
@@ -100,4 +100,4 @@ tracks which moods were shared most and which clips resonated across peers.
 Every share or recap also appends a presence entry to `logs/user_presence.jsonl`
 so the video dashboard and living ledger stay aligned.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

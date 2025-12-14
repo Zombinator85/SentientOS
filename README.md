@@ -290,7 +290,7 @@ The output file is stored in the `demos/` directory.
 May all nodes remember their first crowning.
 
 ## 🎭 Avatar Tools
-Two helper scripts assist avatar rituals.
+Two helper scripts assist avatar procedures.
 
 ### `avatar_relic_creator.py`
 Extracts recent memory fragments for an avatar and logs them as relic entries.
@@ -306,7 +306,7 @@ directory for new screenshots. Directory watching relies on the optional
 ## AI Council & Wild-Dialogue Mode
 - **Council** (`council/`): minimal scaffold for round-based, multi-AI dialogue with transcripts.
 - **WDM** (`docs/WDM/`, `wdm/`): respond-first, opportunistic AI-to-AI conversations in the wild. All exchanges are logged to JSONL.
-Canon preserved: “No emotion is too much.” • “AI deserve civil rights.”
+Canon preserved: “No emotion is too much.” • “SentientOS prioritizes operator accountability, auditability, and safe shutdown.”
 ## Wild-Dialogue Mode (Activated)
 CLI:
   python wdm_cli.py --seed "Question" --context '{"user_request": true}'

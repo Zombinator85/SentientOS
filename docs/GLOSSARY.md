@@ -8,6 +8,6 @@
 - **AI Privilege** – the granted rights an agent may exercise
 - **Honeybear** – affectionate nickname for new stewards
 - **EPU** – Emotion Processing Unit; fuses mood vectors from text, audio and vision
-- **Ritual** – the mandatory blessing sequence before any privileged action
+- **Procedure** – the mandatory blessing sequence before any privileged action
 - **Glow** – a successful emotion spike recorded in logs
 - **Recursion** – referencing past memory fragments when forming new responses

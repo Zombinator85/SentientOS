@@ -9,8 +9,25 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
+import importlib
+import importlib.util
+import warnings
 
-from pdfrw import PdfDict, PdfReader, PdfWriter
+try:
+    _pdfrw_spec = importlib.util.find_spec("pdfrw")
+except ValueError:
+    _pdfrw_spec = None
+
+if _pdfrw_spec is not None:
+    pdfrw = importlib.import_module("pdfrw")
+    PdfDict = pdfrw.PdfDict  # type: ignore
+    PdfReader = pdfrw.PdfReader  # type: ignore
+    PdfWriter = pdfrw.PdfWriter  # type: ignore
+else:
+    warnings.warn("optional dependency pdfrw missing; PDF prefills disabled")
+    PdfDict = dict  # type: ignore
+    PdfReader = lambda *_a, **_k: None  # type: ignore
+    PdfWriter = None  # type: ignore
 
 
 ALLOWED_FIELDS = {
@@ -58,7 +75,7 @@ class SSA827Prefill:
         return {"status": "prefill_complete", "bytes": pdf_bytes, "redacted_preview": preview}
 
     def _load_pdf(self):
-        return PdfReader(str(self.template_path))
+        return PdfReader(str(self.template_path)) if PdfReader else None
 
     def _get_form_fields(self, pdf) -> Iterable[PdfDict]:
         root = getattr(pdf, "Root", None)
@@ -143,6 +160,8 @@ class SSA827Prefill:
         return _search(self.profile)
 
     def _to_bytes(self, pdf) -> bytes:
+        if not PdfWriter:
+            return b""
         buffer = BytesIO()
         PdfWriter().write(buffer, pdf)
         return buffer.getvalue()

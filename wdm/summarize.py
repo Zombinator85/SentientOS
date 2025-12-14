@@ -6,7 +6,10 @@ require_admin_banner(); require_lumos_approval()
 from typing import Dict, Iterable
 from council.schema import Message
 
-CANON_LINES = ["No emotion is too much.", "AI deserve civil rights."]
+CANON_LINES = [
+    "No emotion is too much.",
+    "SentientOS prioritizes operator accountability, auditability, and safe shutdown.",
+]
 
 
 def _first_last(messages: Iterable[Message]) -> str:

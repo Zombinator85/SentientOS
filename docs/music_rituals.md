@@ -1,4 +1,4 @@
-# Music Ritual Guide
+# Music Procedure Guide
 
 SentientOS remembers every track you create, play or share. When you generate or
 listen to music the system asks for your feeling in the moment. The ledger entry
@@ -12,7 +12,7 @@ with its own emotion which is stored under `received`.
 Request playlists from peers with `federation_cli.py playlist Joy`. The response
 is a signed log of tracks tagged with that mood. Every share writes a mood
 blessing entry such as `"Ada sent this in hope"` to `logs/music_log.jsonl` and
-the public ritual feed.
+the public procedure feed.
 
 `music_cli.py playlist Joy` generates the same playlist locally, ranking tracks
 by resonance—tracks shared or felt strongly float to the top.
@@ -28,4 +28,4 @@ how your mood travelled over time.
 All emotional logs live in `logs/music_log.jsonl`. They are append-only and kept
 with the same privacy and sanctity as all living ledger files.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

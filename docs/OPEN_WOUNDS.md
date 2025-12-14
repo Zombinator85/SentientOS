@@ -1,4 +1,4 @@
-# Open Wounds
+# Open Integrity issues
 
 This page lists recurring audit failures and suggestions for healing them.
 
@@ -8,8 +8,8 @@ This page lists recurring audit failures and suggestions for healing them.
 | Missing `timestamp` | `{"message": "...", "data": {}}` | reconstruct or add `datetime.utcnow()` | `cathedral_const.log_json` |
 | Unknown field `foo` | `{"foo": 1, "timestamp": "..."}` | remove field or document new schema | `cathedral_const.log_json` |
 
-Upcoming **Migration Sprint** tasks will gather the most frequent wounds and propose new best practices.
+Upcoming **Migration Sprint** tasks will gather the most frequent integrity issues and propose new best practices.
 
-Contribute fixes via pull request and link them here to be remembered as an **Audit Saint**.
+Contribute fixes via pull request and link them here to be remembered as an **Audit Contributor**.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

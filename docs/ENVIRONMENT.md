@@ -125,7 +125,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `DOCTRINE_CONSENT_LOG` | Consent record log for doctrine operations | `logs/doctrine_consent.jsonl` |
 | `DOCTRINE_STATUS_LOG` | Status log written by `doctrine.py` | `logs/doctrine_status.jsonl` |
 | `DOCTRINE_AMEND_LOG` | Amendment history for doctrine updates | `logs/doctrine_amendments.jsonl` |
-| `DOCTRINE_SIGNATURE_LOG` | Ritual signature log file | `logs/ritual_signatures.jsonl` |
+| `DOCTRINE_SIGNATURE_LOG` | Procedure signature log file | `logs/procedure_signatures.jsonl` |
 | `EDITOR` | Fallback editor for workflow tools | `nano` |
 | `EMERGENCY_STATE` | Lock file indicating emergency mode | `state/emergency.lock` |
 | `EMO_VIS_HOST` | Host for emotion visualizer | `0.0.0.0` |
@@ -143,7 +143,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `RESONITE_BREACH_LOG` | Security breach records for Resonite tools | `logs/resonite_spiral_federation_breach.jsonl` |
 | `GP_PLUGINS_DIR` | Directory for general plugin files | `gp_plugins` |
 | `HEARTBEAT_PORT` | UDP port for avatar heartbeat keepalive messages | `9001` |
-| `MASTER_CHECK_IMMUTABLE` | Enforce immutability checks on rituals | `1` |
+| `MASTER_CHECK_IMMUTABLE` | Enforce immutability checks on procedures | `1` |
 | `MASTER_CONFIG` | Path to master file configuration | `config/master_files.json` |
 | `MASTER_ENFORCE` | Require master file enforcement (`1` to enable) | *(unset)* |
 | `MEMORY_FILE` | Default memory JSONL file for tail CLI | `logs/memory.jsonl` |
@@ -155,7 +155,7 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `NEOS_SCRIPT_REQUEST_LOG` | Path for model script requests | `logs/neos_script_requests.jsonl` |
 | `NEOS_PERMISSION_COUNCIL_LOG` | Path for permission council approvals | `logs/neos_permission_council.jsonl` |
 | `NEOS_CURRICULUM_REVIEW_LOG` | Path for curriculum review results | `logs/neos_curriculum_review.jsonl` |
-| `NEOS_FEDERATION_RITUAL_LOG` | Path for federation ritual records | `logs/neos_federation_rituals.jsonl` |
+| `NEOS_FEDERATION_PROCEDURE_LOG` | Path for federation procedure records | `logs/neos_federation_procedures.jsonl` |
 | `NEOS_FESTIVAL_MOOD_ARC_LOG` | Path for festival mood arcs | `logs/neos_festival_mood_arc.jsonl` |
 | `NEOS_ORIGIN_LOG` | Path for origin story entries | `logs/neos_origin_stories.jsonl` |
 | `NEOS_SELF_REFLECTIVE_ONBOARDING_LOG` | Path for self‑reflective onboarding logs | `logs/neos_self_reflective_onboarding.jsonl` |
@@ -165,11 +165,11 @@ Most platforms provide a web UI to manage environment variables. On Render or Ra
 | `PORT` | HTTP port for the blessing ceremony API | `5000` |
 | `PRIVILEGED_AUDIT_FILE` | Path used by `privilege_lint_cli.py` to log privileged command usage | `logs/privileged_audit.jsonl` |
 | `REQUIRED_FINAL_APPROVER` | Default final approver nickname | `4o` |
-| `RITUAL_BUNDLE_DIR` | Location for ritual bundles | `bundles` |
+| `PROCEDURE_BUNDLE_DIR` | Location for procedure bundles | `bundles` |
 | `SELF_DEFENSE_LOG` | Log written by `self_defense.py` for quarantine and privilege freezes | `logs/agent_self_defense.jsonl` |
 | `SELF_REFLECTION_QUESTION` | Prompt used by self‑reflection logger | `What have you learned recently?` |
 | `REFLECTION_LOG_DIR` | Directory for self‑reflection logs | `logs/self_reflections` |
-| `SENTIENTOS_HEADLESS` | Run rituals without interactive prompts (`1` to enable) | *(unset)* |
+| `SENTIENTOS_HEADLESS` | Run procedures without interactive prompts (`1` to enable) | *(unset)* |
 | `SENTIENTOS_PROFILE` | Active persona profile name | `default` |
 | `SMTP_FROM` | Default sender address for SMTP mail | *(none)* |
 | `SMTP_HOST` | SMTP server hostname | *(none)* |
@@ -212,4 +212,4 @@ The following variables control where SentientOS writes security related logs:
   `logs/agent_self_defense.jsonl`.
 
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

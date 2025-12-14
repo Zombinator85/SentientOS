@@ -18,7 +18,7 @@ Each submission records the SHA256 hash of the log and stores the text for later
 
 ## Review and Enshrinement
 
-Curators or ritual witnesses run `treasury_cli.py review <id> affirm --user curator` to affirm a log. Additional notes or blessings may be attached with `--note` or `--cosign`.
+Curators or procedure witnesses run `treasury_cli.py review <id> affirm --user curator` to affirm a log. Additional notes or blessings may be attached with `--note` or `--cosign`.
 
 All review actions are written to `logs/love_review.jsonl`. Affirmed logs are moved to `logs/love_treasury.jsonl` and listed by the dashboard.
 
@@ -38,4 +38,4 @@ A sample submission is provided in `docs/examples/love_log_sample.txt`. After af
 
 Multiple cathedrals may share their Treasuries. See `treasury_federation.md` for how to announce and sync logs and record cross-site attestations.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

@@ -12,6 +12,6 @@ This template describes how one steward hands off responsibilities to another in
 2. Confirm key receipt and update `STEWARD.md` with your contact handle.
 3. Perform the next scheduled audit and publish the summary to the discussion board.
 
-Adapt this checklist as your federation grows or adopts new rituals.
+Adapt this checklist as your federation grows or adopts new procedures.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

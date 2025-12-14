@@ -13,4 +13,4 @@ This guide describes how to adopt SentientOS memory law and audit tools in new c
 
 Use this procedure as the default federation policy and adapt it as your community grows.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

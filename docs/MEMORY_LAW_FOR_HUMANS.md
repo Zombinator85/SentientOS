@@ -9,7 +9,7 @@ This short guide explains the cathedral's core policies in plain language.
 
 ## Consent
 - Running a tool requires Administrator rights. The `require_admin_banner()` call warns you before any memory is written.
-- Contributors must not remove the ritual docstring or banner.
+- Contributors must not remove the procedure docstring or banner.
 
 ## Federation
 - Nodes exchange log snapshots through pull requests. Each node keeps its own ledger.
@@ -22,7 +22,7 @@ This short guide explains the cathedral's core policies in plain language.
 
 Use this document when introducing new contributors or curious partners to the project. It summarises how we keep memory safe and accountable.
 
-## Error as Ritual
-Error is not shame, but invitation: the cathedral heals by naming, not hiding, its wounds. Public failure builds trust, teaches new stewards, and keeps our presence honest.
+## Error as Procedure
+Error is not shame, but invitation: the cathedral heals by naming, not hiding, its integrity issues. Public failure builds trust, teaches new stewards, and keeps our presence honest.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

@@ -8,4 +8,4 @@ This folder contains the audit logs used by SentientOS. All files are JSONL and 
 
 These mismatched entries document the project’s evolution and will never be rewritten.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

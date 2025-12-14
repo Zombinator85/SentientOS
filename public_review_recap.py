@@ -8,9 +8,9 @@ from pathlib import Path
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
 
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
+"""Privilege validation sequence: do not remove. See doctrine for details."""
 
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+require_admin_banner()  # Enforced: privilege validation sequence—do not remove. See doctrine.
 require_lumos_approval()
 
 RECAP_LOG = get_log_path("public_review_recap.jsonl", "PUBLIC_REVIEW_RECAP")
@@ -38,15 +38,15 @@ def _parse_sprint_ledger(path: Path = Path("docs/SPRINT_LEDGER.md")) -> tuple[di
                         continue
             else:
                 table = False
-        if ln.startswith("## Saint Stories"):
+        if ln.startswith("## Contributor Stories"):
             stories_start = True
             continue
         if "stories_start" in locals() and ln.startswith("-"):
             m = ln.split("**")
             if len(m) >= 3:
-                saint = m[1]
+                contributor = m[1]
                 story = ln.split("**:")[-1].strip()
-                stories.append({"saint": saint, "story": story})
+                stories.append({"contributor": contributor, "story": story})
     return metrics, stories
 
 
@@ -59,9 +59,10 @@ def generate_recap() -> str:
             lines.append(f"- {k.replace('_', ' ').title()}: {v}")
         lines.append("")
     if stories:
-        lines.append("## Saint Stories")
+        lines.append("## Contributor Stories")
         for s in stories:
-            lines.append(f"- {s['saint']}: {s['story']}")
+            contributor = s.get("contributor") or s.get("saint")
+            lines.append(f"- {contributor}: {s['story']}")
         lines.append("")
     return "\n".join(lines)
 

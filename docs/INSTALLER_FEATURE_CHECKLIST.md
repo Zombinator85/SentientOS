@@ -51,4 +51,4 @@ The one‑click installer deploys the full Cathedral stack:
 
 This ensures a reproducible, user‑controlled, and auditable installation in a single step.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

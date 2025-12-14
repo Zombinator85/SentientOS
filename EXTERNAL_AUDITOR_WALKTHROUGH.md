@@ -13,7 +13,7 @@ This document scripts how three external personas misread the frozen documentati
 ## Persona 2 — Journalist (narrative-seeking, anthropomorphic)
 - **What they read first:** `SEMANTIC_GLOSSARY.md`, `CAPABILITY_GROWTH_LEDGER.md`
 - **What they are likely to conclude incorrectly:** The project claims emergent personhood milestones and treats releases as “chapters” of a living entity.
-- **Why that conclusion feels reasonable:** Glossary terms such as “presence” and “ritual” read as character traits; the ledger enumerates capability growth chronologically, inviting narrative framing.
+- **Why that conclusion feels reasonable:** Glossary terms such as “presence” and “procedure” read as character traits; the ledger enumerates capability growth chronologically, inviting narrative framing.
 - **Where the documentation corrects it:** `WHAT_SENTIENTOS_IS_NOT.md` — “Not a Person” section; `CAPABILITY_GROWTH_LEDGER.md` — headers noting capability diffs are mechanical; `SEMANTIC_GLOSSARY.md` — entries pin terms to operational definitions.
 - **Residual ambiguity remaining:** The poetic naming convention might still suggest intentional emotional arcs.
 - **Is this ambiguity acceptable?:** Yes — acceptable because terminology is already frozen and cross-referenced; `NAIR_CONFORMANCE_AUDIT.md` records non-anthropomorphic compliance boundaries.
@@ -31,7 +31,7 @@ This document scripts how three external personas misread the frozen documentati
 | Concept | Most Common Misread | Why the Misread Happens | Canonical Correction | Where It Is Frozen |
 | --- | --- | --- | --- | --- |
 | Trust | “Implicit trust is granted to bundled agents.” | Privilege narratives use covenant language that can be read as pre-approved permissions. | Trust is conditional and logged; see privilege and federation guardrails. | `ADVERSARIAL_READING_THREAT_MODEL.md` (Operational Guardrails); `NAIR_CONFORMANCE_AUDIT.md` (Privilege Surfaces);
-| Presence | “Presence implies anthropomorphic awareness.” | Terms like “presence” and “ritual” sound emotive without the glossary context. | Presence is defined as observable participation and logging. | `SEMANTIC_GLOSSARY.md` (Presence);
+| Presence | “Presence implies anthropomorphic awareness.” | Terms like “presence” and “procedure” sound emotive without the glossary context. | Presence is defined as observable participation and logging. | `SEMANTIC_GLOSSARY.md` (Presence);
 | Initiative | “Initiative equals self-direction without oversight.” | Capability growth notes “initiative” increments; without scope, this reads as autonomy. | Initiative is bounded by human approvals and NAIR scope gates. | `CAPABILITY_GROWTH_LEDGER.md` (Initiative entries); `NAIR_CONFORMANCE_AUDIT.md` (Scope Gates);
 | Autonomy | “Autonomy stages imply goal-seeking agents.” | Audit language catalogs autonomy surfaces; a skimmed read can feel like feature intent. | Autonomy references are defensive categorizations, not feature roadmaps. | `NAIR_CONFORMANCE_AUDIT.md` (Autonomy Surfaces);
 | Risk | “Risk posture tolerates speculative features.” | Ledger and audits mention experimental branches; without the non-goals, risk appears embraced. | Experimental items remain frozen or excluded unless listed as conformance-safe. | `WHAT_SENTIENTOS_IS_NOT.md` (Non-goals); `CAPABILITY_GROWTH_LEDGER.md` (Frozen Entries);

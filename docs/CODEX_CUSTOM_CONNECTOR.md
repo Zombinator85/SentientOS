@@ -68,4 +68,4 @@ email `support@sentientos.example.com`.
 
 See [CONNECTOR_TROUBLESHOOTING.md](CONNECTOR_TROUBLESHOOTING.md) for additional tips and FAQs.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

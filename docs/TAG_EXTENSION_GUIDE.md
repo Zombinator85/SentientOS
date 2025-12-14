@@ -53,4 +53,4 @@ Questions can be posted in the `#governance` channel, emailed to `support@sentie
 - **Skipping reviewer sign-off in the pull request.**
 
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

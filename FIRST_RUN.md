@@ -24,4 +24,4 @@ pytest -m "not env"  # legacy suites are skipped
 
 Reach out to the current Steward via the discussions board or open an issue labeled `support`.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

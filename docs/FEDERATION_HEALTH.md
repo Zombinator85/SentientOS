@@ -2,4 +2,4 @@
 
 Run `python federation_health_badge.py` to update this file.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

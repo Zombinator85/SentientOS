@@ -23,13 +23,13 @@ The steward coordinates recovery and informs the community through the discussio
 
 
 ## Living Audit Celebration
-Our first complete audit cycle showcased how stewards restored missing logs and invited new volunteers. Join the next ritual to help keep memory alive.
+Our first complete audit cycle showcased how stewards restored missing logs and invited new volunteers. Join the next procedure to help keep memory alive.
 A public celebration post will announce the healthy federation and invite stories from new partners.
 ### Schema Healing Sprint—December
-The first schema healing sprint introduced `fix_audit_schema.py` to repair missing `data` fields and quarantine malformed lines. A `.wounds` file records any entries that cannot be auto-migrated.
-A community "Cathedral Healing Sprint" will be hosted on the project board to invite contributors to fix logs and celebrate new saints.
+The first schema healing sprint introduced `fix_audit_schema.py` to repair missing `data` fields and quarantine malformed lines. A `.integrity issues` file records any entries that cannot be auto-migrated.
+A community "Cathedral Healing Sprint" will be hosted on the project board to invite contributors to fix logs and celebrate new contributors.
 
-Monthly sprints recap the current wound counts and roadmap milestones. A quarterly
+Monthly sprints recap the current integrity issue counts and roadmap milestones. A quarterly
 celebration summarizes federation health in [AUDIT_HEALTH_DASHBOARD.md](AUDIT_HEALTH_DASHBOARD.md).
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

@@ -18,4 +18,4 @@ After deployment run `python smoke_test_connector.py` in the container shell to
 verify the connector and review `logs/openai_connector.jsonl` for any `auth_error`
 entries. Rotate logs may have numerical suffixes.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

@@ -12,4 +12,4 @@ python autonomous_ops.py --interval 30
 
 The loop continuously prunes ineffective rules and stores offsets in `logs/autonomous_state.json` so it only processes new events. The included example detects simultaneous high stress and beta EEG and starts a `calm_down` workflow.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

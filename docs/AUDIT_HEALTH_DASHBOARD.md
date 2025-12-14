@@ -9,4 +9,4 @@
 
 This table is updated manually after each audit cycle. Stewards may also share the summary on social channels to keep the community informed.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

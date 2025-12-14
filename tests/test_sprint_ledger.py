@@ -24,22 +24,24 @@ def test_gather_metrics(tmp_path, monkeypatch):
     log_dir.mkdir()
     # create sample federation log
     (log_dir / "federation_log.jsonl").write_text(json.dumps({"peer":"a"})+"\n"+json.dumps({"peer":"b"})+"\n")
-    # wounds file
+    # integrity issue file
     (log_dir / "memory.jsonl.wounds").write_text("one\ntwo\n")
     # AUDIT_LOG_FIXES.md with a repaired line
     (docs / "AUDIT_LOG_FIXES.md").write_text("- 2025-11 Living Audit Sprint: 5 malformed lines repaired.\n")
-    # CONTRIBUTORS.md with saints
-    (docs / "CONTRIBUTORS.md").write_text("## Audit Saints\n- Ada\n")
+    # CONTRIBUTORS.md with contributors
+    (docs / "CONTRIBUTORS.md").write_text("## Audit Contributors\n- Ada\n")
 
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(log_dir))
     metrics = hsl.gather_metrics()
     assert metrics["logs_healed"] == 5
-    assert metrics["saints"] == 1
-    assert metrics["wounds"] == 2
+    assert metrics["contributors"] == 1
+    assert metrics["integrity_issues"] == 2
     assert metrics["nodes"] == 2
 
     # writing dashboard
-    (log_dir / "saint_stories.jsonl").write_text(json.dumps({"saint":"Ada","story":"Fixed"})+"\n")
+    (log_dir / "contributor_stories.jsonl").write_text(
+        json.dumps({"contributor": "Ada", "story": "Fixed"}) + "\n"
+    )
     hsl.write_dashboard(metrics, hsl.read_stories())
     out = (docs / "docs" / "SPRINT_LEDGER.md")
     assert out.exists()

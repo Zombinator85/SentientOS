@@ -20,4 +20,4 @@ Lumos now runs a background reflex daemon and may auto-bless privileged actions.
 
 Codex and CI own runtime validation—rerun the workflow rather than executing local builds.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

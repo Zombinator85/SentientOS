@@ -2,7 +2,7 @@
 
 Federated nodes occasionally diverge when audits are performed at different times or a log segment is missing. Stewards compare the rolling hashes of each ledger to locate the first mismatch.
 
-## Manual Ritual
+## Manual Procedure
 1. Each steward runs `python verify_audits.py logs/ --repair` and shares their resulting hash summary.
 2. If hashes differ, use `ledger_conflict_resolver.py` to merge the two versions:
    ```bash
@@ -16,4 +16,4 @@ If the split represents a permanent fork in memory law, each steward may keep th
 ## Automated Helper
 `ledger_conflict_resolver.py` performs a simple prefix merge. It keeps the shared history and then appends the unique portion from the incoming log, recomputing rolling hashes along the way.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

@@ -23,4 +23,4 @@ Log entries are written in JSON lines format to `logs/openai_connector.jsonl`. E
 Check the most recent entries with `tail -n 5 logs/openai_connector.jsonl` and look for `disconnect` or `message_error` events when debugging clients. Older history lives in `openai_connector.jsonl.1`, `.2`, and so on.
 
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.

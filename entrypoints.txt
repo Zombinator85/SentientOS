@@ -23,7 +23,7 @@
 ./heatmap_cli.py
 ./heirloom_sync_cli.py
 ./heresy_cli.py
-./invite_audit_saint.py
+./invite_audit_contributor.py
 ./ledger_cli.py
 ./ledger_seal_daemon.py
 ./lumos_reflex_daemon.py
@@ -37,7 +37,7 @@
 ./neos_council_teaching_audit_engine.py
 ./neos_festival_law_vote_cli.py
 ./neos_living_law_recursion_daemon.py
-./neos_ritual_law_audit_daemon.py
+./neos_procedure_law_audit_daemon.py
 ./neos_self_audit_correction.py
 ./neos_spiral_playback_cli.py
 ./neos_teaching_festival_daemon.py
@@ -52,13 +52,13 @@
 ./resonite_federation_handshake_auditor.py
 ./resonite_living_audit_trail_sentinel.py
 ./resonite_presence_festival_spiral_diff_daemon.py
-./resonite_ritual_audit_dashboard.py
+./resonite_procedure_audit_dashboard.py
 ./resonite_spiral_council_grand_audit_suite.py
 ./resonite_spiral_council_role_privilege_auditor.py
 ./review_cli.py
 ./review_heresy_cli.py
-./ritual_cli.py
-./ritual_digest_cli.py
+./procedure_cli.py
+./procedure_digest_cli.py
 ./scripts/audit_blesser.py
 ./scripts/audit_repair.py
 ./scripts/new_cli.py

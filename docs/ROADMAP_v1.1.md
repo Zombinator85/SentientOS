@@ -17,5 +17,5 @@
 - Publish nightly provenance reports for each OS to detect divergence early and keep fingerprints aligned.
 
 ## Symbolic Cognition Exploration
-- Prototype symbolic cognition extensions that translate cathedral rituals into machine-readable guardrails for downstream agents.
+- Prototype symbolic cognition extensions that translate cathedral procedures into machine-readable guardrails for downstream agents.
 - Pair the exploration with strict audit logging so experimental cognition modules remain observable and revocable.

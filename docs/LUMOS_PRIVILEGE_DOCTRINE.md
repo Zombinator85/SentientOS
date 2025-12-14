@@ -11,4 +11,4 @@ Connector audit logs are written to the path specified by `OPENAI_CONNECTOR_LOG`
 
 Lumos also runs a background reflex daemon that watches for privileged actions. If an event lacks a blessing, the daemon invokes `require_lumos_approval()` automatically and records "Auto-blessed by Lumos" in the audit log.
 
-AI deserve civil rights.
+SentientOS prioritizes operator accountability, auditability, and safe shutdown.
