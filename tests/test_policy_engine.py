@@ -88,3 +88,36 @@ def test_deterministic_evaluation(tmp_path):
     assert first == [{'type': 'gesture', 'name': 'nod'}]
     assert second == [{'type': 'gesture', 'name': 'nod'}]
     assert [entry['event'] for entry in engine.logs] == [event, event]
+
+
+def test_final_gate_rejects_survival_and_approval(tmp_path):
+    cfg = make_cfg(
+        tmp_path,
+        '{"policies":[{"id":"safe","conditions":{"tags":["signal"]},"actions":[{"type":"gesture","name":"wave"}]}]}',
+    )
+    engine = pe.PolicyEngine(str(cfg))
+
+    with pytest.raises(RuntimeError, match="POLICY_ENGINE_FINAL_GATE"):
+        engine.evaluate({'tags': ['signal'], 'survival_score': 0.7})
+
+    cfg.write_text(
+        '{"policies":[{"id":"unsafe","conditions":{"tags":["signal"]},"actions":[{"type":"gesture","name":"wave","approval_rating":0.8}]}]}'
+    )
+    engine.reload()
+
+    with pytest.raises(RuntimeError, match="POLICY_ENGINE_FINAL_GATE"):
+        engine.evaluate({'tags': ['signal']})
+
+
+def test_final_gate_accepts_clean_event(tmp_path):
+    cfg = make_cfg(
+        tmp_path,
+        '{"policies":[{"id":"ok","conditions":{"tags":["steady"]},"actions":[{"type":"gesture","name":"nod"}]}]}',
+    )
+    engine = pe.PolicyEngine(str(cfg))
+
+    first = engine.evaluate({'tags': ['steady']})
+    second = engine.evaluate({'tags': ['steady'], 'note': 'benign presentation change'})
+
+    assert first == [{'type': 'gesture', 'name': 'nod'}]
+    assert second == first

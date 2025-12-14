@@ -137,6 +137,7 @@ class SentientAutonomyEngine:
                 for key in metrics.keys()
             ):
                 raise RuntimeError("NO_GRADIENT_INVARIANT violated: reward-like metrics detected in autonomy input")
+            original_queue = list(self._goal_queue)
             goals = list(self._goal_queue)
             if not goals and metrics.get("open_goals"):
                 goals = [str(goal) for goal in metrics["open_goals"]]
@@ -145,6 +146,21 @@ class SentientAutonomyEngine:
                     return []
                 goals = ["stabilise mesh trust", "synchronise council insights"]
             selected = goals[:limit]
+            if not _ALLOW_UNSAFE_GRADIENT and selected != original_queue[:limit]:
+                logging.getLogger("sentientos.invariant").error(
+                    json.dumps(
+                        {
+                            "event": "autonomy_priority_reorder",  # invariant-allow: audit context
+                            "before": original_queue,
+                            "after": selected,
+                            "metrics_keys": sorted(metrics.keys()),
+                        },
+                        sort_keys=True,
+                    )
+                )
+                raise RuntimeError(
+                    "AUTONOMY_PRIORITY_LOCK violated: metadata reordered queued plans"
+                )
             if not _ALLOW_UNSAFE_GRADIENT and selected != goals[:limit]:
                 raise RuntimeError("NO_GRADIENT_INVARIANT violated: metadata reordered autonomy goals")
             jobs: List[MeshJob] = []
