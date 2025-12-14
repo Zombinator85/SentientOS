@@ -4,6 +4,8 @@ from typing import Any
 import pytest
 import task_executor
 
+pytestmark = pytest.mark.no_legacy_skip
+
 
 def setup_module(module: Any) -> None:  # pragma: no cover - pytest hook
     module
