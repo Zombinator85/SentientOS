@@ -3,10 +3,20 @@ from pathlib import Path
 
 import pytest
 
+import runtime_mode
 import task_admission
 import task_executor
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def reload_admission(monkeypatch: pytest.MonkeyPatch, mode: str = "DEFAULT") -> None:
+    if mode is None:
+        monkeypatch.delenv("SENTIENTOS_MODE", raising=False)
+    else:
+        monkeypatch.setenv("SENTIENTOS_MODE", mode)
+    reload(runtime_mode)
+    reload(task_admission)
 
 
 def make_ctx(
@@ -112,6 +122,25 @@ def test_doctrine_digest_mismatch():
     assert decision.reason == "DOCTRINE_DIGEST_MISMATCH"
 
 
+def test_doctrine_digest_mismatch_local_owner_allows(monkeypatch: pytest.MonkeyPatch):
+    reload_admission(monkeypatch, "LOCAL_OWNER")
+    steps = (
+        task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),
+    )
+    task = task_executor.Task(task_id="doctrine-local-owner", objective="noop", steps=steps)
+    policy = task_admission.AdmissionPolicy(
+        policy_version="v1",
+        require_doctrine_digest_match=True,
+        expected_doctrine_digest="expected",
+    )
+
+    decision = task_admission.admit(task, make_ctx(doctrine_digest="different"), policy)
+
+    assert decision.allowed is True
+    assert decision.reason == "OK"
+    reload_admission(monkeypatch, "DEFAULT")
+
+
 def test_decision_is_deterministic():
     task = task_executor.Task(
         task_id="deterministic",
@@ -125,6 +154,33 @@ def test_decision_is_deterministic():
     second = task_admission.admit(task, ctx, policy)
 
     assert first == second
+
+
+def test_local_owner_retains_step_guards(monkeypatch: pytest.MonkeyPatch):
+    reload_admission(monkeypatch, "LOCAL_OWNER")
+
+    invalid_kind_task = task_executor.Task(
+        task_id="invalid-kind",
+        objective="bad",
+        steps=(task_executor.Step(step_id=1, kind="sql", payload=task_executor.NoopPayload()),),
+    )
+    policy = task_admission.AdmissionPolicy(policy_version="v1")
+
+    invalid_kind_decision = task_admission.admit(invalid_kind_task, make_ctx(), policy)
+    assert invalid_kind_decision.allowed is False
+    assert invalid_kind_decision.reason == "DENIED_STEP_KIND"
+
+    too_many_steps = tuple(
+        task_executor.Step(step_id=i, kind="noop", payload=task_executor.NoopPayload()) for i in range(3)
+    )
+    limit_task = task_executor.Task(task_id="too-many-local", objective="noop", steps=too_many_steps)
+    limited_policy = task_admission.AdmissionPolicy(policy_version="v1", max_steps=2)
+
+    limit_decision = task_admission.admit(limit_task, make_ctx(), limited_policy)
+    assert limit_decision.allowed is False
+    assert limit_decision.reason == "TOO_MANY_STEPS"
+
+    reload_admission(monkeypatch, "DEFAULT")
 
 
 def test_wrapper_blocks_and_allows(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
