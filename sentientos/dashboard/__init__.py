@@ -1,7 +1,8 @@
 """Dashboard utilities for SentientOS console monitoring."""
 
 from .console import ConsoleDashboard, DashboardStatus, LogBuffer
-from .live_dashboard import AvatarSnapshot, DashboardSnapshot, HealthSnapshot, MindSnapshot, run_dashboard
+from .dashboard_snapshot import AvatarSnapshot, DashboardSnapshot, HealthSnapshot, MindSnapshot, collect_snapshot
+from .live_dashboard import run_dashboard
 
 __all__ = [
     "ConsoleDashboard",
@@ -11,5 +12,6 @@ __all__ = [
     "DashboardSnapshot",
     "HealthSnapshot",
     "MindSnapshot",
+    "collect_snapshot",
     "run_dashboard",
 ]
