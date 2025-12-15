@@ -7,6 +7,7 @@ from typing import Any
 import task_executor
 from logging_config import get_log_path
 from log_utils import append_json
+from runtime_mode import IS_LOCAL_OWNER
 
 
 @dataclass(frozen=True)
@@ -90,7 +91,14 @@ def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPoli
         "denied_kinds": tuple(denied_kinds),
     }
 
-    if policy.require_vow_digest_match:
+    enforce_vow_digest = policy.require_vow_digest_match
+    enforce_doctrine_digest = policy.require_doctrine_digest_match
+    if IS_LOCAL_OWNER:
+        # Owner-controlled local mode: skip semantic/federation constraints
+        enforce_vow_digest = False
+        enforce_doctrine_digest = False
+
+    if enforce_vow_digest:
         if ctx.vow_digest is None:
             return AdmissionDecision(
                 allowed=False,
@@ -116,7 +124,7 @@ def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPoli
                 redactions=redactions or None,
             )
 
-    if policy.require_doctrine_digest_match:
+    if enforce_doctrine_digest:
         if ctx.doctrine_digest is None:
             return AdmissionDecision(
                 allowed=False,
