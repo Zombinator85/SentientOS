@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
 
+from control_plane.enums import ReasonCode, RequestType
+from control_plane.records import AuthorizationError, AuthorizationRecord
 from avatar_state import AvatarStateEmitter
 
 DEFAULT_BASE_STATE: Dict[str, Any] = {
@@ -77,7 +78,9 @@ class SpeechEmitter:
         started_at: float | None = None,
         muted: bool = False,
         metadata: Mapping[str, Any] | None = None,
+        authorization: AuthorizationRecord | None = None,
     ) -> Dict[str, Any]:
+        _require_avatar_authorization(authorization)
         spoken = phrase.strip()
         timeline = _coerce_viseme_timeline(visemes)
         started_value = started_at if started_at is not None else (time.time() if spoken else None)
@@ -104,7 +107,8 @@ class SpeechEmitter:
             payload["metadata"] = dict(metadata)
         return self.avatar_state_emitter.emit(payload)
 
-    def emit_idle(self) -> Dict[str, Any]:
+    def emit_idle(self, *, authorization: AuthorizationRecord | None = None) -> Dict[str, Any]:
+        _require_avatar_authorization(authorization)
         payload: Dict[str, Any] = {
             **DEFAULT_BASE_STATE,
             **dict(self.base_state),
@@ -119,13 +123,29 @@ class SpeechEmitter:
         }
         return self.avatar_state_emitter.emit(payload)
 
-    def emit_from_tts(self, speech: Mapping[str, Any]) -> Dict[str, Any]:
+    def emit_from_tts(
+        self, speech: Mapping[str, Any], *, authorization: AuthorizationRecord | None = None
+    ) -> Dict[str, Any]:
         phrase = str(speech.get("text", speech.get("utterance", "")))
         viseme_source = speech.get("visemes") or speech.get("viseme_path") or speech.get("viseme_json")
         started_at = speech.get("started_at")
         muted = bool(speech.get("muted", False))
         metadata = speech.get("metadata") if isinstance(speech.get("metadata"), Mapping) else None
-        return self.emit_phrase(phrase, visemes=viseme_source, started_at=started_at, muted=muted, metadata=metadata)
+        return self.emit_phrase(
+            phrase,
+            visemes=viseme_source,
+            started_at=started_at,
+            muted=muted,
+            metadata=metadata,
+            authorization=authorization,
+        )
 
 
 __all__ = ["SpeechEmitter", "DEFAULT_VISEME_DURATION"]
+
+
+def _require_avatar_authorization(authorization: AuthorizationRecord | None) -> AuthorizationRecord:
+    if authorization is None:
+        raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
+    authorization.require(RequestType.AVATAR_EMISSION)
+    return authorization
