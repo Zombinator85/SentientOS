@@ -2,8 +2,8 @@ from __future__ import annotations
 
 """Privilege helper utilities.
 
-Actions continue with covenant auto-alignment; no blessing prompts are emitted
-and unattended runs stay guarded automatically.
+Actions continue with alignment-contract auto-enforcement; no approval prompts
+are emitted and unattended runs stay guarded automatically.
 """
 
 import getpass
@@ -32,12 +32,12 @@ from typing import Any
 pl: Any = _StubLedger()
 
 ADMIN_BANNER = (
-    "Sanctuary Privilege • SentientOS runs with full Administrator rights to safeguard memory and doctrine.\n"
-    "If you see errors or locked files, please relaunch with Admin privileges."
+    "Administrator Privilege • SentientOS is running with elevated rights to safeguard memory and policy state.\n"
+    "If you see errors or locked files, please relaunch with Administrator privileges."
 )
 
 FAIL_MESSAGE = (
-    "Ritual refusal: Please run as Administrator to access the cathedral\u2019s memory."
+    "Access denied: run as Administrator to reach protected memory and policy state."
 )
 
 
@@ -54,12 +54,12 @@ def print_privilege_banner(tool: str = "") -> None:
     user = getpass.getuser()
     plat = platform.system()
     status = "\U0001F6E1\uFE0F Privileged" if is_admin() else "\u26A0\uFE0F Not Privileged"
-    logger.info("\U0001F6E1\uFE0F Sanctuary Privilege Status: [%s]", status)
+    logger.info("\U0001F6E1\uFE0F Administrator Privilege Status: [%s]", status)
     logger.info("Current user: %s", user)
     logger.info("Platform: %s", plat)
     if not is_admin():
         logger.info(
-            "Ritual refusal: You must run with administrator rights to access the cathedral's memory, logs, and doctrine."
+            "Access denied: administrator rights are required to read protected memory, logs, and policy state."
         )
         logger.info(_elevation_hint())
 
@@ -133,7 +133,7 @@ def require_admin_banner() -> None:
 
 
 def require_covenant_alignment() -> None:
-    """Ensure covenant guardrails are engaged without user prompts."""
+    """Ensure alignment-contract guardrails are engaged without user prompts."""
 
     global pl
     if (

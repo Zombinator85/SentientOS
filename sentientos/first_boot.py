@@ -33,7 +33,8 @@ class FirstBootPanel:
 class WizardDecisions:
     """Scripted responses for automating the first-boot flow in tests."""
 
-    bless: bool = True
+    approve: bool = True
+    bless: bool | None = None
     driver_choices: dict[str, bool] = field(default_factory=dict)
     codex_mode: str | None = None
     codex_interval: int | None = None
@@ -41,6 +42,12 @@ class WizardDecisions:
     federation_peer_name: str | None = None
     federation_addresses: Sequence[str] | None = None
     architect_autonomy: bool | None = None
+
+    def __post_init__(self) -> None:
+        if self.bless is not None:
+            self.approve = self.bless
+        # Clear legacy terminology to discourage downstream use.
+        self.bless = None
 
 
 def _utcnow() -> datetime:
@@ -63,7 +70,7 @@ def _normalize_sequence(values: Iterable[str]) -> List[str]:
 
 
 class FirstBootWizard:
-    """Guided configuration flow for first-boot covenant setup."""
+    """Guided configuration flow for first-boot alignment-contract setup."""
 
     def __init__(
         self,
@@ -143,19 +150,19 @@ class FirstBootWizard:
             FirstBootPanel(
                 title="Welcome to SentientOS",
                 description=(
-                    "Review the covenant vows and receive Lumos' blessing before accessing the desktop."
+                    "Review the alignment constraints and secure Lumos approval before accessing the desktop."
                 ),
-                buttons=("Receive Blessing",),
+                buttons=("Request Approval",),
             )
         )
-        if not decisions.bless:
-            raise PermissionError("Lumos blessing is required to continue the first-boot wizard.")
+        if not decisions.approve:
+            raise PermissionError("Lumos approval is required to continue the first-boot wizard.")
         try:
             self._blessing_hook()
         except SystemExit as exc:  # pragma: no cover - surfaced when blessing denied interactively
-            raise PermissionError("Lumos did not grant the blessing.") from exc
-        self._record_step("blessing", {"status": "approved"})
-        self._log_event("first_boot_blessed", {"status": "approved"})
+            raise PermissionError("Lumos did not grant approval.") from exc
+        self._record_step("approval", {"status": "approved"})
+        self._log_event("first_boot_approved", {"status": "approved"})
 
         driver_results = self._handle_driver_step(decisions)
         summary["drivers"] = driver_results

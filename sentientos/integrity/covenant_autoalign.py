@@ -1,7 +1,7 @@
-"""Autonomous covenant alignment engine.
+"""Autonomous alignment-contract enforcement engine.
 
-This module replaces legacy blessing rituals with automatic guardrails that
-continuously verify vow integrity and ledger coherency.
+This module replaces legacy approval routines with automatic guardrails that
+continuously validate integrity contracts and ledger coherency.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def _run_checks(stage: str) -> Dict[str, object]:
     tasks: Dict[str, Callable[[], object]] = {
-        "vow_integrity": lambda: True,
+        "integrity_contract": lambda: True,
         "ledger_coherency": lambda: True,
         "invariants_refreshed": lambda: True,
         "guardrails_active": lambda: True,
@@ -24,15 +24,17 @@ def _run_checks(stage: str) -> Dict[str, object]:
         try:
             results[name] = fn()
         except Exception as exc:  # pragma: no cover - defensive guard
-            logger.error("Covenant auto-align check failed", extra={"check": name, "error": str(exc)})
+            logger.error(
+                "Alignment-contract check failed", extra={"check": name, "error": str(exc)}
+            )
             results[name] = False
     results["daemons_constrained"] = results.get("guardrails_active", False)
-    logger.debug("Covenant auto-alignment executed", extra=results)
+    logger.debug("Alignment-contract guardrails executed", extra=results)
     return results
 
 
 def autoalign_on_boot() -> Dict[str, object]:
-    """Engage covenant checks during boot."""
+    """Engage alignment-contract checks during boot."""
 
     return _run_checks("boot")
 

@@ -70,7 +70,7 @@ class RecordingWizard:
         return dict(self._summary)
 
 
-def test_wizard_requires_blessing(tmp_path: Path) -> None:
+def test_wizard_requires_approval(tmp_path: Path) -> None:
     ledger_entries: List[dict[str, object]] = []
     pulses: List[dict[str, object]] = []
 
@@ -92,7 +92,7 @@ def test_wizard_requires_blessing(tmp_path: Path) -> None:
     )
 
     with pytest.raises(PermissionError):
-        wizard.run(decisions=WizardDecisions(bless=False), force=True)
+        wizard.run(decisions=WizardDecisions(approve=False), force=True)
 
     assert any(item["entry"]["event"] == "first_boot_step" for item in ledger_entries)
     assert all(event["event_type"] == "first_boot_step" for event in pulses)
@@ -102,7 +102,7 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
     driver_manager = DummyDriverManager()
     ledger_entries: List[dict[str, object]] = []
     pulses: List[dict[str, object]] = []
-    blessing_calls: List[str] = []
+    approval_calls: List[str] = []
     connectivity_checks: List[tuple[str, str]] = []
 
     def ledger_writer(path: Path, entry: dict[str, object]) -> None:
@@ -119,13 +119,13 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
         completion_path=tmp_path / "vow/first_boot_complete",
         ledger_writer=ledger_writer,
         pulse_publisher=pulse,
-        blessing_hook=lambda: blessing_calls.append("called"),
+        blessing_hook=lambda: approval_calls.append("called"),
         connectivity_tester=lambda peer, address: (connectivity_checks.append((peer, address)) or True),
         clock=lambda: datetime(2024, 1, 1, tzinfo=timezone.utc),
     )
 
     decisions = WizardDecisions(
-        bless=True,
+        approve=True,
         driver_choices={"gpu-1": True},
         codex_mode="expand",
         codex_interval=7200,
@@ -136,7 +136,7 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
 
     summary = wizard.run(decisions=decisions, force=True)
 
-    assert blessing_calls == ["called"]
+    assert approval_calls == ["called"]
     assert driver_manager.installs == ["gpu-1"]
     assert (tmp_path / "vow/first_boot_complete").exists()
 
@@ -149,7 +149,7 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
     assert config["federation_peers"] == ["tcp://aurora:7777"]
 
     events = [item["entry"]["event"] for item in ledger_entries]
-    assert "first_boot_blessed" in events
+    assert "first_boot_approved" in events
     assert "first_boot_codex_configured" in events
     assert "first_boot_federation_configured" in events
     assert any(event["event_type"] == "first_boot_complete" for event in pulses)
@@ -165,7 +165,7 @@ def test_wizard_configures_codex_and_federation(tmp_path: Path) -> None:
 
 def test_wizard_skip_when_completed(tmp_path: Path) -> None:
     ledger_entries: List[dict[str, object]] = []
-    blessing_calls: List[str] = []
+    approval_calls: List[str] = []
 
     def ledger_writer(path: Path, entry: dict[str, object]) -> None:
         ledger_entries.append(dict(entry))
@@ -177,17 +177,17 @@ def test_wizard_skip_when_completed(tmp_path: Path) -> None:
         completion_path=tmp_path / "vow/first_boot_complete",
         ledger_writer=ledger_writer,
         pulse_publisher=lambda event: event,
-        blessing_hook=lambda: blessing_calls.append("blessed"),
+        blessing_hook=lambda: approval_calls.append("approved"),
     )
 
     wizard.run(decisions=WizardDecisions(), force=True)
     initial_ledger_count = len(ledger_entries)
-    assert blessing_calls == ["blessed"]
+    assert approval_calls == ["approved"]
 
     result = wizard.run()
     assert result == {"status": "skipped", "reason": "first_boot_complete"}
     assert len(ledger_entries) == initial_ledger_count
-    assert blessing_calls == ["blessed"]
+    assert approval_calls == ["approved"]
 
 
 def test_shell_integration_invokes_wizard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
