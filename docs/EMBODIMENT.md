@@ -27,10 +27,16 @@ each subsystem.
 ### Automatic Speech Recognition (ASR)
 
 * **Engine:** Whisper GGUF (base.en) via `sentientos.perception.asr_listener`.
-* **Inputs:** Microphone stream (`arecord`/`sox`).
+* **Inputs:** Microphone stream (`sounddevice`/`pyaudio`, falls back to `arecord`/`sox`).
 * **Outputs:** Transcript segments forwarded to the autonomy runtime and
   memory curator.
-* **Configuration:** `config.runtime.audio` (`backend`, `vad`, `chunk_seconds`).
+* **Configuration:** `config.runtime.audio` (`enable` toggles microphone capture,
+  `backend`, `vad`, `chunk_seconds`, `sample_rate`, `silence_rms`,
+  `silence_hangover_s`, `frame_seconds`).
+* **Permissions:** Microphone capture is muted when `SENTIENTOS_MODE` is not
+  `LOCAL_OWNER`.
+* **Health:** Microphone readiness is reported to `/pulse/system.json` for
+  pulse dashboards.
 * **Readiness hint:** `models/whisper/base.en.gguf` must exist.
 
 ### Text-to-Speech (TTS)

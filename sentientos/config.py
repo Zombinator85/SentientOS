@@ -410,6 +410,11 @@ class AudioRuntimeConfig:
     chunk_seconds: float = 25.0
     max_minutes_per_hour: float = 20.0
     max_concurrent: int = 1
+    sample_rate: int = 16000
+    frame_seconds: float = 0.25
+    buffer_seconds: float = 5.0
+    silence_rms: float = 0.01
+    silence_hangover_s: float = 0.5
 
 
 @dataclass
@@ -560,6 +565,11 @@ class RuntimeConfig:
             chunk_seconds=float(audio_section.get("chunk_seconds", 25.0)),
             max_minutes_per_hour=float(audio_section.get("max_minutes_per_hour", 20.0)),
             max_concurrent=int(audio_section.get("max_concurrent", 1)),
+            sample_rate=int(audio_section.get("sample_rate", 16000)),
+            frame_seconds=float(audio_section.get("frame_seconds", 0.25)),
+            buffer_seconds=float(audio_section.get("buffer_seconds", 5.0)),
+            silence_rms=float(audio_section.get("silence_rms", 0.01)),
+            silence_hangover_s=float(audio_section.get("silence_hangover_s", 0.5)),
         )
 
         tts_section = _as_mapping(mapping.get("tts"))
@@ -877,6 +887,11 @@ def _default_runtime_mapping() -> Dict[str, Any]:
             "chunk_seconds": 25.0,
             "max_minutes_per_hour": 20.0,
             "max_concurrent": 1,
+            "sample_rate": 16000,
+            "frame_seconds": 0.25,
+            "buffer_seconds": 5.0,
+            "silence_rms": 0.01,
+            "silence_hangover_s": 0.5,
         },
         "tts": {
             "enable": False,
@@ -1049,6 +1064,11 @@ _ENVIRONMENT_OVERRIDES: Dict[str, Tuple[Tuple[str, ...], Any]] = {
         "timeout_s",
     ), _to_float),
     "SENTIENTOS_AUDIO_ENABLE": (("audio", "enable"), _to_bool),
+    "SENTIENTOS_AUDIO_SAMPLE_RATE": (("audio", "sample_rate"), _to_int),
+    "SENTIENTOS_AUDIO_FRAME_SECONDS": (("audio", "frame_seconds"), _to_float),
+    "SENTIENTOS_AUDIO_BUFFER_SECONDS": (("audio", "buffer_seconds"), _to_float),
+    "SENTIENTOS_AUDIO_SILENCE_RMS": (("audio", "silence_rms"), _to_float),
+    "SENTIENTOS_AUDIO_SILENCE_HANGOVER_S": (("audio", "silence_hangover_s"), _to_float),
     "SENTIENTOS_TTS_ENABLE": (("tts", "enable"), _to_bool),
     "SENTIENTOS_TTS_PERSONALITY_EXPRESSIVENESS": (
         ("tts", "personality", "expressiveness"),
