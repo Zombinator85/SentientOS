@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Optional
 
+from control_plane.enums import Decision, ReasonCode, RequestType
+from control_plane.records import AuthorizationError, AuthorizationRecord
 from avatar_state import AvatarStateEmitter, resolve_mode
 from speech_emitter import DEFAULT_BASE_STATE, SpeechEmitter, _coerce_viseme_timeline
 from speech_log import append_speech_log, build_speech_log_entry
@@ -113,7 +115,9 @@ class SpeechToAvatarBridge:
         mode: Optional[str] = None,
         metadata: Mapping[str, Any] | None = None,
         started_at: Any | None = None,
+        authorization: AuthorizationRecord | None = None,
     ) -> MutableMapping[str, Any]:
+        _ensure_authorization(authorization, {RequestType.AVATAR_EMISSION, RequestType.SPEECH_TTS})
         started_value = self._started_at(started_at) if phrase.strip() else None
         self._last_started_at = started_value
         muted_value = self._should_mute(muted, mode)
@@ -149,6 +153,7 @@ class SpeechToAvatarBridge:
                 started_at=started_value,
                 muted=muted_value,
                 metadata=metadata,
+                authorization=authorization,
             )
         phrase_block = payload.get("phrase") if isinstance(payload, Mapping) else {}
         if isinstance(phrase_block, Mapping):
@@ -161,9 +166,12 @@ class SpeechToAvatarBridge:
         self._log_speech(payload, event="start")
         return payload
 
-    def emit_idle(self, *, log: bool = True) -> MutableMapping[str, Any]:
+    def emit_idle(
+        self, *, log: bool = True, authorization: AuthorizationRecord | None = None
+    ) -> MutableMapping[str, Any]:
+        _ensure_authorization(authorization, {RequestType.AVATAR_EMISSION, RequestType.SPEECH_TTS})
         self._last_started_at = None
-        payload = self.speech_emitter.emit_idle()
+        payload = self.speech_emitter.emit_idle(authorization=authorization)
         if log:
             self._log_speech(payload, event="stop")
         return payload
@@ -220,7 +228,10 @@ class SpeechToAvatarBridge:
             log_target.parent.mkdir(parents=True, exist_ok=True)
         append_speech_log(entry, log_path=log_target, max_entries=self.max_log_entries)
 
-    def handle_event(self, speech_event: Mapping[str, Any]) -> MutableMapping[str, Any]:
+    def handle_event(
+        self, speech_event: Mapping[str, Any], *, authorization: AuthorizationRecord | None = None
+    ) -> MutableMapping[str, Any]:
+        _ensure_authorization(authorization, {RequestType.AVATAR_EMISSION, RequestType.SPEECH_TTS})
         status = str(speech_event.get("status") or speech_event.get("event") or "start").lower()
         phrase = str(speech_event.get("text") or speech_event.get("utterance") or "")
         viseme_source = speech_event.get("visemes") or speech_event.get("viseme_path") or speech_event.get("viseme_json")
@@ -231,7 +242,7 @@ class SpeechToAvatarBridge:
             last_started = self._last_started_at
             last_phrase = phrase or self._last_phrase
             last_viseme_count = self._last_viseme_count
-            payload = self.emit_idle(log=False)
+            payload = self.emit_idle(log=False, authorization=authorization)
             self._log_speech(
                 payload,
                 event="stop",
@@ -250,6 +261,7 @@ class SpeechToAvatarBridge:
             mode=mode,
             metadata=metadata,
             started_at=started_at,
+            authorization=authorization,
         )
 
     def speak_text(
@@ -262,9 +274,10 @@ class SpeechToAvatarBridge:
         metadata: Mapping[str, Any] | None = None,
         started_at: Any | None = None,
         voice: Optional[str] = None,
+        authorization: AuthorizationRecord | None = None,
     ) -> MutableMapping[str, Any]:
         """Speak a phrase through the TTS backend while syncing avatar state."""
-
+        _ensure_authorization(authorization, {RequestType.SPEECH_TTS})
         started_value = self._started_at(started_at) if phrase.strip() else None
         start_payload = self.emit_phrase(
             phrase,
@@ -273,6 +286,7 @@ class SpeechToAvatarBridge:
             mode=mode,
             metadata=metadata,
             started_at=started_value,
+            authorization=authorization,
         )
 
         muted_value = self._should_mute(muted, mode)
@@ -280,7 +294,7 @@ class SpeechToAvatarBridge:
             self.tts_player.play(phrase, voice=voice)
 
         if self.forward_avatar:
-            stop_payload = self.emit_idle(log=False)
+            stop_payload = self.emit_idle(log=False, authorization=authorization)
         else:
             stop_payload = dict(start_payload)
             phrase_block = stop_payload.get("phrase") if isinstance(stop_payload, Mapping) else None
@@ -300,3 +314,15 @@ class SpeechToAvatarBridge:
 
 
 __all__ = ["SpeechToAvatarBridge", "TtsAudioPlayer"]
+
+
+def _ensure_authorization(
+    authorization: AuthorizationRecord | None, allowed_types: set[RequestType]
+) -> AuthorizationRecord:
+    if authorization is None:
+        raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
+    if authorization.decision != Decision.ALLOW:
+        raise AuthorizationError(authorization.reason.value)
+    if authorization.request_type not in allowed_types:
+        raise AuthorizationError(ReasonCode.INVALID_AUTHORIZATION.value)
+    return authorization

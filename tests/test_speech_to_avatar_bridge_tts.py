@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from avatar_state import AvatarStateEmitter
+from control_plane import AuthorizationRecord, RequestType, admit_request
 from speech_emitter import SpeechEmitter
 from speech_log import get_recent_speech
 from speech_to_avatar_bridge import SpeechToAvatarBridge
@@ -14,6 +15,17 @@ from speech_to_avatar_bridge import SpeechToAvatarBridge
 
 def _base_state() -> dict[str, Any]:
     return {"mood": "calm", "intensity": 0.5, "expression": "rest", "motion": "idle"}
+
+
+def _tts_auth() -> AuthorizationRecord:
+    return admit_request(
+        request_type=RequestType.SPEECH_TTS,
+        requester_id="narrator",
+        intent_hash="tts",
+        context_hash="ctx-speech",
+        policy_version="v1-static",
+        metadata={"approved_by": "reviewer"},
+    ).record
 
 
 class _StubTts:
@@ -41,6 +53,7 @@ def test_speak_text_invokes_tts_and_logs(tmp_path: Path) -> None:
         "Testing TTS",
         visemes=[{"time": 0.0, "duration": 0.1, "viseme": "A"}],
         mode="REMOTE",
+        authorization=_tts_auth(),
     )
 
     assert bridge.tts_player.calls == [("Testing TTS", None)]
@@ -69,7 +82,7 @@ def test_speak_text_respects_muted_and_mode(monkeypatch: pytest.MonkeyPatch, tmp
     )
     bridge.tts_player = stub
 
-    bridge.speak_text("Muted payload", muted=True)
+    bridge.speak_text("Muted payload", muted=True, authorization=_tts_auth())
     assert stub.calls == []
 
     written = json.loads(target.read_text())
@@ -84,7 +97,7 @@ def test_speak_text_respects_muted_and_mode(monkeypatch: pytest.MonkeyPatch, tmp
     )
     owner_stub = _StubTts()
     bridge_owner.tts_player = owner_stub
-    bridge_owner.speak_text("Owner muted", mode="LOCAL_OWNER")
+    bridge_owner.speak_text("Owner muted", mode="LOCAL_OWNER", authorization=_tts_auth())
 
     assert owner_stub.calls == []
     owner_state = json.loads(target_owner.read_text())
@@ -102,7 +115,9 @@ def test_speak_text_can_skip_avatar_forwarding(tmp_path: Path) -> None:
     stub = _StubTts()
     bridge.tts_player = stub
 
-    payload = bridge.speak_text("Logging only", visemes=[{"time": 0.0, "viseme": "X"}])
+    payload = bridge.speak_text(
+        "Logging only", visemes=[{"time": 0.0, "viseme": "X"}], authorization=_tts_auth()
+    )
 
     assert payload["speaking"] is True
     assert stub.calls == [("Logging only", None)]

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from control_plane import AuthorizationRecord, RequestType, admit_request
 from avatar_state import AvatarStateEmitter
 from speech_emitter import DEFAULT_VISEME_DURATION, SpeechEmitter
 from speech_to_avatar_bridge import SpeechToAvatarBridge
@@ -12,11 +13,22 @@ def _base_state() -> dict[str, object]:
     return {"mood": "joy", "intensity": 0.7, "expression": "smile", "motion": "wave"}
 
 
+def _avatar_auth() -> AuthorizationRecord:
+    return admit_request(
+        request_type=RequestType.AVATAR_EMISSION,
+        requester_id="bridge",
+        intent_hash="speech", 
+        context_hash="ctx",
+        policy_version="v1-static",
+        metadata={"approved_by": "reviewer"},
+    ).record
+
+
 def test_speech_emitter_tracks_phrase_and_speaking(tmp_path: Path) -> None:
     target = tmp_path / "avatar_state.json"
     speech = SpeechEmitter(AvatarStateEmitter(target), base_state=_base_state())
 
-    payload = speech.emit_phrase("Hello there")
+    payload = speech.emit_phrase("Hello there", authorization=_avatar_auth())
     written = json.loads(target.read_text())
 
     assert written["current_phrase"] == "Hello there"
@@ -28,7 +40,7 @@ def test_speech_emitter_tracks_phrase_and_speaking(tmp_path: Path) -> None:
     assert written["viseme_events"] == []
     assert payload["expression"] == "smile"
 
-    idle = speech.emit_idle()
+    idle = speech.emit_idle(authorization=_avatar_auth())
     written_idle = json.loads(target.read_text())
 
     assert written_idle["is_speaking"] is False
@@ -52,7 +64,9 @@ def test_speech_emitter_extracts_rhubarb_visemes(tmp_path: Path) -> None:
 
     target = tmp_path / "avatar_state.json"
     speech = SpeechEmitter(AvatarStateEmitter(target), base_state=_base_state())
-    payload = speech.emit_phrase("Testing visemes", visemes=viseme_file, started_at=0.5)
+    payload = speech.emit_phrase(
+        "Testing visemes", visemes=viseme_file, started_at=0.5, authorization=_avatar_auth()
+    )
 
     timeline = payload["viseme_timeline"]
     assert len(timeline) == 2
@@ -74,7 +88,9 @@ def test_speech_emitter_json_conformance_local_owner(tmp_path: Path, monkeypatch
     target = tmp_path / "avatar_state.json"
     speech = SpeechEmitter(AvatarStateEmitter(target), base_state=_base_state())
 
-    payload = speech.emit_phrase("Owner phrase", visemes=[{"time": 0.0, "viseme": "X"}], muted=True)
+    payload = speech.emit_phrase(
+        "Owner phrase", visemes=[{"time": 0.0, "viseme": "X"}], muted=True, authorization=_avatar_auth()
+    )
     written = json.loads(target.read_text())
 
     assert written["local_owner"] is True
@@ -91,15 +107,19 @@ def test_speech_emitter_json_conformance_local_owner(tmp_path: Path, monkeypatch
 def test_bridge_handles_speech_lifecycle(tmp_path: Path) -> None:
     target = tmp_path / "avatar_state.json"
     bridge = SpeechToAvatarBridge(SpeechEmitter(AvatarStateEmitter(target), base_state=_base_state()))
+    auth = _avatar_auth()
 
-    payload = bridge.handle_event({"text": "Bridge test", "visemes": [{"time": 0.0, "viseme": "B"}], "started_at": 1.0})
+    payload = bridge.handle_event(
+        {"text": "Bridge test", "visemes": [{"time": 0.0, "viseme": "B"}], "started_at": 1.0},
+        authorization=auth,
+    )
     written = json.loads(target.read_text())
 
     assert payload["speaking"] is True
     assert written["phrase"]["started_at"] == pytest.approx(1.0)
     assert written["viseme_timeline"][0]["viseme"] == "B"
 
-    bridge.handle_event({"event": "end"})
+    bridge.handle_event({"event": "end"}, authorization=auth)
     written_idle = json.loads(target.read_text())
 
     assert written_idle["speaking"] is False
@@ -111,7 +131,7 @@ def test_bridge_mutes_local_owner(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     target = tmp_path / "avatar_state.json"
     bridge = SpeechToAvatarBridge(SpeechEmitter(AvatarStateEmitter(target), base_state=_base_state()))
 
-    bridge.handle_event({"text": "Muted phrase"})
+    bridge.handle_event({"text": "Muted phrase"}, authorization=_avatar_auth())
     written = json.loads(target.read_text())
 
     assert written["local_owner"] is True

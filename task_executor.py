@@ -4,6 +4,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, Literal, Mapping, Sequence
 
+from control_plane.enums import ReasonCode, RequestType
+from control_plane.records import AuthorizationError, AuthorizationRecord
+
 from logging_config import get_log_path
 from log_utils import append_json
 
@@ -83,7 +86,8 @@ class StepExecutionError(Exception):
 LOG_PATH = get_log_path("task_executor.jsonl", "TASK_EXECUTOR_LOG")
 
 
-def execute_task(task: Task) -> TaskResult:
+def execute_task(task: Task, *, authorization: AuthorizationRecord | None = None) -> TaskResult:
+    _require_authorization(authorization)
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
     for step in task.steps:
@@ -180,3 +184,9 @@ def _log_step(task_id: str, trace: StepTrace) -> None:
     if trace.error:
         entry["error"] = trace.error
     append_json(Path(LOG_PATH), entry)
+
+
+def _require_authorization(authorization: AuthorizationRecord | None) -> None:
+    if authorization is None:
+        raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
+    authorization.require(RequestType.TASK_EXECUTION)

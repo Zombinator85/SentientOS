@@ -2,6 +2,8 @@ from importlib import reload
 from typing import Any
 
 import pytest
+
+from control_plane import RequestType, admit_request
 import task_executor
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -20,7 +22,15 @@ def test_step_order_preserved(monkeypatch, tmp_path):
     ]
     task = task_executor.Task(task_id="task-order", objective="preserve order", steps=steps)
 
-    result = task_executor.execute_task(task)
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="codex",
+        intent_hash="order-intent",
+        context_hash="ctx-1",
+        policy_version="v1-static",
+    ).record
+
+    result = task_executor.execute_task(task, authorization=auth)
 
     assert [trace.step_id for trace in result.trace] == [2, 1]
     assert result.status == "completed"
@@ -42,7 +52,15 @@ def test_noop_logs_and_artifacts(monkeypatch, tmp_path):
         steps=[task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload(note="ok"))],
     )
 
-    result = task_executor.execute_task(task)
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="noop-intent",
+        context_hash="ctx-2",
+        policy_version="v1-static",
+    ).record
+
+    result = task_executor.execute_task(task, authorization=auth)
 
     assert result.status == "completed"
     assert result.artifacts["step_1"] == {"note": "ok"}
@@ -74,7 +92,15 @@ def test_failure_aborts(monkeypatch, tmp_path):
     ]
     task = task_executor.Task(task_id="fail-task", objective="abort on fail", steps=steps)
 
-    result = task_executor.execute_task(task)
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="fail-intent",
+        context_hash="ctx-3",
+        policy_version="v1-static",
+    ).record
+
+    result = task_executor.execute_task(task, authorization=auth)
 
     assert result.status == "failed"
     assert [trace.step_id for trace in result.trace] == [1, 2]
@@ -98,8 +124,15 @@ def test_deterministic_traces(monkeypatch, tmp_path):
     ]
     task = task_executor.Task(task_id="deterministic", objective="repeatable", steps=steps)
 
-    first = task_executor.execute_task(task)
-    second = task_executor.execute_task(task)
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="deterministic",
+        context_hash="ctx-4",
+        policy_version="v1-static",
+    ).record
+    first = task_executor.execute_task(task, authorization=auth)
+    second = task_executor.execute_task(task, authorization=auth)
 
     assert first.trace == second.trace
     assert first.artifacts == second.artifacts
