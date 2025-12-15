@@ -16,6 +16,7 @@ from typing import Iterable, Mapping, MutableMapping, Optional
 from logging_config import get_log_dir
 from runtime_mode import SENTIENTOS_MODE
 from sentientos.storage import get_state_file
+from speech_log import get_recent_speech
 from task_admission import ADMISSION_LOG_PATH
 from task_executor import LOG_PATH as EXECUTOR_LOG_PATH
 
@@ -72,6 +73,8 @@ class AvatarSnapshot:
     phrase: Optional[str] = None
     muted: bool = False
     viseme_count: int = 0
+    last_phrase: Optional[str] = None
+    last_duration: Optional[float] = None
 
 
 @dataclass
@@ -339,14 +342,40 @@ def collect_snapshot(
     phrase_text = phrase_block.get("text", avatar_state.get("current_phrase", ""))
     viseme_timeline = avatar_state.get("viseme_timeline") if isinstance(avatar_state.get("viseme_timeline"), list) else []
     speaking = bool(avatar_state.get("speaking", avatar_state.get("is_speaking", False)))
+    muted = bool(phrase_block.get("muted", avatar_state.get("muted", False)))
+    viseme_count = int(phrase_block.get("viseme_count", len(viseme_timeline)))
+
+    recent_speech = get_recent_speech()
+    last_phrase = None
+    last_duration = None
+    if recent_speech:
+        recent_text = recent_speech.get("text")
+        if isinstance(recent_text, str) and recent_text.strip():
+            last_phrase = recent_text
+        duration_value = recent_speech.get("duration")
+        if isinstance(duration_value, (int, float)):
+            last_duration = float(duration_value)
+        if not viseme_count:
+            try:
+                viseme_count = int(recent_speech.get("viseme_count", 0) or 0)
+            except Exception:
+                viseme_count = 0
+        if recent_speech.get("muted"):
+            muted = True
+        if not speaking and recent_speech.get("speaking"):
+            speaking = bool(recent_speech.get("speaking"))
+
+    display_phrase = phrase_text or last_phrase
     base_avatar = build_avatar(pulse_level, mind)
     avatar = AvatarSnapshot(
         emoji=base_avatar.emoji,
         label=str(avatar_state.get("expression") or base_avatar.label),
         speaking=speaking,
-        phrase=str(phrase_text) if phrase_text else None,
-        muted=bool(phrase_block.get("muted", avatar_state.get("muted", False))),
-        viseme_count=int(phrase_block.get("viseme_count", len(viseme_timeline))),
+        phrase=str(display_phrase) if display_phrase else None,
+        muted=muted,
+        viseme_count=viseme_count,
+        last_phrase=last_phrase,
+        last_duration=last_duration,
     )
 
     return DashboardSnapshot(health=health, mind=mind, thoughts=thoughts, activity=activity, avatar=avatar)

@@ -71,13 +71,19 @@ def render_snapshot(snapshot: DashboardSnapshot, *, refresh_interval: float) -> 
     avatar = snapshot.avatar
     lines.append("[Avatar]")
     speaking_status = "speaking" if avatar.speaking else "silent"
-    if avatar.muted and avatar.phrase:
+    display_phrase = avatar.phrase or avatar.last_phrase
+    if avatar.muted and display_phrase:
         speaking_status = "muted"
-    if avatar.phrase:
-        lines.append(f" {avatar.emoji}  ({avatar.label}) – {speaking_status}: {avatar.phrase}")
+    elif display_phrase and not avatar.speaking:
+        speaking_status = "last said"
+    if display_phrase:
+        lines.append(f" {avatar.emoji}  ({avatar.label}) – {speaking_status}: {display_phrase}")
     else:
         lines.append(f" {avatar.emoji}  ({avatar.label}) – {speaking_status}")
-    lines.append(f" Visemes: {avatar.viseme_count}")
+    duration_note = ""
+    if avatar.last_duration is not None:
+        duration_note = f" | Last duration: {avatar.last_duration:.2f}s"
+    lines.append(f" Visemes: {avatar.viseme_count}{duration_note}")
     lines.append("")
 
     lines.append(f"(Read-only; updates every ~{refresh_interval:.1f}s)")
