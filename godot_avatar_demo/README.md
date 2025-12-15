@@ -1,7 +1,7 @@
 # SentientOS Godot Avatar Demo
 
 This project contains a minimal Godot 4 scene that listens for avatar state packets sent by
-`godot_avatar_receiver.py` and drives placeholder blendshapes and motions.
+`godot_avatar_receiver.py` and drives placeholder blendshapes, visemes, and motions.
 
 ## Running locally
 1. Ensure `avatar_state.json` is being written (for example via `AvatarStateEmitter`).
@@ -11,6 +11,7 @@ This project contains a minimal Godot 4 scene that listens for avatar state pack
    ```
 3. Open the project in Godot and play the `AvatarDemo` scene. The status label will update when packets arrive.
 
-The blendshape driver maps expressions and moods to named blendshapes on the avatar mesh. The motion driver plays
-matching animations on the `AnimationPlayer`. Replace the placeholder mesh and animations with your VRM import to
-wire a fully rigged avatar.
+The blendshape driver maps expressions and moods to named blendshapes on the avatar mesh. If a `viseme_timeline`
+array is present in `avatar_state.json`, the driver also plays timed tweens against the `mouth_shape` blendshape to
+roughly match lip motion. The motion driver plays matching animations on the `AnimationPlayer`. Replace the
+placeholder mesh and animations with your VRM import to wire a fully rigged avatar.

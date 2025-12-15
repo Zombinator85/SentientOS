@@ -82,11 +82,18 @@ class AvatarStateForwarder:
             "intensity": intensity,
             "expression": raw.get("expression"),
             "motion": raw.get("motion"),
+            "current_phrase": raw.get("current_phrase", ""),
+            "is_speaking": bool(raw.get("is_speaking", False)),
+            "viseme_timeline": [],
             "timestamp": raw.get("timestamp", time.time()),
         }
         metadata = raw.get("metadata")
         if isinstance(metadata, dict):
             payload["metadata"] = metadata
+
+        visemes = raw.get("viseme_timeline") or raw.get("viseme_events")
+        if isinstance(visemes, list):
+            payload["viseme_timeline"] = visemes
 
         if not all(payload.get(key) for key in ("mood", "expression", "motion")):
             return None
@@ -99,7 +106,12 @@ class AvatarStateForwarder:
         expression = payload.get("expression")
         motion = payload.get("motion")
         intensity = payload.get("intensity")
-        print(f"[avatar-forwarder] mood={mood} expression={expression} motion={motion} intensity={intensity}")
+        phrase = payload.get("current_phrase")
+        speaking = payload.get("is_speaking")
+        status = f" phrase='{phrase}'" if speaking and phrase else ""
+        print(
+            "[avatar-forwarder] mood={mood} expression={expression} motion={motion} intensity={intensity}" + status
+        )
 
 
 def _parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:

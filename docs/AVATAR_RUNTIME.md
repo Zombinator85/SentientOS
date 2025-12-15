@@ -11,6 +11,9 @@ and how to keep the pipeline bounded by doctrine and safety constraints.
 - `intensity`: normalized value (0.0–1.0) clamped for safety.
 - `expression`: desired facial overlay (emoji, blendshape label, or stylized cue).
 - `motion`: suggested locomotion or gesture (e.g., `idle`, `wave`).
+- `current_phrase`: the text currently being spoken (empty when idle).
+- `is_speaking`: boolean flag indicating whether the speaker is active.
+- `viseme_timeline`: ordered viseme events (`time`, `duration`, `viseme`) for lip-sync playback.
 
 The emitter writes `avatar_state.json` into the SentientOS data directory
 (`sentientos.storage.get_state_file("avatar_state.json")`). Downstream systems
