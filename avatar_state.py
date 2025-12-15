@@ -19,11 +19,24 @@ class AvatarState:
     intensity: float
     expression: str
     motion: str
+    current_phrase: Optional[str] = None
+    is_speaking: bool = False
+    viseme_timeline: Optional[Mapping[str, Any] | list[Mapping[str, Any]]] = None
     metadata: Optional[Mapping[str, Any]] = None
 
     def to_payload(self, mode: Optional[str] = None) -> Dict[str, Any]:
         mode_value = resolve_mode(mode)
         normalized_intensity = max(0.0, min(1.0, float(self.intensity)))
+        timeline: list[Dict[str, Any]] = []
+        if self.viseme_timeline:
+            for entry in self.viseme_timeline if isinstance(self.viseme_timeline, list) else [self.viseme_timeline]:
+                if isinstance(entry, Mapping):
+                    timeline.append({
+                        "time": float(entry.get("time", 0.0)),
+                        "duration": float(entry.get("duration", 0.0)),
+                        "viseme": str(entry.get("viseme", entry.get("value", ""))),
+                    })
+
         payload: Dict[str, Any] = {
             "mode": mode_value,
             "local_owner": mode_value == "LOCAL_OWNER",
@@ -31,6 +44,10 @@ class AvatarState:
             "intensity": normalized_intensity,
             "expression": self.expression,
             "motion": self.motion,
+            "current_phrase": self.current_phrase or "",
+            "is_speaking": bool(self.is_speaking),
+            "viseme_timeline": timeline,
+            "viseme_events": timeline,
             "timestamp": time.time(),
         }
         if self.metadata:
@@ -68,11 +85,17 @@ class AvatarStateEmitter:
             raise ValueError(f"avatar state missing required keys: {missing_csv}")
 
         metadata = state.get("metadata") if isinstance(state, Mapping) else None
+        visemes = None
+        if isinstance(state, Mapping):
+            visemes = state.get("viseme_timeline") or state.get("viseme_events")
         avatar_state = AvatarState(
             mood=str(state["mood"]),
             intensity=float(state["intensity"]),
             expression=str(state["expression"]),
             motion=str(state["motion"]),
+            current_phrase=str(state.get("current_phrase", "")) if isinstance(state, Mapping) else "",
+            is_speaking=bool(state.get("is_speaking", False)) if isinstance(state, Mapping) else False,
+            viseme_timeline=visemes,
             metadata=metadata if isinstance(metadata, Mapping) else None,
         )
         return avatar_state.to_payload()

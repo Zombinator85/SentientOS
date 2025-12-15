@@ -1,6 +1,7 @@
 extends Node
 
 @export var listen_port := 18188
+@export var listen_port := 18188
 @export var blendshape_driver_path: NodePath
 @export var motion_driver_path: NodePath
 @export var status_label_path: NodePath
@@ -38,11 +39,19 @@ func _apply_state(state: Dictionary) -> void:
     var mood := state.get("mood", "calm")
     var intensity := float(state.get("intensity", 0.0))
     var motion := state.get("motion", "idle")
-    _write_status("%s @ %.2f (%s)" % [expression, intensity, motion])
+    var phrase := state.get("current_phrase", "")
+    var speaking := bool(state.get("is_speaking", false))
+    var status := "%s @ %.2f (%s)" % [expression, intensity, motion]
+    if speaking and phrase != "":
+        status += " – %s" % phrase
+    _write_status(status)
 
     var blendshape_driver := _resolve_node(blendshape_driver_path)
     if blendshape_driver and blendshape_driver.has_method("apply_expression"):
         blendshape_driver.apply_expression(expression, mood, intensity)
+        var visemes := state.get("viseme_timeline", [])
+        if visemes is Array and blendshape_driver.has_method("play_viseme_timeline"):
+            blendshape_driver.play_viseme_timeline(visemes, state.get("timestamp", 0.0))
 
     var motion_driver := _resolve_node(motion_driver_path)
     if motion_driver and motion_driver.has_method("apply_motion"):
