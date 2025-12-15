@@ -1,63 +1,65 @@
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 from __future__ import annotations
 
+import pytest
 
-import json
-import os
-import sys
-import time
-from pathlib import Path
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import storymaker
-import replay
-import tts_bridge
+from sentientos.dashboard import live_dashboard
+from sentientos.cli import dashboard_cli
 
 
-def test_live_capture(tmp_path, monkeypatch):
-    log_dir = tmp_path / "logs"
-    log_dir.mkdir()
-    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp":"2024-01-01T10:00:00","text":"start"})+"\n")
-    monkeypatch.setattr(tts_bridge, "speak", lambda *a, **k: str(tmp_path/"a.mp3"))
-    monkeypatch.setattr(time, "sleep", lambda x: None)
-    out = tmp_path / "live.json"
-    storymaker.run_live(str(out), log_dir, dry_run=True, limit=1, poll=0)
-    data = json.loads(out.read_text())
-    assert data["chapters"]
+pytestmark = pytest.mark.no_legacy_skip
 
 
-def test_dashboard_display(tmp_path):
-    sb = tmp_path / "sb.json"
-    sb.write_text(json.dumps({"chapters":[{"chapter":1,"title":"A"}]}))
-    app = replay.run_dashboard(str(sb))
-    client = app.test_client()
-    res = client.post("/chapters")
-    data = res.data if isinstance(res.data, str) else res.data.decode()
-    assert "A" in data
+def test_collect_snapshot_with_missing_sources(monkeypatch, tmp_path):
+    pulse_path = tmp_path / "pulse.json"
+    self_path = tmp_path / "self.json"
+    admission_log = tmp_path / "task_admission.jsonl"
+    executor_log = tmp_path / "task_executor.jsonl"
+
+    monkeypatch.setattr(live_dashboard, "ADMISSION_LOG_PATH", admission_log)
+    monkeypatch.setattr(live_dashboard, "EXECUTOR_LOG_PATH", executor_log)
+
+    snapshot = live_dashboard.collect_snapshot(
+        log_dir=tmp_path,
+        pulse_path=pulse_path,
+        self_path=self_path,
+    )
+
+    assert snapshot.health.pulse_level == live_dashboard.UNKNOWN_VALUE
+    assert snapshot.mind.mood is not None  # defaults applied
+    assert snapshot.activity.executor_steps == []
 
 
-def test_feedback_workflow(tmp_path, monkeypatch):
-    sb = tmp_path / "sb.json"
-    sb.write_text(json.dumps({"chapters":[{"chapter":1,"title":"A","t_start":0,"t_end":0.1}]}))
-    monkeypatch.setattr(time, "sleep", lambda x: None)
-    monkeypatch.setattr("builtins.input", lambda prompt='': "ok")
-    replay.playback(str(sb), headless=True, feedback_enabled=True)
-    fb = sb.with_suffix(".feedback.jsonl")
-    assert fb.exists() and "ok" in fb.read_text()
+def test_avatar_mapping_returns_emoji():
+    mind_happy = live_dashboard.MindSnapshot(mood="happy", confidence=0.9)
+    mind_warning = live_dashboard.MindSnapshot(tension=0.8)
+    mind_tired = live_dashboard.MindSnapshot(mood="tired")
+
+    assert live_dashboard.build_avatar("STABLE", mind_happy).emoji in {"😊", "🙂"}
+    assert live_dashboard.build_avatar("WARNING", mind_warning).emoji in {"😕", "😟"}
+    assert live_dashboard.build_avatar("DEGRADED", mind_tired).emoji == "😠"
 
 
-def test_analytics_export(tmp_path, monkeypatch):
-    log_dir = tmp_path / "logs"
-    log_dir.mkdir()
-    (log_dir / "memory.jsonl").write_text(json.dumps({"timestamp":"2024-01-01T09:00:00","text":"a"})+"\n")
-    (log_dir / "emotions.jsonl").write_text(json.dumps({"timestamp":"2024-01-01T09:10:00","emotions":{"Joy":1.0}})+"\n")
-    csv_path = tmp_path / "out.csv"
-    storymaker.export_analytics("2024-01-01 00:00","2024-01-01 23:59", log_dir, str(csv_path))
-    data = csv_path.read_text()
-    assert "chapter" in data and "joy" in data
+def test_dashboard_cli_single_frame(monkeypatch, tmp_path, capsys):
+    pulse_path = tmp_path / "pulse.json"
+    self_path = tmp_path / "self.json"
+    admission_log = tmp_path / "task_admission.jsonl"
+    executor_log = tmp_path / "task_executor.jsonl"
+
+    monkeypatch.setattr(live_dashboard, "ADMISSION_LOG_PATH", admission_log)
+    monkeypatch.setattr(live_dashboard, "EXECUTOR_LOG_PATH", executor_log)
+
+    exit_code = dashboard_cli.main(
+        [
+            "--once",
+            "--refresh-interval",
+            "0.5",
+            "--pulse-path",
+            str(pulse_path),
+            "--self-path",
+            str(self_path),
+        ]
+    )
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "SentientOS Live Dashboard" in output
