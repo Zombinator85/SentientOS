@@ -20,6 +20,9 @@ def test_avatar_state_emitter_writes_expected_payload(tmp_path: Path) -> None:
     assert written["expression"] == "smile"
     assert written["motion"] == "wave"
     assert written["local_owner"] is False
+    assert written["speaking"] is False
+    assert written["phrase"]["text"] == ""
+    assert written["phrase"]["viseme_count"] == 0
     assert 0.0 <= written["intensity"] <= 1.0
     assert "timestamp" in written
 

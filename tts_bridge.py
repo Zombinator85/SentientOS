@@ -16,6 +16,8 @@ import threading
 import random
 import asyncio
 from sentientos.parliament_bus import Turn
+from runtime_mode import IS_LOCAL_OWNER, SENTIENTOS_MODE
+from speech_to_avatar_bridge import SpeechToAvatarBridge
 
 try:
     from TTS.api import TTS  # Coqui TTS, optional dependency
@@ -55,6 +57,7 @@ _TURN_ID = 0
 
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
 HEADLESS = is_headless()
+_AVATAR_BRIDGE: SpeechToAvatarBridge | None = SpeechToAvatarBridge()
 
 ELEVEN_KEY = os.getenv("ELEVEN_API_KEY")
 ELEVEN_VOICE = os.getenv("ELEVEN_VOICE", "Rachel")
@@ -112,11 +115,28 @@ def speak(
     style: Optional[str] = None,
 ) -> Optional[str]:
     """Synthesize text to speech and optionally save to a file."""
+    spoken = text.strip()
+    if not spoken:
+        return None
+
+    muted = HEADLESS or ENGINE is None or IS_LOCAL_OWNER
+    if _AVATAR_BRIDGE:
+        _AVATAR_BRIDGE.handle_event({"text": spoken, "muted": muted, "mode": SENTIENTOS_MODE, "started_at": time.time()})
+
     if HEADLESS:
         print("[TTS] Headless mode - skipping synthesis")
+        if _AVATAR_BRIDGE:
+            _AVATAR_BRIDGE.handle_event({"event": "end"})
+        return None
+    if IS_LOCAL_OWNER:
+        print("[TTS] LOCAL_OWNER mode - suppressing playback")
+        if _AVATAR_BRIDGE:
+            _AVATAR_BRIDGE.handle_event({"event": "end"})
         return None
     if ENGINE is None:
         print("[TTS] no TTS engine available")
+        if _AVATAR_BRIDGE:
+            _AVATAR_BRIDGE.handle_event({"event": "end"})
         return None
     emotions = emotions or empty_emotion_vector()
     chosen_voice = voice or CURRENT_PERSONA
@@ -195,6 +215,8 @@ def speak(
         emotions=emotions,
         emotion_features={},
     )
+    if _AVATAR_BRIDGE:
+        _AVATAR_BRIDGE.handle_event({"event": "end"})
     return save_path
 
 def speak_async(
