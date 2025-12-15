@@ -15,6 +15,7 @@ from typing import Iterable, Mapping, MutableMapping, Optional
 
 from logging_config import get_log_dir
 from runtime_mode import SENTIENTOS_MODE
+from sentientos.storage import get_state_file
 from task_admission import ADMISSION_LOG_PATH
 from task_executor import LOG_PATH as EXECUTOR_LOG_PATH
 
@@ -67,6 +68,10 @@ class ActivitySnapshot:
 class AvatarSnapshot:
     emoji: str = "😐"
     label: str = "neutral"
+    speaking: bool = False
+    phrase: Optional[str] = None
+    muted: bool = False
+    viseme_count: int = 0
 
 
 @dataclass
@@ -132,6 +137,15 @@ def _load_pulse(path: Path = DEFAULT_PULSE_PATH) -> tuple[str, str | None]:
     level = str(data.get("level") or UNKNOWN_VALUE)
     reason = data.get("reason")
     return level.upper(), reason if isinstance(reason, str) else None
+
+
+def _load_avatar_state(path: Path | None = None) -> MutableMapping[str, object]:
+    state_path = path or get_state_file("avatar_state.json")
+    try:
+        data = json.loads(Path(state_path).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return data if isinstance(data, MutableMapping) else {}
 
 
 def _load_self_state(path: Path | None = None) -> MindSnapshot:
@@ -320,6 +334,19 @@ def collect_snapshot(
         daemons_running=_detect_daemons(log_root),
     )
 
-    avatar = build_avatar(pulse_level, mind)
+    avatar_state = _load_avatar_state()
+    phrase_block = avatar_state.get("phrase") if isinstance(avatar_state.get("phrase"), Mapping) else {}
+    phrase_text = phrase_block.get("text", avatar_state.get("current_phrase", ""))
+    viseme_timeline = avatar_state.get("viseme_timeline") if isinstance(avatar_state.get("viseme_timeline"), list) else []
+    speaking = bool(avatar_state.get("speaking", avatar_state.get("is_speaking", False)))
+    base_avatar = build_avatar(pulse_level, mind)
+    avatar = AvatarSnapshot(
+        emoji=base_avatar.emoji,
+        label=str(avatar_state.get("expression") or base_avatar.label),
+        speaking=speaking,
+        phrase=str(phrase_text) if phrase_text else None,
+        muted=bool(phrase_block.get("muted", avatar_state.get("muted", False))),
+        viseme_count=int(phrase_block.get("viseme_count", len(viseme_timeline))),
+    )
 
     return DashboardSnapshot(health=health, mind=mind, thoughts=thoughts, activity=activity, avatar=avatar)

@@ -21,6 +21,8 @@ class AvatarState:
     motion: str
     current_phrase: Optional[str] = None
     is_speaking: bool = False
+    phrase_started_at: Optional[float] = None
+    muted: bool = False
     viseme_timeline: Optional[Mapping[str, Any] | list[Mapping[str, Any]]] = None
     metadata: Optional[Mapping[str, Any]] = None
 
@@ -37,6 +39,19 @@ class AvatarState:
                         "viseme": str(entry.get("viseme", entry.get("value", ""))),
                     })
 
+        started_at = self.phrase_started_at if self.phrase_started_at is not None else None
+        if started_at is None and self.is_speaking:
+            started_at = time.time()
+
+        speaking_flag = bool(self.is_speaking)
+        phrase_payload = {
+            "text": self.current_phrase or "",
+            "started_at": started_at,
+            "muted": bool(self.muted),
+            "viseme_count": len(timeline),
+            "speaking": speaking_flag,
+        }
+
         payload: Dict[str, Any] = {
             "mode": mode_value,
             "local_owner": mode_value == "LOCAL_OWNER",
@@ -44,8 +59,10 @@ class AvatarState:
             "intensity": normalized_intensity,
             "expression": self.expression,
             "motion": self.motion,
-            "current_phrase": self.current_phrase or "",
-            "is_speaking": bool(self.is_speaking),
+            "current_phrase": phrase_payload["text"],
+            "phrase": phrase_payload,
+            "is_speaking": speaking_flag,
+            "speaking": speaking_flag,
             "viseme_timeline": timeline,
             "viseme_events": timeline,
             "timestamp": time.time(),
@@ -86,6 +103,25 @@ class AvatarStateEmitter:
 
         metadata = state.get("metadata") if isinstance(state, Mapping) else None
         visemes = None
+        phrase = state.get("phrase") if isinstance(state, Mapping) else None
+        muted = bool(state.get("muted", False)) if isinstance(state, Mapping) else False
+        started_at = None
+        speaking_flag = bool(state.get("speaking", False)) if isinstance(state, Mapping) else False
+        phrase_text = ""
+        if isinstance(phrase, Mapping):
+            phrase_text = str(phrase.get("text", state.get("current_phrase", "")))
+            muted = bool(phrase.get("muted", muted))
+            start_value = phrase.get("started_at")
+            if isinstance(start_value, (int, float)):
+                started_at = float(start_value)
+            speaking_flag = bool(phrase.get("speaking", speaking_flag))
+        elif isinstance(state, Mapping):
+            start_value = state.get("phrase_started_at")
+            if isinstance(start_value, (int, float)):
+                started_at = float(start_value)
+            phrase_text = str(state.get("current_phrase", ""))
+            speaking_flag = bool(state.get("is_speaking", speaking_flag))
+
         if isinstance(state, Mapping):
             visemes = state.get("viseme_timeline") or state.get("viseme_events")
         avatar_state = AvatarState(
@@ -93,8 +129,10 @@ class AvatarStateEmitter:
             intensity=float(state["intensity"]),
             expression=str(state["expression"]),
             motion=str(state["motion"]),
-            current_phrase=str(state.get("current_phrase", "")) if isinstance(state, Mapping) else "",
-            is_speaking=bool(state.get("is_speaking", False)) if isinstance(state, Mapping) else False,
+            current_phrase=phrase_text,
+            is_speaking=speaking_flag,
+            phrase_started_at=started_at,
+            muted=muted,
             viseme_timeline=visemes,
             metadata=metadata if isinstance(metadata, Mapping) else None,
         )

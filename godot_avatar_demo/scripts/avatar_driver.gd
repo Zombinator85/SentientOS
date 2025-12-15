@@ -39,11 +39,13 @@ func _apply_state(state: Dictionary) -> void:
     var mood := state.get("mood", "calm")
     var intensity := float(state.get("intensity", 0.0))
     var motion := state.get("motion", "idle")
-    var phrase := state.get("current_phrase", "")
-    var speaking := bool(state.get("is_speaking", false))
+    var phrase_block := state.get("phrase", {})
+    var phrase := phrase_block.get("text", state.get("current_phrase", ""))
+    var speaking := bool(state.get("speaking", state.get("is_speaking", false)))
+    var muted := bool(phrase_block.get("muted", false))
     var status := "%s @ %.2f (%s)" % [expression, intensity, motion]
-    if speaking and phrase != "":
-        status += " – %s" % phrase
+    if phrase != "":
+        status += " – %s%s" % ["(muted) " if muted else "", phrase]
     _write_status(status)
 
     var blendshape_driver := _resolve_node(blendshape_driver_path)

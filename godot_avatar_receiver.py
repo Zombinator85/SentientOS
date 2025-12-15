@@ -75,6 +75,10 @@ class AvatarStateForwarder:
         except (TypeError, ValueError):
             intensity = 0.0
 
+        phrase_data = raw.get("phrase") if isinstance(raw.get("phrase"), dict) else {}
+        phrase_text = phrase_data.get("text", raw.get("current_phrase", ""))
+        started_at = phrase_data.get("started_at") if isinstance(phrase_data, dict) else None
+
         payload: Dict[str, Any] = {
             "mode": raw.get("mode"),
             "local_owner": bool(raw.get("local_owner", False)),
@@ -82,8 +86,16 @@ class AvatarStateForwarder:
             "intensity": intensity,
             "expression": raw.get("expression"),
             "motion": raw.get("motion"),
-            "current_phrase": raw.get("current_phrase", ""),
+            "current_phrase": phrase_text,
+            "phrase": {
+                "text": phrase_text,
+                "started_at": started_at,
+                "muted": bool(phrase_data.get("muted", raw.get("muted", False))),
+                "viseme_count": phrase_data.get("viseme_count", 0),
+                "speaking": bool(phrase_data.get("speaking", raw.get("speaking", raw.get("is_speaking", False)))),
+            },
             "is_speaking": bool(raw.get("is_speaking", False)),
+            "speaking": bool(raw.get("speaking", raw.get("is_speaking", False))),
             "viseme_timeline": [],
             "timestamp": raw.get("timestamp", time.time()),
         }
@@ -106,9 +118,14 @@ class AvatarStateForwarder:
         expression = payload.get("expression")
         motion = payload.get("motion")
         intensity = payload.get("intensity")
-        phrase = payload.get("current_phrase")
-        speaking = payload.get("is_speaking")
-        status = f" phrase='{phrase}'" if speaking and phrase else ""
+        phrase_info = payload.get("phrase") if isinstance(payload.get("phrase"), dict) else {}
+        phrase = phrase_info.get("text") or payload.get("current_phrase")
+        speaking = payload.get("speaking")
+        status = ""
+        if phrase:
+            status = f" phrase='{phrase}'"
+            if phrase_info.get("muted"):
+                status += " [muted]"
         print(
             "[avatar-forwarder] mood={mood} expression={expression} motion={motion} intensity={intensity}" + status
         )

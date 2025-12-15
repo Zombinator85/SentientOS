@@ -12,7 +12,8 @@ and how to keep the pipeline bounded by doctrine and safety constraints.
 - `expression`: desired facial overlay (emoji, blendshape label, or stylized cue).
 - `motion`: suggested locomotion or gesture (e.g., `idle`, `wave`).
 - `current_phrase`: the text currently being spoken (empty when idle).
-- `is_speaking`: boolean flag indicating whether the speaker is active.
+- `phrase`: structured phrase metadata including `text`, `started_at`, `muted`, `speaking`, and `viseme_count`.
+- `is_speaking` / `speaking`: boolean flag indicating whether the speaker is active (set to `False` when muted).
 - `viseme_timeline`: ordered viseme events (`time`, `duration`, `viseme`) for lip-sync playback.
 
 The emitter writes `avatar_state.json` into the SentientOS data directory

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence
@@ -67,17 +68,39 @@ class SpeechEmitter:
     avatar_state_emitter: AvatarStateEmitter
     base_state: MutableMapping[str, Any] = field(default_factory=lambda: dict(DEFAULT_BASE_STATE))
 
-    def emit_phrase(self, phrase: str, *, visemes: Any | None = None) -> Dict[str, Any]:
+    def emit_phrase(
+        self,
+        phrase: str,
+        *,
+        visemes: Any | None = None,
+        started_at: float | None = None,
+        muted: bool = False,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> Dict[str, Any]:
         spoken = phrase.strip()
         timeline = _coerce_viseme_timeline(visemes)
+        started_value = started_at if started_at is not None else (time.time() if spoken else None)
+        speaking = bool(spoken) and not muted
         payload: Dict[str, Any] = {
             **DEFAULT_BASE_STATE,
             **dict(self.base_state),
             "current_phrase": spoken,
-            "is_speaking": bool(spoken),
+            "phrase_started_at": started_value,
+            "is_speaking": speaking,
+            "speaking": speaking,
+            "muted": bool(muted),
+            "phrase": {
+                "text": spoken,
+                "started_at": started_value,
+                "muted": bool(muted),
+                "speaking": speaking,
+                "viseme_count": len(timeline),
+            },
             "viseme_timeline": timeline,
             "viseme_events": timeline,
         }
+        if metadata:
+            payload["metadata"] = dict(metadata)
         return self.avatar_state_emitter.emit(payload)
 
     def emit_idle(self) -> Dict[str, Any]:
@@ -86,15 +109,22 @@ class SpeechEmitter:
             **dict(self.base_state),
             "current_phrase": "",
             "is_speaking": False,
+            "speaking": False,
+            "phrase_started_at": None,
+            "muted": False,
             "viseme_timeline": [],
             "viseme_events": [],
+            "phrase": {"text": "", "started_at": None, "muted": False, "speaking": False, "viseme_count": 0},
         }
         return self.avatar_state_emitter.emit(payload)
 
     def emit_from_tts(self, speech: Mapping[str, Any]) -> Dict[str, Any]:
         phrase = str(speech.get("text", speech.get("utterance", "")))
         viseme_source = speech.get("visemes") or speech.get("viseme_path") or speech.get("viseme_json")
-        return self.emit_phrase(phrase, visemes=viseme_source)
+        started_at = speech.get("started_at")
+        muted = bool(speech.get("muted", False))
+        metadata = speech.get("metadata") if isinstance(speech.get("metadata"), Mapping) else None
+        return self.emit_phrase(phrase, visemes=viseme_source, started_at=started_at, muted=muted, metadata=metadata)
 
 
 __all__ = ["SpeechEmitter", "DEFAULT_VISEME_DURATION"]
