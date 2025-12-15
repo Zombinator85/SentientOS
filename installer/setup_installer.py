@@ -9,6 +9,7 @@ require_lumos_approval()
 
 import os
 import sys
+import argparse
 import time
 import shutil
 import subprocess
@@ -161,7 +162,34 @@ def smoke_test() -> None:
         _log("smoke_test", "failed", str(e))
 
 
-def main() -> None:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="SentientOS installer")
+    parser.add_argument(
+        "--with-avatar",
+        action="store_true",
+        help="Install the Godot-based avatar runtime and demo scene",
+    )
+    return parser.parse_args(argv)
+
+
+def install_avatar_runtime() -> None:
+    hook = REPO_ROOT / "install_godot_avatar_runtime.sh"
+    if not hook.exists():
+        print("Avatar runtime hook not found; skipping.")
+        _log("avatar_runtime", "missing")
+        return
+
+    print("Installing Godot avatar runtime...")
+    try:
+        subprocess.check_call(["bash", str(hook), str(REPO_ROOT)])
+        _log("avatar_runtime", "ok")
+    except subprocess.CalledProcessError as exc:
+        _log("avatar_runtime", "failed", str(exc))
+        raise
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
 
     print_banner()
     check_python_version()
@@ -171,6 +199,8 @@ def main() -> None:
     install_dependencies()
     copy_samples()
     create_env()
+    if args.with_avatar:
+        install_avatar_runtime()
     check_microphone()
     smoke_test()
     print('Setup complete. Launching onboarding dashboard...')
@@ -186,7 +216,7 @@ def main() -> None:
 
 if __name__ == '__main__':
     try:
-        main()
+        main(sys.argv[1:])
     except Exception as e:  # pragma: no cover
         _log('complete', 'failed', str(e))
         raise
