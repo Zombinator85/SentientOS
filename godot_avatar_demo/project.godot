@@ -1,0 +1,14 @@
+; Engine configuration file for SentientOS Godot avatar demo.
+; It is best edited using the editor UI instead of hand-editing.
+;
+; Format: 2
+;
+config_version=5
+
+[application]
+config/name="SentientOS Avatar Demo"
+run/main_scene="res://scenes/avatar_demo.tscn"
+config/features=PackedStringArray("4.3")
+
+[rendering]
+renderer/rendering_method="forward_plus"

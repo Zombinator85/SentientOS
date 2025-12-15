@@ -1,0 +1,54 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/avatar_driver.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/blendshape_driver.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/motion_driver.gd" id="3"]
+
+[sub_resource type="BoxMesh" id="1"]
+
+[sub_resource type="Animation" id="2"]
+length = 1.2
+
+[sub_resource type="Animation" id="3"]
+length = 1.2
+
+[sub_resource type="Animation" id="4"]
+length = 1.2
+
+[node name="AvatarDemo" type="Node3D"]
+script = ExtResource("1")
+listen_port = 18188
+blendshape_driver_path = NodePath("BlendshapeDriver")
+motion_driver_path = NodePath("MotionDriver")
+status_label_path = NodePath("UI/StatusLabel")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Avatar" type="Node3D" parent="."]
+
+[node name="Mesh" type="MeshInstance3D" parent="Avatar"]
+mesh = SubResource("1")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Avatar"]
+anims/idle = SubResource("2")
+anims/wave = SubResource("3")
+anims/nod = SubResource("4")
+
+[node name="BlendshapeDriver" type="Node" parent="."]
+script = ExtResource("2")
+mesh_path = NodePath("../Avatar/Mesh")
+
+[node name="MotionDriver" type="Node" parent="."]
+script = ExtResource("3")
+animation_player_path = NodePath("../Avatar/AnimationPlayer")
+supported_motions = PackedStringArray("idle", "wave", "nod")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="StatusLabel" type="Label" parent="UI"]
+text = "Waiting for avatar_state.json"
+vertical_alignment = 1
+size_flags_horizontal = 3
+size_flags_vertical = 3
