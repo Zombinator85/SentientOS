@@ -83,7 +83,20 @@ def render_snapshot(snapshot: DashboardSnapshot, *, refresh_interval: float) -> 
     duration_note = ""
     if avatar.last_duration is not None:
         duration_note = f" | Last duration: {avatar.last_duration:.2f}s"
-    lines.append(f" Visemes: {avatar.viseme_count}{duration_note}")
+    speaking_note = ""
+    if avatar.speaking_duration:
+        speaking_note = f" | Speaking for {avatar.speaking_duration:.2f}s"
+    phrase_note = ""
+    if avatar.phrase_position:
+        phrase_note = f" | Phrase {avatar.phrase_position * 100:.0f}%"
+    viseme_label = avatar.active_viseme or "neutral"
+    blendshape_note = f"blendshape: {avatar.blendshape_hint or viseme_label}"
+    viseme_line = (
+        f" Visemes: {avatar.viseme_count}{duration_note}"
+        f" | Active: {viseme_label} ({avatar.viseme_weight:.2f})"
+        f" | {blendshape_note}{speaking_note}{phrase_note}"
+    )
+    lines.append(viseme_line)
     lines.append("")
 
     lines.append(f"(Read-only; updates every ~{refresh_interval:.1f}s)")
