@@ -73,6 +73,12 @@ class AvatarSnapshot:
     phrase: Optional[str] = None
     muted: bool = False
     viseme_count: int = 0
+    active_viseme: Optional[str] = None
+    viseme_weight: float = 0.0
+    viseme_progress: float = 0.0
+    phrase_position: float = 0.0
+    speaking_duration: float = 0.0
+    blendshape_hint: str = "neutral"
     last_phrase: Optional[str] = None
     last_duration: Optional[float] = None
 
@@ -128,6 +134,89 @@ def _pick_last_timestamp(paths: Iterable[Path]) -> float:
             continue
         newest = max(newest, stats.st_mtime)
     return newest
+
+
+def _smoothstep(value: float) -> float:
+    clamped = max(0.0, min(1.0, value))
+    return clamped * clamped * (3.0 - 2.0 * clamped)
+
+
+def _normalize_viseme_timeline(timeline: object) -> list[MutableMapping[str, object]]:
+    if not isinstance(timeline, list):
+        return []
+    cues: list[MutableMapping[str, object]] = []
+    for cue in timeline:
+        if not isinstance(cue, Mapping):
+            continue
+        try:
+            start = float(cue.get("time", 0.0) or 0.0)
+            duration = float(cue.get("duration", 0.0) or 0.0)
+        except Exception:
+            continue
+        label = str(cue.get("viseme", cue.get("value", cue.get("mouth", "neutral")))) or "neutral"
+        cues.append({
+            "time": start,
+            "duration": duration,
+            "viseme": label,
+        })
+    cues.sort(key=lambda cue: float(cue.get("time", 0.0)))
+    return cues
+
+
+def _resolve_phrase_start(phrase_block: Mapping[str, object], avatar_state: Mapping[str, object]) -> Optional[float]:
+    start_value = phrase_block.get("started_at")
+    if isinstance(start_value, (int, float)):
+        return float(start_value)
+    state_start = avatar_state.get("phrase_started_at")
+    if isinstance(state_start, (int, float)):
+        return float(state_start)
+    timestamp = avatar_state.get("timestamp")
+    if isinstance(timestamp, (int, float)):
+        return float(timestamp)
+    return None
+
+
+def _compute_viseme_frame(
+    *,
+    timeline: list[MutableMapping[str, object]],
+    phrase_block: Mapping[str, object],
+    speaking: bool,
+    avatar_state: Mapping[str, object],
+    now: float | None = None,
+) -> tuple[str, float, float, float]:
+    if not timeline:
+        return "neutral", 0.1, 0.0, 0.0
+
+    start_at = _resolve_phrase_start(phrase_block, avatar_state)
+    if start_at is None:
+        return "neutral", 0.1, 0.0, 0.0
+
+    current_time = now or time.time()
+    elapsed = max(0.0, current_time - start_at)
+
+    active_viseme = "neutral"
+    weight = 0.1
+    viseme_progress = 0.0
+
+    total_duration = 0.0
+    for cue in timeline:
+        start = float(cue.get("time", 0.0) or 0.0)
+        duration = float(cue.get("duration", 0.0) or 0.0)
+        duration = duration if duration > 0 else 0.08
+        end = start + duration
+        total_duration = max(total_duration, end)
+        if elapsed < start:
+            continue
+        if elapsed <= end:
+            active_viseme = str(cue.get("viseme", "neutral")) or "neutral"
+            raw_progress = (elapsed - start) / duration
+            viseme_progress = _smoothstep(raw_progress)
+            weight = 0.2 + 0.8 * viseme_progress if speaking else 0.15
+            break
+    phrase_position = 0.0
+    if total_duration > 0:
+        phrase_position = max(0.0, min(1.0, elapsed / total_duration))
+    return active_viseme, weight, viseme_progress, phrase_position
 
 
 def _load_pulse(path: Path = DEFAULT_PULSE_PATH) -> tuple[str, str | None]:
@@ -340,7 +429,7 @@ def collect_snapshot(
     avatar_state = _load_avatar_state()
     phrase_block = avatar_state.get("phrase") if isinstance(avatar_state.get("phrase"), Mapping) else {}
     phrase_text = phrase_block.get("text", avatar_state.get("current_phrase", ""))
-    viseme_timeline = avatar_state.get("viseme_timeline") if isinstance(avatar_state.get("viseme_timeline"), list) else []
+    viseme_timeline = _normalize_viseme_timeline(avatar_state.get("viseme_timeline"))
     speaking = bool(avatar_state.get("speaking", avatar_state.get("is_speaking", False)))
     muted = bool(phrase_block.get("muted", avatar_state.get("muted", False)))
     viseme_count = int(phrase_block.get("viseme_count", len(viseme_timeline)))
@@ -365,6 +454,23 @@ def collect_snapshot(
         if not speaking and recent_speech.get("speaking"):
             speaking = bool(recent_speech.get("speaking"))
 
+    active_viseme, viseme_weight, viseme_progress, phrase_position = _compute_viseme_frame(
+        timeline=viseme_timeline,
+        phrase_block=phrase_block,
+        speaking=speaking,
+        avatar_state=avatar_state,
+    )
+    speech_started_at = _resolve_phrase_start(phrase_block, avatar_state)
+    speaking_duration = 0.0
+    if speaking and speech_started_at is not None:
+        speaking_duration = max(0.0, time.time() - speech_started_at)
+
+    if not speaking:
+        active_viseme = "neutral"
+        viseme_weight = 0.08
+        viseme_progress = 0.0
+        phrase_position = 0.0
+
     display_phrase = phrase_text or last_phrase
     base_avatar = build_avatar(pulse_level, mind)
     avatar = AvatarSnapshot(
@@ -374,6 +480,12 @@ def collect_snapshot(
         phrase=str(display_phrase) if display_phrase else None,
         muted=muted,
         viseme_count=viseme_count,
+        active_viseme=active_viseme,
+        viseme_weight=viseme_weight,
+        viseme_progress=viseme_progress,
+        phrase_position=phrase_position,
+        speaking_duration=speaking_duration,
+        blendshape_hint=active_viseme if speaking else "breathing",
         last_phrase=last_phrase,
         last_duration=last_duration,
     )
