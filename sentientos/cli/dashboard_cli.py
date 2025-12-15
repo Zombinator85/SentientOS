@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 from typing import Optional, Sequence
 
-from sentientos.dashboard.live_dashboard import collect_snapshot, render_snapshot, run_dashboard
+from sentientos.dashboard.dashboard_snapshot import collect_snapshot
+from sentientos.dashboard.live_dashboard import render_snapshot, run_dashboard
 from sentientos.pulse.pulse_observer import DEFAULT_PULSE_PATH
 
 
@@ -32,13 +33,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Override self-model path",
     )
     parser.add_argument(
+        "--single-frame",
         "--once",
+        dest="single_frame",
         action="store_true",
         help="Render a single frame and exit",
     )
     args = parser.parse_args(argv)
 
-    if args.once:
+    if args.single_frame:
         snapshot = collect_snapshot(pulse_path=args.pulse_path, self_path=args.self_path)
         frame = render_snapshot(snapshot, refresh_interval=args.refresh_interval)
         sys.stdout.write(frame)
