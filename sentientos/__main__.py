@@ -24,6 +24,11 @@ def main() -> None:
 
         raise SystemExit(dashboard_main(sys.argv[2:]))
 
+    if len(sys.argv) > 1 and sys.argv[1] == "avatar-demo":
+        from sentientos.cli.avatar_demo_cli import main as avatar_demo_main
+
+        raise SystemExit(avatar_demo_main(sys.argv[2:]))
+
     print(f"SentientOS {__version__}\nRun 'support' or 'ritual' for CLI tools.")
 
 

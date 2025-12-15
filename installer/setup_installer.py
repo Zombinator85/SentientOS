@@ -7,19 +7,19 @@ require_lumos_approval()
 
 
 
-import os
-import sys
 import argparse
-import time
+import os
 import shutil
 import subprocess
+import sys
+import time
 from pathlib import Path
 
+import requests
+from cathedral_const import PUBLIC_LOG, log_json
+from logging_config import get_log_dir
 from sentient_banner import print_banner, print_closing
 from sentientos import __version__
-import requests
-from logging_config import get_log_dir
-from cathedral_const import PUBLIC_LOG, log_json
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -182,6 +182,9 @@ def install_avatar_runtime() -> None:
     print("Installing Godot avatar runtime...")
     try:
         subprocess.check_call(["bash", str(hook), str(REPO_ROOT)])
+        launcher = REPO_ROOT / "tools" / "avatar_runtime" / "avatar-demo.sh"
+        if launcher.exists():
+            print(f"Avatar demo launcher available at {launcher}")
         _log("avatar_runtime", "ok")
     except subprocess.CalledProcessError as exc:
         _log("avatar_runtime", "failed", str(exc))
