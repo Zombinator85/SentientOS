@@ -1,4 +1,4 @@
-"""Integrity utilities for covenant alignment."""
+"""Integrity utilities for alignment-contract enforcement."""
 
 from .covenant_autoalign import (
     autoalign_after_amendment,

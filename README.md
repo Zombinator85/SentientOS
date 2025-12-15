@@ -51,7 +51,7 @@ python scripts/bootstrap_cathedral.py
 - Pulse Bus 2.0 metadata (`focus`, `context`, `internal_priority`,
   `event_origin`) is documented in `docs/PULSE_BUS.md` and is validated on
   ingestion.
-- The covenant-aligned self-model lives at `/glow/self.json` with schema and
+- The alignment-contract self-model lives at `/glow/self.json` with schema and
   write-back rules in `docs/SELF_MODEL.md`.
 - Cycle diagrams are available in `docs/diagrams/` for the current scaffold.
 
