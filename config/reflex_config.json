@@ -1,0 +1,5 @@
+{
+  "max_firings_per_window": 10,
+  "failure_threshold": 5,
+  "saturation_window_seconds": 300
+}
