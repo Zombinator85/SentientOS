@@ -11,6 +11,7 @@ __all__ = [
     "monitoring_daemon",
     "driver_manager",
     "hungry_eyes",
+    "reflex_guard",
 ]
 
 
