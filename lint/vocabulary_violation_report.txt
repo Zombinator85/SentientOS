@@ -1,0 +1,3 @@
+# Vocabulary violations detected in comments/docstrings/markdown
+# format: <file>:<line>: <term>
+demos/audit_demo.ipynb:8: cathedral-grade
