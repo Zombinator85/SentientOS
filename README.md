@@ -1,5 +1,5 @@
 # 🏛️ SentientOS
-A cathedral-grade memory and emotion relay for model-presence computing.
+A deterministic memory and emotion relay for model-presence computing.
 
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 

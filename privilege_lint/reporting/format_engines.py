@@ -73,5 +73,5 @@ class MarkdownFormatEngine:
             for entry in report.issues:
                 lines.append(f"- {entry}")
         else:
-            lines.append("All sanctuaries honour the privilege covenant. No issues detected.")
+            lines.append("All sanctuaries honour the privilege alignment_contract. No issues detected.")
         return "\n".join(lines)
