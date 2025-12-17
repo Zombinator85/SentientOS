@@ -1,0 +1,6 @@
+{
+  "persona_contexts": 86400,
+  "mood_fragments": 43200,
+  "temporary_identities": 604800,
+  "session_scope": 14400
+}
