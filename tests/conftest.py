@@ -248,6 +248,7 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_consciousness_scaffolding",
         "tests.consciousness.test_sentience_kernel",
         "tests.integrity.test_covenant_autoalign",
+        "tests.test_glossary_lint",
     }
     for item in items:
         module_name = item.module.__name__
