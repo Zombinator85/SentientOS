@@ -22,3 +22,8 @@ Prefer precise descriptors such as: "symbolic valence", "representational mood",
 
 ## Contributor Guidance
 If poetic language is desired, keep it out of operational docs and code. Do not add new artistic files; keep creative writing separate from core materials. When in doubt, cite this document and favor literal descriptions of inputs, outputs, and control flow.
+
+## Hydra-Decapitation Posture (Read-Only Doctrine)
+- Separate pattern diagnosis from argument participation; treat analysis as observational only.
+- Disallow looped engagement, dogpiling, and reply escalation even when invited.
+- Silence is an acceptable and preferred resolution when interaction risk increases.
