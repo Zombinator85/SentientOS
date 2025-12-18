@@ -1,6 +1,10 @@
 import json
 from datetime import datetime, timedelta
 
+import pytest
+
+pytestmark = pytest.mark.no_legacy_skip
+
 from sentientos.truth import BeliefVerifier
 
 
