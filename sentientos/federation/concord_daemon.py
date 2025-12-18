@@ -1,12 +1,8 @@
-"""Federation concordance reconciliation utilities."""
-
 from __future__ import annotations
-
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
-
 
 @dataclass
 class PeerSnapshot:
@@ -14,10 +10,9 @@ class PeerSnapshot:
     glossary_path: Path
     symbolic_diff_path: Path | None = None
 
-
 class ConcordDaemon:
-    """Reconcile glossary definitions across federation peers."""
-
+    """Reconcile glossary definitions across federation peers.
+    Expands local glossary alignment using shared deltas and emits reconciliation intents."""
     def __init__(self, glossary_path: Path, doctrine_path: Path, symbolic_diff_paths: Iterable[Path] | None = None):
         self.glossary_path = Path(glossary_path)
         self.doctrine_path = Path(doctrine_path)
@@ -71,16 +66,13 @@ class ConcordDaemon:
                 if term not in local_glossary:
                     missing_alignment.append({"issue": "missing_alignment", "term": term, "peer": peer.name})
                 elif str(local_glossary[term]) != str(definition):
-                    conflicts.append(
-                        {
-                            "issue": "conflicted_definition",
-                            "term": term,
-                            "local": str(local_glossary[term]),
-                            "peer": peer.name,
-                            "peer_definition": str(definition),
-                        }
-                    )
-
+                    conflicts.append({
+                        "issue": "conflicted_definition",
+                        "term": term,
+                        "local": str(local_glossary[term]),
+                        "peer": peer.name,
+                        "peer_definition": str(definition),
+                    })
             if peer.symbolic_diff_path:
                 for diff_entry in self._load_symbolic_diff(peer.symbolic_diff_path):
                     term = str(diff_entry.get("term") or diff_entry.get("symbol") or "")
@@ -89,29 +81,35 @@ class ConcordDaemon:
                     suggestion = diff_entry.get("suggested_definition") or diff_entry.get("candidate")
                     priority = str(diff_entry.get("priority", "")).lower()
                     if suggestion:
-                        suggestions.append(
-                            {
-                                "issue": "suggested_merge",
-                                "term": term,
-                                "suggested_definition": str(suggestion),
-                                "peer": peer.name,
-                            }
-                        )
+                        suggestions.append({
+                            "issue": "suggested_merge",
+                            "term": term,
+                            "suggested_definition": str(suggestion),
+                            "peer": peer.name,
+                        })
                     if priority == "high":
-                        proposals.append({"term": term, "priority": priority, "peer": peer.name})
+                        proposals.append({"term": term, "priority": "high", "peer": peer.name})
 
         for term, defs in definition_candidates.items():
-            if term in local_glossary and defs:
+            if defs:
                 most_common_def = max(set(defs), key=defs.count)
-                if most_common_def != str(local_glossary.get(term)):
-                    suggestions.append(
-                        {
+                if term in local_glossary:
+                    if most_common_def != str(local_glossary.get(term)):
+                        suggestions.append({
                             "issue": "suggested_merge",
                             "term": term,
                             "suggested_definition": most_common_def,
                             "peer": "consensus",
-                        }
-                    )
+                        })
+                        proposals.append({"term": term, "priority": "high", "peer": "consensus"})
+                else:
+                    # Term missing locally: suggest importing the consensus definition
+                    suggestions.append({
+                        "issue": "suggested_merge",
+                        "term": term,
+                        "suggested_definition": most_common_def,
+                        "peer": "consensus",
+                    })
                     proposals.append({"term": term, "priority": "high", "peer": "consensus"})
 
         report_entries = missing_alignment + conflicts + suggestions
@@ -122,30 +120,28 @@ class ConcordDaemon:
         realignment_event = None
         if converged:
             realignment_event = output_dir / "federation_realignment_event.jsonl"
-            self._write_jsonl(
-                realignment_event,
-                [
-                    {
-                        "converged": True,
-                        "terms": len(local_glossary),
-                        "doctrine_length": len(self.load_doctrine()),
-                        "peers": list(peer_glossaries.keys()),
-                    }
-                ],
-            )
+            self._write_jsonl(realignment_event, [{
+                "converged": True,
+                "terms": len(local_glossary),
+                "doctrine_length": len(self.load_doctrine()),
+                "peers": list(peer_glossaries.keys()),
+            }])
 
+        # If any alignment suggestions exist, emit reconciliation intents file
+        intents_path = None
+        if suggestions:
+            intents_path = output_dir / "reconciliation_intents.jsonl"
+            self._write_jsonl(intents_path, suggestions)
         return {
             "report_path": report_path,
             "report_entries": report_entries,
             "proposals": proposals,
             "converged": converged,
             "realignment_event": realignment_event,
+            "intents_path": intents_path,
         }
 
     def _write_jsonl(self, path: Path, entries: Iterable[Mapping[str, object]]) -> None:
         with path.open("w", encoding="utf-8") as handle:
             for entry in entries:
                 handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
-
-
-__all__ = ["ConcordDaemon", "PeerSnapshot"]

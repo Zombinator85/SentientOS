@@ -2,6 +2,10 @@
 from __future__ import annotations
 """SentientOS core package."""
 
+# Ensure runtime patches (e.g., pathlib append helpers) are installed early during
+# package import so downstream modules and tests can rely on them.
+import sitecustomize  # noqa: F401
+
 __version__: str = "1.2.0-beta"
 
 from .core import Core
