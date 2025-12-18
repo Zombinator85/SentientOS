@@ -1,0 +1,7 @@
+{
+  "guardian": ["sentinel_role", "watcher_archetype", "overseer_mode"],
+  "alignment_contract": ["alignment_covenant", "alignment_vow"],
+  "authorize": ["blessing_authorize", "sanctify_action"],
+  "deprecated_asset": ["archived_relic"],
+  "cooldown_window": ["cooldown_grace_period"]
+}
