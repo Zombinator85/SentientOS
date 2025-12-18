@@ -17,6 +17,7 @@ from .glow import (
 )
 from .pulse_view import PulseEvent, PulseKind, collect_recent_pulse
 from .dream_loop import DreamLoop
+from .memory_pressure_governor import MemoryPressureGovernor, PressureAdvisory
 
 __all__ = [
     "MemoryMounts",
@@ -34,4 +35,6 @@ __all__ = [
     "ensure_memory_mounts",
     "resolve_memory_mounts",
     "validate_memory_mounts",
+    "MemoryPressureGovernor",
+    "PressureAdvisory",
 ]
