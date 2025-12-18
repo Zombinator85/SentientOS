@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
 import time
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable, Mapping, MutableSequence
+from pathlib import Path
+from statistics import mean, pstdev
+from typing import Iterable, Mapping, MutableSequence, Sequence
 
 
 @dataclass
@@ -122,6 +126,223 @@ class CuriosityScheduler:
         return fragments
 
 
+class ContinuityLedger:
+    """Append-only ledger for cross-day observation themes."""
+
+    def __init__(self, path: str | Path = "continuity_ledger.jsonl") -> None:
+        self.path = Path(path)
+        self._entries: list[dict[str, object]] = list(self._load())
+        self._dormant = {entry.get("theme") for entry in self._entries if entry.get("status") == "dormant"}
+
+    def _load(self) -> Iterable[dict[str, object]]:
+        if not self.path.exists():
+            return []
+        entries: list[dict[str, object]] = []
+        for line in self.path.read_text(encoding="utf-8").splitlines():
+            try:
+                payload = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(payload, dict):
+                entries.append(payload)
+        return entries
+
+    def _append(self, record: Mapping[str, object]) -> dict[str, object]:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        serialized = json.dumps(dict(record), ensure_ascii=False, sort_keys=True)
+        with self.path.open("a", encoding="utf-8") as f:
+            f.write(serialized + "\n")
+        self._entries.append(dict(record))
+        if record.get("status") == "dormant" and record.get("theme"):
+            self._dormant.add(str(record["theme"]))
+        return dict(record)
+
+    def record_observation(
+        self,
+        *,
+        theme: str,
+        signal_strength: float,
+        source: str,
+        timestamp: str | None = None,
+        day_hash: str | None = None,
+    ) -> dict[str, object]:
+        ts = timestamp or datetime.now(timezone.utc).isoformat()
+        record = {
+            "type": "observation",
+            "theme": theme,
+            "signal_strength": float(signal_strength),
+            "source": source,
+            "timestamp": ts,
+            "date": ts.split("T")[0],
+            "day_hash": day_hash,
+        }
+        return self._append(record)
+
+    def link_new_day(self, event: Mapping[str, object], unresolved_patterns: Sequence[str]) -> dict[str, object]:
+        record = {
+            "type": "day_link",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "date": str(event.get("date")),
+            "day_hash": event.get("day_hash"),
+            "unresolved": list(unresolved_patterns),
+        }
+        return self._append(record)
+
+    def mark_dormant(self, theme: str, *, reason: str, timestamp: str | None = None) -> dict[str, object]:
+        record = {
+            "type": "status",
+            "theme": theme,
+            "status": "dormant",
+            "reason": reason,
+            "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
+        }
+        return self._append(record)
+
+    def history(self, theme: str) -> list[dict[str, object]]:
+        return [entry for entry in self._entries if entry.get("theme") == theme or entry.get("unresolved")]
+
+    def _daily_signals(self, theme: str) -> list[tuple[str, float]]:
+        daily: dict[str, list[float]] = defaultdict(list)
+        for entry in self._entries:
+            if entry.get("theme") != theme:
+                continue
+            if "signal_strength" in entry and entry.get("date"):
+                daily[str(entry["date"])].append(float(entry["signal_strength"]))
+        return sorted(((date, mean(values)) for date, values in daily.items()), key=lambda item: item[0])
+
+    def is_ongoing(self, theme: str) -> bool:
+        if theme in self._dormant:
+            return False
+        return len({date for date, _ in self._daily_signals(theme)}) >= 2
+
+    def signal_direction(self, theme: str) -> str:
+        signals = self._daily_signals(theme)
+        if len(signals) < 2:
+            return "steady"
+        (_, previous), (_, latest) = signals[-2], signals[-1]
+        if latest > previous + 0.05:
+            return "intensified"
+        if latest < previous - 0.05:
+            return "decayed"
+        return "steady"
+
+    def days_alive(self, theme: str, *, current_date: str | None = None) -> int:
+        signals = self._daily_signals(theme)
+        if not signals:
+            return 0
+        first_date = signals[0][0]
+        today = current_date or datetime.now(timezone.utc).date().isoformat()
+        start = datetime.fromisoformat(first_date).date()
+        end = datetime.fromisoformat(today).date()
+        return (end - start).days
+
+    def days_without_action(self, theme: str, *, current_date: str | None = None) -> int:
+        # No expression intents are recorded; track observational span only.
+        return self.days_alive(theme, current_date=current_date)
+
+
+class NonEscalationEnforcer:
+    """Block synthesis-to-expression pathways and surface advisory warnings."""
+
+    def __init__(self, *, convergence_floor: float = 0.05) -> None:
+        self.convergence_floor = float(convergence_floor)
+
+    def ensure_internal_only(self, note: Mapping[str, object]) -> None:
+        if note.get("intent") or note.get("action") or note.get("recommendation"):
+            raise PermissionError("Expression intents are blocked for synthesis notes")
+
+    def review_batch(self, theme: str, *, volatility: float, count: int) -> tuple[str, ...]:
+        advisories: list[str] = []
+        if volatility < self.convergence_floor and count > 1:
+            advisories.append("convergence_warning")
+        return tuple(advisories)
+
+
+class SynthesisDaemon:
+    """Cluster observation fragments into internal-only synthesis notes."""
+
+    def __init__(self, *, enforcer: NonEscalationEnforcer | None = None) -> None:
+        self._enforcer = enforcer or NonEscalationEnforcer()
+
+    def _summarize(self, fragments: Sequence[Mapping[str, object]]) -> str:
+        snippets: list[str] = []
+        for fragment in fragments:
+            payload = fragment.get("payload") or {}
+            if isinstance(payload, Mapping):
+                summary = payload.get("summary") or payload.get("observation")
+                if summary:
+                    snippets.append(str(summary))
+        if not snippets:
+            return "Internal synthesis with limited detail available"
+        return " | ".join(snippets)
+
+    def synthesize(self, fragments: Sequence[Mapping[str, object]]) -> list[dict[str, object]]:
+        grouped: defaultdict[str, list[Mapping[str, object]]] = defaultdict(list)
+        for fragment in fragments:
+            payload = fragment.get("payload") or {}
+            theme = None
+            if isinstance(payload, Mapping):
+                theme = payload.get("theme")
+            theme_key = str(theme or fragment.get("source") or "unknown")
+            grouped[theme_key].append(fragment)
+
+        notes: list[dict[str, object]] = []
+        for theme, entries in grouped.items():
+            confidences = [float(entry.get("confidence", 0.0)) for entry in entries]
+            volatility = pstdev(confidences) if len(confidences) > 1 else 0.0
+            note = {
+                "theme": theme,
+                "summary": self._summarize(entries),
+                "confidence": round(mean(confidences), 3) if confidences else 0.0,
+                "volatility": round(volatility, 3),
+                "expression_permitted": False,
+                "intent": None,
+                "action": None,
+            }
+            self._enforcer.ensure_internal_only(note)
+            advisory = self._enforcer.review_batch(theme, volatility=volatility, count=len(entries))
+            if advisory:
+                note["advisory"] = list(advisory)
+            notes.append(note)
+        return notes
+
+
+class PatternDormancyDetector:
+    """Detect when observation themes have stabilized or decayed."""
+
+    def __init__(
+        self,
+        *,
+        decay_threshold: float = 0.2,
+        plateau_tolerance: float = 0.02,
+        stability_window: int = 3,
+        saturation_floor: float = 0.9,
+    ) -> None:
+        self.decay_threshold = float(decay_threshold)
+        self.plateau_tolerance = float(plateau_tolerance)
+        self.stability_window = max(2, int(stability_window))
+        self.saturation_floor = float(saturation_floor)
+
+    def evaluate(self, ledger: ContinuityLedger, theme: str) -> dict[str, object] | None:
+        signals = ledger._daily_signals(theme)
+        if len(signals) < self.stability_window:
+            return None
+        last_values = [value for _, value in signals[-self.stability_window :]]
+        reason: str | None = None
+        if last_values[-1] < self.decay_threshold and last_values == sorted(last_values, reverse=True):
+            reason = "decayed"
+        elif all(value < self.decay_threshold for value in last_values):
+            reason = "decayed"
+        elif max(last_values) - min(last_values) < self.plateau_tolerance:
+            reason = "stabilized"
+        elif all(value >= self.saturation_floor for value in last_values):
+            reason = "saturated"
+        if not reason:
+            return None
+        record = ledger.mark_dormant(theme, reason=reason)
+        return {"theme": theme, "status": record["status"], "reason": reason}
+
+
 class ExternalWitnessGate:
     """Gate external ingestion to ensure read-only posture and auditing."""
 
@@ -159,4 +380,8 @@ __all__ = [
     "CuriosityScheduler",
     "ExternalWitnessGate",
     "ObservationFragment",
+    "ContinuityLedger",
+    "SynthesisDaemon",
+    "PatternDormancyDetector",
+    "NonEscalationEnforcer",
 ]
