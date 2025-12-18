@@ -2,6 +2,20 @@
 
 All notable changes for the SentientOS 1.x line are documented below.
 
+## [5.3.0] SentientOS v5.3 – Narrative Hygiene & Reflex Autonomy - 2025-12-18
+
+### Core Narrative & Reflex Updates
+- Replaced metaphorical and religious terminology across prompts, banners, and logs with deterministic vocabulary to enforce narrative hygiene and remove ambiguous metaphors.
+- Introduced **ReflexGuard** daemon to monitor reflex saturation thresholds, suppress overfiring behaviors, and emit structured audit logs when failure counts exceed configured bounds (`reflex_config.json`).
+- Added **NarrativeReaper** TTL enforcement for persona contexts and symbolic state, automatically archiving expired material with audit trails and epitaph metadata (`narrative_ttl.json`).
+- Shipped **Glossary Linter** with CI integration to detect semantic drift, flag synonyms, and ensure canonical phrasing via `canonical_glossary.json`.
+
+### Tooling & Manifests
+- Published `release.json` manifest for the "Spinal Integrity" release, recording version, codename, release date, and deterministic digest of the source tree (excluding logs and tests) to simplify downstream attestation.
+- Tagged Git release `v5.3` at the current HEAD commit to anchor the signed artefacts and CI provenance trail.
+
+_Signed: SentientOS Release Engineering_
+
 ## [1.2.0-beta] - 2026-05-20
 
 ### Autonomy & Embodiment
