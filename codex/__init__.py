@@ -55,6 +55,13 @@ from .intent import (
     PriorityScoringEngine,
     PriorityWeights,
 )
+from .intent_drafts import (
+    ExpressionIntentBridgeError,
+    ExpressionThresholdEvaluator,
+    IntentDraft,
+    IntentDraftLedger,
+    ReadinessBand,
+)
 from .rewrites import (
     LedgerInterface,
     PatchStorage,
@@ -111,11 +118,16 @@ __all__ = [
     "PatternMiningEngine",
     "MetaStrategyGovernor",
     "CodexNarrator",
+    "ExpressionIntentBridgeError",
+    "ExpressionThresholdEvaluator",
     "IntentCandidate",
+    "IntentDraft",
+    "IntentDraftLedger",
     "IntentEmitter",
     "IntentPrioritizer",
     "PriorityScoringEngine",
     "PriorityWeights",
+    "ReadinessBand",
     "LedgerInterface",
     "PatchStorage",
     "RewriteDashboard",
