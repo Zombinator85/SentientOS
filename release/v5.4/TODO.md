@@ -1,0 +1,1 @@
+- Install Arbitration Council and multi-agent vote framework to resolve doctrine, vocabulary, and reflex reinstatements.
