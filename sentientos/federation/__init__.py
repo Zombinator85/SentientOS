@@ -3,6 +3,7 @@
 from .identity import NodeId
 from .federation_digest import FederationDigest
 from .consensus_sentinel import FederationConsensusSentinel
+from .concord_daemon import ConcordDaemon, PeerSnapshot
 from .config import PeerConfig, FederationConfig, load_federation_config
 from .summary import (
     FederationSummary,
@@ -66,4 +67,6 @@ __all__ = [
     "build_peer_sync_view",
     "FederationDigest",
     "FederationConsensusSentinel",
+    "ConcordDaemon",
+    "PeerSnapshot",
 ]
