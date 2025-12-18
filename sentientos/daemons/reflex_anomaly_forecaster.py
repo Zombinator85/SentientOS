@@ -12,6 +12,7 @@ except ImportError:
 
 # We rely on ReflexGuard to parse reflex trial logs
 from sentientos.daemons.reflex_guard import ReflexGuard
+from sentientos.reflex.reflex_state_index import ReflexStateIndex
 
 try:
     from integration_memory import IntegrationMemory  # optional integration memory for event recording
@@ -26,17 +27,26 @@ class ReflexAnomalyForecaster:
         config_path: Path | str | None = None,
         integration_memory: Optional[IntegrationMemory] = None,
         now_fn: Optional[Callable[[], datetime]] = None,
+        state_index: Optional["ReflexStateIndex"] = None,
     ) -> None:
         self.ledger_path = Path(ledger_path or "reflections/reflex_trials.jsonl")
         self.config_path = Path(config_path or "config/reflex_config.json")
         self.integration_memory = integration_memory
         self._now = now_fn or (lambda: datetime.now(timezone.utc))
         self.forecast_log = get_log_path("reflex_forecast.jsonl")
+        self.state_index = state_index
 
     def forecast(self) -> dict:
         """Analyze recent reflex trial patterns and flag unstable rules with predicted risk levels."""
-        guard = ReflexGuard(ledger_path=self.ledger_path, blacklist_path=None, config_path=self.config_path,
-                            digest_path=None, integration_memory=self.integration_memory, now_fn=self._now)
+        guard = ReflexGuard(
+            ledger_path=self.ledger_path,
+            blacklist_path=None,
+            config_path=self.config_path,
+            digest_path=None,
+            integration_memory=self.integration_memory,
+            now_fn=self._now,
+            state_index=self.state_index,
+        )
         config = guard.load_config()
         trials = guard._load_trials()
         snapshots = guard._summarize_rules(trials, config)
@@ -65,6 +75,9 @@ class ReflexAnomalyForecaster:
             self.forecast_log.parent.mkdir(parents=True, exist_ok=True)
             with self.forecast_log.open("a", encoding="utf-8") as log_f:
                 log_f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            if self.state_index is not None:
+                confidence = 0.9 if risk_level == "high" else 0.7
+                self.state_index.mark_forecast(snapshot.rule_id, confidence)
             # Optionally record an integration event for council or monitoring
             if self.integration_memory is not None:
                 try:
@@ -86,4 +99,6 @@ class ReflexAnomalyForecaster:
                     )
                 except Exception:
                     pass
+        if self.state_index is not None:
+            self.state_index.persist()
         return {"flagged_rules": flagged, "flag_count": len(flagged), "forecast_log": str(self.forecast_log)}

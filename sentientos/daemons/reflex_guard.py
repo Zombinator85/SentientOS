@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 from logging_config import get_log_path
+from sentientos.reflex.reflex_state_index import ReflexStateIndex
 
 try:
     from integration_memory import IntegrationMemory
@@ -47,6 +48,7 @@ class ReflexGuard:
         digest_path: Path | str | None = None,
         integration_memory: IntegrationMemory | None = None,
         now_fn: Callable[[], datetime] | None = None,
+        state_index: ReflexStateIndex | None = None,
     ) -> None:
         self.ledger_path = Path(ledger_path or "reflections/reflex_trials.jsonl")
         self.blacklist_path = Path(blacklist_path or "reflex_blacklist.json")
@@ -56,6 +58,7 @@ class ReflexGuard:
         self._now = now_fn or (lambda: datetime.now(timezone.utc))
         self.anomaly_log = get_log_path("reflex_guard.jsonl")
         self.trend_log = get_log_path("reflex_trends.jsonl")
+        self.state_index = state_index
 
     def load_config(self) -> dict[str, int]:
         if not self.config_path.exists():
@@ -158,6 +161,18 @@ class ReflexGuard:
         config = self.load_config()
         trials = self._load_trials()
         snapshots = self._summarize_rules(trials, config)
+        if self.state_index is not None:
+            self.state_index.update_activity(
+                (
+                    {
+                        "rule_id": snapshot.rule_id,
+                        "firing_count": snapshot.firing_count,
+                        "failure_count": snapshot.failure_count,
+                    }
+                    for snapshot in snapshots
+                ),
+                window_seconds=int(config["saturation_window_seconds"]),
+            )
 
         suppressed: list[dict] = []
         for snapshot in snapshots:
@@ -186,6 +201,8 @@ class ReflexGuard:
 
         # Append daily digest entry if any rules were suppressed
         self._append_digest(suppressed)
+        if self.state_index is not None:
+            self.state_index.persist()
         return {
             "scanned_rules": len(snapshots),
             "suppressed": suppressed,
@@ -226,5 +243,7 @@ class ReflexGuard:
         }
         blacklist[snapshot.rule_id] = entry
         self._save_blacklist(blacklist)
+        if self.state_index is not None:
+            self.state_index.mark_suppressed(snapshot.rule_id, reasons, entry["suppressed_at"])
         # Return suppression info including rule_id
         return {"rule_id": snapshot.rule_id, **entry}
