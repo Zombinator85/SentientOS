@@ -29,6 +29,13 @@ from .anomalies import (
     RewriteProposalEngine,
 )
 from .embodiment import EmbodimentEvent, EmbodimentMount
+from .expression_bridge import (
+    ExpressionArtifact,
+    ExpressionBridge,
+    FeedbackIngressForbidden,
+    PublishWindow,
+    PublishWindowClosedError,
+)
 from .plans import (
     CodexPlan,
     PlanController,
@@ -106,6 +113,9 @@ __all__ = [
     "RewriteProposalEngine",
     "EmbodimentEvent",
     "EmbodimentMount",
+    "ExpressionArtifact",
+    "ExpressionBridge",
+    "FeedbackIngressForbidden",
     "CodexPlan",
     "PlanController",
     "PlanDashboard",
@@ -120,6 +130,9 @@ __all__ = [
     "CodexNarrator",
     "ExpressionIntentBridgeError",
     "ExpressionThresholdEvaluator",
+    "ExpressionArtifact",
+    "ExpressionBridge",
+    "FeedbackIngressForbidden",
     "IntentCandidate",
     "IntentDraft",
     "IntentDraftLedger",
@@ -142,6 +155,8 @@ __all__ = [
     "ImplementationRecord",
     "Refiner",
     "RefinementTransform",
+    "PublishWindow",
+    "PublishWindowClosedError",
     "TestCycleManager",
     "TestProposal",
     "TestSynthesizer",
