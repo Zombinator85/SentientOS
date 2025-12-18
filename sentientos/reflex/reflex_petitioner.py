@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional
 
 from sentientos.council.governance_council import GovernanceCouncil
+from sentientos.reflex.reflex_state_index import ReflexStateIndex
 
 
 @dataclass
@@ -53,6 +54,7 @@ class ReflexPetitioner:
         min_valid_trials: int = 3,
         council: Optional[GovernanceCouncil] = None,
         now_fn: Callable[[], datetime] | None = None,
+        state_index: ReflexStateIndex | None = None,
     ) -> None:
         self.blacklist_path = Path(blacklist_path or "reflex_blacklist.json")
         self.trials_path = Path(trials_path or "reflections/reflex_trials.jsonl")
@@ -61,6 +63,7 @@ class ReflexPetitioner:
         self.min_valid_trials = int(min_valid_trials)
         self.council = council or GovernanceCouncil()
         self._now = now_fn or (lambda: datetime.now(timezone.utc))
+        self.state_index = state_index
 
     def _load_blacklist(self) -> dict[str, dict]:
         if not self.blacklist_path.exists():
@@ -133,6 +136,10 @@ class ReflexPetitioner:
         petitions: list[PetitionRecord] = []
         reinstated: list[str] = []
 
+        if self.state_index is not None:
+            for rule_id, entry in blacklist.items():
+                self.state_index.mark_suppressed(rule_id, entry.get("reasons", []), str(entry.get("suppressed_at")))
+
         for rule_id, entry in blacklist.items():
             suppressed_at = _parse_timestamp(entry.get("suppressed_at"))
             ttl_expired = self._now() - suppressed_at >= self.ttl
@@ -143,6 +150,8 @@ class ReflexPetitioner:
             successful_trials = [t for t in eligible_trials if self._is_successful_trial(t)]
             improvement = len(successful_trials)
             if improvement <= self.min_valid_trials:
+                if self.state_index is not None:
+                    self.state_index.mark_petition(rule_id, eligible=False, trials=improvement)
                 continue
 
             status = self._route_petition(rule_id, improvement, entry.get("reasons", []))
@@ -156,14 +165,21 @@ class ReflexPetitioner:
             petitions.append(record)
             if status == "approved":
                 reinstated.append(rule_id)
+            if self.state_index is not None:
+                self.state_index.mark_petition(rule_id, eligible=True, trials=improvement)
 
         if reinstated:
             for rule_id in reinstated:
                 blacklist.pop(rule_id, None)
+                if self.state_index is not None:
+                    self.state_index.mark_reinstated(rule_id)
             self._save_blacklist(blacklist)
 
         if petitions:
             self._append_petition_log(petitions)
+
+        if self.state_index is not None:
+            self.state_index.persist()
 
         return {
             "petitions_triggered": len(petitions),
