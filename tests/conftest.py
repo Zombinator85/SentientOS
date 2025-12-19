@@ -54,6 +54,8 @@ import importlib
 import pytest
 import types
 
+from sentientos.codex_startup_guard import codex_startup_phase
+
 try:
     importlib.import_module('yaml')
 except Exception:
@@ -100,6 +102,12 @@ def pytest_addoption(parser):
         default=False,
         help='run tests marked as network'
     )
+
+
+@pytest.fixture()
+def codex_startup():
+    with codex_startup_phase():
+        yield
 
 
 @pytest.fixture(autouse=True)

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from codex.integrity_daemon import IntegrityDaemon
 from sentientos.codex_healer import RecoveryLedger
 from sentientos.genesis_forge import (
@@ -18,6 +20,11 @@ from sentientos.genesis_forge import (
     TelemetryStream,
     TrialRun,
 )
+
+
+@pytest.fixture(autouse=True)
+def _codex_startup(codex_startup: None) -> None:
+    yield
 
 
 def _review_board(_: object, __: object) -> bool:
@@ -165,4 +172,3 @@ def test_prevents_overwriting_existing_daemon(tmp_path: Path) -> None:
     assert isinstance(outcomes[0].details["error"], str)
     # Original file remains untouched.
     assert existing.read_text(encoding="utf-8") == "{}"
-

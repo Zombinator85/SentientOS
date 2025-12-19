@@ -19,6 +19,7 @@ from typing import Callable, Mapping, MutableMapping, Sequence
 
 from codex.integrity_daemon import IntegrityDaemon, IntegrityViolation
 from sentientos.codex_healer import Anomaly, RecoveryLedger, RepairAction
+from sentientos.codex_startup_guard import enforce_codex_startup
 
 
 # ---------------------------------------------------------------------------
@@ -471,7 +472,7 @@ class AdoptionRite:
 
 
 class GenesisForge:
-    """Coordinates capability expansion across all GenesisForge modules."""
+    """Coordinates capability expansion across all GenesisForge modules during startup."""
 
     def __init__(
         self,
@@ -484,6 +485,7 @@ class GenesisForge:
         adoption_rite: AdoptionRite,
         ledger: RecoveryLedger,
     ) -> None:
+        enforce_codex_startup("GenesisForge")
         self._need_seer = need_seer
         self._forge_engine = forge_engine
         self._integrity_daemon = integrity_daemon
@@ -569,4 +571,3 @@ class GenesisForge:
                     )
                 )
         return outcomes
-

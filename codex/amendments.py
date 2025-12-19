@@ -9,6 +9,8 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 import json
 import uuid
 
+from sentientos.codex_startup_guard import enforce_codex_startup
+
 
 # Boundary assertion:
 # This module records specification amendments and routes them for review; it does not generate policies, goals, or incentives autonomously.
@@ -132,7 +134,7 @@ class PrivilegeViolation(RuntimeError):
 
 
 class SpecAmender:
-    """Monitor Codex telemetry and propose spec amendments."""
+    """Monitor Codex telemetry and propose spec amendments during startup orchestration."""
 
     DEFAULT_THRESHOLD = 3
 
@@ -142,6 +144,7 @@ class SpecAmender:
         *,
         now: Callable[[], datetime] = _default_now,
     ) -> None:
+        enforce_codex_startup("SpecAmender")
         self._integration_root = Path(root)
         self._integration_root.mkdir(parents=True, exist_ok=True)
         self._spec_root = self._integration_root / "specs"

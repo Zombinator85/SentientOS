@@ -10,6 +10,7 @@ import pytest
 
 from codex.amendments import AmendmentReviewBoard, IntegrityViolation, SpecAmender
 from codex.autogenesis import GapScanner, LineageWriter, ReviewSymmetry, SelfAmender
+from privilege_lint.reporting import PrivilegeReport
 
 
 class ManualClock:
@@ -28,6 +29,24 @@ def _read_log(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+class _CleanPrivilegeHook:
+    def enforce(
+        self,
+        *,
+        spec_id: str,
+        proposal_id: str,
+        requested_format: str | None = None,
+        paths: list[str] | None = None,
+    ) -> PrivilegeReport:
+        return PrivilegeReport(
+            status="clean",
+            timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            issues=[],
+            metrics={"files": 0, "cache_hits": 0, "runtime": 0, "rules": {}},
+            checked_files=paths or [],
+        )
+
+
 @pytest.fixture()
 def base_spec() -> dict:
     return {
@@ -41,12 +60,17 @@ def base_spec() -> dict:
     }
 
 
+@pytest.fixture(autouse=True)
+def _codex_startup(codex_startup: None) -> None:
+    yield
+
+
 @pytest.fixture()
 def autogenesis_components(tmp_path: Path, base_spec: dict):
     clock = ManualClock()
     root = tmp_path / "integration"
     engine = SpecAmender(root=root, now=clock.now)
-    board = AmendmentReviewBoard(engine)
+    board = AmendmentReviewBoard(engine, hook=_CleanPrivilegeHook())
     lineage = LineageWriter(engine, now=clock.now)
     review = ReviewSymmetry(root=root, board=board, now=clock.now)
     specs: Dict[str, dict] = {base_spec["spec_id"]: base_spec}
@@ -149,4 +173,3 @@ def test_lineage_marks_self_origin(autogenesis_components: dict, base_spec: dict
     assert proposal.lineage is not None
     assert proposal.lineage["author"] == "sentientos.autogenesis"
     assert proposal.context["autogenesis"]["channel"] == "tests"
-

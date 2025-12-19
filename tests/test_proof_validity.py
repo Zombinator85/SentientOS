@@ -10,6 +10,11 @@ from codex.integrity_daemon import IntegrityDaemon, IntegrityViolation
 from codex.proof_verifier import ProofVerifier
 
 
+@pytest.fixture(autouse=True)
+def _codex_startup(codex_startup: None) -> None:
+    yield
+
+
 @dataclass
 class DummyProposal:
     proposal_id: str

@@ -45,6 +45,11 @@ def _make_report(status: str, issues: list[str]) -> PrivilegeReport:
     )
 
 
+@pytest.fixture(autouse=True)
+def _codex_startup(codex_startup: None) -> None:
+    yield
+
+
 class StubHook:
     def __init__(self, report: PrivilegeReport) -> None:
         self.report = report

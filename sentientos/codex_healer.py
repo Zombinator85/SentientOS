@@ -9,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterable, List, Mapping, Sequence
 
+from sentientos.codex_startup_guard import enforce_codex_startup
+
 
 def _ensure_utc(moment: datetime | None = None) -> datetime:
     """Return ``moment`` as a timezone-aware UTC timestamp."""
@@ -446,7 +448,7 @@ class ReGenesisProtocol:
 
 
 class CodexHealer:
-    """Coordinates the self-healing flow across all components."""
+    """Coordinates the self-healing flow across all components during startup only."""
 
     def __init__(
         self,
@@ -456,6 +458,7 @@ class CodexHealer:
         regenesis: ReGenesisProtocol,
         ledger: RecoveryLedger,
     ) -> None:
+        enforce_codex_startup("CodexHealer")
         self._watcher = watcher
         self._synth = synthesizer
         self._board = review_board
@@ -501,4 +504,3 @@ class CodexHealer:
             action=action,
             details={"regenesis": regen_info},
         )
-
