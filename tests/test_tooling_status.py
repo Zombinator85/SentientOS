@@ -5,9 +5,13 @@ from scripts import tooling_status
 
 def test_tooling_status_emits_all() -> None:
     data = tooling_status.emit()
-    assert {"mypy", "verify_audits", "audit_immutability_verifier"}.issubset(
-        set(data.keys())
-    )
+    assert {
+        "pytest",
+        "mypy",
+        "verify_audits",
+        "audit_immutability_verifier",
+    }.issubset(set(data.keys()))
+    assert data["pytest"]["classification"] == "mandatory"
     assert data["mypy"]["classification"] == "advisory"
     assert data["verify_audits"]["classification"] == "optional"
     assert data["audit_immutability_verifier"]["dependency"] == "/vow/immutable_manifest.json"
