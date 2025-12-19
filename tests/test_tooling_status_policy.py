@@ -14,6 +14,8 @@ from scripts.tooling_status import (
     collect_snapshot_annotations,
     detect_supersession_chains,
     latest_authoritative_snapshot,
+    build_review_queue,
+    aggregate_review_statistics,
     parse_policy_evaluation_snapshot,
     parse_tooling_status_policy,
     policy_ci_strict,
@@ -663,3 +665,131 @@ def test_legacy_snapshot_without_lineage_still_parses() -> None:
     decision = verify_tooling_status_policy_snapshot(snapshot_payload)
 
     assert decision.outcome == "ACCEPT"
+
+
+def test_uncertainty_annotations_optional_and_default_to_absent() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_local_dev_permissive(), emit_trace=False
+    )
+
+    parsed = parse_policy_evaluation_snapshot(snapshot_payload)
+
+    assert parsed.confidence_band is None
+    assert parsed.uncertainty_score is None
+    assert parsed.uncertainty_reason_codes == ()
+    assert not parsed.requires_review()
+    assert "confidence_band" not in snapshot_payload
+    assert "uncertainty_reason_codes" not in snapshot_payload
+
+
+def test_uncertainty_annotations_preserved_and_overridden_in_lineage() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    base_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        confidence_band="LOW",
+        uncertainty_score=25,
+        uncertainty_reason_codes=["INSUFFICIENT_SIGNAL", "DATA_DRIFT_DETECTED"],
+    )
+
+    base_snapshot = parse_policy_evaluation_snapshot(base_snapshot_payload)
+    assert base_snapshot.requires_review()
+
+    inherited_amendment_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=base_snapshot.fingerprint,
+        lineage_relation="amends",
+        inherit_uncertainty_from=base_snapshot,
+    )
+
+    overridden_amendment_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=base_snapshot.fingerprint,
+        lineage_relation="amends",
+        confidence_band="HIGH",
+        uncertainty_reason_codes=["MANUAL_REVIEW_REQUESTED"],
+    )
+
+    inherited_amendment = parse_policy_evaluation_snapshot(inherited_amendment_payload)
+    overridden_amendment = parse_policy_evaluation_snapshot(overridden_amendment_payload)
+
+    assert inherited_amendment.confidence_band == "LOW"
+    assert inherited_amendment.uncertainty_score == 25
+    assert set(inherited_amendment.uncertainty_reason_codes) == {
+        "INSUFFICIENT_SIGNAL",
+        "DATA_DRIFT_DETECTED",
+    }
+    assert overridden_amendment.confidence_band == "HIGH"
+    assert overridden_amendment.uncertainty_score is None
+    assert overridden_amendment.uncertainty_reason_codes == ("MANUAL_REVIEW_REQUESTED",)
+    assert overridden_amendment.requires_review()
+
+
+def test_review_queue_population_and_resolution() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    flagged_snapshot = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate,
+            policy_local_dev_permissive(),
+            emit_trace=False,
+            confidence_band="MEDIUM",
+            uncertainty_reason_codes=["DEGRADED_DEPENDENCY"],
+        )
+    )
+    unflagged_snapshot = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate, policy_local_dev_permissive(), emit_trace=False
+        )
+    )
+
+    queue = build_review_queue([flagged_snapshot, unflagged_snapshot])
+
+    assert queue.pending_items()[0].snapshot_fingerprint == flagged_snapshot.fingerprint
+    assert len(queue.entries) == 1
+
+    resolution_target = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate,
+            policy_local_dev_permissive(),
+            emit_trace=False,
+            parent_snapshot_fingerprint=flagged_snapshot.fingerprint,
+            lineage_relation="amends",
+        )
+    )
+
+    resolved_queue = queue.resolve(
+        flagged_snapshot.fingerprint,
+        resolution_state="amended",
+        amended_snapshot=resolution_target,
+    )
+
+    stats = aggregate_review_statistics(resolved_queue)
+    assert stats["by_state"]["amended"] == 1
+    assert resolved_queue.pending_items() == ()
