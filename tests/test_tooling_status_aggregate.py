@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from scripts.tooling_status import aggregate_tooling_status
+from scripts.tooling_status import aggregate_tooling_status, parse_tooling_status_payload
 
 EXPECTED_SCHEMA_VERSION = "1.0"
 EXPECTED_AGGREGATE_FIELDS = {
@@ -124,3 +124,76 @@ def test_tooling_status_json_is_deterministic() -> None:
     second = aggregate.to_json()
     assert first == second
     assert json.loads(first) == aggregate.to_dict()
+
+
+def test_parse_current_schema_requires_fields() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    payload = aggregate.to_dict()
+    payload.pop("overall_status")
+
+    with pytest.raises(ValueError, match="missing required fields"):
+        parse_tooling_status_payload(payload)
+
+
+def test_parse_forward_schema_preserves_unknown_fields() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+    payload = aggregate.to_dict()
+    payload["schema_version"] = "2.0"
+    payload["future_hint"] = "forward-compatible"
+    payload["tools"]["pytest"]["experimental_reason"] = "new semantics"
+    payload["tools"]["novel_tool"] = {"status": "passed", "tool": "novel_tool"}
+
+    parsed = parse_tooling_status_payload(payload)
+
+    assert parsed.forward_version_detected is True
+    assert parsed.schema_version == "2.0"
+    assert parsed.tools["pytest"].status == "passed"
+    assert "future_hint" in parsed.forward_metadata.get("aggregate", {})
+    assert "experimental_reason" in parsed.forward_metadata.get("tool_fields", {}).get("pytest", {})
+    assert "novel_tool" in parsed.forward_metadata.get("tools", {})
+
+
+def test_parse_rejects_invalid_status_for_current_version() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    payload = aggregate.to_dict()
+    payload["tools"]["pytest"]["status"] = "unknown"
+
+    with pytest.raises(ValueError, match="Unknown tool status"):
+        parse_tooling_status_payload(payload)
+
+
+def test_parse_round_trip_matches_current_schema() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+    payload = aggregate.to_dict()
+    parsed = parse_tooling_status_payload(payload)
+
+    assert parsed.to_dict() == payload
+    assert parsed.forward_version_detected is False

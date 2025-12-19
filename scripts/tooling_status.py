@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Iterable, Literal, Mapping, TypedDict, cast
 
 Classification = Literal["mandatory", "advisory", "optional", "artifact-dependent"]
@@ -196,6 +196,8 @@ class ToolingStatusAggregate:
     overall_status: OverallStatus
     tools: dict[str, ToolResult]
     missing_tools: tuple[str, ...]
+    forward_version_detected: bool = False
+    forward_metadata: dict[str, object] = field(default_factory=dict)
 
     def to_dict(self) -> ToolingStatusAggregatePayload:
         return {
@@ -207,6 +209,189 @@ class ToolingStatusAggregate:
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True)
+
+
+def _version_tuple(version: str) -> tuple[int, ...]:
+    parts = version.split(".")
+    if not all(part.isdigit() for part in parts):
+        raise ValueError(f"Invalid schema version format: {version}")
+    return tuple(int(part) for part in parts)
+
+
+def _compare_versions(candidate: str, reference: str) -> int:
+    candidate_tuple = _version_tuple(candidate)
+    reference_tuple = _version_tuple(reference)
+    max_len = max(len(candidate_tuple), len(reference_tuple))
+    candidate_tuple = candidate_tuple + (0,) * (max_len - len(candidate_tuple))
+    reference_tuple = reference_tuple + (0,) * (max_len - len(reference_tuple))
+    if candidate_tuple == reference_tuple:
+        return 0
+    return 1 if candidate_tuple > reference_tuple else -1
+
+
+def _validate_missing_tools(payload: object) -> tuple[str, ...]:
+    if not isinstance(payload, list):
+        raise ValueError("missing_tools must be a list of tool names")
+    missing_tools: list[str] = []
+    for entry in payload:
+        if not isinstance(entry, str):
+            raise ValueError("missing_tools entries must be strings")
+        missing_tools.append(entry)
+    return tuple(missing_tools)
+
+
+def _parse_tool_payload(
+    tool: str,
+    payload: Mapping[str, object] | None,
+    *,
+    allow_unknown_fields: bool,
+    tool_forward_metadata: dict[str, dict[str, object]],
+) -> ToolResult:
+    cls = get_classification(tool)
+    if payload is None:
+        if allow_unknown_fields:
+            return _coerce_tool_result(tool, None)
+        raise ValueError(f"Tool '{tool}' payload missing")
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"Tool '{tool}' payload must be a mapping")
+
+    required_fields = set(TOOLING_STATUS_SCHEMA.tool_fields)
+    missing = required_fields - set(payload.keys())
+    if missing:
+        raise ValueError(f"Tool '{tool}' payload missing required fields: {sorted(missing)}")
+
+    extra_fields = set(payload.keys()) - required_fields
+    if extra_fields and allow_unknown_fields:
+        tool_forward_metadata[tool] = {name: payload[name] for name in extra_fields}
+    elif extra_fields:
+        raise ValueError(
+            f"Tool '{tool}' payload has unexpected fields: {sorted(extra_fields)}"
+        )
+
+    tool_name = payload.get("tool")
+    if tool_name != tool:
+        raise ValueError(f"Tool key '{tool}' payload has mismatched tool name '{tool_name}'")
+
+    classification_value = payload.get("classification")
+    if classification_value != cls.classification:
+        raise ValueError(
+            f"Tool '{tool}' classification '{classification_value}' does not match registered"
+            f" value '{cls.classification}'"
+        )
+
+    non_blocking_value = payload.get("non_blocking")
+    if not isinstance(non_blocking_value, bool):
+        raise ValueError(f"Tool '{tool}' non_blocking must be a boolean")
+    if non_blocking_value != cls.non_blocking:
+        raise ValueError(
+            f"Tool '{tool}' non_blocking value {non_blocking_value} does not match"
+            f" registered value {cls.non_blocking}"
+        )
+
+    dependency_value = payload.get("dependency")
+    if dependency_value != cls.dependency:
+        raise ValueError(
+            f"Tool '{tool}' dependency '{dependency_value}' does not match registered value"
+            f" '{cls.dependency}'"
+        )
+
+    status_value = payload.get("status")
+    if not isinstance(status_value, str):
+        raise ValueError(f"Tool '{tool}' payload missing status")
+    status = _validate_status(status_value)
+
+    reason_value = payload.get("reason")
+    if reason_value is not None and not isinstance(reason_value, str):
+        raise ValueError(f"Tool '{tool}' reason must be a string when provided")
+
+    return ToolResult(
+        tool=tool,
+        classification=cls.classification,
+        status=status,
+        non_blocking=cls.non_blocking,
+        reason=reason_value,
+        dependency=cls.dependency,
+    )
+
+
+def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatusAggregate:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Tooling status payload must be a mapping")
+
+    schema_version_value = payload.get("schema_version")
+    if not isinstance(schema_version_value, str):
+        raise ValueError("Tooling status payload missing schema_version")
+
+    version_comparison = _compare_versions(schema_version_value, TOOLING_STATUS_SCHEMA.version)
+    forward_version_detected = version_comparison > 0
+    if version_comparison < 0:
+        raise ValueError(
+            f"Unsupported tooling status schema version {schema_version_value}; expected"
+            f" {TOOLING_STATUS_SCHEMA.version} or newer"
+        )
+
+    required_fields = set(TOOLING_STATUS_SCHEMA.aggregate_fields)
+    missing_fields = required_fields - set(payload.keys())
+    if missing_fields:
+        raise ValueError(
+            f"Tooling status payload missing required fields: {sorted(missing_fields)}"
+        )
+
+    forward_metadata: dict[str, object] = {}
+    extra_fields = set(payload.keys()) - required_fields
+    if extra_fields and forward_version_detected:
+        forward_metadata["aggregate"] = {name: payload[name] for name in extra_fields}
+    elif extra_fields:
+        raise ValueError(f"Tooling status payload has unexpected fields: {sorted(extra_fields)}")
+
+    overall_status_value = payload.get("overall_status")
+    if not isinstance(overall_status_value, str):
+        raise ValueError("overall_status must be a string")
+    if not forward_version_detected and overall_status_value not in {"PASS", "WARN", "FAIL"}:
+        raise ValueError(f"Unknown overall_status '{overall_status_value}'")
+    overall_status = cast(OverallStatus, overall_status_value)
+
+    tools_payload = payload.get("tools")
+    if not isinstance(tools_payload, Mapping):
+        raise ValueError("tools must be a mapping")
+
+    missing_tools_value = payload.get("missing_tools")
+    missing_tools = _validate_missing_tools(missing_tools_value)
+    if not forward_version_detected:
+        unexpected_missing = [name for name in missing_tools if name not in _CLASSIFICATIONS]
+        if unexpected_missing:
+            raise ValueError(
+                f"missing_tools contains unknown entries: {sorted(unexpected_missing)}"
+            )
+
+    tools: dict[str, ToolResult] = {}
+    tool_forward_metadata: dict[str, dict[str, object]] = {}
+    for tool in sorted(_CLASSIFICATIONS.keys()):
+        raw_tool_payload = tools_payload.get(tool)
+        tools[tool] = _parse_tool_payload(
+            tool,
+            cast(Mapping[str, object] | None, raw_tool_payload),
+            allow_unknown_fields=forward_version_detected,
+            tool_forward_metadata=tool_forward_metadata,
+        )
+
+    unknown_tools = {name: data for name, data in tools_payload.items() if name not in tools}
+    if unknown_tools and forward_version_detected:
+        forward_metadata["tools"] = unknown_tools
+    elif unknown_tools:
+        raise ValueError(f"tools payload contained unknown entries: {sorted(unknown_tools)}")
+
+    if tool_forward_metadata:
+        forward_metadata["tool_fields"] = tool_forward_metadata
+
+    return ToolingStatusAggregate(
+        schema_version=schema_version_value,
+        overall_status=overall_status,
+        tools=tools,
+        missing_tools=missing_tools,
+        forward_version_detected=forward_version_detected,
+        forward_metadata=forward_metadata,
+    )
 
 
 def aggregate_tooling_status(tool_payloads: Mapping[str, Mapping[str, object]]) -> ToolingStatusAggregate:
