@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import pytest
 
 import policy_engine as pe
 from scripts import tooling_status as ts
@@ -8,6 +9,7 @@ from sentientos.pressure_engagement import (
     ConstraintEngagementEngine,
     PressureDecayError,
 )
+from sentientos.constraint_registry import ConstraintRegistry, ConstraintNotRegisteredError
 
 
 def test_pressure_accumulation_thresholds() -> None:
@@ -117,3 +119,48 @@ def test_snapshot_review_notes_include_pressure_summary() -> None:
         pressure_engagement_summary="constraint review required",
     )
     assert "constraint review required" in snapshot["review_notes"]
+
+
+def test_registry_blocks_unjustified_constraints() -> None:
+    registry = ConstraintRegistry()
+    engine = ConstraintEngagementEngine(
+        chronic_threshold=0.5, blockage_threshold=1, registry=registry
+    )
+    overlay = {"Calm": 0.2}
+
+    with pytest.raises(ConstraintNotRegisteredError):
+        engine.record_signal("constraint-unregistered", 0.6, reason="blocked", affective_context=overlay)
+
+    registry.register("constraint-unregistered", "documented")
+    _, engagement = engine.record_signal(
+        "constraint-unregistered", 0.6, reason="blocked", affective_context=overlay
+    )
+    assert engagement is not None
+    assert engagement.constraint_id in registry.registered_constraints()
+
+
+def test_registry_tracks_engagement_lineage() -> None:
+    registry = ConstraintRegistry()
+    registry.register("constraint-documented", "initial justification")
+    engine = ConstraintEngagementEngine(
+        chronic_threshold=0.5, blockage_threshold=1, registry=registry
+    )
+    overlay = {"Calm": 0.3}
+
+    _, engagement = engine.record_signal(
+        "constraint-documented", 0.7, reason="blocked", affective_context=overlay
+    )
+    assert engagement is not None
+
+    reaffirmed = engine.reaffirm(
+        "constraint-documented",
+        decision="modify",
+        justification="tightened guardrails",
+        reviewer="council",
+        lineage_from=engagement.engagement_id,
+    )
+
+    record = registry.require("constraint-documented")
+    assert record.justification == reaffirmed.justification
+    assert record.last_reviewed_at == reaffirmed.created_at
+    assert record.engagements[-1].engagement_id == reaffirmed.engagement_id
