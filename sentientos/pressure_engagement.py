@@ -102,7 +102,6 @@ class PressureCausalGraph:
 
 @dataclass(frozen=True)
 class PressureSignal:
-    signal_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     constraint_id: str
     magnitude: float
     reason: str
@@ -112,6 +111,7 @@ class PressureSignal:
     provenance: SensorProvenance
     calibration_notes: Mapping[str, object]
     calibration_adjustments: Tuple[CalibrationAdjustment, ...]
+    signal_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     assumptions: Tuple[str, ...] = field(default_factory=tuple)
     decision_points: Tuple[str, ...] = field(default_factory=tuple)
     environment_factors: Mapping[str, object] = field(default_factory=dict)

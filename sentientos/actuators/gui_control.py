@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Mapping, Optional
 
+import affective_context as ac
 from sentientos.autonomy.audit import AutonomyActionLogger
+from sentientos.sensor_provenance import default_provenance_for_constraint
 
 
 @dataclass
@@ -79,7 +81,30 @@ class GUIController:
         if not self._audit:
             return
         details = dict(payload or {})
-        self._audit.log("gui", action, status, **details)
+        overlay = ac.capture_affective_context(
+            "gui_control",
+            overlay={
+                "blocked": 1.0 if status == "blocked" else 0.2,
+                "precision": 0.6 if action == "move" else 0.4,
+            },
+        )
+        constraint_id = f"autonomy::gui::{action}"
+        provenance = default_provenance_for_constraint(constraint_id)
+        assumptions = ("panic_guard_respected", f"safety_mode={self._config.safety}")
+        environment = {"panic": bool(self._panic_flag()), **details}
+        self._audit.log(
+            "gui",
+            action,
+            status,
+            affective_overlay=overlay,
+            constraint_id=constraint_id,
+            constraint_justification="GUI control must remain affective, explainable, and constraint-referenced",
+            sensor_provenance=provenance,
+            assumptions=assumptions,
+            environment=environment,
+            pressure_reason=details.get("reason", status),
+            **details,
+        )
 
     def status(self) -> Mapping[str, object]:
         return {
@@ -90,4 +115,3 @@ class GUIController:
 
 
 __all__ = ["GUIConfig", "GUIController", "GUIControlError"]
-
