@@ -52,6 +52,21 @@ class ToolingStatusPolicyPayload(TypedDict, total=False):
     required_redaction_profile: str
     maximum_advisory_issues: int
 
+
+class PolicyLayerPayload(TypedDict):
+    name: str
+    priority: int
+    policy: ToolingStatusPolicyPayload
+
+
+class PolicyCompositionPayload(TypedDict):
+    schema_version: str
+    layers: list[PolicyLayerPayload]
+    overall_status_rule: str
+    producer_type_rule: str
+    advisory_issue_rule: str
+    redaction_profile_rule: str
+
 _SCHEMA_VERSION = "1.2"
 _ATTESTATION_SCHEMA_VERSION = "1.2"
 _LINEAGE_SCHEMA_VERSION = "1.1"
@@ -61,6 +76,7 @@ _VALID_PRODUCER_TYPES: set[str] = {"local", "ci", "sandbox", "pipeline", "adhoc"
 _REDACTED_MARKER = "<redacted>"
 _REDACTED_FINGERPRINT = "0" * 64
 _POLICY_SCHEMA_VERSION = "1.0"
+_POLICY_COMPOSITION_SCHEMA_VERSION = "1.0"
 
 
 @dataclass(frozen=True)
@@ -103,6 +119,29 @@ class ToolingStatusPolicy:
     required_redaction_profile: RedactionProfile | None
     maximum_advisory_issues: int | None
     forward_metadata: dict[str, object] = field(default_factory=dict)
+
+
+class PolicyOverrideMode(Enum):
+    RESTRICTIVE_WINS = "restrictive_wins"
+    EXPLICIT_WIDEN = "explicit_widen"
+    MOST_SEVERE_WINS = "most_severe_wins"
+
+
+@dataclass(frozen=True)
+class PolicyLayer:
+    name: str
+    priority: int
+    policy: ToolingStatusPolicy
+
+
+@dataclass(frozen=True)
+class ToolingStatusPolicyComposition:
+    schema_version: str
+    layers: tuple[PolicyLayer, ...]
+    overall_status_rule: PolicyOverrideMode
+    producer_type_rule: PolicyOverrideMode
+    advisory_issue_rule: PolicyOverrideMode
+    redaction_profile_rule: PolicyOverrideMode
 
 
 PolicyDecisionOutcome = Literal["ACCEPT", "WARN", "REJECT"]
@@ -350,6 +389,113 @@ def parse_tooling_status_policy(payload: Mapping[str, object]) -> ToolingStatusP
         required_redaction_profile=required_redaction_profile,
         maximum_advisory_issues=maximum_advisory_issues,
         forward_metadata=forward_metadata,
+    )
+
+
+def _parse_override_mode(
+    value: object,
+    *,
+    field: str,
+    allowed: tuple[PolicyOverrideMode, ...],
+) -> PolicyOverrideMode:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be a string")
+    try:
+        mode = PolicyOverrideMode(value)
+    except ValueError:
+        raise ValueError(
+            f"{field} must be one of {[entry.value for entry in allowed]}"
+        ) from None
+    if mode not in allowed:
+        raise ValueError(f"{field} must be one of {[entry.value for entry in allowed]}")
+    return mode
+
+
+def _parse_policy_layer(payload: Mapping[str, object]) -> PolicyLayer:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Policy layer must be a mapping")
+    name = payload.get("name")
+    if not isinstance(name, str) or not name:
+        raise ValueError("Policy layer missing name")
+    priority = payload.get("priority")
+    if not isinstance(priority, int):
+        raise ValueError("Policy layer priority must be an integer")
+    policy_payload = payload.get("policy")
+    if not isinstance(policy_payload, Mapping):
+        raise ValueError("Policy layer missing policy payload")
+    return PolicyLayer(
+        name=name,
+        priority=priority,
+        policy=parse_tooling_status_policy(policy_payload),
+    )
+
+
+def parse_tooling_status_policy_composition(
+    payload: Mapping[str, object]
+) -> ToolingStatusPolicyComposition:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Policy composition payload must be a mapping")
+    schema_version_value = payload.get("schema_version")
+    if not isinstance(schema_version_value, str):
+        raise ValueError("Policy composition payload missing schema_version")
+    if _compare_versions(schema_version_value, _POLICY_COMPOSITION_SCHEMA_VERSION) != 0:
+        raise ValueError(
+            f"Unsupported policy composition schema version {schema_version_value}"
+        )
+
+    layers_value = payload.get("layers")
+    if not isinstance(layers_value, list) or not layers_value:
+        raise ValueError("Policy composition requires at least one layer")
+    parsed_layers = tuple(_parse_policy_layer(entry) for entry in layers_value)
+    priorities = {}
+    for layer in parsed_layers:
+        if layer.name in priorities:
+            raise ValueError(f"Duplicate policy layer name '{layer.name}'")
+        if layer.priority in priorities.values():
+            raise ValueError("Policy layer priorities must be unique")
+        priorities[layer.name] = layer.priority
+
+    overall_status_rule = _parse_override_mode(
+        payload.get("overall_status_rule"),
+        field="overall_status_rule",
+        allowed=(
+            PolicyOverrideMode.RESTRICTIVE_WINS,
+            PolicyOverrideMode.EXPLICIT_WIDEN,
+            PolicyOverrideMode.MOST_SEVERE_WINS,
+        ),
+    )
+    producer_type_rule = _parse_override_mode(
+        payload.get("producer_type_rule"),
+        field="producer_type_rule",
+        allowed=(
+            PolicyOverrideMode.RESTRICTIVE_WINS,
+            PolicyOverrideMode.EXPLICIT_WIDEN,
+        ),
+    )
+    advisory_issue_rule = _parse_override_mode(
+        payload.get("advisory_issue_rule"),
+        field="advisory_issue_rule",
+        allowed=(
+            PolicyOverrideMode.RESTRICTIVE_WINS,
+            PolicyOverrideMode.EXPLICIT_WIDEN,
+        ),
+    )
+    redaction_profile_rule = _parse_override_mode(
+        payload.get("redaction_profile_rule"),
+        field="redaction_profile_rule",
+        allowed=(
+            PolicyOverrideMode.RESTRICTIVE_WINS,
+            PolicyOverrideMode.EXPLICIT_WIDEN,
+        ),
+    )
+
+    return ToolingStatusPolicyComposition(
+        schema_version=schema_version_value,
+        layers=tuple(sorted(parsed_layers, key=lambda layer: (layer.priority, layer.name))),
+        overall_status_rule=overall_status_rule,
+        producer_type_rule=producer_type_rule,
+        advisory_issue_rule=advisory_issue_rule,
+        redaction_profile_rule=redaction_profile_rule,
     )
 
 
@@ -908,6 +1054,158 @@ def _count_advisory_issues(aggregate: ToolingStatusAggregate) -> int:
         1
         for result in aggregate.tools.values()
         if result.classification == "advisory" and result.status != "passed"
+    )
+
+
+def _compose_allowed_statuses(
+    layers: Iterable[PolicyLayer], mode: PolicyOverrideMode
+) -> tuple[OverallStatus, ...]:
+    status_sets = [set(layer.policy.allowed_overall_statuses) for layer in layers]
+    if not status_sets:
+        raise ValueError("At least one policy layer is required")
+
+    if mode is PolicyOverrideMode.RESTRICTIVE_WINS:
+        result = set.intersection(*status_sets)
+        if not result:
+            raise ValueError(
+                "No allowed_overall_statuses remain after restrictive composition"
+            )
+        return tuple(sorted(result))
+
+    if mode is PolicyOverrideMode.EXPLICIT_WIDEN:
+        return tuple(sorted(set().union(*status_sets)))
+
+    if mode is PolicyOverrideMode.MOST_SEVERE_WINS:
+        severity = {"PASS": 0, "WARN": 1, "FAIL": 2}
+        worst_allowed = max(max(severity[status] for status in entries) for entries in status_sets)
+        return tuple(
+            sorted(
+                {status for status, level in severity.items() if level <= worst_allowed}
+            )
+        )
+
+    raise ValueError(f"Unsupported override mode {mode.value}")
+
+
+def _compose_producer_types(
+    layers: Iterable[PolicyLayer], mode: PolicyOverrideMode
+) -> tuple[str, ...] | None:
+    producer_sets: list[set[str]] = []
+    unrestricted = False
+    for layer in layers:
+        if layer.policy.allowed_producer_types is None:
+            unrestricted = True
+            continue
+        producer_sets.append(set(layer.policy.allowed_producer_types))
+
+    if not producer_sets:
+        return None
+
+    if mode is PolicyOverrideMode.RESTRICTIVE_WINS:
+        baseline = set(_VALID_PRODUCER_TYPES)
+        result = baseline.intersection(*producer_sets)
+        if not result:
+            raise ValueError("Producer type composition removed all allowed types")
+        return tuple(sorted(result))
+
+    if mode is PolicyOverrideMode.EXPLICIT_WIDEN:
+        result = set().union(*producer_sets)
+        if unrestricted and not result:
+            return None
+        if unrestricted and result == set(_VALID_PRODUCER_TYPES):
+            return None
+        return tuple(sorted(result)) if result else None
+
+    raise ValueError("Unsupported producer type override mode")
+
+
+def _compose_advisory_limits(
+    layers: Iterable[PolicyLayer], mode: PolicyOverrideMode
+) -> int | None:
+    limits = [layer.policy.maximum_advisory_issues for layer in layers]
+    finite_limits = [limit for limit in limits if limit is not None]
+    if mode is PolicyOverrideMode.RESTRICTIVE_WINS:
+        return min(finite_limits) if finite_limits else None
+    if mode is PolicyOverrideMode.EXPLICIT_WIDEN:
+        if any(limit is None for limit in limits):
+            return None
+        return max(finite_limits) if finite_limits else None
+    raise ValueError("Unsupported advisory issue override mode")
+
+
+def _redaction_restriction_rank(profile: RedactionProfile) -> int:
+    if profile is RedactionProfile.MINIMAL:
+        return 2
+    if profile is RedactionProfile.SAFE:
+        return 1
+    return 0
+
+
+def _compose_redaction_profile(
+    layers: Iterable[PolicyLayer], mode: PolicyOverrideMode
+) -> RedactionProfile | None:
+    profiles = [layer.policy.required_redaction_profile for layer in layers if layer.policy.required_redaction_profile]
+    if not profiles:
+        return None
+    if mode is PolicyOverrideMode.RESTRICTIVE_WINS:
+        return max(profiles, key=_redaction_restriction_rank)
+    if mode is PolicyOverrideMode.EXPLICIT_WIDEN:
+        return min(profiles, key=_redaction_restriction_rank)
+    raise ValueError("Unsupported redaction profile override mode")
+
+
+def compose_tooling_status_policies(
+    composition: ToolingStatusPolicyComposition | Mapping[str, object]
+) -> ToolingStatusPolicy:
+    parsed = (
+        parse_tooling_status_policy_composition(composition)
+        if isinstance(composition, Mapping)
+        else composition
+    )
+    if not parsed.layers:
+        raise ValueError("Policy composition requires at least one layer")
+
+    schema_versions = {layer.policy.schema_version for layer in parsed.layers}
+    if len(schema_versions) != 1:
+        raise ValueError("Policy layers must share the same policy schema version")
+    schema_version = schema_versions.pop()
+    if schema_version != _POLICY_SCHEMA_VERSION:
+        raise ValueError(
+            f"Unsupported policy schema version '{schema_version}' in composition"
+        )
+
+    allowed_overall_statuses = _compose_allowed_statuses(
+        parsed.layers, parsed.overall_status_rule
+    )
+    allowed_producer_types = _compose_producer_types(
+        parsed.layers, parsed.producer_type_rule
+    )
+    maximum_advisory_issues = _compose_advisory_limits(
+        parsed.layers, parsed.advisory_issue_rule
+    )
+    required_redaction_profile = _compose_redaction_profile(
+        parsed.layers, parsed.redaction_profile_rule
+    )
+
+    metadata = {
+        "composition_layers": tuple(
+            (layer.name, layer.priority) for layer in parsed.layers
+        ),
+        "composition_rules": {
+            "overall_status_rule": parsed.overall_status_rule.value,
+            "producer_type_rule": parsed.producer_type_rule.value,
+            "advisory_issue_rule": parsed.advisory_issue_rule.value,
+            "redaction_profile_rule": parsed.redaction_profile_rule.value,
+        },
+    }
+
+    return ToolingStatusPolicy(
+        schema_version=_POLICY_SCHEMA_VERSION,
+        allowed_overall_statuses=allowed_overall_statuses,
+        allowed_producer_types=allowed_producer_types,
+        required_redaction_profile=required_redaction_profile,
+        maximum_advisory_issues=maximum_advisory_issues,
+        forward_metadata=metadata,
     )
 
 
