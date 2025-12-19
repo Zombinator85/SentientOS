@@ -2020,6 +2020,7 @@ def snapshot_tooling_status_policy_evaluation(
     uncertainty_score: int | None = None,
     uncertainty_reason_codes: Iterable[str] | None = None,
     inherit_uncertainty_from: PolicyEvaluationSnapshot | Mapping[str, object] | None = None,
+    pressure_engagement_summary: str | None = None,
 ) -> PolicyEvaluationSnapshotPayload:
     aggregate = _to_aggregate(subject, profile=profile)
     parsed_policy = _to_policy(policy)
@@ -2036,11 +2037,21 @@ def snapshot_tooling_status_policy_evaluation(
         raise ValueError("lineage_relation provided without parent_snapshot_fingerprint")
     if parent_fingerprint_value is not None and lineage_relation_value is None:
         raise ValueError("lineage_relation must accompany parent_snapshot_fingerprint")
+    combined_review_notes = review_notes
     if review_notes is not None:
         if not isinstance(review_notes, str):
             raise TypeError("review_notes must be a string when provided")
         if len(review_notes) > _MAX_REVIEW_NOTES_LENGTH:
             raise ValueError("review_notes exceeds maximum length")
+
+    if pressure_engagement_summary is not None:
+        if not isinstance(pressure_engagement_summary, str):
+            raise TypeError("pressure_engagement_summary must be a string when provided")
+        combined_review_notes = (
+            f"{review_notes}\n{pressure_engagement_summary}" if review_notes else pressure_engagement_summary
+        )
+    if combined_review_notes is not None and len(combined_review_notes) > _MAX_REVIEW_NOTES_LENGTH:
+        raise ValueError("review_notes exceeds maximum length")
 
     inherited_uncertainty: PolicyEvaluationSnapshot | None = None
     if inherit_uncertainty_from is not None:
@@ -2090,7 +2101,7 @@ def snapshot_tooling_status_policy_evaluation(
         ),
         parent_snapshot_fingerprint=parent_fingerprint_value,
         lineage_relation=lineage_relation_value,
-        review_notes=review_notes,
+        review_notes=combined_review_notes,
         confidence_band=confidence_band_value,
         uncertainty_score=uncertainty_score_value,
         uncertainty_reason_codes=uncertainty_reason_codes_value,
@@ -2873,6 +2884,25 @@ def _validate_reviewer_note_code(note_code: str | None) -> str | None:
     return note_code
 
 
+def _coerce_engagement_payload(candidate: Mapping[str, object] | object) -> Mapping[str, object]:
+    if isinstance(candidate, Mapping):
+        payload = candidate
+    elif hasattr(candidate, "to_payload"):
+        payload = getattr(candidate, "to_payload")()
+    elif hasattr(candidate, "__dict__"):
+        payload = getattr(candidate, "__dict__")
+    else:
+        raise TypeError("engagement must be a mapping or expose to_payload")
+
+    if not isinstance(payload, Mapping):
+        raise TypeError("engagement payload must be a mapping")
+    if not payload.get("engagement_id"):
+        raise ValueError("engagement payload missing engagement_id")
+    if not payload.get("constraint_id"):
+        raise ValueError("engagement payload missing constraint_id")
+    return payload
+
+
 @dataclass(frozen=True)
 class ReviewOutcomeSignal:
     schema_version: str
@@ -2904,6 +2934,8 @@ class ReviewQueueEntry:
     uncertainty_reason_codes: tuple[str, ...]
     resolution_state: ReviewResolutionState = "pending"
     resolution_snapshot_fingerprint: str | None = None
+    priority: int = 0
+    pressure_engagement_ids: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -2911,13 +2943,33 @@ class ReviewQueue:
     entries: tuple[ReviewQueueEntry, ...] = ()
     signals: tuple[ReviewOutcomeSignal, ...] = ()
 
-    def enqueue(self, snapshot: PolicyEvaluationSnapshot) -> "ReviewQueue":
+    def enqueue(self, snapshot: PolicyEvaluationSnapshot, *, priority: int = 0) -> "ReviewQueue":
         entry = ReviewQueueEntry(
             snapshot_fingerprint=snapshot.fingerprint,
             evaluation_fingerprint=snapshot.evaluation_fingerprint,
             confidence_band=snapshot.confidence_band,
             uncertainty_score=snapshot.uncertainty_score,
             uncertainty_reason_codes=snapshot.uncertainty_reason_codes,
+            priority=max(0, int(priority)),
+        )
+        return ReviewQueue(entries=self.entries + (entry,), signals=self.signals)
+
+    def enqueue_pressure_engagement(
+        self,
+        engagement: Mapping[str, object] | object,
+        *,
+        priority: int | None = None,
+    ) -> "ReviewQueue":
+        payload = _coerce_engagement_payload(engagement)
+        engagement_priority = priority if priority is not None else int(payload.get("pressure_score", 1) * 100)
+        entry = ReviewQueueEntry(
+            snapshot_fingerprint=str(payload.get("engagement_id")),
+            evaluation_fingerprint=str(payload.get("constraint_id")),
+            confidence_band=None,
+            uncertainty_score=None,
+            uncertainty_reason_codes=("PRESSURE",),
+            priority=max(0, engagement_priority),
+            pressure_engagement_ids=(str(payload.get("engagement_id")),),
         )
         return ReviewQueue(entries=self.entries + (entry,), signals=self.signals)
 
@@ -2950,6 +3002,8 @@ class ReviewQueue:
             uncertainty_reason_codes=latest.uncertainty_reason_codes,
             resolution_state=resolution_state,
             resolution_snapshot_fingerprint=amended_fingerprint,
+            priority=latest.priority,
+            pressure_engagement_ids=latest.pressure_engagement_ids,
         )
         signal = ReviewOutcomeSignal(
             schema_version=_REVIEW_SIGNAL_SCHEMA_VERSION,
@@ -2977,7 +3031,12 @@ class ReviewQueue:
         pending = [
             entry for entry in latest_by_fingerprint.values() if entry.resolution_state == "pending"
         ]
-        return tuple(sorted(pending, key=lambda entry: entry.snapshot_fingerprint))
+        return tuple(
+            sorted(
+                pending,
+                key=lambda entry: (-entry.priority, entry.snapshot_fingerprint),
+            )
+        )
 
 
 def snapshots_requiring_review(

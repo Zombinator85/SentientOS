@@ -32,6 +32,7 @@ import os
 
 import final_approval
 import affective_context as ac
+from sentientos.pressure_engagement import ConstraintEngagementEngine
 
 try:
     import yaml  # type: ignore[import-untyped]  # optional YAML policies
@@ -98,6 +99,7 @@ class PolicyEngine:
         self.logs: List[Dict[str, Any]] = []
         self.history: List[Dict[str, Any]] = []
         self._load_sequence = 0
+        self._pressure_engine = ConstraintEngagementEngine()
         self.load()
 
     def load(self) -> None:
@@ -161,8 +163,19 @@ class PolicyEngine:
         for pol in self.policies:
             if self._match(pol.get("conditions", {}), event):
                 actions.extend(pol.get("actions", []))
-        if actions:
-            self._log(event, actions, affective_overlay)
+        pressure_engagements = [
+            record.to_payload()
+            for record in self._pressure_engine.record_policy_event(
+                event, actions, affective_overlay
+            )
+        ]
+        if actions or pressure_engagements:
+            self._log(
+                event,
+                actions,
+                affective_overlay,
+                pressure_engagements=pressure_engagements if pressure_engagements else None,
+            )
         for action in actions:
             for key in action.keys():
                 lowered = str(key).lower()
@@ -241,14 +254,19 @@ class PolicyEngine:
         event: Dict[str, Any],
         actions: List[Dict[str, Any]],
         affective_overlay: Dict[str, Any],
+        *,
+        pressure_engagements: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         ac.require_affective_context({"affective_context": affective_overlay})
-        self.logs.append({
+        entry = {
             "timestamp": time.time(),
             "event": event,
             "actions": actions,
             "affective_context": affective_overlay,
-        })
+        }
+        if pressure_engagements:
+            entry["pressure_engagements"] = pressure_engagements
+        self.logs.append(entry)
         ac.register_context(
             "policy_engine", affective_overlay, metadata={"actions": len(actions)}
         )
