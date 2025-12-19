@@ -1,13 +1,17 @@
 import json
 
 import pytest
+from dataclasses import FrozenInstanceError
 
 from scripts.tooling_status import (
     _REDACTED_MARKER,
+    _REVIEW_NOTE_CODES,
+    _REVIEW_SIGNAL_SCHEMA_VERSION,
     RedactionProfile,
     _PolicyEvaluationCache,
     ToolingStatusPolicy,
     aggregate_tooling_status,
+    aggregate_learning_signals_by_confidence,
     compose_tooling_status_policies,
     evaluate_tooling_status_policy,
     fingerprint_tooling_status,
@@ -21,6 +25,9 @@ from scripts.tooling_status import (
     policy_ci_strict,
     policy_local_dev_permissive,
     policy_release_gate,
+    detect_confidence_drift,
+    summarize_reviewer_tolerance,
+    ReviewOutcomeSignal,
     snapshot_tooling_status_policy_evaluation,
     snapshot_supersedes,
     verify_tooling_status_policy_snapshot,
@@ -793,3 +800,97 @@ def test_review_queue_population_and_resolution() -> None:
     stats = aggregate_review_statistics(resolved_queue)
     assert stats["by_state"]["amended"] == 1
     assert resolved_queue.pending_items() == ()
+
+
+def test_review_resolution_emits_learning_signal() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    flagged_snapshot = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate,
+            policy_local_dev_permissive(),
+            emit_trace=False,
+            confidence_band="LOW",
+            uncertainty_score=20,
+            uncertainty_reason_codes=["MANUAL_REVIEW_REQUESTED"],
+        )
+    )
+
+    baseline_decision = evaluate_tooling_status_policy(aggregate, policy_local_dev_permissive())
+    queue = build_review_queue([flagged_snapshot])
+
+    assert queue.signals == ()
+
+    resolved_queue = queue.resolve(
+        flagged_snapshot.fingerprint,
+        resolution_state="acknowledged",
+        reviewer_note_code="FALSE_UNCERTAINTY",
+    )
+
+    assert len(resolved_queue.signals) == 1
+    signal = resolved_queue.signals[0]
+    assert signal.schema_version == _REVIEW_SIGNAL_SCHEMA_VERSION
+    assert signal.snapshot_fingerprint == flagged_snapshot.fingerprint
+    assert signal.evaluation_fingerprint == flagged_snapshot.evaluation_fingerprint
+    assert signal.confidence_band == "LOW"
+    assert signal.uncertainty_score == 20
+    assert signal.reviewer_note_code == "FALSE_UNCERTAINTY"
+
+    with pytest.raises(FrozenInstanceError):
+        object.__setattr__(signal, "resolution", "reverted")
+
+    follow_up_decision = evaluate_tooling_status_policy(aggregate, policy_local_dev_permissive())
+    assert follow_up_decision == baseline_decision
+
+
+def test_learning_signal_aggregation_helpers() -> None:
+    signals = (
+        ReviewOutcomeSignal(
+            schema_version=_REVIEW_SIGNAL_SCHEMA_VERSION,
+            snapshot_fingerprint="snap1",
+            evaluation_fingerprint="eval1",
+            confidence_band="HIGH",
+            uncertainty_score=None,
+            resolution="reverted",
+            reviewer_note_code="MISSED_UNCERTAINTY",
+        ),
+        ReviewOutcomeSignal(
+            schema_version=_REVIEW_SIGNAL_SCHEMA_VERSION,
+            snapshot_fingerprint="snap2",
+            evaluation_fingerprint="eval2",
+            confidence_band="LOW",
+            uncertainty_score=10,
+            resolution="acknowledged",
+            reviewer_note_code="FALSE_UNCERTAINTY",
+        ),
+        ReviewOutcomeSignal(
+            schema_version=_REVIEW_SIGNAL_SCHEMA_VERSION,
+            snapshot_fingerprint="snap3",
+            evaluation_fingerprint="eval3",
+            confidence_band=None,
+            uncertainty_score=None,
+            resolution="amended",
+            reviewer_note_code="ACCEPTABLE_RISK",
+        ),
+    )
+
+    band_summary = aggregate_learning_signals_by_confidence(signals)
+    assert band_summary["HIGH"]["reverted"] == 1
+    assert band_summary["LOW"]["acknowledged"] == 1
+    assert band_summary["UNSPECIFIED"]["amended"] == 1
+
+    drift = detect_confidence_drift(signals)
+    assert drift["over_confidence_signals"] == 2
+    assert drift["under_confidence_signals"] == 2
+
+    tolerance = summarize_reviewer_tolerance(signals)
+    assert tolerance["total"] == 3
+    assert tolerance["by_resolution"]["acknowledged"] == 1
+    assert tolerance["note_codes"]["ACCEPTABLE_RISK"] == 1
+    assert set(code for code, count in tolerance["note_codes"].items() if count == 0) <= _REVIEW_NOTE_CODES

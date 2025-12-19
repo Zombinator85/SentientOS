@@ -145,6 +145,12 @@ _POLICY_COMPOSITION_SCHEMA_VERSION = "1.0"
 _TRACE_SCHEMA_VERSION = "1.0"
 _MAX_REVIEW_NOTES_LENGTH = 2048
 _VALID_CONFIDENCE_BANDS: set[str] = {"HIGH", "MEDIUM", "LOW"}
+_REVIEW_SIGNAL_SCHEMA_VERSION = "1.0"
+_REVIEW_NOTE_CODES: set[str] = {
+    "FALSE_UNCERTAINTY",
+    "MISSED_UNCERTAINTY",
+    "ACCEPTABLE_RISK",
+}
 _UNCERTAINTY_SCORE_BOUNDS = (0, 100)
 _VALID_UNCERTAINTY_REASON_CODES: tuple[str, ...] = (
     "INSUFFICIENT_SIGNAL",
@@ -2855,7 +2861,38 @@ def collect_snapshot_annotations(
     }
 
 
-ReviewResolutionState = Literal["pending", "acknowledged", "amended"]
+ReviewResolutionState = Literal["pending", "acknowledged", "amended", "reverted"]
+ReviewResolutionOutcome = Literal["acknowledged", "amended", "reverted"]
+
+
+def _validate_reviewer_note_code(note_code: str | None) -> str | None:
+    if note_code is None:
+        return None
+    if note_code not in _REVIEW_NOTE_CODES:
+        raise ValueError(f"reviewer_note_code must be one of {sorted(_REVIEW_NOTE_CODES)}")
+    return note_code
+
+
+@dataclass(frozen=True)
+class ReviewOutcomeSignal:
+    schema_version: str
+    snapshot_fingerprint: str
+    evaluation_fingerprint: str
+    confidence_band: str | None
+    uncertainty_score: int | None
+    resolution: ReviewResolutionOutcome
+    reviewer_note_code: str | None = None
+
+    def to_payload(self) -> Mapping[str, object]:  # pragma: no cover - convenience only
+        return {
+            "schema_version": self.schema_version,
+            "snapshot_fingerprint": self.snapshot_fingerprint,
+            "evaluation_fingerprint": self.evaluation_fingerprint,
+            "confidence_band": self.confidence_band,
+            "uncertainty_score": self.uncertainty_score,
+            "resolution": self.resolution,
+            "reviewer_note_code": self.reviewer_note_code,
+        }
 
 
 @dataclass(frozen=True)
@@ -2863,6 +2900,7 @@ class ReviewQueueEntry:
     snapshot_fingerprint: str
     evaluation_fingerprint: str
     confidence_band: str | None
+    uncertainty_score: int | None
     uncertainty_reason_codes: tuple[str, ...]
     resolution_state: ReviewResolutionState = "pending"
     resolution_snapshot_fingerprint: str | None = None
@@ -2871,25 +2909,30 @@ class ReviewQueueEntry:
 @dataclass(frozen=True)
 class ReviewQueue:
     entries: tuple[ReviewQueueEntry, ...] = ()
+    signals: tuple[ReviewOutcomeSignal, ...] = ()
 
     def enqueue(self, snapshot: PolicyEvaluationSnapshot) -> "ReviewQueue":
         entry = ReviewQueueEntry(
             snapshot_fingerprint=snapshot.fingerprint,
             evaluation_fingerprint=snapshot.evaluation_fingerprint,
             confidence_band=snapshot.confidence_band,
+            uncertainty_score=snapshot.uncertainty_score,
             uncertainty_reason_codes=snapshot.uncertainty_reason_codes,
         )
-        return ReviewQueue(entries=self.entries + (entry,))
+        return ReviewQueue(entries=self.entries + (entry,), signals=self.signals)
 
     def resolve(
         self,
         snapshot_fingerprint: str,
         *,
-        resolution_state: ReviewResolutionState,
+        resolution_state: ReviewResolutionOutcome,
         amended_snapshot: PolicyEvaluationSnapshot | Mapping[str, object] | None = None,
+        reviewer_note_code: str | None = None,
     ) -> "ReviewQueue":
-        if resolution_state not in {"acknowledged", "amended"}:
+        if resolution_state not in {"acknowledged", "amended", "reverted"}:
             raise ValueError("resolution_state must transition out of pending")
+
+        note_code_value = _validate_reviewer_note_code(reviewer_note_code)
 
         amended_fingerprint: str | None = None
         if amended_snapshot is not None:
@@ -2903,11 +2946,23 @@ class ReviewQueue:
             snapshot_fingerprint=latest.snapshot_fingerprint,
             evaluation_fingerprint=latest.evaluation_fingerprint,
             confidence_band=latest.confidence_band,
+            uncertainty_score=latest.uncertainty_score,
             uncertainty_reason_codes=latest.uncertainty_reason_codes,
             resolution_state=resolution_state,
             resolution_snapshot_fingerprint=amended_fingerprint,
         )
-        return ReviewQueue(entries=self.entries + (updated,))
+        signal = ReviewOutcomeSignal(
+            schema_version=_REVIEW_SIGNAL_SCHEMA_VERSION,
+            snapshot_fingerprint=latest.snapshot_fingerprint,
+            evaluation_fingerprint=latest.evaluation_fingerprint,
+            confidence_band=latest.confidence_band,
+            uncertainty_score=latest.uncertainty_score,
+            resolution=resolution_state,
+            reviewer_note_code=note_code_value,
+        )
+        return ReviewQueue(
+            entries=self.entries + (updated,), signals=self.signals + (signal,)
+        )
 
     def _latest_entry_for(self, fingerprint: str) -> ReviewQueueEntry | None:
         for entry in reversed(self.entries):
@@ -2944,16 +2999,80 @@ def build_review_queue(
 
 def aggregate_review_statistics(queue: ReviewQueue) -> dict[str, object]:
     band_counts: dict[str, int] = {band: 0 for band in _VALID_CONFIDENCE_BANDS}
-    state_counts: dict[str, int] = {"pending": 0, "acknowledged": 0, "amended": 0}
+    band_counts["UNSPECIFIED"] = 0
+    state_counts: dict[str, int] = {
+        "pending": 0,
+        "acknowledged": 0,
+        "amended": 0,
+        "reverted": 0,
+    }
     for entry in queue.entries:
         state_counts[entry.resolution_state] = state_counts.get(entry.resolution_state, 0) + 1
-        if entry.confidence_band in band_counts:
-            band_counts[entry.confidence_band] += 1
+        band_key = entry.confidence_band if entry.confidence_band is not None else "UNSPECIFIED"
+        if band_key in band_counts:
+            band_counts[band_key] += 1
     return {
         "total": len(queue.entries),
         "by_state": state_counts,
         "by_confidence_band": band_counts,
     }
+
+
+def aggregate_learning_signals_by_confidence(
+    signals: Iterable[ReviewOutcomeSignal],
+) -> dict[str, dict[str, int]]:
+    summary: dict[str, dict[str, int]] = {
+        band: {"total": 0, "acknowledged": 0, "amended": 0, "reverted": 0}
+        for band in sorted(_VALID_CONFIDENCE_BANDS | {"UNSPECIFIED"})
+    }
+
+    for signal in signals:
+        band = signal.confidence_band if signal.confidence_band is not None else "UNSPECIFIED"
+        bucket = summary.setdefault(
+            band, {"total": 0, "acknowledged": 0, "amended": 0, "reverted": 0}
+        )
+        bucket["total"] += 1
+        bucket[signal.resolution] = bucket.get(signal.resolution, 0) + 1
+
+    return summary
+
+
+def detect_confidence_drift(signals: Iterable[ReviewOutcomeSignal]) -> dict[str, int]:
+    over_confident = 0
+    under_confident = 0
+
+    for signal in signals:
+        if signal.confidence_band == "HIGH" and signal.resolution in {"amended", "reverted"}:
+            over_confident += 1
+        if signal.confidence_band in {"LOW", "MEDIUM"} and signal.resolution == "acknowledged":
+            under_confident += 1
+        if signal.reviewer_note_code == "MISSED_UNCERTAINTY":
+            over_confident += 1
+        if signal.reviewer_note_code == "FALSE_UNCERTAINTY":
+            under_confident += 1
+
+    return {
+        "over_confidence_signals": over_confident,
+        "under_confidence_signals": under_confident,
+    }
+
+
+def summarize_reviewer_tolerance(
+    signals: Iterable[ReviewOutcomeSignal],
+) -> dict[str, dict[str, int] | int]:
+    resolution_counts: dict[str, int] = {"acknowledged": 0, "amended": 0, "reverted": 0}
+    note_counts: dict[str, int] = {code: 0 for code in _REVIEW_NOTE_CODES}
+
+    total = 0
+    for signal in signals:
+        total += 1
+        resolution_counts[signal.resolution] = resolution_counts.get(signal.resolution, 0) + 1
+        if signal.reviewer_note_code:
+            note_counts[signal.reviewer_note_code] = (
+                note_counts.get(signal.reviewer_note_code, 0) + 1
+            )
+
+    return {"total": total, "by_resolution": resolution_counts, "note_codes": note_counts}
 
 def validate_lineage_chain(
     aggregates: Iterable[ToolingStatusAggregate | Mapping[str, object]],
