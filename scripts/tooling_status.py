@@ -77,6 +77,7 @@ _REDACTED_MARKER = "<redacted>"
 _REDACTED_FINGERPRINT = "0" * 64
 _POLICY_SCHEMA_VERSION = "1.0"
 _POLICY_COMPOSITION_SCHEMA_VERSION = "1.0"
+_TRACE_SCHEMA_VERSION = "1.0"
 
 
 @dataclass(frozen=True)
@@ -151,6 +152,57 @@ PolicyDecisionOutcome = Literal["ACCEPT", "WARN", "REJECT"]
 class PolicyDecision:
     outcome: PolicyDecisionOutcome
     reasons: tuple[str, ...] = ()
+
+
+TraceRuleName = Literal[
+    "overall_status",
+    "producer_type",
+    "redaction_profile",
+    "advisory_issues",
+]
+
+TraceRuleOutcome = Literal["match", "warn", "reject"]
+_TRACE_RULE_NAMES: tuple[TraceRuleName, ...] = (
+    "overall_status",
+    "producer_type",
+    "redaction_profile",
+    "advisory_issues",
+)
+_TRACE_RULE_OUTCOMES: tuple[TraceRuleOutcome, ...] = ("match", "warn", "reject")
+
+
+@dataclass(frozen=True)
+class PolicyDecisionRuleTrace:
+    name: TraceRuleName
+    outcome: TraceRuleOutcome
+    observed: str
+    expected: tuple[str, ...] | int | None = None
+    rationale: str | None = None
+
+
+@dataclass(frozen=True)
+class PolicyOverrideTrace:
+    dimension: Literal[
+        "overall_status",
+        "producer_type",
+        "advisory_issues",
+        "redaction_profile",
+    ]
+    mode: PolicyOverrideMode
+    selected: tuple[str, ...] | int | None
+    considered: tuple[tuple[str, tuple[str, ...] | int | None], ...]
+    discarded: tuple[tuple[str, ...] | int | None, ...]
+
+
+@dataclass(frozen=True)
+class PolicyDecisionTrace:
+    schema_version: str
+    profile: RedactionProfile
+    aggregate: ToolingStatusAggregatePayload
+    evaluated_rules: tuple[PolicyDecisionRuleTrace, ...]
+    matched_conditions: tuple[str, ...]
+    applied_overrides: tuple[PolicyOverrideTrace, ...]
+    rejected_alternatives: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -1154,6 +1206,202 @@ def _compose_redaction_profile(
     raise ValueError("Unsupported redaction profile override mode")
 
 
+def _serialize_payload(value: Mapping[str, object]) -> ToolingStatusAggregatePayload:
+    return cast(
+        ToolingStatusAggregatePayload,
+        json.loads(json.dumps(value, sort_keys=True)),
+    )
+
+
+def _validate_trace(trace: PolicyDecisionTrace) -> None:
+    if trace.schema_version != _TRACE_SCHEMA_VERSION:
+        raise ValueError("Unsupported policy decision trace schema version")
+
+    if len(trace.evaluated_rules) > 16:
+        raise ValueError("Trace contains too many rule evaluations")
+    if len(trace.applied_overrides) > 8:
+        raise ValueError("Trace contains too many override entries")
+    if len(trace.rejected_alternatives) > 64:
+        raise ValueError("Trace rejected alternatives exceed bounds")
+
+    for rule in trace.evaluated_rules:
+        if rule.name not in _TRACE_RULE_NAMES:
+            raise ValueError(f"Unknown rule name in trace: {rule.name}")
+        if rule.outcome not in _TRACE_RULE_OUTCOMES:
+            raise ValueError(f"Unknown rule outcome in trace: {rule.outcome}")
+
+
+def _normalize_layer_value(value: object) -> tuple[str, ...] | int | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, (list, tuple)):
+        return tuple(cast(tuple[str, ...], value))
+    raise TypeError("Unexpected layer value type in policy metadata")
+
+
+class _PolicyDecisionTraceBuilder:
+    def __init__(
+        self,
+        aggregate: ToolingStatusAggregate,
+        policy: ToolingStatusPolicy,
+        profile: RedactionProfile,
+    ) -> None:
+        self._profile = profile
+        self.aggregate = _serialize_payload(aggregate.profiled_payload(profile))
+        self.rules: list[PolicyDecisionRuleTrace] = []
+        self.matched: list[str] = []
+        self.rejected: list[str] = []
+        self.applied_overrides: tuple[PolicyOverrideTrace, ...] = self._build_overrides(policy)
+
+    def _build_overrides(self, policy: ToolingStatusPolicy) -> tuple[PolicyOverrideTrace, ...]:
+        metadata = policy.forward_metadata
+        layers = metadata.get("composition_layer_policies")
+        if not isinstance(layers, tuple):
+            return ()
+
+        rules = metadata.get("composition_rules")
+        if not isinstance(rules, Mapping):
+            return ()
+
+        layer_summaries: list[dict[str, object]] = []
+        for entry in layers:
+            if isinstance(entry, Mapping):
+                layer_summaries.append(dict(entry))
+
+        overrides: list[PolicyOverrideTrace] = []
+
+        def _considered_values(field: str) -> tuple[tuple[str, tuple[str, ...] | int | None], ...]:
+            considered: list[tuple[str, tuple[str, ...] | int | None]] = []
+            for summary in layer_summaries:
+                name = cast(str, summary.get("name"))
+                if not name:
+                    continue
+                raw_value = summary.get(field)
+                value = _normalize_layer_value(raw_value)
+                considered.append((name, value))
+            return tuple(sorted(considered, key=lambda entry: entry[0]))
+
+        def _discarded_from_union(
+            candidates: Iterable[tuple[str, tuple[str, ...] | int | None]],
+            selected: tuple[str, ...] | int | None,
+        ) -> tuple[tuple[str, ...] | int | None, ...]:
+            if isinstance(selected, int):
+                discarded_numbers = {
+                    value
+                    for _, value in candidates
+                    if isinstance(value, int) and value != selected
+                }
+                if any(value is None for _, value in candidates):
+                    if selected is not None:
+                        discarded_numbers.add(None)
+                return tuple(sorted(discarded_numbers, key=lambda entry: (-1 if entry is None else entry)))
+            if selected is None:
+                discarded_sets = [
+                    set(value)
+                    for _, value in candidates
+                    if isinstance(value, tuple)
+                ]
+                combined = set().union(*discarded_sets) if discarded_sets else set()
+                return tuple(sorted(combined)) if combined else ()
+            combined_candidates: set[str] = set()
+            for _, value in candidates:
+                if isinstance(value, tuple):
+                    combined_candidates.update(value)
+            discarded = combined_candidates - set(selected)
+            return tuple(sorted(discarded)) if discarded else ()
+
+        mappings: tuple[tuple[str, str, tuple[str, ...] | int | None], ...] = (
+            (
+                "overall_status",
+                "allowed_overall_statuses",
+                tuple(policy.allowed_overall_statuses),
+            ),
+            (
+                "producer_type",
+                "allowed_producer_types",
+                tuple(policy.allowed_producer_types)
+                if policy.allowed_producer_types is not None
+                else None,
+            ),
+            (
+                "advisory_issues",
+                "maximum_advisory_issues",
+                policy.maximum_advisory_issues,
+            ),
+            (
+                "redaction_profile",
+                "required_redaction_profile",
+                (policy.required_redaction_profile.profile_name,)
+                if policy.required_redaction_profile is not None
+                else None,
+            ),
+        )
+
+        for dimension, field, selected in mappings:
+            mode_field = f"{dimension}_rule"
+            mode_value = rules.get(mode_field)
+            if mode_value is None:
+                continue
+            considered = _considered_values(field)
+            discarded = _discarded_from_union(considered, selected)
+            if discarded:
+                self.rejected.append(
+                    f"{dimension} discarded {discarded} via {mode_value}"
+                )
+            overrides.append(
+                PolicyOverrideTrace(
+                    dimension=cast(PolicyOverrideTrace.__annotations__["dimension"], dimension),
+                    mode=PolicyOverrideMode(mode_value),
+                    selected=selected,
+                    considered=considered,
+                    discarded=discarded,
+                )
+            )
+
+        return tuple(overrides)
+
+    def record_rule(
+        self,
+        *,
+        name: TraceRuleName,
+        outcome: TraceRuleOutcome,
+        observed: str,
+        expected: tuple[str, ...] | int | None,
+        rationale: str | None = None,
+        rejected_alternative: str | None = None,
+    ) -> None:
+        self.rules.append(
+            PolicyDecisionRuleTrace(
+                name=name,
+                outcome=outcome,
+                observed=observed,
+                expected=expected,
+                rationale=rationale,
+            )
+        )
+        if outcome == "match":
+            self.matched.append(rationale or name)
+        if rejected_alternative:
+            self.rejected.append(rejected_alternative)
+
+    def finalize(self) -> PolicyDecisionTrace:
+        trace = PolicyDecisionTrace(
+            schema_version=_TRACE_SCHEMA_VERSION,
+            profile=self._profile,
+            aggregate=self.aggregate,
+            evaluated_rules=tuple(self.rules),
+            matched_conditions=tuple(self.matched),
+            applied_overrides=self.applied_overrides,
+            rejected_alternatives=tuple(self.rejected),
+        )
+        _validate_trace(trace)
+        return trace
+
+
 def compose_tooling_status_policies(
     composition: ToolingStatusPolicyComposition | Mapping[str, object]
 ) -> ToolingStatusPolicy:
@@ -1191,6 +1439,25 @@ def compose_tooling_status_policies(
         "composition_layers": tuple(
             (layer.name, layer.priority) for layer in parsed.layers
         ),
+        "composition_layer_policies": tuple(
+            {
+                "name": layer.name,
+                "priority": layer.priority,
+                "allowed_overall_statuses": tuple(layer.policy.allowed_overall_statuses),
+                "allowed_producer_types": (
+                    tuple(layer.policy.allowed_producer_types)
+                    if layer.policy.allowed_producer_types is not None
+                    else None
+                ),
+                "required_redaction_profile": (
+                    layer.policy.required_redaction_profile.profile_name
+                    if layer.policy.required_redaction_profile is not None
+                    else None
+                ),
+                "maximum_advisory_issues": layer.policy.maximum_advisory_issues,
+            }
+            for layer in parsed.layers
+        ),
         "composition_rules": {
             "overall_status_rule": parsed.overall_status_rule.value,
             "producer_type_rule": parsed.producer_type_rule.value,
@@ -1214,9 +1481,15 @@ def evaluate_tooling_status_policy(
     policy: ToolingStatusPolicy | Mapping[str, object],
     *,
     profile: RedactionProfile = RedactionProfile.FULL,
-) -> PolicyDecision:
+    emit_trace: bool = False,
+) -> PolicyDecision | tuple[PolicyDecision, PolicyDecisionTrace]:
     aggregate = _to_aggregate(subject, profile=profile)
     parsed_policy = _to_policy(policy)
+    trace_builder = (
+        _PolicyDecisionTraceBuilder(aggregate, parsed_policy, profile)
+        if emit_trace
+        else None
+    )
 
     reject_reasons: list[str] = []
     warn_reasons: list[str] = []
@@ -1226,19 +1499,85 @@ def evaluate_tooling_status_policy(
             "overall_status"
             f" '{aggregate.overall_status}' not permitted by policy"
         )
+        if trace_builder:
+            trace_builder.record_rule(
+                name="overall_status",
+                outcome="reject",
+                observed=aggregate.overall_status,
+                expected=parsed_policy.allowed_overall_statuses,
+                rationale="overall_status rejected",
+                rejected_alternative=f"overall_status {aggregate.overall_status} not in {parsed_policy.allowed_overall_statuses}",
+            )
     elif aggregate.overall_status != "PASS":
         warn_reasons.append(f"overall_status is {aggregate.overall_status}")
+        if trace_builder:
+            trace_builder.record_rule(
+                name="overall_status",
+                outcome="warn",
+                observed=aggregate.overall_status,
+                expected=parsed_policy.allowed_overall_statuses,
+                rationale=f"overall_status is {aggregate.overall_status}",
+            )
+    elif trace_builder:
+        trace_builder.record_rule(
+            name="overall_status",
+            outcome="match",
+            observed=aggregate.overall_status,
+            expected=parsed_policy.allowed_overall_statuses,
+            rationale="overall_status permitted",
+        )
 
     if parsed_policy.allowed_producer_types is not None:
         attestation = aggregate.provenance_attestation
         if attestation is None:
             reject_reasons.append("provenance attestation required")
+            if trace_builder:
+                trace_builder.record_rule(
+                    name="producer_type",
+                    outcome="reject",
+                    observed="<missing attestation>",
+                    expected=parsed_policy.allowed_producer_types,
+                    rationale="producer attestation missing",
+                    rejected_alternative="producer_type unavailable",
+                )
         elif attestation.producer_type not in parsed_policy.allowed_producer_types:
             reject_reasons.append(
                 "producer_type '"
                 f"{attestation.producer_type}' not permitted (allowed:"
                 f" {sorted(parsed_policy.allowed_producer_types)})"
             )
+            if trace_builder:
+                trace_builder.record_rule(
+                    name="producer_type",
+                    outcome="reject",
+                    observed=attestation.producer_type,
+                    expected=parsed_policy.allowed_producer_types,
+                    rationale="producer_type rejected",
+                    rejected_alternative=(
+                        f"producer_type {attestation.producer_type} not in"
+                        f" {parsed_policy.allowed_producer_types}"
+                    ),
+                )
+        elif trace_builder:
+            trace_builder.record_rule(
+                name="producer_type",
+                outcome="match",
+                observed=attestation.producer_type,
+                expected=parsed_policy.allowed_producer_types,
+                rationale="producer_type permitted",
+            )
+    elif trace_builder:
+        trace_builder.record_rule(
+            name="producer_type",
+            outcome="match",
+            observed=(
+                aggregate.provenance_attestation.producer_type
+                if aggregate.provenance_attestation is not None
+                else "<not required>"
+            ),
+            expected=None,
+            rationale="producer_type unrestricted",
+        )
 
     if (
         parsed_policy.required_redaction_profile is not None
@@ -1247,6 +1586,34 @@ def evaluate_tooling_status_policy(
         reject_reasons.append(
             "aggregate payload not constrained to required redaction profile '"
             f"{parsed_policy.required_redaction_profile.profile_name}'"
+        )
+        if trace_builder:
+            trace_builder.record_rule(
+                name="redaction_profile",
+                outcome="reject",
+                observed=profile.profile_name,
+                expected=(parsed_policy.required_redaction_profile.profile_name,),
+                rationale="redaction profile mismatch",
+                rejected_alternative=(
+                    f"redaction profile {profile.profile_name} !="
+                    f" {parsed_policy.required_redaction_profile.profile_name}"
+                ),
+            )
+    elif trace_builder:
+        trace_builder.record_rule(
+            name="redaction_profile",
+            outcome="match",
+            observed=profile.profile_name,
+            expected=(
+                (parsed_policy.required_redaction_profile.profile_name,)
+                if parsed_policy.required_redaction_profile is not None
+                else None
+            ),
+            rationale=(
+                "redaction profile permitted"
+                if parsed_policy.required_redaction_profile is not None
+                else "no required redaction profile"
+            ),
         )
 
     advisory_issues = _count_advisory_issues(aggregate)
@@ -1258,14 +1625,51 @@ def evaluate_tooling_status_policy(
             f"advisory issues {advisory_issues} exceed maximum"
             f" {parsed_policy.maximum_advisory_issues}"
         )
+        if trace_builder:
+            trace_builder.record_rule(
+                name="advisory_issues",
+                outcome="reject",
+                observed=str(advisory_issues),
+                expected=parsed_policy.maximum_advisory_issues,
+                rationale="advisory issue limit exceeded",
+                rejected_alternative=(
+                    f"advisory issues {advisory_issues} exceed"
+                    f" {parsed_policy.maximum_advisory_issues}"
+                ),
+            )
     if advisory_issues:
         warn_reasons.append(f"{advisory_issues} advisory issue(s) present")
+        if trace_builder and advisory_issues <= (
+            parsed_policy.maximum_advisory_issues
+            if parsed_policy.maximum_advisory_issues is not None
+            else advisory_issues
+        ):
+            trace_builder.record_rule(
+                name="advisory_issues",
+                outcome="warn",
+                observed=str(advisory_issues),
+                expected=parsed_policy.maximum_advisory_issues,
+                rationale="advisory issues present",
+            )
+    elif trace_builder:
+        trace_builder.record_rule(
+            name="advisory_issues",
+            outcome="match",
+            observed="0",
+            expected=parsed_policy.maximum_advisory_issues,
+            rationale="no advisory issues",
+        )
 
+    decision = PolicyDecision("ACCEPT", ())
     if reject_reasons:
-        return PolicyDecision("REJECT", tuple(reject_reasons + warn_reasons))
-    if warn_reasons:
-        return PolicyDecision("WARN", tuple(warn_reasons))
-    return PolicyDecision("ACCEPT", ())
+        decision = PolicyDecision("REJECT", tuple(reject_reasons + warn_reasons))
+    elif warn_reasons:
+        decision = PolicyDecision("WARN", tuple(warn_reasons))
+
+    if trace_builder:
+        trace = trace_builder.finalize()
+        return decision, trace
+    return decision
 
 
 def policy_ci_strict() -> ToolingStatusPolicy:
