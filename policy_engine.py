@@ -31,6 +31,7 @@ from typing import Any, Dict, List, Optional
 import os
 
 import final_approval
+import affective_context as ac
 
 try:
     import yaml  # type: ignore[import-untyped]  # optional YAML policies
@@ -139,6 +140,9 @@ class PolicyEngine:
     # -- Evaluation ---------------------------------------------------------
     def evaluate(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Evaluate an event and return actions triggered."""
+        affective_overlay = ac.capture_affective_context(
+            "policy-evaluate", overlay=event.get("emotions", {})
+        )
         if not _ALLOW_UNSAFE_GRADIENT and any(
             key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
             for key in event.keys()
@@ -158,7 +162,7 @@ class PolicyEngine:
             if self._match(pol.get("conditions", {}), event):
                 actions.extend(pol.get("actions", []))
         if actions:
-            self._log(event, actions)
+            self._log(event, actions, affective_overlay)
         for action in actions:
             for key in action.keys():
                 lowered = str(key).lower()
@@ -232,12 +236,22 @@ class PolicyEngine:
                 return False
         return True
 
-    def _log(self, event: Dict[str, Any], actions: List[Dict[str, Any]]) -> None:
+    def _log(
+        self,
+        event: Dict[str, Any],
+        actions: List[Dict[str, Any]],
+        affective_overlay: Dict[str, Any],
+    ) -> None:
+        ac.require_affective_context({"affective_context": affective_overlay})
         self.logs.append({
             "timestamp": time.time(),
             "event": event,
             "actions": actions,
+            "affective_context": affective_overlay,
         })
+        ac.register_context(
+            "policy_engine", affective_overlay, metadata={"actions": len(actions)}
+        )
 
     def _record_history(self, data: Dict[str, Any]) -> None:
         self._load_sequence += 1

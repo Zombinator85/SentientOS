@@ -16,6 +16,7 @@ from api import actuator
 import memory_manager as mm
 import user_profile as up
 import emotion_memory as em
+import affective_context as ac
 
 SYSTEM_PROMPT = "You are Lumos, an emotionally present AI assistant."
 _ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
@@ -126,5 +127,12 @@ def assemble_prompt(user_input: str, recent_messages: List[str] | None = None, k
             },
         )
         raise AssertionError("PROMPT_ASSEMBLY invariant violated: forbidden metadata tokens in prompt")
+
+    overlay = ac.capture_affective_context("prompt-assembly", overlay=emotion_ctx)
+    ac.register_context(
+        "prompt_assembler",
+        overlay,
+        metadata={"input_hash": _compute_input_hash(memories, prompt)},
+    )
 
     return prompt
