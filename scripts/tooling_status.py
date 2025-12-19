@@ -44,6 +44,14 @@ class ToolingStatusAggregatePayload(TypedDict, total=False):
     lineage_relation: str
     provenance_attestation: ProvenanceAttestationPayload | None
 
+
+class ToolingStatusPolicyPayload(TypedDict, total=False):
+    schema_version: str
+    allowed_overall_statuses: list[OverallStatus]
+    allowed_producer_types: list[str]
+    required_redaction_profile: str
+    maximum_advisory_issues: int
+
 _SCHEMA_VERSION = "1.2"
 _ATTESTATION_SCHEMA_VERSION = "1.2"
 _LINEAGE_SCHEMA_VERSION = "1.1"
@@ -52,6 +60,7 @@ _VALID_LINEAGE_RELATIONS: set[str] = {"supersedes", "amends", "recheck"}
 _VALID_PRODUCER_TYPES: set[str] = {"local", "ci", "sandbox", "pipeline", "adhoc"}
 _REDACTED_MARKER = "<redacted>"
 _REDACTED_FINGERPRINT = "0" * 64
+_POLICY_SCHEMA_VERSION = "1.0"
 
 
 @dataclass(frozen=True)
@@ -84,6 +93,25 @@ class SchemaDefinition:
     optional_aggregate_fields: tuple[str, ...]
     tool_fields: tuple[str, ...]
     classification_fields: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ToolingStatusPolicy:
+    schema_version: str
+    allowed_overall_statuses: tuple[OverallStatus, ...]
+    allowed_producer_types: tuple[str, ...] | None
+    required_redaction_profile: RedactionProfile | None
+    maximum_advisory_issues: int | None
+    forward_metadata: dict[str, object] = field(default_factory=dict)
+
+
+PolicyDecisionOutcome = Literal["ACCEPT", "WARN", "REJECT"]
+
+
+@dataclass(frozen=True)
+class PolicyDecision:
+    outcome: PolicyDecisionOutcome
+    reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -235,6 +263,94 @@ def _validate_constraints(value: object, *, allow_redacted: bool = False) -> dic
             continue
         constraints[key] = entry
     return dict(sorted(constraints.items()))
+
+
+def _redaction_profile_from_name(name: str) -> RedactionProfile:
+    for profile in RedactionProfile:
+        if profile.profile_name == name:
+            return profile
+    raise ValueError(
+        f"required_redaction_profile must be one of {[profile.profile_name for profile in RedactionProfile]}"
+    )
+
+
+def parse_tooling_status_policy(payload: Mapping[str, object]) -> ToolingStatusPolicy:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Policy payload must be a mapping")
+
+    schema_version_value = payload.get("schema_version")
+    if not isinstance(schema_version_value, str):
+        raise ValueError("Policy payload missing schema_version")
+
+    version_comparison = _compare_versions(schema_version_value, _POLICY_SCHEMA_VERSION)
+    forward_version_detected = version_comparison > 0
+    backward_version_detected = version_comparison < 0
+
+    allowed_overall_statuses_value = payload.get("allowed_overall_statuses")
+    if not isinstance(allowed_overall_statuses_value, list) or not allowed_overall_statuses_value:
+        raise ValueError("allowed_overall_statuses must be a non-empty list")
+    allowed_overall_statuses: list[OverallStatus] = []
+    for entry in allowed_overall_statuses_value:
+        if not isinstance(entry, str):
+            raise ValueError("allowed_overall_statuses entries must be strings")
+        if not forward_version_detected and entry not in {"PASS", "WARN", "FAIL"}:
+            raise ValueError(
+                "allowed_overall_statuses entries must be one of ['PASS', 'WARN', 'FAIL']"
+            )
+        allowed_overall_statuses.append(cast(OverallStatus, entry))
+
+    allowed_producer_types_value = payload.get("allowed_producer_types")
+    allowed_producer_types: tuple[str, ...] | None = None
+    if allowed_producer_types_value is not None:
+        if not isinstance(allowed_producer_types_value, list) or not allowed_producer_types_value:
+            raise ValueError("allowed_producer_types must be a non-empty list when provided")
+        producer_types: list[str] = []
+        for entry in allowed_producer_types_value:
+            if not isinstance(entry, str):
+                raise ValueError("allowed_producer_types entries must be strings")
+            if not forward_version_detected and entry not in _VALID_PRODUCER_TYPES:
+                raise ValueError(
+                    f"allowed_producer_types entries must be one of {sorted(_VALID_PRODUCER_TYPES)}"
+                )
+            producer_types.append(entry)
+        allowed_producer_types = tuple(sorted(set(producer_types)))
+
+    required_redaction_profile_value = payload.get("required_redaction_profile")
+    required_redaction_profile: RedactionProfile | None = None
+    if required_redaction_profile_value is not None:
+        if not isinstance(required_redaction_profile_value, str):
+            raise ValueError("required_redaction_profile must be a string when provided")
+        required_redaction_profile = _redaction_profile_from_name(required_redaction_profile_value)
+
+    maximum_advisory_issues_value = payload.get("maximum_advisory_issues")
+    maximum_advisory_issues: int | None = None
+    if maximum_advisory_issues_value is not None:
+        if not isinstance(maximum_advisory_issues_value, int) or maximum_advisory_issues_value < 0:
+            raise ValueError("maximum_advisory_issues must be a non-negative integer when provided")
+        maximum_advisory_issues = maximum_advisory_issues_value
+
+    known_fields = {
+        "schema_version",
+        "allowed_overall_statuses",
+        "allowed_producer_types",
+        "required_redaction_profile",
+        "maximum_advisory_issues",
+    }
+    extra_fields = set(payload.keys()) - known_fields
+    forward_metadata: dict[str, object] = {}
+    if extra_fields and (forward_version_detected or backward_version_detected):
+        forward_metadata = {name: payload[name] for name in sorted(extra_fields)}
+    elif extra_fields:
+        raise ValueError(f"Policy payload has unexpected fields: {sorted(extra_fields)}")
+
+    return ToolingStatusPolicy(
+        schema_version=schema_version_value,
+        allowed_overall_statuses=tuple(sorted(set(allowed_overall_statuses))),
+        allowed_producer_types=allowed_producer_types,
+        required_redaction_profile=required_redaction_profile,
+        maximum_advisory_issues=maximum_advisory_issues,
+        forward_metadata=forward_metadata,
+    )
 
 
 @dataclass(frozen=True)
@@ -771,6 +887,117 @@ def _to_aggregate(
     if isinstance(subject, ToolingStatusAggregate):
         return subject
     return parse_tooling_status_payload(subject, profile=profile)
+
+
+def _to_policy(policy: ToolingStatusPolicy | Mapping[str, object]) -> ToolingStatusPolicy:
+    if isinstance(policy, ToolingStatusPolicy):
+        return policy
+    if isinstance(policy, Mapping):
+        return parse_tooling_status_policy(policy)
+    raise TypeError("Policy must be a ToolingStatusPolicy or mapping")
+
+
+def _redaction_matches_profile(
+    aggregate: ToolingStatusAggregate, profile: RedactionProfile
+) -> bool:
+    return aggregate.canonical_dict() == aggregate.profiled_payload(profile)
+
+
+def _count_advisory_issues(aggregate: ToolingStatusAggregate) -> int:
+    return sum(
+        1
+        for result in aggregate.tools.values()
+        if result.classification == "advisory" and result.status != "passed"
+    )
+
+
+def evaluate_tooling_status_policy(
+    subject: ToolingStatusAggregate | Mapping[str, object],
+    policy: ToolingStatusPolicy | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
+) -> PolicyDecision:
+    aggregate = _to_aggregate(subject, profile=profile)
+    parsed_policy = _to_policy(policy)
+
+    reject_reasons: list[str] = []
+    warn_reasons: list[str] = []
+
+    if aggregate.overall_status not in parsed_policy.allowed_overall_statuses:
+        reject_reasons.append(
+            "overall_status"
+            f" '{aggregate.overall_status}' not permitted by policy"
+        )
+    elif aggregate.overall_status != "PASS":
+        warn_reasons.append(f"overall_status is {aggregate.overall_status}")
+
+    if parsed_policy.allowed_producer_types is not None:
+        attestation = aggregate.provenance_attestation
+        if attestation is None:
+            reject_reasons.append("provenance attestation required")
+        elif attestation.producer_type not in parsed_policy.allowed_producer_types:
+            reject_reasons.append(
+                "producer_type '"
+                f"{attestation.producer_type}' not permitted (allowed:"
+                f" {sorted(parsed_policy.allowed_producer_types)})"
+            )
+
+    if (
+        parsed_policy.required_redaction_profile is not None
+        and not _redaction_matches_profile(aggregate, parsed_policy.required_redaction_profile)
+    ):
+        reject_reasons.append(
+            "aggregate payload not constrained to required redaction profile '"
+            f"{parsed_policy.required_redaction_profile.profile_name}'"
+        )
+
+    advisory_issues = _count_advisory_issues(aggregate)
+    if (
+        parsed_policy.maximum_advisory_issues is not None
+        and advisory_issues > parsed_policy.maximum_advisory_issues
+    ):
+        reject_reasons.append(
+            f"advisory issues {advisory_issues} exceed maximum"
+            f" {parsed_policy.maximum_advisory_issues}"
+        )
+    if advisory_issues:
+        warn_reasons.append(f"{advisory_issues} advisory issue(s) present")
+
+    if reject_reasons:
+        return PolicyDecision("REJECT", tuple(reject_reasons + warn_reasons))
+    if warn_reasons:
+        return PolicyDecision("WARN", tuple(warn_reasons))
+    return PolicyDecision("ACCEPT", ())
+
+
+def policy_ci_strict() -> ToolingStatusPolicy:
+    return ToolingStatusPolicy(
+        schema_version=_POLICY_SCHEMA_VERSION,
+        allowed_overall_statuses=("PASS",),
+        allowed_producer_types=("ci",),
+        required_redaction_profile=None,
+        maximum_advisory_issues=0,
+    )
+
+
+def policy_local_dev_permissive() -> ToolingStatusPolicy:
+    return ToolingStatusPolicy(
+        schema_version=_POLICY_SCHEMA_VERSION,
+        allowed_overall_statuses=("PASS", "WARN"),
+        allowed_producer_types=None,
+        required_redaction_profile=None,
+        maximum_advisory_issues=None,
+    )
+
+
+def policy_release_gate() -> ToolingStatusPolicy:
+    return ToolingStatusPolicy(
+        schema_version=_POLICY_SCHEMA_VERSION,
+        allowed_overall_statuses=("PASS",),
+        allowed_producer_types=None,
+        required_redaction_profile=RedactionProfile.SAFE,
+        maximum_advisory_issues=0,
+    )
 
 
 def fingerprint_tooling_status(
