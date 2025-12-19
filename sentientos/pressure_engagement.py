@@ -14,6 +14,7 @@ import uuid
 from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
 
 import affective_context as ac
+from sentientos.constraint_registry import ConstraintRegistry
 
 PRESSURE_SCHEMA_VERSION = "1.0"
 ENGAGEMENT_SCHEMA_VERSION = "1.0"
@@ -137,6 +138,7 @@ class ConstraintEngagementEngine:
         blockage_threshold: int = 3,
         max_signals: int = 25,
         default_defer_seconds: float = 90.0,
+        registry: Optional[ConstraintRegistry] = None,
     ) -> None:
         self._states: Dict[str, ConstraintPressureState] = {}
         self._engagements: Dict[str, List[ConstraintEngagementRecord]] = {}
@@ -144,6 +146,7 @@ class ConstraintEngagementEngine:
         self._blockage_threshold = max(1, int(blockage_threshold))
         self._max_signals = max(1, int(max_signals))
         self._default_defer_seconds = float(default_defer_seconds)
+        self._registry = registry
 
     def pressure_state(self, constraint_id: str) -> ConstraintPressureState:
         return self._states.setdefault(constraint_id, ConstraintPressureState(constraint_id))
@@ -158,6 +161,7 @@ class ConstraintEngagementEngine:
         blocked: bool = True,
     ) -> Tuple[ConstraintPressureState, Optional[ConstraintEngagementRecord]]:
         normalized_context = self._normalize_affective_context(affective_context)
+        self._require_registered(constraint_id)
         ac.require_affective_context({"affective_context": normalized_context})
         vector = normalized_context.get("vector", {}) if isinstance(normalized_context, Mapping) else {}
         state = self.pressure_state(constraint_id)
@@ -176,9 +180,11 @@ class ConstraintEngagementEngine:
             now=now, chronic_threshold=self._chronic_threshold, blockage_threshold=self._blockage_threshold
         ):
             engagement = self._defer_engagement(state, now=now)
+            self._register_engagement(engagement)
         return state, engagement
 
     def mark_ignored(self, constraint_id: str, *, reason: str) -> ConstraintPressureState:
+        self._require_registered(constraint_id)
         state = self.pressure_state(constraint_id)
         state.ignored_reason = reason
         return state
@@ -235,6 +241,7 @@ class ConstraintEngagementEngine:
             lineage_from=lineage_from or state.pending_engagement_id,
         )
         self._engagements.setdefault(constraint_id, []).append(record)
+        self._register_engagement(record)
         if decision == "defer":
             state.pending_engagement_id = record.engagement_id
             state.defer_until = defer_until
@@ -289,6 +296,7 @@ class ConstraintEngagementEngine:
             lineage_from=state.pending_engagement_id,
         )
         self._engagements.setdefault(state.constraint_id, []).append(record)
+        self._register_engagement(record)
         state.pending_engagement_id = record.engagement_id
         state.defer_until = record.defer_until
         return record
@@ -331,6 +339,16 @@ class ConstraintEngagementEngine:
     @property
     def engagements(self) -> Tuple[ConstraintEngagementRecord, ...]:
         return tuple(record for records in self._engagements.values() for record in records)
+
+    def _require_registered(self, constraint_id: str) -> None:
+        if self._registry is None:
+            return
+        self._registry.require(constraint_id)
+
+    def _register_engagement(self, engagement: ConstraintEngagementRecord) -> None:
+        if self._registry is None:
+            return
+        self._registry.record_engagement(engagement)
 
     def _normalize_affective_context(self, context: Mapping[str, object]) -> Mapping[str, object]:
         if isinstance(context, Mapping) and "version" in context and "vector" in context:
