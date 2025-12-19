@@ -27,20 +27,25 @@ class ToolResultPayload(TypedDict):
     dependency: str | None
 
 
-class ToolingStatusAggregatePayload(TypedDict):
+class ToolingStatusAggregatePayload(TypedDict, total=False):
     schema_version: str
     overall_status: OverallStatus
     tools: dict[str, ToolResultPayload]
     missing_tools: list[str]
+    lineage_parent_fingerprint: str
+    lineage_relation: str
 
-_SCHEMA_VERSION = "1.0"
+_SCHEMA_VERSION = "1.1"
+_LINEAGE_SCHEMA_VERSION = "1.1"
 _VALID_STATUSES: set[Status] = {"passed", "failed", "skipped", "error", "missing"}
+_VALID_LINEAGE_RELATIONS: set[str] = {"supersedes", "amends", "recheck"}
 
 
 @dataclass(frozen=True)
 class SchemaDefinition:
     version: str
     aggregate_fields: tuple[str, ...]
+    optional_aggregate_fields: tuple[str, ...]
     tool_fields: tuple[str, ...]
     classification_fields: tuple[str, ...]
 
@@ -103,6 +108,7 @@ _CLASSIFICATIONS: dict[str, ToolClassification] = {
 TOOLING_STATUS_SCHEMA = SchemaDefinition(
     version=_SCHEMA_VERSION,
     aggregate_fields=("schema_version", "overall_status", "tools", "missing_tools"),
+    optional_aggregate_fields=("lineage_parent_fingerprint", "lineage_relation"),
     tool_fields=(
         "tool",
         "classification",
@@ -131,6 +137,24 @@ def _validate_status(status: str) -> Status:
     if status not in _VALID_STATUSES:
         raise ValueError(f"Unknown tool status '{status}'")
     return cast(Status, status)
+
+
+def _validate_fingerprint_value(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("fingerprint must be a string when provided")
+    if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+        raise ValueError("fingerprint must be a lowercase hexadecimal sha256 digest")
+    return value
+
+
+def _validate_lineage_relation(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("lineage_relation must be a string when provided")
+    if value not in _VALID_LINEAGE_RELATIONS:
+        raise ValueError(
+            f"lineage_relation must be one of {sorted(_VALID_LINEAGE_RELATIONS)}"
+        )
+    return value
 
 
 def _coerce_tool_result(tool: str, payload: Mapping[str, object] | None) -> ToolResult:
@@ -197,11 +221,13 @@ class ToolingStatusAggregate:
     overall_status: OverallStatus
     tools: dict[str, ToolResult]
     missing_tools: tuple[str, ...]
+    lineage_parent_fingerprint: str | None = None
+    lineage_relation: str | None = None
     forward_version_detected: bool = False
     forward_metadata: dict[str, object] = field(default_factory=dict)
 
     def canonical_dict(self) -> ToolingStatusAggregatePayload:
-        return {
+        payload: ToolingStatusAggregatePayload = {
             "schema_version": self.schema_version,
             "overall_status": self.overall_status,
             "tools": {
@@ -209,6 +235,11 @@ class ToolingStatusAggregate:
             },
             "missing_tools": sorted(self.missing_tools),
         }
+        if self.lineage_parent_fingerprint is not None:
+            payload["lineage_parent_fingerprint"] = self.lineage_parent_fingerprint
+        if self.lineage_relation is not None:
+            payload["lineage_relation"] = self.lineage_relation
+        return payload
 
     @property
     def fingerprint(self) -> str:
@@ -338,15 +369,12 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
 
     version_comparison = _compare_versions(schema_version_value, TOOLING_STATUS_SCHEMA.version)
     forward_version_detected = version_comparison > 0
-    if version_comparison < 0:
-        raise ValueError(
-            f"Unsupported tooling status schema version {schema_version_value}; expected"
-            f" {TOOLING_STATUS_SCHEMA.version} or newer"
-        )
+    backward_version_detected = version_comparison < 0
+    lineage_supported = _compare_versions(schema_version_value, _LINEAGE_SCHEMA_VERSION) >= 0
 
     fingerprint_value = payload.get("fingerprint")
-    if fingerprint_value is not None and not isinstance(fingerprint_value, str):
-        raise ValueError("fingerprint must be a string when provided")
+    if fingerprint_value is not None:
+        fingerprint_value = _validate_fingerprint_value(fingerprint_value)
 
     required_fields = set(TOOLING_STATUS_SCHEMA.aggregate_fields)
     missing_fields = required_fields - set(payload.keys())
@@ -356,8 +384,14 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
         )
 
     forward_metadata: dict[str, object] = {}
-    extra_fields = set(payload.keys()) - required_fields - {"fingerprint"}
-    if extra_fields and forward_version_detected:
+    allowed_optional_fields: set[str] = set()
+    if lineage_supported:
+        allowed_optional_fields.update(TOOLING_STATUS_SCHEMA.optional_aggregate_fields)
+
+    extra_fields = (
+        set(payload.keys()) - required_fields - allowed_optional_fields - {"fingerprint"}
+    )
+    if extra_fields and (forward_version_detected or backward_version_detected):
         forward_metadata["aggregate"] = {name: payload[name] for name in extra_fields}
     elif extra_fields:
         raise ValueError(f"Tooling status payload has unexpected fields: {sorted(extra_fields)}")
@@ -402,11 +436,37 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
     if tool_forward_metadata:
         forward_metadata["tool_fields"] = tool_forward_metadata
 
+    lineage_parent: str | None = None
+    lineage_relation: str | None = None
+    lineage_parent_payload = payload.get("lineage_parent_fingerprint")
+    lineage_relation_payload = payload.get("lineage_relation")
+    if lineage_supported:
+        if lineage_parent_payload is not None:
+            lineage_parent = _validate_fingerprint_value(lineage_parent_payload)
+        if lineage_relation_payload is not None:
+            lineage_relation = _validate_lineage_relation(lineage_relation_payload)
+            if lineage_parent is None:
+                raise ValueError("lineage_relation provided without lineage_parent_fingerprint")
+    elif lineage_parent_payload is not None or lineage_relation_payload is not None:
+        forward_metadata["aggregate"] = {
+            **forward_metadata.get("aggregate", {}),
+            **{
+                key: value
+                for key, value in (
+                    ("lineage_parent_fingerprint", lineage_parent_payload),
+                    ("lineage_relation", lineage_relation_payload),
+                )
+                if value is not None
+            },
+        }
+
     aggregate = ToolingStatusAggregate(
         schema_version=schema_version_value,
         overall_status=overall_status,
         tools=tools,
         missing_tools=tuple(sorted(missing_tools)),
+        lineage_parent_fingerprint=lineage_parent,
+        lineage_relation=lineage_relation,
         forward_version_detected=forward_version_detected,
         forward_metadata=forward_metadata,
     )
@@ -414,10 +474,20 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
     if fingerprint_value is not None and fingerprint_value != aggregate.fingerprint:
         raise ValueError("Tooling status fingerprint does not match canonical payload")
 
+    if aggregate.lineage_parent_fingerprint is not None and (
+        aggregate.lineage_parent_fingerprint == aggregate.fingerprint
+    ):
+        raise ValueError("Tooling status payload cannot reference itself as lineage parent")
+
     return aggregate
 
 
-def aggregate_tooling_status(tool_payloads: Mapping[str, Mapping[str, object]]) -> ToolingStatusAggregate:
+def aggregate_tooling_status(
+    tool_payloads: Mapping[str, Mapping[str, object]],
+    *,
+    lineage_parent_fingerprint: str | None = None,
+    lineage_relation: str | None = None,
+) -> ToolingStatusAggregate:
     unknown = set(tool_payloads) - set(_CLASSIFICATIONS)
     if unknown:
         raise KeyError(f"Unknown tooling results provided: {sorted(unknown)}")
@@ -431,12 +501,26 @@ def aggregate_tooling_status(tool_payloads: Mapping[str, Mapping[str, object]]) 
         tools[name] = _coerce_tool_result(name, payload)
 
     overall = _derive_overall(tools.values())
-    return ToolingStatusAggregate(
+    parent_value = _validate_fingerprint_value(lineage_parent_fingerprint) if lineage_parent_fingerprint else None
+    relation_value = _validate_lineage_relation(lineage_relation) if lineage_relation else None
+    if relation_value is not None and parent_value is None:
+        raise ValueError("lineage_relation provided without lineage_parent_fingerprint")
+
+    aggregate = ToolingStatusAggregate(
         schema_version=_SCHEMA_VERSION,
         overall_status=overall,
         tools=tools,
         missing_tools=tuple(sorted(missing)),
+        lineage_parent_fingerprint=parent_value,
+        lineage_relation=relation_value,
     )
+
+    if aggregate.lineage_parent_fingerprint is not None and (
+        aggregate.lineage_parent_fingerprint == aggregate.fingerprint
+    ):
+        raise ValueError("Tooling status payload cannot reference itself as lineage parent")
+
+    return aggregate
 
 
 def _to_aggregate(subject: ToolingStatusAggregate | Mapping[str, object]) -> ToolingStatusAggregate:
@@ -456,6 +540,46 @@ def tooling_status_equal(
 ) -> bool:
     return fingerprint_tooling_status(first) == fingerprint_tooling_status(second)
 
+
+def tooling_status_supersedes(
+    candidate: ToolingStatusAggregate | Mapping[str, object],
+    reference: ToolingStatusAggregate | Mapping[str, object],
+) -> bool:
+    candidate_aggregate = _to_aggregate(candidate)
+    reference_aggregate = _to_aggregate(reference)
+    parent_fingerprint = candidate_aggregate.lineage_parent_fingerprint
+
+    if parent_fingerprint is None:
+        return False
+    if parent_fingerprint == candidate_aggregate.fingerprint:
+        raise ValueError("Lineage parent fingerprint matches candidate fingerprint")
+    return parent_fingerprint == reference_aggregate.fingerprint
+
+
+def validate_lineage_chain(
+    aggregates: Iterable[ToolingStatusAggregate | Mapping[str, object]]
+) -> None:
+    parsed: list[ToolingStatusAggregate] = [_to_aggregate(entry) for entry in aggregates]
+    seen: dict[str, ToolingStatusAggregate] = {}
+    for aggregate in parsed:
+        if aggregate.fingerprint in seen:
+            raise ValueError("Duplicate fingerprints detected in lineage chain")
+        seen[aggregate.fingerprint] = aggregate
+
+    for aggregate in parsed:
+        parent_fingerprint = aggregate.lineage_parent_fingerprint
+        if parent_fingerprint is None:
+            continue
+        if parent_fingerprint == aggregate.fingerprint:
+            raise ValueError("Self-referential lineage detected")
+
+        visited: set[str] = set()
+        current = parent_fingerprint
+        while current is not None and current in seen:
+            if current in visited:
+                raise ValueError("Lineage cycle detected")
+            visited.add(current)
+            current = seen[current].lineage_parent_fingerprint
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
