@@ -11,13 +11,22 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import time
 import uuid
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Tuple
+from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Set, Tuple
 
 import affective_context as ac
 from sentientos.constraint_registry import ConstraintRegistry
+from sentientos.sensor_provenance import (
+    BandPassCalibrationEngine,
+    CalibrationAdjustment,
+    SensorFaultRecord,
+    SensorProvenance,
+    classify_pressure,
+    default_provenance_for_constraint,
+    require_sensor_provenance,
+)
 
-PRESSURE_SCHEMA_VERSION = "1.0"
-ENGAGEMENT_SCHEMA_VERSION = "1.0"
+PRESSURE_SCHEMA_VERSION = "2.0"
+ENGAGEMENT_SCHEMA_VERSION = "1.1"
 
 
 class PressureDecayError(RuntimeError):
@@ -35,12 +44,19 @@ class PressureSignal:
     reason: str
     affective_context: Mapping[str, float]
     blocked: bool
+    classification: str
+    provenance: SensorProvenance
+    calibration_notes: Mapping[str, object]
+    calibration_adjustments: Tuple[CalibrationAdjustment, ...]
     timestamp: float = field(default_factory=lambda: time.time())
 
     def to_payload(self) -> Dict[str, object]:
         payload = asdict(self)
         payload["schema_version"] = PRESSURE_SCHEMA_VERSION
         payload["affective_context"] = dict(self.affective_context)
+        payload["provenance"] = self.provenance.to_payload()
+        payload["calibration_notes"] = dict(self.calibration_notes)
+        payload["calibration_adjustments"] = [adj.to_payload() for adj in self.calibration_adjustments]
         return payload
 
 
@@ -49,19 +65,29 @@ class ConstraintPressureState:
     constraint_id: str
     signals: List[PressureSignal] = field(default_factory=list)
     total_pressure: float = 0.0
+    sensor_pressure: float = 0.0
     blocked_count: int = 0
     pending_engagement_id: Optional[str] = None
     defer_until: Optional[float] = None
     last_reviewed_at: Optional[float] = None
     ignored_reason: Optional[str] = None
+    classification_tally: Dict[str, int] = field(default_factory=dict)
+    last_decision: Optional[str] = None
+    meta_pressure_flags: Set[str] = field(default_factory=set)
 
     def record(self, signal: PressureSignal, *, max_signals: int) -> None:
         self.signals.append(signal)
         if len(self.signals) > max_signals:
             del self.signals[:-max_signals]
-        self.total_pressure += max(0.0, float(signal.magnitude))
+        if signal.classification == "sensor":
+            self.sensor_pressure += max(0.0, float(signal.magnitude))
+        else:
+            self.total_pressure += max(0.0, float(signal.magnitude))
         if signal.blocked:
             self.blocked_count += 1
+        self.classification_tally[signal.classification] = self.classification_tally.get(
+            signal.classification, 0
+        ) + 1
 
     def status(self, *, chronic_threshold: float, blockage_threshold: int) -> str:
         if self.ignored_reason:
@@ -75,11 +101,14 @@ class ConstraintPressureState:
     def reset(self) -> None:
         self.signals.clear()
         self.total_pressure = 0.0
+        self.sensor_pressure = 0.0
         self.blocked_count = 0
         self.pending_engagement_id = None
         self.defer_until = None
         self.last_reviewed_at = time.time()
         self.ignored_reason = None
+        self.classification_tally.clear()
+        self.meta_pressure_flags.clear()
 
     def require_review(self, *, now: float, chronic_threshold: float, blockage_threshold: int) -> bool:
         if self.status(chronic_threshold=chronic_threshold, blockage_threshold=blockage_threshold) != "chronic":
@@ -103,6 +132,7 @@ class ConstraintEngagementRecord:
     reviewer: Optional[str] = None
     defer_until: Optional[float] = None
     lineage_from: Optional[str] = None
+    provenance_summary: Mapping[str, object] = field(default_factory=dict)
 
     def to_payload(self) -> Dict[str, object]:
         payload = {
@@ -117,6 +147,7 @@ class ConstraintEngagementRecord:
             "reviewer": self.reviewer,
             "defer_until": self.defer_until,
             "lineage_from": self.lineage_from,
+            "provenance_summary": dict(self.provenance_summary),
         }
         payload["pressure_score"] = self.pressure_score
         return payload
@@ -147,6 +178,8 @@ class ConstraintEngagementEngine:
         self._max_signals = max(1, int(max_signals))
         self._default_defer_seconds = float(default_defer_seconds)
         self._registry = registry
+        self._calibration = BandPassCalibrationEngine()
+        self._sensor_faults: List[SensorFaultRecord] = []
 
     def pressure_state(self, constraint_id: str) -> ConstraintPressureState:
         return self._states.setdefault(constraint_id, ConstraintPressureState(constraint_id))
@@ -159,20 +192,39 @@ class ConstraintEngagementEngine:
         reason: str,
         affective_context: Mapping[str, object],
         blocked: bool = True,
+        provenance: Mapping[str, object] | SensorProvenance | None = None,
+        classification: Optional[str] = None,
+        calibration_notes: Optional[Mapping[str, object]] = None,
+        calibration_adjustments: Tuple[CalibrationAdjustment, ...] | None = None,
     ) -> Tuple[ConstraintPressureState, Optional[ConstraintEngagementRecord]]:
+        if provenance is None:
+            raise ValueError("sensor provenance is required for pressure signals")
         normalized_context = self._normalize_affective_context(affective_context)
         self._require_registered(constraint_id)
         ac.require_affective_context({"affective_context": normalized_context})
         vector = normalized_context.get("vector", {}) if isinstance(normalized_context, Mapping) else {}
+        resolved_provenance = require_sensor_provenance(provenance)
+        resolved_classification = classify_pressure(resolved_provenance, classification=classification)
+        bandpass_notes, adjusted_magnitude = self._apply_bandpass(
+            resolved_provenance, magnitude=magnitude, calibration_notes=calibration_notes or {}
+        )
         state = self.pressure_state(constraint_id)
         signal = PressureSignal(
             constraint_id=constraint_id,
-            magnitude=max(0.0, float(magnitude)),
+            magnitude=max(0.0, float(adjusted_magnitude)),
             reason=reason,
             affective_context=vector,
             blocked=blocked,
+            classification=resolved_classification,
+            provenance=resolved_provenance,
+            calibration_notes=bandpass_notes,
+            calibration_adjustments=calibration_adjustments or tuple(),
         )
         state.record(signal, max_signals=self._max_signals)
+        self._detect_meta_pressure(state, signal)
+        if resolved_classification == "sensor" or state.meta_pressure_flags:
+            self._register_sensor_fault(constraint_id, signal, cause="sensor_pressure")
+            return state, None
 
         now = time.time()
         engagement: Optional[ConstraintEngagementRecord] = None
@@ -206,6 +258,9 @@ class ConstraintEngagementEngine:
                 reason=signal.get("reason", "constraint blocked"),
                 affective_context=normalized_overlay,
                 blocked=signal.get("blocked", True),
+                provenance=signal.get("provenance")
+                or default_provenance_for_constraint(signal["constraint_id"]),
+                classification=signal.get("classification"),
             )
             if engagement is not None:
                 engagements.append(engagement)
@@ -248,6 +303,7 @@ class ConstraintEngagementEngine:
         else:
             state.reset()
         state.last_reviewed_at = now
+        state.last_decision = decision
         return record
 
     def decay_pressure(self, constraint_id: str) -> None:
@@ -314,6 +370,7 @@ class ConstraintEngagementEngine:
     ) -> ConstraintEngagementRecord:
         summary = self._summarize_affective_context(signals)
         engagement_id = uuid.uuid4().hex
+        provenance_summary = self._summarize_provenance(signals)
         return ConstraintEngagementRecord(
             engagement_id=engagement_id,
             constraint_id=constraint_id,
@@ -325,6 +382,7 @@ class ConstraintEngagementEngine:
             reviewer=reviewer,
             defer_until=defer_until,
             lineage_from=lineage_from,
+            provenance_summary=provenance_summary,
         )
 
     def _summarize_affective_context(self, signals: Tuple[PressureSignal, ...]) -> Mapping[str, float]:
@@ -336,9 +394,29 @@ class ConstraintEngagementEngine:
                 accumulator[key] = accumulator.get(key, 0.0) + float(value)
         return {key: round(value / len(signals), 3) for key, value in accumulator.items()}
 
+    def _summarize_provenance(self, signals: Tuple[PressureSignal, ...]) -> Mapping[str, object]:
+        if not signals:
+            return {}
+        classification_counts: Dict[str, int] = {}
+        sensors: Set[str] = set()
+        calibration_events = 0
+        for signal in signals:
+            classification_counts[signal.classification] = classification_counts.get(signal.classification, 0) + 1
+            sensors.add(signal.provenance.sensor_id)
+            calibration_events += len(signal.calibration_adjustments)
+        return {
+            "classifications": classification_counts,
+            "sensors": sorted(sensors),
+            "calibration_events": calibration_events,
+        }
+
     @property
     def engagements(self) -> Tuple[ConstraintEngagementRecord, ...]:
         return tuple(record for records in self._engagements.values() for record in records)
+
+    @property
+    def sensor_faults(self) -> Tuple[SensorFaultRecord, ...]:
+        return tuple(self._sensor_faults)
 
     def _require_registered(self, constraint_id: str) -> None:
         if self._registry is None:
@@ -356,3 +434,52 @@ class ConstraintEngagementEngine:
         overlay = context if isinstance(context, Mapping) else {}
         return ac.capture_affective_context("constraint-pressure", overlay=overlay)
 
+    def _apply_bandpass(
+        self,
+        provenance: SensorProvenance,
+        *,
+        magnitude: float,
+        calibration_notes: Mapping[str, object],
+    ) -> Tuple[Mapping[str, object], float]:
+        notes: Dict[str, object] = dict(calibration_notes)
+        gain = float(provenance.sensitivity_parameters.get("gain", 1.0))
+        bounded_gain = max(0.5, min(gain, 3.0))
+        if bounded_gain != gain:
+            notes["gain_clamped"] = {"requested": gain, "applied": bounded_gain}
+        adjusted_magnitude = magnitude * bounded_gain
+        expected_variance = float(provenance.expected_noise_profile.get("variance", 0.0))
+        if adjusted_magnitude > 0 and expected_variance and adjusted_magnitude > expected_variance * 4:
+            notes.setdefault("variance_flags", []).append("high_variance")
+        return notes, adjusted_magnitude
+
+    def _detect_meta_pressure(self, state: ConstraintPressureState, signal: PressureSignal) -> None:
+        if state.last_decision == "reaffirm":
+            state.meta_pressure_flags.add("meta_pressure_reaffirmed_constraint")
+        if signal.magnitude < 0.5 and not signal.blocked:
+            state.meta_pressure_flags.add("meta_pressure_low_impact")
+        if signal.classification == "sensor" and signal.magnitude > 0:
+            state.meta_pressure_flags.add("meta_pressure_sensor_only")
+
+    def _register_sensor_fault(self, constraint_id: str, signal: PressureSignal, *, cause: str) -> None:
+        fault = SensorFaultRecord.from_signal(constraint_id, signal=signal, cause=cause)
+        self._sensor_faults.append(fault)
+
+    def adjust_bandpass(
+        self,
+        provenance: SensorProvenance,
+        parameter: str,
+        new_value: object,
+        *,
+        reason: str,
+        telemetry: Mapping[str, object],
+        previous_value: object | None = None,
+    ) -> CalibrationAdjustment:
+        adjustment = self._calibration.log_adjustment(
+            provenance=provenance,
+            parameter=parameter,
+            new_value=new_value,
+            reason=reason,
+            telemetry=telemetry,
+            previous_value=previous_value,
+        )
+        return adjustment
