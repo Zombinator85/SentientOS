@@ -24,3 +24,12 @@ def test_tooling_status_render_result_includes_reason() -> None:
     assert result["classification"] == "artifact-dependent"
     assert result["status"] == "skipped"
     assert result["reason"] == "manifest_missing"
+
+
+def test_tooling_status_optional_fields_are_not_omitted() -> None:
+    classification = tooling_status.get_classification("pytest").to_dict()
+    assert classification["dependency"] is None
+
+    result = tooling_status.render_result("pytest", status="passed")
+    assert "reason" in result
+    assert result["reason"] is None

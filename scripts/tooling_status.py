@@ -2,14 +2,46 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass
-from typing import Iterable, Literal, Mapping, cast
+from typing import Iterable, Literal, Mapping, TypedDict, cast
 
 Classification = Literal["mandatory", "advisory", "optional", "artifact-dependent"]
 Status = Literal["passed", "failed", "skipped", "error", "missing"]
 OverallStatus = Literal["PASS", "WARN", "FAIL"]
 
+
+class ToolClassificationPayload(TypedDict):
+    tool: str
+    classification: Classification
+    non_blocking: bool
+    description: str
+    dependency: str | None
+
+
+class ToolResultPayload(TypedDict):
+    tool: str
+    classification: Classification
+    status: Status
+    non_blocking: bool
+    reason: str | None
+    dependency: str | None
+
+
+class ToolingStatusAggregatePayload(TypedDict):
+    schema_version: str
+    overall_status: OverallStatus
+    tools: dict[str, ToolResultPayload]
+    missing_tools: list[str]
+
 _SCHEMA_VERSION = "1.0"
 _VALID_STATUSES: set[Status] = {"passed", "failed", "skipped", "error", "missing"}
+
+
+@dataclass(frozen=True)
+class SchemaDefinition:
+    version: str
+    aggregate_fields: tuple[str, ...]
+    tool_fields: tuple[str, ...]
+    classification_fields: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -20,11 +52,9 @@ class ToolClassification:
     description: str
     dependency: str | None = None
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> ToolClassificationPayload:
         data = asdict(self)
-        if self.dependency is None:
-            data.pop("dependency")
-        return data
+        return cast(ToolClassificationPayload, data)
 
 
 @dataclass(frozen=True)
@@ -36,13 +66,9 @@ class ToolResult:
     reason: str | None = None
     dependency: str | None = None
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> ToolResultPayload:
         data = asdict(self)
-        if self.reason is None:
-            data.pop("reason")
-        if self.dependency is None:
-            data.pop("dependency")
-        return data
+        return cast(ToolResultPayload, data)
 
 
 _CLASSIFICATIONS: dict[str, ToolClassification] = {
@@ -72,6 +98,26 @@ _CLASSIFICATIONS: dict[str, ToolClassification] = {
         dependency="/vow/immutable_manifest.json",
     ),
 }
+
+TOOLING_STATUS_SCHEMA = SchemaDefinition(
+    version=_SCHEMA_VERSION,
+    aggregate_fields=("schema_version", "overall_status", "tools", "missing_tools"),
+    tool_fields=(
+        "tool",
+        "classification",
+        "status",
+        "non_blocking",
+        "reason",
+        "dependency",
+    ),
+    classification_fields=(
+        "tool",
+        "classification",
+        "non_blocking",
+        "description",
+        "dependency",
+    ),
+)
 
 
 def get_classification(tool: str) -> ToolClassification:
@@ -151,7 +197,7 @@ class ToolingStatusAggregate:
     tools: dict[str, ToolResult]
     missing_tools: tuple[str, ...]
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> ToolingStatusAggregatePayload:
         return {
             "schema_version": self.schema_version,
             "overall_status": self.overall_status,
