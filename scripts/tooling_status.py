@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 from hashlib import sha256
@@ -78,6 +79,42 @@ _REDACTED_FINGERPRINT = "0" * 64
 _POLICY_SCHEMA_VERSION = "1.0"
 _POLICY_COMPOSITION_SCHEMA_VERSION = "1.0"
 _TRACE_SCHEMA_VERSION = "1.0"
+
+
+class _PolicyEvaluationCache:
+    def __init__(self, *, max_entries: int = 64) -> None:
+        self._max_entries = max_entries
+        self._store: OrderedDict[
+            tuple[str, str, str, bool],
+            tuple["PolicyDecision", "PolicyDecisionTrace | None"],
+        ] = OrderedDict()
+        self.hits = 0
+
+    def __len__(self) -> int:  # pragma: no cover - trivial
+        return len(self._store)
+
+    def get(
+        self, key: tuple[str, str, str, bool]
+    ) -> tuple["PolicyDecision", "PolicyDecisionTrace | None"] | None:
+        cached = self._store.get(key)
+        if cached is None:
+            return None
+        self.hits += 1
+        self._store.move_to_end(key)
+        return cached
+
+    def set(
+        self,
+        key: tuple[str, str, str, bool],
+        value: tuple["PolicyDecision", "PolicyDecisionTrace | None"],
+    ) -> None:
+        self._store[key] = value
+        self._store.move_to_end(key)
+        if len(self._store) > self._max_entries:
+            self._store.popitem(last=False)
+
+
+_POLICY_EVALUATION_CACHE = _PolicyEvaluationCache()
 
 
 @dataclass(frozen=True)
@@ -1213,6 +1250,42 @@ def _serialize_payload(value: Mapping[str, object]) -> ToolingStatusAggregatePay
     )
 
 
+def _policy_fingerprint(policy: "ToolingStatusPolicy") -> str:
+    payload = {
+        "schema_version": policy.schema_version,
+        "allowed_overall_statuses": tuple(policy.allowed_overall_statuses),
+        "allowed_producer_types": (
+            tuple(policy.allowed_producer_types)
+            if policy.allowed_producer_types is not None
+            else None
+        ),
+        "required_redaction_profile": (
+            policy.required_redaction_profile.fingerprint_scope
+            if policy.required_redaction_profile is not None
+            else None
+        ),
+        "maximum_advisory_issues": policy.maximum_advisory_issues,
+        "forward_metadata": policy.forward_metadata,
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _evaluation_cache_key(
+    aggregate: "ToolingStatusAggregate",
+    policy: "ToolingStatusPolicy",
+    *,
+    profile: RedactionProfile,
+    emit_trace: bool,
+) -> tuple[str, str, str, bool]:
+    return (
+        aggregate.fingerprint_for_profile(profile),
+        _policy_fingerprint(policy),
+        profile.fingerprint_scope,
+        emit_trace,
+    )
+
+
 def _validate_trace(trace: PolicyDecisionTrace) -> None:
     if trace.schema_version != _TRACE_SCHEMA_VERSION:
         raise ValueError("Unsupported policy decision trace schema version")
@@ -1482,9 +1555,34 @@ def evaluate_tooling_status_policy(
     *,
     profile: RedactionProfile = RedactionProfile.FULL,
     emit_trace: bool = False,
+    use_cache: bool = True,
+    cache: _PolicyEvaluationCache | None = None,
 ) -> PolicyDecision | tuple[PolicyDecision, PolicyDecisionTrace]:
+    """Evaluate a tooling status aggregate against a policy.
+
+    Idempotency contract:
+    * Identical inputs (subject + policy + profile + options) yield identical
+      decisions and traces.
+    * Results do not depend on evaluation order or call count; the cache is
+      performance-only and never a decision authority.
+    * Validation failures bypass the cache to prevent poisoning.
+    """
     aggregate = _to_aggregate(subject, profile=profile)
     parsed_policy = _to_policy(policy)
+    active_cache = cache if cache is not None else _POLICY_EVALUATION_CACHE
+    cache_key: tuple[str, str, str, bool] | None = None
+
+    if use_cache:
+        cache_key = _evaluation_cache_key(
+            aggregate, parsed_policy, profile=profile, emit_trace=emit_trace
+        )
+        cached = active_cache.get(cache_key)
+        if cached is not None:
+            decision, trace = cached
+            if emit_trace:
+                return decision, cast(PolicyDecisionTrace, trace)
+            return decision
+
     trace_builder = (
         _PolicyDecisionTraceBuilder(aggregate, parsed_policy, profile)
         if emit_trace
@@ -1668,7 +1766,13 @@ def evaluate_tooling_status_policy(
 
     if trace_builder:
         trace = trace_builder.finalize()
+        if use_cache and cache_key is not None:
+            active_cache.set(cache_key, (decision, trace))
         return decision, trace
+
+    if use_cache and cache_key is not None:
+        active_cache.set(cache_key, (decision, None))
+
     return decision
 
 

@@ -3,6 +3,7 @@ import pytest
 from scripts.tooling_status import (
     _REDACTED_MARKER,
     RedactionProfile,
+    _PolicyEvaluationCache,
     ToolingStatusPolicy,
     aggregate_tooling_status,
     compose_tooling_status_policies,
@@ -304,3 +305,95 @@ def test_policy_decision_trace_does_not_change_outcome() -> None:
 
     assert trace.evaluated_rules
     assert without_trace == with_trace
+
+
+def test_policy_cache_hits_on_identical_inputs() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    policy = policy_local_dev_permissive()
+    cache = _PolicyEvaluationCache(max_entries=4)
+
+    first = evaluate_tooling_status_policy(aggregate, policy, cache=cache)
+    second = evaluate_tooling_status_policy(aggregate, policy, cache=cache)
+
+    assert first == second
+    assert cache.hits == 1
+    assert len(cache) == 1
+
+
+def test_policy_cache_misses_for_distinct_inputs() -> None:
+    baseline = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+    changed = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "failed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    policy = policy_local_dev_permissive()
+    cache = _PolicyEvaluationCache(max_entries=4)
+
+    evaluate_tooling_status_policy(baseline, policy, cache=cache)
+    evaluate_tooling_status_policy(changed, policy, cache=cache)
+
+    assert cache.hits == 0
+    assert len(cache) == 2
+
+
+def test_policy_cache_preserves_trace_and_decision_integrity() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    policy = policy_local_dev_permissive()
+    cache = _PolicyEvaluationCache(max_entries=4)
+
+    decision_one, trace_one = evaluate_tooling_status_policy(
+        aggregate, policy, cache=cache, emit_trace=True
+    )
+    decision_two, trace_two = evaluate_tooling_status_policy(
+        aggregate, policy, cache=cache, emit_trace=True
+    )
+
+    assert decision_one == decision_two
+    assert trace_one == trace_two
+    assert cache.hits == 1
+
+
+def test_policy_cache_can_be_disabled() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    policy = policy_local_dev_permissive()
+    cache = _PolicyEvaluationCache(max_entries=4)
+
+    uncached = evaluate_tooling_status_policy(
+        aggregate, policy, cache=cache, use_cache=False
+    )
+    cached = evaluate_tooling_status_policy(aggregate, policy, cache=cache)
+    cached_repeat = evaluate_tooling_status_policy(aggregate, policy, cache=cache)
+
+    assert uncached == cached == cached_repeat
+    assert cache.hits == 1
