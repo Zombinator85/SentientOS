@@ -11,12 +11,16 @@ from scripts.tooling_status import (
     compose_tooling_status_policies,
     evaluate_tooling_status_policy,
     fingerprint_tooling_status,
+    collect_snapshot_annotations,
+    detect_supersession_chains,
+    latest_authoritative_snapshot,
     parse_policy_evaluation_snapshot,
     parse_tooling_status_policy,
     policy_ci_strict,
     policy_local_dev_permissive,
     policy_release_gate,
     snapshot_tooling_status_policy_evaluation,
+    snapshot_supersedes,
     verify_tooling_status_policy_snapshot,
 )
 
@@ -466,3 +470,196 @@ def test_policy_snapshot_serialization_is_deterministic() -> None:
     parsed = parse_policy_evaluation_snapshot(json.loads(serialized)).to_payload()
 
     assert json.dumps(parsed, sort_keys=True) == serialized
+
+
+def test_snapshot_lineage_chain_detects_supersession() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    base_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_local_dev_permissive(), emit_trace=False
+    )
+    amended_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=base_snapshot_payload["snapshot_fingerprint"],
+        lineage_relation="supersedes",
+        review_notes="follow-up review",
+    )
+
+    base_snapshot = parse_policy_evaluation_snapshot(base_snapshot_payload)
+    amended_snapshot = parse_policy_evaluation_snapshot(amended_snapshot_payload)
+
+    chains = detect_supersession_chains([base_snapshot, amended_snapshot])
+
+    assert chains == [(base_snapshot, amended_snapshot)]
+    assert latest_authoritative_snapshot([base_snapshot, amended_snapshot]) == amended_snapshot
+    assert snapshot_supersedes(amended_snapshot, base_snapshot)
+
+
+def test_snapshot_annotations_preserved_outside_authoritative_chain() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    base_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_local_dev_permissive(), emit_trace=False
+    )
+    annotation_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=base_snapshot_payload["snapshot_fingerprint"],
+        lineage_relation="annotates",
+        review_notes="non-blocking review context",
+    )
+    amendment_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=base_snapshot_payload["snapshot_fingerprint"],
+        lineage_relation="amends",
+    )
+
+    base_snapshot = parse_policy_evaluation_snapshot(base_snapshot_payload)
+    amendment_snapshot = parse_policy_evaluation_snapshot(amendment_snapshot_payload)
+    annotation_snapshot = parse_policy_evaluation_snapshot(annotation_snapshot_payload)
+
+    chains = detect_supersession_chains(
+        [base_snapshot, amendment_snapshot, annotation_snapshot]
+    )
+
+    assert chains == [(base_snapshot, amendment_snapshot)]
+    annotations = collect_snapshot_annotations(
+        [base_snapshot, amendment_snapshot, annotation_snapshot]
+    )
+
+    assert annotations == {base_snapshot.fingerprint: (annotation_snapshot,)}
+    assert latest_authoritative_snapshot(
+        [base_snapshot, amendment_snapshot, annotation_snapshot]
+    ) == amendment_snapshot
+
+
+def test_snapshot_lineage_cycle_is_rejected() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    base_snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_local_dev_permissive(), emit_trace=False
+    )
+    first_amendment_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=base_snapshot_payload["snapshot_fingerprint"],
+        lineage_relation="supersedes",
+    )
+    second_amendment_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate,
+        policy_local_dev_permissive(),
+        emit_trace=False,
+        parent_snapshot_fingerprint=first_amendment_payload["snapshot_fingerprint"],
+        lineage_relation="supersedes",
+    )
+
+    cyclic_base_payload = dict(base_snapshot_payload)
+    cyclic_base_payload["schema_version"] = base_snapshot_payload["schema_version"]
+    cyclic_base_payload["parent_snapshot_fingerprint"] = second_amendment_payload[
+        "snapshot_fingerprint"
+    ]
+    cyclic_base_payload["lineage_relation"] = "supersedes"
+    cyclic_base_payload.pop("snapshot_fingerprint", None)
+    cyclic_base_payload.pop("evaluation_fingerprint", None)
+
+    with pytest.raises(ValueError):
+        detect_supersession_chains(
+            [cyclic_base_payload, first_amendment_payload, second_amendment_payload]
+        )
+
+
+def test_snapshot_fingerprint_changes_with_lineage_and_notes() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    base_snapshot = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate, policy_local_dev_permissive(), emit_trace=False
+        )
+    )
+    first_amendment = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate,
+            policy_local_dev_permissive(),
+            emit_trace=False,
+            parent_snapshot_fingerprint=base_snapshot.fingerprint,
+            lineage_relation="amends",
+            review_notes="clarified reasoning",
+        )
+    )
+    second_amendment = parse_policy_evaluation_snapshot(
+        snapshot_tooling_status_policy_evaluation(
+            aggregate,
+            policy_local_dev_permissive(),
+            emit_trace=False,
+            parent_snapshot_fingerprint=base_snapshot.fingerprint,
+            lineage_relation="amends",
+            review_notes="tightened scope",
+        )
+    )
+
+    assert base_snapshot.fingerprint != first_amendment.fingerprint
+    assert first_amendment.fingerprint != second_amendment.fingerprint
+    assert (
+        first_amendment.evaluation_fingerprint
+        == second_amendment.evaluation_fingerprint
+        == base_snapshot.evaluation_fingerprint
+    )
+
+
+def test_legacy_snapshot_without_lineage_still_parses() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    snapshot_payload = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_local_dev_permissive(), emit_trace=False
+    )
+    snapshot_payload["schema_version"] = "1.0"
+    snapshot_payload.pop("parent_snapshot_fingerprint", None)
+    snapshot_payload.pop("lineage_relation", None)
+    snapshot_payload.pop("review_notes", None)
+    snapshot_payload.pop("snapshot_fingerprint", None)
+    snapshot_payload.pop("evaluation_fingerprint", None)
+
+    parsed = parse_policy_evaluation_snapshot(snapshot_payload)
+
+    assert parsed.parent_snapshot_fingerprint is None
+    assert parsed.lineage_relation is None
+    assert parsed.review_notes is None
+    decision = verify_tooling_status_policy_snapshot(snapshot_payload)
+
+    assert decision.outcome == "ACCEPT"
