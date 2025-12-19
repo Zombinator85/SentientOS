@@ -68,6 +68,55 @@ class PolicyCompositionPayload(TypedDict):
     advisory_issue_rule: str
     redaction_profile_rule: str
 
+
+class PolicyDecisionPayload(TypedDict):
+    outcome: "PolicyDecisionOutcome"
+    reasons: list[str]
+
+
+class PolicyDecisionRuleTracePayload(TypedDict, total=False):
+    name: "TraceRuleName"
+    outcome: "TraceRuleOutcome"
+    observed: str
+    expected: object
+    rationale: str | None
+
+
+class PolicyOverrideTracePayload(TypedDict):
+    dimension: str
+    mode: str
+    selected: tuple[str, ...] | int | None
+    considered: tuple[tuple[str, tuple[str, ...] | int | None], ...]
+    discarded: tuple[tuple[str, ...] | int | None, ...]
+
+
+class PolicyDecisionTracePayload(TypedDict):
+    schema_version: str
+    profile: str
+    aggregate: ToolingStatusAggregatePayload
+    evaluated_rules: list[PolicyDecisionRuleTracePayload]
+    matched_conditions: list[str]
+    applied_overrides: list[PolicyOverrideTracePayload]
+    rejected_alternatives: list[str]
+
+
+class PolicyEvaluationOptionsPayload(TypedDict):
+    emit_trace: bool
+    use_cache: bool
+
+
+class PolicyEvaluationSnapshotPayload(TypedDict):
+    schema_version: str
+    profile: str
+    aggregate: ToolingStatusAggregatePayload
+    aggregate_fingerprint: str
+    policy: ToolingStatusPolicyPayload
+    policy_forward_metadata: dict[str, object]
+    policy_fingerprint: str
+    decision: PolicyDecisionPayload
+    trace: PolicyDecisionTracePayload | None
+    options: PolicyEvaluationOptionsPayload
+
 _SCHEMA_VERSION = "1.2"
 _ATTESTATION_SCHEMA_VERSION = "1.2"
 _LINEAGE_SCHEMA_VERSION = "1.1"
@@ -79,6 +128,7 @@ _REDACTED_FINGERPRINT = "0" * 64
 _POLICY_SCHEMA_VERSION = "1.0"
 _POLICY_COMPOSITION_SCHEMA_VERSION = "1.0"
 _TRACE_SCHEMA_VERSION = "1.0"
+_SNAPSHOT_SCHEMA_VERSION = "1.0"
 
 
 class _PolicyEvaluationCache:
@@ -240,6 +290,48 @@ class PolicyDecisionTrace:
     matched_conditions: tuple[str, ...]
     applied_overrides: tuple[PolicyOverrideTrace, ...]
     rejected_alternatives: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class PolicyEvaluationOptions:
+    profile: RedactionProfile
+    emit_trace: bool
+    use_cache: bool
+
+
+@dataclass(frozen=True)
+class PolicyEvaluationSnapshot:
+    schema_version: str
+    aggregate: "ToolingStatusAggregate"
+    policy: ToolingStatusPolicy
+    aggregate_fingerprint: str
+    policy_fingerprint: str
+    decision: PolicyDecision
+    trace: PolicyDecisionTrace | None
+    options: PolicyEvaluationOptions
+
+    def to_payload(self) -> PolicyEvaluationSnapshotPayload:
+        payload: PolicyEvaluationSnapshotPayload = {
+            "schema_version": self.schema_version,
+            "profile": self.options.profile.profile_name,
+            "aggregate": _serialize_payload(
+                self.aggregate.profiled_payload(self.options.profile)
+            ),
+            "aggregate_fingerprint": self.aggregate_fingerprint,
+            "policy": _serialize_payload(_policy_to_payload(self.policy)),
+            "policy_forward_metadata": _serialize_payload(self.policy.forward_metadata),
+            "policy_fingerprint": self.policy_fingerprint,
+            "decision": cast(PolicyDecisionPayload, _decision_to_payload(self.decision)),
+            "trace": _trace_to_payload(self.trace),
+            "options": cast(
+                PolicyEvaluationOptionsPayload,
+                {
+                    "emit_trace": self.options.emit_trace,
+                    "use_cache": self.options.use_cache,
+                },
+            ),
+        }
+        return payload
 
 
 @dataclass(frozen=True)
@@ -1250,6 +1342,51 @@ def _serialize_payload(value: Mapping[str, object]) -> ToolingStatusAggregatePay
     )
 
 
+def _decision_to_payload(decision: PolicyDecision) -> PolicyDecisionPayload:
+    return {
+        "outcome": decision.outcome,
+        "reasons": list(decision.reasons),
+    }
+
+
+def _parse_decision_payload(payload: Mapping[str, object]) -> PolicyDecision:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Policy decision payload must be a mapping")
+
+    outcome_value = payload.get("outcome")
+    if outcome_value not in ("ACCEPT", "WARN", "REJECT"):
+        raise ValueError("Policy decision outcome must be one of ['ACCEPT', 'WARN', 'REJECT']")
+
+    reasons_value = payload.get("reasons")
+    if not isinstance(reasons_value, list):
+        raise ValueError("Policy decision reasons must be a list")
+    if any(not isinstance(reason, str) for reason in reasons_value):
+        raise ValueError("Policy decision reasons must be strings")
+
+    return PolicyDecision(cast(PolicyDecisionOutcome, outcome_value), tuple(reasons_value))
+
+
+def _policy_to_payload(policy: "ToolingStatusPolicy") -> ToolingStatusPolicyPayload:
+    return cast(
+        ToolingStatusPolicyPayload,
+        {
+            "schema_version": policy.schema_version,
+            "allowed_overall_statuses": list(policy.allowed_overall_statuses),
+            "allowed_producer_types": (
+                list(policy.allowed_producer_types)
+                if policy.allowed_producer_types is not None
+                else None
+            ),
+            "required_redaction_profile": (
+                policy.required_redaction_profile.profile_name
+                if policy.required_redaction_profile is not None
+                else None
+            ),
+            "maximum_advisory_issues": policy.maximum_advisory_issues,
+        },
+    )
+
+
 def _policy_fingerprint(policy: "ToolingStatusPolicy") -> str:
     payload = {
         "schema_version": policy.schema_version,
@@ -1269,6 +1406,388 @@ def _policy_fingerprint(policy: "ToolingStatusPolicy") -> str:
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _normalize_expected_value(value: object) -> tuple[str, ...] | int | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, (list, tuple)):
+        normalized: list[str] = []
+        for entry in value:
+            if not isinstance(entry, str):
+                raise TypeError("Trace expected values must be strings")
+            normalized.append(entry)
+        return tuple(normalized)
+    raise TypeError("Unexpected expected value type in trace")
+
+
+def _trace_to_payload(trace: PolicyDecisionTrace | None) -> PolicyDecisionTracePayload | None:
+    if trace is None:
+        return None
+    return cast(
+        PolicyDecisionTracePayload,
+        {
+            "schema_version": trace.schema_version,
+            "profile": trace.profile.profile_name,
+            "aggregate": _serialize_payload(trace.aggregate),
+            "evaluated_rules": [
+                {
+                    "name": rule.name,
+                    "outcome": rule.outcome,
+                    "observed": rule.observed,
+                    "expected": rule.expected,
+                    "rationale": rule.rationale,
+                }
+                for rule in trace.evaluated_rules
+            ],
+            "matched_conditions": list(trace.matched_conditions),
+            "applied_overrides": [
+                {
+                    "dimension": override.dimension,
+                    "mode": override.mode.value,
+                    "selected": override.selected,
+                    "considered": override.considered,
+                    "discarded": override.discarded,
+                }
+                for override in trace.applied_overrides
+            ],
+            "rejected_alternatives": list(trace.rejected_alternatives),
+        },
+    )
+
+
+def _parse_policy_decision_rule_trace(
+    payload: Mapping[str, object]
+) -> PolicyDecisionRuleTrace:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Trace rule payload must be a mapping")
+
+    name = payload.get("name")
+    if name not in _TRACE_RULE_NAMES:
+        raise ValueError("Trace rule name is invalid")
+
+    outcome = payload.get("outcome")
+    if outcome not in _TRACE_RULE_OUTCOMES:
+        raise ValueError("Trace rule outcome is invalid")
+
+    observed = payload.get("observed")
+    if not isinstance(observed, str):
+        raise ValueError("Trace rule observed value must be a string")
+
+    expected = _normalize_expected_value(payload.get("expected"))
+    rationale = payload.get("rationale")
+    if rationale is not None and not isinstance(rationale, str):
+        raise ValueError("Trace rule rationale must be a string when provided")
+
+    return PolicyDecisionRuleTrace(
+        name=cast(TraceRuleName, name),
+        outcome=cast(TraceRuleOutcome, outcome),
+        observed=observed,
+        expected=expected,
+        rationale=rationale,
+    )
+
+
+def _parse_policy_override_trace(
+    payload: Mapping[str, object]
+) -> PolicyOverrideTrace:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Override trace payload must be a mapping")
+
+    dimension_value = payload.get("dimension")
+    if dimension_value not in {
+        "overall_status",
+        "producer_type",
+        "advisory_issues",
+        "redaction_profile",
+    }:
+        raise ValueError("Override trace dimension is invalid")
+
+    mode_value = payload.get("mode")
+    if not isinstance(mode_value, str):
+        raise ValueError("Override trace mode must be a string")
+    mode = PolicyOverrideMode(mode_value)
+
+    selected = _normalize_layer_value(payload.get("selected"))
+
+    considered_value = payload.get("considered")
+    if not isinstance(considered_value, (list, tuple)):
+        raise ValueError("Override trace considered must be a list or tuple")
+    considered: list[tuple[str, tuple[str, ...] | int | None]] = []
+    for entry in considered_value:
+        if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+            raise ValueError("Override trace considered entries must be two-element pairs")
+        name, value = entry
+        if not isinstance(name, str):
+            raise ValueError("Override trace considered entry names must be strings")
+        considered.append((name, _normalize_layer_value(value)))
+
+    discarded_value = payload.get("discarded")
+    if not isinstance(discarded_value, (list, tuple)):
+        raise ValueError("Override trace discarded must be a list or tuple")
+    discarded: list[tuple[str, ...] | int | None] = []
+    for entry in discarded_value:
+        discarded.append(_normalize_layer_value(entry))
+
+    return PolicyOverrideTrace(
+        dimension=cast(PolicyOverrideTrace.__annotations__["dimension"], dimension_value),
+        mode=mode,
+        selected=selected,
+        considered=tuple(sorted(considered, key=lambda entry: entry[0])),
+        discarded=tuple(discarded),
+    )
+
+
+def _parse_trace_payload(
+    payload: Mapping[str, object] | None, *, profile: RedactionProfile
+) -> PolicyDecisionTrace | None:
+    if payload is None:
+        return None
+    if not isinstance(payload, Mapping):
+        raise TypeError("Policy decision trace payload must be a mapping when provided")
+
+    schema_version_value = payload.get("schema_version")
+    if not isinstance(schema_version_value, str):
+        raise ValueError("Trace payload missing schema_version")
+    if _compare_versions(schema_version_value, _TRACE_SCHEMA_VERSION) > 0:
+        raise ValueError(
+            f"Unsupported policy decision trace schema version '{schema_version_value}'"
+        )
+
+    profile_value = payload.get("profile")
+    if not isinstance(profile_value, str):
+        raise ValueError("Trace payload missing profile")
+    trace_profile = _redaction_profile_from_name(profile_value)
+    if trace_profile is not profile:
+        raise ValueError("Trace payload profile does not match snapshot profile")
+
+    aggregate_payload = payload.get("aggregate")
+    if not isinstance(aggregate_payload, Mapping):
+        raise ValueError("Trace aggregate must be a mapping")
+
+    rules_payload = payload.get("evaluated_rules")
+    if not isinstance(rules_payload, list):
+        raise ValueError("Trace evaluated_rules must be a list")
+    rules = tuple(_parse_policy_decision_rule_trace(rule) for rule in rules_payload)
+
+    matched_value = payload.get("matched_conditions")
+    if not isinstance(matched_value, list) or any(not isinstance(entry, str) for entry in matched_value):
+        raise ValueError("Trace matched_conditions must be a list of strings")
+
+    overrides_payload = payload.get("applied_overrides")
+    if not isinstance(overrides_payload, list):
+        raise ValueError("Trace applied_overrides must be a list")
+    overrides = tuple(_parse_policy_override_trace(entry) for entry in overrides_payload)
+
+    rejected_value = payload.get("rejected_alternatives")
+    if not isinstance(rejected_value, list) or any(not isinstance(entry, str) for entry in rejected_value):
+        raise ValueError("Trace rejected_alternatives must be a list of strings")
+
+    trace = PolicyDecisionTrace(
+        schema_version=schema_version_value,
+        profile=trace_profile,
+        aggregate=_serialize_payload(cast(Mapping[str, object], aggregate_payload)),
+        evaluated_rules=rules,
+        matched_conditions=tuple(matched_value),
+        applied_overrides=overrides,
+        rejected_alternatives=tuple(rejected_value),
+    )
+    _validate_trace(trace)
+    return trace
+
+
+def _parse_snapshot_options(
+    payload: Mapping[str, object], *, profile: RedactionProfile
+) -> PolicyEvaluationOptions:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Snapshot options must be a mapping")
+
+    emit_trace_value = payload.get("emit_trace")
+    use_cache_value = payload.get("use_cache")
+    if not isinstance(emit_trace_value, bool) or not isinstance(use_cache_value, bool):
+        raise ValueError("Snapshot options must include boolean emit_trace and use_cache")
+
+    return PolicyEvaluationOptions(
+        profile=profile, emit_trace=emit_trace_value, use_cache=use_cache_value
+    )
+
+
+def parse_policy_evaluation_snapshot(
+    payload: Mapping[str, object]
+) -> PolicyEvaluationSnapshot:
+    if not isinstance(payload, Mapping):
+        raise TypeError("Policy evaluation snapshot must be a mapping")
+
+    schema_version_value = payload.get("schema_version")
+    if not isinstance(schema_version_value, str):
+        raise ValueError("Snapshot missing schema_version")
+    if schema_version_value != _SNAPSHOT_SCHEMA_VERSION:
+        raise ValueError(
+            f"Unsupported policy evaluation snapshot schema version '{schema_version_value}'"
+        )
+
+    profile_value = payload.get("profile")
+    if not isinstance(profile_value, str):
+        raise ValueError("Snapshot missing profile")
+    profile = _redaction_profile_from_name(profile_value)
+
+    aggregate_payload = payload.get("aggregate")
+    if not isinstance(aggregate_payload, Mapping):
+        raise ValueError("Snapshot missing aggregate payload")
+    aggregate = parse_tooling_status_payload(aggregate_payload, profile=profile)
+
+    aggregate_fingerprint_value = payload.get("aggregate_fingerprint")
+    if not isinstance(aggregate_fingerprint_value, str):
+        raise ValueError("Snapshot missing aggregate_fingerprint")
+    if aggregate.fingerprint_for_profile(profile) != aggregate_fingerprint_value:
+        raise ValueError("Snapshot aggregate_fingerprint does not match payload")
+
+    policy_payload = payload.get("policy")
+    if not isinstance(policy_payload, Mapping):
+        raise ValueError("Snapshot missing policy payload")
+    policy = parse_tooling_status_policy(policy_payload)
+
+    policy_forward_metadata_value = payload.get("policy_forward_metadata")
+    if not isinstance(policy_forward_metadata_value, Mapping):
+        raise ValueError("Snapshot missing policy_forward_metadata")
+    policy_forward_metadata = cast(
+        dict[str, object], json.loads(json.dumps(policy_forward_metadata_value, sort_keys=True))
+    )
+    policy = replace(policy, forward_metadata=policy_forward_metadata)
+
+    policy_fingerprint_value = payload.get("policy_fingerprint")
+    if not isinstance(policy_fingerprint_value, str):
+        raise ValueError("Snapshot missing policy_fingerprint")
+    if _policy_fingerprint(policy) != policy_fingerprint_value:
+        raise ValueError("Snapshot policy_fingerprint does not match payload")
+
+    decision_payload = payload.get("decision")
+    if not isinstance(decision_payload, Mapping):
+        raise ValueError("Snapshot missing decision payload")
+    decision = _parse_decision_payload(decision_payload)
+
+    trace = _parse_trace_payload(payload.get("trace"), profile=profile)
+
+    options_payload = payload.get("options")
+    if not isinstance(options_payload, Mapping):
+        raise ValueError("Snapshot missing options payload")
+    options = _parse_snapshot_options(options_payload, profile=profile)
+
+    if options.emit_trace and trace is None:
+        raise ValueError("Snapshot options expect trace but none was provided")
+
+    return PolicyEvaluationSnapshot(
+        schema_version=schema_version_value,
+        aggregate=aggregate,
+        policy=policy,
+        aggregate_fingerprint=aggregate_fingerprint_value,
+        policy_fingerprint=policy_fingerprint_value,
+        decision=decision,
+        trace=trace,
+        options=options,
+    )
+
+
+def _assert_snapshot_equivalence(
+    snapshot: PolicyEvaluationSnapshot,
+    decision: PolicyDecision,
+    trace: PolicyDecisionTrace | None,
+) -> None:
+    if snapshot.aggregate.fingerprint_for_profile(snapshot.options.profile) != snapshot.aggregate_fingerprint:
+        raise ValueError("Snapshot aggregate fingerprint mismatch on re-evaluation")
+
+    if _policy_fingerprint(snapshot.policy) != snapshot.policy_fingerprint:
+        raise ValueError("Snapshot policy fingerprint mismatch on re-evaluation")
+
+    if decision != snapshot.decision:
+        raise ValueError("Snapshot decision does not match re-evaluation result")
+
+    if snapshot.options.emit_trace:
+        if snapshot.trace is None:
+            raise ValueError("Snapshot is missing trace data")
+        if trace is None:
+            raise ValueError("Re-evaluation did not produce a trace")
+        if trace != snapshot.trace:
+            raise ValueError("Snapshot trace does not match re-evaluation result")
+
+
+def snapshot_tooling_status_policy_evaluation(
+    subject: ToolingStatusAggregate | Mapping[str, object],
+    policy: ToolingStatusPolicy | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
+    emit_trace: bool = True,
+    use_cache: bool = True,
+    cache: _PolicyEvaluationCache | None = None,
+) -> PolicyEvaluationSnapshotPayload:
+    aggregate = _to_aggregate(subject, profile=profile)
+    parsed_policy = _to_policy(policy)
+
+    evaluation = evaluate_tooling_status_policy(
+        aggregate,
+        parsed_policy,
+        profile=profile,
+        emit_trace=emit_trace,
+        use_cache=use_cache,
+        cache=cache,
+    )
+
+    decision: PolicyDecision
+    trace: PolicyDecisionTrace | None
+    if emit_trace:
+        decision, trace = cast(tuple[PolicyDecision, PolicyDecisionTrace], evaluation)
+    else:
+        decision = cast(PolicyDecision, evaluation)
+        trace = None
+
+    snapshot = PolicyEvaluationSnapshot(
+        schema_version=_SNAPSHOT_SCHEMA_VERSION,
+        aggregate=aggregate,
+        policy=parsed_policy,
+        aggregate_fingerprint=aggregate.fingerprint_for_profile(profile),
+        policy_fingerprint=_policy_fingerprint(parsed_policy),
+        decision=decision,
+        trace=trace,
+        options=PolicyEvaluationOptions(
+            profile=profile, emit_trace=emit_trace, use_cache=use_cache
+        ),
+    )
+    return snapshot.to_payload()
+
+
+def verify_tooling_status_policy_snapshot(
+    snapshot_payload: Mapping[str, object],
+    *,
+    cache: _PolicyEvaluationCache | None = None,
+) -> PolicyDecision | tuple[PolicyDecision, PolicyDecisionTrace]:
+    snapshot = parse_policy_evaluation_snapshot(snapshot_payload)
+
+    evaluation = evaluate_tooling_status_policy(
+        snapshot.aggregate,
+        snapshot.policy,
+        profile=snapshot.options.profile,
+        emit_trace=snapshot.options.emit_trace,
+        use_cache=snapshot.options.use_cache,
+        cache=cache if cache is not None else _PolicyEvaluationCache(),
+    )
+
+    decision: PolicyDecision
+    trace: PolicyDecisionTrace | None
+    if snapshot.options.emit_trace:
+        decision, trace = cast(tuple[PolicyDecision, PolicyDecisionTrace], evaluation)
+    else:
+        decision = cast(PolicyDecision, evaluation)
+        trace = None
+
+    _assert_snapshot_equivalence(snapshot, decision, trace)
+
+    if snapshot.options.emit_trace:
+        return decision, cast(PolicyDecisionTrace, trace)
+    return decision
 
 
 def _evaluation_cache_key(

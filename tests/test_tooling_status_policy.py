@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from scripts.tooling_status import (
@@ -8,10 +10,14 @@ from scripts.tooling_status import (
     aggregate_tooling_status,
     compose_tooling_status_policies,
     evaluate_tooling_status_policy,
+    fingerprint_tooling_status,
+    parse_policy_evaluation_snapshot,
     parse_tooling_status_policy,
     policy_ci_strict,
     policy_local_dev_permissive,
     policy_release_gate,
+    snapshot_tooling_status_policy_evaluation,
+    verify_tooling_status_policy_snapshot,
 )
 
 
@@ -397,3 +403,66 @@ def test_policy_cache_can_be_disabled() -> None:
 
     assert uncached == cached == cached_repeat
     assert cache.hits == 1
+
+
+def test_policy_snapshot_round_trip_matches_decision() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed", "reason": "ok"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        },
+        provenance_attestation={
+            "attestation_version": "1.2",
+            "producer_id": "ci-runner",
+            "producer_type": "ci",
+        },
+    )
+
+    snapshot = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_release_gate(), profile=RedactionProfile.SAFE, use_cache=False
+    )
+
+    decision, trace = verify_tooling_status_policy_snapshot(snapshot)
+
+    assert decision.outcome == "ACCEPT"
+    assert trace.profile is RedactionProfile.SAFE
+    assert fingerprint_tooling_status(trace.aggregate, profile=RedactionProfile.SAFE) == snapshot[
+        "aggregate_fingerprint"
+    ]
+
+
+def test_policy_snapshot_rejects_forward_schema_version() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    snapshot = snapshot_tooling_status_policy_evaluation(aggregate, policy_local_dev_permissive())
+    snapshot["schema_version"] = "9.9"
+
+    with pytest.raises(ValueError):
+        verify_tooling_status_policy_snapshot(snapshot)
+
+
+def test_policy_snapshot_serialization_is_deterministic() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+
+    snapshot = snapshot_tooling_status_policy_evaluation(
+        aggregate, policy_local_dev_permissive(), emit_trace=True, use_cache=False
+    )
+    serialized = json.dumps(snapshot, sort_keys=True)
+    parsed = parse_policy_evaluation_snapshot(json.loads(serialized)).to_payload()
+
+    assert json.dumps(parsed, sort_keys=True) == serialized
