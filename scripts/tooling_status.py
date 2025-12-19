@@ -124,12 +124,16 @@ class PolicyEvaluationSnapshotPayload(PolicyEvaluationSnapshotPayloadRequired, t
     review_notes: str
     snapshot_fingerprint: str
     evaluation_fingerprint: str
+    confidence_band: str
+    uncertainty_score: int
+    uncertainty_reason_codes: list[str]
 
 _SCHEMA_VERSION = "1.2"
 _ATTESTATION_SCHEMA_VERSION = "1.2"
 _LINEAGE_SCHEMA_VERSION = "1.1"
-_SNAPSHOT_SCHEMA_VERSION = "1.1"
+_SNAPSHOT_SCHEMA_VERSION = "1.2"
 _SNAPSHOT_LINEAGE_SCHEMA_VERSION = "1.1"
+_SNAPSHOT_UNCERTAINTY_SCHEMA_VERSION = "1.2"
 _VALID_STATUSES: set[Status] = {"passed", "failed", "skipped", "error", "missing"}
 _VALID_LINEAGE_RELATIONS: set[str] = {"supersedes", "amends", "annotates", "recheck"}
 _AUTHORITATIVE_SNAPSHOT_RELATIONS: set[str] = {"supersedes", "amends"}
@@ -140,6 +144,16 @@ _POLICY_SCHEMA_VERSION = "1.0"
 _POLICY_COMPOSITION_SCHEMA_VERSION = "1.0"
 _TRACE_SCHEMA_VERSION = "1.0"
 _MAX_REVIEW_NOTES_LENGTH = 2048
+_VALID_CONFIDENCE_BANDS: set[str] = {"HIGH", "MEDIUM", "LOW"}
+_UNCERTAINTY_SCORE_BOUNDS = (0, 100)
+_VALID_UNCERTAINTY_REASON_CODES: tuple[str, ...] = (
+    "INSUFFICIENT_SIGNAL",
+    "NOVEL_INPUT_PATTERN",
+    "DATA_DRIFT_DETECTED",
+    "MANUAL_REVIEW_REQUESTED",
+    "DEGRADED_DEPENDENCY",
+)
+_UNCERTAINTY_REVIEW_THRESHOLD = 60
 
 
 class _PolicyEvaluationCache:
@@ -324,6 +338,9 @@ class PolicyEvaluationSnapshot:
     parent_snapshot_fingerprint: str | None = None
     lineage_relation: str | None = None
     review_notes: str | None = None
+    confidence_band: str | None = None
+    uncertainty_score: int | None = None
+    uncertainty_reason_codes: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def evaluation_fingerprint(self) -> str:
@@ -363,9 +380,19 @@ class PolicyEvaluationSnapshot:
             "parent_snapshot_fingerprint": self._redacted_parent_fingerprint(),
             "lineage_relation": self.lineage_relation,
             "review_notes": self._redacted_review_notes(),
+            "confidence_band": self.confidence_band,
+            "uncertainty_score": self.uncertainty_score,
+            "uncertainty_reason_codes": self.uncertainty_reason_codes,
         }
         serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return sha256(serialized.encode("utf-8")).hexdigest()
+
+    def requires_review(self) -> bool:
+        if self.confidence_band in {"LOW", "MEDIUM"}:
+            return True
+        if self.uncertainty_score is not None:
+            return self.uncertainty_score <= _UNCERTAINTY_REVIEW_THRESHOLD
+        return bool(self.uncertainty_reason_codes)
 
     def to_payload(self) -> PolicyEvaluationSnapshotPayload:
         payload: PolicyEvaluationSnapshotPayload = {
@@ -396,6 +423,12 @@ class PolicyEvaluationSnapshot:
             payload["lineage_relation"] = self.lineage_relation
         if self.review_notes is not None:
             payload["review_notes"] = self._redacted_review_notes()
+        if self.confidence_band is not None:
+            payload["confidence_band"] = self.confidence_band
+        if self.uncertainty_score is not None:
+            payload["uncertainty_score"] = self.uncertainty_score
+        if self.uncertainty_reason_codes:
+            payload["uncertainty_reason_codes"] = list(self.uncertainty_reason_codes)
         return payload
 
 
@@ -510,6 +543,57 @@ def _validate_lineage_relation(value: object) -> str:
             f"lineage_relation must be one of {sorted(_VALID_LINEAGE_RELATIONS)}"
         )
     return value
+
+
+def _validate_confidence_band(value: object) -> str | None:
+    if value is None:
+        return value
+    if not isinstance(value, str):
+        raise ValueError("confidence_band must be a string when provided")
+    if value not in _VALID_CONFIDENCE_BANDS:
+        raise ValueError(
+            f"confidence_band must be one of {sorted(_VALID_CONFIDENCE_BANDS)}"
+        )
+    return value
+
+
+def _validate_uncertainty_score(value: object) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, (int, float)):
+        raise ValueError("uncertainty_score must be numeric when provided")
+    lower, upper = _UNCERTAINTY_SCORE_BOUNDS
+    coerced = int(value)
+    if coerced != value:
+        raise ValueError("uncertainty_score must be an integer within bounds")
+    if coerced < lower or coerced > upper:
+        raise ValueError(
+            f"uncertainty_score must be between {lower} and {upper} inclusive"
+        )
+    return coerced
+
+
+def _validate_uncertainty_reason_codes(
+    codes: object,
+) -> tuple[str, ...]:
+    if codes is None:
+        return ()
+    if not isinstance(codes, (list, tuple)):
+        raise ValueError("uncertainty_reason_codes must be a list or tuple when provided")
+    normalized: list[str] = []
+    for entry in codes:
+        if not isinstance(entry, str):
+            raise ValueError("uncertainty_reason_codes entries must be strings")
+        if entry not in _VALID_UNCERTAINTY_REASON_CODES:
+            raise ValueError(
+                "uncertainty_reason_codes entries must be from the approved set"
+            )
+        normalized.append(entry)
+
+    unique_sorted = tuple(sorted(set(normalized)))
+    if len(unique_sorted) > len(_VALID_UNCERTAINTY_REASON_CODES):
+        raise ValueError("uncertainty_reason_codes exceeds allowed cardinality")
+    return unique_sorted
 
 
 def _validate_producer_id(value: object, *, allow_redacted: bool = False) -> str:
@@ -1698,6 +1782,10 @@ def parse_policy_evaluation_snapshot(
     lineage_supported = (
         _compare_versions(schema_version_value, _SNAPSHOT_LINEAGE_SCHEMA_VERSION) >= 0
     )
+    uncertainty_supported = (
+        _compare_versions(schema_version_value, _SNAPSHOT_UNCERTAINTY_SCHEMA_VERSION)
+        >= 0
+    )
     backward_version_detected = version_comparison < 0
 
     allowed_fields = {
@@ -1720,6 +1808,14 @@ def parse_policy_evaluation_snapshot(
                 "review_notes",
                 "snapshot_fingerprint",
                 "evaluation_fingerprint",
+            }
+        )
+    if uncertainty_supported:
+        allowed_fields.update(
+            {
+                "confidence_band",
+                "uncertainty_score",
+                "uncertainty_reason_codes",
             }
         )
 
@@ -1784,6 +1880,9 @@ def parse_policy_evaluation_snapshot(
     review_notes: str | None = None
     evaluation_fingerprint_value: str | None = None
     snapshot_fingerprint_value: str | None = None
+    confidence_band: str | None = None
+    uncertainty_score: int | None = None
+    uncertainty_reason_codes: tuple[str, ...] = ()
 
     if lineage_supported:
         parent_snapshot_payload = payload.get("parent_snapshot_fingerprint")
@@ -1823,6 +1922,13 @@ def parse_policy_evaluation_snapshot(
                 raise ValueError("snapshot_fingerprint must be a string when provided")
             snapshot_fingerprint_value = snapshot_fingerprint_payload
 
+    if uncertainty_supported:
+        confidence_band = _validate_confidence_band(payload.get("confidence_band"))
+        uncertainty_score = _validate_uncertainty_score(payload.get("uncertainty_score"))
+        uncertainty_reason_codes = _validate_uncertainty_reason_codes(
+            payload.get("uncertainty_reason_codes")
+        )
+
     elif any(
         key in payload
         for key in (
@@ -1847,6 +1953,9 @@ def parse_policy_evaluation_snapshot(
         parent_snapshot_fingerprint=parent_snapshot_fingerprint,
         lineage_relation=lineage_relation,
         review_notes=review_notes,
+        confidence_band=confidence_band,
+        uncertainty_score=uncertainty_score,
+        uncertainty_reason_codes=uncertainty_reason_codes,
     )
 
     if snapshot.parent_snapshot_fingerprint is not None and (
@@ -1901,6 +2010,10 @@ def snapshot_tooling_status_policy_evaluation(
     parent_snapshot_fingerprint: str | None = None,
     lineage_relation: str | None = None,
     review_notes: str | None = None,
+    confidence_band: str | None = None,
+    uncertainty_score: int | None = None,
+    uncertainty_reason_codes: Iterable[str] | None = None,
+    inherit_uncertainty_from: PolicyEvaluationSnapshot | Mapping[str, object] | None = None,
 ) -> PolicyEvaluationSnapshotPayload:
     aggregate = _to_aggregate(subject, profile=profile)
     parsed_policy = _to_policy(policy)
@@ -1922,6 +2035,24 @@ def snapshot_tooling_status_policy_evaluation(
             raise TypeError("review_notes must be a string when provided")
         if len(review_notes) > _MAX_REVIEW_NOTES_LENGTH:
             raise ValueError("review_notes exceeds maximum length")
+
+    inherited_uncertainty: PolicyEvaluationSnapshot | None = None
+    if inherit_uncertainty_from is not None:
+        inherited_uncertainty = _to_snapshot(inherit_uncertainty_from)
+
+    confidence_band_value = _validate_confidence_band(confidence_band)
+    uncertainty_score_value = _validate_uncertainty_score(uncertainty_score)
+    uncertainty_reason_codes_value = _validate_uncertainty_reason_codes(
+        uncertainty_reason_codes
+    )
+
+    if inherited_uncertainty is not None:
+        if confidence_band_value is None:
+            confidence_band_value = inherited_uncertainty.confidence_band
+        if uncertainty_score_value is None:
+            uncertainty_score_value = inherited_uncertainty.uncertainty_score
+        if not uncertainty_reason_codes_value:
+            uncertainty_reason_codes_value = inherited_uncertainty.uncertainty_reason_codes
 
     evaluation = evaluate_tooling_status_policy(
         aggregate,
@@ -1954,6 +2085,9 @@ def snapshot_tooling_status_policy_evaluation(
         parent_snapshot_fingerprint=parent_fingerprint_value,
         lineage_relation=lineage_relation_value,
         review_notes=review_notes,
+        confidence_band=confidence_band_value,
+        uncertainty_score=uncertainty_score_value,
+        uncertainty_reason_codes=uncertainty_reason_codes_value,
     )
     if snapshot.parent_snapshot_fingerprint is not None and (
         snapshot.parent_snapshot_fingerprint == snapshot.fingerprint
@@ -2720,6 +2854,106 @@ def collect_snapshot_annotations(
         fingerprint: tuple(entries) for fingerprint, entries in annotations.items()
     }
 
+
+ReviewResolutionState = Literal["pending", "acknowledged", "amended"]
+
+
+@dataclass(frozen=True)
+class ReviewQueueEntry:
+    snapshot_fingerprint: str
+    evaluation_fingerprint: str
+    confidence_band: str | None
+    uncertainty_reason_codes: tuple[str, ...]
+    resolution_state: ReviewResolutionState = "pending"
+    resolution_snapshot_fingerprint: str | None = None
+
+
+@dataclass(frozen=True)
+class ReviewQueue:
+    entries: tuple[ReviewQueueEntry, ...] = ()
+
+    def enqueue(self, snapshot: PolicyEvaluationSnapshot) -> "ReviewQueue":
+        entry = ReviewQueueEntry(
+            snapshot_fingerprint=snapshot.fingerprint,
+            evaluation_fingerprint=snapshot.evaluation_fingerprint,
+            confidence_band=snapshot.confidence_band,
+            uncertainty_reason_codes=snapshot.uncertainty_reason_codes,
+        )
+        return ReviewQueue(entries=self.entries + (entry,))
+
+    def resolve(
+        self,
+        snapshot_fingerprint: str,
+        *,
+        resolution_state: ReviewResolutionState,
+        amended_snapshot: PolicyEvaluationSnapshot | Mapping[str, object] | None = None,
+    ) -> "ReviewQueue":
+        if resolution_state not in {"acknowledged", "amended"}:
+            raise ValueError("resolution_state must transition out of pending")
+
+        amended_fingerprint: str | None = None
+        if amended_snapshot is not None:
+            amended_fingerprint = _to_snapshot(amended_snapshot).fingerprint
+
+        latest = self._latest_entry_for(snapshot_fingerprint)
+        if latest is None:
+            raise ValueError("snapshot_fingerprint not present in queue")
+
+        updated = ReviewQueueEntry(
+            snapshot_fingerprint=latest.snapshot_fingerprint,
+            evaluation_fingerprint=latest.evaluation_fingerprint,
+            confidence_band=latest.confidence_band,
+            uncertainty_reason_codes=latest.uncertainty_reason_codes,
+            resolution_state=resolution_state,
+            resolution_snapshot_fingerprint=amended_fingerprint,
+        )
+        return ReviewQueue(entries=self.entries + (updated,))
+
+    def _latest_entry_for(self, fingerprint: str) -> ReviewQueueEntry | None:
+        for entry in reversed(self.entries):
+            if entry.snapshot_fingerprint == fingerprint:
+                return entry
+        return None
+
+    def pending_items(self) -> tuple[ReviewQueueEntry, ...]:
+        latest_by_fingerprint: dict[str, ReviewQueueEntry] = {}
+        for entry in self.entries:
+            latest_by_fingerprint[entry.snapshot_fingerprint] = entry
+        pending = [
+            entry for entry in latest_by_fingerprint.values() if entry.resolution_state == "pending"
+        ]
+        return tuple(sorted(pending, key=lambda entry: entry.snapshot_fingerprint))
+
+
+def snapshots_requiring_review(
+    snapshots: Iterable[PolicyEvaluationSnapshot | Mapping[str, object]]
+) -> tuple[PolicyEvaluationSnapshot, ...]:
+    parsed = [_to_snapshot(entry) for entry in snapshots]
+    requiring = [snapshot for snapshot in parsed if snapshot.requires_review()]
+    return tuple(sorted(requiring, key=lambda snapshot: snapshot.fingerprint))
+
+
+def build_review_queue(
+    snapshots: Iterable[PolicyEvaluationSnapshot | Mapping[str, object]]
+) -> ReviewQueue:
+    queue = ReviewQueue()
+    for snapshot in snapshots_requiring_review(snapshots):
+        queue = queue.enqueue(snapshot)
+    return queue
+
+
+def aggregate_review_statistics(queue: ReviewQueue) -> dict[str, object]:
+    band_counts: dict[str, int] = {band: 0 for band in _VALID_CONFIDENCE_BANDS}
+    state_counts: dict[str, int] = {"pending": 0, "acknowledged": 0, "amended": 0}
+    for entry in queue.entries:
+        state_counts[entry.resolution_state] = state_counts.get(entry.resolution_state, 0) + 1
+        if entry.confidence_band in band_counts:
+            band_counts[entry.confidence_band] += 1
+    return {
+        "total": len(queue.entries),
+        "by_state": state_counts,
+        "by_confidence_band": band_counts,
+    }
 
 def validate_lineage_chain(
     aggregates: Iterable[ToolingStatusAggregate | Mapping[str, object]],
