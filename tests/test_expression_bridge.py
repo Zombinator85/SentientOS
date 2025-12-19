@@ -1,5 +1,9 @@
 from datetime import datetime, timedelta, timezone
 
+import os
+from pathlib import Path
+import tempfile
+
 import pytest
 
 from codex import (
@@ -11,6 +15,25 @@ from codex import (
 )
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+@pytest.fixture(autouse=True)
+def _clean_expression_files() -> None:
+    fingerprint_path = Path(tempfile.gettempdir()) / "expression_bridge_fingerprints.log"
+    lock_path = Path(tempfile.gettempdir()) / "expression_bridge.lock"
+    for path in (fingerprint_path, lock_path):
+        if path.exists():
+            try:
+                path.unlink()
+            except OSError:
+                pass
+    yield
+    for path in (fingerprint_path, lock_path):
+        if path.exists():
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
 
 class FakeClock:
