@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from hashlib import sha256
 from dataclasses import asdict, dataclass, field
+from enum import Enum
+from hashlib import sha256
 from typing import Iterable, Literal, Mapping, TypedDict, cast
 
 Classification = Literal["mandatory", "advisory", "optional", "artifact-dependent"]
@@ -39,6 +40,30 @@ _SCHEMA_VERSION = "1.1"
 _LINEAGE_SCHEMA_VERSION = "1.1"
 _VALID_STATUSES: set[Status] = {"passed", "failed", "skipped", "error", "missing"}
 _VALID_LINEAGE_RELATIONS: set[str] = {"supersedes", "amends", "recheck"}
+_REDACTED_MARKER = "<redacted>"
+_REDACTED_FINGERPRINT = "0" * 64
+
+
+@dataclass(frozen=True)
+class RedactionProfileConfig:
+    include_reason: bool
+    include_dependency: bool
+    include_lineage_parent: bool
+
+
+class RedactionProfile(Enum):
+    FULL = ("full", "1", RedactionProfileConfig(True, True, True))
+    SAFE = ("safe", "1", RedactionProfileConfig(False, False, True))
+    MINIMAL = ("minimal", "1", RedactionProfileConfig(False, False, False))
+
+    def __init__(self, profile_name: str, version: str, config: RedactionProfileConfig):
+        self.profile_name = profile_name
+        self.version = version
+        self.config = config
+
+    @property
+    def fingerprint_scope(self) -> str:
+        return f"{self.profile_name}.v{self.version}"
 
 
 @dataclass(frozen=True)
@@ -241,19 +266,57 @@ class ToolingStatusAggregate:
             payload["lineage_relation"] = self.lineage_relation
         return payload
 
+    def profiled_payload(
+        self, profile: RedactionProfile = RedactionProfile.FULL
+    ) -> ToolingStatusAggregatePayload:
+        payload = self.canonical_dict()
+        if profile is RedactionProfile.FULL:
+            return payload
+
+        redacted_tools: dict[str, ToolResultPayload] = {}
+        for name, tool_payload in payload["tools"].items():
+            updated_payload = dict(tool_payload)
+            if not profile.config.include_reason and updated_payload.get("reason") is not None:
+                updated_payload["reason"] = _REDACTED_MARKER
+            if (
+                not profile.config.include_dependency
+                and updated_payload.get("dependency") is not None
+            ):
+                updated_payload["dependency"] = _REDACTED_MARKER
+            redacted_tools[name] = cast(ToolResultPayload, updated_payload)
+
+        redacted_payload: ToolingStatusAggregatePayload = {
+            **payload,
+            "tools": redacted_tools,
+        }
+
+        if (
+            not profile.config.include_lineage_parent
+            and "lineage_parent_fingerprint" in redacted_payload
+        ):
+            redacted_payload["lineage_parent_fingerprint"] = _REDACTED_FINGERPRINT
+
+        return redacted_payload
+
+    def fingerprint_for_profile(self, profile: RedactionProfile = RedactionProfile.FULL) -> str:
+        payload = self.profiled_payload(profile)
+        serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        if profile is RedactionProfile.FULL:
+            return sha256(serialized.encode("utf-8")).hexdigest()
+        scoped_payload = f"{profile.fingerprint_scope}:{serialized}"
+        return sha256(scoped_payload.encode("utf-8")).hexdigest()
+
     @property
     def fingerprint(self) -> str:
-        canonical = self.canonical_dict()
-        serialized = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
-        return sha256(serialized.encode("utf-8")).hexdigest()
+        return self.fingerprint_for_profile(RedactionProfile.FULL)
 
-    def to_dict(self) -> dict[str, object]:
-        payload: dict[str, object] = dict(self.canonical_dict())
-        payload["fingerprint"] = self.fingerprint
+    def to_dict(self, profile: RedactionProfile = RedactionProfile.FULL) -> dict[str, object]:
+        payload: dict[str, object] = dict(self.profiled_payload(profile))
+        payload["fingerprint"] = self.fingerprint_for_profile(profile)
         return payload
 
-    def to_json(self) -> str:
-        return json.dumps(self.to_dict(), sort_keys=True)
+    def to_json(self, profile: RedactionProfile = RedactionProfile.FULL) -> str:
+        return json.dumps(self.to_dict(profile), sort_keys=True)
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
@@ -291,6 +354,7 @@ def _parse_tool_payload(
     *,
     allow_unknown_fields: bool,
     tool_forward_metadata: dict[str, dict[str, object]],
+    profile: RedactionProfile,
 ) -> ToolResult:
     cls = get_classification(tool)
     if payload is None:
@@ -335,10 +399,11 @@ def _parse_tool_payload(
 
     dependency_value = payload.get("dependency")
     if dependency_value != cls.dependency:
-        raise ValueError(
-            f"Tool '{tool}' dependency '{dependency_value}' does not match registered value"
-            f" '{cls.dependency}'"
-        )
+        if profile.config.include_dependency or dependency_value != _REDACTED_MARKER:
+            raise ValueError(
+                f"Tool '{tool}' dependency '{dependency_value}' does not match registered value"
+                f" '{cls.dependency}'"
+            )
 
     status_value = payload.get("status")
     if not isinstance(status_value, str):
@@ -359,7 +424,9 @@ def _parse_tool_payload(
     )
 
 
-def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatusAggregate:
+def parse_tooling_status_payload(
+    payload: Mapping[str, object], *, profile: RedactionProfile = RedactionProfile.FULL
+) -> ToolingStatusAggregate:
     if not isinstance(payload, Mapping):
         raise TypeError("Tooling status payload must be a mapping")
 
@@ -425,6 +492,7 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
             cast(Mapping[str, object] | None, raw_tool_payload),
             allow_unknown_fields=forward_version_detected,
             tool_forward_metadata=tool_forward_metadata,
+            profile=profile,
         )
 
     unknown_tools = {name: data for name, data in tools_payload.items() if name not in tools}
@@ -471,11 +539,13 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
         forward_metadata=forward_metadata,
     )
 
-    if fingerprint_value is not None and fingerprint_value != aggregate.fingerprint:
+    aggregate_fingerprint = aggregate.fingerprint_for_profile(profile)
+
+    if fingerprint_value is not None and fingerprint_value != aggregate_fingerprint:
         raise ValueError("Tooling status fingerprint does not match canonical payload")
 
     if aggregate.lineage_parent_fingerprint is not None and (
-        aggregate.lineage_parent_fingerprint == aggregate.fingerprint
+        aggregate.lineage_parent_fingerprint == aggregate_fingerprint
     ):
         raise ValueError("Tooling status payload cannot reference itself as lineage parent")
 
@@ -523,54 +593,73 @@ def aggregate_tooling_status(
     return aggregate
 
 
-def _to_aggregate(subject: ToolingStatusAggregate | Mapping[str, object]) -> ToolingStatusAggregate:
+def _to_aggregate(
+    subject: ToolingStatusAggregate | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
+) -> ToolingStatusAggregate:
     if isinstance(subject, ToolingStatusAggregate):
         return subject
-    return parse_tooling_status_payload(subject)
+    return parse_tooling_status_payload(subject, profile=profile)
 
 
-def fingerprint_tooling_status(subject: ToolingStatusAggregate | Mapping[str, object]) -> str:
-    aggregate = _to_aggregate(subject)
-    return aggregate.fingerprint
+def fingerprint_tooling_status(
+    subject: ToolingStatusAggregate | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
+) -> str:
+    aggregate = _to_aggregate(subject, profile=profile)
+    return aggregate.fingerprint_for_profile(profile)
 
 
 def tooling_status_equal(
     first: ToolingStatusAggregate | Mapping[str, object],
     second: ToolingStatusAggregate | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
 ) -> bool:
-    return fingerprint_tooling_status(first) == fingerprint_tooling_status(second)
+    return fingerprint_tooling_status(first, profile=profile) == fingerprint_tooling_status(
+        second, profile=profile
+    )
 
 
 def tooling_status_supersedes(
     candidate: ToolingStatusAggregate | Mapping[str, object],
     reference: ToolingStatusAggregate | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
 ) -> bool:
-    candidate_aggregate = _to_aggregate(candidate)
-    reference_aggregate = _to_aggregate(reference)
+    candidate_aggregate = _to_aggregate(candidate, profile=profile)
+    reference_aggregate = _to_aggregate(reference, profile=profile)
     parent_fingerprint = candidate_aggregate.lineage_parent_fingerprint
 
     if parent_fingerprint is None:
         return False
-    if parent_fingerprint == candidate_aggregate.fingerprint:
+    if parent_fingerprint == candidate_aggregate.fingerprint_for_profile(profile):
         raise ValueError("Lineage parent fingerprint matches candidate fingerprint")
-    return parent_fingerprint == reference_aggregate.fingerprint
+    return parent_fingerprint == reference_aggregate.fingerprint_for_profile(profile)
 
 
 def validate_lineage_chain(
-    aggregates: Iterable[ToolingStatusAggregate | Mapping[str, object]]
+    aggregates: Iterable[ToolingStatusAggregate | Mapping[str, object]],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
 ) -> None:
-    parsed: list[ToolingStatusAggregate] = [_to_aggregate(entry) for entry in aggregates]
+    parsed: list[ToolingStatusAggregate] = [
+        _to_aggregate(entry, profile=profile) for entry in aggregates
+    ]
     seen: dict[str, ToolingStatusAggregate] = {}
     for aggregate in parsed:
-        if aggregate.fingerprint in seen:
+        fingerprint = aggregate.fingerprint_for_profile(profile)
+        if fingerprint in seen:
             raise ValueError("Duplicate fingerprints detected in lineage chain")
-        seen[aggregate.fingerprint] = aggregate
+        seen[fingerprint] = aggregate
 
     for aggregate in parsed:
         parent_fingerprint = aggregate.lineage_parent_fingerprint
         if parent_fingerprint is None:
             continue
-        if parent_fingerprint == aggregate.fingerprint:
+        if parent_fingerprint == aggregate.fingerprint_for_profile(profile):
             raise ValueError("Self-referential lineage detected")
 
         visited: set[str] = set()
@@ -580,6 +669,7 @@ def validate_lineage_chain(
                 raise ValueError("Lineage cycle detected")
             visited.add(current)
             current = seen[current].lineage_parent_fingerprint
+
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
