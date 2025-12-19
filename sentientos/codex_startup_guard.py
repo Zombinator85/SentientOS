@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import os
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Iterable, Iterator
 
 
@@ -29,10 +30,14 @@ _STARTUP_ACTIVE = False
 _STARTUP_FINALIZED = False
 _STARTUP_OWNER_PID = os.getpid()
 _ROOT_PID_ENV_VAR = "CODEX_STARTUP_ROOT_PID"
+_FINALIZED_ENV_VAR = "CODEX_STARTUP_FINALIZED"
 _ROOT_PID = os.environ.get(_ROOT_PID_ENV_VAR)
 if _ROOT_PID is None:
     os.environ[_ROOT_PID_ENV_VAR] = str(_STARTUP_OWNER_PID)
 elif _ROOT_PID != str(_STARTUP_OWNER_PID):
+    _STARTUP_FINALIZED = True
+finalized_marker = os.environ.get(_FINALIZED_ENV_VAR)
+if finalized_marker is not None and finalized_marker == os.environ.get(_ROOT_PID_ENV_VAR):
     _STARTUP_FINALIZED = True
 _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
     # Explicit bootstrap call sites permitted to instantiate governance entrypoints.
@@ -88,7 +93,6 @@ def codex_startup_phase() -> Iterator[None]:
 
     _ensure_current_process_state()
     global _STARTUP_ACTIVE
-    global _STARTUP_FINALIZED
 
     if _STARTUP_FINALIZED:
         raise CodexStartupReentryError(
@@ -105,7 +109,28 @@ def codex_startup_phase() -> Iterator[None]:
         yield
     finally:
         _STARTUP_ACTIVE = False
-        _STARTUP_FINALIZED = True
+        _seal_startup_state()
+
+
+@dataclass(frozen=True, slots=True)
+class CodexStartupState:
+    active: bool
+    finalized: bool
+    owner_pid: int
+    root_pid: int | None
+
+
+def codex_startup_state() -> CodexStartupState:
+    """Return the immutable, observational Codex startup status; conveys no authority."""
+
+    _ensure_current_process_state()
+    root_pid = os.environ.get(_ROOT_PID_ENV_VAR)
+    return CodexStartupState(
+        active=_STARTUP_ACTIVE,
+        finalized=_STARTUP_FINALIZED,
+        owner_pid=_STARTUP_OWNER_PID,
+        root_pid=int(root_pid) if root_pid and root_pid.isdigit() else None,
+    )
 
 
 def _enforce_codex_provenance(symbol: str) -> None:
@@ -158,6 +183,7 @@ def _is_allowed_caller(caller: str, allowed_callers: Iterable[str]) -> bool:
 def _ensure_current_process_state() -> None:
     global _STARTUP_ACTIVE, _STARTUP_FINALIZED, _STARTUP_OWNER_PID
 
+    _sync_with_finalized_environment()
     current_pid = os.getpid()
     if current_pid != _STARTUP_OWNER_PID:
         _STARTUP_ACTIVE = False
@@ -169,7 +195,27 @@ def _reset_startup_after_fork() -> None:
     global _STARTUP_ACTIVE, _STARTUP_FINALIZED, _STARTUP_OWNER_PID
     _STARTUP_OWNER_PID = os.getpid()
     _STARTUP_ACTIVE = False
+    _seal_startup_state()
+
+
+def _seal_startup_state() -> None:
+    global _STARTUP_FINALIZED
     _STARTUP_FINALIZED = True
+    root_pid = os.environ.get(_ROOT_PID_ENV_VAR, str(_STARTUP_OWNER_PID))
+    os.environ[_ROOT_PID_ENV_VAR] = root_pid
+    os.environ[_FINALIZED_ENV_VAR] = root_pid
+
+
+def _sync_with_finalized_environment() -> None:
+    global _STARTUP_ACTIVE, _STARTUP_FINALIZED
+    root_pid = os.environ.get(_ROOT_PID_ENV_VAR)
+    if root_pid is None:
+        return
+
+    finalized_marker = os.environ.get(_FINALIZED_ENV_VAR)
+    if finalized_marker == root_pid:
+        _STARTUP_ACTIVE = False
+        _STARTUP_FINALIZED = True
 
 
 try:
