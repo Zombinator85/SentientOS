@@ -6,8 +6,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, Mapping, MutableMapping, Optional
 
+import affective_context as ac
 from sentientos.autonomy.audit import AutonomyActionLogger
 from sentientos.metrics import MetricsRegistry
+from sentientos.sensor_provenance import default_provenance_for_constraint
 
 
 @dataclass
@@ -109,7 +111,27 @@ class BrowserAutomator:
     def _log(self, action: str, status: str, **details: object) -> None:
         if not self._audit:
             return
-        self._audit.log("browser", action, status, **details)
+        overlay = ac.capture_affective_context(
+            "browser_action",
+            overlay={"blocked": 1.0 if status == "blocked" else 0.35, "curiosity": 0.45},
+        )
+        constraint_id = f"autonomy::browser::{action}"
+        provenance = default_provenance_for_constraint(constraint_id)
+        assumptions = ("domains_allowlisted", "quorum_required" if self._config.require_quorum_for_post else "quorum_relaxed")
+        environment = {"panic": bool(self._panic_flag()), **details}
+        self._audit.log(
+            "browser",
+            action,
+            status,
+            affective_overlay=overlay,
+            constraint_id=constraint_id,
+            constraint_justification="browser automation must remain constraint-legible and reviewable",
+            sensor_provenance=provenance,
+            assumptions=assumptions,
+            environment=environment,
+            pressure_reason=details.get("reason", status),
+            **details,
+        )
 
     def _require_enabled(self, resource: str, action: str) -> None:
         if not self.enabled:
@@ -153,4 +175,3 @@ class _DummyDriver:
 
 
 __all__ = ["BrowserAutomator", "BrowserActionError", "SocialConfig"]
-
