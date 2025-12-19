@@ -10,6 +10,7 @@ from sentientos.pressure_engagement import (
     PressureDecayError,
 )
 from sentientos.constraint_registry import ConstraintRegistry, ConstraintNotRegisteredError
+from sentientos.sensor_provenance import default_provenance_for_constraint
 
 
 def test_pressure_accumulation_thresholds() -> None:
@@ -17,13 +18,21 @@ def test_pressure_accumulation_thresholds() -> None:
     overlay = {"Calm": 0.3}
 
     state, engagement = engine.record_signal(
-        "constraint-alpha", 0.4, reason="initial friction", affective_context=overlay
+        "constraint-alpha",
+        0.4,
+        reason="initial friction",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-alpha"),
     )
     assert state.status(chronic_threshold=1.0, blockage_threshold=2) == "transient"
     assert engagement is None
 
     state, engagement = engine.record_signal(
-        "constraint-alpha", 0.8, reason="repeat friction", affective_context=overlay
+        "constraint-alpha",
+        0.8,
+        reason="repeat friction",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-alpha"),
     )
     assert state.status(chronic_threshold=1.0, blockage_threshold=2) == "chronic"
     assert engagement is not None
@@ -33,7 +42,11 @@ def test_forced_engagement_triggering_and_reaffirmation_reset() -> None:
     engine = ConstraintEngagementEngine(chronic_threshold=1.0, blockage_threshold=1)
     overlay = {"Calm": 0.4}
     _, engagement = engine.record_signal(
-        "constraint-beta", 1.2, reason="blocked", affective_context=overlay
+        "constraint-beta",
+        1.2,
+        reason="blocked",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-beta"),
     )
     assert engagement is not None
     reaffirmed = engine.reaffirm(
@@ -51,7 +64,13 @@ def test_forced_engagement_triggering_and_reaffirmation_reset() -> None:
 def test_deferred_engagements_expire() -> None:
     engine = ConstraintEngagementEngine(chronic_threshold=0.5, blockage_threshold=1)
     overlay = {"Calm": 0.2}
-    _, first = engine.record_signal("constraint-gamma", 0.6, reason="deny", affective_context=overlay)
+    _, first = engine.record_signal(
+        "constraint-gamma",
+        0.6,
+        reason="deny",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-gamma"),
+    )
     assert first is not None
     engine.reaffirm(
         "constraint-gamma",
@@ -63,7 +82,11 @@ def test_deferred_engagements_expire() -> None:
     )
     time.sleep(0.01)
     _, second = engine.record_signal(
-        "constraint-gamma", 0.6, reason="still blocked", affective_context=overlay
+        "constraint-gamma",
+        0.6,
+        reason="still blocked",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-gamma"),
     )
     assert second is not None
     assert second.engagement_id != first.engagement_id
@@ -72,7 +95,13 @@ def test_deferred_engagements_expire() -> None:
 def test_reject_silent_decay() -> None:
     engine = ConstraintEngagementEngine()
     overlay = {"Calm": 0.1}
-    engine.record_signal("constraint-delta", 0.9, reason="blocked", affective_context=overlay)
+    engine.record_signal(
+        "constraint-delta",
+        0.9,
+        reason="blocked",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-delta"),
+    )
     try:
         engine.decay_pressure("constraint-delta")
     except PressureDecayError:
@@ -98,7 +127,13 @@ def test_policy_engine_isolates_actions_from_pressure(tmp_path) -> None:
 def test_review_queue_prioritizes_pressure_engagements() -> None:
     engine = ConstraintEngagementEngine(chronic_threshold=0.5, blockage_threshold=1)
     overlay = {"Calm": 0.2}
-    _, engagement = engine.record_signal("constraint-review", 0.6, reason="deny", affective_context=overlay)
+    _, engagement = engine.record_signal(
+        "constraint-review",
+        0.6,
+        reason="deny",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-review"),
+    )
     queue = ts.ReviewQueue().enqueue_pressure_engagement(engagement)
     snapshot_queue = queue.enqueue(
         ts.snapshot_tooling_status_policy_evaluation(
@@ -129,11 +164,21 @@ def test_registry_blocks_unjustified_constraints() -> None:
     overlay = {"Calm": 0.2}
 
     with pytest.raises(ConstraintNotRegisteredError):
-        engine.record_signal("constraint-unregistered", 0.6, reason="blocked", affective_context=overlay)
+        engine.record_signal(
+            "constraint-unregistered",
+            0.6,
+            reason="blocked",
+            affective_context=overlay,
+            provenance=default_provenance_for_constraint("constraint-unregistered"),
+        )
 
     registry.register("constraint-unregistered", "documented")
     _, engagement = engine.record_signal(
-        "constraint-unregistered", 0.6, reason="blocked", affective_context=overlay
+        "constraint-unregistered",
+        0.6,
+        reason="blocked",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-unregistered"),
     )
     assert engagement is not None
     assert engagement.constraint_id in registry.registered_constraints()
@@ -148,7 +193,11 @@ def test_registry_tracks_engagement_lineage() -> None:
     overlay = {"Calm": 0.3}
 
     _, engagement = engine.record_signal(
-        "constraint-documented", 0.7, reason="blocked", affective_context=overlay
+        "constraint-documented",
+        0.7,
+        reason="blocked",
+        affective_context=overlay,
+        provenance=default_provenance_for_constraint("constraint-documented"),
     )
     assert engagement is not None
 
@@ -164,3 +213,50 @@ def test_registry_tracks_engagement_lineage() -> None:
     assert record.justification == reaffirmed.justification
     assert record.last_reviewed_at == reaffirmed.created_at
     assert record.engagements[-1].engagement_id == reaffirmed.engagement_id
+
+
+def test_rejects_missing_provenance() -> None:
+    engine = ConstraintEngagementEngine()
+    overlay = {"Calm": 0.1}
+    with pytest.raises(ValueError):
+        engine.record_signal(
+            "constraint-provless",
+            0.5,
+            reason="blocked",
+            affective_context=overlay,
+        )
+
+
+def test_sensor_pressure_logs_sensor_fault_not_engagement() -> None:
+    engine = ConstraintEngagementEngine(chronic_threshold=0.1, blockage_threshold=1)
+    overlay = {"Calm": 0.2}
+    provenance = default_provenance_for_constraint("constraint-sensor")
+    sensor_prov = type(provenance)(
+        sensor_id="sensor-self",
+        origin_class="sensor_self",
+        sensitivity_parameters=provenance.sensitivity_parameters,
+        expected_noise_profile=provenance.expected_noise_profile,
+        known_failure_modes=provenance.known_failure_modes,
+        calibration_state=provenance.calibration_state,
+    )
+    state, engagement = engine.record_signal(
+        "constraint-sensor",
+        0.9,
+        reason="noisy sensor",
+        affective_context=overlay,
+        provenance=sensor_prov,
+        classification="sensor",
+    )
+    assert engagement is None
+    assert state.sensor_pressure > 0
+    assert engine.sensor_faults
+
+
+def test_bandpass_adjustments_are_logged_and_reversible() -> None:
+    engine = ConstraintEngagementEngine()
+    provenance = default_provenance_for_constraint("constraint-bandpass")
+    adjustment = engine.adjust_bandpass(
+        provenance, "gain", 1.2, reason="trim jitter", telemetry={"window": "fast"}
+    )
+    assert adjustment.parameter == "gain"
+    assert engine._calibration.history(provenance.sensor_id)
