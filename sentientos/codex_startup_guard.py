@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import os
 from contextlib import contextmanager
 from typing import Iterable, Iterator
 
@@ -17,7 +18,22 @@ class CodexStartupViolation(RuntimeError):
         )
 
 
+class CodexStartupReentryError(RuntimeError):
+    """Raised when the Codex startup phase is re-entered or nested."""
+
+    def __init__(self, *, reason: str) -> None:
+        super().__init__(reason)
+
+
 _STARTUP_ACTIVE = False
+_STARTUP_FINALIZED = False
+_STARTUP_OWNER_PID = os.getpid()
+_ROOT_PID_ENV_VAR = "CODEX_STARTUP_ROOT_PID"
+_ROOT_PID = os.environ.get(_ROOT_PID_ENV_VAR)
+if _ROOT_PID is None:
+    os.environ[_ROOT_PID_ENV_VAR] = str(_STARTUP_OWNER_PID)
+elif _ROOT_PID != str(_STARTUP_OWNER_PID):
+    _STARTUP_FINALIZED = True
 _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
     # Explicit bootstrap call sites permitted to instantiate governance entrypoints.
     # Keep this list minimal and auditable; include test namespace so fixtures remain valid.
@@ -59,6 +75,8 @@ class CodexProvenanceViolation(RuntimeError):
 def enforce_codex_startup(symbol: str) -> None:
     """Abort startup-only entrypoint construction when bootstrap is not active."""
 
+    _ensure_current_process_state()
+
     if not _STARTUP_ACTIVE:
         raise CodexStartupViolation(symbol)
     _enforce_codex_provenance(symbol)
@@ -68,13 +86,26 @@ def enforce_codex_startup(symbol: str) -> None:
 def codex_startup_phase() -> Iterator[None]:
     """Temporarily allow Codex startup-only governance entrypoints to be constructed."""
 
+    _ensure_current_process_state()
     global _STARTUP_ACTIVE
-    previous = _STARTUP_ACTIVE
+    global _STARTUP_FINALIZED
+
+    if _STARTUP_FINALIZED:
+        raise CodexStartupReentryError(
+            reason="Codex startup phase has been finalized and cannot be re-entered."
+        )
+
+    if _STARTUP_ACTIVE:
+        raise CodexStartupReentryError(
+            reason="Codex startup phase is already active; nested startup is prohibited."
+        )
+
     _STARTUP_ACTIVE = True
     try:
         yield
     finally:
-        _STARTUP_ACTIVE = previous
+        _STARTUP_ACTIVE = False
+        _STARTUP_FINALIZED = True
 
 
 def _enforce_codex_provenance(symbol: str) -> None:
@@ -122,3 +153,26 @@ def _is_allowed_caller(caller: str, allowed_callers: Iterable[str]) -> bool:
         if caller == allowed:
             return True
     return False
+
+
+def _ensure_current_process_state() -> None:
+    global _STARTUP_ACTIVE, _STARTUP_FINALIZED, _STARTUP_OWNER_PID
+
+    current_pid = os.getpid()
+    if current_pid != _STARTUP_OWNER_PID:
+        _STARTUP_ACTIVE = False
+        _STARTUP_FINALIZED = True
+        _STARTUP_OWNER_PID = current_pid
+
+
+def _reset_startup_after_fork() -> None:
+    global _STARTUP_ACTIVE, _STARTUP_FINALIZED, _STARTUP_OWNER_PID
+    _STARTUP_OWNER_PID = os.getpid()
+    _STARTUP_ACTIVE = False
+    _STARTUP_FINALIZED = True
+
+
+try:
+    os.register_at_fork(after_in_child=_reset_startup_after_fork)
+except AttributeError:  # pragma: no cover - Windows and limited runtimes
+    pass

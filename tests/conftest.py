@@ -104,7 +104,7 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="session")
 def codex_startup():
     with codex_startup_phase():
         yield
