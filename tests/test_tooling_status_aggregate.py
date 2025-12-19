@@ -4,7 +4,12 @@ import json
 
 import pytest
 
-from scripts.tooling_status import aggregate_tooling_status, parse_tooling_status_payload
+from scripts.tooling_status import (
+    aggregate_tooling_status,
+    fingerprint_tooling_status,
+    parse_tooling_status_payload,
+    tooling_status_equal,
+)
 
 EXPECTED_SCHEMA_VERSION = "1.0"
 EXPECTED_AGGREGATE_FIELDS = {
@@ -95,7 +100,7 @@ def test_tooling_status_schema_matches_contract() -> None:
 
     payload = aggregate.to_dict()
     assert payload["schema_version"] == EXPECTED_SCHEMA_VERSION
-    assert set(payload.keys()) == EXPECTED_AGGREGATE_FIELDS
+    assert set(payload.keys()) == EXPECTED_AGGREGATE_FIELDS | {"fingerprint"}
 
     tools_payload = payload["tools"]
     assert tools_payload
@@ -124,6 +129,122 @@ def test_tooling_status_json_is_deterministic() -> None:
     second = aggregate.to_json()
     assert first == second
     assert json.loads(first) == aggregate.to_dict()
+
+
+def test_fingerprint_is_stable_for_identical_payloads() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+
+    clone = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+
+    assert aggregate.fingerprint == clone.fingerprint
+    assert tooling_status_equal(aggregate, clone)
+
+
+def test_fingerprint_ignores_field_ordering() -> None:
+    payload = {
+        "schema_version": "1.0",
+        "overall_status": "PASS",
+        "missing_tools": ["verify_audits", "audit_immutability_verifier"],
+        "tools": {
+            "audit_immutability_verifier": {
+                "classification": "artifact-dependent",
+                "dependency": "/vow/immutable_manifest.json",
+                "non_blocking": True,
+                "reason": "manifest_missing",
+                "status": "skipped",
+                "tool": "audit_immutability_verifier",
+            },
+            "mypy": {
+                "classification": "advisory",
+                "dependency": None,
+                "non_blocking": True,
+                "reason": None,
+                "status": "passed",
+                "tool": "mypy",
+            },
+            "verify_audits": {
+                "classification": "optional",
+                "dependency": None,
+                "non_blocking": True,
+                "reason": None,
+                "status": "missing",
+                "tool": "verify_audits",
+            },
+            "pytest": {
+                "classification": "mandatory",
+                "dependency": None,
+                "non_blocking": False,
+                "reason": None,
+                "status": "passed",
+                "tool": "pytest",
+            },
+        },
+    }
+
+    unordered = parse_tooling_status_payload(payload)
+    ordered = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+
+    assert unordered.fingerprint == ordered.fingerprint
+    assert tooling_status_equal(unordered, ordered)
+
+
+def test_fingerprint_changes_when_payload_differs() -> None:
+    baseline = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+
+    modified = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "unit_failure"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+
+    assert baseline.fingerprint != modified.fingerprint
+    assert tooling_status_equal(baseline, modified) is False
+
+
+def test_fingerprint_survives_round_trip_serialization() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+    serialized = aggregate.to_json()
+    parsed = parse_tooling_status_payload(json.loads(serialized))
+
+    assert fingerprint_tooling_status(aggregate) == fingerprint_tooling_status(parsed)
 
 
 def test_parse_current_schema_requires_fields() -> None:

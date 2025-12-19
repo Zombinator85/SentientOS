@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 from dataclasses import asdict, dataclass, field
 from typing import Iterable, Literal, Mapping, TypedDict, cast
 
@@ -199,13 +200,26 @@ class ToolingStatusAggregate:
     forward_version_detected: bool = False
     forward_metadata: dict[str, object] = field(default_factory=dict)
 
-    def to_dict(self) -> ToolingStatusAggregatePayload:
+    def canonical_dict(self) -> ToolingStatusAggregatePayload:
         return {
             "schema_version": self.schema_version,
             "overall_status": self.overall_status,
-            "tools": {name: result.to_dict() for name, result in self.tools.items()},
-            "missing_tools": list(self.missing_tools),
+            "tools": {
+                name: result.to_dict() for name, result in sorted(self.tools.items())
+            },
+            "missing_tools": sorted(self.missing_tools),
         }
+
+    @property
+    def fingerprint(self) -> str:
+        canonical = self.canonical_dict()
+        serialized = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+        return sha256(serialized.encode("utf-8")).hexdigest()
+
+    def to_dict(self) -> dict[str, object]:
+        payload: dict[str, object] = dict(self.canonical_dict())
+        payload["fingerprint"] = self.fingerprint
+        return payload
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), sort_keys=True)
@@ -330,6 +344,10 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
             f" {TOOLING_STATUS_SCHEMA.version} or newer"
         )
 
+    fingerprint_value = payload.get("fingerprint")
+    if fingerprint_value is not None and not isinstance(fingerprint_value, str):
+        raise ValueError("fingerprint must be a string when provided")
+
     required_fields = set(TOOLING_STATUS_SCHEMA.aggregate_fields)
     missing_fields = required_fields - set(payload.keys())
     if missing_fields:
@@ -338,7 +356,7 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
         )
 
     forward_metadata: dict[str, object] = {}
-    extra_fields = set(payload.keys()) - required_fields
+    extra_fields = set(payload.keys()) - required_fields - {"fingerprint"}
     if extra_fields and forward_version_detected:
         forward_metadata["aggregate"] = {name: payload[name] for name in extra_fields}
     elif extra_fields:
@@ -384,14 +402,19 @@ def parse_tooling_status_payload(payload: Mapping[str, object]) -> ToolingStatus
     if tool_forward_metadata:
         forward_metadata["tool_fields"] = tool_forward_metadata
 
-    return ToolingStatusAggregate(
+    aggregate = ToolingStatusAggregate(
         schema_version=schema_version_value,
         overall_status=overall_status,
         tools=tools,
-        missing_tools=missing_tools,
+        missing_tools=tuple(sorted(missing_tools)),
         forward_version_detected=forward_version_detected,
         forward_metadata=forward_metadata,
     )
+
+    if fingerprint_value is not None and fingerprint_value != aggregate.fingerprint:
+        raise ValueError("Tooling status fingerprint does not match canonical payload")
+
+    return aggregate
 
 
 def aggregate_tooling_status(tool_payloads: Mapping[str, Mapping[str, object]]) -> ToolingStatusAggregate:
@@ -412,8 +435,26 @@ def aggregate_tooling_status(tool_payloads: Mapping[str, Mapping[str, object]]) 
         schema_version=_SCHEMA_VERSION,
         overall_status=overall,
         tools=tools,
-        missing_tools=tuple(missing),
+        missing_tools=tuple(sorted(missing)),
     )
+
+
+def _to_aggregate(subject: ToolingStatusAggregate | Mapping[str, object]) -> ToolingStatusAggregate:
+    if isinstance(subject, ToolingStatusAggregate):
+        return subject
+    return parse_tooling_status_payload(subject)
+
+
+def fingerprint_tooling_status(subject: ToolingStatusAggregate | Mapping[str, object]) -> str:
+    aggregate = _to_aggregate(subject)
+    return aggregate.fingerprint
+
+
+def tooling_status_equal(
+    first: ToolingStatusAggregate | Mapping[str, object],
+    second: ToolingStatusAggregate | Mapping[str, object],
+) -> bool:
+    return fingerprint_tooling_status(first) == fingerprint_tooling_status(second)
 
 
 def main(argv: list[str] | None = None) -> int:
