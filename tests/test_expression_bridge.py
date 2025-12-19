@@ -70,6 +70,7 @@ def _mature_draft(clock: FakeClock):
 def test_expression_requires_open_window() -> None:
     clock = FakeClock()
     bridge = ExpressionBridge(now=clock.now)
+    bridge.arm(reason="test")
     draft = _mature_draft(clock)
     artifact = bridge.crystallize(
         draft,
@@ -85,6 +86,7 @@ def test_expression_requires_open_window() -> None:
 def test_window_closes_after_single_emission() -> None:
     clock = FakeClock()
     bridge = ExpressionBridge(now=clock.now)
+    bridge.arm(reason="test")
     draft = _mature_draft(clock)
     artifact = bridge.crystallize(
         draft,
@@ -105,6 +107,7 @@ def test_window_closes_after_single_emission() -> None:
 def test_no_feedback_ingress_and_state_is_inert() -> None:
     clock = FakeClock()
     bridge = ExpressionBridge(now=clock.now)
+    bridge.arm(reason="test")
     draft = _mature_draft(clock)
     artifact = bridge.crystallize(
         draft,
@@ -127,6 +130,7 @@ def test_no_feedback_ingress_and_state_is_inert() -> None:
 def test_autopsy_is_generated_without_side_effects() -> None:
     clock = FakeClock()
     bridge = ExpressionBridge(now=clock.now)
+    bridge.arm(reason="test")
     draft = _mature_draft(clock)
     artifact = bridge.crystallize(
         draft,
