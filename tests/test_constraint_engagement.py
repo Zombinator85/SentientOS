@@ -7,6 +7,7 @@ import policy_engine as pe
 from scripts import tooling_status as ts
 from sentientos.pressure_engagement import (
     ConstraintEngagementEngine,
+    CausalExplanationMissingError,
     PressureDecayError,
 )
 from sentientos.constraint_registry import ConstraintRegistry, ConstraintNotRegisteredError
@@ -260,3 +261,50 @@ def test_bandpass_adjustments_are_logged_and_reversible() -> None:
     )
     assert adjustment.parameter == "gain"
     assert engine._calibration.history(provenance.sensor_id)
+
+
+def test_causal_explanation_graph_is_constructed_with_assumptions_and_environment() -> None:
+    engine = ConstraintEngagementEngine(chronic_threshold=0.5, blockage_threshold=1)
+    provenance = default_provenance_for_constraint("constraint-causal")
+    _, engagement = engine.record_signal(
+        "constraint-causal",
+        0.6,
+        reason="blocked",
+        affective_context={"Calm": 0.2},
+        provenance=provenance,
+        assumptions=["input trusted"],
+        decision_points=["policy-check"],
+        environment_factors={"network": "unstable"},
+        amplification_factors={"sensor_gain": 1.2},
+    )
+    assert engagement is not None
+    explanation = engagement.causal_explanation
+    nodes = explanation["causal_graph"]["nodes"]
+    assert any(node["kind"] == "environment" for node in nodes)
+    assert "input trusted" in explanation["narrative"]["assumptions"]
+    assert explanation["narrative"]["triggering_signals"][0]["sensor_calibration_state"] == provenance.calibration_state
+    assert explanation["narrative"]["multiple_chains"] is False
+
+
+def test_explanation_required_before_engagement_and_escalates_when_missing() -> None:
+    engine = ConstraintEngagementEngine()
+    with pytest.raises(CausalExplanationMissingError):
+        engine.explain_pressure("constraint-missing")
+
+
+def test_repeated_explanations_trigger_modeling_debt_meta_pressure() -> None:
+    engine = ConstraintEngagementEngine(chronic_threshold=0.5, blockage_threshold=1)
+    provenance = default_provenance_for_constraint("constraint-stable")
+    engine.record_signal(
+        "constraint-stable",
+        0.6,
+        reason="blocked",
+        affective_context={"Calm": 0.3},
+        provenance=provenance,
+        assumptions=["static assumption"],
+    )
+    first = engine.explain_pressure("constraint-stable")
+    second = engine.explain_pressure("constraint-stable")
+    assert first["explanation_signature"] == second["explanation_signature"]
+    state = engine.pressure_state("constraint-stable")
+    assert "meta_pressure_modeling_debt_repeat" in state.meta_pressure_flags
