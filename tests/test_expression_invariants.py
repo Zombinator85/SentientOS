@@ -75,6 +75,7 @@ def _mature_draft(clock: FakeClock):
 
 def _crystallized(clock: FakeClock) -> tuple[ExpressionBridge, ExpressionArtifact]:
     bridge = ExpressionBridge(now=clock.now)
+    bridge.arm(reason="test")
     draft = _mature_draft(clock)
     artifact = bridge.crystallize(
         draft,
@@ -178,6 +179,7 @@ def test_restart_blocks_replay_via_fingerprint_store() -> None:
     bridge.emit(artifact, platform="alpha")
 
     restarted = ExpressionBridge(now=clock.now)
+    restarted.arm(reason="test")
     restarted.open_window(opened_by="auditor", ttl=timedelta(seconds=5))
     with pytest.raises(ExpressionReplayError):
         restarted.emit(artifact, platform="beta")
@@ -210,6 +212,7 @@ def test_concurrent_emissions_race_is_guarded(monkeypatch) -> None:
 def _emit_in_subprocess(artifact: ExpressionArtifact, ttl_seconds: int) -> str:
     clock = FakeClock()
     bridge = ExpressionBridge(now=clock.now)
+    bridge.arm(reason="test")
     bridge.open_window(opened_by="fork", ttl=timedelta(seconds=ttl_seconds))
     try:
         bridge.emit(artifact, platform="forked")
@@ -261,4 +264,3 @@ def test_autopsies_do_not_generate_intents() -> None:
 
     assert autopsy["intent_valid"] is True
     assert autopsy["state_influence"] == {"curiosity": False, "synthesis": False, "belief": False}
-
