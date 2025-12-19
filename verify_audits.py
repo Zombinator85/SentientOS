@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import List, Tuple, Dict, Optional
 import audit_immutability as ai
+from scripts import tooling_status
 # enable auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (
     os.getenv("CI") or os.getenv("GIT_HOOKS")
@@ -329,12 +330,25 @@ def main() -> None:  # pragma: no cover - CLI
         and stats.get("unrecoverable", 0) == 0
     ):
         print("✅ No mismatches.")
+    status_label = "passed" if chain_ok else "failed"
+    reason = None if chain_ok else "integrity_mismatch"
+    if not logs:
+        status_label = "skipped"
+        reason = "no_audit_logs_found"
+        chain_ok = True
+    exit_code = 0
     if strict_env and total_fixed:
         print("Strict mode: repairs detected")
-        raise SystemExit(1)
-    if chain_ok:
-        raise SystemExit(0)
-    raise SystemExit(1)
+        status_label = "failed"
+        reason = "strict_mode_repairs_detected"
+        exit_code = 1
+    elif not chain_ok:
+        exit_code = 1
+    summary = tooling_status.render_result(
+        "verify_audits", status=status_label, reason=reason
+    )
+    print(json.dumps(summary, sort_keys=True))
+    raise SystemExit(exit_code)
 
 
 if __name__ == "__main__":  # pragma: no cover

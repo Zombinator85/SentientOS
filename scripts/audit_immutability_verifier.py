@@ -28,7 +28,9 @@ import time
 from pathlib import Path
 from typing import Callable, Iterable
 
+from dataclasses import dataclass
 from logging_config import get_log_path
+from scripts import tooling_status
 from sentientos import immutability
 
 DEFAULT_MANIFEST = immutability.DEFAULT_MANIFEST_PATH
@@ -40,6 +42,16 @@ PRIVILEGED_PATHS = [
     Path("init.py"),
     Path("privilege.py"),
 ]
+
+
+@dataclass
+class AuditCheckOutcome:
+    status: str
+    reason: str | None = None
+    recorded_events: list[dict] | None = None
+
+    def __bool__(self) -> bool:
+        return self.status in {"passed", "skipped"}
 
 
 def _hash_file(path: Path) -> str:
@@ -59,10 +71,38 @@ def load_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> dict:
 def verify_once(
     manifest_path: Path = DEFAULT_MANIFEST,
     logger: Callable[[dict], None] = log_event,
-) -> bool:
-    manifest = load_manifest(manifest_path)
-    ok = True
+) -> AuditCheckOutcome:
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
+    recorded: list[dict] = []
+
+    def _record(entry: dict) -> None:
+        recorded.append(entry)
+        logger(entry)
+
+    try:
+        manifest = load_manifest(manifest_path)
+    except FileNotFoundError:
+        warning = {
+            "event": "immutability_check",
+            "status": "skipped",
+            "reason": "manifest_missing",
+            "ts": ts,
+            "manifest": str(manifest_path),
+        }
+        _record(warning)
+        return AuditCheckOutcome("skipped", reason="manifest_missing", recorded_events=recorded)
+    except Exception as exc:
+        error_event = {
+            "event": "immutability_check",
+            "status": "error",
+            "reason": str(exc),
+            "ts": ts,
+            "manifest": str(manifest_path),
+        }
+        _record(error_event)
+        return AuditCheckOutcome("error", reason=str(exc), recorded_events=recorded)
+
+    ok = True
     for file, info in manifest["files"].items():
         path = Path(file)
         status = "tampered"
@@ -70,9 +110,11 @@ def verify_once(
             status = "verified"
         else:
             ok = False
-            logger({"event": "tamper_detected", "file": file, "ts": ts})
-        logger({"event": "immutability_check", "file": file, "status": status, "ts": ts})
-    return ok
+            _record({"event": "tamper_detected", "file": file, "ts": ts})
+        _record({"event": "immutability_check", "file": file, "status": status, "ts": ts})
+    outcome = "passed" if ok else "failed"
+    reason = None if ok else "tamper_detected"
+    return AuditCheckOutcome(outcome, reason=reason, recorded_events=recorded)
 
 
 def run_loop(
@@ -99,10 +141,15 @@ def update_manifest(
 
 
 def main(argv: list[str] | None = None) -> int:
-    ok = verify_once()
-    return 0 if ok else 1
+    result = verify_once()
+    summary = tooling_status.render_result(
+        "audit_immutability_verifier", status=result.status, reason=result.reason
+    )
+    print(json.dumps(summary, sort_keys=True))
+    if result.status == "failed" or result.status == "error":
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

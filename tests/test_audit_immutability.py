@@ -27,9 +27,10 @@ def test_emotion_pump_verified_file(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     _make_manifest(manifest, target)
     events: list[dict] = []
-    aiv.verify_once(manifest_path=manifest, logger=events.append)
+    outcome = aiv.verify_once(manifest_path=manifest, logger=events.append)
     status = [e for e in events if e["event"] == "immutability_check"][0]["status"]
     assert status == "verified"
+    assert outcome.status == "passed"
 
 
 def test_emotion_pump_tampered_file(tmp_path: Path) -> None:
@@ -39,10 +40,11 @@ def test_emotion_pump_tampered_file(tmp_path: Path) -> None:
     _make_manifest(manifest, target)
     target.write_text("bye", encoding="utf-8")
     events: list[dict] = []
-    aiv.verify_once(manifest_path=manifest, logger=events.append)
+    outcome = aiv.verify_once(manifest_path=manifest, logger=events.append)
     statuses = [e for e in events if e["event"] == "immutability_check"]
     assert statuses[0]["status"] == "tampered"
     assert any(e["event"] == "tamper_detected" for e in events)
+    assert outcome.status == "failed"
 
 
 def test_emotion_pump_manifest_update_requires_confirm(tmp_path: Path, monkeypatch) -> None:
@@ -98,3 +100,12 @@ def test_emotion_pump_cli_invocation(tmp_path: Path, monkeypatch) -> None:
     assert result == 0
     assert any(e["event"] == "immutability_check" for e in events)
 
+
+def test_emotion_pump_skips_without_manifest(tmp_path: Path) -> None:
+    missing_manifest = tmp_path / "missing.json"
+    events: list[dict] = []
+    outcome = aiv.verify_once(manifest_path=missing_manifest, logger=events.append)
+    assert outcome.status == "skipped"
+    assert outcome.reason == "manifest_missing"
+    statuses = [e for e in events if e["event"] == "immutability_check"]
+    assert statuses and statuses[0]["status"] == "skipped"
