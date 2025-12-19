@@ -32,6 +32,7 @@ from .embodiment import EmbodimentEvent, EmbodimentMount
 from .expression_bridge import (
     ExpressionArtifact,
     ExpressionBridge,
+    ExpressionReplayError,
     FeedbackIngressForbidden,
     PublishWindow,
     PublishWindowClosedError,
@@ -115,6 +116,7 @@ __all__ = [
     "EmbodimentMount",
     "ExpressionArtifact",
     "ExpressionBridge",
+    "ExpressionReplayError",
     "FeedbackIngressForbidden",
     "CodexPlan",
     "PlanController",
