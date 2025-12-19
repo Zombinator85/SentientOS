@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -8,15 +9,21 @@ from scripts.tooling_status import (
     aggregate_tooling_status,
     fingerprint_tooling_status,
     parse_tooling_status_payload,
+    tooling_status_supersedes,
     tooling_status_equal,
+    validate_lineage_chain,
 )
 
-EXPECTED_SCHEMA_VERSION = "1.0"
+EXPECTED_SCHEMA_VERSION = "1.1"
 EXPECTED_AGGREGATE_FIELDS = {
     "schema_version",
     "overall_status",
     "tools",
     "missing_tools",
+}
+EXPECTED_OPTIONAL_AGGREGATE_FIELDS = {
+    "lineage_parent_fingerprint",
+    "lineage_relation",
 }
 EXPECTED_TOOL_FIELDS = {
     "tool",
@@ -41,7 +48,7 @@ def test_aggregate_all_pass() -> None:
     assert aggregate.overall_status == "PASS"
     assert aggregate.missing_tools == ()
     payload = json.loads(aggregate.to_json())
-    assert payload["schema_version"] == "1.0"
+    assert payload["schema_version"] == EXPECTED_SCHEMA_VERSION
     assert payload["tools"]["pytest"]["status"] == "passed"
 
 
@@ -100,7 +107,16 @@ def test_tooling_status_schema_matches_contract() -> None:
 
     payload = aggregate.to_dict()
     assert payload["schema_version"] == EXPECTED_SCHEMA_VERSION
-    assert set(payload.keys()) == EXPECTED_AGGREGATE_FIELDS | {"fingerprint"}
+    payload_fields = set(payload.keys())
+    assert EXPECTED_AGGREGATE_FIELDS.issubset(payload_fields)
+    unexpected_aggregate_fields = payload_fields - EXPECTED_AGGREGATE_FIELDS - EXPECTED_OPTIONAL_AGGREGATE_FIELDS - {"fingerprint"}
+    if unexpected_aggregate_fields:
+        pytest.fail(
+            "Tooling status schema changed (missing:"
+            f" {sorted(set())}, unexpected: {sorted(unexpected_aggregate_fields)}); bump schema_version"
+            f" from {EXPECTED_SCHEMA_VERSION} and update the contract."
+        )
+    assert EXPECTED_OPTIONAL_AGGREGATE_FIELDS.isdisjoint(payload_fields)
 
     tools_payload = payload["tools"]
     assert tools_payload
@@ -156,7 +172,7 @@ def test_fingerprint_is_stable_for_identical_payloads() -> None:
 
 def test_fingerprint_ignores_field_ordering() -> None:
     payload = {
-        "schema_version": "1.0",
+        "schema_version": EXPECTED_SCHEMA_VERSION,
         "overall_status": "PASS",
         "missing_tools": ["verify_audits", "audit_immutability_verifier"],
         "tools": {
@@ -318,3 +334,137 @@ def test_parse_round_trip_matches_current_schema() -> None:
 
     assert parsed.to_dict() == payload
     assert parsed.forward_version_detected is False
+
+
+def test_lineage_supersession_chain_validates() -> None:
+    origin = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    followup = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "flake"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        lineage_parent_fingerprint=origin.fingerprint,
+        lineage_relation="recheck",
+    )
+    correction = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        lineage_parent_fingerprint=followup.fingerprint,
+        lineage_relation="supersedes",
+    )
+
+    assert tooling_status_supersedes(followup, origin) is True
+    assert tooling_status_supersedes(correction, followup) is True
+    validate_lineage_chain([origin, followup, correction])
+
+
+def test_self_referential_lineage_is_rejected() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    payload = aggregate.to_dict()
+    payload.pop("fingerprint")
+    payload["lineage_parent_fingerprint"] = aggregate.fingerprint
+
+    with pytest.raises(ValueError, match="lineage parent"):
+        parse_tooling_status_payload(payload)
+
+
+def test_lineage_fields_are_ignored_for_older_versions() -> None:
+    origin = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    lineage_payload = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        lineage_parent_fingerprint=origin.fingerprint,
+        lineage_relation="amends",
+    ).to_dict()
+    lineage_payload.pop("fingerprint")
+    lineage_payload["schema_version"] = "1.0"
+
+    parsed = parse_tooling_status_payload(lineage_payload)
+
+    assert parsed.schema_version == "1.0"
+    assert parsed.lineage_parent_fingerprint is None
+    assert parsed.forward_metadata["aggregate"]["lineage_parent_fingerprint"] == origin.fingerprint
+
+
+def test_lineage_fingerprint_changes_without_status_delta() -> None:
+    baseline = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+    successor = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        },
+        lineage_parent_fingerprint=baseline.fingerprint,
+        lineage_relation="recheck",
+    )
+
+    assert baseline.fingerprint != successor.fingerprint
+    assert tooling_status_equal(baseline, successor) is False
+
+
+def test_lineage_cycle_detection() -> None:
+    origin = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    update = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "flake"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        lineage_parent_fingerprint=origin.fingerprint,
+        lineage_relation="recheck",
+    )
+    cycle_member = replace(
+        origin,
+        lineage_parent_fingerprint=update.fingerprint,
+        lineage_relation="supersedes",
+    )
+
+    with pytest.raises(ValueError, match="cycle"):
+        validate_lineage_chain([origin, update, cycle_member])
