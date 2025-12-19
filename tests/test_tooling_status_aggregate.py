@@ -6,21 +6,25 @@ from dataclasses import replace
 import pytest
 
 from scripts.tooling_status import (
+    ProvenanceAttestation,
     aggregate_tooling_status,
     fingerprint_tooling_status,
     parse_tooling_status_payload,
     RedactionProfile,
+    tooling_status_same_results_different_producers,
     tooling_status_supersedes,
     tooling_status_equal,
+    tooling_status_equal_ignoring_attestation,
     validate_lineage_chain,
 )
 
-EXPECTED_SCHEMA_VERSION = "1.1"
+EXPECTED_SCHEMA_VERSION = "1.2"
 EXPECTED_AGGREGATE_FIELDS = {
     "schema_version",
     "overall_status",
     "tools",
     "missing_tools",
+    "provenance_attestation",
 }
 EXPECTED_OPTIONAL_AGGREGATE_FIELDS = {
     "lineage_parent_fingerprint",
@@ -118,6 +122,7 @@ def test_tooling_status_schema_matches_contract() -> None:
             f" from {EXPECTED_SCHEMA_VERSION} and update the contract."
         )
     assert EXPECTED_OPTIONAL_AGGREGATE_FIELDS.isdisjoint(payload_fields)
+    assert payload["provenance_attestation"] is None
 
     tools_payload = payload["tools"]
     assert tools_payload
@@ -198,6 +203,7 @@ def test_fingerprint_ignores_field_ordering() -> None:
         "schema_version": EXPECTED_SCHEMA_VERSION,
         "overall_status": "PASS",
         "missing_tools": ["verify_audits", "audit_immutability_verifier"],
+        "provenance_attestation": None,
         "tools": {
             "audit_immutability_verifier": {
                 "classification": "artifact-dependent",
@@ -271,6 +277,67 @@ def test_fingerprint_changes_when_payload_differs() -> None:
     assert tooling_status_equal(baseline, modified) is False
 
 
+def test_attestation_changes_fingerprint_but_not_results() -> None:
+    baseline = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    attested = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        provenance_attestation={
+            "attestation_version": "1.0",
+            "producer_id": "ci/main",
+            "producer_type": "ci",
+            "constraints": {"redaction": "full"},
+        },
+    )
+
+    assert tooling_status_equal_ignoring_attestation(baseline, attested)
+    assert baseline.fingerprint != attested.fingerprint
+
+
+def test_same_results_different_producers_helper() -> None:
+    first = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        provenance_attestation=ProvenanceAttestation(
+            attestation_version="1.0",
+            producer_id="ci/main",
+            producer_type="ci",
+            constraints={"redaction": "full"},
+        ),
+    )
+    second = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        provenance_attestation={
+            "attestation_version": "1.0",
+            "producer_id": "developer/local",
+            "producer_type": "local",
+            "constraints": {"redaction": "full"},
+        },
+    )
+
+    assert tooling_status_same_results_different_producers(second, first) is True
+
+
 def test_profiled_fingerprint_is_stable_within_profile() -> None:
     aggregate = aggregate_tooling_status(
         {
@@ -289,6 +356,34 @@ def test_profiled_fingerprint_is_stable_within_profile() -> None:
         parsed, profile=RedactionProfile.SAFE
     )
     assert parsed.to_dict(profile=RedactionProfile.SAFE)["fingerprint"] == payload["fingerprint"]
+
+
+def test_attestation_fields_redact_under_safe_profile() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        },
+        provenance_attestation={
+            "attestation_version": "1.0",
+            "producer_id": "local/dev",
+            "producer_type": "local",
+            "constraints": {"profile": "safe"},
+        },
+    )
+
+    payload = aggregate.to_dict(profile=RedactionProfile.SAFE)
+    attestation = payload["provenance_attestation"]
+    assert attestation is not None
+    assert attestation["producer_id"] == "<redacted>"
+    assert attestation["producer_type"] == "<redacted>"
+    assert attestation["constraints"] == {"profile": "<redacted>"}
+
+    parsed = parse_tooling_status_payload(payload, profile=RedactionProfile.SAFE)
+    assert parsed.provenance_attestation is not None
+    assert parsed.provenance_attestation.producer_id == "<redacted>"
 
 
 def test_fingerprints_diverge_across_profiles() -> None:
@@ -350,10 +445,18 @@ def test_parse_forward_schema_preserves_unknown_fields() -> None:
         }
     )
     payload = aggregate.to_dict()
+    payload.pop("fingerprint")
     payload["schema_version"] = "2.0"
     payload["future_hint"] = "forward-compatible"
     payload["tools"]["pytest"]["experimental_reason"] = "new semantics"
     payload["tools"]["novel_tool"] = {"status": "passed", "tool": "novel_tool"}
+    payload["provenance_attestation"] = {
+        "attestation_version": "2.0",
+        "producer_id": "ci/main",
+        "producer_type": "ci",
+        "constraints": {"redaction": "full"},
+        "forward_attestation_hint": "beta",
+    }
 
     parsed = parse_tooling_status_payload(payload)
 
@@ -363,6 +466,7 @@ def test_parse_forward_schema_preserves_unknown_fields() -> None:
     assert "future_hint" in parsed.forward_metadata.get("aggregate", {})
     assert "experimental_reason" in parsed.forward_metadata.get("tool_fields", {}).get("pytest", {})
     assert "novel_tool" in parsed.forward_metadata.get("tools", {})
+    assert "forward_attestation_hint" in parsed.forward_metadata.get("provenance_attestation", {})
 
 
 def test_parse_rejects_invalid_status_for_current_version() -> None:
@@ -378,6 +482,27 @@ def test_parse_rejects_invalid_status_for_current_version() -> None:
     payload["tools"]["pytest"]["status"] = "unknown"
 
     with pytest.raises(ValueError, match="Unknown tool status"):
+        parse_tooling_status_payload(payload)
+
+
+def test_attestation_requires_known_producer_type() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "passed"},
+        }
+    )
+    payload = aggregate.to_dict()
+    payload["provenance_attestation"] = {
+        "attestation_version": "1.0",
+        "producer_id": "ci/main",
+        "producer_type": "unknown_source",
+        "constraints": {},
+    }
+
+    with pytest.raises(ValueError, match="producer_type"):
         parse_tooling_status_payload(payload)
 
 

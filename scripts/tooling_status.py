@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
 from hashlib import sha256
 from typing import Iterable, Literal, Mapping, TypedDict, cast
@@ -28,6 +28,13 @@ class ToolResultPayload(TypedDict):
     dependency: str | None
 
 
+class ProvenanceAttestationPayload(TypedDict, total=False):
+    attestation_version: str
+    producer_id: str
+    producer_type: str
+    constraints: dict[str, str]
+
+
 class ToolingStatusAggregatePayload(TypedDict, total=False):
     schema_version: str
     overall_status: OverallStatus
@@ -35,11 +42,14 @@ class ToolingStatusAggregatePayload(TypedDict, total=False):
     missing_tools: list[str]
     lineage_parent_fingerprint: str
     lineage_relation: str
+    provenance_attestation: ProvenanceAttestationPayload | None
 
-_SCHEMA_VERSION = "1.1"
+_SCHEMA_VERSION = "1.2"
+_ATTESTATION_SCHEMA_VERSION = "1.2"
 _LINEAGE_SCHEMA_VERSION = "1.1"
 _VALID_STATUSES: set[Status] = {"passed", "failed", "skipped", "error", "missing"}
 _VALID_LINEAGE_RELATIONS: set[str] = {"supersedes", "amends", "recheck"}
+_VALID_PRODUCER_TYPES: set[str] = {"local", "ci", "sandbox", "pipeline", "adhoc"}
 _REDACTED_MARKER = "<redacted>"
 _REDACTED_FINGERPRINT = "0" * 64
 
@@ -49,12 +59,13 @@ class RedactionProfileConfig:
     include_reason: bool
     include_dependency: bool
     include_lineage_parent: bool
+    include_attestation_details: bool
 
 
 class RedactionProfile(Enum):
-    FULL = ("full", "1", RedactionProfileConfig(True, True, True))
-    SAFE = ("safe", "1", RedactionProfileConfig(False, False, True))
-    MINIMAL = ("minimal", "1", RedactionProfileConfig(False, False, False))
+    FULL = ("full", "1", RedactionProfileConfig(True, True, True, True))
+    SAFE = ("safe", "1", RedactionProfileConfig(False, False, True, False))
+    MINIMAL = ("minimal", "1", RedactionProfileConfig(False, False, False, False))
 
     def __init__(self, profile_name: str, version: str, config: RedactionProfileConfig):
         self.profile_name = profile_name
@@ -132,7 +143,13 @@ _CLASSIFICATIONS: dict[str, ToolClassification] = {
 
 TOOLING_STATUS_SCHEMA = SchemaDefinition(
     version=_SCHEMA_VERSION,
-    aggregate_fields=("schema_version", "overall_status", "tools", "missing_tools"),
+    aggregate_fields=(
+        "schema_version",
+        "overall_status",
+        "tools",
+        "missing_tools",
+        "provenance_attestation",
+    ),
     optional_aggregate_fields=("lineage_parent_fingerprint", "lineage_relation"),
     tool_fields=(
         "tool",
@@ -180,6 +197,60 @@ def _validate_lineage_relation(value: object) -> str:
             f"lineage_relation must be one of {sorted(_VALID_LINEAGE_RELATIONS)}"
         )
     return value
+
+
+def _validate_producer_id(value: object, *, allow_redacted: bool = False) -> str:
+    if not isinstance(value, str):
+        raise ValueError("producer_id must be a string when provided")
+    if allow_redacted and value == _REDACTED_MARKER:
+        return value
+    if not value or any(ch.isspace() for ch in value):
+        raise ValueError("producer_id must be a non-empty string without whitespace")
+    return value
+
+
+def _validate_producer_type(value: object, *, allow_redacted: bool = False) -> str:
+    if not isinstance(value, str):
+        raise ValueError("producer_type must be a string when provided")
+    if allow_redacted and value == _REDACTED_MARKER:
+        return value
+    if value not in _VALID_PRODUCER_TYPES:
+        raise ValueError(
+            f"producer_type must be one of {sorted(_VALID_PRODUCER_TYPES)}"
+        )
+    return value
+
+
+def _validate_constraints(value: object, *, allow_redacted: bool = False) -> dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise ValueError("constraints must be a mapping of string keys to string values")
+    constraints: dict[str, str] = {}
+    for key, entry in value.items():
+        if not isinstance(key, str) or not isinstance(entry, str):
+            raise ValueError("constraints keys and values must be strings")
+        if allow_redacted and entry == _REDACTED_MARKER:
+            constraints[key] = entry
+            continue
+        constraints[key] = entry
+    return dict(sorted(constraints.items()))
+
+
+@dataclass(frozen=True)
+class ProvenanceAttestation:
+    attestation_version: str
+    producer_id: str
+    producer_type: str
+    constraints: dict[str, str] = field(default_factory=dict)
+
+    def to_dict(self) -> ProvenanceAttestationPayload:
+        return {
+            "attestation_version": self.attestation_version,
+            "producer_id": self.producer_id,
+            "producer_type": self.producer_type,
+            "constraints": dict(sorted(self.constraints.items())),
+        }
 
 
 def _coerce_tool_result(tool: str, payload: Mapping[str, object] | None) -> ToolResult:
@@ -246,6 +317,7 @@ class ToolingStatusAggregate:
     overall_status: OverallStatus
     tools: dict[str, ToolResult]
     missing_tools: tuple[str, ...]
+    provenance_attestation: ProvenanceAttestation | None = None
     lineage_parent_fingerprint: str | None = None
     lineage_relation: str | None = None
     forward_version_detected: bool = False
@@ -260,6 +332,11 @@ class ToolingStatusAggregate:
             },
             "missing_tools": sorted(self.missing_tools),
         }
+        payload["provenance_attestation"] = (
+            self.provenance_attestation.to_dict()
+            if self.provenance_attestation is not None
+            else None
+        )
         if self.lineage_parent_fingerprint is not None:
             payload["lineage_parent_fingerprint"] = self.lineage_parent_fingerprint
         if self.lineage_relation is not None:
@@ -272,6 +349,21 @@ class ToolingStatusAggregate:
         payload = self.canonical_dict()
         if profile is RedactionProfile.FULL:
             return payload
+
+        if "provenance_attestation" in payload:
+            attestation_payload = payload["provenance_attestation"]
+            if attestation_payload is not None and not profile.config.include_attestation_details:
+                payload["provenance_attestation"] = cast(
+                    ProvenanceAttestationPayload,
+                    {
+                        "attestation_version": attestation_payload["attestation_version"],
+                        "producer_id": _REDACTED_MARKER,
+                        "producer_type": _REDACTED_MARKER,
+                        "constraints": {
+                            key: _REDACTED_MARKER for key in attestation_payload["constraints"].keys()
+                        },
+                    },
+                )
 
         redacted_tools: dict[str, ToolResultPayload] = {}
         for name, tool_payload in payload["tools"].items():
@@ -438,12 +530,17 @@ def parse_tooling_status_payload(
     forward_version_detected = version_comparison > 0
     backward_version_detected = version_comparison < 0
     lineage_supported = _compare_versions(schema_version_value, _LINEAGE_SCHEMA_VERSION) >= 0
+    attestation_supported = (
+        _compare_versions(schema_version_value, _ATTESTATION_SCHEMA_VERSION) >= 0
+    )
 
     fingerprint_value = payload.get("fingerprint")
     if fingerprint_value is not None:
         fingerprint_value = _validate_fingerprint_value(fingerprint_value)
 
     required_fields = set(TOOLING_STATUS_SCHEMA.aggregate_fields)
+    if not attestation_supported:
+        required_fields.remove("provenance_attestation")
     missing_fields = required_fields - set(payload.keys())
     if missing_fields:
         raise ValueError(
@@ -504,6 +601,60 @@ def parse_tooling_status_payload(
     if tool_forward_metadata:
         forward_metadata["tool_fields"] = tool_forward_metadata
 
+    provenance_attestation_payload = payload.get("provenance_attestation")
+    provenance_attestation: ProvenanceAttestation | None = None
+    if attestation_supported:
+        if provenance_attestation_payload is None:
+            provenance_attestation = None
+        else:
+            if not isinstance(provenance_attestation_payload, Mapping):
+                raise ValueError("provenance_attestation must be a mapping when provided")
+            attestation_version_value = provenance_attestation_payload.get("attestation_version")
+            if not isinstance(attestation_version_value, str):
+                raise ValueError("provenance_attestation.attestation_version must be provided")
+            producer_id_value = _validate_producer_id(
+                provenance_attestation_payload.get("producer_id"),
+                allow_redacted=not profile.config.include_attestation_details,
+            )
+            producer_type_value = _validate_producer_type(
+                provenance_attestation_payload.get("producer_type"),
+                allow_redacted=not profile.config.include_attestation_details,
+            )
+            constraints_value = _validate_constraints(
+                provenance_attestation_payload.get("constraints", {}),
+                allow_redacted=not profile.config.include_attestation_details,
+            )
+            known_fields = {
+                "attestation_version",
+                "producer_id",
+                "producer_type",
+                "constraints",
+            }
+            extra_attestation_fields = (
+                set(provenance_attestation_payload.keys()) - known_fields
+            )
+            if extra_attestation_fields and (forward_version_detected or backward_version_detected):
+                forward_metadata["provenance_attestation"] = {
+                    name: provenance_attestation_payload[name]
+                    for name in sorted(extra_attestation_fields)
+                }
+            elif extra_attestation_fields:
+                raise ValueError(
+                    "provenance_attestation has unexpected fields: "
+                    f"{sorted(extra_attestation_fields)}"
+                )
+            provenance_attestation = ProvenanceAttestation(
+                attestation_version=attestation_version_value,
+                producer_id=producer_id_value,
+                producer_type=producer_type_value,
+                constraints=constraints_value,
+            )
+    elif provenance_attestation_payload is not None:
+        forward_metadata["aggregate"] = {
+            **forward_metadata.get("aggregate", {}),
+            "provenance_attestation": provenance_attestation_payload,
+        }
+
     lineage_parent: str | None = None
     lineage_relation: str | None = None
     lineage_parent_payload = payload.get("lineage_parent_fingerprint")
@@ -533,6 +684,7 @@ def parse_tooling_status_payload(
         overall_status=overall_status,
         tools=tools,
         missing_tools=tuple(sorted(missing_tools)),
+        provenance_attestation=provenance_attestation,
         lineage_parent_fingerprint=lineage_parent,
         lineage_relation=lineage_relation,
         forward_version_detected=forward_version_detected,
@@ -557,6 +709,7 @@ def aggregate_tooling_status(
     *,
     lineage_parent_fingerprint: str | None = None,
     lineage_relation: str | None = None,
+    provenance_attestation: ProvenanceAttestation | Mapping[str, object] | None = None,
 ) -> ToolingStatusAggregate:
     unknown = set(tool_payloads) - set(_CLASSIFICATIONS)
     if unknown:
@@ -571,6 +724,22 @@ def aggregate_tooling_status(
         tools[name] = _coerce_tool_result(name, payload)
 
     overall = _derive_overall(tools.values())
+    attestation_value: ProvenanceAttestation | None = None
+    if provenance_attestation is not None:
+        if isinstance(provenance_attestation, ProvenanceAttestation):
+            attestation_value = provenance_attestation
+        else:
+            attestation_version_payload = provenance_attestation.get(
+                "attestation_version"
+            )
+            if not isinstance(attestation_version_payload, str):
+                raise ValueError("provenance_attestation.attestation_version must be provided")
+            attestation_value = ProvenanceAttestation(
+                attestation_version=attestation_version_payload,
+                producer_id=_validate_producer_id(provenance_attestation.get("producer_id")),
+                producer_type=_validate_producer_type(provenance_attestation.get("producer_type")),
+                constraints=_validate_constraints(provenance_attestation.get("constraints", {})),
+            )
     parent_value = _validate_fingerprint_value(lineage_parent_fingerprint) if lineage_parent_fingerprint else None
     relation_value = _validate_lineage_relation(lineage_relation) if lineage_relation else None
     if relation_value is not None and parent_value is None:
@@ -581,6 +750,7 @@ def aggregate_tooling_status(
         overall_status=overall,
         tools=tools,
         missing_tools=tuple(sorted(missing)),
+        provenance_attestation=attestation_value,
         lineage_parent_fingerprint=parent_value,
         lineage_relation=relation_value,
     )
@@ -620,6 +790,38 @@ def tooling_status_equal(
 ) -> bool:
     return fingerprint_tooling_status(first, profile=profile) == fingerprint_tooling_status(
         second, profile=profile
+    )
+
+
+def tooling_status_equal_ignoring_attestation(
+    first: ToolingStatusAggregate | Mapping[str, object],
+    second: ToolingStatusAggregate | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
+) -> bool:
+    first_aggregate = _to_aggregate(first, profile=profile)
+    second_aggregate = _to_aggregate(second, profile=profile)
+    return fingerprint_tooling_status(
+        replace(first_aggregate, provenance_attestation=None), profile=profile
+    ) == fingerprint_tooling_status(
+        replace(second_aggregate, provenance_attestation=None), profile=profile
+    )
+
+
+def tooling_status_same_results_different_producers(
+    candidate: ToolingStatusAggregate | Mapping[str, object],
+    reference: ToolingStatusAggregate | Mapping[str, object],
+    *,
+    profile: RedactionProfile = RedactionProfile.FULL,
+) -> bool:
+    candidate_aggregate = _to_aggregate(candidate, profile=profile)
+    reference_aggregate = _to_aggregate(reference, profile=profile)
+    if candidate_aggregate.provenance_attestation is None or reference_aggregate.provenance_attestation is None:
+        return False
+    if candidate_aggregate.provenance_attestation == reference_aggregate.provenance_attestation:
+        return False
+    return tooling_status_equal_ignoring_attestation(
+        candidate_aggregate, reference_aggregate, profile=profile
     )
 
 
