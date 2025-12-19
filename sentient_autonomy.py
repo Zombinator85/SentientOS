@@ -11,6 +11,7 @@ from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Opti
 
 import memory_governor
 from sentient_mesh import MeshJob, SentientMesh
+import affective_context as ac
 
 __all__ = [
     "AutonomyPlan",
@@ -61,9 +62,12 @@ class AutonomyPlan:
     assigned_node: Optional[str] = None
     confidence: float = 0.5
     bias_vector: Mapping[str, float] = field(default_factory=dict)
+    affective_context: Mapping[str, object] = field(
+        default_factory=lambda: ac.capture_affective_context("autonomy-plan")
+    )
 
     def to_dict(self) -> Dict[str, object]:
-        return {
+        payload = {
             "plan_id": self.plan_id,
             "goal": self.goal,
             "status": self.status,
@@ -73,7 +77,10 @@ class AutonomyPlan:
             "confidence": round(self.confidence, 3),
             "bias_vector": dict(self.bias_vector),
             "script": json.loads(json.dumps(self.script, sort_keys=True)),
+            "affective_context": dict(self.affective_context),
         }
+        ac.require_affective_context(payload)
+        return payload
 
 
 def _canonical_dumps(payload: Mapping[str, object]) -> str:
@@ -264,7 +271,12 @@ class SentientAutonomyEngine:
                     prompt=prompt,
                     priority=plan.priority,
                     requirements=("sentient_script",),
-                    metadata={"origin": "autonomy"},
+                    metadata={
+                        "origin": "autonomy",
+                        "affective_context": ac.capture_affective_context(
+                            "autonomy-cycle", overlay=emotion_bias
+                        ),
+                    },
                 )
                 jobs.append(job)
                 generated_plans.append(plan)
@@ -301,6 +313,9 @@ class SentientAutonomyEngine:
             script={"goal": goal},
             created_at=self._next_timestamp(),
             bias_vector=dict(bias_vector),
+            affective_context=ac.capture_affective_context(
+                "autonomy-plan-create", overlay=bias_vector
+            ),
         )
         self._plans[plan_id] = plan
         return plan
