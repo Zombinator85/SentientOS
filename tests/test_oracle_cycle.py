@@ -28,6 +28,11 @@ from sentientos.oracle_cycle import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _codex_startup(codex_startup: None) -> None:
+    yield
+
+
 class RecordingOracleClient(OracleClient):
     def __init__(self, response: str) -> None:
         self.response = response

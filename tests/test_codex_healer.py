@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 from sentientos.codex_healer import (
     Anomaly,
     CodexHealer,
@@ -16,6 +18,11 @@ from sentientos.codex_healer import (
     RepairSynthesizer,
     ReviewBoard,
 )
+
+
+@pytest.fixture(autouse=True)
+def _codex_startup(codex_startup: None) -> None:
+    yield
 
 
 def _build_healer(tmp_path: Path) -> tuple[CodexHealer, HealingEnvironment, PulseWatcher, RecoveryLedger]:
@@ -135,4 +142,3 @@ def test_hostile_repair_is_quarantined(tmp_path: Path) -> None:
     assert result["quarantined"] is True
     assert result["details"]["review_reason"] == "integrity_blocked"
     assert environment.regenesis_restores, "ReGenesis should have been invoked"
-

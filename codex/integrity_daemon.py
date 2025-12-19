@@ -19,6 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback path
     yaml = None  # type: ignore[assignment]
 
 from .proof_verifier import ProofReport, ProofVerifier
+from sentientos.codex_startup_guard import enforce_codex_startup
 
 
 def _default_now() -> datetime:
@@ -75,7 +76,7 @@ class IntegrityViolation(RuntimeError):
 
 
 class IntegrityDaemon:
-    """Guard that nullifies malicious amendment attempts."""
+    """Guard that nullifies malicious amendment attempts; startup-only entrypoint."""
 
     REQUIRED_FIELDS = {"objective", "directives", "testing_requirements"}
     FORBIDDEN_STATUSES = {"reboot", "retired", "nullified", "decommissioned"}
@@ -87,6 +88,7 @@ class IntegrityDaemon:
         *,
         now: Callable[[], datetime] = _default_now,
     ) -> None:
+        enforce_codex_startup("IntegrityDaemon")
         self._root = Path(root)
         self._now = now
         self._daemon_root = self._root / "daemon" / "integrity"
@@ -437,4 +439,3 @@ class IntegrityDaemon:
             "proposed_spec": getattr(proposal, "proposed_spec", None),
         }
         return {key: value for key, value in data.items() if value is not None}
-
