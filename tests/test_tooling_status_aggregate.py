@@ -9,6 +9,7 @@ from scripts.tooling_status import (
     aggregate_tooling_status,
     fingerprint_tooling_status,
     parse_tooling_status_payload,
+    RedactionProfile,
     tooling_status_supersedes,
     tooling_status_equal,
     validate_lineage_chain,
@@ -147,6 +148,28 @@ def test_tooling_status_json_is_deterministic() -> None:
     assert json.loads(first) == aggregate.to_dict()
 
 
+def test_profiled_json_is_deterministic_per_profile() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "unit_failure"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "skipped", "reason": "manual_skip"},
+        }
+    )
+
+    safe_first = aggregate.to_json(profile=RedactionProfile.SAFE)
+    safe_second = aggregate.to_json(profile=RedactionProfile.SAFE)
+    minimal_first = aggregate.to_json(profile=RedactionProfile.MINIMAL)
+    minimal_second = aggregate.to_json(profile=RedactionProfile.MINIMAL)
+
+    assert safe_first == safe_second
+    assert minimal_first == minimal_second
+
+    safe_payload = json.loads(safe_first)
+    assert safe_payload["tools"]["pytest"]["reason"] == "<redacted>"
+    assert safe_payload["tools"]["audit_immutability_verifier"]["dependency"] == "<redacted>"
+
+
 def test_fingerprint_is_stable_for_identical_payloads() -> None:
     aggregate = aggregate_tooling_status(
         {
@@ -248,6 +271,44 @@ def test_fingerprint_changes_when_payload_differs() -> None:
     assert tooling_status_equal(baseline, modified) is False
 
 
+def test_profiled_fingerprint_is_stable_within_profile() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "unit_failure"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        },
+        lineage_parent_fingerprint="0" * 64,
+        lineage_relation="recheck",
+    )
+
+    payload = aggregate.to_dict(profile=RedactionProfile.SAFE)
+    parsed = parse_tooling_status_payload(payload, profile=RedactionProfile.SAFE)
+
+    assert fingerprint_tooling_status(aggregate, profile=RedactionProfile.SAFE) == fingerprint_tooling_status(
+        parsed, profile=RedactionProfile.SAFE
+    )
+    assert parsed.to_dict(profile=RedactionProfile.SAFE)["fingerprint"] == payload["fingerprint"]
+
+
+def test_fingerprints_diverge_across_profiles() -> None:
+    aggregate = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "unit_failure"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+        }
+    )
+
+    full_fingerprint = fingerprint_tooling_status(aggregate, profile=RedactionProfile.FULL)
+    safe_fingerprint = fingerprint_tooling_status(aggregate, profile=RedactionProfile.SAFE)
+    minimal_fingerprint = fingerprint_tooling_status(aggregate, profile=RedactionProfile.MINIMAL)
+
+    assert full_fingerprint != safe_fingerprint
+    assert safe_fingerprint != minimal_fingerprint
+    assert full_fingerprint != minimal_fingerprint
+
+
 def test_fingerprint_survives_round_trip_serialization() -> None:
     aggregate = aggregate_tooling_status(
         {
@@ -334,6 +395,35 @@ def test_parse_round_trip_matches_current_schema() -> None:
 
     assert parsed.to_dict() == payload
     assert parsed.forward_version_detected is False
+
+
+def test_redacted_payload_validates_against_schema() -> None:
+    origin = aggregate_tooling_status(
+        {
+            "pytest": {"status": "passed"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        }
+    )
+    successor = aggregate_tooling_status(
+        {
+            "pytest": {"status": "failed", "reason": "flake"},
+            "mypy": {"status": "passed"},
+            "verify_audits": {"status": "passed"},
+            "audit_immutability_verifier": {"status": "skipped", "reason": "manifest_missing"},
+        },
+        lineage_parent_fingerprint=origin.fingerprint,
+        lineage_relation="recheck",
+    )
+
+    minimal_payload = successor.to_dict(profile=RedactionProfile.MINIMAL)
+    parsed = parse_tooling_status_payload(minimal_payload, profile=RedactionProfile.MINIMAL)
+
+    assert parsed.tools["pytest"].reason == "<redacted>"
+    assert parsed.tools["audit_immutability_verifier"].dependency == "<redacted>"
+    assert parsed.lineage_parent_fingerprint == "0" * 64
+    assert parsed.to_dict(profile=RedactionProfile.MINIMAL)["fingerprint"] == minimal_payload["fingerprint"]
 
 
 def test_lineage_supersession_chain_validates() -> None:
