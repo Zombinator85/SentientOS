@@ -12,6 +12,14 @@ import datetime
 from pathlib import Path
 import autonomous_reflector as ar
 import doctrine
+from system_continuity import (
+    CheckpointLedger,
+    DriftSentinel,
+    NarrativeView,
+    PhaseGate,
+    SystemPhase,
+    UpdateOrchestrator,
+)
 
 MEMORY_DIR = get_log_path("memory", "MEMORY_DIR")
 STATE_PATH = MEMORY_DIR / "orchestrator_state.json"
@@ -74,3 +82,28 @@ class Orchestrator:
             "running": self.state.get("running", False),
             "last_run": self.state.get("last_run"),
         }
+
+
+# New lifecycle utilities
+def build_update_orchestrator(phase: SystemPhase = SystemPhase.OPERATIONS) -> UpdateOrchestrator:
+    """Construct a deterministic, rollback-capable orchestrator.
+
+    The helper is intentionally lightweight so tests can provision
+    a fully-guarded orchestrator without touching the global process state.
+    """
+
+    gate = PhaseGate(phase=phase)
+    ledger = CheckpointLedger()
+    return UpdateOrchestrator(gate, ledger)
+
+
+__all__ = [
+    "Orchestrator",
+    "build_update_orchestrator",
+    "CheckpointLedger",
+    "DriftSentinel",
+    "NarrativeView",
+    "PhaseGate",
+    "SystemPhase",
+    "UpdateOrchestrator",
+]
