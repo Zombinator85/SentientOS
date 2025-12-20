@@ -4,7 +4,7 @@ A deterministic memory and emotion relay for model-presence computing.
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
 [![Docker Pull](https://img.shields.io/static/v1?label=Docker%20Pull&message=ghcr.io/zombinator85/sentientos&color=blue)](https://github.com/zombinator85/sentientos/pkgs/container/sentientos)
-[![Release: SentientOS v1.2.0-beta – Fully Offline Embodied Release](https://img.shields.io/badge/Release-v1.2.0--beta-blueviolet)](docs/REHEARSAL.md)
+[![Release: SentientOS v1.2.0-beta – Deterministic Core Release](https://img.shields.io/badge/Release-v1.2.0--beta-blueviolet)](docs/REHEARSAL.md)
 [![Autonomy Metrics](https://img.shields.io/badge/metrics-autonomy%20ready-5b73d8)](docs/METRICS.md)
 [![Rehearsal Status](https://img.shields.io/badge/rehearsal-ci%20verified-1f6feb)](docs/REHEARSAL.md)
 
@@ -12,7 +12,10 @@ A deterministic memory and emotion relay for model-presence computing.
 SentientOS synchronizes memory, presence, and model output into a relay loop
 focused on deterministic state processing. Guardrails auto-align on boot,
 before each processing cycle, and after configuration amendments, keeping the
-runtime bounded without manual toggles.
+runtime bounded without manual toggles. Embodiment, gaming, VR, and
+sensorimotor interfaces are external adapters only; the deterministic core
+does not ship or depend on them. See [EXTENSIONS.md](EXTENSIONS.md) and
+[docs/NON_CORE_EXTENSIONS.md](docs/NON_CORE_EXTENSIONS.md) for the boundary.
 
 For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
 Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation without review is considered a breaking change.
@@ -85,6 +88,12 @@ python experiment_cli.py demo-run demo_simple_success
 Each demo uses the mock adapter, evaluates DSL criteria, and records transcripts
 in the standard experiment chain log. See [`demos/README.md`](demos/README.md)
 for details about the available scenarios.
+
+## 📚 Curated model families
+
+- **Default baseline:** Mistral-7B-Instruct (Apache-2.0) across platforms.
+- **License safety:** Default recommendations exclude revocable, RAIL, or non-commercial licenses.
+- **Matrix:** See [`docs/CURATED_MODEL_MATRIX.md`](docs/CURATED_MODEL_MATRIX.md) for curator-facing platform guidance and escrow targets.
 
 ### Getting Started in the Dev Container
 
