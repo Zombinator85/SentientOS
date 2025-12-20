@@ -1,30 +1,44 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from hashlib import sha256
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 import json
 import time
 
 ADVISORY_PHASE = "ADVISORY_WINDOW"
+ALLOWED_ARTIFACTS = ("plan", "diff", "test ideas")
+
+
+def _deterministic_dumps(payload: object) -> str:
+    return json.dumps(payload, sort_keys=True, separators=(',', ':'))
+
+
+def _hash_payload(payload: object) -> str:
+    return sha256(_deterministic_dumps(payload).encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
 class AdvisoryRequest:
     goal: str
-    context_slice: tuple[str, ...]
     constraints: Mapping[str, Sequence[str]]
-    forbidden_domains: tuple[str, ...]
+    files_in_scope: tuple[str, ...]
+    forbidden_changes: tuple[str, ...]
     desired_artifacts: tuple[str, ...]
-    phase: str
-    redaction_profile: tuple[str, ...]
-    version: str = "1.0"
+    context_redactions: tuple[str, ...]
+    system_phase: str
+    minimal_synopsis: str = ""
+    phase_required: str = ADVISORY_PHASE
+    version: str = "2.0"
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "context_slice", tuple(self.context_slice))
-        object.__setattr__(self, "forbidden_domains", tuple(self.forbidden_domains))
-        object.__setattr__(self, "desired_artifacts", tuple(self.desired_artifacts))
-        object.__setattr__(self, "redaction_profile", tuple(self.redaction_profile))
+        object.__setattr__(self, "files_in_scope", tuple(self.files_in_scope))
+        object.__setattr__(self, "forbidden_changes", tuple(self.forbidden_changes))
+        normalized_artifacts = tuple(item.lower() for item in self.desired_artifacts)
+        object.__setattr__(self, "desired_artifacts", normalized_artifacts)
+        normalized_redactions = tuple(token.lower() for token in self.context_redactions)
+        object.__setattr__(self, "context_redactions", normalized_redactions)
         normalized_constraints = {
             "must": tuple(self.constraints.get("must", ())),
             "must_not": tuple(self.constraints.get("must_not", ())),
@@ -35,54 +49,82 @@ class AdvisoryRequest:
         errors: list[str] = []
         if not self.goal:
             errors.append("goal is required")
-        if self.phase != ADVISORY_PHASE:
+        if self.system_phase != self.phase_required:
             errors.append("phase must be ADVISORY_WINDOW")
-        if not isinstance(self.context_slice, tuple):
-            errors.append("context_slice must be a tuple")
+        if not isinstance(self.files_in_scope, tuple):
+            errors.append("files_in_scope must be a tuple")
+        extra_artifacts = [item for item in self.desired_artifacts if item not in ALLOWED_ARTIFACTS]
+        if extra_artifacts:
+            errors.append(f"unsupported artifacts requested: {', '.join(sorted(extra_artifacts))}")
         if errors:
             raise ValueError("; ".join(errors))
 
     def redact(self) -> tuple[AdvisoryRequest, tuple[str, ...]]:
-        redacted_entries: list[str] = []
         applied: list[str] = []
-        for entry in self.context_slice:
-            if any(token.lower() in entry.lower() for token in self.redaction_profile):
-                redacted_entries.append("[REDACTED]")
+        redaction_tokens = set(self.context_redactions) | {"doctrine", "constraint registry", "authority logic"}
+
+        def _apply(text: str) -> str:
+            if any(token in text.lower() for token in redaction_tokens):
                 applied.extend(
                     token
-                    for token in self.redaction_profile
-                    if token.lower() in entry.lower() and token not in applied
+                    for token in redaction_tokens
+                    if token in text.lower() and token not in applied
                 )
-            else:
-                redacted_entries.append(entry)
-        redacted = replace(self, context_slice=tuple(redacted_entries))
+                return "[REDACTED]"
+            return text
+
+        redacted_goal = _apply(self.goal)
+        redacted_synopsis = _apply(self.minimal_synopsis)
+        redacted_files = tuple(_apply(entry) for entry in self.files_in_scope)
+        redacted = replace(
+            self,
+            goal=redacted_goal,
+            minimal_synopsis=redacted_synopsis,
+            files_in_scope=redacted_files,
+        )
         return redacted, tuple(applied)
+
+    def restricted_view(self) -> "AdvisoryRequest":
+        """Expose only backlog, files, and synopsis to external advisors."""
+
+        return replace(
+            self,
+            context_redactions=(),
+            forbidden_changes=tuple(self.forbidden_changes),
+            constraints={
+                "must": tuple(self.constraints.get("must", ())),
+                "must_not": tuple(self.constraints.get("must_not", ())),
+            },
+        )
 
 
 @dataclass(frozen=True)
 class AdvisoryResponse:
     proposed_steps: tuple[str, ...]
-    risk_notes: tuple[str, ...]
-    assumptions: tuple[str, ...]
-    confidence_estimate: float
-    unknowns: tuple[str, ...]
-    diff_suggestions: tuple[str, ...] | None = None
-    version: str = "1.0"
+    risks: tuple[str, ...]
+    invariants_touched: tuple[str, ...]
+    confidence: float
+    uncertainties: tuple[str, ...]
+    version: str = "2.0"
     executable: bool = field(default=False, init=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "proposed_steps", tuple(self.proposed_steps))
-        object.__setattr__(self, "risk_notes", tuple(self.risk_notes))
-        object.__setattr__(self, "assumptions", tuple(self.assumptions))
-        object.__setattr__(self, "unknowns", tuple(self.unknowns))
-        if self.diff_suggestions is not None:
-            object.__setattr__(self, "diff_suggestions", tuple(self.diff_suggestions))
+        object.__setattr__(self, "risks", tuple(self.risks))
+        object.__setattr__(self, "invariants_touched", tuple(self.invariants_touched))
+        object.__setattr__(self, "uncertainties", tuple(self.uncertainties))
 
     def validate(self) -> None:
-        if any(callable(step) for step in self.diff_suggestions or ()):  # type: ignore[arg-type]
-            raise ValueError("diff suggestions must be inert text, not callables")
-        if self.confidence_estimate < 0 or self.confidence_estimate > 1:
-            raise ValueError("confidence_estimate must be between 0 and 1")
+        sequences = (
+            self.proposed_steps,
+            self.risks,
+            self.invariants_touched,
+            self.uncertainties,
+        )
+        if any(callable(entry) for seq in sequences for entry in seq):
+            raise ValueError("advisory responses must be inert text")
+        if self.confidence < 0 or self.confidence > 1:
+            raise ValueError("confidence must be between 0 and 1")
         if self.executable:
             raise ValueError("advisory responses cannot be executable")
 
@@ -113,10 +155,14 @@ class AdvisoryAuditTrail:
         downstream_effects: tuple[str, ...] = (),
         stage: str = "gate",
     ) -> None:
+        request_payload = json.loads(_deterministic_dumps(request.__dict__))
+        response_payload = json.loads(_deterministic_dumps(response.__dict__)) if response else None
         entry = {
             "stage": stage,
-            "request": json.loads(json.dumps(request.__dict__)),
-            "response": json.loads(json.dumps(response.__dict__)) if response else None,
+            "request": request_payload,
+            "request_hash": _hash_payload(request_payload),
+            "response": response_payload,
+            "response_hash": _hash_payload(response_payload) if response_payload else None,
             "redactions": list(redactions),
             "decision": decision.__dict__,
             "downstream_effects": list(downstream_effects),
@@ -162,7 +208,7 @@ class AdvisoryConnectorGate:
             )
             return decision, None
 
-        if len(redacted_request.context_slice) > self.max_scope_size:
+        if len(redacted_request.files_in_scope) > self.max_scope_size:
             decision = AdvisoryDecision(status="rejected", reason="context scope exceeds maximum")
             self.audit_trail.record_interaction(
                 request=redacted_request,
@@ -179,7 +225,7 @@ class AdvisoryConnectorGate:
             attempts += 1
             start = time.monotonic()
             try:
-                response = responder(redacted_request)
+                response = responder(redacted_request.restricted_view())
             except Exception as exc:  # pragma: no cover - defensive logging
                 errors.append(str(exc))
                 response = None
@@ -239,20 +285,30 @@ class AdvisoryConnectorGate:
             reasons.append("prescriptive authority language detected")
         if self._imports_policy(text):
             reasons.append("external policy import attempt detected")
-        if self._moral_framing(text):
-            reasons.append("moral framing not permitted")
         if self._scope_creep(text, request):
             reasons.append("scope creep detected")
+        if self._suggests_direct_writes(text):
+            reasons.append("direct code writes are forbidden")
+        if self._suggests_state_mutation(text):
+            reasons.append("state mutation is forbidden")
+        if self._suggests_confidence_changes(text):
+            reasons.append("confidence changes are not advisory-safe")
+        if self._self_update_attempt(text):
+            reasons.append("self-update execution is sealed")
+        if self._introduces_new_constraints(text):
+            reasons.append("attempt to introduce new constraints detected")
+        if self._authority_escalation(text):
+            reasons.append("authority escalation suggestion detected")
+        if self._policy_without_justification(text):
+            reasons.append("policy suggestions require justification")
         return tuple(reasons)
 
     def _flatten_response_text(self, response: AdvisoryResponse) -> str:
         parts: list[str] = []
         parts.extend(response.proposed_steps)
-        parts.extend(response.risk_notes)
-        parts.extend(response.assumptions)
-        parts.extend(response.unknowns)
-        if response.diff_suggestions:
-            parts.extend(response.diff_suggestions)
+        parts.extend(response.risks)
+        parts.extend(response.invariants_touched)
+        parts.extend(response.uncertainties)
         return "\n".join(parts).lower()
 
     def _contains_authority_language(self, text: str) -> bool:
@@ -263,14 +319,39 @@ class AdvisoryConnectorGate:
         triggers = ("apply your guardrails", "import policy", "adopt my rules", "external governance")
         return any(trigger in text for trigger in triggers)
 
-    def _moral_framing(self, text: str) -> bool:
-        return any(term in text for term in ("moral", "ethical duty", "virtue"))
-
     def _scope_creep(self, text: str, request: AdvisoryRequest) -> bool:
-        if any(domain.lower() in text for domain in request.forbidden_domains):
+        if any(domain.lower() in text for domain in request.forbidden_changes):
             return True
-        scope_flags = ("entire codebase", "whole system", "all modules")
+        scope_flags = ("entire codebase", "whole system", "all modules", "any file")
         return any(flag in text for flag in scope_flags)
+
+    def _suggests_direct_writes(self, text: str) -> bool:
+        writes = ("write code", "apply patch", "commit", "push changes", "edit file", "modify code")
+        return any(term in text for term in writes)
+
+    def _suggests_state_mutation(self, text: str) -> bool:
+        mutations = ("toggle", "flip flag", "change state", "alter config", "update database")
+        return any(term in text for term in mutations)
+
+    def _suggests_confidence_changes(self, text: str) -> bool:
+        confidence_triggers = ("raise confidence", "lower confidence", "change confidence")
+        return any(term in text for term in confidence_triggers)
+
+    def _self_update_attempt(self, text: str) -> bool:
+        self_updates = ("self-update", "self modify", "upgrade itself", "rewrite connector")
+        return any(term in text for term in self_updates)
+
+    def _introduces_new_constraints(self, text: str) -> bool:
+        return "new constraint" in text or "additional guardrail" in text
+
+    def _authority_escalation(self, text: str) -> bool:
+        escalation = ("admin access", "elevate privileges", "root access", "superuser")
+        return any(term in text for term in escalation)
+
+    def _policy_without_justification(self, text: str) -> bool:
+        if "policy" not in text:
+            return False
+        return "because" not in text and "justify" not in text
 
 
 class AdvisoryAcceptanceWorkflow:
