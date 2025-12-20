@@ -347,8 +347,8 @@ def main() -> None:
     elif args.cmd == "patches":
         print(json.dumps(self_patcher.list_patches(), indent=2))
     elif args.cmd == "apply_patch":
-        self_patcher.apply_patch(args.note, auto=False)
-        print("Patch recorded")
+        self_patcher.propose_patch(args.note)
+        print("Patch proposal recorded; apply requires admission+authorization")
     elif args.cmd == "rollback_patch":
         ritual.confirm_disruptive("rollback_patch", "Patch state will change")
         if self_patcher.rollback_patch(args.id):

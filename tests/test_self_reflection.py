@@ -16,6 +16,8 @@ import notification
 import self_patcher
 from api import actuator
 import self_reflection
+from control_plane import AuthorizationRecord, Decision, ReasonCode, RequestType
+import task_executor
 from importlib import reload
 import pytest
 
@@ -29,9 +31,38 @@ def setup_env(tmp_path, monkeypatch):
     reload(self_reflection)
 
 
+def _auth() -> AuthorizationRecord:
+    return AuthorizationRecord(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="tester",
+        intent_hash="i",
+        context_hash="c",
+        policy_version="v1",
+        decision=Decision.ALLOW,
+        reason=ReasonCode.OK,
+        timestamp=0.0,
+        metadata=None,
+    )
+
+
+def _token() -> task_executor.AdmissionToken:
+    provenance = task_executor.AuthorityProvenance(
+        authority_source="tester",
+        authority_scope="self-heal",
+        authority_context_id="ctx",
+        authority_reason="test",
+    )
+    fingerprint = task_executor.RequestFingerprint("f" * 64)
+    return task_executor.AdmissionToken(
+        task_id="self-heal-task",
+        provenance=provenance,
+        request_fingerprint=fingerprint,
+    )
+
+
 def test_reflection_on_patch(tmp_path, monkeypatch):
     setup_env(tmp_path, monkeypatch)
-    self_patcher.apply_patch("note", auto=False)
+    self_patcher.apply_patch("note", admission_token=_token(), authorization=_auth())
     mgr = self_reflection.SelfHealingManager()
     mgr.run_cycle()
     refls = mm.recent_reflections(limit=1, plugin="self_heal")

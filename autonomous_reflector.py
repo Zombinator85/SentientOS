@@ -14,7 +14,7 @@ from api import actuator
 import council_consensus as council
 import memory_manager as mm
 from notification import send as notify
-from self_patcher import apply_patch
+from self_patcher import propose_patch
 import skill_library as skills
 import critic_daemon
 import reflexion_loop as reflexion
@@ -79,7 +79,7 @@ def _self_patch(goal: dict, result: dict, consensus: dict) -> None:
         note = f"Goal {goal['id']} blocked by council"
     else:
         note = f"Goal {goal['id']} failed {goal.get('failure_count',0)} times"
-    apply_patch(note, auto=True)
+    propose_patch(note)
     notify("self_patch", {"goal": goal["id"], "note": note})
 
 
