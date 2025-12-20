@@ -6,7 +6,13 @@ import json
 
 import pytest
 
-from sentientos.truth import AntiLagGuard, ProvisionalAssertionLedger, SilenceDebt
+from sentientos.truth import (
+    AntiLagGuard,
+    ConfidenceDecayEngine,
+    NarrativeSynopsisGenerator,
+    ProvisionalAssertionLedger,
+    SilenceDebt,
+)
 
 
 def test_records_low_confidence_assertion_with_review_clock():
@@ -127,3 +133,89 @@ def test_deterministic_serialization_and_integrations():
     tooling_status: dict[str, object] = {}
     ledger.annotate_tooling_status(tooling_status)
     assert "active" in tooling_status.get("provisional_assertions", {})
+
+
+def test_inquiry_generation_links_to_backlog_and_review():
+    ledger = ProvisionalAssertionLedger()
+    now = datetime.utcnow()
+    active = ledger.create_assertion(
+        claim_text="drift-detection",
+        confidence_band="MEDIUM",
+        evidence_summary="telemetry divergence",
+        review_horizon=now + timedelta(minutes=5),
+    )
+    retracted = ledger.retract(
+        active.assertion_id,
+        cause="not reproducible",
+        review_horizon=now + timedelta(minutes=10),
+    )
+    backlog: dict[str, list[dict[str, object]]] = {}
+    ledger.enqueue_inquiry_prompts(backlog, resolved_ids={retracted.assertion_id})
+    prompts = backlog["inquiry_prompts"]
+    assert {prompt["related_assertion_id"] for prompt in prompts} == {active.assertion_id}
+    assert prompts[0]["direction"] == "discriminate"
+    assert prompts[0]["priority_hint"] > 0
+    assert "review_horizon" not in prompts[0]
+
+
+def test_decay_triggers_and_is_reversible():
+    ledger = ProvisionalAssertionLedger()
+    horizon = datetime.utcnow() - timedelta(minutes=1)
+    assertion = ledger.create_assertion(
+        claim_text="latency-regression",
+        confidence_band="HIGH",
+        evidence_summary="packet loss spike",
+        review_horizon=horizon,
+    )
+    engine = ConfidenceDecayEngine(default_extension=timedelta(minutes=30))
+    log = engine.apply_decay(ledger, now=datetime.utcnow())
+    assert log[0]["from_band"] == "HIGH"
+    chain = ledger.supersession_chain(assertion.assertion_id)
+    assert chain[-1].confidence_band == "MEDIUM"
+
+    restored = ledger.revise_confidence(
+        chain[-1].assertion_id,
+        new_band="HIGH",
+        evidence_summary="reviewed and reaffirmed",
+        review_horizon=datetime.utcnow() + timedelta(hours=1),
+    )
+    assert restored.confidence_band == "HIGH"
+
+
+def test_pinned_assertions_resist_decay():
+    ledger = ProvisionalAssertionLedger()
+    assertion = ledger.create_assertion(
+        claim_text="stability",
+        confidence_band="HIGH",
+        evidence_summary="long-run monitoring",
+        review_horizon=datetime.utcnow() - timedelta(minutes=5),
+        decay_pinned=True,
+    )
+    engine = ConfidenceDecayEngine()
+    log = engine.apply_decay(ledger, now=datetime.utcnow())
+    assert log == []
+    assert ledger.supersession_chain(assertion.assertion_id)[-1].confidence_band == "HIGH"
+
+
+def test_narrative_is_deterministic_and_includes_history():
+    ledger = ProvisionalAssertionLedger()
+    base = ledger.create_assertion(
+        claim_text="coverage-gap",
+        confidence_band="MEDIUM",
+        evidence_summary="missing tests",
+        review_horizon=datetime.utcnow() + timedelta(minutes=30),
+    )
+    superseded = ledger.revise_confidence(
+        base.assertion_id,
+        new_band="LOW",
+        evidence_summary="tests added",
+        review_horizon=datetime.utcnow() + timedelta(hours=1),
+    )
+    generator = NarrativeSynopsisGenerator()
+    chain = ledger.supersession_chain(base.assertion_id)
+    first = generator.build(chain)
+    second = generator.build(chain)
+    assert first.synopsis_text == second.synopsis_text
+    assert base.assertion_id in first.synopsis_text or superseded.assertion_id in first.synopsis_text
+    claim_texts = {entry["claim_text"] for entry in first.outline["claims"]}
+    assert claim_texts == {"coverage-gap"}

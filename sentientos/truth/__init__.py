@@ -16,7 +16,11 @@ from .epistemic_orientation import (
 )
 from .provisional_assertion import (
     AntiLagGuard,
+    ConfidenceDecayEngine,
     ConfidenceBand,
+    InquiryPrompt,
+    NarrativeSynopsis,
+    NarrativeSynopsisGenerator,
     ProvisionalAssertion,
     ProvisionalAssertionLedger,
     RevisionState,
@@ -34,7 +38,11 @@ __all__ = [
     "EpistemicSelfCheck",
     "JudgmentSuspender",
     "AntiLagGuard",
+    "ConfidenceDecayEngine",
     "ConfidenceBand",
+    "InquiryPrompt",
+    "NarrativeSynopsis",
+    "NarrativeSynopsisGenerator",
     "SourceClass",
     "ProvisionalAssertion",
     "ProvisionalAssertionLedger",
