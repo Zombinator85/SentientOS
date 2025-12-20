@@ -83,10 +83,22 @@ class StepExecutionError(Exception):
         self.step = step
 
 
+@dataclass(frozen=True)
+class AdmissionToken:
+    task_id: str
+    issued_by: str = "task_admission"
+
+
 LOG_PATH = get_log_path("task_executor.jsonl", "TASK_EXECUTOR_LOG")
 
 
-def execute_task(task: Task, *, authorization: AuthorizationRecord | None = None) -> TaskResult:
+def execute_task(
+    task: Task,
+    *,
+    authorization: AuthorizationRecord | None = None,
+    admission_token: AdmissionToken | None = None,
+) -> TaskResult:
+    _require_admission_token(admission_token, task)
     _require_authorization(authorization)
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
@@ -184,6 +196,15 @@ def _log_step(task_id: str, trace: StepTrace) -> None:
     if trace.error:
         entry["error"] = trace.error
     append_json(Path(LOG_PATH), entry)
+
+
+def _require_admission_token(token: AdmissionToken | None, task: Task) -> None:
+    if token is None:
+        raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
+    if token.task_id != task.task_id:
+        raise AuthorizationError("admission token task mismatch")
+    if token.issued_by != "task_admission":
+        raise AuthorizationError("admission token issuer invalid")
 
 
 def _require_authorization(authorization: AuthorizationRecord | None) -> None:
