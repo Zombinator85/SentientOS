@@ -35,11 +35,12 @@ $RepairLog = Join-Path $RootPath "logs\\self_repair.log"
 $LauncherLog = Join-Path $RootPath "logs\\launcher.log"
 
 # Ports
+$RelayHost = "127.0.0.1"
 $LlamaPort = 8000
 $RelayPort = 3928
 $RuntimePort = 5000
 $LlamaHealthUrl = "http://127.0.0.1:$LlamaPort/"
-$RelayHealthUrl = "http://127.0.0.1:$RelayPort/v1/health"
+$RelayHealthUrl = "http://$RelayHost:$RelayPort/health/status"
 $RuntimeHealthUrl = "http://127.0.0.1:$RuntimePort/health"
 
 # Config
@@ -268,7 +269,7 @@ function Start-RelayServer {
     if (Test-UrlHealthy $RelayHealthUrl) { Write-Ok "Relay already running"; return }
     Kill-PortOccupants $RelayPort
     Write-Status "Launching relay_server.py"
-    $cmd = "cd `"$RootPath`"; & `"$PythonExe`" `"$RelayScript`" --port $RelayPort"
+    $cmd = "cd `"$RootPath`"; & `"$PythonExe`" `"$RelayScript`" --host $RelayHost --port $RelayPort --llama-host 127.0.0.1 --llama-port $LlamaPort"
     Start-Process powershell -ArgumentList "-NoExit","-Command",$cmd -WorkingDirectory $RootPath
     if (-not (Wait-ForHealth $RelayHealthUrl "relay")) { Fail "relay_server failed to start" }
     Write-Ok "relay_server running"
@@ -277,7 +278,7 @@ function Start-RelayServer {
 function Start-CathedralShell {
     Kill-PortOccupants $RuntimePort
     Write-Status "Launching Runtime"
-    $cmd = "cd `"$RootPath`"; & `"$PythonExe`" `"$CathedralLauncher`""
+    $cmd = "cd `"$RootPath`"; & `"$PythonExe`" `"$CathedralLauncher`" --attach-relay --relay-host $RelayHost --relay-port $RelayPort --model-port $LlamaPort"
     Start-Process powershell -ArgumentList "-NoExit","-Command",$cmd -WorkingDirectory $RootPath
     Write-Ok "Runtime launched"
 }

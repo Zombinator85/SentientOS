@@ -49,23 +49,27 @@ BACKEND_READY = False
 
 
 class RelayConfig(BaseModel):
-    relay_host: str = "0.0.0.0"
+    relay_host: str = os.environ.get("RELAY_HOST", "127.0.0.1")
     relay_port: int = int(os.environ.get("RELAY_PORT", 3928))
     llama_host: str = os.environ.get("LLAMA_HOST", "127.0.0.1")
-    llama_port: int = int(os.environ.get("LLAMA_PORT", 8080))
+    llama_port: int = int(os.environ.get("LLAMA_PORT", 8000))
     llama_retries: int = int(os.environ.get("LLAMA_RETRIES", 5))
     llama_retry_delay: float = float(os.environ.get("LLAMA_RETRY_DELAY", 1.0))
 
 
 CONFIG = RelayConfig()
+START_TIME = time.time()
 
 
-def _ensure_port_available(port: int) -> None:
+def _ensure_port_available(port: int, host: str) -> None:
+    target_host = host if host else "127.0.0.1"
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(1)
-        result = sock.connect_ex(("127.0.0.1", port))
+        result = sock.connect_ex((target_host, port))
         if result == 0:
-            LOGGER.fatal("Port %s is already in use; cannot start relay server", port)
+            LOGGER.fatal(
+                "Port %s is already in use on %s; cannot start relay server", port, target_host
+            )
             raise SystemExit(1)
 
 
@@ -134,6 +138,22 @@ def initialise_backend() -> None:
     BACKEND_READY = True
     LOGGER.info("Relay backend ready; accepting requests")
 
+
+def _health_payload() -> dict:
+    uptime_s = max(0, int(time.time() - START_TIME))
+    status = "ready" if BACKEND_READY else "starting"
+    model_name = MODEL.describe() if MODEL is not None else None
+    return {
+        "status": status,
+        "backend_ready": BACKEND_READY,
+        "llama_host": CONFIG.llama_host,
+        "llama_port": CONFIG.llama_port,
+        "relay_host": CONFIG.relay_host,
+        "relay_port": CONFIG.relay_port,
+        "model": model_name,
+        "uptime_s": uptime_s,
+    }
+
 LOG_PATH = Path("relay_logs.jsonl")
 CODEX_LOG = Path("/daemon/logs/codex.jsonl")
 CODEX_PATCH_DIR = Path("/glow/codex_suggestions/")
@@ -192,13 +212,12 @@ def ping() -> dict:
 
 @app.get("/health")
 def health() -> dict:
-    status = "ready" if BACKEND_READY else "starting"
-    return {
-        "status": status,
-        "backend_ready": BACKEND_READY,
-        "llama_host": CONFIG.llama_host,
-        "llama_port": CONFIG.llama_port,
-    }
+    return _health_payload()
+
+
+@app.get("/health/status")
+def health_status() -> dict:
+    return _health_payload()
 
 
 @app.post("/sync/glow")
@@ -424,7 +443,12 @@ if __name__ == "__main__":
         llama_retry_delay=args.llama_retry_delay,
     )
 
-    _ensure_port_available(CONFIG.relay_port)
+    if CONFIG.relay_host == "0.0.0.0":
+        LOGGER.warning(
+            "Relay binding to 0.0.0.0 (public). Override RELAY_HOST for local-only binding."
+        )
+
+    _ensure_port_available(CONFIG.relay_port, CONFIG.relay_host)
     LOGGER.info(
         "Starting relay server on %s:%s (llama.cpp at %s:%s)",
         CONFIG.relay_host,

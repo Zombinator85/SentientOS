@@ -452,17 +452,39 @@ def main(argv: Optional[list[str]] | None = None) -> int:
         "--relay-port",
         type=int,
         default=int(os.getenv("RELAY_PORT", "3928")),
-        help="Port for relay_app.py (env: RELAY_PORT)",
+        help="Port for the relay service (env: RELAY_PORT)",
     )
     parser.add_argument(
         "--relay-host",
         default=os.getenv("RELAY_HOST", "127.0.0.1"),
-        help="Host/interface for relay_app.py (env: RELAY_HOST)",
+        help="Host/interface for the relay service (env: RELAY_HOST)",
     )
     parser.add_argument(
         "--relay-health-path",
         default=os.getenv("RELAY_HEALTH_PATH", "/health/status"),
         help="Health endpoint path for the relay (env: RELAY_HEALTH_PATH)",
+    )
+    parser.add_argument(
+        "--attach-relay",
+        action="store_true",
+        default=True,
+        help="Attach to an already-running relay instead of spawning a new one",
+    )
+    parser.add_argument(
+        "--no-attach-relay",
+        action="store_false",
+        dest="attach_relay",
+        help="Disable attach-only mode (will launch relay unless --launch-relay is omitted)",
+    )
+    parser.add_argument(
+        "--launch-relay",
+        action="store_true",
+        help="Launch the relay before checking health (disabled by default)",
+    )
+    parser.add_argument(
+        "--relay-script",
+        default=os.getenv("RELAY_SCRIPT", "relay_server.py"),
+        help="Relay entrypoint to launch when --launch-relay is set",
     )
     parser.add_argument(
         "--health-timeout",
@@ -544,23 +566,43 @@ def main(argv: Optional[list[str]] | None = None) -> int:
             "llama_unreachable", level="WARNING", data={"host": args.model_host, "port": args.model_port}
         )
 
-    relay_script = Path("sentientos_relay.py")
-    if not relay_script.exists():
-        relay_script = Path("relay_app.py")
+    should_launch_relay = args.launch_relay or not args.attach_relay
 
-    log_event(
-        "relay_launching",
-        data={"script": str(relay_script), "host": args.relay_host, "port": args.relay_port},
-    )
-    relay_proc = launch_background(
-        [sys.executable, str(relay_script)],
-        env={**env, "RELAY_PORT": str(args.relay_port), "RELAY_HOST": args.relay_host},
-    )
+    relay_proc: subprocess.Popen[bytes] | None = None
+    if should_launch_relay:
+        relay_script = Path(args.relay_script)
+        log_event(
+            "relay_launching",
+            data={"script": str(relay_script), "host": args.relay_host, "port": args.relay_port},
+        )
+        relay_proc = launch_background(
+            [
+                sys.executable,
+                str(relay_script),
+                "--host",
+                args.relay_host,
+                "--port",
+                str(args.relay_port),
+                "--llama-host",
+                args.model_host,
+                "--llama-port",
+                str(args.model_port),
+            ],
+            env={**env, "RELAY_PORT": str(args.relay_port), "RELAY_HOST": args.relay_host},
+        )
+    else:
+        log_event(
+            "relay_attach_only",
+            data={"host": args.relay_host, "port": args.relay_port, "health": args.relay_health_path},
+        )
 
-    if not wait_for_relay_health(args.relay_host, args.relay_port, path=args.relay_health_path, timeout=args.health_timeout):
+    if not wait_for_relay_health(
+        args.relay_host, args.relay_port, path=args.relay_health_path, timeout=args.health_timeout
+    ):
         log_event("relay_health_timeout", level="ERROR", data={"port": args.relay_port})
         print("[FATAL] Relay failed health check; see logs/cathedral.log for details.")
-        relay_proc.terminate()
+        if relay_proc is not None:
+            relay_proc.terminate()
         return EXIT_RUNTIME
 
     for bridge in ["bio_bridge.py", "tts_bridge.py", "haptics_bridge.py"]:

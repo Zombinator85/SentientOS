@@ -2,7 +2,7 @@
 <#!
 Stop-All.ps1 - Gracefully stop SentientOS services on Windows
 - Stops llama-server, relay, and runtime shells
-- Frees ports 5000/8080/3928
+- Frees ports 5000/8000/3928
 - Warns about locked CUDA DLLs
 - Verifies shutdown
 !>
@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $RootPath = "C:\SentientOS"
-$LlamaPort = 8080
+$LlamaPort = 8000
 $RelayPort = 3928
 $RuntimePort = 5000
 
@@ -126,7 +126,7 @@ Kill-PortOccupants -Port $RelayPort
 Kill-PortOccupants -Port $RuntimePort
 
 $llamaAlive = Test-UrlHealthy -Url "http://127.0.0.1:$LlamaPort/"
-$relayAlive = Test-UrlHealthy -Url "http://127.0.0.1:$RelayPort/v1/health"
+$relayAlive = Test-UrlHealthy -Url "http://127.0.0.1:$RelayPort/health/status"
 $runtimeAlive = Test-UrlHealthy -Url "http://127.0.0.1:$RuntimePort/"
 
 if ($llamaAlive -or $relayAlive -or $runtimeAlive) {

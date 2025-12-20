@@ -47,6 +47,17 @@ python tools/bootstrap_secondary.py
 The end-to-end Visual Studio build and launch procedure lives in
 `docs/BUILD_SECONDARY.md`.
 
+### Windows launcher plumbing (ports & health)
+
+- `Start-All.ps1`/`Stop-All.ps1` and `cathedral_launcher.py` share the same defaults:
+  - llama.cpp listens on **127.0.0.1:8000**.
+  - The FastAPI relay listens on **127.0.0.1:3928** with health at `/health/status`.
+  - The runtime shell remains on **127.0.0.1:5000**.
+- Relay binding is local-only by default. To opt into external binding, set `RELAY_HOST=0.0.0.0`
+  (expect a warning banner on startup).
+- Cathedral defaults to attach-only relay mode; use `--launch-relay` if you explicitly want it to
+  start the relay process itself.
+
 ### Installing extras (bin vs src)
 
 Pre-built wheels install without a compiler:
