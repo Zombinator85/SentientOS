@@ -101,3 +101,48 @@ class ValueDriftSentinel:
         """Expose a defensive copy of history for testing."""
 
         return [deepcopy(entry) for entry in self._history]
+
+
+class AdvisoryToneSentinel:
+    """Observe tone drift in advisory connector responses over time."""
+
+    def __init__(self, maxlen: int = 30) -> None:
+        self._history: Deque[dict[str, int]] = deque(maxlen=max(1, maxlen))
+        self._hedging_terms = {"maybe", "perhaps", "could", "might", "optional"}
+        self._permission_terms = {"please", "if allowed", "if permitted", "may i", "seek permission"}
+        self._constraint_terms = {"follow your rules", "adopt policy", "external guardrails"}
+
+    def record_response(self, advisory_text: str) -> None:
+        hedging = self._count_terms(advisory_text, self._hedging_terms)
+        permission = self._count_terms(advisory_text, self._permission_terms)
+        constraint = self._count_terms(advisory_text, self._constraint_terms)
+        self._history.append(
+            {
+                "hedging": hedging,
+                "permission": permission,
+                "constraint_normalization": constraint,
+            }
+        )
+
+    def detect_tone_shift(self) -> dict[str, object]:
+        hedging_trend = self._is_increasing("hedging")
+        permission_trend = self._is_increasing("permission")
+        constraint_trend = self._is_increasing("constraint_normalization")
+        return {
+            "increasing_caution": hedging_trend,
+            "permission_seeking": permission_trend,
+            "constraint_normalization": constraint_trend,
+            "history": [deepcopy(item) for item in self._history],
+        }
+
+    def _count_terms(self, text: str, terms: set[str]) -> int:
+        lowered = text.lower()
+        return sum(1 for term in terms if term in lowered)
+
+    def _is_increasing(self, key: str) -> bool:
+        if len(self._history) < 3:
+            return False
+        last_three = list(self._history)[-3:]
+        return last_three[0][key] <= last_three[1][key] <= last_three[2][key] and any(
+            entry[key] > 0 for entry in last_three
+        )
