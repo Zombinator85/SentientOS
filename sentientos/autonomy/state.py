@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
-from typing import Mapping, MutableMapping, Optional
+from typing import Any, Mapping, MutableMapping, Optional
+
+import hashlib
 
 from sentientos.gradient_contract import enforce_no_gradient_fields, GradientInvariantViolation
 
@@ -126,21 +128,30 @@ class ContinuityStateManager:
         if not self._path.exists():
             return ContinuitySnapshot()
         try:
-            data = json.loads(self._path.read_text(encoding="utf-8"))
-        except Exception:
-            return ContinuitySnapshot()
-        enforce_no_gradient_fields(
-            data, context="continuity_state.load"
-        )
-        return ContinuitySnapshot.from_mapping(data)
+            payload = json.loads(self._path.read_text(encoding="utf-8"))
+        except Exception as exc:  # pragma: no cover - defensive path
+            raise SnapshotDivergenceError("continuity snapshot unreadable") from exc
+
+        snapshot_payload, stored_digest = _extract_snapshot_payload(payload)
+        enforce_no_gradient_fields(snapshot_payload, context="continuity_state.load")
+        canonical = canonicalise_continuity_snapshot(snapshot_payload)
+        enforce_no_gradient_fields(canonical, context="continuity_state.load")
+        computed_digest = continuity_snapshot_digest(canonical)
+        if not stored_digest:
+            raise SnapshotDivergenceError("continuity snapshot missing digest")
+        if stored_digest != computed_digest:
+            raise SnapshotDivergenceError("continuity snapshot digest mismatch")
+        return ContinuitySnapshot.from_mapping(canonical)
 
     def save(self, snapshot: ContinuitySnapshot) -> Path:
-        payload = snapshot.to_dict()
-        enforce_no_gradient_fields(
-            payload, context="continuity_state.save"
-        )
+        raw_payload = snapshot.to_dict()
+        enforce_no_gradient_fields(raw_payload, context="continuity_state.save")
+        canonical = canonicalise_continuity_snapshot(raw_payload)
+        enforce_no_gradient_fields(canonical, context="continuity_state.save")
+        digest = continuity_snapshot_digest(canonical)
+        stored = {"snapshot": canonical, "digest": digest}
         self._path.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+            json.dumps(stored, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
         return self._path
@@ -154,4 +165,106 @@ __all__ = [
     "MoodStateManager",
     "ContinuitySnapshot",
     "ContinuityStateManager",
+    "SnapshotDivergenceError",
+    "canonicalise_continuity_snapshot",
+    "continuity_snapshot_digest",
 ]
+
+
+class SnapshotDivergenceError(RuntimeError):
+    """Raised when a persisted continuity snapshot cannot be trusted."""
+
+
+_ALLOWED_ROOT_FIELDS: tuple[str, ...] = (
+    "mood",
+    "readiness",
+    "curiosity_queue",
+    "curiosity_inflight",
+    "last_readiness_ts",
+)
+
+_READINESS_FIELDS: tuple[str, ...] = (
+    "summary",
+    "report",
+    "timestamp",
+    "status",
+)
+
+_CURIOUS_FIELDS: tuple[str, ...] = (
+    "goal",
+    "observation",
+    "created_at",
+    "source",
+    "status",
+    "id",
+)
+
+
+def canonicalise_continuity_snapshot(snapshot: Mapping[str, Any] | None) -> dict[str, Any]:
+    if snapshot is None or not isinstance(snapshot, Mapping):
+        raise SnapshotDivergenceError("continuity snapshot must be a mapping")
+
+    canonical: dict[str, Any] = {
+        "mood": _canonical_value(snapshot.get("mood"), path=("mood",)),
+        "readiness": _canonical_value(
+            snapshot.get("readiness"), path=("readiness",), allowed_keys=_READINESS_FIELDS
+        ),
+        "curiosity_queue": _canonical_value(
+            snapshot.get("curiosity_queue", []) or [], path=("curiosity_queue",), allowed_keys=_CURIOUS_FIELDS
+        ),
+        "curiosity_inflight": _canonical_value(
+            snapshot.get("curiosity_inflight", []) or [],
+            path=("curiosity_inflight",),
+            allowed_keys=_CURIOUS_FIELDS,
+        ),
+        "last_readiness_ts": _canonical_value(
+            snapshot.get("last_readiness_ts"), path=("last_readiness_ts",)
+        ),
+    }
+    return canonical
+
+
+def continuity_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
+    serialised = json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(serialised.encode("utf-8")).hexdigest()
+
+
+def _extract_snapshot_payload(
+    payload: Mapping[str, Any] | None,
+) -> tuple[Mapping[str, Any], str | None]:
+    if payload is None or not isinstance(payload, Mapping):
+        raise SnapshotDivergenceError("continuity snapshot payload must be a mapping")
+    if "snapshot" in payload and isinstance(payload.get("snapshot"), Mapping):
+        snapshot_payload = payload["snapshot"]
+        digest = payload.get("digest")
+    else:
+        digest = payload.get("digest")
+        snapshot_payload = {key: value for key, value in payload.items() if key != "digest"}
+    digest_str = str(digest) if digest else None
+    return snapshot_payload, digest_str
+
+
+def _canonical_value(value: Any, *, path: tuple[str, ...], allowed_keys: tuple[str, ...] | None = None) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        filtered = (
+            (str(key), val)
+            for key, val in sorted(value.items(), key=lambda item: str(item[0]))
+            if (path or str(key) in _ALLOWED_ROOT_FIELDS)
+            and (allowed_keys is None or str(key) in allowed_keys)
+        )
+        return {
+            key: _canonical_value(val, path=(*path, key), allowed_keys=allowed_keys)
+            for key, val in filtered
+        }
+    if isinstance(value, (list, tuple)):
+        return [
+            _canonical_value(item, path=(*path, str(idx)), allowed_keys=allowed_keys)
+            for idx, item in enumerate(value)
+        ]
+    raise SnapshotDivergenceError(
+        f"non-serializable value at {' -> '.join(path) or 'root'}: {type(value).__name__}"
+    )
