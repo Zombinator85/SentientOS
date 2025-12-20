@@ -15,7 +15,7 @@ import doctrine
 from system_continuity import (
     CheckpointLedger,
     DriftSentinel,
-    NarrativeView,
+    HumanLens,
     PhaseGate,
     SystemPhase,
     UpdateOrchestrator,
@@ -85,7 +85,7 @@ class Orchestrator:
 
 
 # New lifecycle utilities
-def build_update_orchestrator(phase: SystemPhase = SystemPhase.OPERATIONS) -> UpdateOrchestrator:
+def build_update_orchestrator(phase: SystemPhase = SystemPhase.ADVISORY_WINDOW) -> UpdateOrchestrator:
     """Construct a deterministic, rollback-capable orchestrator.
 
     The helper is intentionally lightweight so tests can provision
@@ -98,11 +98,11 @@ def build_update_orchestrator(phase: SystemPhase = SystemPhase.OPERATIONS) -> Up
 
 
 __all__ = [
+    "HumanLens",
     "Orchestrator",
     "build_update_orchestrator",
     "CheckpointLedger",
     "DriftSentinel",
-    "NarrativeView",
     "PhaseGate",
     "SystemPhase",
     "UpdateOrchestrator",
