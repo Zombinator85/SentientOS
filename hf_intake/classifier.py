@@ -45,10 +45,11 @@ class HardwareRequirements:
 
 
 def _detect_quantization(name: str) -> str:
-    match = re.search(r"q(\d)\b", name.lower())
+    normalized = name.lower()
+    match = re.search(r"q(\d)(?=[^0-9a-z]|$)", normalized)
     if match:
         return f"q{match.group(1)}"
-    if "f16" in name.lower():
+    if "f16" in normalized:
         return "f16"
     raise ClassificationError(f"Unable to detect quantization in {name}")
 

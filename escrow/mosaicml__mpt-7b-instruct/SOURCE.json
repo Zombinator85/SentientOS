@@ -1,0 +1,9 @@
+{
+  "repo_id": "mosaicml/mpt-7b-instruct",
+  "revision": "v1",
+  "license": "apache-2.0",
+  "artifact": "mpt-7b-instruct-q4_k_m-7ec9e6975c2695c8c97ad5f401c470abb2fffb8622da1b2e4163e5cf37a483bb.gguf",
+  "priority": 3,
+  "base_url": "https://models.sentientos.org",
+  "id": "mpt-7b-instruct-q4"
+}

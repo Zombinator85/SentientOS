@@ -1,0 +1,9 @@
+{
+  "repo_id": "EleutherAI/pythia-12b",
+  "revision": "v0",
+  "license": "apache-2.0",
+  "artifact": "pythia-12b-q4_k_m-4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10.gguf",
+  "priority": 4,
+  "base_url": "https://models.sentientos.org",
+  "id": "pythia-12b-q4"
+}

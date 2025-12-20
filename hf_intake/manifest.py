@@ -143,8 +143,13 @@ def validate_manifest(manifest_path: Path) -> None:
         actual = _sha256_file(path_obj)
         if checksum != actual:
             raise ManifestError(f"Checksum mismatch for {entry.get('id')}")
-        if not artifact.get("urls"):
+        urls = artifact.get("urls") or []
+        if not urls:
             raise ManifestError(f"Missing artifact URLs for {entry.get('id')}")
+        for url in urls:
+            lowered = str(url).lower()
+            if "huggingface.co" in lowered or lowered.startswith("hf://"):
+                raise ManifestError(f"Untrusted URL in manifest for {entry.get('id')}: {url}")
 
     # deterministic ordering guard
     sorted_models = sorted(data["models"], key=lambda m: (m.get("priority", 0), m.get("id")))

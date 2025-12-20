@@ -95,6 +95,17 @@ for details about the available scenarios.
 - **License safety:** Default recommendations exclude revocable, RAIL, or non-commercial licenses.
 - **Matrix:** See [`docs/CURATED_MODEL_MATRIX.md`](docs/CURATED_MODEL_MATRIX.md) for curator-facing platform guidance and escrow targets.
 
+### What v1 ships with
+
+The v1 frozen set is fully escrowed and hash-anchored:
+
+- **Baseline:** `mistral-7b-instruct-v0.2` (`Q4_K_M`, SHA256 `c51adf…f64a8`).
+- **Higher-fidelity tier:** `mistral-7b-instruct-v0.2` (`Q6_K`, SHA256 `ba7b3f…290d`).
+- **Compatibility:** `mpt-7b-instruct` (`Q4_K_M`, Apache 2.0, SHA256 `7ec9e6…83bb`).
+- **Mid-tier (16–32 GB RAM):** `pythia-12b` (`Q4_K_M`, Apache 2.0, SHA256 `4dc76b…2d10`).
+
+All artifacts live under `escrow/` with accompanying `LICENSE.txt`, `MODEL_CARD.md`, and `.sha256` files; the frozen manifest at `manifests/manifest-v1.json` references only these hashes and local escrow paths. To add other models later, manually escrow an additional GGUF (including license text and checksum) under `escrow/` and regenerate a separate manifest via `python -m hf_intake.cli manifest <escrow_root> <output_manifest>` when explicitly opting in.
+
 ### Getting Started in the Dev Container
 
 1. Open the repository in VS Code and select **Reopen in Container** when prompted.

@@ -1,0 +1,1 @@
+Pythia 12B Q4_K_M mid-tier option for systems with 16GB+ RAM.

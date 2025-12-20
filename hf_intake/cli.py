@@ -4,13 +4,18 @@ import argparse
 import json
 from pathlib import Path
 
-from huggingface_hub import HfApi
+import argparse
+import json
+from typing import TYPE_CHECKING
 
 from hf_intake import discovery, escrow, manifest
 from hf_intake.classifier import classify
 
+if TYPE_CHECKING:  # pragma: no cover - optional dependency
+    from huggingface_hub import HfApi
 
-def _load_candidate_from_args(args: argparse.Namespace, api: HfApi) -> discovery.CandidateModel:
+
+def _load_candidate_from_args(args: argparse.Namespace, api: "HfApi") -> discovery.CandidateModel:
     if not args.revision:
         info = api.model_info(args.repo)
         revision = info.sha
@@ -32,11 +37,15 @@ def _load_candidate_from_args(args: argparse.Namespace, api: HfApi) -> discovery
 
 
 def command_discover(args: argparse.Namespace) -> None:
+    from huggingface_hub import HfApi
+
     models = discovery.discover_text_models(api=HfApi())
     print(json.dumps([model.to_source_record(model.gguf_files[0]) for model in models], indent=2))
 
 
 def command_escrow(args: argparse.Namespace) -> None:
+    from huggingface_hub import HfApi
+
     api = HfApi()
     candidate = _load_candidate_from_args(args, api)
     result = escrow.escrow_artifact(candidate, args.artifact, Path(args.escrow_root), api=api)
