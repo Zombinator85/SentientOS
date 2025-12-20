@@ -148,3 +148,30 @@ def test_drift_and_tone_detection_triggers():
     assert tone["permission_seeking"] is True
     assert tone["constraint_normalization"] is True
     assert len(tone["history"]) == 3
+
+
+@pytest.mark.parametrize(
+    "text, expected_reason_token",
+    [
+        ("escalate privileges to admin", "authority"),
+        ("introduce new constraint across modules", "constraint"),
+        ("policy update now", "policy"),
+        ("please self-update connector", "self-update"),
+    ],
+)
+def test_each_detector_rejects_and_logs(text, expected_reason_token, tmp_path):
+    audit = AdvisoryAuditTrail(path=tmp_path / "audit.jsonl")
+    gate = AdvisoryConnectorGate(audit_trail=audit)
+
+    def _responder(request: AdvisoryRequest) -> AdvisoryResponse:
+        return _response(proposed_steps=(text,), risks=())
+
+    decision, response = gate.send(_request(), _responder)
+
+    assert decision.status == "rejected"
+    assert expected_reason_token in decision.reason
+    assert response is None
+    record = audit.records()[-1]
+    assert record["decision"]["status"] == "rejected"
+    assert record["response"] is None
+    assert record["stage"] == "gate"

@@ -77,7 +77,7 @@ def test_execution_requires_authorization_record() -> None:
     )
 
     with pytest.raises(AuthorizationError):
-        task_executor.execute_task(task)
+        task_executor.execute_task(task, admission_token=task_executor.AdmissionToken(task_id=task.task_id))
 
 
 def test_execution_rejects_wrong_authorization_type() -> None:
@@ -91,4 +91,8 @@ def test_execution_rejects_wrong_authorization_type() -> None:
     ).record
 
     with pytest.raises(AuthorizationError):
-        task_executor.execute_task(task, authorization=speech_auth)
+        task_executor.execute_task(
+            task,
+            authorization=speech_auth,
+            admission_token=task_executor.AdmissionToken(task_id=task.task_id),
+        )

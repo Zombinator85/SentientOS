@@ -249,5 +249,6 @@ def run_task_with_admission(
     _log_admission_event(decision, task, ctx, policy)
     if not decision.allowed:
         return decision, None
-    result = executor.execute_task(task)
+    admission_token = task_executor.AdmissionToken(task_id=task.task_id)
+    result = executor.execute_task(task, admission_token=admission_token)
     return decision, result

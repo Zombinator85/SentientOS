@@ -30,7 +30,8 @@ def test_step_order_preserved(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
 
-    result = task_executor.execute_task(task, authorization=auth)
+    token = task_executor.AdmissionToken(task_id=task.task_id)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert [trace.step_id for trace in result.trace] == [2, 1]
     assert result.status == "completed"
@@ -60,7 +61,8 @@ def test_noop_logs_and_artifacts(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
 
-    result = task_executor.execute_task(task, authorization=auth)
+    token = task_executor.AdmissionToken(task_id=task.task_id)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert result.status == "completed"
     assert result.artifacts["step_1"] == {"note": "ok"}
@@ -100,7 +102,8 @@ def test_failure_aborts(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
 
-    result = task_executor.execute_task(task, authorization=auth)
+    token = task_executor.AdmissionToken(task_id=task.task_id)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert result.status == "failed"
     assert [trace.step_id for trace in result.trace] == [1, 2]
@@ -131,8 +134,9 @@ def test_deterministic_traces(monkeypatch, tmp_path):
         context_hash="ctx-4",
         policy_version="v1-static",
     ).record
-    first = task_executor.execute_task(task, authorization=auth)
-    second = task_executor.execute_task(task, authorization=auth)
+    token = task_executor.AdmissionToken(task_id=task.task_id)
+    first = task_executor.execute_task(task, authorization=auth, admission_token=token)
+    second = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert first.trace == second.trace
     assert first.artifacts == second.artifacts
