@@ -11,6 +11,7 @@ PROVISIONAL_ASSERTION_SCHEMA_VERSION = "1.0"
 
 ConfidenceBand = Literal["LOW", "MEDIUM", "HIGH"]
 RevisionState = Literal["ACTIVE", "SUPERSEDED", "RETRACTED"]
+InquiryDirection = Literal["increase", "decrease", "discriminate"]
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class ProvisionalAssertion:
     supersedes: str | None = None
     superseded_by: tuple[str, ...] = field(default_factory=tuple)
     terminology_weight: str | None = None
+    decay_pinned: bool = False
     version: int = 1
     schema_version: str = PROVISIONAL_ASSERTION_SCHEMA_VERSION
 
@@ -47,8 +49,39 @@ class ProvisionalAssertion:
             "supersedes": self.supersedes,
             "superseded_by": list(self.superseded_by),
             "terminology_weight": self.terminology_weight,
+            "decay_pinned": self.decay_pinned,
             "schema_version": self.schema_version,
         }
+
+
+@dataclass(frozen=True)
+class InquiryPrompt:
+    """Investigation starter derived from an assertion."""
+
+    question_text: str
+    direction: InquiryDirection
+    related_assertion_id: str
+    priority_hint: float
+    expires_at: datetime | None = None
+
+    def to_payload(self) -> dict[str, object]:
+        payload: dict[str, object] = {
+            "question_text": self.question_text,
+            "direction": self.direction,
+            "related_assertion_id": self.related_assertion_id,
+            "priority_hint": self.priority_hint,
+        }
+        if self.expires_at:
+            payload["expires_at"] = self.expires_at.isoformat()
+        return payload
+
+
+@dataclass(frozen=True)
+class NarrativeSynopsis:
+    """Descriptive narrative built from assertions without inventing claims."""
+
+    synopsis_text: str
+    outline: dict[str, object]
 
 
 class ProvisionalAssertionLedger:
@@ -74,6 +107,17 @@ class ProvisionalAssertionLedger:
             raise ValueError("evidence_summary must capture mechanisms, not be empty")
         if confidence_band is None:
             raise ValueError("confidence_band is required to encode uncertainty")
+
+    def _band_value(self, band: ConfidenceBand) -> int:
+        order: dict[ConfidenceBand, int] = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+        return order[band]
+
+    def _lower_band(self, band: ConfidenceBand) -> ConfidenceBand:
+        if band == "HIGH":
+            return "MEDIUM"
+        if band == "MEDIUM":
+            return "LOW"
+        return "LOW"
 
     def _register(self, assertion: ProvisionalAssertion) -> ProvisionalAssertion:
         if assertion.assertion_id in self._assertions:
@@ -104,6 +148,7 @@ class ProvisionalAssertionLedger:
         asserted_at: datetime | None = None,
         supersedes: str | None = None,
         terminology_weight: str | None = None,
+        decay_pinned: bool = False,
     ) -> ProvisionalAssertion:
         band = self._normalize_band(confidence_band)
         self._validate_uncertainty(evidence_summary, band)
@@ -125,6 +170,7 @@ class ProvisionalAssertionLedger:
             revision_state="ACTIVE" if band != "LOW" else "ACTIVE",
             supersedes=supersedes,
             terminology_weight=terminology_weight,
+            decay_pinned=decay_pinned,
             version=version,
         )
         return self._register(assertion)
@@ -136,6 +182,7 @@ class ProvisionalAssertionLedger:
         new_band: ConfidenceBand,
         evidence_summary: str,
         review_horizon: datetime,
+        decay_pinned: bool | None = None,
     ) -> ProvisionalAssertion:
         if assertion_id not in self._assertions:
             raise KeyError(f"unknown assertion {assertion_id}")
@@ -146,6 +193,9 @@ class ProvisionalAssertionLedger:
             review_horizon=review_horizon,
             supersedes=assertion_id,
             terminology_weight=self._assertions[assertion_id].terminology_weight,
+            decay_pinned=self._assertions[assertion_id].decay_pinned
+            if decay_pinned is None
+            else decay_pinned,
         )
 
     def retract(self, assertion_id: str, *, cause: str, review_horizon: datetime | None = None) -> ProvisionalAssertion:
@@ -198,13 +248,6 @@ class ProvisionalAssertionLedger:
         due_entries = [assertion.to_payload() for assertion in self.due_for_review(now=now)]
         queue.setdefault("provisional_assertions", []).extend(due_entries)
 
-    def annotate_tooling_status(self, status: MutableMapping[str, object]) -> None:
-        status.setdefault("provisional_assertions", {})["active"] = [
-            assertion.to_payload()
-            for assertion in self._assertions.values()
-            if assertion.revision_state == "ACTIVE"
-        ]
-
     def annotate_pressure_log(self, pressure_log: MutableMapping[str, object], *, context: str) -> None:
         pressure_log.setdefault("epistemic_annotations", []).append(
             {
@@ -213,6 +256,65 @@ class ProvisionalAssertionLedger:
                 "schema_version": PROVISIONAL_ASSERTION_SCHEMA_VERSION,
             }
         )
+
+    def generate_inquiry_prompts(
+        self,
+        *,
+        pressure: float = 1.0,
+        resolved_ids: set[str] | None = None,
+    ) -> list[InquiryPrompt]:
+        resolved_ids = resolved_ids or set()
+        prompts: list[InquiryPrompt] = []
+        direction_map: dict[ConfidenceBand, InquiryDirection] = {
+            "LOW": "increase",
+            "MEDIUM": "discriminate",
+            "HIGH": "decrease",
+        }
+        for assertion in sorted(self._assertions.values(), key=lambda a: (a.asserted_at, a.assertion_id)):
+            if assertion.assertion_id in resolved_ids:
+                continue
+            if assertion.revision_state == "RETRACTED":
+                continue
+            direction = direction_map[assertion.confidence_band]
+            band_value = self._band_value(assertion.confidence_band)
+            priority_hint = round(float(band_value * pressure), 3)
+            question = (
+                f"What evidence would {direction} confidence in '{assertion.claim_text}' given '{assertion.evidence_summary}'?"
+            )
+            prompts.append(
+                InquiryPrompt(
+                    question_text=question,
+                    direction=direction,
+                    related_assertion_id=assertion.assertion_id,
+                    priority_hint=priority_hint,
+                    expires_at=assertion.review_horizon,
+                )
+            )
+        return prompts
+
+    def enqueue_inquiry_prompts(
+        self,
+        backlog: MutableMapping[str, list[dict[str, object]]],
+        *,
+        pressure: float = 1.0,
+        resolved_ids: set[str] | None = None,
+    ) -> None:
+        prompts = [prompt.to_payload() for prompt in self.generate_inquiry_prompts(pressure=pressure, resolved_ids=resolved_ids)]
+        backlog.setdefault("inquiry_prompts", []).extend(prompts)
+
+    def annotate_tooling_status(self, status: MutableMapping[str, object]) -> None:
+        status.setdefault("provisional_assertions", {})["active"] = [
+            assertion.to_payload()
+            for assertion in self._assertions.values()
+            if assertion.revision_state == "ACTIVE"
+        ]
+        status["provisional_assertions"]["inquiries"] = [p.to_payload() for p in self.generate_inquiry_prompts()]
+        linked = [self._link_view(a) for a in self._assertions.values()]
+        narrative = NarrativeSynopsisGenerator().build(linked)
+        status["provisional_assertions"]["narrative_synopsis"] = {
+            "synopsis_text": narrative.synopsis_text,
+            "outline": narrative.outline,
+        }
 
 
 class SilenceDebt(Exception):
@@ -246,3 +348,113 @@ class AntiLagGuard:
             "signal": signal,
             "review_horizon": horizon.isoformat(),
         }
+
+
+class ConfidenceDecayEngine:
+    """Decay confidence when review horizons are missed without deleting history."""
+
+    def __init__(self, *, default_extension: timedelta = timedelta(hours=1)):
+        self.default_extension = default_extension
+
+    def apply_decay(
+        self,
+        ledger: ProvisionalAssertionLedger,
+        *,
+        now: datetime | None = None,
+    ) -> list[dict[str, object]]:
+        timestamp = now or datetime.utcnow()
+        decay_log: list[dict[str, object]] = []
+        for assertion in ledger.due_for_review(now=timestamp):
+            if assertion.revision_state != "ACTIVE":
+                continue
+            if assertion.decay_pinned:
+                continue
+            if assertion.confidence_band == "LOW":
+                continue
+            new_band = ledger._lower_band(assertion.confidence_band)
+            revised = ledger.revise_confidence(
+                assertion.assertion_id,
+                new_band=new_band,
+                evidence_summary=f"confidence decayed after missed review horizon ({assertion.confidence_band}→{new_band})",
+                review_horizon=timestamp + self.default_extension,
+            )
+            decay_log.append(
+                {
+                    "assertion_id": assertion.assertion_id,
+                    "new_assertion_id": revised.assertion_id,
+                    "from_band": assertion.confidence_band,
+                    "to_band": new_band,
+                    "decayed_at": timestamp.isoformat(),
+                }
+            )
+        return decay_log
+
+
+class NarrativeSynopsisGenerator:
+    """Create deterministic narrative summaries from assertion history."""
+
+    def build(
+        self,
+        assertions: Iterable[ProvisionalAssertion],
+        *,
+        now: datetime | None = None,
+    ) -> NarrativeSynopsis:
+        timestamp = now or datetime.utcnow()
+        ordered = sorted(assertions, key=lambda a: (a.asserted_at, a.assertion_id))
+        claims: list[dict[str, object]] = []
+        disputes: list[dict[str, object]] = []
+        unknowns: list[dict[str, object]] = []
+        recent_revisions: list[dict[str, object]] = []
+        questions: list[str] = []
+        for assertion in ordered:
+            payload = {
+                "claim_text": assertion.claim_text,
+                "confidence": assertion.confidence_band,
+                "state": assertion.revision_state,
+                "asserted_at": assertion.asserted_at.isoformat(),
+                "supersedes": assertion.supersedes,
+                "superseded_by": list(assertion.superseded_by),
+            }
+            claims.append(payload)
+            if assertion.revision_state == "RETRACTED":
+                disputes.append(payload)
+            if assertion.confidence_band == "LOW":
+                unknowns.append(payload)
+            recent_revisions.append(payload)
+            direction = "increase" if assertion.confidence_band == "LOW" else "discriminate"
+            if assertion.confidence_band == "HIGH":
+                direction = "decrease"
+            questions.append(
+                f"What would {direction} confidence in '{assertion.claim_text}' given '{assertion.evidence_summary}'?"
+            )
+        synopsis_text = self._compose_synopsis(ordered, timestamp, questions)
+        outline: dict[str, object] = {
+            "claims": claims,
+            "disputes": disputes,
+            "unknowns": unknowns,
+            "open_questions": questions,
+            "recent_revisions": recent_revisions[-5:],
+        }
+        return NarrativeSynopsis(synopsis_text=synopsis_text, outline=outline)
+
+    def _compose_synopsis(
+        self,
+        assertions: list[ProvisionalAssertion],
+        timestamp: datetime,
+        questions: list[str],
+    ) -> str:
+        if not assertions:
+            return "No assertions recorded; narrative pending evidence."
+        fragments = []
+        for assertion in assertions:
+            fragment = (
+                f"{assertion.claim_text} [{assertion.confidence_band}/{assertion.revision_state}]"
+                f" noted {assertion.asserted_at.isoformat()}"
+            )
+            if assertion.supersedes:
+                fragment += f" supersedes {assertion.supersedes}"
+            if assertion.superseded_by:
+                fragment += f"; superseded by {', '.join(assertion.superseded_by)}"
+            fragments.append(fragment)
+        question_tail = " Open questions: " + " | ".join(sorted(questions)) if questions else ""
+        return "; ".join(fragments) + f". Narrative captured at {timestamp.isoformat()}." + question_tail
