@@ -1,9 +1,9 @@
 from importlib import reload
-from typing import Any
+from typing import Any, Mapping
 
 import pytest
 
-from control_plane import RequestType, admit_request
+from control_plane import AuthorizationRecord, RequestType, admit_request
 import task_executor
 
 
@@ -13,6 +13,22 @@ def _provenance(task_id: str) -> task_executor.AuthorityProvenance:
         authority_scope=f"task:{task_id}",
         authority_context_id="ctx-test",
         authority_reason="test",
+    )
+
+
+def _issue_token(
+    task: task_executor.Task,
+    auth: AuthorizationRecord,
+    declared_inputs: Mapping[str, object] | None = None,
+) -> task_executor.AdmissionToken:
+    provenance = _provenance(task.task_id)
+    fingerprint = task_executor.request_fingerprint_from_canonical(
+        task_executor.canonicalise_task_request(
+            task=task, authorization=auth, provenance=provenance, declared_inputs=declared_inputs
+        )
+    )
+    return task_executor.AdmissionToken(
+        task_id=task.task_id, provenance=provenance, request_fingerprint=fingerprint
     )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -39,7 +55,7 @@ def test_step_order_preserved(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
 
-    token = task_executor.AdmissionToken(task_id=task.task_id, provenance=_provenance(task.task_id))
+    token = _issue_token(task, auth)
     result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert [trace.step_id for trace in result.trace] == [2, 1]
@@ -70,7 +86,7 @@ def test_noop_logs_and_artifacts(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
 
-    token = task_executor.AdmissionToken(task_id=task.task_id, provenance=_provenance(task.task_id))
+    token = _issue_token(task, auth)
     result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert result.status == "completed"
@@ -111,7 +127,7 @@ def test_failure_aborts(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
 
-    token = task_executor.AdmissionToken(task_id=task.task_id, provenance=_provenance(task.task_id))
+    token = _issue_token(task, auth)
     result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert result.status == "failed"
@@ -143,7 +159,7 @@ def test_deterministic_traces(monkeypatch, tmp_path):
         context_hash="ctx-4",
         policy_version="v1-static",
     ).record
-    token = task_executor.AdmissionToken(task_id=task.task_id, provenance=_provenance(task.task_id))
+    token = _issue_token(task, auth)
     first = task_executor.execute_task(task, authorization=auth, admission_token=token)
     second = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
@@ -166,7 +182,9 @@ def test_admission_token_requires_provenance(monkeypatch, tmp_path):
         context_hash="prov-ctx",
         policy_version="v1-static",
     ).record
-    bad_token = task_executor.AdmissionToken(task_id=task.task_id, provenance=None)  # type: ignore[arg-type]
+    bad_token = task_executor.AdmissionToken(
+        task_id=task.task_id, provenance=None, request_fingerprint=task_executor.RequestFingerprint("f" * 64)
+    )  # type: ignore[arg-type]
 
     with pytest.raises(task_executor.AuthorizationError):
         task_executor.execute_task(task, authorization=auth, admission_token=bad_token)
@@ -187,7 +205,7 @@ def test_task_snapshot_roundtrip_preserves_provenance(monkeypatch, tmp_path):
         context_hash="snap-ctx",
         policy_version="v1-static",
     ).record
-    token = task_executor.AdmissionToken(task_id=task.task_id, provenance=_provenance(task.task_id))
+    token = _issue_token(task, auth)
     result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     record = task_executor.build_task_execution_record(
@@ -220,7 +238,7 @@ def test_task_snapshot_detects_provenance_tampering(monkeypatch, tmp_path):
         context_hash="tamper-ctx",
         policy_version="v1-static",
     ).record
-    token = task_executor.AdmissionToken(task_id=task.task_id, provenance=_provenance(task.task_id))
+    token = _issue_token(task, auth)
     result = task_executor.execute_task(task, authorization=auth, admission_token=token)
     record = task_executor.build_task_execution_record(
         task=task, result=result, admission_token=token, authorization=auth
@@ -233,5 +251,137 @@ def test_task_snapshot_detects_provenance_tampering(monkeypatch, tmp_path):
     )
     tampered["snapshot"] = tampered_snapshot
 
-    with pytest.raises(task_executor.SnapshotDivergenceError, match="digest mismatch"):
+    with pytest.raises(task_executor.SnapshotDivergenceError, match="provenance mismatch"):
         task_executor.load_task_execution_record(tampered)
+
+
+def test_request_fingerprint_captured_in_result(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="fingerprint-capture",
+        objective="noop",
+        constraints=("a", "b"),
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="fingerprint",
+        context_hash="ctx-6",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert result.request_fingerprint.value == token.request_fingerprint.value
+    assert result.canonical_request["declared_inputs"] == {}
+    assert result.canonical_request["task"]["constraints"] == ["a", "b"]
+
+
+def test_request_fingerprint_detects_post_admission_mutation(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="tamper-after-admission",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="mutate",
+        context_hash="ctx-7",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    tampered = task_executor.Task(
+        task_id=task.task_id,
+        objective="noop but different",
+        steps=task.steps,
+        constraints=task.constraints,
+    )
+
+    with pytest.raises(task_executor.RequestFingerprintMismatchError):
+        task_executor.execute_task(tampered, authorization=auth, admission_token=token)
+
+
+def test_request_fingerprint_ignores_constraint_order(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="noise-tolerant",
+        objective="noop",
+        constraints=("second", "first"),
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="noise",
+        context_hash="ctx-8",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    reordered = task_executor.Task(
+        task_id=task.task_id,
+        objective="noop",
+        constraints=("first", "second"),
+        steps=task.steps,
+    )
+
+    result = task_executor.execute_task(reordered, authorization=auth, admission_token=token)
+
+    assert result.status == "completed"
+    assert result.request_fingerprint.value == token.request_fingerprint.value
+
+
+def test_request_fingerprint_blocks_input_smuggling(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="smuggle",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="smuggle-intent",
+        context_hash="ctx-9",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth, declared_inputs={"files": ["a.txt"]})
+
+    with pytest.raises(task_executor.RequestFingerprintMismatchError):
+        task_executor.execute_task(
+            task,
+            authorization=auth,
+            admission_token=token,
+            declared_inputs={"files": ["a.txt"], "env": {"SECRET": "1"}},
+        )
+
+
+def test_canonical_request_rejects_gradient_fields():
+    task = task_executor.Task(
+        task_id="gradient-reject",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    provenance = _provenance(task.task_id)
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="gradient-intent",
+        context_hash="ctx-10",
+        policy_version="v1-static",
+    ).record
+
+    with pytest.raises(task_executor.RequestCanonicalizationError):
+        task_executor.canonicalise_task_request(
+            task=task,
+            authorization=auth,
+            provenance=provenance,
+            declared_inputs={"reward": 1},
+        )

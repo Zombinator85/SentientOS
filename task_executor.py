@@ -4,10 +4,11 @@ from dataclasses import asdict, dataclass, field
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Literal, Mapping, Sequence
+from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping, Sequence
 
 from control_plane.enums import ReasonCode, RequestType
 from control_plane.records import AuthorizationError, AuthorizationRecord
+from sentientos.gradient_contract import GradientInvariantViolation, enforce_no_gradient_fields
 
 from logging_config import get_log_path
 from log_utils import append_json
@@ -79,6 +80,8 @@ class TaskResult:
     trace: Sequence[StepTrace]
     admission_token: "AdmissionToken"
     authorization: AuthorizationRecord
+    request_fingerprint: "RequestFingerprint"
+    canonical_request: Mapping[str, object]
 
 
 class StepExecutionError(Exception):
@@ -87,10 +90,27 @@ class StepExecutionError(Exception):
         self.step = step
 
 
+class RequestCanonicalizationError(RuntimeError):
+    """Raised when a task request cannot be normalized into canonical form."""
+
+
+class RequestFingerprintMismatchError(RuntimeError):
+    """Raised when the request fingerprint at execution time diverges from admission."""
+
+
+@dataclass(frozen=True)
+class RequestFingerprint:
+    value: str
+
+    def __str__(self) -> str:  # pragma: no cover - trivial
+        return self.value
+
+
 @dataclass(frozen=True)
 class AdmissionToken:
     task_id: str
     provenance: "AuthorityProvenance"
+    request_fingerprint: RequestFingerprint
     issued_by: str = "task_admission"
 
 
@@ -110,11 +130,23 @@ def execute_task(
     *,
     authorization: AuthorizationRecord | None = None,
     admission_token: AdmissionToken | None = None,
+    declared_inputs: Mapping[str, object] | None = None,
 ) -> TaskResult:
     _require_admission_token(admission_token, task)
     _require_authorization(authorization)
     assert admission_token is not None
     assert authorization is not None
+    canonical_request = canonicalise_task_request(
+        task=task,
+        authorization=authorization,
+        provenance=admission_token.provenance,
+        declared_inputs=declared_inputs,
+    )
+    computed_fingerprint = request_fingerprint_from_canonical(canonical_request)
+    if admission_token.request_fingerprint.value != computed_fingerprint.value:
+        raise RequestFingerprintMismatchError(
+            "request fingerprint mismatch between admission token and execution request"
+        )
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
     for step in task.steps:
@@ -130,6 +162,8 @@ def execute_task(
                 trace=tuple(trace),
                 admission_token=admission_token,
                 authorization=authorization,
+                request_fingerprint=computed_fingerprint,
+                canonical_request=canonical_request,
             )
     return TaskResult(
         task_id=task.task_id,
@@ -138,6 +172,8 @@ def execute_task(
         trace=tuple(trace),
         admission_token=admission_token,
         authorization=authorization,
+        request_fingerprint=computed_fingerprint,
+        canonical_request=canonical_request,
     )
 
 
@@ -236,6 +272,13 @@ def _require_admission_token(token: AdmissionToken | None, task: Task) -> None:
         raise AuthorizationError("admission token issuer invalid")
     if not isinstance(token.provenance, AuthorityProvenance):
         raise AuthorizationError("admission token provenance missing")
+    fingerprint = token.request_fingerprint.value if isinstance(token.request_fingerprint, RequestFingerprint) else ""
+    if not isinstance(fingerprint, str) or len(fingerprint) != 64:
+        raise AuthorizationError("admission token fingerprint missing")
+    try:
+        int(fingerprint, 16)
+    except ValueError as exc:  # pragma: no cover - defensive validation
+        raise AuthorizationError("admission token fingerprint missing") from exc
     _validate_provenance(token.provenance)
 
 
@@ -267,32 +310,37 @@ def canonicalise_admission_token(token: AdmissionToken) -> dict[str, object]:
         "task_id": token.task_id,
         "issued_by": token.issued_by,
         "provenance": canonicalise_provenance(token.provenance),
+        "request_fingerprint": token.request_fingerprint.value,
     }
 
 
 def _canonical_step_payload(step: Step) -> dict[str, object]:
     payload = step.payload
     if isinstance(payload, NoopPayload):
-        return {"note": payload.note, "should_fail": payload.should_fail}
+        return {"note": _normalise_text(payload.note), "should_fail": payload.should_fail}
     if isinstance(payload, ShellPayload):
         return {"command": payload.command, "cwd": payload.cwd, "should_fail": payload.should_fail}
     if isinstance(payload, PythonPayload):
-        return {"callable": payload.name, "has_callable": payload.callable is not None}
+        return {"callable": _normalise_text(payload.name), "has_callable": payload.callable is not None}
     if isinstance(payload, MeshPayload):
-        return {"job": payload.job, "parameters": dict(payload.parameters), "should_fail": payload.should_fail}
+        return {
+            "job": _normalise_text(payload.job),
+            "parameters": _canonicalise_mapping(payload.parameters),
+            "should_fail": payload.should_fail,
+        }
     raise StepExecutionError(step, f"unsupported payload for canonicalization: {type(payload).__name__}")
 
 
 def canonicalise_task(task: Task) -> dict[str, object]:
     return {
-        "task_id": task.task_id,
-        "objective": task.objective,
-        "constraints": list(task.constraints),
+        "task_id": task.task_id.strip(),
+        "objective": _normalise_text(task.objective),
+        "constraints": sorted(_normalise_text(c) for c in task.constraints),
         "steps": [
             {
                 "step_id": step.step_id,
                 "kind": step.kind,
-                "expects": list(step.expects),
+                "expects": sorted(_normalise_text(e) for e in step.expects),
                 "payload": _canonical_step_payload(step),
             }
             for step in task.steps
@@ -320,6 +368,7 @@ def canonicalise_task_result(result: TaskResult) -> dict[str, object]:
         "status": result.status,
         "artifacts": canonical_artifacts,
         "trace": [canonicalise_step_trace(t) for t in result.trace],
+        "request_fingerprint": result.request_fingerprint.value,
     }
 
 
@@ -342,14 +391,26 @@ def canonicalise_task_execution_snapshot(
     result: TaskResult,
     admission_token: AdmissionToken,
     authorization: AuthorizationRecord,
+    declared_inputs: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     if admission_token.task_id != task.task_id or result.task_id != task.task_id:
         raise SnapshotDivergenceError("task id mismatch between snapshot components")
-    canonical_task = canonicalise_task(task)
+    canonical_request = canonicalise_task_request(
+        task=task,
+        authorization=authorization,
+        provenance=admission_token.provenance,
+        declared_inputs=declared_inputs or result.canonical_request.get("declared_inputs"),
+    )
+    fingerprint = request_fingerprint_from_canonical(canonical_request)
+    if fingerprint.value != admission_token.request_fingerprint.value or fingerprint.value != result.request_fingerprint.value:
+        raise SnapshotDivergenceError("task snapshot request fingerprint mismatch")
+    canonical_task = canonical_request["task"]
     canonical_result = canonicalise_task_result(result)
     canonical_token = canonicalise_admission_token(admission_token)
-    canonical_authorization = canonicalise_authorization(authorization)
+    canonical_authorization = canonical_request["authorization"]
     return {
+        "request": canonical_request,
+        "request_fingerprint": fingerprint.value,
         "task": canonical_task,
         "result": canonical_result,
         "admission_token": canonical_token,
@@ -405,10 +466,14 @@ def load_task_execution_record(payload: Mapping[str, Any]) -> dict[str, Any]:
 def canonicalise_task_execution_snapshot_from_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     if payload is None or not isinstance(payload, Mapping):
         raise SnapshotDivergenceError("task snapshot must be a mapping")
+    request_payload = payload.get("request")
     task_payload = payload.get("task")
     result_payload = payload.get("result")
     token_payload = payload.get("admission_token")
     auth_payload = payload.get("authorization")
+    fingerprint_payload = payload.get("request_fingerprint")
+    if not isinstance(request_payload, Mapping):
+        raise SnapshotDivergenceError("task snapshot missing request")
     if not isinstance(task_payload, Mapping):
         raise SnapshotDivergenceError("task snapshot missing task")
     if not isinstance(result_payload, Mapping):
@@ -418,20 +483,183 @@ def canonicalise_task_execution_snapshot_from_payload(payload: Mapping[str, Any]
     if not isinstance(auth_payload, Mapping):
         raise SnapshotDivergenceError("task snapshot missing authorization")
 
+    canonical_task = _canonicalise_task_payload(task_payload)
+    canonical_result = _canonicalise_result_payload(result_payload)
+    canonical_token = _canonicalise_token_payload(token_payload)
+    canonical_auth = _canonicalise_authorization_payload(auth_payload)
+    canonical_request = canonicalise_task_request_from_payload(request_payload)
+    if canonical_request.get("task") != canonical_task:
+        raise SnapshotDivergenceError("task snapshot request task does not match task payload")
+    if canonical_request.get("authorization") != canonical_auth:
+        raise SnapshotDivergenceError("task snapshot request authorization mismatch")
+    if canonical_request.get("provenance") != canonical_token.get("provenance"):
+        raise SnapshotDivergenceError("task snapshot request provenance mismatch")
+    request_fingerprint = request_fingerprint_from_canonical(canonical_request).value
+    if fingerprint_payload is not None and str(fingerprint_payload) != request_fingerprint:
+        raise SnapshotDivergenceError("task snapshot request_fingerprint mismatch")
+    token_fp = canonical_token.get("request_fingerprint")
+    result_fp = canonical_result.get("request_fingerprint")
+    if not token_fp:
+        raise SnapshotDivergenceError("task snapshot missing token fingerprint")
+    if not result_fp:
+        raise SnapshotDivergenceError("task snapshot missing result fingerprint")
+    if token_fp and token_fp != request_fingerprint:
+        raise SnapshotDivergenceError("task snapshot token fingerprint mismatch")
+    if result_fp and result_fp != request_fingerprint:
+        raise SnapshotDivergenceError("task snapshot result fingerprint mismatch")
+    canonical = {
+        "request": canonical_request,
+        "request_fingerprint": request_fingerprint,
+        "task": canonical_task,
+        "result": canonical_result,
+        "admission_token": canonical_token,
+        "authorization": canonical_auth,
+    }
+    _validate_canonical_snapshot(canonical)
+    return canonical
+
+
+def _validate_canonical_snapshot(snapshot: Mapping[str, Any]) -> None:
+    token = snapshot["admission_token"]
+    request = snapshot.get("request", {})
+    prov = token.get("provenance", {})
+    for field_name in ("authority_source", "authority_scope", "authority_context_id", "authority_reason"):
+        if not str(prov.get(field_name, "")).strip():
+            raise SnapshotDivergenceError("task snapshot provenance incomplete")
+    if snapshot["task"]["task_id"] != token["task_id"] or snapshot["result"]["task_id"] != token["task_id"]:
+        raise SnapshotDivergenceError("task snapshot task id mismatch")
+    request_task_id = request.get("task", {}).get("task_id") if isinstance(request, Mapping) else None
+    if request_task_id is not None and request_task_id != token["task_id"]:
+        raise SnapshotDivergenceError("task snapshot request task id mismatch")
+    token_fp = token.get("request_fingerprint")
+    result_fp = snapshot["result"].get("request_fingerprint")
+    request_fp = snapshot.get("request_fingerprint")
+    if not token_fp or not request_fp or not result_fp:
+        raise SnapshotDivergenceError("task snapshot missing request fingerprint")
+    if request_fp and token_fp and request_fp != token_fp:
+        raise SnapshotDivergenceError("task snapshot request fingerprint mismatch with token")
+    if request_fp and result_fp and request_fp != result_fp:
+        raise SnapshotDivergenceError("task snapshot request fingerprint mismatch with result")
+
+
+class SnapshotDivergenceError(RuntimeError):
+    """Raised when a persisted task execution snapshot cannot be trusted."""
+
+
+def _normalise_text(value: str | None) -> str:
+    return value.rstrip() if isinstance(value, str) else ""
+
+
+def _canonicalise_sequence(values: Sequence[Any], *, strip_strings: bool) -> list[object]:
+    return [_ensure_json_safe(value, strip_strings=strip_strings) for value in values]
+
+
+def _canonicalise_mapping(mapping: Mapping[str, object] | None, *, strip_strings: bool = False) -> dict[str, object]:
+    normalized: MutableMapping[str, object] = {}
+    for key, value in sorted((mapping or {}).items(), key=lambda item: str(item[0])):
+        normalized[str(key)] = _ensure_json_safe(value, strip_strings=strip_strings)
+    return dict(normalized)
+
+
+def _ensure_json_safe(value: object, *, strip_strings: bool) -> object:
+    if value is None or isinstance(value, (int, float, bool)):
+        return value
+    if isinstance(value, str):
+        return value.rstrip() if strip_strings else value
+    if isinstance(value, Mapping):
+        return _canonicalise_mapping(value, strip_strings=strip_strings)
+    if isinstance(value, (list, tuple)):
+        return _canonicalise_sequence(value, strip_strings=strip_strings)
+    raise RequestCanonicalizationError(f"request contains non-serializable type: {type(value).__name__}")
+
+
+def canonicalise_declared_inputs(declared_inputs: Mapping[str, object] | None) -> dict[str, object]:
+    return _canonicalise_mapping(declared_inputs or {}, strip_strings=True)
+
+
+def canonicalise_task_request(
+    *,
+    task: Task,
+    authorization: AuthorizationRecord,
+    provenance: AuthorityProvenance,
+    declared_inputs: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    try:
+        canonical_request = {
+            "task": canonicalise_task(task),
+            "authorization": canonicalise_authorization(authorization),
+            "provenance": canonicalise_provenance(provenance),
+            "declared_inputs": canonicalise_declared_inputs(declared_inputs),
+        }
+        enforce_no_gradient_fields(canonical_request, context="task_request")
+        _assert_serializable(canonical_request)
+        return canonical_request
+    except GradientInvariantViolation as exc:
+        raise RequestCanonicalizationError(str(exc)) from exc
+
+
+def canonicalise_task_request_from_payload(payload: Mapping[str, Any]) -> dict[str, object]:
+    if not isinstance(payload, Mapping):
+        raise SnapshotDivergenceError("task request must be a mapping")
+    task_payload = payload.get("task")
+    auth_payload = payload.get("authorization")
+    prov_payload = payload.get("provenance")
+    declared_inputs_payload = payload.get("declared_inputs")
+    if not isinstance(task_payload, Mapping):
+        raise SnapshotDivergenceError("task request missing task payload")
+    if not isinstance(auth_payload, Mapping):
+        raise SnapshotDivergenceError("task request missing authorization payload")
+    if not isinstance(prov_payload, Mapping):
+        raise SnapshotDivergenceError("task request missing provenance payload")
+    try:
+        canonical_request = {
+            "task": _canonicalise_task_payload(task_payload),
+            "authorization": _canonicalise_authorization_payload(auth_payload),
+            "provenance": _canonicalise_provenance_payload(prov_payload),
+            "declared_inputs": canonicalise_declared_inputs(declared_inputs_payload if declared_inputs_payload else {}),
+        }
+        enforce_no_gradient_fields(canonical_request, context="task_request.snapshot")
+        _assert_serializable(canonical_request)
+        return canonical_request
+    except GradientInvariantViolation as exc:
+        raise SnapshotDivergenceError(str(exc)) from exc
+    except RequestCanonicalizationError as exc:
+        raise SnapshotDivergenceError(str(exc)) from exc
+
+
+def request_fingerprint_from_canonical(canonical_request: Mapping[str, object]) -> RequestFingerprint:
+    _assert_serializable(canonical_request)
+    serialised = json.dumps(canonical_request, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    digest = hashlib.sha256(serialised.encode("utf-8")).hexdigest()
+    return RequestFingerprint(digest)
+
+
+def _assert_serializable(payload: object) -> None:
+    try:
+        json.dumps(payload, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    except TypeError as exc:
+        raise RequestCanonicalizationError(f"request is not JSON serializable: {exc}") from exc
+
+
+def _canonicalise_task_payload(task_payload: Mapping[str, Any]) -> dict[str, object]:
     canonical_task = {
-        "task_id": str(task_payload.get("task_id", "")),
-        "objective": str(task_payload.get("objective", "")),
-        "constraints": list(task_payload.get("constraints", []) or []),
+        "task_id": str(task_payload.get("task_id", "")).strip(),
+        "objective": _normalise_text(task_payload.get("objective", "")),
+        "constraints": sorted(_normalise_text(c) for c in (task_payload.get("constraints", []) or [])),
         "steps": [
             {
                 "step_id": int(step.get("step_id")),
                 "kind": step.get("kind"),
-                "expects": list(step.get("expects", []) or []),
-                "payload": dict(step.get("payload", {}) or {}),
+                "expects": sorted(_normalise_text(e) for e in (step.get("expects", []) or [])),
+                "payload": _canonicalise_mapping(step.get("payload", {}) or {}),
             }
             for step in task_payload.get("steps", []) or []
         ],
     }
+    return canonical_task
+
+
+def _canonicalise_result_payload(result_payload: Mapping[str, Any]) -> dict[str, object]:
     canonical_result = {
         "task_id": str(result_payload.get("task_id", "")),
         "status": result_payload.get("status"),
@@ -446,17 +674,30 @@ def canonicalise_task_execution_snapshot_from_payload(payload: Mapping[str, Any]
             }
             for t in result_payload.get("trace", []) or []
         ],
+        "request_fingerprint": str(result_payload.get("request_fingerprint", "")),
     }
-    canonical_token = {
+    return canonical_result
+
+
+def _canonicalise_token_payload(token_payload: Mapping[str, Any]) -> dict[str, object]:
+    return {
         "task_id": str(token_payload.get("task_id", "")),
         "issued_by": str(token_payload.get("issued_by", "")),
-        "provenance": {
-            "authority_source": str(token_payload.get("provenance", {}).get("authority_source", "")),
-            "authority_scope": str(token_payload.get("provenance", {}).get("authority_scope", "")),
-            "authority_context_id": str(token_payload.get("provenance", {}).get("authority_context_id", "")),
-            "authority_reason": str(token_payload.get("provenance", {}).get("authority_reason", "")),
-        },
+        "provenance": _canonicalise_provenance_payload(token_payload.get("provenance", {}) or {}),
+        "request_fingerprint": str(token_payload.get("request_fingerprint", "")),
     }
+
+
+def _canonicalise_provenance_payload(payload: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        "authority_source": str(payload.get("authority_source", "")),
+        "authority_scope": str(payload.get("authority_scope", "")),
+        "authority_context_id": str(payload.get("authority_context_id", "")),
+        "authority_reason": str(payload.get("authority_reason", "")),
+    }
+
+
+def _canonicalise_authorization_payload(auth_payload: Mapping[str, Any]) -> dict[str, object]:
     canonical_auth = {
         "request_type": str(auth_payload.get("request_type", "")),
         "requester_id": str(auth_payload.get("requester_id", "")),
@@ -466,25 +707,4 @@ def canonicalise_task_execution_snapshot_from_payload(payload: Mapping[str, Any]
         "decision": str(auth_payload.get("decision", "")),
         "reason": str(auth_payload.get("reason", "")),
     }
-    canonical = {
-        "task": canonical_task,
-        "result": canonical_result,
-        "admission_token": canonical_token,
-        "authorization": canonical_auth,
-    }
-    _validate_canonical_snapshot(canonical)
-    return canonical
-
-
-def _validate_canonical_snapshot(snapshot: Mapping[str, Any]) -> None:
-    token = snapshot["admission_token"]
-    prov = token.get("provenance", {})
-    for field_name in ("authority_source", "authority_scope", "authority_context_id", "authority_reason"):
-        if not str(prov.get(field_name, "")).strip():
-            raise SnapshotDivergenceError("task snapshot provenance incomplete")
-    if snapshot["task"]["task_id"] != token["task_id"] or snapshot["result"]["task_id"] != token["task_id"]:
-        raise SnapshotDivergenceError("task snapshot task id mismatch")
-
-
-class SnapshotDivergenceError(RuntimeError):
-    """Raised when a persisted task execution snapshot cannot be trusted."""
+    return canonical_auth
