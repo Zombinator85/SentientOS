@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Mapping, MutableMapping, Optional
 
+from sentientos.gradient_contract import enforce_no_gradient_fields, GradientInvariantViolation
+
 
 def _ensure_parent(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -127,10 +129,16 @@ class ContinuityStateManager:
             data = json.loads(self._path.read_text(encoding="utf-8"))
         except Exception:
             return ContinuitySnapshot()
+        enforce_no_gradient_fields(
+            data, context="continuity_state.load"
+        )
         return ContinuitySnapshot.from_mapping(data)
 
     def save(self, snapshot: ContinuitySnapshot) -> Path:
         payload = snapshot.to_dict()
+        enforce_no_gradient_fields(
+            payload, context="continuity_state.save"
+        )
         self._path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
@@ -147,4 +155,3 @@ __all__ = [
     "ContinuitySnapshot",
     "ContinuityStateManager",
 ]
-

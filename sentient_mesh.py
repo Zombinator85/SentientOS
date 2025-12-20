@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
 from council_adapters.base_voice import MeshVoice, VoiceExchange
+from sentientos.gradient_contract import (
+    GradientInvariantViolation,
+    enforce_no_gradient_fields,
+)
 
 __all__ = [
     "MeshJob",
@@ -323,26 +327,29 @@ class SentientMesh:
             sessions_summary: Dict[str, List[Dict[str, object]]] = {}
             jobs_payload: List[Dict[str, object]] = []
 
-            for job in jobs:
-                weights_before_job = {
-                    state.node_id: (float(state.trust), float(state.load))
-                    for state in self._nodes.values()
-                }
-                for key in job.metadata.keys():
-                    lowered = str(key).lower()
-                    if not _ALLOW_UNSAFE_GRADIENT and any(
-                        token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
-                    ):
-                        _log_invariant(
-                            invariant="NO_GRADIENT_INVARIANT",
-                            reason="gradient-bearing metadata present during routing",
-                            job=job,
-                            nodes=self._nodes,
-                            details={"metadata_keys": sorted(job.metadata.keys())},
-                        )
-                        raise RuntimeError(
-                            "NO_GRADIENT_INVARIANT violated: action routing received gradient-bearing metadata"
-                        )
+        for job in jobs:
+            enforce_no_gradient_fields(job.script, context="sentient_mesh.cycle:job.script")
+            enforce_no_gradient_fields(job.metadata, context="sentient_mesh.cycle:job.metadata")
+            weights_before_job = {
+                state.node_id: (float(state.trust), float(state.load))
+                for state in self._nodes.values()
+            }
+            for key in job.metadata.keys():
+                lowered = str(key).lower()
+                if not _ALLOW_UNSAFE_GRADIENT and any(
+                    token in lowered for token in ("reward", "utility", "score", "bias", "emotion", "trust")
+                ):
+                    _log_invariant(
+                        invariant="NO_GRADIENT_INVARIANT",
+                        reason="gradient-bearing metadata present during routing",
+                        job=job,
+                        nodes=self._nodes,
+                        details={"metadata_keys": sorted(job.metadata.keys())},
+                    )
+                    raise GradientInvariantViolation(
+                        "sentient_mesh.cycle",
+                        paths=[f"job.metadata.{key}"],
+                    )
                 target = self._select_node(job)
                 weights_after_selection = {
                     state.node_id: (float(state.trust), float(state.load))
@@ -436,6 +443,10 @@ class SentientMesh:
                 emotion_matrix=emotion_matrix,
                 council_sessions=sessions_summary,
                 jobs=jobs_payload,
+            )
+            enforce_no_gradient_fields(
+                snapshot.to_dict(),
+                context="sentient_mesh.cycle:snapshot",
             )
             if __debug__:
                 output_hash = MeshVoice.canonical({"assignments": assignments, "jobs": jobs_payload})

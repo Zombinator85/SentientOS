@@ -12,6 +12,11 @@ from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Opti
 import memory_governor
 from sentient_mesh import MeshJob, SentientMesh
 import affective_context as ac
+from sentientos.gradient_contract import (
+    GradientInvariantViolation,
+    enforce_no_gradient_fields,
+    GRADIENT_FIELD_DENYLIST,
+)
 
 __all__ = [
     "AutonomyPlan",
@@ -190,9 +195,11 @@ class SentientAutonomyEngine:
             if failure:
                 return []
             metrics = memory_governor.mesh_metrics()
+            enforce_no_gradient_fields(
+                metrics, context="sentient_autonomy.reflective_cycle:metrics"
+            )
             if not _ALLOW_UNSAFE_GRADIENT and any(
-                key.lower() in {"reward", "rewards", "utility", "utilities", "score", "scores"}
-                for key in metrics.keys()
+                key.lower() in GRADIENT_FIELD_DENYLIST for key in metrics.keys()
             ):
                 _log_invariant(
                     invariant="NO_GRADIENT_INVARIANT",
@@ -202,7 +209,10 @@ class SentientAutonomyEngine:
                     metrics=metrics,
                     details={"plans": self._plans, "metrics_keys": sorted(metrics.keys())},
                 )
-                raise RuntimeError("NO_GRADIENT_INVARIANT violated: reward-like metrics detected in autonomy input")
+                raise GradientInvariantViolation(
+                    "sentient_autonomy.reflective_cycle",
+                    paths=[key for key in metrics.keys() if key.lower() in GRADIENT_FIELD_DENYLIST],
+                )
             original_queue = list(self._goal_queue)
             goals = list(self._goal_queue)
             if not goals and metrics.get("open_goals"):
@@ -233,7 +243,10 @@ class SentientAutonomyEngine:
                     metrics=metrics,
                     details={"plans": self._plans, "metrics_keys": sorted(metrics.keys())},
                 )
-                raise RuntimeError("NO_GRADIENT_INVARIANT violated: metadata reordered autonomy goals")
+                raise GradientInvariantViolation(
+                    "sentient_autonomy.reflective_cycle",
+                    paths=["metadata reordered autonomy goals"],
+                )
             jobs: List[MeshJob] = []
             generated_plans: List[AutonomyPlan] = []
             emotion_bias = metrics.get("emotion_consensus", {})
@@ -261,8 +274,9 @@ class SentientAutonomyEngine:
                             "existing_priorities": existing_priorities,
                         },
                     )
-                    raise RuntimeError(
-                        "NO_GRADIENT_INVARIANT violated: plan priority drifted due to bias or metadata"
+                    raise GradientInvariantViolation(
+                        "sentient_autonomy.reflective_cycle",
+                        paths=[f"plan[{plan.plan_id}].priority"],
                     )
                 prompt = self._render_prompt(goal, metrics)
                 job = MeshJob(
@@ -286,6 +300,9 @@ class SentientAutonomyEngine:
                 if str(exc).startswith("DETERMINISTIC_DEGRADATION"):
                     return []
                 raise
+            enforce_no_gradient_fields(
+                snapshot.to_dict(), context="sentient_autonomy.reflective_cycle:snapshot"
+            )
             self._last_cycle = self._next_timestamp()
             self._last_bias = dict(emotion_bias)
             for plan in generated_plans:
@@ -294,7 +311,11 @@ class SentientAutonomyEngine:
                 plan.status = "scheduled" if assignment else "queued"
                 plan.confidence = self._estimate_confidence(plan, metrics)
             self._goal_queue = [goal for goal in self._goal_queue if goal not in selected]
-            return [plan.to_dict() for plan in generated_plans]
+            plan_dicts = [plan.to_dict() for plan in generated_plans]
+            enforce_no_gradient_fields(
+                plan_dicts, context="sentient_autonomy.reflective_cycle:plans"
+            )
+            return plan_dicts
 
     def _create_or_update_plan(
         self,
