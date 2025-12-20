@@ -2,6 +2,7 @@ This threat model enumerates failure modes arising from interpretation, control,
 
 # Scope and Assumptions
 - **What SentientOS is:** A task-execution framework with deterministic execution (TaskExecutor), explicit admission control (task_admission), read-only observability (pulse_observer), doctrine-bound semantics (DOCTRINE.md), and doctrine digest hashing with federation enforcement. It coordinates operator-defined tasks, logs, and artifacts under audited policies.
+- **What SentientOS excludes:** Embodiment, gaming, VR, and sensorimotor interfaces are external interface adapters only. They may emit telemetry but cannot influence admission, execution, or planning and are not part of core guarantees.
 - **What SentientOS is not:** Autonomous, sentient, self-preserving, morally agentive, rights-bearing, or self-learning. It does not interpret pulse as commands, does not run uncontrolled daemons, and does not exceed doctrine-defined semantics.
 - **Assumptions about operators:** Operators are authenticated, policy-aware, responsible for task definitions, and can read DOCTRINE.md. They may misinterpret outputs or over-trust guidance but are expected to follow admission policies and review logs.
 - **Assumptions about contributors:** Contributors follow doctrine-aligned coding standards, avoid anthropomorphic framing, respect deterministic execution constraints, and do not add hidden learning loops or privilege escalations.
