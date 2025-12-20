@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from control_plane import AdmissionResponse, Decision, ReasonCode, RequestType, admit_request
+from control_plane import AdmissionResponse, AuthorizationRecord, Decision, ReasonCode, RequestType, admit_request
 from control_plane.records import AuthorizationError
 import task_executor
 
@@ -16,6 +16,16 @@ def _provenance(task_id: str) -> task_executor.AuthorityProvenance:
         authority_scope=f"task:{task_id}",
         authority_context_id="ctx-test",
         authority_reason="test",
+    )
+
+
+def _issue_token(task: task_executor.Task, auth: AuthorizationRecord) -> task_executor.AdmissionToken:
+    provenance = _provenance(task.task_id)
+    fingerprint = task_executor.request_fingerprint_from_canonical(
+        task_executor.canonicalise_task_request(task=task, authorization=auth, provenance=provenance)
+    )
+    return task_executor.AdmissionToken(
+        task_id=task.task_id, provenance=provenance, request_fingerprint=fingerprint
     )
 
 
@@ -86,12 +96,14 @@ def test_execution_requires_authorization_record() -> None:
     )
 
     with pytest.raises(AuthorizationError):
-        task_executor.execute_task(
-            task,
-            admission_token=task_executor.AdmissionToken(
-                task_id=task.task_id, provenance=_provenance(task.task_id)
-            ),
-        )
+            task_executor.execute_task(
+                task,
+                admission_token=task_executor.AdmissionToken(
+                    task_id=task.task_id,
+                    provenance=_provenance(task.task_id),
+                    request_fingerprint=task_executor.RequestFingerprint("f" * 64),
+                ),
+            )
 
 
 def test_execution_rejects_wrong_authorization_type() -> None:
@@ -108,7 +120,5 @@ def test_execution_rejects_wrong_authorization_type() -> None:
         task_executor.execute_task(
             task,
             authorization=speech_auth,
-            admission_token=task_executor.AdmissionToken(
-                task_id=task.task_id, provenance=_provenance(task.task_id)
-            ),
+            admission_token=_issue_token(task, speech_auth),
         )

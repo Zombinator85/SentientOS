@@ -37,6 +37,20 @@ def _ctx() -> task_admission.AdmissionContext:
     )
 
 
+def _auth() -> AuthorizationRecord:
+    return AuthorizationRecord(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="tester",
+        intent_hash="i",
+        context_hash="c",
+        policy_version="v1",
+        decision=Decision.ALLOW,
+        reason=ReasonCode.OK,
+        timestamp=0.0,
+        metadata=None,
+    )
+
+
 def test_denied_admission_never_invokes_executor(monkeypatch):
     invoked = False
 
@@ -48,7 +62,7 @@ def test_denied_admission_never_invokes_executor(monkeypatch):
 
     policy = task_admission.AdmissionPolicy(policy_version="v1", max_steps=0)
     decision, result = task_admission.run_task_with_admission(
-        _noop_task(), _ctx(), policy, executor=FakeExecutor()
+        _noop_task(), _ctx(), policy, authorization=_auth(), executor=FakeExecutor()
     )
 
     assert decision.allowed is False
@@ -67,7 +81,7 @@ def test_normal_path_passes_admission_token_to_executor():
 
     policy = task_admission.AdmissionPolicy(policy_version="v1")
     decision, result = task_admission.run_task_with_admission(
-        _noop_task("task-token"), _ctx(), policy, executor=FakeExecutor()
+        _noop_task("task-token"), _ctx(), policy, authorization=_auth(), executor=FakeExecutor()
     )
 
     assert decision.allowed is True
@@ -97,5 +111,9 @@ def test_execute_task_requires_admission_token():
         task_executor.execute_task(
             task,
             authorization=auth,
-            admission_token=task_executor.AdmissionToken(task_id="wrong", provenance=_provenance("wrong")),
+            admission_token=task_executor.AdmissionToken(
+                task_id="wrong",
+                provenance=_provenance("wrong"),
+                request_fingerprint=task_executor.RequestFingerprint("f" * 64),
+            ),
         )

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
+from control_plane.records import AuthorizationRecord
 import task_executor
 from logging_config import get_log_path
 from log_utils import append_json
@@ -243,6 +244,8 @@ def run_task_with_admission(
     task: task_executor.Task,
     ctx: AdmissionContext,
     policy: AdmissionPolicy,
+    authorization: AuthorizationRecord,
+    declared_inputs: Mapping[str, object] | None = None,
     executor: Any = task_executor,
 ) -> tuple[AdmissionDecision, task_executor.TaskResult | None]:
     decision = admit(task, ctx, policy)
@@ -255,6 +258,14 @@ def run_task_with_admission(
         authority_context_id=ctx.node_id,
         authority_reason=decision.reason,
     )
-    admission_token = task_executor.AdmissionToken(task_id=task.task_id, provenance=provenance)
-    result = executor.execute_task(task, admission_token=admission_token)
+    canonical_request = task_executor.canonicalise_task_request(
+        task=task, authorization=authorization, provenance=provenance, declared_inputs=declared_inputs
+    )
+    fingerprint = task_executor.request_fingerprint_from_canonical(canonical_request)
+    admission_token = task_executor.AdmissionToken(
+        task_id=task.task_id, provenance=provenance, request_fingerprint=fingerprint
+    )
+    result = executor.execute_task(
+        task, authorization=authorization, admission_token=admission_token, declared_inputs=declared_inputs
+    )
     return decision, result
