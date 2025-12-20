@@ -1,0 +1,9 @@
+{
+  "artifact": "sample-llama-3-8b-q4-72cbaeb786394bb3c04dbbe006ee4cf5b0bed45a082ec2037cb36c447bc9f145.gguf",
+  "base_url": "https://models.sentientos.org",
+  "id": "llama-3.1-8b-q4",
+  "license": "meta-llama",
+  "priority": 1,
+  "repo_id": "meta-llama/Meta-Llama-3-8B-Instruct",
+  "revision": "test-revision"
+}
