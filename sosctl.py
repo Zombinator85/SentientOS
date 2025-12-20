@@ -36,16 +36,19 @@ def _parse_duration(value: str) -> float:
 
 
 def _service_action(action: str, *, unit_override: str | None = None) -> dict[str, object]:
-    try:  # optional dependency for YAML-based service rendering
-        import yaml  # type: ignore[import-not-found]
-
-        has_yaml = True
-    except ImportError:
+    dry_run = os.getenv("SENTIENTOS_SERVICE_DRY_RUN", "0").lower() in {"1", "true", "yes"}
+    if dry_run:
         has_yaml = False
+    else:
+        try:  # optional dependency for YAML-based service rendering
+            import yaml  # type: ignore[import-not-found]
+
+            has_yaml = True
+        except ImportError:
+            has_yaml = False
 
     override = os.getenv("SENTIENTOS_SERVICE_PLATFORM")
     system = override.lower() if override else platform.system().lower()
-    dry_run = os.getenv("SENTIENTOS_SERVICE_DRY_RUN", "0").lower() in {"1", "true", "yes"}
     notices: list[dict[str, str]] = []
     commands: list[list[str]] = []
     rendering_required = action == "install"
