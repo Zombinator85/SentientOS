@@ -10,6 +10,15 @@ import task_executor
 pytestmark = pytest.mark.no_legacy_skip
 
 
+def _provenance(task_id: str) -> task_executor.AuthorityProvenance:
+    return task_executor.AuthorityProvenance(
+        authority_source="test-harness",
+        authority_scope=f"task:{task_id}",
+        authority_context_id="ctx-test",
+        authority_reason="test",
+    )
+
+
 def _authorize(request_type: RequestType, requester_id: str = "operator", **metadata: object) -> AdmissionResponse:
     meta = metadata or None
     return admit_request(
@@ -77,7 +86,12 @@ def test_execution_requires_authorization_record() -> None:
     )
 
     with pytest.raises(AuthorizationError):
-        task_executor.execute_task(task, admission_token=task_executor.AdmissionToken(task_id=task.task_id))
+        task_executor.execute_task(
+            task,
+            admission_token=task_executor.AdmissionToken(
+                task_id=task.task_id, provenance=_provenance(task.task_id)
+            ),
+        )
 
 
 def test_execution_rejects_wrong_authorization_type() -> None:
@@ -94,5 +108,7 @@ def test_execution_rejects_wrong_authorization_type() -> None:
         task_executor.execute_task(
             task,
             authorization=speech_auth,
-            admission_token=task_executor.AdmissionToken(task_id=task.task_id),
+            admission_token=task_executor.AdmissionToken(
+                task_id=task.task_id, provenance=_provenance(task.task_id)
+            ),
         )

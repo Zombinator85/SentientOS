@@ -9,6 +9,15 @@ import task_executor
 pytestmark = pytest.mark.no_legacy_skip
 
 
+def _provenance(task_id: str) -> task_executor.AuthorityProvenance:
+    return task_executor.AuthorityProvenance(
+        authority_source="test-harness",
+        authority_scope=f"task:{task_id}",
+        authority_context_id="ctx-test",
+        authority_reason="test",
+    )
+
+
 def _noop_task(task_id: str = "task-1") -> task_executor.Task:
     return task_executor.Task(
         task_id=task_id,
@@ -88,5 +97,5 @@ def test_execute_task_requires_admission_token():
         task_executor.execute_task(
             task,
             authorization=auth,
-            admission_token=task_executor.AdmissionToken(task_id="wrong"),
+            admission_token=task_executor.AdmissionToken(task_id="wrong", provenance=_provenance("wrong")),
         )
