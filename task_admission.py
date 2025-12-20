@@ -249,6 +249,12 @@ def run_task_with_admission(
     _log_admission_event(decision, task, ctx, policy)
     if not decision.allowed:
         return decision, None
-    admission_token = task_executor.AdmissionToken(task_id=task.task_id)
+    provenance = task_executor.AuthorityProvenance(
+        authority_source=ctx.actor,
+        authority_scope=f"policy:{policy.policy_version}",
+        authority_context_id=ctx.node_id,
+        authority_reason=decision.reason,
+    )
+    admission_token = task_executor.AdmissionToken(task_id=task.task_id, provenance=provenance)
     result = executor.execute_task(task, admission_token=admission_token)
     return decision, result
