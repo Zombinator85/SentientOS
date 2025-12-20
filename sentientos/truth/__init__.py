@@ -14,6 +14,14 @@ from .epistemic_orientation import (
     SuspensionReason,
     SuspensionRecord,
 )
+from .provisional_assertion import (
+    AntiLagGuard,
+    ConfidenceBand,
+    ProvisionalAssertion,
+    ProvisionalAssertionLedger,
+    RevisionState,
+    SilenceDebt,
+)
 
 __all__ = [
     "BeliefEnforcer",
@@ -25,7 +33,13 @@ __all__ = [
     "EpistemicOrientation",
     "EpistemicSelfCheck",
     "JudgmentSuspender",
+    "AntiLagGuard",
+    "ConfidenceBand",
     "SourceClass",
+    "ProvisionalAssertion",
+    "ProvisionalAssertionLedger",
+    "RevisionState",
+    "SilenceDebt",
     "SuspensionReason",
     "SuspensionRecord",
 ]
