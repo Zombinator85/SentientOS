@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
-from huggingface_hub import HfApi, hf_hub_download
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable, List, Optional, Sequence, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - type hints only
+    from huggingface_hub import HfApi
 
 
 ALLOWED_LICENSES = {
@@ -58,7 +63,8 @@ def _is_permissive_license(license_id: Optional[str], allowed: Iterable[str]) ->
     return normalized in {item.lower() for item in allowed}
 
 
-def _load_file_text(repo_id: str, revision: str, filename: str, api: Optional[HfApi]) -> str:
+def _load_file_text(repo_id: str, revision: str, filename: str, api: Optional["HfApi"]) -> str:
+    from huggingface_hub import hf_hub_download
     try:
         path = hf_hub_download(repo_id, filename=filename, revision=revision, repo_type="model", token=None)
     except Exception as exc:  # noqa: BLE001
@@ -69,7 +75,7 @@ def _load_file_text(repo_id: str, revision: str, filename: str, api: Optional[Hf
     return text
 
 
-def _resolve_license_text(repo_id: str, revision: str, api: Optional[HfApi]) -> str:
+def _resolve_license_text(repo_id: str, revision: str, api: Optional["HfApi"]) -> str:
     for candidate in ("LICENSE", "LICENSE.txt", "LICENSE.md"):
         try:
             return _load_file_text(repo_id, revision, candidate, api)
@@ -78,7 +84,7 @@ def _resolve_license_text(repo_id: str, revision: str, api: Optional[HfApi]) -> 
     raise DiscoveryError(f"Missing license file for {repo_id}@{revision}")
 
 
-def _resolve_model_card(repo_id: str, revision: str, api: Optional[HfApi]) -> str:
+def _resolve_model_card(repo_id: str, revision: str, api: Optional["HfApi"]) -> str:
     for candidate in ("README.md", "README.MD", "README.txt"):
         try:
             return _load_file_text(repo_id, revision, candidate, api)
@@ -88,8 +94,10 @@ def _resolve_model_card(repo_id: str, revision: str, api: Optional[HfApi]) -> st
 
 
 def discover_text_models(
-    allowed_licenses: Sequence[str] = tuple(ALLOWED_LICENSES), api: Optional[HfApi] = None
+    allowed_licenses: Sequence[str] = tuple(ALLOWED_LICENSES), api: Optional["HfApi"] = None
 ) -> List[CandidateModel]:
+    from huggingface_hub import HfApi
+
     client = api or HfApi()
     candidates: List[CandidateModel] = []
     for info in client.list_models(filter="text-generation", full=True, sort="downloads"):

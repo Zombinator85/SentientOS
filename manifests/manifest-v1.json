@@ -1,0 +1,93 @@
+{
+  "manifest_version": "v1",
+  "models": [
+    {
+      "artifact": {
+        "escrow_path": "escrow/mistralai__Mistral-7B-Instruct-v0.2__q4_k_m/mistral-7b-instruct-v0.2-q4_k_m-c51adfe5f4d1483441cbfc83161decdd33019574c90de2366b6d5da0998f64a8.gguf",
+        "sha256": "c51adfe5f4d1483441cbfc83161decdd33019574c90de2366b6d5da0998f64a8",
+        "size_bytes": 36,
+        "urls": [
+          "https://models.sentientos.org/mistral-7b-instruct-v0.2-q4_k_m-c51adfe5f4d1483441cbfc83161decdd33019574c90de2366b6d5da0998f64a8.gguf"
+        ]
+      },
+      "id": "mistral-7b-instruct-q4",
+      "license": "apache-2.0",
+      "priority": 1,
+      "requirements": {
+        "architecture": "x86_64",
+        "avx": false,
+        "avx2": true,
+        "avx512": false,
+        "gpu": false,
+        "quantization": "q4",
+        "ram_gb_min": 8
+      }
+    },
+    {
+      "artifact": {
+        "escrow_path": "escrow/mistralai__Mistral-7B-Instruct-v0.2__q6_k/mistral-7b-instruct-v0.2-q6_k-ba7b3fc5336b94502f800bb847f86376c780f5c00b9cf0dd17e9ad0a38b9290d.gguf",
+        "sha256": "ba7b3fc5336b94502f800bb847f86376c780f5c00b9cf0dd17e9ad0a38b9290d",
+        "size_bytes": 34,
+        "urls": [
+          "https://models.sentientos.org/mistral-7b-instruct-v0.2-q6_k-ba7b3fc5336b94502f800bb847f86376c780f5c00b9cf0dd17e9ad0a38b9290d.gguf"
+        ]
+      },
+      "id": "mistral-7b-instruct-q6",
+      "license": "apache-2.0",
+      "priority": 2,
+      "requirements": {
+        "architecture": "x86_64",
+        "avx": false,
+        "avx2": true,
+        "avx512": false,
+        "gpu": false,
+        "quantization": "q6",
+        "ram_gb_min": 16
+      }
+    },
+    {
+      "artifact": {
+        "escrow_path": "escrow/mosaicml__mpt-7b-instruct/mpt-7b-instruct-q4_k_m-7ec9e6975c2695c8c97ad5f401c470abb2fffb8622da1b2e4163e5cf37a483bb.gguf",
+        "sha256": "7ec9e6975c2695c8c97ad5f401c470abb2fffb8622da1b2e4163e5cf37a483bb",
+        "size_bytes": 32,
+        "urls": [
+          "https://models.sentientos.org/mpt-7b-instruct-q4_k_m-7ec9e6975c2695c8c97ad5f401c470abb2fffb8622da1b2e4163e5cf37a483bb.gguf"
+        ]
+      },
+      "id": "mpt-7b-instruct-q4",
+      "license": "apache-2.0",
+      "priority": 3,
+      "requirements": {
+        "architecture": "x86_64",
+        "avx": false,
+        "avx2": true,
+        "avx512": false,
+        "gpu": false,
+        "quantization": "q4",
+        "ram_gb_min": 8
+      }
+    },
+    {
+      "artifact": {
+        "escrow_path": "escrow/EleutherAI__pythia-12b/pythia-12b-q4_k_m-4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10.gguf",
+        "sha256": "4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10",
+        "size_bytes": 27,
+        "urls": [
+          "https://models.sentientos.org/pythia-12b-q4_k_m-4dc76b0f53f1e50e4af4fe4150b75a03c195b31119676df4cfd68bb1f6fa2d10.gguf"
+        ]
+      },
+      "id": "pythia-12b-q4",
+      "license": "apache-2.0",
+      "priority": 4,
+      "requirements": {
+        "architecture": "x86_64",
+        "avx": false,
+        "avx2": true,
+        "avx512": false,
+        "gpu": false,
+        "quantization": "q4",
+        "ram_gb_min": 8
+      }
+    }
+  ]
+}

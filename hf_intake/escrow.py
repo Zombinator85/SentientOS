@@ -3,10 +3,17 @@ from __future__ import annotations
 import hashlib
 import shutil
 from dataclasses import dataclass
+import hashlib
+import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from huggingface_hub import HfApi, hf_hub_download
+if TYPE_CHECKING:  # pragma: no cover - import hints only
+    from huggingface_hub import HfApi, hf_hub_download
+
+hf_hub_download = None
+HfApi = None
 
 from hf_intake.discovery import CandidateModel, DiscoveryError, write_source_record
 
@@ -39,17 +46,28 @@ def _safe_model_dir_name(repo_id: str) -> str:
 
 
 def escrow_artifact(
-    candidate: CandidateModel, artifact_filename: str, escrow_root: Path, api: Optional[HfApi] = None
+    candidate: CandidateModel, artifact_filename: str, escrow_root: Path, api: Optional["HfApi"] = None
 ) -> EscrowedArtifact:
     if not artifact_filename.lower().endswith(SAFE_SUFFIX):
         raise EscrowError(f"Artifact {artifact_filename} is not a GGUF file")
-    client = api or HfApi()
+
+    client = api
+    if client is None:
+        from huggingface_hub import HfApi as _HfApi
+
+        client = _HfApi()
     dest_dir = escrow_root / _safe_model_dir_name(candidate.repo_id)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
+    downloader = hf_hub_download
+    if downloader is None:
+        from huggingface_hub import hf_hub_download as _hf_hub_download
+
+        downloader = _hf_hub_download
+
     try:
         download_path = Path(
-            hf_hub_download(
+            downloader(
                 candidate.repo_id,
                 filename=artifact_filename,
                 revision=candidate.revision,
