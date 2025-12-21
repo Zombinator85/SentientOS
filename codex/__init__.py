@@ -7,6 +7,7 @@ from .amendments import (
     IntegrityViolation,
     SpecAmender,
 )
+from .config import WET_RUN_ENABLED
 from .autogenesis import GapScanner, LineageWriter, ReviewSymmetry, SelfAmender
 from .gap_seeker import (
     CoverageReader,
@@ -162,6 +163,7 @@ __all__ = [
     "CodexSandbox",
     "SandboxViolation",
     "StagedRecord",
+    "WET_RUN_ENABLED",
     "StrategyOrchestrator",
     "SpecEngine",
     "SpecProposal",
