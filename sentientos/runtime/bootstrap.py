@@ -235,6 +235,13 @@ def validate_model_paths(config: Mapping[str, object], base_dir: Path) -> list[s
                     f"Whisper model not found at {model_candidate}. "
                     "Download a GGUF model and update voice.asr.model_path if necessary."
                 )
+    tts_section = voice_section.get("tts") if isinstance(voice_section, Mapping) else None
+    if isinstance(tts_section, Mapping):
+        voice_name = tts_section.get("voice_name")
+        if voice_name is None:
+            warnings.append("TTS voice is unset; offline deployments must configure a local voice_name.")
+        if tts_section.get("enabled") and not voice_name:
+            warnings.append("TTS enabled without voice_name; disabling or configuring is required.")
 
     return warnings
 
