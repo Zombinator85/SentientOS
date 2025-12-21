@@ -13,8 +13,6 @@ from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 import difflib
 
-from .config import WET_RUN_ENABLED
-
 
 class SandboxViolation(PermissionError):
     """Raised when a Codex operation attempts to escape the sandbox."""
@@ -73,7 +71,7 @@ class CodexSandbox:
         self._sandbox_root.mkdir(parents=True, exist_ok=True)
         self._staging_dir = self._sandbox_root / "staging"
         self._staging_dir.mkdir(parents=True, exist_ok=True)
-        self._wet_run = WET_RUN_ENABLED if wet_run is None else bool(wet_run)
+        self._wet_run = bool(wet_run) if wet_run is not None else False
         requested_paths = (
             [self._resolve_path(path) for path in allowed_paths]
             if allowed_paths
@@ -256,6 +254,10 @@ class CodexSandbox:
             "allowed_scripts": [str(path) for path in sorted(self._allowed_scripts)],
             "wet_run": [str(self._wet_run)],
         }
+
+    @property
+    def wet_run(self) -> bool:
+        return self._wet_run
 
     # ------------------------------------------------------------------
     # Internal helpers
