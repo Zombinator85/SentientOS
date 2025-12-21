@@ -37,6 +37,13 @@ logs/*.jsonl
 !logs/presence_stream.jsonl
 !logs/federation_stream.jsonl
 site/
+.codex_sandbox/
+sandbox_hard_mode_run.json
+sandbox_adversarial_report.py
+logs/sandbox*.json
+logs/sandbox*.jsonl
+sandbox_run_*.json
+sandbox_run_*.jsonl
 .privilege_lint.cache
 .privilege_lint.gitcache
 docs/_build/

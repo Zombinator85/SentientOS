@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping,
 import json
 import re
 
+from .config import WET_RUN_ENABLED
 from .sandbox import CodexSandbox
 
 
@@ -835,6 +836,8 @@ class Implementor:
         operator: str | None = None,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
+        if WET_RUN_ENABLED:
+            return
         payload: Dict[str, Any] = {
             "timestamp": self._now().isoformat(),
             "spec_id": spec_id,

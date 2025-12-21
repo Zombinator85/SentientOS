@@ -52,6 +52,19 @@ def test_mutation_requires_approval(tmp_path: Path) -> None:
     assert target.read_text(encoding="utf-8") == "updated", "Approval should apply staged change"
 
 
+def test_surface_freeze_blocks_allowlist_expansion(tmp_path: Path) -> None:
+    with pytest.raises(SandboxViolation):
+        CodexSandbox(root=tmp_path, allowed_paths=[tmp_path / "extra"])
+
+
+def test_surface_expansion_requires_opt_in(tmp_path: Path) -> None:
+    extra = tmp_path / "extra"
+    extra.mkdir(parents=True, exist_ok=True)
+    sandbox = CodexSandbox(root=tmp_path, allowed_paths=[extra], allow_surface_expansion=True)
+
+    sandbox.commit_text(extra / "note.txt", "ok", approved=True)
+
+
 def test_relative_traversal_blocked(tmp_path: Path) -> None:
     sandbox = CodexSandbox(root=tmp_path)
     target = tmp_path.parent / "escape.txt"

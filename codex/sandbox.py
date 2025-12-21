@@ -13,6 +13,8 @@ from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 import difflib
 
+from .config import WET_RUN_ENABLED
+
 
 class SandboxViolation(PermissionError):
     """Raised when a Codex operation attempts to escape the sandbox."""
@@ -32,6 +34,7 @@ class StagedRecord:
 class CodexSandbox:
     """Enforce filesystem, execution, and mutation boundaries for Codex."""
 
+    # Sandbox surface frozen post-wet-run-prep.
     _DEFAULT_ALLOWED_PATHS = (
         "integration",
         "tests/generated",
@@ -62,17 +65,29 @@ class CodexSandbox:
         allowed_paths: Iterable[Path | str] | None = None,
         allowed_commands: Iterable[str] | None = None,
         allowed_scripts: Iterable[Path | str] | None = None,
+        allow_surface_expansion: bool = False,
+        wet_run: bool | None = None,
     ) -> None:
         self._root = Path(root).resolve()
         self._sandbox_root = self._root / ".codex_sandbox"
         self._sandbox_root.mkdir(parents=True, exist_ok=True)
         self._staging_dir = self._sandbox_root / "staging"
         self._staging_dir.mkdir(parents=True, exist_ok=True)
-        self._allowed_paths = (
+        self._wet_run = WET_RUN_ENABLED if wet_run is None else bool(wet_run)
+        requested_paths = (
             [self._resolve_path(path) for path in allowed_paths]
             if allowed_paths
             else [self._resolve_path(path) for path in self._DEFAULT_ALLOWED_PATHS]
         )
+        default_surface = {self._resolve_path(path) for path in self._DEFAULT_ALLOWED_PATHS}
+        if not allow_surface_expansion:
+            unexpected = [path for path in requested_paths if path not in default_surface]
+            if unexpected:
+                raise SandboxViolation(
+                    "Sandbox surface frozen post-wet-run-prep; set allow_surface_expansion=True "
+                    "to extend the allowlist."
+                )
+        self._allowed_paths = requested_paths
         self._allowed_commands = set(allowed_commands or self._ALLOWED_COMMANDS)
         self._allowed_scripts = {self._resolve_path(path) for path in allowed_scripts or []}
 
@@ -239,6 +254,7 @@ class CodexSandbox:
             "commands": sorted(self._allowed_commands),
             "blocked_commands": sorted(self._BLOCKED_COMMANDS),
             "allowed_scripts": [str(path) for path in sorted(self._allowed_scripts)],
+            "wet_run": [str(self._wet_run)],
         }
 
     # ------------------------------------------------------------------

@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable, Mapping, MutableMapping
 import json
 import textwrap
 
+from .config import WET_RUN_ENABLED
 from .implementations import Implementor, ImplementationRecord
 from .refinements import Refiner, RefinementTransform
 from .sandbox import CodexSandbox
@@ -370,6 +371,8 @@ class TestSynthesizer:
         operator: str | None = None,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
+        if WET_RUN_ENABLED:
+            return
         payload: MutableMapping[str, Any] = {
             "timestamp": self._now().isoformat(),
             "spec_id": spec_id,
