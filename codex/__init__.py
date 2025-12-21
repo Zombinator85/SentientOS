@@ -82,6 +82,7 @@ from .rewrites import (
     RewritePatch,
     ScopedRewriteEngine,
 )
+from .sandbox import CodexSandbox, SandboxViolation, StagedRecord
 from .scaffolds import ScaffoldEngine, ScaffoldRecord
 from .orchestrator import StrategyOrchestrator
 from .specs import SpecEngine, SpecProposal, SpecReviewBoard
@@ -158,6 +159,9 @@ __all__ = [
     "RewriteDashboard",
     "RewritePatch",
     "ScopedRewriteEngine",
+    "CodexSandbox",
+    "SandboxViolation",
+    "StagedRecord",
     "StrategyOrchestrator",
     "SpecEngine",
     "SpecProposal",
