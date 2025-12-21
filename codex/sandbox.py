@@ -38,6 +38,7 @@ class CodexSandbox:
         "glow",
         ".codex_sandbox",
     )
+    _MAX_LOG_ENTRY_BYTES = 8192
     _ALLOWED_COMMANDS = frozenset({"pytest", "python", "python3"})
     _BLOCKED_COMMANDS = frozenset(
         {
@@ -124,7 +125,16 @@ class CodexSandbox:
 
         resolved = self._require_writable(path)
         existing = resolved.read_text(encoding="utf-8") if resolved.exists() else ""
-        line = json.dumps(dict(payload), sort_keys=True)
+        try:
+            line = json.dumps(dict(payload), sort_keys=True, allow_nan=False)
+        except (TypeError, ValueError) as exc:
+            raise SandboxViolation(f"Invalid JSONL payload: {exc}") from exc
+
+        encoded = line.encode("utf-8")
+        if len(encoded) > self._MAX_LOG_ENTRY_BYTES:
+            raise SandboxViolation(
+                f"JSONL entry exceeds {self._MAX_LOG_ENTRY_BYTES} bytes"
+            )
         separator = "" if not existing or existing.endswith("\n") else "\n"
         new_content = f"{existing}{separator}{line}\n"
         metadata = self._merge_metadata(metadata, {"format": "jsonl"})
