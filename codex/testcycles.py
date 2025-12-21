@@ -11,6 +11,7 @@ import textwrap
 
 from .implementations import Implementor, ImplementationRecord
 from .refinements import Refiner, RefinementTransform
+from .sandbox import CodexSandbox
 
 
 def _default_now() -> datetime:
@@ -126,6 +127,7 @@ class TestSynthesizer:
         repo_root: Path | str = Path("."),
         integration_root: Path | str | None = None,
         now: Callable[[], datetime] = _default_now,
+        sandbox: CodexSandbox | None = None,
     ) -> None:
         self._repo_root = Path(repo_root)
         self._integration_root = (
@@ -133,6 +135,7 @@ class TestSynthesizer:
             if integration_root is not None
             else self._repo_root / "integration"
         )
+        self._sandbox = sandbox or CodexSandbox(root=self._repo_root)
         self._tests_root = self._repo_root / "tests" / "generated"
         self._pending_dir = self._tests_root / "pending"
         self._approved_dir = self._tests_root / "approved"
@@ -148,12 +151,13 @@ class TestSynthesizer:
             self._approved_dir,
             self._rejected_dir,
         ):
+            self._sandbox._require_writable(directory)
             directory.mkdir(parents=True, exist_ok=True)
 
         for package_dir in (self._tests_root, self._approved_dir):
             init_file = package_dir / "__init__.py"
             if not init_file.exists():
-                init_file.write_text("\n", encoding="utf-8")
+                self._sandbox.commit_text(init_file, "\n", approved=True)
 
     # ------------------------------------------------------------------
     # Public API
@@ -194,7 +198,7 @@ class TestSynthesizer:
             """
         ).strip()
         payload = f"{header}\n\n{body}\n"
-        pending_path.write_text(payload, encoding="utf-8")
+        self._sandbox.commit_text(pending_path, payload, approved=True)
 
         proposal = TestProposal(
             proposal_id=f"{slug}-{timestamp.replace(':', '').replace('-', '')}",
@@ -243,7 +247,7 @@ class TestSynthesizer:
             content = edit(content)
 
         approved_path = self._approved_dir / template_path.name.replace(".py.tmpl", ".py")
-        approved_path.write_text(content, encoding="utf-8")
+        self._sandbox.commit_text(approved_path, content, approved=True)
         template_path.unlink(missing_ok=True)
 
         timestamp = self._now().isoformat()
@@ -281,7 +285,9 @@ class TestSynthesizer:
 
         template_path = self._repo_root / proposal.test_path
         archived_path = self._rejected_dir / template_path.name
-        archived_path.write_text(template_path.read_text(encoding="utf-8"), encoding="utf-8")
+        self._sandbox.commit_text(
+            archived_path, template_path.read_text(encoding="utf-8"), approved=True
+        )
         template_path.unlink(missing_ok=True)
 
         timestamp = self._now().isoformat()
@@ -330,7 +336,7 @@ class TestSynthesizer:
     # ------------------------------------------------------------------
     # Internal helpers
     def _write_proposal(self, path: Path, proposal: TestProposal) -> None:
-        path.write_text(json.dumps(proposal.to_dict(), sort_keys=True, indent=2), encoding="utf-8")
+        self._sandbox.commit_json(path, proposal.to_dict(), approved=True)
 
     def _delete_proposal(self, directory: Path, proposal_id: str) -> None:
         json_path = directory / f"{proposal_id}.json"
@@ -373,8 +379,7 @@ class TestSynthesizer:
             payload["operator"] = operator
         if metadata:
             payload["metadata"] = dict(metadata)
-        with self._log_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, sort_keys=True) + "\n")
+        self._sandbox.append_jsonl(self._log_path, payload, approved=True)
 
     def _load_style_stats(self) -> dict[str, dict[str, int]]:
         if not self._style_stats_path.exists():
@@ -383,9 +388,7 @@ class TestSynthesizer:
         return {key: dict(value) for key, value in data.items()}
 
     def _save_style_stats(self, stats: Mapping[str, Mapping[str, int]]) -> None:
-        self._style_stats_path.write_text(
-            json.dumps(stats, sort_keys=True, indent=2), encoding="utf-8"
-        )
+        self._sandbox.commit_json(self._style_stats_path, stats, approved=True)
 
     def _increment_style_stat(
         self, style: str, *, approved: bool = False, proposed: bool = True

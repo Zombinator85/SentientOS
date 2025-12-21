@@ -9,6 +9,8 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping,
 import json
 import re
 
+from .sandbox import CodexSandbox
+
 
 def _default_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -172,6 +174,7 @@ class Implementor:
         repo_root: Path | str = Path("."),
         integration_root: Path | str | None = None,
         now: Callable[[], datetime] = _default_now,
+        sandbox: CodexSandbox | None = None,
     ) -> None:
         self._repo_root = Path(repo_root)
         self._integration_root = (
@@ -180,6 +183,7 @@ class Implementor:
             else self._repo_root / "integration"
         )
         self._now = now
+        self._sandbox = sandbox or CodexSandbox(root=self._repo_root)
         self._implementations_root = self._integration_root / "implementations"
         self._rejected_root = self._integration_root / "rejected_impls"
         self._log_path = self._integration_root / "implementation_log.jsonl"
@@ -190,6 +194,7 @@ class Implementor:
             self._implementations_root,
             self._rejected_root,
         ):
+            self._sandbox._require_writable(directory)
             directory.mkdir(parents=True, exist_ok=True)
 
         self._pattern_stats: Dict[str, Dict[str, int]] = {}
@@ -469,7 +474,7 @@ class Implementor:
             )
             updated_blocks.append(updated_block)
             archive_path = self._rejected_root / f"{spec_id}_{target_version}_{block.block_id}.py"
-            archive_path.write_text(block.draft, encoding="utf-8")
+            self._write_text(archive_path, block.draft)
 
         version_record.blocks = updated_blocks
         version_record.status = "rejected"
@@ -644,7 +649,9 @@ class Implementor:
         return self._spec_directory(spec_id) / "versions"
 
     def _ensure_version_directory(self, spec_id: str) -> None:
-        self._versions_directory(spec_id).mkdir(parents=True, exist_ok=True)
+        directory = self._versions_directory(spec_id)
+        self._sandbox._require_writable(directory)
+        directory.mkdir(parents=True, exist_ok=True)
 
     def _version_path(self, spec_id: str, version_id: str) -> Path:
         return self._versions_directory(spec_id) / f"{version_id}.json"
@@ -674,7 +681,7 @@ class Implementor:
     ) -> None:
         path = self._version_path(spec_id, version_id)
         payload = record.to_dict()
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        self._sandbox.commit_json(path, payload, approved=True)
 
     def _version_summary(
         self,
@@ -799,7 +806,7 @@ class Implementor:
 
     def _save_metadata(self, path: Path, record: ImplementationRecord) -> None:
         payload = record.to_dict()
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        self._sandbox.commit_json(path, payload, approved=True)
 
     def _load_metadata(self, spec_id: str) -> ImplementationRecord:
         path = self._metadata_path(spec_id)
@@ -837,8 +844,7 @@ class Implementor:
             payload["operator"] = operator
         if metadata:
             payload["metadata"] = dict(metadata)
-        with self._log_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, sort_keys=True) + "\n")
+        self._sandbox.append_jsonl(self._log_path, payload, approved=True)
 
     def _load_patterns(self) -> None:
         if not self._patterns_path.exists():
@@ -853,10 +859,10 @@ class Implementor:
                     self._pattern_stats[key] = {"accepted": int(value.get("accepted", 0))}
 
     def _save_patterns(self) -> None:
-        self._patterns_path.write_text(
-            json.dumps(self._pattern_stats, indent=2, sort_keys=True),
-            encoding="utf-8",
-        )
+        self._sandbox.commit_json(self._patterns_path, self._pattern_stats, approved=True)
+
+    def _write_text(self, path: Path, content: str) -> None:
+        self._sandbox.commit_text(path, content, approved=True)
 
 
 __all__ = [
@@ -864,4 +870,3 @@ __all__ = [
     "ImplementationBlock",
     "ImplementationRecord",
 ]
-
