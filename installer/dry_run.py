@@ -61,12 +61,23 @@ def dry_run_install(
     requirements = selected.get("requirements", {})
     _require_hardware(requirements, hardware)
 
-    if not network_available:
-        raise InstallerError("Network unavailable after manifest fetch")
-
     artifact = selected.get("artifact", {})
     escrow_path = Path(artifact.get("escrow_path", ""))
     size_bytes = int(artifact.get("size_bytes", 0))
+    destination = target_dir / escrow_path.name
+
+    if destination.exists():
+        existing = destination.read_bytes()
+        checksum = hashlib.sha256(existing).hexdigest()
+        if checksum != artifact.get("sha256"):
+            raise InstallerError("Existing artifact checksum mismatch; clean target directory before retrying")
+        if len(existing) < size_bytes:
+            raise InstallerError("Existing artifact appears incomplete")
+        return destination
+
+    if not network_available:
+        raise InstallerError("Network unavailable after manifest fetch")
+
     if available_bytes is not None and available_bytes < size_bytes:
         raise InstallerError("Insufficient disk space for model download")
 
@@ -87,7 +98,6 @@ def dry_run_install(
         raise InstallerError("Checksum mismatch for escrowed artifact")
 
     target_dir.mkdir(parents=True, exist_ok=True)
-    destination = target_dir / escrow_path.name
     try:
         destination.write_bytes(payload)
     except OSError as exc:  # pragma: no cover - disk full path
