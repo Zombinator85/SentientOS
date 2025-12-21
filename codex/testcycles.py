@@ -9,7 +9,6 @@ from typing import Any, Callable, Iterable, Mapping, MutableMapping
 import json
 import textwrap
 
-from .config import WET_RUN_ENABLED
 from .implementations import Implementor, ImplementationRecord
 from .refinements import Refiner, RefinementTransform
 from .sandbox import CodexSandbox
@@ -129,6 +128,7 @@ class TestSynthesizer:
         integration_root: Path | str | None = None,
         now: Callable[[], datetime] = _default_now,
         sandbox: CodexSandbox | None = None,
+        wet_run: bool = False,
     ) -> None:
         self._repo_root = Path(repo_root)
         self._integration_root = (
@@ -136,7 +136,12 @@ class TestSynthesizer:
             if integration_root is not None
             else self._repo_root / "integration"
         )
-        self._sandbox = sandbox or CodexSandbox(root=self._repo_root)
+        if sandbox is not None:
+            self._sandbox = sandbox
+            self._wet_run = getattr(sandbox, "wet_run", False)
+        else:
+            self._wet_run = bool(wet_run)
+            self._sandbox = CodexSandbox(root=self._repo_root, wet_run=self._wet_run)
         self._tests_root = self._repo_root / "tests" / "generated"
         self._pending_dir = self._tests_root / "pending"
         self._approved_dir = self._tests_root / "approved"
@@ -371,7 +376,7 @@ class TestSynthesizer:
         operator: str | None = None,
         metadata: Mapping[str, Any] | None = None,
     ) -> None:
-        if WET_RUN_ENABLED:
+        if self._wet_run:
             return
         payload: MutableMapping[str, Any] = {
             "timestamp": self._now().isoformat(),
