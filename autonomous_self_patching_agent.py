@@ -1,6 +1,9 @@
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 from logging_config import get_log_path
+from control_plane.records import AuthorizationError, AuthorizationRecord
+import task_executor
+from self_patcher import _validate_gate
 
 """Autonomous Self-Patching Agent
 Sanctuary Privilege Ritual: Do not remove. See doctrine for details.
@@ -10,7 +13,6 @@ require_lumos_approval()
 
 import argparse
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -26,7 +28,20 @@ def propose(description: str) -> Dict[str, str]:
     return entry
 
 
-def apply(patch_id: int) -> Dict[str, str]:
+def _require_apply_authority(
+    admission_token: task_executor.AdmissionToken | None,
+    authorization: AuthorizationRecord | None,
+) -> None:
+    _validate_gate(admission_token, authorization, None)
+
+
+def apply(
+    patch_id: int,
+    *,
+    admission_token: task_executor.AdmissionToken | None = None,
+    authorization: AuthorizationRecord | None = None,
+) -> Dict[str, str]:
+    _require_apply_authority(admission_token, authorization)
     entry = {"timestamp": datetime.utcnow().isoformat(), "patch_id": patch_id, "status": "applied"}
     with LOG_PATH.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
@@ -63,7 +78,11 @@ def main() -> None:  # pragma: no cover - CLI
 
     args = ap.parse_args()
     if hasattr(args, "func"):
-        args.func(args)
+        try:
+            args.func(args)
+        except AuthorizationError as exc:  # pragma: no cover - CLI safeguard
+            print(json.dumps({"status": "rejected", "reason": str(exc)}))
+            raise SystemExit(1)
     else:
         ap.print_help()
 
