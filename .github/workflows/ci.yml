@@ -61,6 +61,9 @@ jobs:
       - name: Invariant lint
         run: python scripts/invariant_lint.py
 
+      - name: Governance drift check
+        run: python scripts/check_governance_drift.py
+
       - name: Verify audits
         run: python verify_audits.py logs/
         env:

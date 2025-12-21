@@ -1388,6 +1388,13 @@ def load_or_init_config(path: Path) -> Dict[str, object]:
     serialized = json.dumps(data, indent=2)
     if existing_text != serialized:
         config_path.write_text(serialized, encoding="utf-8")
+    else:
+        # Enforce config immutability by refusing to write during runtime changes.
+        if path.exists():
+            original_mtime = path.stat().st_mtime
+            current_mtime = config_path.stat().st_mtime
+            if current_mtime != original_mtime:
+                raise RuntimeError("Runtime configuration was modified after startup; restart required.")
     return data
 
 
