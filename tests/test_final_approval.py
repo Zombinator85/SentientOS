@@ -89,7 +89,7 @@ def test_cli_override(tmp_path, monkeypatch, capsys):
     importlib.reload(final_approval)
     import memory_cli as mc
     import self_patcher
-    p = self_patcher.apply_patch("note", auto=False)
+    p = self_patcher.propose_patch("note")
     import sys
     monkeypatch.setattr(sys, "argv", ["mc", "--final-approvers", "alice", "approve_patch", p["id"]])
     mc.main()

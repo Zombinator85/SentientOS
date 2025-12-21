@@ -34,7 +34,7 @@ def register(gui) -> None:
 
         def execute(self, intent):
             note = intent.get("issue", "unknown")
-            self_patcher.apply_patch(note, auto=True)
+            self_patcher.propose_patch(note)
             _log(f"patched:{note}")
             return {"patched": note}
 

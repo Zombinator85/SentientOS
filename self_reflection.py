@@ -54,7 +54,7 @@ class SelfHealingManager:
         if log.get("status") == "failed":
             reason = f"Failure: {log.get('error')}"
             self._record(log.get("id", ""), reason, next_step="auto_patch")
-            self_patcher.apply_patch(reason, auto=True)
+            self_patcher.propose_patch(reason)
         else:
             reason = f"Success: {log.get('intent', {}).get('type')}"
             self._record(log.get("id", ""), reason)
