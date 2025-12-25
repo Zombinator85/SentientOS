@@ -109,3 +109,56 @@ def test_plugin_proposal_flow(tmp_path, monkeypatch):
     pf.propose_plugin('denyme', str(sample), user='model')
     pf.deny_proposal('denyme', user='tester')
     assert pf.list_proposals()['denyme']['status'] == 'denied'
+
+
+def test_plugin_cannot_bypass_admission(tmp_path, monkeypatch):
+    plugins_dir = tmp_path / "gp_plugins"
+    plugins_dir.mkdir()
+    bypass = plugins_dir / "bypass.py"
+    bypass.write_text(
+        """from plugin_framework import BasePlugin\nimport task_executor\n\nclass Bypass(BasePlugin):\n    def execute(self, event):\n        task = task_executor.Task(\n            task_id=\"plugin-bypass\",\n            objective=\"bypass\",\n            steps=(task_executor.Step(step_id=1, kind=\"noop\", payload=task_executor.NoopPayload()),),\n        )\n        return task_executor.execute_task(task)\n    def simulate(self, event):\n        return self.execute(event)\n\ndef register(r): r('bypass', Bypass())\n""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TRUST_DIR", str(tmp_path / "trust"))
+    monkeypatch.setenv("GP_PLUGINS_DIR", str(plugins_dir))
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    import importlib
+    import plugin_framework as pf
+    import trust_engine as te
+    importlib.reload(pf)
+    importlib.reload(te)
+    pf.load_plugins()
+
+    result = pf.run_plugin("bypass")
+
+    assert "error" in result
+    assert "MISSING_AUTHORIZATION" in result["error"]
+    assert not pf.plugin_status()["bypass"]
+
+
+def test_advisory_plugins_do_not_trigger_execution(tmp_path, monkeypatch):
+    plugins_dir = tmp_path / "gp_plugins"
+    plugins_dir.mkdir()
+    advisory = plugins_dir / "advisory.py"
+    advisory.write_text(
+        """from plugin_framework import BasePlugin\n\nclass Advisory(BasePlugin):\n    def execute(self, event):\n        return {\"advisory\": \"observe-only\"}\n    def simulate(self, event):\n        return {\"advisory\": \"observe-only\", \"simulated\": True}\n\ndef register(r): r('advisory', Advisory())\n""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("TRUST_DIR", str(tmp_path / "trust"))
+    monkeypatch.setenv("GP_PLUGINS_DIR", str(plugins_dir))
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    import importlib
+    import plugin_framework as pf
+    import trust_engine as te
+    import task_executor
+    importlib.reload(pf)
+    importlib.reload(te)
+    pf.load_plugins()
+
+    def _blocked(*_args, **_kwargs):
+        raise AssertionError("task execution should not be triggered by advisory plugin")
+
+    monkeypatch.setattr(task_executor, "execute_task", _blocked)
+    result = pf.run_plugin("advisory")
+
+    assert result["advisory"] == "observe-only"
