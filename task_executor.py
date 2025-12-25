@@ -21,7 +21,7 @@ EprReversibility = Literal["guaranteed", "bounded", "none"]
 EprRollbackProof = Literal["snapshot", "diff", "commit", "none"]
 EprExternalEffects = Literal["yes", "no"]
 EprActionStatus = Literal["completed", "blocked", "failed"]
-PrerequisiteStatus = Literal["satisfied", "epr-fixable", "authority-required", "impossible"]
+PrerequisiteStatus = Literal["satisfied", "epr-fixable", "authority-required", "impossible", "unknown"]
 
 
 @dataclass(frozen=True)
@@ -113,6 +113,7 @@ class EprAction:
     privilege_escalation: bool = False
     task_goal_reinterpretation: bool = False
     background_execution: bool = False
+    unknown_prerequisite: "UnknownPrerequisite | None" = None
 
 
 @dataclass(frozen=True)
@@ -139,6 +140,15 @@ class PrerequisiteAssessment:
     action_id: str
     status: PrerequisiteStatus
     reason: str | None = None
+
+
+@dataclass(frozen=True)
+class UnknownPrerequisite:
+    condition: str
+    reason: str
+    unblock_query: str | None = None
+    response: str | None = None
+    resolved_status: PrerequisiteStatus | None = None
 
 
 @dataclass(frozen=True)
@@ -183,6 +193,19 @@ class TaskClosureError(RuntimeError):
     def __init__(self, message: str, assessments: Sequence["PrerequisiteAssessment"] = ()):
         super().__init__(message)
         self.assessments = tuple(assessments)
+
+
+class UnknownPrerequisiteError(TaskClosureError):
+    """Raised when task closure halts on unknown prerequisites."""
+
+    def __init__(
+        self,
+        message: str,
+        assessments: Sequence["PrerequisiteAssessment"] = (),
+        unblock_query: str | None = None,
+    ):
+        super().__init__(message, assessments)
+        self.unblock_query = unblock_query
 
 
 @dataclass(frozen=True)
@@ -442,15 +465,31 @@ def _close_task(task: Task) -> ClosureReport:
     fixable_actions: list[EprAction] = []
     authority_required: list[EprAction] = []
     impossible: list[PrerequisiteAssessment] = []
+    unknowns: list[tuple[EprAction, PrerequisiteAssessment, str]] = []
     for action in task.epr_actions:
         assessment = _assess_prerequisite(task, action)
         assessments.append(assessment)
-        if assessment.status == "epr-fixable":
+        if assessment.status == "unknown":
+            query = _build_unblock_query(action, assessment)
+            _log_unknown_prerequisite(task.task_id, action, assessment, query)
+            unknowns.append((action, assessment, query))
+        elif assessment.status == "epr-fixable":
             fixable_actions.append(action)
         elif assessment.status == "authority-required":
             authority_required.append(action)
         elif assessment.status == "impossible":
             impossible.append(assessment)
+    if unknowns:
+        primary_query = unknowns[0][2]
+        detail = ", ".join(
+            f"{action.action_id}:{assessment.reason or 'unknown'}"
+            for action, assessment, _ in unknowns
+        )
+        raise UnknownPrerequisiteError(
+            f"Task closure halted on unknown prerequisites: {detail}",
+            assessments,
+            unblock_query=primary_query,
+        )
     if impossible:
         reasons = ", ".join(
             f"{assessment.action_id}:{assessment.reason or 'impossible'}" for assessment in impossible
@@ -466,6 +505,9 @@ def _close_task(task: Task) -> ClosureReport:
 
 
 def _assess_prerequisite(task: Task, action: EprAction) -> PrerequisiteAssessment:
+    if action.unknown_prerequisite is not None:
+        _validate_unknown_prerequisite(action.unknown_prerequisite)
+        return _assess_unknown_prerequisite(action.action_id, action.unknown_prerequisite)
     try:
         _validate_epr_action(task, action)
     except EprViolationError as exc:
@@ -486,6 +528,8 @@ def _assess_prerequisite(task: Task, action: EprAction) -> PrerequisiteAssessmen
 
 
 def _validate_epr_action(task: Task, action: EprAction) -> None:
+    if action.unknown_prerequisite is not None:
+        _validate_unknown_prerequisite(action.unknown_prerequisite)
     if action.kind != "EPR":
         raise EprViolationError("EPR action kind must be EPR")
     if action.parent_task_id != task.task_id:
@@ -525,6 +569,61 @@ def _authorize_epr_action(action: EprAction) -> None:
             return
         raise EprViolationError("EPR rollback proof required for bounded reversibility")
     raise EprApprovalRequired("EPR action requires explicit operator approval")
+
+
+def _assess_unknown_prerequisite(
+    action_id: str,
+    unknown: UnknownPrerequisite,
+) -> PrerequisiteAssessment:
+    if unknown.resolved_status is None:
+        return PrerequisiteAssessment(action_id=action_id, status="unknown", reason=unknown.reason)
+    if unknown.resolved_status == "unknown":
+        return PrerequisiteAssessment(action_id=action_id, status="unknown", reason=unknown.reason)
+    response_reason = unknown.response or unknown.reason
+    return PrerequisiteAssessment(action_id=action_id, status=unknown.resolved_status, reason=response_reason)
+
+
+def _validate_unknown_prerequisite(unknown: UnknownPrerequisite) -> None:
+    if not unknown.condition.strip():
+        raise EprViolationError("unknown prerequisite missing condition")
+    if not unknown.reason.strip():
+        raise EprViolationError("unknown prerequisite missing reason")
+    if unknown.resolved_status == "unknown":
+        raise EprViolationError("unknown prerequisite resolved_status cannot be unknown")
+
+
+def _build_unblock_query(action: EprAction, assessment: PrerequisiteAssessment) -> str:
+    unknown = action.unknown_prerequisite
+    if unknown is None:
+        return "Unknown prerequisite requires operator clarification."
+    if unknown.unblock_query:
+        return unknown.unblock_query
+    reason = assessment.reason or "cannot be inferred deterministically"
+    return (
+        f"Prerequisite '{unknown.condition}' cannot be classified because {reason}. "
+        "Please provide the minimal confirmation or override needed to continue."
+    )
+
+
+def _log_unknown_prerequisite(
+    task_id: str,
+    action: EprAction,
+    assessment: PrerequisiteAssessment,
+    unblock_query: str,
+) -> None:
+    unknown = action.unknown_prerequisite
+    entry = {
+        "task_id": task_id,
+        "event": "unknown_prerequisite",
+        "action_id": action.action_id,
+        "condition": unknown.condition if unknown else "unspecified",
+        "reason": assessment.reason or "unknown",
+        "unblock_query": unblock_query,
+        "status": assessment.status,
+    }
+    if unknown and unknown.response is not None:
+        entry["operator_response"] = unknown.response
+    append_json(Path(LOG_PATH), entry)
 
 
 def _log_epr_action(task_id: str, action: EprAction, trace: EprActionTrace) -> None:
@@ -633,6 +732,19 @@ def _canonical_epr_action(action: EprAction) -> dict[str, object]:
         "privilege_escalation": action.privilege_escalation,
         "task_goal_reinterpretation": action.task_goal_reinterpretation,
         "background_execution": action.background_execution,
+        "unknown_prerequisite": _canonical_unknown_prerequisite(action.unknown_prerequisite),
+    }
+
+
+def _canonical_unknown_prerequisite(unknown: UnknownPrerequisite | None) -> dict[str, object] | None:
+    if unknown is None:
+        return None
+    return {
+        "condition": _normalise_text(unknown.condition),
+        "reason": _normalise_text(unknown.reason),
+        "unblock_query": _normalise_text(unknown.unblock_query),
+        "response": _normalise_text(unknown.response),
+        "resolved_status": unknown.resolved_status or "",
     }
 
 
