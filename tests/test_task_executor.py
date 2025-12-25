@@ -144,8 +144,10 @@ def test_epr_runs_only_when_allowed(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
     reload(task_executor)
     repaired = {"done": False}
+    called = {"step": False}
 
     def step_action():
+        called["step"] = True
         if not repaired["done"]:
             raise RuntimeError("blocked")
         return {}
@@ -182,24 +184,27 @@ def test_epr_runs_only_when_allowed(monkeypatch, tmp_path):
     ).record
     token = _issue_token(task, auth)
 
-    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+    with pytest.raises(task_executor.TaskClosureError, match="EPR not permitted"):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
 
-    assert result.status == "failed"
     assert repaired["done"] is False
-    assert result.trace[-1].error == "Execution prerequisite repair required but not permitted"
+    assert called["step"] is False
 
 
 def test_epr_executes_with_guardrails(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
     reload(task_executor)
     repaired = {"done": False}
+    events: list[str] = []
 
     def step_action():
+        events.append("step")
         if not repaired["done"]:
             raise RuntimeError("blocked")
         return {"status": "ok"}
 
     def repair_action():
+        events.append("repair")
         repaired["done"] = True
         return {}
 
@@ -234,6 +239,7 @@ def test_epr_executes_with_guardrails(monkeypatch, tmp_path):
 
     assert result.status == "completed"
     assert repaired["done"] is True
+    assert events == ["repair", "step"]
     assert result.epr_report.actions
     assert result.epr_report.net_authority_delta == 0
     assert result.epr_report.artifacts_persisted is False
@@ -271,10 +277,8 @@ def test_epr_requires_rollback_proof(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
     token = _issue_token(task, auth)
-    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
-
-    assert result.status == "failed"
-    assert "rollback proof required" in (result.trace[-1].error or "")
+    with pytest.raises(task_executor.TaskClosureError, match="rollback proof required"):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
 
 
 def test_epr_disallowed_authority_impact(monkeypatch, tmp_path):
@@ -309,11 +313,11 @@ def test_epr_disallowed_authority_impact(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
     token = _issue_token(task, auth)
-    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+    with pytest.raises(task_executor.EprApprovalRequired) as excinfo:
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
 
-    assert result.status == "failed"
-    assert result.trace[-1].error == "Execution prerequisite repair required but not permitted"
-    assert result.epr_report.net_authority_delta == 0
+    assert excinfo.value.actions
+    assert excinfo.value.actions[0].action_id == "repair-step"
 
 
 def test_epr_rejects_privilege_escalation(monkeypatch, tmp_path):
@@ -349,10 +353,142 @@ def test_epr_rejects_privilege_escalation(monkeypatch, tmp_path):
         policy_version="v1-static",
     ).record
     token = _issue_token(task, auth)
+    with pytest.raises(task_executor.TaskClosureError, match="privilege escalation"):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+
+def test_epr_aggregates_approval_requests(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+
+    def step_action():
+        raise RuntimeError("blocked")
+
+    task = task_executor.Task(
+        task_id="epr-aggregate",
+        objective="aggregate approvals",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-alpha",
+                parent_task_id="epr-aggregate",
+                trigger_step_id=1,
+                authority_impact="local",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+            ),
+            task_executor.EprAction(
+                action_id="repair-beta",
+                parent_task_id="epr-aggregate",
+                trigger_step_id=1,
+                authority_impact="local",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+            ),
+        ),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="epr-aggregate",
+        context_hash="ctx-epr-aggregate",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+
+    with pytest.raises(task_executor.EprApprovalRequired) as excinfo:
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    action_ids = {action.action_id for action in excinfo.value.actions}
+    assert action_ids == {"repair-alpha", "repair-beta"}
+
+
+def test_execution_does_not_run_epr_on_failure(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    repairs = {"count": 0}
+
+    def step_action():
+        raise RuntimeError("blocked")
+
+    def repair_action():
+        repairs["count"] += 1
+        return {}
+
+    task = task_executor.Task(
+        task_id="epr-no-retry",
+        objective="no epr during execution",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="epr-no-retry",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                handler=repair_action,
+            ),
+        ),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="epr-no-retry",
+        context_hash="ctx-epr-no-retry",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
     result = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert result.status == "failed"
-    assert "privilege escalation" in (result.trace[-1].error or "")
+    assert repairs["count"] == 1
+
+
+def test_closure_failure_blocks_execution(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    called = {"step": False}
+
+    def step_action():
+        called["step"] = True
+        return {}
+
+    task = task_executor.Task(
+        task_id="closure-block",
+        objective="stop execution on closure failure",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="bad-epr",
+                parent_task_id="closure-block",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="yes",
+            ),
+        ),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="closure-block",
+        context_hash="ctx-closure-block",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+
+    with pytest.raises(task_executor.TaskClosureError, match="external effects"):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert called["step"] is False
 
 
 def test_deterministic_traces(monkeypatch, tmp_path):
