@@ -769,6 +769,20 @@ class RuntimeConfig:
         )
 
 
+class ConfigValidationError(ValueError):
+    """Raised when runtime configuration is internally contradictory."""
+
+
+def validate_runtime_config(config: RuntimeConfig) -> None:
+    errors: list[str] = []
+    if config.social.allow_interactive_web and not config.social.enable:
+        errors.append("social.allow_interactive_web requires social.enable to be true")
+    if config.social.allow_interactive_web and not config.social.domains_allowlist:
+        errors.append("social.allow_interactive_web requires a non-empty social.domains_allowlist")
+    if errors:
+        raise ConfigValidationError("; ".join(errors))
+
+
 def load_runtime_config() -> RuntimeConfig:
     """Load the SentientOS autonomy runtime configuration."""
 
@@ -777,7 +791,9 @@ def load_runtime_config() -> RuntimeConfig:
     if file_mapping:
         base = _deep_merge(base, file_mapping)
     base = _apply_env_overrides(base)
-    return RuntimeConfig.from_mapping(base)
+    config = RuntimeConfig.from_mapping(base)
+    validate_runtime_config(config)
+    return config
 
 
 def _load_yaml_config() -> Dict[str, Any]:

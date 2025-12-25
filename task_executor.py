@@ -155,6 +155,7 @@ def execute_task(
         artifacts[f"step_{step.step_id}"] = step_trace.artifacts
         _log_step(task.task_id, step_trace)
         if step_trace.status == "failed":
+            _log_task_result(task.task_id, "failed", step_trace.error)
             return TaskResult(
                 task_id=task.task_id,
                 status="failed",
@@ -165,6 +166,7 @@ def execute_task(
                 request_fingerprint=computed_fingerprint,
                 canonical_request=canonical_request,
             )
+    _log_task_result(task.task_id, "completed", None)
     return TaskResult(
         task_id=task.task_id,
         status="completed",
@@ -260,6 +262,17 @@ def _log_step(task_id: str, trace: StepTrace) -> None:
     }
     if trace.error:
         entry["error"] = trace.error
+    append_json(Path(LOG_PATH), entry)
+
+
+def _log_task_result(task_id: str, status: TaskStatus, error: str | None) -> None:
+    entry = {
+        "task_id": task_id,
+        "event": "task_result",
+        "status": status,
+    }
+    if error:
+        entry["error"] = error
     append_json(Path(LOG_PATH), entry)
 
 
@@ -430,6 +443,8 @@ def build_task_execution_record(
     admission_token: AdmissionToken,
     authorization: AuthorizationRecord,
 ) -> dict[str, object]:
+    if result.status != "completed":
+        raise SnapshotDivergenceError("task execution did not complete; refusing snapshot")
     canonical = canonicalise_task_execution_snapshot(
         task=task, result=result, admission_token=admission_token, authorization=authorization
     )
