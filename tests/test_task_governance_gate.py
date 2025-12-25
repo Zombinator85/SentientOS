@@ -70,6 +70,38 @@ def test_denied_admission_never_invokes_executor(monkeypatch):
     assert invoked is False
 
 
+def test_run_task_with_admission_calls_admit_before_execute(monkeypatch):
+    call_order: list[str] = []
+
+    def fake_admit(*_args, **_kwargs):
+        call_order.append("admit")
+        return task_admission.AdmissionDecision(
+            allowed=True,
+            reason="OK",
+            policy_version="v1",
+            constraints={},
+            redactions=None,
+        )
+
+    class FakeExecutor:
+        def execute_task(self, *_args, **_kwargs):
+            call_order.append("execute")
+            return "ok"
+
+    monkeypatch.setattr(task_admission, "admit", fake_admit)
+    decision, result = task_admission.run_task_with_admission(
+        _noop_task("task-order"),
+        _ctx(),
+        task_admission.AdmissionPolicy(policy_version="v1"),
+        authorization=_auth(),
+        executor=FakeExecutor(),
+    )
+
+    assert decision.allowed is True
+    assert result == "ok"
+    assert call_order == ["admit", "execute"]
+
+
 def test_normal_path_passes_admission_token_to_executor():
     received_token = None
 
@@ -117,3 +149,22 @@ def test_execute_task_requires_admission_token():
                 request_fingerprint=task_executor.RequestFingerprint("f" * 64),
             ),
         )
+
+
+def test_denied_admission_prevents_step_execution(monkeypatch):
+    step_called = False
+
+    def fake_run_step(*_args, **_kwargs):
+        nonlocal step_called
+        step_called = True
+        raise AssertionError("step execution should not occur for denied admission")
+
+    policy = task_admission.AdmissionPolicy(policy_version="v1", max_steps=0)
+    monkeypatch.setattr(task_executor, "_run_step", fake_run_step)
+    decision, result = task_admission.run_task_with_admission(
+        _noop_task("blocked-task"), _ctx(), policy, authorization=_auth(), executor=task_executor
+    )
+
+    assert decision.allowed is False
+    assert result is None
+    assert step_called is False

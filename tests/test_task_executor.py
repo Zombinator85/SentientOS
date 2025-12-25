@@ -3,7 +3,7 @@ from typing import Any, Mapping
 
 import pytest
 
-from control_plane import AuthorizationRecord, RequestType, admit_request
+from control_plane import AuthorizationRecord, Decision, ReasonCode, RequestType, admit_request
 import task_executor
 
 
@@ -190,6 +190,75 @@ def test_admission_token_requires_provenance(monkeypatch, tmp_path):
         task_executor.execute_task(task, authorization=auth, admission_token=bad_token)
 
 
+def test_execute_task_requires_authorization(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="missing-auth",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    token = task_executor.AdmissionToken(
+        task_id=task.task_id,
+        provenance=_provenance(task.task_id),
+        request_fingerprint=task_executor.RequestFingerprint("f" * 64),
+    )
+
+    with pytest.raises(task_executor.AuthorizationError, match=ReasonCode.MISSING_AUTHORIZATION.value):
+        task_executor.execute_task(task, admission_token=token)
+
+
+def test_execute_task_rejects_denied_authorization(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="denied-auth",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = AuthorizationRecord(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="tester",
+        intent_hash="i",
+        context_hash="c",
+        policy_version="v1",
+        decision=Decision.DENY,
+        reason=ReasonCode.MISSING_AUTHORIZATION,
+        timestamp=0.0,
+        metadata=None,
+    )
+    token = _issue_token(task, auth)
+
+    with pytest.raises(task_executor.AuthorizationError, match="not allowed"):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+
+def test_request_fingerprint_mismatch_blocks_execution(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="fingerprint-mismatch",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="fp-intent",
+        context_hash="fp-ctx",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth, declared_inputs={"alpha": "one"})
+
+    with pytest.raises(task_executor.RequestFingerprintMismatchError):
+        task_executor.execute_task(
+            task,
+            authorization=auth,
+            admission_token=token,
+            declared_inputs={"alpha": "two"},
+        )
+
+
 def test_task_snapshot_roundtrip_preserves_provenance(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
     reload(task_executor)
@@ -221,6 +290,59 @@ def test_task_snapshot_roundtrip_preserves_provenance(monkeypatch, tmp_path):
     assert loaded["admission_token"]["provenance"]["authority_source"] == "test-harness"
     assert loaded["authorization"]["policy_version"] == "v1-static"
     assert loaded["result"]["status"] == "completed"
+
+
+def test_task_snapshot_requires_digest(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="snapshot-missing-digest",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="snap-missing",
+        context_hash="snap-missing",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+    record = task_executor.build_task_execution_record(
+        task=task, result=result, admission_token=token, authorization=auth
+    )
+
+    with pytest.raises(task_executor.SnapshotDivergenceError, match="missing digest"):
+        task_executor.load_task_execution_record({"snapshot": record["snapshot"]})
+
+
+def test_task_snapshot_ignores_authorization_timestamps(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    task = task_executor.Task(
+        task_id="snapshot-ignore-timestamp",
+        objective="noop",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="snap-time",
+        context_hash="snap-time",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+    record = task_executor.build_task_execution_record(
+        task=task, result=result, admission_token=token, authorization=auth
+    )
+    snapshot = dict(record["snapshot"])
+    snapshot["authorization"] = dict(snapshot["authorization"], timestamp="2025-01-01T00:00:00Z")
+
+    loaded = task_executor.load_task_execution_record({"snapshot": snapshot, "digest": record["digest"]})
+
+    assert loaded["authorization"] == record["snapshot"]["authorization"]
 
 
 def test_task_snapshot_detects_provenance_tampering(monkeypatch, tmp_path):
@@ -278,6 +400,15 @@ def test_request_fingerprint_captured_in_result(monkeypatch, tmp_path):
     assert result.request_fingerprint.value == token.request_fingerprint.value
     assert result.canonical_request["declared_inputs"] == {}
     assert result.canonical_request["task"]["constraints"] == ["a", "b"]
+
+
+def test_dispatch_step_requires_matching_payload(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    step = task_executor.Step(step_id=1, kind="shell", payload=task_executor.NoopPayload())
+
+    with pytest.raises(task_executor.StepExecutionError, match="payload must be ShellPayload"):
+        task_executor._dispatch_step(step)
 
 
 def test_request_fingerprint_detects_post_admission_mutation(monkeypatch, tmp_path):
