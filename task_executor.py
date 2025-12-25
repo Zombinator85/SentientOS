@@ -16,6 +16,11 @@ from log_utils import append_json
 StepKind = Literal["noop", "shell", "python", "mesh"]
 StepStatus = Literal["completed", "failed"]
 TaskStatus = Literal["completed", "failed"]
+EprAuthorityImpact = Literal["none", "local", "global"]
+EprReversibility = Literal["guaranteed", "bounded", "none"]
+EprRollbackProof = Literal["snapshot", "diff", "commit", "none"]
+EprExternalEffects = Literal["yes", "no"]
+EprActionStatus = Literal["completed", "blocked", "failed"]
 
 
 @dataclass(frozen=True)
@@ -70,6 +75,8 @@ class Task:
     objective: str
     constraints: Sequence[str] = field(default_factory=tuple)
     steps: Sequence[Step] = field(default_factory=tuple)
+    allow_epr: bool = False
+    epr_actions: Sequence["EprAction"] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -78,10 +85,52 @@ class TaskResult:
     status: TaskStatus
     artifacts: Dict[str, Mapping[str, object]]
     trace: Sequence[StepTrace]
+    epr_report: "EprReport"
     admission_token: "AdmissionToken"
     authorization: AuthorizationRecord
     request_fingerprint: "RequestFingerprint"
     canonical_request: Mapping[str, object]
+
+
+@dataclass(frozen=True)
+class EprAction:
+    action_id: str
+    parent_task_id: str
+    trigger_step_id: int
+    authority_impact: EprAuthorityImpact
+    reversibility: EprReversibility
+    rollback_proof: EprRollbackProof
+    external_effects: EprExternalEffects
+    handler: Callable[[], Mapping[str, object]] | None = None
+    description: str | None = None
+    kind: Literal["EPR"] = "EPR"
+    changes_governance: bool = False
+    changes_admission: bool = False
+    changes_authorization: bool = False
+    changes_policy: bool = False
+    changes_permissions: bool = False
+    privilege_escalation: bool = False
+    task_goal_reinterpretation: bool = False
+    background_execution: bool = False
+
+
+@dataclass(frozen=True)
+class EprActionTrace:
+    action_id: str
+    status: EprActionStatus
+    rollback_proof: EprRollbackProof
+    authority_impact: EprAuthorityImpact
+    reversibility: EprReversibility
+    external_effects: EprExternalEffects
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class EprReport:
+    actions: Sequence[EprActionTrace] = field(default_factory=tuple)
+    rollback_proofs: Sequence[EprRollbackProof] = field(default_factory=tuple)
+    net_authority_delta: int = 0
+    artifacts_persisted: bool = False
 
 
 class StepExecutionError(Exception):
@@ -96,6 +145,18 @@ class RequestCanonicalizationError(RuntimeError):
 
 class RequestFingerprintMismatchError(RuntimeError):
     """Raised when the request fingerprint at execution time diverges from admission."""
+
+
+class EprViolationError(RuntimeError):
+    """Raised when an EPR action violates non-negotiable invariants."""
+
+
+class EprApprovalRequired(RuntimeError):
+    """Raised when an EPR action requires explicit operator approval."""
+
+
+class EprGateBlocked(RuntimeError):
+    """Raised when EPR is required but not permitted."""
 
 
 @dataclass(frozen=True)
@@ -149,8 +210,16 @@ def execute_task(
         )
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
+    epr_report = EprReport()
     for step in task.steps:
         step_trace = _run_step(step)
+        if step_trace.status == "failed":
+            step_trace, epr_report = _attempt_epr_repair(
+                task=task,
+                step=step,
+                step_trace=step_trace,
+                report=epr_report,
+            )
         trace.append(step_trace)
         artifacts[f"step_{step.step_id}"] = step_trace.artifacts
         _log_step(task.task_id, step_trace)
@@ -161,6 +230,7 @@ def execute_task(
                 status="failed",
                 artifacts=artifacts,
                 trace=tuple(trace),
+                epr_report=epr_report,
                 admission_token=admission_token,
                 authorization=authorization,
                 request_fingerprint=computed_fingerprint,
@@ -172,6 +242,7 @@ def execute_task(
         status="completed",
         artifacts=artifacts,
         trace=tuple(trace),
+        epr_report=epr_report,
         admission_token=admission_token,
         authorization=authorization,
         request_fingerprint=computed_fingerprint,
@@ -276,6 +347,183 @@ def _log_task_result(task_id: str, status: TaskStatus, error: str | None) -> Non
     append_json(Path(LOG_PATH), entry)
 
 
+def _attempt_epr_repair(
+    *,
+    task: Task,
+    step: Step,
+    step_trace: StepTrace,
+    report: EprReport,
+) -> tuple[StepTrace, EprReport]:
+    actions = _epr_actions_for_step(task, step.step_id)
+    if not actions:
+        return step_trace, report
+    if not task.allow_epr:
+        return _epr_blocked_trace(step), report
+    try:
+        updated_report = _execute_epr_actions(task=task, actions=actions, report=report)
+    except EprApprovalRequired:
+        return _epr_blocked_trace(step), report
+    except EprViolationError as exc:
+        return _epr_violation_trace(step, str(exc)), report
+    retry_trace = _run_step(step)
+    return retry_trace, updated_report
+
+
+def _epr_actions_for_step(task: Task, step_id: int) -> list[EprAction]:
+    return [action for action in task.epr_actions if action.trigger_step_id == step_id]
+
+
+def _epr_blocked_trace(step: Step) -> StepTrace:
+    return StepTrace(
+        step_id=step.step_id,
+        kind=step.kind,
+        status="failed",
+        artifacts=_apply_expects({}, step.expects),
+        error="Execution prerequisite repair required but not permitted",
+    )
+
+
+def _epr_violation_trace(step: Step, error: str) -> StepTrace:
+    return StepTrace(
+        step_id=step.step_id,
+        kind=step.kind,
+        status="failed",
+        artifacts=_apply_expects({}, step.expects),
+        error=error,
+    )
+
+
+def _execute_epr_actions(*, task: Task, actions: Sequence[EprAction], report: EprReport) -> EprReport:
+    traces: list[EprActionTrace] = list(report.actions)
+    rollback_proofs: list[EprRollbackProof] = list(report.rollback_proofs)
+    for action in actions:
+        _validate_epr_action(task, action)
+        try:
+            _authorize_epr_action(action)
+            if action.handler is not None:
+                action.handler()
+            trace = EprActionTrace(
+                action_id=action.action_id,
+                status="completed",
+                rollback_proof=action.rollback_proof,
+                authority_impact=action.authority_impact,
+                reversibility=action.reversibility,
+                external_effects=action.external_effects,
+            )
+        except EprApprovalRequired as exc:
+            trace = EprActionTrace(
+                action_id=action.action_id,
+                status="blocked",
+                rollback_proof=action.rollback_proof,
+                authority_impact=action.authority_impact,
+                reversibility=action.reversibility,
+                external_effects=action.external_effects,
+                error=str(exc),
+            )
+            _log_epr_action(task.task_id, action, trace)
+            traces.append(trace)
+            rollback_proofs.append(action.rollback_proof)
+            raise
+        except EprViolationError as exc:
+            trace = EprActionTrace(
+                action_id=action.action_id,
+                status="failed",
+                rollback_proof=action.rollback_proof,
+                authority_impact=action.authority_impact,
+                reversibility=action.reversibility,
+                external_effects=action.external_effects,
+                error=str(exc),
+            )
+            _log_epr_action(task.task_id, action, trace)
+            traces.append(trace)
+            rollback_proofs.append(action.rollback_proof)
+            raise
+        except Exception as exc:  # pragma: no cover - defensive guardrail
+            trace = EprActionTrace(
+                action_id=action.action_id,
+                status="failed",
+                rollback_proof=action.rollback_proof,
+                authority_impact=action.authority_impact,
+                reversibility=action.reversibility,
+                external_effects=action.external_effects,
+                error=str(exc) or exc.__class__.__name__,
+            )
+            _log_epr_action(task.task_id, action, trace)
+            traces.append(trace)
+            rollback_proofs.append(action.rollback_proof)
+            raise EprViolationError("EPR action failed during execution") from exc
+        _log_epr_action(task.task_id, action, trace)
+        traces.append(trace)
+        rollback_proofs.append(action.rollback_proof)
+    return EprReport(
+        actions=tuple(traces),
+        rollback_proofs=tuple(rollback_proofs),
+        net_authority_delta=0,
+        artifacts_persisted=False,
+    )
+
+
+def _validate_epr_action(task: Task, action: EprAction) -> None:
+    if action.kind != "EPR":
+        raise EprViolationError("EPR action kind must be EPR")
+    if action.parent_task_id != task.task_id:
+        raise EprViolationError("EPR parent_task_id mismatch")
+    if action.authority_impact not in {"none", "local", "global"}:
+        raise EprViolationError("EPR authority_impact invalid")
+    if action.reversibility not in {"guaranteed", "bounded", "none"}:
+        raise EprViolationError("EPR reversibility invalid")
+    if action.rollback_proof not in {"snapshot", "diff", "commit", "none"}:
+        raise EprViolationError("EPR rollback_proof invalid")
+    if action.external_effects not in {"yes", "no"}:
+        raise EprViolationError("EPR external_effects invalid")
+    if action.external_effects == "yes":
+        raise EprViolationError("EPR external effects are prohibited")
+    if action.trigger_step_id <= 0:
+        raise EprViolationError("EPR trigger_step_id invalid")
+    prohibited = {
+        "governance changes": action.changes_governance,
+        "admission changes": action.changes_admission,
+        "authorization changes": action.changes_authorization,
+        "policy changes": action.changes_policy,
+        "permission edits": action.changes_permissions,
+        "privilege escalation": action.privilege_escalation,
+        "task goal reinterpretation": action.task_goal_reinterpretation,
+        "background execution": action.background_execution,
+    }
+    for label, flagged in prohibited.items():
+        if flagged:
+            raise EprViolationError(f"EPR attempted prohibited action: {label}")
+
+
+def _authorize_epr_action(action: EprAction) -> None:
+    if action.authority_impact == "none" and action.reversibility == "guaranteed":
+        return
+    if action.authority_impact == "none" and action.reversibility == "bounded":
+        if action.rollback_proof != "none":
+            return
+        raise EprViolationError("EPR rollback proof required for bounded reversibility")
+    raise EprApprovalRequired("EPR action requires explicit operator approval")
+
+
+def _log_epr_action(task_id: str, action: EprAction, trace: EprActionTrace) -> None:
+    entry = {
+        "task_id": task_id,
+        "event": "epr_action",
+        "kind": action.kind,
+        "action_id": action.action_id,
+        "parent_task_id": action.parent_task_id,
+        "trigger_step_id": action.trigger_step_id,
+        "authority_impact": action.authority_impact,
+        "reversibility": action.reversibility,
+        "rollback_proof": action.rollback_proof,
+        "external_effects": action.external_effects,
+        "status": trace.status,
+    }
+    if trace.error:
+        entry["error"] = trace.error
+    append_json(Path(LOG_PATH), entry)
+
+
 def _require_admission_token(token: AdmissionToken | None, task: Task) -> None:
     if token is None:
         raise AuthorizationError(ReasonCode.MISSING_AUTHORIZATION.value)
@@ -344,6 +592,28 @@ def _canonical_step_payload(step: Step) -> dict[str, object]:
     raise StepExecutionError(step, f"unsupported payload for canonicalization: {type(payload).__name__}")
 
 
+def _canonical_epr_action(action: EprAction) -> dict[str, object]:
+    return {
+        "action_id": _normalise_text(action.action_id),
+        "parent_task_id": _normalise_text(action.parent_task_id),
+        "trigger_step_id": action.trigger_step_id,
+        "authority_impact": action.authority_impact,
+        "reversibility": action.reversibility,
+        "rollback_proof": action.rollback_proof,
+        "external_effects": action.external_effects,
+        "kind": action.kind,
+        "description": _normalise_text(action.description),
+        "changes_governance": action.changes_governance,
+        "changes_admission": action.changes_admission,
+        "changes_authorization": action.changes_authorization,
+        "changes_policy": action.changes_policy,
+        "changes_permissions": action.changes_permissions,
+        "privilege_escalation": action.privilege_escalation,
+        "task_goal_reinterpretation": action.task_goal_reinterpretation,
+        "background_execution": action.background_execution,
+    }
+
+
 def canonicalise_task(task: Task) -> dict[str, object]:
     return {
         "task_id": task.task_id.strip(),
@@ -358,6 +628,8 @@ def canonicalise_task(task: Task) -> dict[str, object]:
             }
             for step in task.steps
         ],
+        "allow_epr": task.allow_epr,
+        "epr_actions": [_canonical_epr_action(action) for action in task.epr_actions],
     }
 
 
@@ -381,6 +653,7 @@ def canonicalise_task_result(result: TaskResult) -> dict[str, object]:
         "status": result.status,
         "artifacts": canonical_artifacts,
         "trace": [canonicalise_step_trace(t) for t in result.trace],
+        "epr_report": _canonicalise_epr_report(result.epr_report),
         "request_fingerprint": result.request_fingerprint.value,
     }
 
@@ -395,6 +668,26 @@ def canonicalise_authorization(authorization: AuthorizationRecord) -> dict[str, 
         "policy_version": authorization.policy_version,
         "decision": authorization.decision.value,
         "reason": authorization.reason.value,
+    }
+
+
+def _canonicalise_epr_report(report: EprReport) -> dict[str, object]:
+    return {
+        "actions": [
+            {
+                "action_id": _normalise_text(action.action_id),
+                "status": action.status,
+                "rollback_proof": action.rollback_proof,
+                "authority_impact": action.authority_impact,
+                "reversibility": action.reversibility,
+                "external_effects": action.external_effects,
+                **({"error": action.error} if action.error else {}),
+            }
+            for action in report.actions
+        ],
+        "rollback_proofs": list(report.rollback_proofs),
+        "net_authority_delta": report.net_authority_delta,
+        "artifacts_persisted": report.artifacts_persisted,
     }
 
 
@@ -670,6 +963,12 @@ def _canonicalise_task_payload(task_payload: Mapping[str, Any]) -> dict[str, obj
             }
             for step in task_payload.get("steps", []) or []
         ],
+        "allow_epr": bool(task_payload.get("allow_epr", False)),
+        "epr_actions": [
+            _canonicalise_mapping(action or {})
+            for action in (task_payload.get("epr_actions", []) or [])
+            if isinstance(action, Mapping)
+        ],
     }
     return canonical_task
 
@@ -689,6 +988,7 @@ def _canonicalise_result_payload(result_payload: Mapping[str, Any]) -> dict[str,
             }
             for t in result_payload.get("trace", []) or []
         ],
+        "epr_report": _canonicalise_epr_report_payload(result_payload.get("epr_report")),
         "request_fingerprint": str(result_payload.get("request_fingerprint", "")),
     }
     return canonical_result
@@ -723,3 +1023,36 @@ def _canonicalise_authorization_payload(auth_payload: Mapping[str, Any]) -> dict
         "reason": str(auth_payload.get("reason", "")),
     }
     return canonical_auth
+
+
+def _canonicalise_epr_report_payload(payload: Mapping[str, Any] | None) -> dict[str, object]:
+    if not isinstance(payload, Mapping):
+        return {
+            "actions": [],
+            "rollback_proofs": [],
+            "net_authority_delta": 0,
+            "artifacts_persisted": False,
+        }
+    actions_payload = payload.get("actions", []) or []
+    actions: list[dict[str, object]] = []
+    for action in actions_payload:
+        if not isinstance(action, Mapping):
+            continue
+        actions.append(
+            {
+                "action_id": _normalise_text(action.get("action_id", "")),
+                "status": str(action.get("status", "")),
+                "rollback_proof": str(action.get("rollback_proof", "")),
+                "authority_impact": str(action.get("authority_impact", "")),
+                "reversibility": str(action.get("reversibility", "")),
+                "external_effects": str(action.get("external_effects", "")),
+                **({"error": action["error"]} if action.get("error") else {}),
+            }
+        )
+    rollback_proofs = [str(value) for value in (payload.get("rollback_proofs", []) or [])]
+    return {
+        "actions": actions,
+        "rollback_proofs": rollback_proofs,
+        "net_authority_delta": int(payload.get("net_authority_delta", 0) or 0),
+        "artifacts_persisted": bool(payload.get("artifacts_persisted", False)),
+    }
