@@ -1,35 +1,91 @@
 """SentientOS package entrypoint."""
 from __future__ import annotations
 
+import argparse
 import sys
-from typing import TYPE_CHECKING
-
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
-
-from . import __version__  # noqa: E402
+from pathlib import Path
+from typing import TYPE_CHECKING, Sequence
 
 if TYPE_CHECKING:
     # Place type-only imports here in the future
     pass
 
 
-def main() -> None:
+SAFE_COMMANDS = {"status", "doctor"}
+
+
+def _read_version() -> str:
+    version_path = Path(__file__).resolve().parents[1] / "VERSION"
+    if version_path.exists():
+        return version_path.read_text(encoding="utf-8").strip()
+    from . import __version__
+
+    return __version__
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="sentientos", description="SentientOS CLI entrypoint")
+    parser.add_argument("--version", action="store_true", help="Show the SentientOS version and exit.")
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("status", help="Show read-only system status.")
+    subparsers.add_parser("doctor", help="Run read-only diagnostics.")
+    subparsers.add_parser("dashboard", help="Launch the SentientOS dashboard.")
+    subparsers.add_parser("avatar-demo", help="Run the avatar demo.")
+    return parser
+
+
+def _enforce_privileges() -> None:
+    from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+    require_admin_banner()
+    require_lumos_approval()
+
+
+def _print_status() -> None:
+    print("Status: locked for privileged operations. Use --help for safe commands.")
+
+
+def _print_doctor() -> None:
+    print("Doctor: read-only diagnostics available. No privileged checks were performed.")
+
+
+def main(argv: Sequence[str] | None = None) -> None:
     """Entry point for the SentientOS package."""
 
-    if len(sys.argv) > 1 and sys.argv[1] == "dashboard":
-        from sentientos.cli.dashboard_cli import main as dashboard_main
+    argv = list(sys.argv[1:] if argv is None else argv)
+    # Argument parsing occurs before privilege enforcement to allow safe introspection commands.
+    parser = _build_parser()
+    args, extra = parser.parse_known_args(argv)
 
-        raise SystemExit(dashboard_main(sys.argv[2:]))
+    if args.command is None and extra:
+        parser.parse_args(argv)
+        return
 
-    if len(sys.argv) > 1 and sys.argv[1] == "avatar-demo":
+    if args.version:
+        print(f"SentientOS {_read_version()}")
+        return
+
+    if args.command in SAFE_COMMANDS:
+        if extra:
+            parser.parse_args(argv)
+            return
+        if args.command == "status":
+            _print_status()
+            return
+        _print_doctor()
+        return
+
+    if args.command in {"dashboard", "avatar-demo"}:
+        _enforce_privileges()
+        if args.command == "dashboard":
+            from sentientos.cli.dashboard_cli import main as dashboard_main
+
+            raise SystemExit(dashboard_main(extra))
         from sentientos.cli.avatar_demo_cli import main as avatar_demo_main
 
-        raise SystemExit(avatar_demo_main(sys.argv[2:]))
+        raise SystemExit(avatar_demo_main(extra))
 
-    print(f"SentientOS {__version__}\nRun 'support' or 'ritual' for CLI tools.")
+    print(f"SentientOS {_read_version()}\nRun 'support' or 'ritual' for CLI tools.")
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI invocation
