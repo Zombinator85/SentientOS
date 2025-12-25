@@ -4,8 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
 
 import os
 import sys
@@ -16,6 +14,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import replay
+import pytest
 
 
 def test_replay_cli(tmp_path, capsys, monkeypatch):
@@ -113,3 +112,17 @@ def test_live_playback(tmp_path, monkeypatch):
     replay.live_playback(str(sb), headless=True, poll=0, max_chapters=1)
     assert calls and calls[0][0]["title"] == "A"
 
+
+def test_live_playback_cleans_temp_on_failure(tmp_path, monkeypatch):
+    sb = tmp_path / "sb.json"
+    sb.write_text(json.dumps({"chapters": [{"chapter": 1, "title": "A", "t_start": 0, "t_end": 0.1}]}))
+
+    def _boom(*_args, **_kwargs):
+        raise RuntimeError("playback failed")
+
+    monkeypatch.setattr(replay, "playback", _boom)
+
+    with pytest.raises(RuntimeError, match="playback failed"):
+        replay.live_playback(str(sb), headless=True, poll=0, max_chapters=1)
+
+    assert not list(tmp_path.glob("*.live.tmp"))

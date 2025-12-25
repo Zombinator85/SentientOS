@@ -4,8 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
 
 import os
 import sys
@@ -109,6 +107,29 @@ def test_plugin_proposal_flow(tmp_path, monkeypatch):
     pf.propose_plugin('denyme', str(sample), user='model')
     pf.deny_proposal('denyme', user='tester')
     assert pf.list_proposals()['denyme']['status'] == 'denied'
+
+
+def test_plugin_proposal_failure_cleans_artifacts(tmp_path, monkeypatch):
+    plugins_dir = tmp_path / "gp_plugins"
+    plugins_dir.mkdir()
+    broken = tmp_path / "broken.py"
+    broken.write_text("broken = True\n", encoding="utf-8")
+    monkeypatch.setenv("TRUST_DIR", str(tmp_path / "trust"))
+    monkeypatch.setenv("GP_PLUGINS_DIR", str(plugins_dir))
+    monkeypatch.setenv("SENTIENTOS_HEADLESS", "1")
+    import importlib
+    import plugin_framework as pf
+    import trust_engine as te
+    importlib.reload(pf)
+    importlib.reload(te)
+
+    pf.propose_plugin("broken", str(broken), user="model")
+    assert pf.list_proposals()["broken"]["status"] == "pending"
+    approved = pf.approve_proposal("broken", user="tester")
+
+    assert approved is False
+    assert pf.list_proposals()["broken"]["status"] == "failed"
+    assert not (plugins_dir / "broken.py").exists()
 
 
 def test_plugin_cannot_bypass_admission(tmp_path, monkeypatch):

@@ -120,20 +120,37 @@ def approve_proposal(name: str, *, user: str = "user") -> bool:
     prop = PROPOSALS.get(name)
     if not prop or prop.get("status") != "pending":
         return False
+    dest = None
+    temp_path = None
     try:
         src = Path(prop["url"])
         dest_dir = Path(os.getenv("GP_PLUGINS_DIR", "gp_plugins"))
         dest_dir.mkdir(exist_ok=True)
         dest = dest_dir / f"{name}.py"
-        dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        prop["status"] = "installed"
+        temp_path = dest_dir / f".{name}.installing"
+        temp_path.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        temp_path.replace(dest)
         load_plugins()
+        if name not in PLUGINS_INFO:
+            raise RuntimeError(f"plugin '{name}' did not register after install")
+        prop["status"] = "installed"
         PLUGIN_STATE[name] = True
         PLUGIN_HEALTH[name] = {"status": "ok"}
         te.log_event("plugin_installed", "approval", f"Installed {name}", user)
         return True
     except Exception as e:  # pragma: no cover - install failures
         prop["status"] = "failed"
+        for path in (temp_path, dest):
+            if path is None:
+                continue
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                pass
+        try:
+            load_plugins()
+        except Exception:
+            pass
         te.log_event("plugin_install_failed", "approval", str(e), user)
         return False
 

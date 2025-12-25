@@ -36,6 +36,7 @@ from ..config import (
     ReflexionBudgetConfig,
     ReflexionConfig,
     RuntimeConfig,
+    validate_runtime_config,
 )
 from ..daemons.hungry_eyes import HungryEyesDatasetBuilder, HungryEyesSentinel
 from ..determinism import seed_everything
@@ -647,6 +648,7 @@ class HungryEyesActiveLearner:
 
 class AutonomyRuntime:
     def __init__(self, config: RuntimeConfig, *, metrics: Optional[MetricsRegistry] = None) -> None:
+        validate_runtime_config(config)
         self.config = config
         self.metrics = metrics or MetricsRegistry()
         self.privacy = PrivacyManager(config.privacy)

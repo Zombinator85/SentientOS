@@ -103,6 +103,8 @@ def test_noop_logs_and_artifacts(monkeypatch, tmp_path):
     }
     assert emotion == "neutral"
     assert consent is True
+    task_entries = [entry for _, entry, _, _ in recorded if entry.get("event") == "task_result"]
+    assert task_entries == [{"task_id": "noop-task", "event": "task_result", "status": "completed"}]
 
 
 def test_failure_aborts(monkeypatch, tmp_path):
@@ -315,6 +317,36 @@ def test_task_snapshot_requires_digest(monkeypatch, tmp_path):
 
     with pytest.raises(task_executor.SnapshotDivergenceError, match="missing digest"):
         task_executor.load_task_execution_record({"snapshot": record["snapshot"]})
+
+
+def test_task_snapshot_rejects_failed_result(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+
+    def boom():
+        raise RuntimeError("boom")
+
+    task = task_executor.Task(
+        task_id="failed-snapshot",
+        objective="should-fail",
+        steps=(
+            task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=boom)),
+        ),
+    )
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="fail-snap",
+        context_hash="fail-snap",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    with pytest.raises(task_executor.SnapshotDivergenceError, match="did not complete"):
+        task_executor.build_task_execution_record(
+            task=task, result=result, admission_token=token, authorization=auth
+        )
 
 
 def test_task_snapshot_ignores_authorization_timestamps(monkeypatch, tmp_path):

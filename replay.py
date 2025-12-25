@@ -206,25 +206,42 @@ def live_playback(
 ) -> None:
     """Continuously watch a storyboard file and play new chapters."""
     seen = 0
+    storyboard_path = Path(storyboard)
+    temp_dir = storyboard_path.parent
     while True:
         try:
-            data = json.loads(Path(storyboard).read_text())
+            data = json.loads(storyboard_path.read_text())
         except Exception:
             time.sleep(poll)
             continue
         chapters = data.get("chapters", [])
         if seen < len(chapters):
             new = {"chapters": chapters[seen:]}
-            tmp = Path(storyboard).with_suffix(".live.tmp")
-            tmp.write_text(json.dumps(new), encoding="utf-8")
-            playback(
-                str(tmp),
-                headless=headless,
-                gui=gui,
-                avatar_callback=avatar_callback,
-                start_chapter=1,
-                **kwargs,
+            tmp_file = tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=str(temp_dir),
+                suffix=".live.tmp",
+                delete=False,
             )
+            tmp_path = Path(tmp_file.name)
+            try:
+                tmp_file.write(json.dumps(new))
+                tmp_file.flush()
+                tmp_file.close()
+                playback(
+                    str(tmp_path),
+                    headless=headless,
+                    gui=gui,
+                    avatar_callback=avatar_callback,
+                    start_chapter=1,
+                    **kwargs,
+                )
+            finally:
+                try:
+                    tmp_path.unlink()
+                except FileNotFoundError:
+                    pass
             seen = len(chapters)
             if max_chapters and seen >= max_chapters:
                 break
