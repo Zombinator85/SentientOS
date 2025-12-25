@@ -21,6 +21,7 @@ EprReversibility = Literal["guaranteed", "bounded", "none"]
 EprRollbackProof = Literal["snapshot", "diff", "commit", "none"]
 EprExternalEffects = Literal["yes", "no"]
 EprActionStatus = Literal["completed", "blocked", "failed"]
+PrerequisiteStatus = Literal["satisfied", "epr-fixable", "authority-required", "impossible"]
 
 
 @dataclass(frozen=True)
@@ -133,6 +134,19 @@ class EprReport:
     artifacts_persisted: bool = False
 
 
+@dataclass(frozen=True)
+class PrerequisiteAssessment:
+    action_id: str
+    status: PrerequisiteStatus
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ClosureReport:
+    prerequisites: Sequence[PrerequisiteAssessment] = field(default_factory=tuple)
+    epr_report: EprReport = field(default_factory=EprReport)
+
+
 class StepExecutionError(Exception):
     def __init__(self, step: Step, message: str):
         super().__init__(message)
@@ -154,9 +168,21 @@ class EprViolationError(RuntimeError):
 class EprApprovalRequired(RuntimeError):
     """Raised when an EPR action requires explicit operator approval."""
 
+    def __init__(self, message: str, actions: Sequence["EprAction"] = ()):
+        super().__init__(message)
+        self.actions = tuple(actions)
+
 
 class EprGateBlocked(RuntimeError):
     """Raised when EPR is required but not permitted."""
+
+
+class TaskClosureError(RuntimeError):
+    """Raised when task closure cannot complete."""
+
+    def __init__(self, message: str, assessments: Sequence["PrerequisiteAssessment"] = ()):
+        super().__init__(message)
+        self.assessments = tuple(assessments)
 
 
 @dataclass(frozen=True)
@@ -210,16 +236,10 @@ def execute_task(
         )
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
-    epr_report = EprReport()
+    closure = _close_task(task)
+    epr_report = closure.epr_report
     for step in task.steps:
         step_trace = _run_step(step)
-        if step_trace.status == "failed":
-            step_trace, epr_report = _attempt_epr_repair(
-                task=task,
-                step=step,
-                step_trace=step_trace,
-                report=epr_report,
-            )
         trace.append(step_trace)
         artifacts[f"step_{step.step_id}"] = step_trace.artifacts
         _log_step(task.task_id, step_trace)
@@ -347,52 +367,6 @@ def _log_task_result(task_id: str, status: TaskStatus, error: str | None) -> Non
     append_json(Path(LOG_PATH), entry)
 
 
-def _attempt_epr_repair(
-    *,
-    task: Task,
-    step: Step,
-    step_trace: StepTrace,
-    report: EprReport,
-) -> tuple[StepTrace, EprReport]:
-    actions = _epr_actions_for_step(task, step.step_id)
-    if not actions:
-        return step_trace, report
-    if not task.allow_epr:
-        return _epr_blocked_trace(step), report
-    try:
-        updated_report = _execute_epr_actions(task=task, actions=actions, report=report)
-    except EprApprovalRequired:
-        return _epr_blocked_trace(step), report
-    except EprViolationError as exc:
-        return _epr_violation_trace(step, str(exc)), report
-    retry_trace = _run_step(step)
-    return retry_trace, updated_report
-
-
-def _epr_actions_for_step(task: Task, step_id: int) -> list[EprAction]:
-    return [action for action in task.epr_actions if action.trigger_step_id == step_id]
-
-
-def _epr_blocked_trace(step: Step) -> StepTrace:
-    return StepTrace(
-        step_id=step.step_id,
-        kind=step.kind,
-        status="failed",
-        artifacts=_apply_expects({}, step.expects),
-        error="Execution prerequisite repair required but not permitted",
-    )
-
-
-def _epr_violation_trace(step: Step, error: str) -> StepTrace:
-    return StepTrace(
-        step_id=step.step_id,
-        kind=step.kind,
-        status="failed",
-        artifacts=_apply_expects({}, step.expects),
-        error=error,
-    )
-
-
 def _execute_epr_actions(*, task: Task, actions: Sequence[EprAction], report: EprReport) -> EprReport:
     traces: list[EprActionTrace] = list(report.actions)
     rollback_proofs: list[EprRollbackProof] = list(report.rollback_proofs)
@@ -461,6 +435,54 @@ def _execute_epr_actions(*, task: Task, actions: Sequence[EprAction], report: Ep
         net_authority_delta=0,
         artifacts_persisted=False,
     )
+
+
+def _close_task(task: Task) -> ClosureReport:
+    assessments: list[PrerequisiteAssessment] = []
+    fixable_actions: list[EprAction] = []
+    authority_required: list[EprAction] = []
+    impossible: list[PrerequisiteAssessment] = []
+    for action in task.epr_actions:
+        assessment = _assess_prerequisite(task, action)
+        assessments.append(assessment)
+        if assessment.status == "epr-fixable":
+            fixable_actions.append(action)
+        elif assessment.status == "authority-required":
+            authority_required.append(action)
+        elif assessment.status == "impossible":
+            impossible.append(assessment)
+    if impossible:
+        reasons = ", ".join(
+            f"{assessment.action_id}:{assessment.reason or 'impossible'}" for assessment in impossible
+        )
+        raise TaskClosureError(f"Task closure failed: {reasons}", assessments)
+    epr_report = EprReport()
+    if fixable_actions:
+        epr_report = _execute_epr_actions(task=task, actions=fixable_actions, report=epr_report)
+    if authority_required:
+        action_ids = ", ".join(action.action_id for action in authority_required)
+        raise EprApprovalRequired(f"EPR approval required for: {action_ids}", authority_required)
+    return ClosureReport(prerequisites=tuple(assessments), epr_report=epr_report)
+
+
+def _assess_prerequisite(task: Task, action: EprAction) -> PrerequisiteAssessment:
+    try:
+        _validate_epr_action(task, action)
+    except EprViolationError as exc:
+        return PrerequisiteAssessment(action_id=action.action_id, status="impossible", reason=str(exc))
+    if not task.allow_epr:
+        return PrerequisiteAssessment(
+            action_id=action.action_id,
+            status="impossible",
+            reason="EPR not permitted for task",
+        )
+    try:
+        _authorize_epr_action(action)
+    except EprApprovalRequired as exc:
+        return PrerequisiteAssessment(action_id=action.action_id, status="authority-required", reason=str(exc))
+    except EprViolationError as exc:
+        return PrerequisiteAssessment(action_id=action.action_id, status="impossible", reason=str(exc))
+    return PrerequisiteAssessment(action_id=action.action_id, status="epr-fixable")
 
 
 def _validate_epr_action(task: Task, action: EprAction) -> None:
