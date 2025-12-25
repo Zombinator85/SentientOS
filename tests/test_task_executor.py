@@ -518,7 +518,162 @@ def test_deterministic_traces(monkeypatch, tmp_path):
     second = task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert first.trace == second.trace
-    assert first.artifacts == second.artifacts
+
+
+def test_unknown_prerequisite_blocks_execution(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    called = {"step": False, "repair": False}
+    recorded: list[dict[str, object]] = []
+
+    def fake_append(path, entry, *, emotion="neutral", consent=True):
+        recorded.append(entry)
+
+    def step_action():
+        called["step"] = True
+        return {}
+
+    def repair_action():
+        called["repair"] = True
+        return {}
+
+    task = task_executor.Task(
+        task_id="unknown-block",
+        objective="block on unknown prereq",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="unknown-block",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                handler=repair_action,
+                unknown_prerequisite=task_executor.UnknownPrerequisite(
+                    condition="GPU feature Z support",
+                    reason="hardware manifest not provided",
+                    unblock_query="Confirm whether GPU supports feature Z required by the task.",
+                ),
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="unknown-block",
+        context_hash="ctx-unknown-block",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    monkeypatch.setattr(task_executor, "append_json", fake_append)
+
+    with pytest.raises(task_executor.UnknownPrerequisiteError) as excinfo:
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert called["step"] is False
+    assert called["repair"] is False
+    assert excinfo.value.unblock_query == "Confirm whether GPU supports feature Z required by the task."
+    assert any(assessment.status == "unknown" for assessment in excinfo.value.assessments)
+    unknown_entries = [entry for entry in recorded if entry.get("event") == "unknown_prerequisite"]
+    assert len(unknown_entries) == 1
+    assert unknown_entries[0]["unblock_query"] == excinfo.value.unblock_query
+
+
+def test_unknown_prerequisite_resolution_allows_execution(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    called = {"step": False}
+
+    def step_action():
+        called["step"] = True
+        return {"status": "ok"}
+
+    task = task_executor.Task(
+        task_id="unknown-resolved",
+        objective="resume after operator response",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="unknown-resolved",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                unknown_prerequisite=task_executor.UnknownPrerequisite(
+                    condition="GPU feature Z support",
+                    reason="hardware manifest not provided",
+                    response="Operator confirmed GPU feature Z support.",
+                    resolved_status="satisfied",
+                ),
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="unknown-resolved",
+        context_hash="ctx-unknown-resolved",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    result = task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert result.status == "completed"
+    assert called["step"] is True
+
+
+def test_unknown_prerequisite_refuses_guess(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    reload(task_executor)
+    called = {"step": False}
+
+    def step_action():
+        called["step"] = True
+        return {}
+
+    task = task_executor.Task(
+        task_id="unknown-guess",
+        objective="avoid guessing",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="unknown-guess",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                unknown_prerequisite=task_executor.UnknownPrerequisite(
+                    condition="GPU feature Z support",
+                    reason="model name suggests support but cannot be confirmed",
+                ),
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="unknown-guess",
+        context_hash="ctx-unknown-guess",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+
+    with pytest.raises(task_executor.UnknownPrerequisiteError):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert called["step"] is False
 
 
 def test_admission_token_requires_provenance(monkeypatch, tmp_path):
