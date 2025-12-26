@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     pass
 
 
-SAFE_COMMANDS = {"status", "doctor"}
+SAFE_COMMANDS = {"status", "doctor", "ois"}
 
 
 def _read_version() -> str:
@@ -31,6 +31,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("status", help="Show read-only system status.")
     subparsers.add_parser("doctor", help="Run read-only diagnostics.")
     subparsers.add_parser("dashboard", help="Launch the SentientOS dashboard.")
+    subparsers.add_parser("ois", help="Read-only Operator Introspection Surface (OIS).")
     subparsers.add_parser("avatar-demo", help="Run the avatar demo.")
     return parser
 
@@ -77,6 +78,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         if args.command == "status":
             _print_status()
             return
+        if args.command == "ois":
+            from sentientos.cli.ois_cli import main as ois_main
+
+            raise SystemExit(ois_main(extra))
         _print_doctor()
         return
 
