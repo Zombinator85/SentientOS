@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from pathlib import Path
-from typing import Callable, Mapping, MutableMapping, Sequence
+from typing import Callable, Iterable, Mapping, MutableMapping, Sequence
 
 from logging_config import get_log_path
 from log_utils import append_json
@@ -38,6 +39,12 @@ class RoutineSpec:
     reversibility: RoutineReversibility
     authority_impact: RoutineAuthorityImpact
     expiration: str | None = None
+    priority: int | None = None
+    precedence_group: str | None = None
+    group_priority: int | None = None
+    precedence_conditions: tuple[str, ...] = ()
+    trigger_specificity: int = 0
+    time_window: tuple[str, str] | None = None
     allows_task_spawn: bool = False
     allows_epr: bool = False
     allows_privilege_escalation: bool = False
@@ -76,6 +83,12 @@ class RoutineDefinition:
     reversibility: RoutineReversibility
     authority_impact: RoutineAuthorityImpact
     expiration: str | None
+    priority: int | None
+    precedence_group: str | None
+    group_priority: int | None
+    precedence_conditions: tuple[str, ...]
+    trigger_specificity: int
+    time_window: tuple[str, str] | None
     approval: RoutineApproval
     created_at: str
     created_by: str
@@ -92,6 +105,12 @@ class RoutineDefinition:
             "reversibility": self.reversibility,
             "authority_impact": self.authority_impact,
             "expiration": self.expiration,
+            "priority": self.priority,
+            "precedence_group": self.precedence_group,
+            "group_priority": self.group_priority,
+            "precedence_conditions": list(self.precedence_conditions),
+            "trigger_specificity": self.trigger_specificity,
+            "time_window": list(self.time_window) if self.time_window else None,
             "approval": {
                 "approval_id": self.approval.approval_id,
                 "approved_by": self.approval.approved_by,
@@ -128,6 +147,22 @@ class RoutineDefinition:
             reversibility=str(payload.get("reversibility", "")),
             authority_impact=str(payload.get("authority_impact", "")),
             expiration=str(payload.get("expiration")) if payload.get("expiration") else None,
+            priority=int(payload.get("priority")) if payload.get("priority") is not None else None,
+            precedence_group=str(payload.get("precedence_group")) if payload.get("precedence_group") else None,
+            group_priority=(
+                int(payload.get("group_priority")) if payload.get("group_priority") is not None else None
+            ),
+            precedence_conditions=tuple(
+                str(condition)
+                for condition in payload.get("precedence_conditions", ())
+                if condition
+            ),
+            trigger_specificity=int(payload.get("trigger_specificity", 0) or 0),
+            time_window=(
+                tuple(payload.get("time_window", ()))
+                if payload.get("time_window")
+                else None
+            ),
             approval=approval,
             created_at=str(payload.get("created_at", "")),
             created_by=str(payload.get("created_by", "")),
@@ -165,6 +200,8 @@ class RoutineAction:
     action_id: str
     description: str
     handler: Callable[[Mapping[str, object]], RoutineActionResult]
+    conflict_domains: tuple[str, ...] = ()
+    incompatible_actions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -181,6 +218,18 @@ class RoutineExecutionReport:
     action_taken: str | None
     outcome: str
     scope_adherence: bool
+
+
+@dataclass(frozen=True)
+class _RoutineCandidate:
+    routine: RoutineDefinition
+    action: RoutineAction
+
+
+@dataclass(frozen=True)
+class _ConflictDecision:
+    winner: RoutineDefinition | None
+    resolution_path: str | None
 
 
 DEFAULT_LOG_PATH = get_log_path("routine_delegation.jsonl", "ROUTINE_DELEGATION_LOG")
@@ -226,6 +275,12 @@ class RoutineRegistry:
             reversibility=spec.reversibility,
             authority_impact=spec.authority_impact,
             expiration=spec.expiration,
+            priority=spec.priority,
+            precedence_group=spec.precedence_group,
+            group_priority=spec.group_priority,
+            precedence_conditions=spec.precedence_conditions,
+            trigger_specificity=spec.trigger_specificity,
+            time_window=spec.time_window,
             approval=approval,
             created_at=approval.approved_at,
             created_by=approval.approved_by,
@@ -305,6 +360,11 @@ class RoutineRegistry:
             raise RoutinePolicyViolation("routine scope must be declared")
         if any(flag for flag in spec.policy_snapshot().values()):
             raise RoutinePolicyViolation("routine authority cannot expand beyond declared scope")
+        if spec.time_window is not None:
+            if len(spec.time_window) != 2:
+                raise RoutinePolicyViolation("routine time_window must include start and end times")
+            if _parse_time(spec.time_window[0]) is None or _parse_time(spec.time_window[1]) is None:
+                raise RoutinePolicyViolation("routine time_window must use HH:MM format")
 
     def _validate_approval(self, spec: RoutineSpec, approval: RoutineApproval) -> None:
         if not approval.summary.strip():
@@ -342,6 +402,7 @@ class RoutineRegistry:
 class RoutineExecutor:
     def __init__(self, *, log_path: Path | None = None) -> None:
         self.log_path = log_path or DEFAULT_LOG_PATH
+        self._prompted_conflicts: set[str] = set()
 
     def run(
         self,
@@ -349,10 +410,95 @@ class RoutineExecutor:
         catalog: RoutineCatalog,
         context: Mapping[str, object],
     ) -> tuple[RoutineExecutionReport, ...]:
-        reports: list[RoutineExecutionReport] = []
+        reports: dict[str, RoutineExecutionReport] = {}
+        candidates: list[_RoutineCandidate] = []
+
         for routine in routines:
-            reports.append(self.execute_routine(routine, catalog, context))
-        return tuple(reports)
+            report, candidate = self._evaluate_routine(routine, catalog, context)
+            if report is not None:
+                reports[routine.routine_id] = report
+            if candidate is not None:
+                candidates.append(candidate)
+
+        if not candidates:
+            return tuple(reports[routine.routine_id] for routine in routines)
+
+        conflict_groups = self._detect_conflicts(candidates)
+        suppressed: dict[str, tuple[str, str | None, str | None]] = {}
+        paused: dict[str, str] = {}
+        winners: dict[str, RoutineDefinition] = {}
+        unresolved_conflicts: set[str] = set()
+
+        for group in conflict_groups:
+            decision = self._resolve_conflict(group, context)
+            conflict_id = self._conflict_id(group)
+            conflict_domains = self._conflict_domains(group)
+            self._log_conflict_detected(group, conflict_id, conflict_domains)
+            if decision.winner is None:
+                self._log_conflict_prompt(group, conflict_id, conflict_domains)
+                unresolved_conflicts.add(conflict_id)
+                for candidate in group:
+                    paused[candidate.routine.routine_id] = conflict_id
+                continue
+            winners[decision.winner.routine_id] = decision.winner
+            suppressed_ids = [
+                candidate.routine.routine_id
+                for candidate in group
+                if candidate.routine.routine_id != decision.winner.routine_id
+            ]
+            self._log_conflict_resolution(
+                conflict_id,
+                decision.winner,
+                suppressed_ids,
+                decision.resolution_path,
+            )
+            for candidate in group:
+                if candidate.routine.routine_id == decision.winner.routine_id:
+                    continue
+                suppressed[candidate.routine.routine_id] = (
+                    conflict_id,
+                    decision.resolution_path,
+                    decision.winner.routine_id,
+                )
+
+        if unresolved_conflicts:
+            self._prompted_conflicts.intersection_update(unresolved_conflicts)
+        else:
+            self._prompted_conflicts.clear()
+
+        for candidate in candidates:
+            routine_id = candidate.routine.routine_id
+            if routine_id in reports:
+                continue
+            if routine_id in paused:
+                reports[routine_id] = self._log_evaluation(
+                    candidate.routine,
+                    triggered=True,
+                    action_taken=None,
+                    outcome="conflict_paused",
+                    scope_adherence=True,
+                    details={"conflict_id": paused[routine_id]},
+                )
+                continue
+            if routine_id in suppressed:
+                conflict_id, resolution_path, winner_id = suppressed[routine_id]
+                reports[routine_id] = self._log_evaluation(
+                    candidate.routine,
+                    triggered=True,
+                    action_taken=None,
+                    outcome="conflict_suppressed",
+                    scope_adherence=True,
+                    details={
+                        "conflict_id": conflict_id,
+                        "resolution_path": resolution_path,
+                        "winner_routine_id": winner_id,
+                    },
+                )
+                continue
+            if routine_id in winners or routine_id not in suppressed:
+                reports[routine_id] = self._execute_triggered_routine(candidate, context)
+
+        return tuple(reports[routine.routine_id] for routine in routines)
 
     def execute_routine(
         self,
@@ -409,6 +555,277 @@ class RoutineExecutor:
             scope_adherence=scope_adherence,
         )
 
+    def _evaluate_routine(
+        self,
+        routine: RoutineDefinition,
+        catalog: RoutineCatalog,
+        context: Mapping[str, object],
+    ) -> tuple[RoutineExecutionReport | None, _RoutineCandidate | None]:
+        if _is_expired(routine.expiration):
+            return (
+                self._log_evaluation(
+                    routine,
+                    triggered=False,
+                    action_taken=None,
+                    outcome="expired",
+                    scope_adherence=True,
+                ),
+                None,
+            )
+        trigger = catalog.get_trigger(routine.trigger_id)
+        if trigger is None:
+            return (
+                self._log_evaluation(
+                    routine,
+                    triggered=False,
+                    action_taken=None,
+                    outcome="trigger_missing",
+                    scope_adherence=True,
+                ),
+                None,
+            )
+        triggered = bool(trigger.predicate(context))
+        if not triggered:
+            return (
+                self._log_evaluation(
+                    routine,
+                    triggered=False,
+                    action_taken=None,
+                    outcome="trigger_not_met",
+                    scope_adherence=True,
+                ),
+                None,
+            )
+        action = catalog.get_action(routine.action_id)
+        if action is None:
+            self._log_evaluation(
+                routine,
+                triggered=True,
+                action_taken=None,
+                outcome="action_missing",
+                scope_adherence=False,
+            )
+            raise RoutineExecutionError(f"missing routine action: {routine.action_id}")
+        return None, _RoutineCandidate(routine=routine, action=action)
+
+    def _detect_conflicts(
+        self,
+        candidates: Sequence[_RoutineCandidate],
+    ) -> list[tuple[_RoutineCandidate, ...]]:
+        if len(candidates) < 2:
+            return []
+        adjacency: dict[str, set[str]] = {candidate.routine.routine_id: set() for candidate in candidates}
+        candidate_map = {candidate.routine.routine_id: candidate for candidate in candidates}
+        for left in candidates:
+            for right in candidates:
+                if left.routine.routine_id >= right.routine.routine_id:
+                    continue
+                if not _scopes_overlap(left.routine.scope, right.routine.scope):
+                    continue
+                if not _actions_incompatible(left, right):
+                    continue
+                adjacency[left.routine.routine_id].add(right.routine.routine_id)
+                adjacency[right.routine.routine_id].add(left.routine.routine_id)
+
+        visited: set[str] = set()
+        groups: list[tuple[_RoutineCandidate, ...]] = []
+        for routine_id in adjacency:
+            if routine_id in visited:
+                continue
+            stack = [routine_id]
+            component: set[str] = set()
+            while stack:
+                current = stack.pop()
+                if current in visited:
+                    continue
+                visited.add(current)
+                component.add(current)
+                stack.extend(adjacency[current] - visited)
+            if len(component) > 1:
+                groups.append(tuple(candidate_map[rid] for rid in sorted(component)))
+        return groups
+
+    def _resolve_conflict(
+        self,
+        group: Sequence[_RoutineCandidate],
+        context: Mapping[str, object],
+    ) -> _ConflictDecision:
+        explicit_winner = self._resolve_by_explicit_precedence(group, context)
+        if explicit_winner is not None:
+            return _ConflictDecision(winner=explicit_winner, resolution_path="operator_precedence")
+        specific_winner = self._resolve_by_specificity(group)
+        if specific_winner is not None:
+            return _ConflictDecision(winner=specific_winner, resolution_path="contextual_specialization")
+        temporal_winner = self._resolve_by_temporal_specificity(group, context)
+        if temporal_winner is not None:
+            return _ConflictDecision(winner=temporal_winner, resolution_path="temporal_specificity")
+        return _ConflictDecision(winner=None, resolution_path=None)
+
+    def _resolve_by_explicit_precedence(
+        self,
+        group: Sequence[_RoutineCandidate],
+        context: Mapping[str, object],
+    ) -> RoutineDefinition | None:
+        scored: list[tuple[int, str, RoutineDefinition]] = []
+        for candidate in group:
+            routine = candidate.routine
+            if routine.precedence_conditions and not _conditions_met(routine.precedence_conditions, context):
+                continue
+            if routine.priority is not None:
+                scored.append((routine.priority, "priority", routine))
+            if routine.group_priority is not None:
+                scored.append((routine.group_priority, "group", routine))
+        if not scored:
+            return None
+        scored.sort(key=lambda item: (-item[0], item[1], item[2].routine_id))
+        top_score = scored[0][0]
+        top_routines = {routine.routine_id for score, _, routine in scored if score == top_score}
+        if len(top_routines) != 1:
+            return None
+        return scored[0][2]
+
+    def _resolve_by_specificity(self, group: Sequence[_RoutineCandidate]) -> RoutineDefinition | None:
+        specifics = sorted(
+            (
+                (candidate.routine.trigger_specificity, candidate.routine.routine_id, candidate.routine)
+                for candidate in group
+            ),
+            key=lambda entry: (-entry[0], entry[1]),
+        )
+        if not specifics:
+            return None
+        top_specificity = specifics[0][0]
+        if sum(1 for entry in specifics if entry[0] == top_specificity) != 1:
+            return None
+        return specifics[0][2]
+
+    def _resolve_by_temporal_specificity(
+        self,
+        group: Sequence[_RoutineCandidate],
+        context: Mapping[str, object],
+    ) -> RoutineDefinition | None:
+        time_bound: list[RoutineDefinition] = []
+        for candidate in group:
+            routine = candidate.routine
+            if routine.time_window and _time_in_window(routine.time_window, context.get("time")):
+                time_bound.append(routine)
+        if len(time_bound) == 1:
+            return time_bound[0]
+        return None
+
+    def _conflict_domains(self, group: Sequence[_RoutineCandidate]) -> tuple[str, ...]:
+        domains: set[str] = set()
+        for candidate in group:
+            action_domains = candidate.action.conflict_domains
+            if action_domains:
+                domains.update(action_domains)
+            else:
+                domains.update(candidate.routine.scope)
+        return tuple(sorted(domains))
+
+    def _conflict_id(self, group: Sequence[_RoutineCandidate]) -> str:
+        routine_ids = sorted(candidate.routine.routine_id for candidate in group)
+        domains = self._conflict_domains(group)
+        key = "|".join(routine_ids) + "::" + "|".join(domains)
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+
+    def _log_conflict_detected(
+        self,
+        group: Sequence[_RoutineCandidate],
+        conflict_id: str,
+        conflict_domains: Sequence[str],
+    ) -> None:
+        append_json(
+            self.log_path,
+            {
+                "event": "routine_conflict_detected",
+                "conflict_id": conflict_id,
+                "routine_ids": [candidate.routine.routine_id for candidate in group],
+                "triggers": [candidate.routine.trigger_description for candidate in group],
+                "actions": [candidate.routine.action_description for candidate in group],
+                "scopes": [candidate.routine.scope for candidate in group],
+                "conflict_domains": list(conflict_domains),
+                "reason": "overlapping_scope_incompatible_actions",
+            },
+        )
+
+    def _log_conflict_resolution(
+        self,
+        conflict_id: str,
+        winner: RoutineDefinition,
+        suppressed: Sequence[str],
+        resolution_path: str | None,
+    ) -> None:
+        append_json(
+            self.log_path,
+            {
+                "event": "routine_conflict_resolved",
+                "conflict_id": conflict_id,
+                "winner_routine_id": winner.routine_id,
+                "suppressed_routine_ids": list(suppressed),
+                "resolution_path": resolution_path or "unknown",
+                "status": "resolved",
+            },
+        )
+
+    def _log_conflict_prompt(
+        self,
+        group: Sequence[_RoutineCandidate],
+        conflict_id: str,
+        conflict_domains: Sequence[str],
+    ) -> None:
+        if conflict_id in self._prompted_conflicts:
+            return
+        self._prompted_conflicts.add(conflict_id)
+        append_json(
+            self.log_path,
+            {
+                "event": "routine_conflict_prompt",
+                "conflict_id": conflict_id,
+                "status": "needs_operator_input",
+                "conflict_domains": list(conflict_domains),
+                "routines": [
+                    {
+                        "routine_id": candidate.routine.routine_id,
+                        "trigger": candidate.routine.trigger_description,
+                        "action": candidate.routine.action_description,
+                    }
+                    for candidate in group
+                ],
+                "why": "no_deterministic_precedence",
+                "options": [
+                    "choose_precedence",
+                    "restrict_scope",
+                    "disable_routine",
+                    "allow_both_with_conditions",
+                ],
+            },
+        )
+
+    def _execute_triggered_routine(
+        self,
+        candidate: _RoutineCandidate,
+        context: Mapping[str, object],
+    ) -> RoutineExecutionReport:
+        result = candidate.action.handler(context)
+        scope_adherence = _scope_adheres(result.affected_scopes, candidate.routine.scope)
+        self._log_execution(
+            candidate.routine,
+            triggered=True,
+            action_taken=candidate.action.action_id,
+            result=result,
+            scope_adherence=scope_adherence,
+        )
+        if not scope_adherence:
+            raise RoutineScopeViolation(f"routine {candidate.routine.routine_id} exceeded declared scope")
+        return RoutineExecutionReport(
+            routine_id=candidate.routine.routine_id,
+            trigger_evaluation=True,
+            action_taken=candidate.action.action_id,
+            outcome=result.outcome,
+            scope_adherence=scope_adherence,
+        )
+
     def _log_evaluation(
         self,
         routine: RoutineDefinition,
@@ -417,6 +834,7 @@ class RoutineExecutor:
         action_taken: str | None,
         outcome: str,
         scope_adherence: bool,
+        details: Mapping[str, object] | None = None,
     ) -> RoutineExecutionReport:
         append_json(
             self.log_path,
@@ -431,6 +849,7 @@ class RoutineExecutor:
                 "scope": routine.scope,
                 "authority_impact": routine.authority_impact,
                 "reversibility": routine.reversibility,
+                "details": dict(details or {}),
             },
         )
         return RoutineExecutionReport(
@@ -479,6 +898,12 @@ def make_routine_spec(
     reversibility: RoutineReversibility,
     authority_impact: RoutineAuthorityImpact,
     expiration: str | None = None,
+    priority: int | None = None,
+    precedence_group: str | None = None,
+    group_priority: int | None = None,
+    precedence_conditions: Sequence[str] = (),
+    trigger_specificity: int = 0,
+    time_window: tuple[str, str] | None = None,
 ) -> RoutineSpec:
     return RoutineSpec(
         routine_id=f"routine-{uuid.uuid4().hex}",
@@ -490,6 +915,12 @@ def make_routine_spec(
         reversibility=reversibility,
         authority_impact=authority_impact,
         expiration=expiration,
+        priority=priority,
+        precedence_group=precedence_group,
+        group_priority=group_priority,
+        precedence_conditions=tuple(precedence_conditions),
+        trigger_specificity=trigger_specificity,
+        time_window=time_window,
     )
 
 
@@ -543,6 +974,51 @@ def _scope_adheres(affected_scopes: Sequence[str], allowed_scopes: Sequence[str]
     return set(affected_scopes).issubset(set(allowed_scopes))
 
 
+def _scopes_overlap(left: Sequence[str], right: Sequence[str]) -> bool:
+    return bool(set(left).intersection(set(right)))
+
+
+def _actions_incompatible(left: _RoutineCandidate, right: _RoutineCandidate) -> bool:
+    if left.action.action_id == right.action.action_id:
+        return False
+    if right.action.action_id in left.action.incompatible_actions:
+        return True
+    if left.action.action_id in right.action.incompatible_actions:
+        return True
+    left_domains = set(left.action.conflict_domains or left.routine.scope)
+    right_domains = set(right.action.conflict_domains or right.routine.scope)
+    return bool(left_domains.intersection(right_domains))
+
+
+def _conditions_met(conditions: Iterable[str], context: Mapping[str, object]) -> bool:
+    if not conditions:
+        return True
+    return all(bool(context.get(condition)) for condition in conditions)
+
+
+def _time_in_window(window: tuple[str, str], context_time: object) -> bool:
+    if not isinstance(context_time, str):
+        return False
+    if len(window) != 2:
+        return False
+    start = _parse_time(window[0])
+    end = _parse_time(window[1])
+    current = _parse_time(context_time)
+    if start is None or end is None or current is None:
+        return False
+    if start <= end:
+        return start <= current <= end
+    return current >= start or current <= end
+
+
+def _parse_time(value: str) -> time | None:
+    try:
+        hours, minutes = value.split(":")
+        return time(hour=int(hours), minute=int(minutes))
+    except ValueError:
+        return None
+
+
 def _spec_payload(spec: RoutineSpec) -> dict[str, object]:
     return {
         "routine_id": spec.routine_id,
@@ -554,6 +1030,12 @@ def _spec_payload(spec: RoutineSpec) -> dict[str, object]:
         "reversibility": spec.reversibility,
         "authority_impact": spec.authority_impact,
         "expiration": spec.expiration,
+        "priority": spec.priority,
+        "precedence_group": spec.precedence_group,
+        "group_priority": spec.group_priority,
+        "precedence_conditions": list(spec.precedence_conditions),
+        "trigger_specificity": spec.trigger_specificity,
+        "time_window": list(spec.time_window) if spec.time_window else None,
         "policy": spec.policy_snapshot(),
     }
 

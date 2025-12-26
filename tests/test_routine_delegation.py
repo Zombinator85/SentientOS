@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Mapping
 
 import pytest
@@ -34,6 +35,40 @@ def _make_catalog(counter: dict[str, int], *, trigger_result: bool = True) -> Ro
 
     catalog.register_trigger(RoutineTrigger(trigger_id="trigger-always", description="always", predicate=_trigger))
     catalog.register_action(RoutineAction(action_id="action-lights", description="set lights", handler=_action))
+    return catalog
+
+
+def _make_conflict_catalog(counters: dict[str, int]) -> RoutineCatalog:
+    catalog = RoutineCatalog()
+
+    def _trigger(_: Mapping[str, object]) -> bool:
+        return True
+
+    def _action_a(_: Mapping[str, object]) -> RoutineActionResult:
+        counters["a"] += 1
+        return RoutineActionResult(outcome="ok", details={"ran": "a"}, affected_scopes=("lighting",))
+
+    def _action_b(_: Mapping[str, object]) -> RoutineActionResult:
+        counters["b"] += 1
+        return RoutineActionResult(outcome="ok", details={"ran": "b"}, affected_scopes=("lighting",))
+
+    catalog.register_trigger(RoutineTrigger(trigger_id="trigger-always", description="always", predicate=_trigger))
+    catalog.register_action(
+        RoutineAction(
+            action_id="action-a",
+            description="set lights warm",
+            handler=_action_a,
+            conflict_domains=("lighting",),
+        )
+    )
+    catalog.register_action(
+        RoutineAction(
+            action_id="action-b",
+            description="set lights cool",
+            handler=_action_b,
+            conflict_domains=("lighting",),
+        )
+    )
     return catalog
 
 
@@ -173,3 +208,158 @@ def test_routine_execution_does_not_affect_task_replay_equivalence(tmp_path) -> 
     )
     fingerprint_after = task_executor.request_fingerprint_from_canonical(canonical_after)
     assert fingerprint_before.value == fingerprint_after.value
+
+
+def test_conflict_resolution_uses_operator_precedence(tmp_path) -> None:
+    counters = {"a": 0, "b": 0}
+    catalog = _make_conflict_catalog(counters)
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    executor = RoutineExecutor(log_path=tmp_path / "routine_log.jsonl")
+
+    routine_a = RoutineSpec(
+        routine_id="routine-a",
+        trigger_id="trigger-always",
+        trigger_description="always",
+        action_id="action-a",
+        action_description="set_lights(warm)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+        priority=10,
+    )
+    routine_b = RoutineSpec(
+        routine_id="routine-b",
+        trigger_id="trigger-always",
+        trigger_description="always",
+        action_id="action-b",
+        action_description="set_lights(cool)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+        priority=5,
+    )
+
+    registry.approve_routine(routine_a, _make_approval(routine_a))
+    registry.approve_routine(routine_b, _make_approval(routine_b))
+    executor.run(registry.list_routines(), catalog, {"time": "18:00", "operator_priority": True})
+
+    assert counters["a"] == 1
+    assert counters["b"] == 0
+
+
+def test_conflict_resolution_prefers_specific_routine(tmp_path) -> None:
+    counters = {"a": 0, "b": 0}
+    catalog = _make_conflict_catalog(counters)
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    executor = RoutineExecutor(log_path=tmp_path / "routine_log.jsonl")
+
+    routine_a = RoutineSpec(
+        routine_id="routine-specific",
+        trigger_id="trigger-always",
+        trigger_description="movie_mode == true",
+        action_id="action-a",
+        action_description="set_lights(dim)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+        trigger_specificity=10,
+    )
+    routine_b = RoutineSpec(
+        routine_id="routine-general",
+        trigger_id="trigger-always",
+        trigger_description="evening",
+        action_id="action-b",
+        action_description="set_lights(bright)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+        trigger_specificity=1,
+    )
+
+    registry.approve_routine(routine_a, _make_approval(routine_a))
+    registry.approve_routine(routine_b, _make_approval(routine_b))
+    executor.run(registry.list_routines(), catalog, {"time": "18:00"})
+
+    assert counters["a"] == 1
+    assert counters["b"] == 0
+
+
+def test_conflict_resolution_prefers_time_bound_routine(tmp_path) -> None:
+    counters = {"a": 0, "b": 0}
+    catalog = _make_conflict_catalog(counters)
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    executor = RoutineExecutor(log_path=tmp_path / "routine_log.jsonl")
+
+    routine_a = RoutineSpec(
+        routine_id="routine-timebound",
+        trigger_id="trigger-always",
+        trigger_description="between 18:00-19:00",
+        action_id="action-a",
+        action_description="set_lights(dim)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+        time_window=("18:00", "19:00"),
+    )
+    routine_b = RoutineSpec(
+        routine_id="routine-continuous",
+        trigger_id="trigger-always",
+        trigger_description="evening",
+        action_id="action-b",
+        action_description="set_lights(bright)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+    )
+
+    registry.approve_routine(routine_a, _make_approval(routine_a))
+    registry.approve_routine(routine_b, _make_approval(routine_b))
+    executor.run(registry.list_routines(), catalog, {"time": "18:30"})
+
+    assert counters["a"] == 1
+    assert counters["b"] == 0
+
+
+def test_conflict_pause_prompts_once_and_replays_deterministically(tmp_path) -> None:
+    counters = {"a": 0, "b": 0}
+    log_path = tmp_path / "routine_log.jsonl"
+    catalog = _make_conflict_catalog(counters)
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=log_path)
+    executor = RoutineExecutor(log_path=log_path)
+
+    routine_a = RoutineSpec(
+        routine_id="routine-1",
+        trigger_id="trigger-always",
+        trigger_description="always",
+        action_id="action-a",
+        action_description="set_lights(warm)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+    )
+    routine_b = RoutineSpec(
+        routine_id="routine-2",
+        trigger_id="trigger-always",
+        trigger_description="always",
+        action_id="action-b",
+        action_description="set_lights(cool)",
+        scope=("lighting",),
+        reversibility="guaranteed",
+        authority_impact="none",
+    )
+
+    registry.approve_routine(routine_a, _make_approval(routine_a))
+    registry.approve_routine(routine_b, _make_approval(routine_b))
+
+    executor.run(registry.list_routines(), catalog, {"time": "18:00"})
+    executor.run(registry.list_routines(), catalog, {"time": "18:00"})
+
+    assert counters["a"] == 0
+    assert counters["b"] == 0
+
+    logs = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
+    prompts = [entry for entry in logs if entry.get("event") == "routine_conflict_prompt"]
+    detections = [entry for entry in logs if entry.get("event") == "routine_conflict_detected"]
+    assert len(prompts) == 1
+    assert len(detections) == 2
+    assert detections[0]["conflict_id"] == detections[1]["conflict_id"]
