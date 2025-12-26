@@ -8,6 +8,11 @@ from .habit_inference import (
     HabitProposal,
     HabitReviewAlert,
 )
+from .semantic_habit_class import (
+    SemanticHabitClass,
+    SemanticHabitClassManager,
+    SemanticHabitClassProposal,
+)
 from .sanction_engine import AgentStatus, SanctionEngine
 from .governance_cooldown import CooldownRecord, GovernanceCooldown
 
@@ -25,4 +30,7 @@ __all__ = [
     "HabitPolicy",
     "HabitProposal",
     "HabitReviewAlert",
+    "SemanticHabitClass",
+    "SemanticHabitClassManager",
+    "SemanticHabitClassProposal",
 ]
