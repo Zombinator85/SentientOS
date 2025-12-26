@@ -1,4 +1,13 @@
 from .governance_reducer import GovernanceOutcome, GovernanceReducer
+from .habit_inference import (
+    HabitConfig,
+    HabitEvidence,
+    HabitInferenceEngine,
+    HabitObservation,
+    HabitPolicy,
+    HabitProposal,
+    HabitReviewAlert,
+)
 from .sanction_engine import AgentStatus, SanctionEngine
 from .governance_cooldown import CooldownRecord, GovernanceCooldown
 
@@ -9,4 +18,11 @@ __all__ = [
     "GovernanceOutcome",
     "GovernanceCooldown",
     "CooldownRecord",
+    "HabitConfig",
+    "HabitEvidence",
+    "HabitInferenceEngine",
+    "HabitObservation",
+    "HabitPolicy",
+    "HabitProposal",
+    "HabitReviewAlert",
 ]
