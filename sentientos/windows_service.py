@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import logging
 import sys
+from importlib import import_module
 from pathlib import Path
 
-try:  # pragma: no cover - optional dependency
-    import win32serviceutil  # type: ignore
-    import win32service  # type: ignore
-    import win32event  # type: ignore
-except ImportError:  # pragma: no cover - Windows only
+from .optional_deps import dependency_available
+
+if dependency_available("pywin32"):
+    win32serviceutil = import_module("win32serviceutil")
+    win32service = import_module("win32service")
+    win32event = import_module("win32event")
+else:  # pragma: no cover - Windows only
     win32serviceutil = None
     win32service = None
     win32event = None

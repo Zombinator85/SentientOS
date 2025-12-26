@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from .config import GenerationConfig, ModelCandidate, ModelConfig, load_model_config
+from .optional_deps import dependency_available, optional_import
 from .storage import ensure_mounts, get_data_root
 
 LOGGER = logging.getLogger(__name__)
@@ -96,11 +97,13 @@ class _TransformersBackend(_ModelBackend):
         max_context_tokens: int,
     ) -> None:
         super().__init__(candidate, metadata)
-        try:
-            import torch
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-        except ImportError as exc:  # pragma: no cover - import guard
-            raise ModelLoadError("transformers is not installed") from exc
+        torch = optional_import("torch", feature="local_model_transformers")
+        transformers = optional_import("transformers", feature="local_model_transformers")
+        if torch is None or transformers is None:
+            raise ModelLoadError("transformers is not installed")
+
+        AutoModelForCausalLM = transformers.AutoModelForCausalLM
+        AutoTokenizer = transformers.AutoTokenizer
 
         model_location = self._resolve_model_location(candidate)
         if candidate.path is not None and not Path(model_location).exists():
@@ -169,10 +172,10 @@ class _LlamaCppBackend(_ModelBackend):
         max_context_tokens: int,
     ) -> None:
         super().__init__(candidate, metadata)
-        try:
-            from llama_cpp import Llama
-        except ImportError as exc:  # pragma: no cover - import guard
-            raise ModelLoadError("llama_cpp is not installed") from exc
+        llama_module = optional_import("llama-cpp-python", feature="local_model_llama_cpp")
+        if llama_module is None:
+            raise ModelLoadError("llama_cpp is not installed")
+        Llama = llama_module.Llama
 
         if candidate.path is None:
             raise ModelLoadError("No GGUF path provided for llama.cpp backend")
@@ -212,9 +215,10 @@ class _LlamaCppBackend(_ModelBackend):
 
 
 def _cuda_available() -> bool:
-    try:
-        import torch
-    except ImportError:  # pragma: no cover - optional dependency
+    if not dependency_available("torch"):
+        return False
+    torch = optional_import("torch", feature="local_model_cuda")
+    if torch is None:
         return False
     return bool(torch.cuda.is_available())
 

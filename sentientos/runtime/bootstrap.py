@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import platform
 from pathlib import Path
 from typing import Dict, Mapping, Optional
 
-try:
-    from sentientos.consciousness.integration import run_consciousness_cycle
-except Exception:  # pragma: no cover - optional dependency path
+_integration_spec = importlib.util.find_spec("sentientos.consciousness.integration")
+if _integration_spec is not None:
+    run_consciousness_cycle = importlib.import_module("sentientos.consciousness.integration").run_consciousness_cycle
+else:  # pragma: no cover - optional dependency path
     run_consciousness_cycle = None
 
 from sentientos.cathedral.digest import DEFAULT_CATHEDRAL_CONFIG

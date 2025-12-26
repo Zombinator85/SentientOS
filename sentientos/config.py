@@ -7,11 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-
-try:  # pragma: no cover - optional dependency
-    import yaml
-except ModuleNotFoundError:  # pragma: no cover - environment fallback
-    yaml = None  # type: ignore[assignment]
+from .optional_deps import optional_import
 
 from .storage import get_data_root
 
@@ -797,8 +793,8 @@ def load_runtime_config() -> RuntimeConfig:
 
 
 def _load_yaml_config() -> Dict[str, Any]:
+    yaml = optional_import("pyyaml", feature="runtime_config")
     if yaml is None:
-        LOGGER.warning("PyYAML missing; skipping config.yaml overrides")
         return {}
     path_env = os.environ.get(_CONFIG_ENV)
     candidates: List[Path] = []
@@ -816,7 +812,7 @@ def _load_yaml_config() -> Dict[str, Any]:
             continue
         try:
             loaded = yaml.safe_load(content) or {}
-        except yaml.YAMLError as exc:
+        except Exception as exc:
             LOGGER.warning("Invalid YAML in %s: %s", candidate, exc)
             continue
         if isinstance(loaded, Mapping):

@@ -2,19 +2,10 @@
 from __future__ import annotations
 
 from typing import Dict
-import importlib
-import importlib.util
-import warnings
 
-try:
-    _yaml_spec = importlib.util.find_spec("yaml")
-except ValueError:
-    _yaml_spec = None
-if _yaml_spec is not None:
-    yaml = importlib.import_module("yaml")
-else:
-    yaml = None
-    warnings.warn("optional dependency PyYAML missing; YAML configs will be ignored")
+from sentientos.optional_deps import optional_import
+
+yaml = optional_import("pyyaml", feature="ssa_selector_loader")
 
 
 def load_selectors(path: str) -> Dict[str, Dict[str, object]]:

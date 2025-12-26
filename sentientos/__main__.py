@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
@@ -46,7 +47,11 @@ def _print_status() -> None:
 
 
 def _print_doctor() -> None:
+    from sentientos.helpers import compute_system_diagnostics
+
     print("Doctor: read-only diagnostics available. No privileged checks were performed.")
+    report = compute_system_diagnostics()
+    print(json.dumps(report, indent=2, sort_keys=True))
 
 
 def main(argv: Sequence[str] | None = None) -> None:

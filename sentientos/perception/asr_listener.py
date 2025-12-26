@@ -21,6 +21,7 @@ from typing import Callable, Iterable, Iterator, List, Mapping, Optional, Sequen
 
 from runtime_mode import SENTIENTOS_MODE
 from sentientos.metrics import MetricsRegistry
+from sentientos.optional_deps import optional_import
 
 
 @dataclass
@@ -326,9 +327,10 @@ class _MicrophoneRunner:
         return self._sounddevice_stream() or self._pyaudio_stream()
 
     def _sounddevice_stream(self) -> Iterator[Tuple[Sequence[float], int]] | None:
-        try:  # pragma: no cover - optional dependency
-            import sounddevice as sd
-
+        sd = optional_import("sounddevice", feature="asr_sounddevice")
+        if sd is None:
+            return None
+        try:
             devices = sd.query_devices()
             input_devices = [d for d in devices if d.get("max_input_channels", 0) > 0]
             if not input_devices:
@@ -358,9 +360,10 @@ class _MicrophoneRunner:
             return None
 
     def _pyaudio_stream(self) -> Iterator[Tuple[Sequence[float], int]] | None:
-        try:  # pragma: no cover - optional dependency
-            import pyaudio
-
+        pyaudio = optional_import("pyaudio", feature="asr_pyaudio")
+        if pyaudio is None:
+            return None
+        try:
             audio = pyaudio.PyAudio()
             device_index = None
             for idx in range(audio.get_device_count()):
@@ -475,4 +478,3 @@ __all__ = [
     "CallableASRBackend",
     "NullASRBackend",
 ]
-

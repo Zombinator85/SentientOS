@@ -27,11 +27,14 @@ from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequenc
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
+from importlib import import_module
 import json
 from pathlib import Path
 import threading
 import time
 from typing import Any, Protocol, runtime_checkable
+
+from .optional_deps import optional_import
 
 __all__ = [
     "Workspace",
@@ -391,10 +394,9 @@ class _PlaywrightSession(AbstractContextManager["_PlaywrightSession"], BrowserSe
         self._page = None
 
     def __enter__(self) -> "_PlaywrightSession":
-        try:
-            from playwright.sync_api import sync_playwright
-        except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
-            raise RuntimeError("Playwright is not installed") from exc
+        if optional_import("playwright", feature="oracle_playwright") is None:
+            raise RuntimeError("Playwright is not installed")
+        sync_playwright = import_module("playwright.sync_api").sync_playwright
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.launch(headless=self._headless)
         self._context = self._browser.new_context()
@@ -455,4 +457,3 @@ def default_playwright_factory(*, headless: bool = True) -> Callable[[Workspace]
         return _PlaywrightSession(workspace, headless=headless)
 
     return _factory
-

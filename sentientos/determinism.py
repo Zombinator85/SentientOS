@@ -8,6 +8,7 @@ import random
 from typing import Optional
 
 from .config import RuntimeConfig
+from .optional_deps import dependency_available, optional_import
 
 LOGGER = logging.getLogger(__name__)
 
@@ -44,21 +45,15 @@ def seed_everything(
     seed = resolve_seed(config, override)
     random.seed(seed)
 
-    try:  # pragma: no cover - optional dependency
-        import numpy as np
+    numpy = optional_import("numpy", feature="determinism_seed") if dependency_available("numpy") else None
+    if numpy is not None:
+        numpy.random.seed(seed)
 
-        np.random.seed(seed)
-    except Exception:  # pragma: no cover - best effort only
-        LOGGER.debug("NumPy seeding skipped", exc_info=True)
-
-    try:  # pragma: no cover - optional dependency
-        import torch
-
+    torch = optional_import("torch", feature="determinism_seed") if dependency_available("torch") else None
+    if torch is not None:
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed_all(seed)
-    except Exception:  # pragma: no cover - best effort only
-        LOGGER.debug("Torch seeding skipped", exc_info=True)
 
     return seed
 

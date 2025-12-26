@@ -16,21 +16,12 @@ import queue
 from email.message import EmailMessage
 from pathlib import Path
 import autonomous_audit as aa
-
-try:
-    import requests  # type: ignore[import-untyped]  # optional HTTP client
-except Exception:  # pragma: no cover - fallback when requests isn't installed
-    requests = None
-
-try:
-    import yaml  # type: ignore[import-untyped]  # YAML config
-except Exception:  # pragma: no cover - fallback when PyYAML isn't installed
-    yaml = None
 import ast
 from typing import Any, Dict, Callable
 
 from logging_config import get_log_path
 from talkback_bridge import CameraTalkback
+from sentientos.optional_deps import optional_import
 
 # --- Pluggable actuator registry -------------------------------------------
 
@@ -97,6 +88,7 @@ from memory_manager import write_mem, save_reflection
 WHITELIST_PATH = Path(os.getenv("ACT_WHITELIST", "config/act_whitelist.yml"))
 TEMPLATES_PATH = Path(os.getenv("ACT_TEMPLATES", "config/act_templates.yml"))
 def _load_yaml(text: str):
+    yaml = optional_import("pyyaml", feature="actuator_whitelist")
     if yaml:
         return yaml.safe_load(text)
     data = {}
@@ -240,6 +232,7 @@ def http_fetch(url: str, method: str = "GET", **kwargs) -> dict:
     if not _match_patterns(url, patterns):
         raise PermissionError("URL not allowed")
     timeout = WHITELIST.get("timeout", 30)
+    requests = optional_import("requests", feature="http_requests_client")
     if requests:
         resp = requests.request(method, url, timeout=timeout, **kwargs)
         return {"status": resp.status_code, "text": resp.text}
@@ -288,6 +281,7 @@ def trigger_webhook(url: str, payload: dict) -> dict:
     patterns = WHITELIST.get("http", [])
     if not _match_patterns(url, patterns):
         raise PermissionError("URL not allowed")
+    requests = optional_import("requests", feature="http_requests_client")
     if requests:
         resp = requests.post(url, json=payload, timeout=WHITELIST.get("timeout", 30))
         return {"status": resp.status_code}

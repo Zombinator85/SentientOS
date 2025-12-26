@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import time
+from importlib import import_module
 
-try:  # pragma: no cover - optional dependency
-    from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse, PlainTextResponse
-except ModuleNotFoundError:  # pragma: no cover - test fallback
+from .optional_deps import dependency_available
+
+if dependency_available("fastapi"):
+    FastAPI = import_module("fastapi").FastAPI
+    Request = import_module("fastapi").Request
+    JSONResponse = import_module("fastapi.responses").JSONResponse
+    PlainTextResponse = import_module("fastapi.responses").PlainTextResponse
+else:  # pragma: no cover - test fallback
     class _SimpleResponse(dict):
         def __init__(self, content, status_code: int = 200, media_type: str = "application/json") -> None:
             super().__init__(content=content, status_code=status_code, media_type=media_type)

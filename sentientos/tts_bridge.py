@@ -10,37 +10,21 @@ import asyncio
 import json
 import logging
 import os
-import sys
-import warnings
-from typing import Any
+
+from sentientos.optional_deps import dependency_available, optional_import
 
 logger = logging.getLogger(__name__)
 
 ENABLE_TTS = os.getenv("ENABLE_TTS", "true").lower() == "true"
 ENGINE_TYPE = os.getenv("TTS_ENGINE", "pyttsx3")
 
-try:
-    if ENGINE_TYPE == "edge-tts":
-        from edge_tts import Communicate as EdgeCommunicate
-        _edge_available = True
-    else:
-        EdgeCommunicate = None
-        _edge_available = False
-except Exception:
-    EdgeCommunicate = None
-    _edge_available = False
-
-try:
-    import pyttsx3
-    _pyttsx3_available = True
-except Exception:
-    pyttsx3 = None
-    _pyttsx3_available = False
-
-
 def is_tts_available() -> bool:
     """Return True if a TTS engine is available."""
-    return _pyttsx3_available or _edge_available
+    if ENGINE_TYPE == "edge-tts":
+        return dependency_available("edge-tts")
+    if ENGINE_TYPE == "pyttsx3":
+        return dependency_available("pyttsx3")
+    return dependency_available("edge-tts") or dependency_available("pyttsx3")
 
 
 async def say(text: str, voice: str = "en-US-GuyNeural") -> None:
@@ -50,13 +34,23 @@ async def say(text: str, voice: str = "en-US-GuyNeural") -> None:
         print(text)
         return
 
-    if ENGINE_TYPE == "edge-tts" and _edge_available and EdgeCommunicate is not None:
+    if ENGINE_TYPE == "edge-tts":
+        edge_tts = optional_import("edge-tts", feature="tts_bridge_edge")
+        if edge_tts is None:
+            logger.warning(json.dumps({"event_type": "tts_disabled", "engine": ENGINE_TYPE}))
+            print(text)
+            return
         try:
-            comm = EdgeCommunicate(text=text, voice=voice)
+            comm = edge_tts.Communicate(text=text, voice=voice)
             await comm.save("/tmp/tts_output.mp3")
         except Exception as exc:
             logger.error("[TTS error] %s", exc)
-    elif ENGINE_TYPE == "pyttsx3" and _pyttsx3_available and pyttsx3 is not None:
+    elif ENGINE_TYPE == "pyttsx3":
+        pyttsx3 = optional_import("pyttsx3", feature="tts_bridge_pyttsx3")
+        if pyttsx3 is None:
+            logger.warning(json.dumps({"event_type": "tts_disabled", "engine": ENGINE_TYPE}))
+            print(text)
+            return
         try:
             engine = pyttsx3.init()
             engine.say(text)
@@ -64,7 +58,7 @@ async def say(text: str, voice: str = "en-US-GuyNeural") -> None:
         except Exception as exc:
             logger.error("[TTS error] %s", exc)
     else:
-        warnings.warn("[TTS disabled] no compatible engine")
+        logger.warning(json.dumps({"event_type": "tts_disabled", "engine": ENGINE_TYPE}))
         print(text)
 
 

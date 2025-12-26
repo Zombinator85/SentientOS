@@ -7,10 +7,11 @@ require_lumos_approval()
 import argparse
 import json
 import os
+import urllib.request
 from pathlib import Path
 from typing import Dict, Any
 
-import requests  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
+from sentientos.optional_deps import optional_import
 
 # Send Slack alerts when model quotas run low.
 
@@ -34,8 +35,15 @@ def load_latest_usage(path: Path) -> Dict[str, Dict[str, Any]]:
 def send_slack(webhook: str, message: str) -> None:
     """Post a message to Slack via webhook."""
     try:
-        resp = requests.post(webhook, json={"text": message}, timeout=10)
-        resp.raise_for_status()
+        requests = optional_import("requests", feature="quota_alert")
+        if requests:
+            resp = requests.post(webhook, json={"text": message}, timeout=10)
+            resp.raise_for_status()
+        else:
+            payload = json.dumps({"text": message}).encode("utf-8")
+            req = urllib.request.Request(webhook, data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10):
+                pass
     except Exception as exc:
         print(f"Failed to notify Slack: {exc}")
 
