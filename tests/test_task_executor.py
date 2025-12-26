@@ -1,4 +1,6 @@
 from importlib import reload
+import json
+from pathlib import Path
 from typing import Any, Mapping
 
 import pytest
@@ -674,6 +676,244 @@ def test_unknown_prerequisite_refuses_guess(monkeypatch, tmp_path):
         task_executor.execute_task(task, authorization=auth, admission_token=token)
 
     assert called["step"] is False
+
+
+def test_epr_exhaustion_halts_execution_and_logs_once(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_MAX_CLOSURE_ITERATIONS", "2")
+    monkeypatch.setenv("SENTIENTOS_MAX_EPR_ACTIONS_PER_TASK", "2")
+    reload(task_executor)
+    called = {"step": False, "repair": 0}
+
+    def repair_action():
+        called["repair"] += 1
+        return {"closure_changed": False}
+
+    def fail_run_step(step):
+        called["step"] = True
+        raise AssertionError("step execution should not start after exhaustion")
+
+    task = task_executor.Task(
+        task_id="epr-exhaust",
+        objective="detect non-converging repair",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="epr-exhaust",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                handler=repair_action,
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="epr-exhaust",
+        context_hash="ctx-epr-exhaust",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    monkeypatch.setattr(task_executor, "_run_step", fail_run_step)
+
+    with pytest.raises(task_executor.TaskExhausted) as excinfo:
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert called["step"] is False
+    assert called["repair"] == 1
+    assert excinfo.value.report.exhaustion_type == "epr_exhausted"
+    entries = [json.loads(line) for line in Path(task_executor.LOG_PATH).read_text().splitlines()]
+    exhaustion_entries = [entry for entry in entries if entry.get("event") == "exhaustion"]
+    assert len(exhaustion_entries) == 1
+
+
+def test_unknown_prerequisite_cycles_exhaust(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_MAX_UNKNOWN_RESOLUTION_CYCLES", "0")
+    reload(task_executor)
+    called = {"step": False}
+
+    def step_action():
+        called["step"] = True
+        return {}
+
+    task = task_executor.Task(
+        task_id="unknown-exhaust",
+        objective="detect unknown cycles",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="unknown-exhaust",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                unknown_prerequisite=task_executor.UnknownPrerequisite(
+                    condition="GPU feature Z support",
+                    reason="hardware manifest not provided",
+                    unblock_query="Confirm GPU support.",
+                ),
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="unknown-exhaust",
+        context_hash="ctx-unknown-exhaust",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+
+    with pytest.raises(task_executor.TaskExhausted) as excinfo:
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert called["step"] is False
+    assert excinfo.value.report.exhaustion_type == "closure_exhausted"
+    assert "unknown_prerequisite_cycles_exceeded" in excinfo.value.report.cycle_evidence
+
+
+def test_operator_input_resets_exhaustion(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_MAX_UNKNOWN_RESOLUTION_CYCLES", "0")
+    reload(task_executor)
+    called = {"step": False}
+
+    def step_action():
+        called["step"] = True
+        return {}
+
+    task = task_executor.Task(
+        task_id="unknown-reset",
+        objective="reset after operator input",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="unknown-reset",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                unknown_prerequisite=task_executor.UnknownPrerequisite(
+                    condition="GPU feature Z support",
+                    reason="hardware manifest not provided",
+                    unblock_query="Confirm GPU support.",
+                ),
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="unknown-reset",
+        context_hash="ctx-unknown-reset",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+
+    with pytest.raises(task_executor.TaskExhausted):
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    resolved_task = task_executor.Task(
+        task_id="unknown-reset",
+        objective="reset after operator input",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="unknown-reset",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                unknown_prerequisite=task_executor.UnknownPrerequisite(
+                    condition="GPU feature Z support",
+                    reason="hardware manifest not provided",
+                    response="Operator confirmed support.",
+                    resolved_status="satisfied",
+                ),
+            ),
+        ),
+    )
+
+    result = task_executor.execute_task(resolved_task, authorization=auth, admission_token=_issue_token(resolved_task, auth))
+
+    assert result.status == "completed"
+    assert called["step"] is True
+
+
+def test_exhaustion_stops_before_almost_converging(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_MAX_CLOSURE_ITERATIONS", "1")
+    reload(task_executor)
+    assessments = {"count": 0}
+
+    def step_action():
+        return {}
+
+    def assess_prerequisite(task, action):
+        assessments["count"] += 1
+        if assessments["count"] == 1:
+            return task_executor.PrerequisiteAssessment(
+                action_id=action.action_id,
+                status="epr-fixable",
+                reason="requires one more cycle",
+            )
+        return task_executor.PrerequisiteAssessment(
+            action_id=action.action_id,
+            status="satisfied",
+            reason="operator provided last detail",
+        )
+
+    task = task_executor.Task(
+        task_id="almost-converge",
+        objective="stop at limit",
+        steps=(task_executor.Step(step_id=1, kind="python", payload=task_executor.PythonPayload(callable=step_action)),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="almost-converge",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+            ),
+        ),
+    )
+
+    auth = admit_request(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="almost-converge",
+        context_hash="ctx-almost-converge",
+        policy_version="v1-static",
+    ).record
+    token = _issue_token(task, auth)
+    monkeypatch.setattr(task_executor, "_assess_prerequisite", assess_prerequisite)
+
+    with pytest.raises(task_executor.TaskExhausted) as excinfo:
+        task_executor.execute_task(task, authorization=auth, admission_token=token)
+
+    assert excinfo.value.report.exhaustion_type == "closure_exhausted"
+    assert assessments["count"] == 1
 
 
 def test_admission_token_requires_provenance(monkeypatch, tmp_path):
