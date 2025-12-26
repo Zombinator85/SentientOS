@@ -39,3 +39,5 @@ class CycleOutput(TypedDict, total=False):
     innerworld_reflection: Mapping[str, Any]
     narrative_chapters: list[Mapping[str, Any]]
     identity_summary: Mapping[str, Any]
+    cognitive_proposals: list[Mapping[str, Any]]
+    cognitive_summary: list[str]

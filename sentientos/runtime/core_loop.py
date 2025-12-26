@@ -6,6 +6,7 @@ from copy import deepcopy
 import logging
 from typing import Any, MutableMapping
 
+from sentientos.cognition import CognitiveSurface
 from sentientos.innerworld import InnerWorldOrchestrator
 from sentientos.logging.events import (
     log_ethics_report,
@@ -35,9 +36,11 @@ class CoreLoop:
     def __init__(
         self,
         innerworld: InnerWorldOrchestrator | None = None,
+        cognitive_surface: CognitiveSurface | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
         self.innerworld = innerworld or InnerWorldOrchestrator()
+        self.cognitive_surface = cognitive_surface
         self._logger = logger or LOGGER
 
     def run_cycle(self, cycle_state: CycleInput) -> CycleOutput:
@@ -107,6 +110,12 @@ class CoreLoop:
                 log_debug_config_snapshot(config_snapshot)
 
         state_snapshot["innerworld"] = inner_report
+        cognitive_proposals = []
+        cognitive_summary = []
+        if self.cognitive_surface is not None and self.cognitive_surface.enabled:
+            proposals = self.cognitive_surface.proposals_from_state(state_snapshot)
+            cognitive_proposals = [proposal.as_dict() for proposal in proposals]
+            cognitive_summary = self.cognitive_surface.preference_usage_summary()
         result = {
             "cycle_state": state_snapshot,
             "innerworld": inner_report,
@@ -123,6 +132,8 @@ class CoreLoop:
             "autobiography": inner_report.get("autobiography"),
             "federation_digest": inner_report.get("federation_digest"),
             "federation_consensus": inner_report.get("federation_consensus"),
+            "cognitive_proposals": cognitive_proposals,
+            "cognitive_summary": cognitive_summary,
         }
 
         if config_snapshot is not None:
