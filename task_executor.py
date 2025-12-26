@@ -428,6 +428,12 @@ def _load_closure_limits() -> ClosureLimits:
     )
 
 
+def load_closure_limits() -> ClosureLimits:
+    limits = _load_closure_limits()
+    _validate_limits(limits)
+    return limits
+
+
 def _read_int_env(name: str, default: int) -> int:
     value = os.getenv(name)
     if value is None or not value.strip():
