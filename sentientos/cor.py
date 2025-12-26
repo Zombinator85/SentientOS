@@ -16,6 +16,7 @@ import os
 import time
 
 from logging_config import get_log_path
+from sentientos.governance.routine_delegation import RoutineProposal, RoutineSpec, make_routine_proposal
 
 
 LOG_PATH = get_log_path("cor_events.jsonl", "COR_LOG")
@@ -180,6 +181,11 @@ class CORSubsystem:
     def suppress_proposal(self, hypothesis: str) -> None:
         self._proposal_suppression[hypothesis] = time.time()
 
+    def propose_routine(self, summary: str, spec: RoutineSpec, *, proposed_by: str = "cor") -> RoutineProposal:
+        proposal = make_routine_proposal(summary=summary, spec=spec, proposed_by=proposed_by)
+        self._log_event("routine_proposal", proposal.to_dict())
+        return proposal
+
     def _retain_raw_event(self, event: ObservationEvent) -> None:
         if self.config.raw_retention_seconds <= 0:
             return
@@ -231,4 +237,3 @@ class CORSubsystem:
         }
         with LOG_PATH.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
-
