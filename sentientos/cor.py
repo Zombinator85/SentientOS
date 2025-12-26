@@ -9,8 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from collections import deque
 from datetime import datetime, timezone
-from typing import Deque, Dict, Iterable, List, Optional, Protocol
+from typing import Callable, Deque, Dict, Iterable, List, Optional, Protocol
 
+import hashlib
 import json
 import os
 import time
@@ -104,6 +105,10 @@ class CORConfig:
     raw_retention_seconds: int = 0
     max_raw_events: int = 50
     proposal_confidence_threshold: float = 0.85
+    hypothesis_decay_window_seconds: int = 900
+    hypothesis_expiry_seconds: int = 1800
+    hypothesis_stale_confidence_threshold: float = 0.5
+    proposal_suppression_seconds: int = 1800
 
     @classmethod
     def from_env(cls) -> "CORConfig":
@@ -117,12 +122,48 @@ class CORConfig:
         proposal_confidence_threshold = float(
             os.getenv("COR_PROPOSAL_CONFIDENCE_THRESHOLD", "0.85")
         )
+        hypothesis_decay_window_seconds = int(
+            os.getenv("COR_HYPOTHESIS_DECAY_WINDOW_SECONDS", "900"),
+            10,
+        )
+        hypothesis_expiry_seconds = int(
+            os.getenv("COR_HYPOTHESIS_EXPIRY_SECONDS", "1800"),
+            10,
+        )
+        hypothesis_stale_confidence_threshold = float(
+            os.getenv("COR_HYPOTHESIS_STALE_CONFIDENCE", "0.5")
+        )
+        proposal_suppression_seconds = int(
+            os.getenv("COR_PROPOSAL_SUPPRESSION_SECONDS", "1800"),
+            10,
+        )
         return cls(
             enabled_sources=enabled_sources,
             raw_retention_seconds=raw_retention_seconds,
             max_raw_events=max_raw_events,
             proposal_confidence_threshold=proposal_confidence_threshold,
+            hypothesis_decay_window_seconds=hypothesis_decay_window_seconds,
+            hypothesis_expiry_seconds=hypothesis_expiry_seconds,
+            hypothesis_stale_confidence_threshold=hypothesis_stale_confidence_threshold,
+            proposal_suppression_seconds=proposal_suppression_seconds,
         )
+
+
+@dataclass
+class HypothesisRecord:
+    hypothesis: str
+    confidence: float
+    last_seen: float
+    evidence: Dict[str, object]
+    peak_confidence: float
+
+
+@dataclass
+class ProposalSuppression:
+    suppressed_until: float
+    last_evidence_hash: str
+    peak_confidence: float
+    rejected_at: float
 
 
 class CORSubsystem:
@@ -132,13 +173,18 @@ class CORSubsystem:
         self,
         config: Optional[CORConfig] = None,
         adapters: Optional[Iterable[ObservationAdapter]] = None,
+        now_fn: Optional[Callable[[], float]] = None,
     ) -> None:
         self.config = config or CORConfig.from_env()
         self.context = ContextModel()
         self._raw_events: Deque[ObservationEvent] = deque(maxlen=self.config.max_raw_events)
         self._hypothesis_history: Deque[Hypothesis] = deque(maxlen=200)
-        self._proposal_suppression: Dict[str, float] = {}
+        self._hypothesis_records: Dict[str, HypothesisRecord] = {}
+        self._proposal_suppression: Dict[str, ProposalSuppression] = {}
+        self._archived_proposals: Deque[ProposalArtifact] = deque(maxlen=200)
         self._adapters = list(adapters or [])
+        self._now = now_fn or time.time
+        self._global_silence_until = 0.0
 
     def register_adapter(self, adapter: ObservationAdapter) -> None:
         self._adapters.append(adapter)
@@ -152,20 +198,24 @@ class CORSubsystem:
         self._log_event("observation", event.__dict__)
 
     def ingest_hypothesis(self, hypothesis: Hypothesis) -> Optional[ProposalArtifact]:
+        now = self._now()
+        self._prune_hypotheses(now)
+        self._prune_suppression(now)
         self._hypothesis_history.append(hypothesis)
+        self._record_hypothesis(hypothesis, now)
         self._log_event("reflection", hypothesis.__dict__)
-        if hypothesis.confidence < self.config.proposal_confidence_threshold:
+        decayed_confidence = self._decayed_confidence(hypothesis.confidence, now, hypothesis.hypothesis)
+        if decayed_confidence < self.config.proposal_confidence_threshold:
             return None
-        if self._is_suppressed(hypothesis.hypothesis):
+        if self._is_suppressed(hypothesis.hypothesis, hypothesis.evidence, decayed_confidence, now):
             return None
         proposal = ProposalArtifact(
             summary=hypothesis.hypothesis,
-            confidence=hypothesis.confidence,
+            confidence=decayed_confidence,
             hypothesis=hypothesis.hypothesis,
             created_at=datetime.now(timezone.utc).isoformat(),
             evidence=dict(hypothesis.evidence),
         )
-        self._proposal_suppression[hypothesis.hypothesis] = time.time()
         self._log_event("proposal", proposal.__dict__)
         return proposal
 
@@ -182,7 +232,109 @@ class CORSubsystem:
         return snapshot
 
     def suppress_proposal(self, hypothesis: str) -> None:
-        self._proposal_suppression[hypothesis] = time.time()
+        self.record_proposal_rejection(hypothesis=hypothesis, evidence={}, confidence=0.0, reason="operator_suppress")
+
+    def record_proposal_rejection(
+        self,
+        *,
+        hypothesis: str,
+        evidence: Dict[str, object],
+        confidence: float,
+        reason: str,
+    ) -> None:
+        now = self._now()
+        evidence_hash = self._evidence_hash(evidence)
+        suppression = self._proposal_suppression.get(hypothesis)
+        peak_confidence = max(confidence, suppression.peak_confidence) if suppression else confidence
+        self._proposal_suppression[hypothesis] = ProposalSuppression(
+            suppressed_until=now + self.config.proposal_suppression_seconds,
+            last_evidence_hash=evidence_hash,
+            peak_confidence=peak_confidence,
+            rejected_at=now,
+        )
+        archived = ProposalArtifact(
+            summary=hypothesis,
+            confidence=confidence,
+            hypothesis=hypothesis,
+            created_at=datetime.now(timezone.utc).isoformat(),
+            actionability="proposal_only",
+            status="rejected",
+            evidence=dict(evidence),
+        )
+        self._archived_proposals.append(archived)
+        self._log_event(
+            "proposal_rejected",
+            {
+                "hypothesis": hypothesis,
+                "confidence": confidence,
+                "reason": reason,
+                "suppressed_until": self._proposal_suppression[hypothesis].suppressed_until,
+            },
+        )
+
+    def reset_context(self, *, reason: str) -> None:
+        self.context = ContextModel()
+        self._hypothesis_history.clear()
+        self._hypothesis_records.clear()
+        self._proposal_suppression.clear()
+        self._raw_events.clear()
+        self._log_event("context_reset", {"reason": reason})
+
+    def handle_context_boundary(self, boundary: str) -> None:
+        if boundary not in {"screen_lock", "screen_unlock", "user_switch", "long_idle", "system_restart"}:
+            return
+        self.reset_context(reason=boundary)
+
+    def silence_proposals(self, *, duration_seconds: int) -> None:
+        self._global_silence_until = max(self._global_silence_until, self._now() + duration_seconds)
+        self._log_event("proposal_silence", {"until": self._global_silence_until})
+
+    def forget_hypothesis(self, hypothesis: str, *, reason: str = "operator_forget") -> bool:
+        record = self._hypothesis_records.pop(hypothesis, None)
+        if record is None:
+            return False
+        self._log_event(
+            "hypothesis_forget",
+            {"hypothesis": hypothesis, "reason": reason, "last_seen": record.last_seen},
+        )
+        return True
+
+    def forget_all_context(self, *, reason: str = "operator_forget_all") -> None:
+        self.reset_context(reason=reason)
+
+    def diagnostics_snapshot(self) -> Dict[str, object]:
+        now = self._now()
+        self._prune_hypotheses(now)
+        self._prune_suppression(now)
+        beliefs: List[Dict[str, object]] = []
+        for record in self._hypothesis_records.values():
+            age = now - record.last_seen
+            decayed = self._decay_confidence(record.confidence, age)
+            beliefs.append(
+                {
+                    "hypothesis": record.hypothesis,
+                    "confidence": record.confidence,
+                    "decayed_confidence": decayed,
+                    "last_seen": record.last_seen,
+                    "stale": decayed < self.config.hypothesis_stale_confidence_threshold,
+                    "expires_at": record.last_seen + self.config.hypothesis_expiry_seconds,
+                }
+            )
+        suppressions = {
+            key: {
+                "suppressed_until": suppression.suppressed_until,
+                "peak_confidence": suppression.peak_confidence,
+                "rejected_at": suppression.rejected_at,
+            }
+            for key, suppression in self._proposal_suppression.items()
+        }
+        snapshot = {
+            "beliefs": sorted(beliefs, key=lambda item: item["hypothesis"]),
+            "suppressed": suppressions,
+            "global_silence_until": self._global_silence_until,
+        }
+        self._log_event("diagnostics", snapshot)
+        return snapshot
 
     def propose_routine(self, summary: str, spec: RoutineSpec, *, proposed_by: str = "cor") -> RoutineProposal:
         proposal = make_routine_proposal(summary=summary, spec=spec, proposed_by=proposed_by)
@@ -225,10 +377,77 @@ class CORSubsystem:
         if isinstance(friction, dict):
             self.context.friction_signals.append(friction)
 
-    def _is_suppressed(self, hypothesis: str) -> bool:
-        if hypothesis not in self._proposal_suppression:
+    def _record_hypothesis(self, hypothesis: Hypothesis, now: float) -> None:
+        existing = self._hypothesis_records.get(hypothesis.hypothesis)
+        peak_confidence = max(hypothesis.confidence, existing.peak_confidence) if existing else hypothesis.confidence
+        self._hypothesis_records[hypothesis.hypothesis] = HypothesisRecord(
+            hypothesis=hypothesis.hypothesis,
+            confidence=hypothesis.confidence,
+            last_seen=now,
+            evidence=dict(hypothesis.evidence),
+            peak_confidence=peak_confidence,
+        )
+
+    def _decayed_confidence(self, confidence: float, now: float, hypothesis: str) -> float:
+        record = self._hypothesis_records.get(hypothesis)
+        if not record:
+            return confidence
+        age = now - record.last_seen
+        return self._decay_confidence(record.confidence, age)
+
+    def _decay_confidence(self, confidence: float, age_seconds: float) -> float:
+        if age_seconds <= 0 or self.config.hypothesis_decay_window_seconds <= 0:
+            return confidence
+        decay_window = self.config.hypothesis_decay_window_seconds
+        factor = max(0.0, 1.0 - (age_seconds / decay_window))
+        return max(0.0, min(1.0, confidence * factor))
+
+    def _is_suppressed(
+        self,
+        hypothesis: str,
+        evidence: Dict[str, object],
+        confidence: float,
+        now: float,
+    ) -> bool:
+        if now < self._global_silence_until:
+            return True
+        suppression = self._proposal_suppression.get(hypothesis)
+        if suppression is None:
             return False
-        return True
+        if now >= suppression.suppressed_until:
+            return False
+        evidence_hash = self._evidence_hash(evidence)
+        evidence_changed = evidence_hash != suppression.last_evidence_hash
+        confidence_surpassed = confidence > suppression.peak_confidence
+        return not (evidence_changed or confidence_surpassed)
+
+    def _prune_hypotheses(self, now: float) -> None:
+        if self.config.hypothesis_expiry_seconds <= 0:
+            return
+        expired = [
+            key
+            for key, record in self._hypothesis_records.items()
+            if now - record.last_seen >= self.config.hypothesis_expiry_seconds
+        ]
+        for key in expired:
+            record = self._hypothesis_records.pop(key)
+            self._log_event(
+                "hypothesis_expired",
+                {"hypothesis": record.hypothesis, "reason": "expired_due_to_inactivity"},
+            )
+
+    def _prune_suppression(self, now: float) -> None:
+        expired = [
+            key
+            for key, suppression in self._proposal_suppression.items()
+            if now >= suppression.suppressed_until
+        ]
+        for key in expired:
+            self._proposal_suppression.pop(key, None)
+
+    def _evidence_hash(self, evidence: Dict[str, object]) -> str:
+        payload = json.dumps(evidence, sort_keys=True, default=str)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def _log_event(self, kind: str, payload: Dict[str, object]) -> None:
         entry = {

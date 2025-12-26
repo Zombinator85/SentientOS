@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import json
+import time
 
 from logging_config import get_log_path
 from sentientos.cor import Hypothesis, ObservationEvent
@@ -13,6 +14,9 @@ from sentientos.cor import Hypothesis, ObservationEvent
 
 _DEFAULT_MIN_CONFIDENCE = 0.6
 _DEFAULT_PROPOSAL_CONFIDENCE = 0.8
+_DEFAULT_DECAY_WINDOW_SECONDS = 900
+_DEFAULT_EXPIRY_SECONDS = 1800
+_DEFAULT_STALE_THRESHOLD = 0.5
 
 
 @dataclass(frozen=True)
@@ -72,6 +76,16 @@ class SymbolicObservation:
 class SSUConfig:
     min_confidence: float = _DEFAULT_MIN_CONFIDENCE
     proposal_confidence_threshold: float = _DEFAULT_PROPOSAL_CONFIDENCE
+    decay_window_seconds: int = _DEFAULT_DECAY_WINDOW_SECONDS
+    expiry_seconds: int = _DEFAULT_EXPIRY_SECONDS
+    stale_confidence_threshold: float = _DEFAULT_STALE_THRESHOLD
+
+
+@dataclass
+class SymbolRecord:
+    symbol: SymbolicElement
+    last_seen: float
+    peak_confidence: float
 
 
 class SymbolicScreenUnderstanding:
@@ -81,11 +95,14 @@ class SymbolicScreenUnderstanding:
         self,
         config: Optional[SSUConfig] = None,
         log_path: Optional[str] = None,
+        now_fn: Optional[Callable[[], float]] = None,
     ) -> None:
         self.config = config or SSUConfig()
         self.log_path = get_log_path(log_path or "ssu_events.jsonl", "SSU_LOG")
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self._sequence = 0
+        self._symbol_records: Dict[Tuple[Optional[str], str, Optional[str], Optional[str]], SymbolRecord] = {}
+        self._now = now_fn or time.time
 
     def extract(self, observation: Dict[str, object]) -> SymbolicObservation:
         self._sequence += 1
@@ -140,6 +157,7 @@ class SymbolicScreenUnderstanding:
             sequence_id=self._sequence,
             raw_observation=self._raw_payload(observation, degraded),
         )
+        self._record_symbols(symbolic)
         self._log_symbolic_observation(symbolic)
         return symbolic
 
@@ -160,10 +178,12 @@ class SymbolicScreenUnderstanding:
         )
 
     def symbols_for_proposal(self, observation: SymbolicObservation) -> List[SymbolicElement]:
+        self._prune_records(self._now())
         return [
             symbol
             for symbol in observation.symbols
-            if symbol.confidence >= self.config.proposal_confidence_threshold and not symbol.tentative
+            if self._decayed_confidence(symbol) >= self.config.proposal_confidence_threshold
+            and not symbol.tentative
         ]
 
     def build_hypothesis_from_symbols(
@@ -206,6 +226,42 @@ class SymbolicScreenUnderstanding:
                 )
             )
         return symbols
+
+    def _record_symbols(self, observation: SymbolicObservation) -> None:
+        now = self._now()
+        for symbol in observation.symbols:
+            key = self._symbol_key(symbol)
+            record = self._symbol_records.get(key)
+            peak = max(symbol.confidence, record.peak_confidence) if record else symbol.confidence
+            self._symbol_records[key] = SymbolRecord(symbol=symbol, last_seen=now, peak_confidence=peak)
+        self._prune_records(now)
+
+    def _decayed_confidence(self, symbol: SymbolicElement) -> float:
+        record = self._symbol_records.get(self._symbol_key(symbol))
+        if record is None:
+            return 0.0
+        age = self._now() - record.last_seen
+        return self._apply_decay(record.symbol.confidence, age)
+
+    def _apply_decay(self, confidence: float, age_seconds: float) -> float:
+        if age_seconds <= 0 or self.config.decay_window_seconds <= 0:
+            return confidence
+        factor = max(0.0, 1.0 - (age_seconds / self.config.decay_window_seconds))
+        return max(0.0, min(1.0, confidence * factor))
+
+    def _prune_records(self, now: float) -> None:
+        if self.config.expiry_seconds <= 0:
+            return
+        expired = [
+            key
+            for key, record in self._symbol_records.items()
+            if now - record.last_seen >= self.config.expiry_seconds
+        ]
+        for key in expired:
+            self._symbol_records.pop(key, None)
+
+    def _symbol_key(self, symbol: SymbolicElement) -> Tuple[Optional[str], str, Optional[str], Optional[str]]:
+        return (symbol.app, symbol.element_type, symbol.label, symbol.state)
 
     def _infer_ui_state(
         self,
