@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Awaitable
+from importlib import import_module
+from typing import Awaitable, Callable
 
-try:  # pragma: no cover - optional dependency
-    from starlette.middleware.base import BaseHTTPMiddleware
-    from starlette.requests import Request
-    from starlette.responses import Response
-except ModuleNotFoundError:  # pragma: no cover - test fallback
+from .optional_deps import dependency_available
+
+if dependency_available("starlette"):
+    BaseHTTPMiddleware = import_module("starlette.middleware.base").BaseHTTPMiddleware
+    Request = import_module("starlette.requests").Request
+    Response = import_module("starlette.responses").Response
+else:  # pragma: no cover - test fallback
     class BaseHTTPMiddleware:  # type: ignore[misc]
         def __init__(self, app) -> None:
             self.app = app
@@ -64,4 +67,3 @@ class RedactingLoggingMiddleware(BaseHTTPMiddleware):
 
 
 __all__ = ["RedactingLoggingMiddleware"]
-

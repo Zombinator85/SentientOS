@@ -7,10 +7,7 @@ import threading
 from dataclasses import dataclass
 from typing import Optional
 
-try:  # pragma: no cover - optional dependency in runtime environments
-    import pyttsx3  # type: ignore
-except Exception:  # pragma: no cover - fallback when library unavailable
-    pyttsx3 = None  # type: ignore[assignment]
+from sentientos.optional_deps import optional_import
 
 LOGGER = logging.getLogger("sentientos.voice.tts")
 
@@ -53,8 +50,8 @@ class TtsEngine:
                 return self._engine
             self._initialised = True
 
+            pyttsx3 = optional_import("pyttsx3", feature="voice_tts")
             if pyttsx3 is None:
-                LOGGER.warning("pyttsx3 is unavailable; TTS disabled")
                 return None
 
             try:

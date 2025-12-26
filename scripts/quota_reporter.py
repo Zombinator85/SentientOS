@@ -15,9 +15,10 @@ import datetime as dt
 import json
 import os
 import time
+import urllib.request
 from logging_config import get_log_path
 
-import requests  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
+from sentientos.optional_deps import optional_import
 
 from scripts.auto_approve import prompt_yes_no
 
@@ -61,14 +62,24 @@ def post_to_slack(msg: str) -> None:
         print("SLACK_WEBHOOK_URL not set")
         return
     while True:
-        resp = requests.post(url, json={"text": msg})
-        if resp.status_code == 429:
-            delay = int(resp.headers.get("Retry-After", "1"))
+        requests = optional_import("requests", feature="quota_reporter")
+        if requests:
+            resp = requests.post(url, json={"text": msg})
+            status_code = resp.status_code
+            retry_after = resp.headers.get("Retry-After")
+        else:
+            payload = json.dumps({"text": msg}).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req) as response:
+                status_code = response.status
+                retry_after = response.headers.get("Retry-After")
+        if status_code == 429:
+            delay = int(retry_after or "1")
             time.sleep(delay)
             continue
+        if status_code >= 400:
+            raise RuntimeError(f"Slack error {status_code}")
         break
-    if resp.status_code >= 400:
-        raise RuntimeError(f"Slack error {resp.status_code}")
 
 
 def main(argv: list[str] | None = None) -> int:

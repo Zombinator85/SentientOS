@@ -9,18 +9,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
-try:  # pragma: no cover - optional dependency
-    import yaml
-except ModuleNotFoundError:  # pragma: no cover - fallback
-    yaml = None  # type: ignore[assignment]
-
-try:  # pragma: no cover - optional dependency
-    from .admin_server import RUNTIME
-except ModuleNotFoundError:  # pragma: no cover - test environment fallback
-    from .autonomy import AutonomyRuntime
-    from .config import load_runtime_config
-
-    RUNTIME = AutonomyRuntime.from_config(load_runtime_config())
+from .admin_server import RUNTIME
+from .optional_deps import optional_import
 
 from .metrics import MetricsRegistry
 from .slo import evaluate as evaluate_slos
@@ -54,6 +44,7 @@ class Alert:
 
 
 def _load_yaml_rule(path: Path) -> AlertRule | None:
+    yaml = optional_import("pyyaml", feature="alert_rules")
     if yaml is None:
         return None
     try:
@@ -314,4 +305,3 @@ __all__ = [
     "snapshot",
     "write_alerts",
 ]
-

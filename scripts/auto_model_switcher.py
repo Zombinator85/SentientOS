@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
+from sentientos.optional_deps import optional_import
 
 # Switch models based on remaining quotas and configured fallbacks.
 
@@ -56,6 +56,11 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default="model_switcher.yml", help="Task to model mapping YAML")
     parser.add_argument("--usage-json", type=Path, default=USAGE_FILE, help="Usage monitor file")
     args = parser.parse_args()
+
+    yaml = optional_import("pyyaml", feature="model_switcher_config")
+    if yaml is None:
+        print("Model switcher disabled: optional dependency 'pyyaml' is missing.")
+        return
 
     if not args.config.exists():
         print(f"Config not found: {args.config}")

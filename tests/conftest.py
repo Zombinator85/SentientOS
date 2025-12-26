@@ -1,11 +1,11 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 # noqa: D100 - all tests share this setup module
 from __future__ import annotations
+import builtins
+import importlib.util
 import json
 import sys
 from pathlib import Path
-import builtins
-import json
 
 import types
 
@@ -50,27 +50,11 @@ require_covenant_alignment()
 # stubbed ahead of time. Stub them here so test discovery doesn't trip the
 # privilege checks.
 
-import importlib
 import pytest
-import types
+
+from tests.legacy_policy import LEGACY_SKIP_REASON, is_legacy_candidate, legacy_marker_enabled
 
 from sentientos.codex_startup_guard import codex_startup_phase
-
-try:
-    importlib.import_module('yaml')
-except Exception:
-    yaml_stub = types.ModuleType('yaml')
-
-    def _safe_load(text: str | None, *_, **__) -> object:
-        if not text:
-            return {}
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return {}
-
-    yaml_stub.safe_load = _safe_load  # type: ignore[attr-defined]
-    sys.modules['yaml'] = yaml_stub
 
 from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
 from nacl.signing import SigningKey
@@ -82,9 +66,7 @@ sys.modules['requests'].post = lambda *a, **k: None
 sys.modules['requests'].request = lambda *a, **k: None
 
 for name in ['pyesprima', 'sarif_om']:
-    try:
-        importlib.import_module(name)
-    except Exception:
+    if importlib.util.find_spec(name) is None:
         sys.modules[name] = types.ModuleType(name)
 
 
@@ -93,6 +75,7 @@ def pytest_configure(config):
     config.addinivalue_line('markers', 'requires_go: skip if go missing')
     config.addinivalue_line('markers', 'requires_dmypy: skip if dmypy missing')
     config.addinivalue_line('markers', 'network: tests that mock HTTP calls')
+    config.addinivalue_line('markers', 'legacy: quarantined tests run with -m legacy')
 
 
 def pytest_addoption(parser):
@@ -259,19 +242,20 @@ def pytest_collection_modifyitems(config, items):
         "tests.integrity.test_covenant_autoalign",
         "tests.test_glossary_lint",
     }
+    legacy_enabled = legacy_marker_enabled(config.option.markexpr)
     for item in items:
         module_name = item.module.__name__
         path_str = str(getattr(item, "fspath", ""))
-        if (
-            item.name != "test_placeholder"
-            and not item.name.startswith("test_emotion_pump")
-            and "tests/e2e/" not in path_str
-            and "tests/consciousness/" not in path_str
-            and module_name not in allowed_modules
-            and not module_name.startswith("tests.integrity.")
-            and "no_legacy_skip" not in item.keywords
+        if is_legacy_candidate(
+            module_name=module_name,
+            path_str=path_str,
+            test_name=item.name,
+            keywords=item.keywords,
+            allowed_modules=allowed_modules,
         ):
-            item.add_marker(pytest.mark.skip(reason="legacy test disabled"))
+            item.add_marker(pytest.mark.legacy)
+            if not legacy_enabled:
+                item.add_marker(pytest.mark.skip(reason=LEGACY_SKIP_REASON))
         if 'requires_node' in item.keywords and not HAS_NODE:
             item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE.info}'))
         if 'requires_go' in item.keywords and not HAS_GO:

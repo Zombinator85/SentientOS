@@ -7,10 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
-try:  # pragma: no cover - optional dependency
-    import yaml
-except ModuleNotFoundError:  # pragma: no cover - fallback to built-ins
-    yaml = None  # type: ignore[assignment]
+from .optional_deps import optional_import
 
 from .metrics import MetricsRegistry
 from .storage import get_data_root
@@ -77,6 +74,7 @@ def _load_default_definitions() -> list[SLODefinition]:
 
 
 def _load_yaml_definitions(path: Path) -> list[SLODefinition]:
+    yaml = optional_import("pyyaml", feature="slo_definitions")
     if yaml is None:
         return []
     try:
@@ -247,4 +245,3 @@ __all__ = [
     "to_dict",
     "to_prometheus",
 ]
-

@@ -4,6 +4,8 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
+from sentientos.optional_deps import optional_import
+
 from .base import Adapter
 
 
@@ -132,10 +134,9 @@ class WebcamAdapter(Adapter):
         return frame
 
     def _compute_stat(self, frame, kind: str) -> Any:
-        try:
-            import numpy as np  # type: ignore
-        except Exception:
-            raise RuntimeError("numpy is required for webcam statistics") from None
+        numpy = optional_import("numpy", feature="webcam_statistics")
+        if numpy is None:
+            raise RuntimeError("numpy is required for webcam statistics")
         if kind == "avg_r":
             return float(frame[:, :, 2].mean())
         if kind == "avg_g":

@@ -10,7 +10,9 @@ import sys
 import time
 from typing import Optional
 
-import requests  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
+import urllib.request
+
+from sentientos.optional_deps import optional_import
 
 
 def wait_for(url: str, timeout: float = 60.0, interval: float = 2.0) -> None:
@@ -18,9 +20,15 @@ def wait_for(url: str, timeout: float = 60.0, interval: float = 2.0) -> None:
     end = time.time() + timeout
     while time.time() < end:
         try:
-            response = requests.get(url, timeout=interval)
-            if response.ok:
-                return
+            requests = optional_import("requests", feature="health_check")
+            if requests:
+                response = requests.get(url, timeout=interval)
+                if response.ok:
+                    return
+            else:
+                with urllib.request.urlopen(url, timeout=interval) as response:
+                    if response.status == 200:
+                        return
         except Exception:
             pass
         time.sleep(interval)

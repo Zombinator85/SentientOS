@@ -10,6 +10,7 @@ from agents.forms.ssa_disability_agent import SSADisabilityAgent
 from agents.forms.ssa_disability_agent import SSA827Prefill  # re-export typing aid
 from drift_report import generate_drift_report
 from sentientos.consciousness.integration import cycle_gate_status
+from sentientos.optional_deps import optional_dependency_report
 from version_consensus import VersionConsensus
 from vow_digest import canonical_vow_digest
 
@@ -45,6 +46,7 @@ def compute_system_diagnostics() -> Dict[str, Any]:
         "drift_report": drift,
         "cycle_gate": cycle_gate,
         "ssa_subsystems": ssa_summary,
+        "optional_dependencies": optional_dependency_report(),
     }
 
 

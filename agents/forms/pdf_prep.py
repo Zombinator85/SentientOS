@@ -9,22 +9,15 @@ from __future__ import annotations
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
-import importlib
-import importlib.util
-import warnings
 
-try:
-    _pdfrw_spec = importlib.util.find_spec("pdfrw")
-except ValueError:
-    _pdfrw_spec = None
+from sentientos.optional_deps import optional_import
 
-if _pdfrw_spec is not None:
-    pdfrw = importlib.import_module("pdfrw")
+pdfrw = optional_import("pdfrw", feature="ssa_pdf_prefill")
+if pdfrw is not None:
     PdfDict = pdfrw.PdfDict  # type: ignore
     PdfReader = pdfrw.PdfReader  # type: ignore
     PdfWriter = pdfrw.PdfWriter  # type: ignore
 else:
-    warnings.warn("optional dependency pdfrw missing; PDF prefills disabled")
     PdfDict = dict  # type: ignore
     PdfReader = lambda *_a, **_k: None  # type: ignore
     PdfWriter = None  # type: ignore

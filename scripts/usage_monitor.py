@@ -12,7 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import requests  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
+import urllib.parse
+import urllib.request
+
+from sentientos.optional_deps import optional_import
 
 # Monitor OpenAI model usage and log remaining quotas.
 
@@ -28,9 +31,16 @@ def fetch_usage(model: str) -> Optional[Dict[str, Any]]:
         return None
     headers = {"Authorization": f"Bearer {key}"}
     try:
-        resp = requests.get(API_URL, params={"model": model}, headers=headers, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
+        requests = optional_import("requests", feature="usage_monitor")
+        if requests:
+            resp = requests.get(API_URL, params={"model": model}, headers=headers, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+        else:
+            query = urllib.parse.urlencode({"model": model})
+            req = urllib.request.Request(f"{API_URL}?{query}", headers=headers)
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = json.loads(response.read().decode("utf-8"))
         used = data.get("messages_used") or data.get("total_usage", 0)
         remaining = data.get("messages_remaining") or data.get("messages_limit", 0) - used
         return {"messages_used": used, "messages_remaining": remaining}
