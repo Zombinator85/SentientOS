@@ -61,6 +61,7 @@ class Hypothesis:
     hypothesis: str
     confidence: float
     actionability: str = "proposal_only"
+    evidence: Dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ class ProposalArtifact:
     created_at: str
     actionability: str = "proposal_only"
     status: str = "pending_review"
+    evidence: Dict[str, object] = field(default_factory=dict)
 
 
 @dataclass
@@ -161,6 +163,7 @@ class CORSubsystem:
             confidence=hypothesis.confidence,
             hypothesis=hypothesis.hypothesis,
             created_at=datetime.now(timezone.utc).isoformat(),
+            evidence=dict(hypothesis.evidence),
         )
         self._proposal_suppression[hypothesis.hypothesis] = time.time()
         self._log_event("proposal", proposal.__dict__)
