@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from control_plane import policy as control_policy
 from control_plane.records import AuthorizationRecord
+from sentientos import system_identity
 import task_executor
 from logging_config import get_log_path
 from log_utils import append_json
@@ -252,6 +254,11 @@ def run_task_with_admission(
     _log_admission_event(decision, task, ctx, policy)
     if not decision.allowed:
         return decision, None
+    identity_pre = system_identity.compute_system_identity_digest(
+        admission_policy=policy,
+        control_policy=control_policy.load_policy(),
+        closure_limits=task_executor.load_closure_limits(),
+    )
     provenance = task_executor.AuthorityProvenance(
         authority_source=ctx.actor,
         authority_scope=f"policy:{policy.policy_version}",
@@ -265,7 +272,25 @@ def run_task_with_admission(
     admission_token = task_executor.AdmissionToken(
         task_id=task.task_id, provenance=provenance, request_fingerprint=fingerprint
     )
-    result = executor.execute_task(
-        task, authorization=authorization, admission_token=admission_token, declared_inputs=declared_inputs
+    try:
+        result = executor.execute_task(
+            task, authorization=authorization, admission_token=admission_token, declared_inputs=declared_inputs
+        )
+    except Exception as exc:
+        identity_post = system_identity.compute_system_identity_digest(
+            admission_policy=policy,
+            control_policy=control_policy.load_policy(),
+            closure_limits=task_executor.load_closure_limits(),
+        )
+        try:
+            system_identity.enforce_identity_drift(identity_pre, identity_post)
+        except system_identity.IdentityDriftError as drift_exc:
+            raise drift_exc from exc
+        raise
+    identity_post = system_identity.compute_system_identity_digest(
+        admission_policy=policy,
+        control_policy=control_policy.load_policy(),
+        closure_limits=task_executor.load_closure_limits(),
     )
+    system_identity.enforce_identity_drift(identity_pre, identity_post)
     return decision, result
