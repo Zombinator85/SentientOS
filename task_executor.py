@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping, Sequence
 
@@ -22,6 +23,7 @@ EprRollbackProof = Literal["snapshot", "diff", "commit", "none"]
 EprExternalEffects = Literal["yes", "no"]
 EprActionStatus = Literal["completed", "blocked", "failed"]
 PrerequisiteStatus = Literal["satisfied", "epr-fixable", "authority-required", "impossible", "unknown"]
+ExhaustionType = Literal["closure_exhausted", "epr_exhausted"]
 
 
 @dataclass(frozen=True)
@@ -157,6 +159,25 @@ class ClosureReport:
     epr_report: EprReport = field(default_factory=EprReport)
 
 
+@dataclass(frozen=True)
+class ClosureLimits:
+    max_closure_iterations: int = 3
+    max_epr_actions_per_task: int = 5
+    max_nested_prerequisite_depth: int = 3
+    max_unknown_resolution_cycles: int = 2
+
+
+@dataclass(frozen=True)
+class ExhaustionReport:
+    exhaustion_type: ExhaustionType
+    attempts: Mapping[str, int]
+    attempted_actions: Sequence[str]
+    cycle_evidence: Sequence[str]
+    final_state: Sequence[PrerequisiteAssessment]
+    reason: str
+    operator_question: str | None = None
+
+
 class StepExecutionError(Exception):
     def __init__(self, step: Step, message: str):
         super().__init__(message)
@@ -206,6 +227,14 @@ class UnknownPrerequisiteError(TaskClosureError):
     ):
         super().__init__(message, assessments)
         self.unblock_query = unblock_query
+
+
+class TaskExhausted(RuntimeError):
+    """Raised when task closure or EPR hits deterministic exhaustion limits."""
+
+    def __init__(self, report: ExhaustionReport):
+        super().__init__(report.reason)
+        self.report = report
 
 
 @dataclass(frozen=True)
@@ -390,15 +419,153 @@ def _log_task_result(task_id: str, status: TaskStatus, error: str | None) -> Non
     append_json(Path(LOG_PATH), entry)
 
 
-def _execute_epr_actions(*, task: Task, actions: Sequence[EprAction], report: EprReport) -> EprReport:
+def _load_closure_limits() -> ClosureLimits:
+    return ClosureLimits(
+        max_closure_iterations=_read_int_env("SENTIENTOS_MAX_CLOSURE_ITERATIONS", 3),
+        max_epr_actions_per_task=_read_int_env("SENTIENTOS_MAX_EPR_ACTIONS_PER_TASK", 5),
+        max_nested_prerequisite_depth=_read_int_env("SENTIENTOS_MAX_NESTED_PREREQUISITE_DEPTH", 3),
+        max_unknown_resolution_cycles=_read_int_env("SENTIENTOS_MAX_UNKNOWN_RESOLUTION_CYCLES", 2),
+    )
+
+
+def _read_int_env(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None or not value.strip():
+        return default
+    try:
+        parsed = int(value)
+    except ValueError as exc:
+        raise TaskClosureError(f"invalid integer for {name}: {value}") from exc
+    return parsed
+
+
+def _validate_limits(limits: ClosureLimits) -> None:
+    for label, value in asdict(limits).items():
+        if not isinstance(value, int) or value < 0:
+            raise TaskClosureError(f"closure limit {label} must be a non-negative integer")
+
+
+def _enforce_depth_limits(task: Task, limits: ClosureLimits) -> None:
+    depth = _estimate_prerequisite_depth(task)
+    if depth > limits.max_nested_prerequisite_depth:
+        _raise_exhaustion(
+            task,
+            exhaustion_type="closure_exhausted",
+            attempts={"closure_iterations": 0, "epr_actions": 0, "unknown_cycles": 0},
+            attempted_actions=(),
+            cycle_evidence=["prerequisite_depth_limit_exceeded"],
+            final_state=(),
+            reason=f"Prerequisite depth {depth} exceeds limit {limits.max_nested_prerequisite_depth}",
+        )
+    if len(task.epr_actions) > limits.max_epr_actions_per_task:
+        _raise_exhaustion(
+            task,
+            exhaustion_type="epr_exhausted",
+            attempts={"closure_iterations": 0, "epr_actions": 0, "unknown_cycles": 0},
+            attempted_actions=(),
+            cycle_evidence=["epr_action_count_exceeded"],
+            final_state=(),
+            reason=(
+                "EPR action count exceeds limit "
+                f"{limits.max_epr_actions_per_task}"
+            ),
+        )
+
+
+def _estimate_prerequisite_depth(task: Task) -> int:
+    depth = 0
+    for action in task.epr_actions:
+        depth = max(depth, 1 + (1 if action.unknown_prerequisite else 0))
+    return depth
+
+
+def _prerequisite_state_signature(
+    assessments: Sequence[PrerequisiteAssessment],
+) -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        (assessment.action_id, assessment.status, assessment.reason or "")
+        for assessment in sorted(assessments, key=lambda a: a.action_id)
+    )
+
+
+def _epr_outcome_signature(
+    traces: Sequence[EprActionTrace],
+) -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        (trace.action_id, trace.status, trace.error or "")
+        for trace in sorted(traces, key=lambda t: t.action_id)
+    )
+
+
+def _epr_closure_changed(result: Mapping[str, object] | None) -> bool:
+    if result is None:
+        return True
+    if "closure_changed" in result:
+        return bool(result["closure_changed"])
+    if "resolved_status" in result:
+        return result["resolved_status"] == "satisfied"
+    return True
+
+
+def _raise_exhaustion(
+    task: Task,
+    *,
+    exhaustion_type: ExhaustionType,
+    attempts: Mapping[str, int],
+    attempted_actions: Sequence[str],
+    cycle_evidence: Sequence[str],
+    final_state: Sequence[PrerequisiteAssessment],
+    reason: str,
+    operator_question: str | None = None,
+) -> None:
+    report = ExhaustionReport(
+        exhaustion_type=exhaustion_type,
+        attempts=dict(attempts),
+        attempted_actions=tuple(attempted_actions),
+        cycle_evidence=tuple(cycle_evidence),
+        final_state=tuple(final_state),
+        reason=reason,
+        operator_question=operator_question,
+    )
+    _log_exhaustion(task.task_id, report)
+    raise TaskExhausted(report)
+
+
+def _log_exhaustion(task_id: str, report: ExhaustionReport) -> None:
+    entry = {
+        "task_id": task_id,
+        "event": "exhaustion",
+        "exhaustion_type": report.exhaustion_type,
+        "attempts": dict(report.attempts),
+        "attempted_actions": list(report.attempted_actions),
+        "cycle_evidence": list(report.cycle_evidence),
+        "final_state": [
+            {
+                "action_id": assessment.action_id,
+                "status": assessment.status,
+                "reason": assessment.reason,
+            }
+            for assessment in report.final_state
+        ],
+        "reason": report.reason,
+    }
+    if report.operator_question:
+        entry["operator_question"] = report.operator_question
+    append_json(Path(LOG_PATH), entry)
+
+
+def _execute_epr_actions(
+    *, task: Task, actions: Sequence[EprAction], report: EprReport
+) -> tuple[EprReport, Dict[str, bool]]:
     traces: list[EprActionTrace] = list(report.actions)
     rollback_proofs: list[EprRollbackProof] = list(report.rollback_proofs)
+    outcomes: Dict[str, bool] = {}
     for action in actions:
         _validate_epr_action(task, action)
         try:
             _authorize_epr_action(action)
-            if action.handler is not None:
-                action.handler()
+            handler_result = action.handler() if action.handler is not None else None
+            outcomes[action.action_id] = _epr_closure_changed(handler_result)
             trace = EprActionTrace(
                 action_id=action.action_id,
                 status="completed",
@@ -457,51 +624,175 @@ def _execute_epr_actions(*, task: Task, actions: Sequence[EprAction], report: Ep
         rollback_proofs=tuple(rollback_proofs),
         net_authority_delta=0,
         artifacts_persisted=False,
-    )
+    ), outcomes
 
 
 def _close_task(task: Task) -> ClosureReport:
+    limits = _load_closure_limits()
+    _validate_limits(limits)
+    _enforce_depth_limits(task, limits)
+    if limits.max_closure_iterations == 0:
+        _raise_exhaustion(
+            task,
+            exhaustion_type="closure_exhausted",
+            attempts={"closure_iterations": 0, "epr_actions": 0, "unknown_cycles": 0},
+            attempted_actions=(),
+            cycle_evidence=["closure_iteration_limit_zero"],
+            final_state=(),
+            reason="Closure iteration limit is zero",
+        )
+    attempts = {"closure_iterations": 0, "epr_actions": 0, "unknown_cycles": 0}
     assessments: list[PrerequisiteAssessment] = []
-    fixable_actions: list[EprAction] = []
-    authority_required: list[EprAction] = []
-    impossible: list[PrerequisiteAssessment] = []
-    unknowns: list[tuple[EprAction, PrerequisiteAssessment, str]] = []
-    for action in task.epr_actions:
-        assessment = _assess_prerequisite(task, action)
-        assessments.append(assessment)
-        if assessment.status == "unknown":
-            query = _build_unblock_query(action, assessment)
-            _log_unknown_prerequisite(task.task_id, action, assessment, query)
-            unknowns.append((action, assessment, query))
-        elif assessment.status == "epr-fixable":
-            fixable_actions.append(action)
-        elif assessment.status == "authority-required":
-            authority_required.append(action)
-        elif assessment.status == "impossible":
-            impossible.append(assessment)
-    if unknowns:
-        primary_query = unknowns[0][2]
-        detail = ", ".join(
-            f"{action.action_id}:{assessment.reason or 'unknown'}"
-            for action, assessment, _ in unknowns
-        )
-        raise UnknownPrerequisiteError(
-            f"Task closure halted on unknown prerequisites: {detail}",
-            assessments,
-            unblock_query=primary_query,
-        )
-    if impossible:
-        reasons = ", ".join(
-            f"{assessment.action_id}:{assessment.reason or 'impossible'}" for assessment in impossible
-        )
-        raise TaskClosureError(f"Task closure failed: {reasons}", assessments)
     epr_report = EprReport()
-    if fixable_actions:
-        epr_report = _execute_epr_actions(task=task, actions=fixable_actions, report=epr_report)
-    if authority_required:
-        action_ids = ", ".join(action.action_id for action in authority_required)
-        raise EprApprovalRequired(f"EPR approval required for: {action_ids}", authority_required)
-    return ClosureReport(prerequisites=tuple(assessments), epr_report=epr_report)
+    executed_actions: set[str] = set()
+    resolved_actions: Dict[str, PrerequisiteStatus] = {}
+    seen_states: set[tuple[tuple[str, str, str], ...]] = set()
+    seen_epr_outcomes: set[tuple[tuple[str, str, str], ...]] = set()
+    cycle_evidence: list[str] = []
+    last_state: tuple[tuple[str, str, str], ...] | None = None
+    last_iteration_ran_epr = False
+    for _ in range(limits.max_closure_iterations):
+        attempts["closure_iterations"] += 1
+        assessments = []
+        fixable_actions: list[EprAction] = []
+        authority_required: list[EprAction] = []
+        impossible: list[PrerequisiteAssessment] = []
+        unknowns: list[tuple[EprAction, PrerequisiteAssessment, str]] = []
+        for action in task.epr_actions:
+            if action.action_id in resolved_actions:
+                assessment = PrerequisiteAssessment(
+                    action_id=action.action_id,
+                    status=resolved_actions[action.action_id],
+                    reason="resolved by EPR action",
+                )
+            else:
+                assessment = _assess_prerequisite(task, action)
+            assessments.append(assessment)
+            if assessment.status == "unknown":
+                query = _build_unblock_query(action, assessment)
+                _log_unknown_prerequisite(task.task_id, action, assessment, query)
+                unknowns.append((action, assessment, query))
+            elif assessment.status == "epr-fixable":
+                fixable_actions.append(action)
+            elif assessment.status == "authority-required":
+                authority_required.append(action)
+            elif assessment.status == "impossible":
+                impossible.append(assessment)
+        state_signature = _prerequisite_state_signature(assessments)
+        if last_state is not None and state_signature == last_state and last_iteration_ran_epr:
+            cycle_evidence.append("repair_actions_no_progress")
+            _raise_exhaustion(
+                task,
+                exhaustion_type="epr_exhausted",
+                attempts=attempts,
+                attempted_actions=sorted(executed_actions),
+                cycle_evidence=cycle_evidence,
+                final_state=assessments,
+                reason="EPR actions did not change closure state",
+            )
+        if state_signature in seen_states:
+            cycle_evidence.append("repeated_prerequisite_state")
+            _raise_exhaustion(
+                task,
+                exhaustion_type="closure_exhausted",
+                attempts=attempts,
+                attempted_actions=sorted(executed_actions),
+                cycle_evidence=cycle_evidence,
+                final_state=assessments,
+                reason="Prerequisite states repeated without convergence",
+            )
+        seen_states.add(state_signature)
+        if unknowns:
+            attempts["unknown_cycles"] += 1
+            if attempts["unknown_cycles"] > limits.max_unknown_resolution_cycles:
+                cycle_evidence.append("unknown_prerequisite_cycles_exceeded")
+                _raise_exhaustion(
+                    task,
+                    exhaustion_type="closure_exhausted",
+                    attempts=attempts,
+                    attempted_actions=sorted(executed_actions),
+                    cycle_evidence=cycle_evidence,
+                    final_state=assessments,
+                    reason="Unknown prerequisites exceeded allowed resolution cycles",
+                )
+            primary_query = unknowns[0][2]
+            detail = ", ".join(
+                f"{action.action_id}:{assessment.reason or 'unknown'}"
+                for action, assessment, _ in unknowns
+            )
+            raise UnknownPrerequisiteError(
+                f"Task closure halted on unknown prerequisites: {detail}",
+                assessments,
+                unblock_query=primary_query,
+            )
+        if impossible:
+            reasons = ", ".join(
+                f"{assessment.action_id}:{assessment.reason or 'impossible'}" for assessment in impossible
+            )
+            raise TaskClosureError(f"Task closure failed: {reasons}", assessments)
+        if fixable_actions:
+            new_actions = [action for action in fixable_actions if action.action_id not in executed_actions]
+            if not new_actions:
+                cycle_evidence.append("repeated_epr_actions")
+                _raise_exhaustion(
+                    task,
+                    exhaustion_type="epr_exhausted",
+                    attempts=attempts,
+                    attempted_actions=sorted(executed_actions),
+                    cycle_evidence=cycle_evidence,
+                    final_state=assessments,
+                    reason="EPR actions repeated without net progress",
+                )
+            if attempts["epr_actions"] + len(new_actions) > limits.max_epr_actions_per_task:
+                cycle_evidence.append("epr_action_limit_exceeded")
+                _raise_exhaustion(
+                    task,
+                    exhaustion_type="epr_exhausted",
+                    attempts=attempts,
+                    attempted_actions=sorted(executed_actions),
+                    cycle_evidence=cycle_evidence,
+                    final_state=assessments,
+                    reason="EPR action limit exceeded before closure could converge",
+                )
+            before = len(epr_report.actions)
+            epr_report, outcomes = _execute_epr_actions(task=task, actions=new_actions, report=epr_report)
+            attempts["epr_actions"] += len(new_actions)
+            executed_actions.update(action.action_id for action in new_actions)
+            for action_id, changed in outcomes.items():
+                if changed:
+                    resolved_actions[action_id] = "satisfied"
+            new_traces = epr_report.actions[before:]
+            outcome_signature = _epr_outcome_signature(new_traces)
+            if outcome_signature in seen_epr_outcomes:
+                cycle_evidence.append("repeated_epr_outcomes")
+                _raise_exhaustion(
+                    task,
+                    exhaustion_type="epr_exhausted",
+                    attempts=attempts,
+                    attempted_actions=sorted(executed_actions),
+                    cycle_evidence=cycle_evidence,
+                    final_state=assessments,
+                    reason="EPR actions cycled without changing outcomes",
+                )
+            seen_epr_outcomes.add(outcome_signature)
+            last_state = state_signature
+            last_iteration_ran_epr = True
+            continue
+        if authority_required:
+            action_ids = ", ".join(action.action_id for action in authority_required)
+            raise EprApprovalRequired(f"EPR approval required for: {action_ids}", authority_required)
+        return ClosureReport(prerequisites=tuple(assessments), epr_report=epr_report)
+    cycle_evidence.append("closure_iteration_limit_exceeded")
+    _raise_exhaustion(
+        task,
+        exhaustion_type="closure_exhausted",
+        attempts=attempts,
+        attempted_actions=sorted(executed_actions),
+        cycle_evidence=cycle_evidence,
+        final_state=assessments,
+        reason="Closure iteration limit exceeded without convergence",
+    )
+    raise TaskClosureError("closure exhaustion unreachable")  # pragma: no cover - defensive
 
 
 def _assess_prerequisite(task: Task, action: EprAction) -> PrerequisiteAssessment:
