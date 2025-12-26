@@ -38,6 +38,7 @@ class AdmissionPolicy:
     max_steps: int = 64
     max_shell_steps: int = 8
     max_python_steps: int = 16
+    allow_adapters: bool = False
     allow_mesh: bool = False
     allowed_step_kinds: frozenset[str] | None = field(default=None)
     deny_shell_in_autonomous: bool = True
@@ -49,6 +50,8 @@ class AdmissionPolicy:
     def __post_init__(self) -> None:
         if self.allowed_step_kinds is None:
             allowed = {"noop", "shell", "python"}
+            if self.allow_adapters:
+                allowed.add("adapter")
             if self.allow_mesh:
                 allowed.add("mesh")
             object.__setattr__(self, "allowed_step_kinds", frozenset(allowed))
@@ -64,6 +67,7 @@ def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPoli
     shell_count = 0
     python_count = 0
     mesh_count = 0
+    adapter_count = 0
     denied_kinds: list[str] = []
     redactions: dict[str, Any] = {}
     shell_commands: list[str] = []
@@ -80,6 +84,8 @@ def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPoli
             python_count += 1
         elif step.kind == "mesh":
             mesh_count += 1
+        elif step.kind == "adapter":
+            adapter_count += 1
         if step.kind not in allowed_kinds and step.kind not in denied_kinds:
             denied_kinds.append(step.kind)
 
@@ -91,6 +97,7 @@ def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPoli
         "shell_count": shell_count,
         "python_count": python_count,
         "mesh_count": mesh_count,
+        "adapter_count": adapter_count,
         "denied_kinds": tuple(denied_kinds),
     }
 

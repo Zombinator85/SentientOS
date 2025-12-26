@@ -10,11 +10,12 @@ from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping, Sequen
 from control_plane.enums import ReasonCode, RequestType
 from control_plane.records import AuthorizationError, AuthorizationRecord
 from sentientos.gradient_contract import GradientInvariantViolation, enforce_no_gradient_fields
+from sentientos.external_adapters import AdapterExecutionContext, execute_adapter_action
 
 from logging_config import get_log_path
 from log_utils import append_json
 
-StepKind = Literal["noop", "shell", "python", "mesh"]
+StepKind = Literal["noop", "shell", "python", "mesh", "adapter"]
 StepStatus = Literal["completed", "failed"]
 TaskStatus = Literal["completed", "failed"]
 EprAuthorityImpact = Literal["none", "local", "global"]
@@ -52,7 +53,16 @@ class MeshPayload:
     should_fail: bool = False
 
 
-StepPayload = NoopPayload | ShellPayload | PythonPayload | MeshPayload
+@dataclass(frozen=True)
+class AdapterPayload:
+    adapter_id: str
+    action: str
+    params: Mapping[str, object] = field(default_factory=dict)
+    config: Mapping[str, object] = field(default_factory=dict)
+    redact_keys: Sequence[str] = field(default_factory=tuple)
+
+
+StepPayload = NoopPayload | ShellPayload | PythonPayload | MeshPayload | AdapterPayload
 
 
 @dataclass(frozen=True)
@@ -80,6 +90,7 @@ class Task:
     steps: Sequence[Step] = field(default_factory=tuple)
     allow_epr: bool = False
     epr_actions: Sequence["EprAction"] = field(default_factory=tuple)
+    required_privileges: Sequence[str] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True)
@@ -294,8 +305,17 @@ def execute_task(
     trace: list[StepTrace] = []
     closure = _close_task(task, approval_grants=approval_grants)
     epr_report = closure.epr_report
+    approved_privileges = _approved_privileges_from_authorization(authorization)
     for step in task.steps:
-        step_trace = _run_step(step)
+        step_trace = _run_step(
+            step,
+            task_id=task.task_id,
+            admission_token=admission_token,
+            authorization=authorization,
+            request_fingerprint=computed_fingerprint,
+            required_privileges=task.required_privileges,
+            approved_privileges=approved_privileges,
+        )
         trace.append(step_trace)
         artifacts[f"step_{step.step_id}"] = step_trace.artifacts
         _log_step(task.task_id, step_trace)
@@ -326,9 +346,26 @@ def execute_task(
     )
 
 
-def _run_step(step: Step) -> StepTrace:
+def _run_step(
+    step: Step,
+    *,
+    task_id: str,
+    admission_token: AdmissionToken,
+    authorization: AuthorizationRecord,
+    request_fingerprint: RequestFingerprint,
+    required_privileges: Sequence[str],
+    approved_privileges: Sequence[str],
+) -> StepTrace:
     try:
-        artifacts = _dispatch_step(step)
+        artifacts = _dispatch_step(
+            step,
+            task_id=task_id,
+            admission_token=admission_token,
+            authorization=authorization,
+            request_fingerprint=request_fingerprint,
+            required_privileges=required_privileges,
+            approved_privileges=approved_privileges,
+        )
         finalized = _apply_expects(artifacts, step.expects)
         return StepTrace(step_id=step.step_id, kind=step.kind, status="completed", artifacts=finalized)
     except Exception as exc:  # pragma: no cover - exercised via deterministic failure paths
@@ -344,7 +381,16 @@ def _run_step(step: Step) -> StepTrace:
         )
 
 
-def _dispatch_step(step: Step) -> Dict[str, object]:
+def _dispatch_step(
+    step: Step,
+    *,
+    task_id: str,
+    admission_token: AdmissionToken,
+    authorization: AuthorizationRecord,
+    request_fingerprint: RequestFingerprint,
+    required_privileges: Sequence[str],
+    approved_privileges: Sequence[str],
+) -> Dict[str, object]:
     if step.kind == "noop":
         return _run_noop(step)
     if step.kind == "shell":
@@ -353,6 +399,16 @@ def _dispatch_step(step: Step) -> Dict[str, object]:
         return _run_python(step)
     if step.kind == "mesh":
         return _run_mesh(step)
+    if step.kind == "adapter":
+        return _run_adapter(
+            step,
+            task_id=task_id,
+            admission_token=admission_token,
+            authorization=authorization,
+            request_fingerprint=request_fingerprint,
+            required_privileges=required_privileges,
+            approved_privileges=approved_privileges,
+        )
     raise StepExecutionError(step, f"unsupported step kind: {step.kind}")
 
 
@@ -385,6 +441,43 @@ def _run_mesh(step: Step) -> Dict[str, object]:
     return {"job": payload.job, "parameters": dict(payload.parameters)}
 
 
+def _run_adapter(
+    step: Step,
+    *,
+    task_id: str,
+    admission_token: AdmissionToken,
+    authorization: AuthorizationRecord,
+    request_fingerprint: RequestFingerprint,
+    required_privileges: Sequence[str],
+    approved_privileges: Sequence[str],
+) -> Dict[str, object]:
+    payload = _require_payload(step, AdapterPayload)
+    context = AdapterExecutionContext(
+        source="task",
+        task_id=task_id,
+        routine_id=None,
+        request_fingerprint=str(request_fingerprint),
+        authorization=authorization,
+        admission_token=asdict(admission_token),
+        approved_privileges=approved_privileges,
+        required_privileges=required_privileges,
+    )
+    result = execute_adapter_action(
+        adapter_id=payload.adapter_id,
+        action=payload.action,
+        params=payload.params,
+        adapter_config=payload.config,
+        context=context,
+        redact_keys=payload.redact_keys,
+    )
+    artifacts: Dict[str, object] = dict(result.outcome)
+    if result.rollback_ref is not None:
+        artifacts["rollback_ref"] = dict(result.rollback_ref)
+    artifacts["adapter_action"] = payload.action
+    artifacts["adapter_id"] = payload.adapter_id
+    return artifacts
+
+
 def _apply_expects(artifacts: Mapping[str, object], expects: Sequence[str]) -> Dict[str, object]:
     finalized = dict(artifacts)
     for expected in expects:
@@ -397,6 +490,14 @@ def _require_payload(step: Step, payload_type: type[StepPayload]) -> StepPayload
     if not isinstance(step.payload, payload_type):
         raise StepExecutionError(step, f"{step.kind} payload must be {payload_type.__name__}")
     return step.payload
+
+
+def _approved_privileges_from_authorization(authorization: AuthorizationRecord) -> Sequence[str]:
+    metadata = authorization.metadata or {}
+    approved = metadata.get("approved_privileges", ())
+    if isinstance(approved, (list, tuple)):
+        return tuple(str(item) for item in approved)
+    return ()
 
 
 def _log_step(task_id: str, trace: StepTrace) -> None:
@@ -1046,6 +1147,14 @@ def _canonical_step_payload(step: Step) -> dict[str, object]:
             "parameters": _canonicalise_mapping(payload.parameters),
             "should_fail": payload.should_fail,
         }
+    if isinstance(payload, AdapterPayload):
+        return {
+            "adapter_id": _normalise_text(payload.adapter_id),
+            "action": _normalise_text(payload.action),
+            "params": _canonicalise_mapping(payload.params),
+            "config": _canonicalise_mapping(payload.config),
+            "redact_keys": sorted(_normalise_text(k) for k in payload.redact_keys),
+        }
     raise StepExecutionError(step, f"unsupported payload for canonicalization: {type(payload).__name__}")
 
 
@@ -1100,6 +1209,7 @@ def canonicalise_task(task: Task) -> dict[str, object]:
         ],
         "allow_epr": task.allow_epr,
         "epr_actions": [_canonical_epr_action(action) for action in task.epr_actions],
+        "required_privileges": sorted(_normalise_text(p) for p in task.required_privileges),
     }
 
 
@@ -1439,6 +1549,9 @@ def _canonicalise_task_payload(task_payload: Mapping[str, Any]) -> dict[str, obj
             for action in (task_payload.get("epr_actions", []) or [])
             if isinstance(action, Mapping)
         ],
+        "required_privileges": sorted(
+            _normalise_text(p) for p in (task_payload.get("required_privileges", []) or [])
+        ),
     }
     return canonical_task
 
