@@ -264,12 +264,16 @@ class AuthorityProvenance:
     authority_reason: str
 
 
+ApprovalGrants = Mapping[str, bool] | None
+
+
 def execute_task(
     task: Task,
     *,
     authorization: AuthorizationRecord | None = None,
     admission_token: AdmissionToken | None = None,
     declared_inputs: Mapping[str, object] | None = None,
+    approval_grants: ApprovalGrants = None,
 ) -> TaskResult:
     _require_admission_token(admission_token, task)
     _require_authorization(authorization)
@@ -288,7 +292,7 @@ def execute_task(
         )
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
-    closure = _close_task(task)
+    closure = _close_task(task, approval_grants=approval_grants)
     epr_report = closure.epr_report
     for step in task.steps:
         step_trace = _run_step(step)
@@ -561,7 +565,11 @@ def _log_exhaustion(task_id: str, report: ExhaustionReport) -> None:
 
 
 def _execute_epr_actions(
-    *, task: Task, actions: Sequence[EprAction], report: EprReport
+    *,
+    task: Task,
+    actions: Sequence[EprAction],
+    report: EprReport,
+    approval_grants: ApprovalGrants = None,
 ) -> tuple[EprReport, Dict[str, bool]]:
     traces: list[EprActionTrace] = list(report.actions)
     rollback_proofs: list[EprRollbackProof] = list(report.rollback_proofs)
@@ -569,7 +577,7 @@ def _execute_epr_actions(
     for action in actions:
         _validate_epr_action(task, action)
         try:
-            _authorize_epr_action(action)
+            _authorize_epr_action(action, approval_grants=approval_grants)
             handler_result = action.handler() if action.handler is not None else None
             outcomes[action.action_id] = _epr_closure_changed(handler_result)
             trace = EprActionTrace(
@@ -633,7 +641,7 @@ def _execute_epr_actions(
     ), outcomes
 
 
-def _close_task(task: Task) -> ClosureReport:
+def _close_task(task: Task, *, approval_grants: ApprovalGrants = None) -> ClosureReport:
     limits = _load_closure_limits()
     _validate_limits(limits)
     _enforce_depth_limits(task, limits)
@@ -672,7 +680,7 @@ def _close_task(task: Task) -> ClosureReport:
                     reason="resolved by EPR action",
                 )
             else:
-                assessment = _assess_prerequisite(task, action)
+                assessment = _assess_prerequisite(task, action, approval_grants=approval_grants)
             assessments.append(assessment)
             if assessment.status == "unknown":
                 query = _build_unblock_query(action, assessment)
@@ -761,7 +769,9 @@ def _close_task(task: Task) -> ClosureReport:
                     reason="EPR action limit exceeded before closure could converge",
                 )
             before = len(epr_report.actions)
-            epr_report, outcomes = _execute_epr_actions(task=task, actions=new_actions, report=epr_report)
+            epr_report, outcomes = _execute_epr_actions(
+                task=task, actions=new_actions, report=epr_report, approval_grants=approval_grants
+            )
             attempts["epr_actions"] += len(new_actions)
             executed_actions.update(action.action_id for action in new_actions)
             for action_id, changed in outcomes.items():
@@ -801,7 +811,12 @@ def _close_task(task: Task) -> ClosureReport:
     raise TaskClosureError("closure exhaustion unreachable")  # pragma: no cover - defensive
 
 
-def _assess_prerequisite(task: Task, action: EprAction) -> PrerequisiteAssessment:
+def _assess_prerequisite(
+    task: Task,
+    action: EprAction,
+    *,
+    approval_grants: ApprovalGrants = None,
+) -> PrerequisiteAssessment:
     if action.unknown_prerequisite is not None:
         _validate_unknown_prerequisite(action.unknown_prerequisite)
         return _assess_unknown_prerequisite(action.action_id, action.unknown_prerequisite)
@@ -816,7 +831,7 @@ def _assess_prerequisite(task: Task, action: EprAction) -> PrerequisiteAssessmen
             reason="EPR not permitted for task",
         )
     try:
-        _authorize_epr_action(action)
+        _authorize_epr_action(action, approval_grants=approval_grants)
     except EprApprovalRequired as exc:
         return PrerequisiteAssessment(action_id=action.action_id, status="authority-required", reason=str(exc))
     except EprViolationError as exc:
@@ -858,7 +873,9 @@ def _validate_epr_action(task: Task, action: EprAction) -> None:
             raise EprViolationError(f"EPR attempted prohibited action: {label}")
 
 
-def _authorize_epr_action(action: EprAction) -> None:
+def _authorize_epr_action(action: EprAction, *, approval_grants: ApprovalGrants = None) -> None:
+    if _approval_granted(action, approval_grants):
+        return
     if action.authority_impact == "none" and action.reversibility == "guaranteed":
         return
     if action.authority_impact == "none" and action.reversibility == "bounded":
@@ -887,6 +904,28 @@ def _validate_unknown_prerequisite(unknown: UnknownPrerequisite) -> None:
         raise EprViolationError("unknown prerequisite missing reason")
     if unknown.resolved_status == "unknown":
         raise EprViolationError("unknown prerequisite resolved_status cannot be unknown")
+
+
+def _approval_key(action: EprAction) -> str:
+    return f"{action.parent_task_id}:{action.action_id}"
+
+
+def _approval_granted(action: EprAction, approval_grants: ApprovalGrants) -> bool:
+    if not approval_grants:
+        return False
+    if approval_grants.get(_approval_key(action)):
+        return True
+    return bool(approval_grants.get(action.action_id))
+
+
+def assess_task_prerequisites(
+    task: Task, *, approval_grants: ApprovalGrants = None
+) -> tuple[tuple[EprAction, PrerequisiteAssessment], ...]:
+    assessments: list[tuple[EprAction, PrerequisiteAssessment]] = []
+    for action in task.epr_actions:
+        assessment = _assess_prerequisite(task, action, approval_grants=approval_grants)
+        assessments.append((action, assessment))
+    return tuple(assessments)
 
 
 def _build_unblock_query(action: EprAction, assessment: PrerequisiteAssessment) -> str:
