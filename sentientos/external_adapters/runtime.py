@@ -7,7 +7,7 @@ from control_plane.records import AuthorizationRecord
 from logging_config import get_log_path
 from log_utils import append_json
 
-from .base import AdapterActionResult, AdapterRollbackResult, ExecutionContext, ExternalAdapter
+from .base import AdapterActionResult, AdapterActionSpec, AdapterRollbackResult, ExecutionContext, ExternalAdapter
 from .registry import get_adapter
 
 LOG_PATH = get_log_path("external_adapter_actions.jsonl", "EXTERNAL_ADAPTER_LOG")
@@ -52,9 +52,35 @@ def execute_adapter_action(
 ) -> AdapterActionResult:
     adapter_cls = get_adapter(adapter_id)
     adapter = adapter_cls(**(adapter_config or {}))
-    _validate_context(adapter, context)
-    spec = _require_action(adapter, action)
-    _enforce_privileges(adapter_id, action, spec.requires_privilege, context)
+    try:
+        spec = _require_action(adapter, action)
+    except AdapterExecutionError as exc:
+        _log_action(
+            adapter=adapter,
+            action=action,
+            spec=_fallback_spec(adapter, action),
+            params=_redact_params(params, redact_keys),
+            context=context,
+            success=False,
+            error=str(exc) or exc.__class__.__name__,
+            rollback_status=None,
+        )
+        raise
+    try:
+        _validate_context(adapter, context)
+        _enforce_privileges(adapter_id, action, spec.requires_privilege, context)
+    except AdapterExecutionError as exc:
+        _log_action(
+            adapter=adapter,
+            action=action,
+            spec=spec,
+            params=_redact_params(params, redact_keys),
+            context=context,
+            success=False,
+            error=str(exc) or exc.__class__.__name__,
+            rollback_status=None,
+        )
+        raise
     redacted = _redact_params(params, redact_keys)
 
     try:
@@ -95,12 +121,36 @@ def rollback_adapter_action(
 ) -> AdapterRollbackResult:
     adapter_cls = get_adapter(adapter_id)
     adapter = adapter_cls(**(adapter_config or {}))
-    _validate_context(adapter, context)
     action = str(ref.get("action", ""))
     if not action:
-        raise AdapterExecutionError("rollback reference missing action")
-    spec = _require_action(adapter, action)
-    _enforce_privileges(adapter_id, action, spec.requires_privilege, context)
+        error = "rollback reference missing action"
+        _log_action(
+            adapter=adapter,
+            action=action,
+            spec=_fallback_spec(adapter, action),
+            params=_redact_params(ref, redact_keys),
+            context=context,
+            success=False,
+            error=error,
+            rollback_status="failed",
+        )
+        raise AdapterExecutionError(error)
+    try:
+        _validate_context(adapter, context)
+        spec = _require_action(adapter, action)
+        _enforce_privileges(adapter_id, action, spec.requires_privilege, context)
+    except AdapterExecutionError as exc:
+        _log_action(
+            adapter=adapter,
+            action=action,
+            spec=_fallback_spec(adapter, action),
+            params=_redact_params(ref, redact_keys),
+            context=context,
+            success=False,
+            error=str(exc) or exc.__class__.__name__,
+            rollback_status="failed",
+        )
+        raise
 
     try:
         result = adapter.rollback(ref, context)
@@ -136,6 +186,8 @@ def _validate_context(adapter: ExternalAdapter, context: ExecutionContext) -> No
     metadata = adapter.describe()
     if context.source == "epr" and not metadata.allow_epr:
         raise AdapterExecutionError("adapter does not permit EPR invocation")
+    if context.source == "epr" and metadata.external_effects == "yes" and metadata.reversibility == "none":
+        raise AdapterExecutionError("adapter irreversible external effects prohibited in EPR")
 
 
 def _require_action(adapter: ExternalAdapter, action: str):
@@ -171,6 +223,18 @@ def _redact_params(params: Mapping[str, object], redact_keys: Iterable[str]) -> 
     return redacted
 
 
+def _fallback_spec(adapter: ExternalAdapter, action: str) -> AdapterActionSpec:
+    metadata = adapter.describe()
+    return AdapterActionSpec(
+        action=action,
+        capability="unknown",
+        authority_impact="none",
+        external_effects=metadata.external_effects,
+        reversibility=metadata.reversibility,
+        requires_privilege=metadata.requires_privilege,
+    )
+
+
 def _log_action(
     *,
     adapter: ExternalAdapter,
@@ -187,6 +251,7 @@ def _log_action(
         "adapter_id": adapter.metadata.adapter_id,
         "action": action,
         "capability": spec.capability,
+        "scope": adapter.metadata.scope,
         "parameters": dict(params),
         "authority_impact": spec.authority_impact,
         "external_effects": spec.external_effects,
