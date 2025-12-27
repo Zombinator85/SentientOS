@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Sequence
 
 from sentientos.ois import (
+    build_authority_surface_diff,
+    build_authority_surface_snapshot_view,
     build_execution_trace,
     build_explanation,
     build_simulation,
@@ -23,6 +25,11 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
 
     subparsers.add_parser("overview", help="Show system state overview.")
+    diff = subparsers.add_parser("diff", help="Show authority surface changes.")
+    diff.add_argument("--from", dest="source_from", default=None, help="Snapshot source (default: runtime).")
+    diff.add_argument("--to", dest="source_to", default=None, help="Snapshot source (default: runtime).")
+
+    subparsers.add_parser("snapshot", help="Show authority surface snapshot.")
 
     trace = subparsers.add_parser("trace", help="Show execution trace (read-only).")
     trace.add_argument("--limit", type=int, default=10, help="Maximum number of executions to display.")
@@ -87,6 +94,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             output = build_simulation(adapter_id=adapter_id, adapter_action=action)
             print(serialize_output(output))
             return 0
+
+    if args.command == "diff":
+        detail = {"from": args.source_from, "to": args.source_to}
+        log_introspection_access("diff", detail=detail)
+        output = build_authority_surface_diff(source_from=args.source_from, source_to=args.source_to)
+        print(serialize_output(output))
+        return 0
+
+    if args.command == "snapshot":
+        log_introspection_access("snapshot")
+        output = build_authority_surface_snapshot_view()
+        print(serialize_output(output))
+        return 0
 
     parser.print_help()
     return 1

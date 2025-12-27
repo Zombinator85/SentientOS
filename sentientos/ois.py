@@ -15,6 +15,12 @@ from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE
 from sentientos.governance.routine_delegation import RoutineRegistry
 from sentientos.governance.semantic_habit_class import DEFAULT_LOG_PATH as SEMANTIC_CLASS_LOG_PATH
 from sentientos.system_identity import compute_system_identity_digest
+from sentientos.authority_surface import (
+    build_authority_surface_snapshot,
+    diff_authority_surfaces,
+    log_authority_surface_diff,
+    resolve_snapshot_source,
+)
 
 INTROSPECTION_LOG_PATH = get_log_path(
     "introspection_access.jsonl",
@@ -69,6 +75,28 @@ def build_execution_trace(limit: int = 10) -> dict[str, object]:
         "view": "execution_trace",
         "limit": limit,
         "executions": combined[:limit],
+    }
+
+
+def build_authority_surface_diff(
+    *,
+    source_from: str | None = None,
+    source_to: str | None = None,
+) -> dict[str, object]:
+    before_snapshot, before_source = resolve_snapshot_source(source_from)
+    after_snapshot, after_source = resolve_snapshot_source(source_to)
+    diff = diff_authority_surfaces(before_snapshot, after_snapshot)
+    diff["source_from"] = before_source
+    diff["source_to"] = after_source
+    log_authority_surface_diff(diff, source_from=before_source, source_to=after_source)
+    return diff
+
+
+def build_authority_surface_snapshot_view() -> dict[str, object]:
+    snapshot = build_authority_surface_snapshot()
+    return {
+        "view": "authority_surface_snapshot",
+        "snapshot": snapshot,
     }
 
 
