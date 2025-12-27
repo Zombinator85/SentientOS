@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Iterable, Mapping, MutableMapping
+from datetime import datetime
 
 import control_plane.policy
 import task_admission
@@ -20,6 +21,11 @@ from sentientos.authority_surface import (
     diff_authority_surfaces,
     log_authority_surface_diff,
     resolve_snapshot_source,
+)
+from sentientos.narrative_synthesis import (
+    build_authority_summary,
+    build_narrative_summary,
+    build_system_summary,
 )
 
 INTROSPECTION_LOG_PATH = get_log_path(
@@ -132,6 +138,28 @@ def build_simulation(
         "view": "simulation",
         "error": "task_payload, routine_id, or adapter_id+adapter_action required",
     }
+
+
+def build_narrative(
+    *,
+    since: datetime | None = None,
+    source_from: str | None = None,
+    source_to: str | None = None,
+) -> dict[str, object]:
+    return build_narrative_summary(since=since, source_from=source_from, source_to=source_to)
+
+
+def build_system_summary_view(*, since: datetime | None = None) -> dict[str, object]:
+    return build_system_summary(since=since)
+
+
+def build_authority_summary_view(
+    *,
+    since: datetime | None = None,
+    source_from: str | None = None,
+    source_to: str | None = None,
+) -> dict[str, object]:
+    return build_authority_summary(since=since, source_from=source_from, source_to=source_to)
 
 
 def _read_audit_log(path: Path) -> list[dict[str, object]]:

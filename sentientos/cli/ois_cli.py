@@ -5,12 +5,16 @@ import json
 from pathlib import Path
 from typing import Sequence
 
+from sentientos.narrative_synthesis import parse_since
 from sentientos.ois import (
+    build_authority_summary_view,
     build_authority_surface_diff,
     build_authority_surface_snapshot_view,
     build_execution_trace,
     build_explanation,
+    build_narrative,
     build_simulation,
+    build_system_summary_view,
     build_system_overview,
     log_introspection_access,
     serialize_output,
@@ -44,6 +48,22 @@ def _build_parser() -> argparse.ArgumentParser:
     simulate_group.add_argument("--task-file", help="Path to task JSON payload.")
     simulate_group.add_argument("--routine-id", help="Routine ID to simulate.")
     simulate_group.add_argument("--adapter", nargs=2, metavar=("ADAPTER_ID", "ACTION"))
+
+    summary = subparsers.add_parser("summary", help="Show narrative summaries.")
+    summary.add_argument(
+        "--since",
+        dest="since",
+        default=None,
+        help="ISO timestamp or relative window (e.g. 'yesterday', 'last week').",
+    )
+    summary.add_argument("--from", dest="source_from", default=None, help="Snapshot source (default: diff log).")
+    summary.add_argument("--to", dest="source_to", default=None, help="Snapshot source (default: diff log).")
+    summary.add_argument(
+        "--view",
+        choices=("system", "authority", "narrative"),
+        default="narrative",
+        help="Summary view to render.",
+    )
 
     return parser
 
@@ -105,6 +125,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "snapshot":
         log_introspection_access("snapshot")
         output = build_authority_surface_snapshot_view()
+        print(serialize_output(output))
+        return 0
+
+    if args.command == "summary":
+        since = parse_since(args.since)
+        detail = {"since": args.since, "view": args.view, "from": args.source_from, "to": args.source_to}
+        log_introspection_access("summary", detail=detail)
+        if args.view == "system":
+            output = build_system_summary_view(since=since)
+        elif args.view == "authority":
+            output = build_authority_summary_view(since=since, source_from=args.source_from, source_to=args.source_to)
+        else:
+            output = build_narrative(since=since, source_from=args.source_from, source_to=args.source_to)
         print(serialize_output(output))
         return 0
 
