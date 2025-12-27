@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     pass
 
 
-SAFE_COMMANDS = {"status", "doctor", "ois"}
+SAFE_COMMANDS = {"status", "doctor", "ois", "diff"}
 
 
 def _read_version() -> str:
@@ -31,6 +31,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("status", help="Show read-only system status.")
     subparsers.add_parser("doctor", help="Run read-only diagnostics.")
     subparsers.add_parser("dashboard", help="Launch the SentientOS dashboard.")
+    subparsers.add_parser("diff", help="Show authority surface changes (read-only).")
     subparsers.add_parser("ois", help="Read-only Operator Introspection Surface (OIS).")
     subparsers.add_parser("avatar-demo", help="Run the avatar demo.")
     return parser
@@ -82,6 +83,10 @@ def main(argv: Sequence[str] | None = None) -> None:
             from sentientos.cli.ois_cli import main as ois_main
 
             raise SystemExit(ois_main(extra))
+        if args.command == "diff":
+            from sentientos.cli.authority_diff_cli import main as diff_main
+
+            raise SystemExit(diff_main(extra))
         _print_doctor()
         return
 
