@@ -107,6 +107,7 @@ class CognitiveSurface:
         self._default_expiration = default_expiration
         self._preferences: list[PreferenceInference] = []
         self._preference_usage: list[str] = []
+        self._forgotten_preferences: set[str] = set()
 
     def infer_preferences(
         self,
@@ -132,10 +133,16 @@ class CognitiveSurface:
         return inferred
 
     def mark_preference_used(self, key: str) -> None:
+        if key in self._forgotten_preferences:
+            return
         self._preference_usage.append(key)
 
     def preference_usage_summary(self) -> list[str]:
-        return [f"used inferred preference {key}" for key in self._preference_usage]
+        return [
+            f"used inferred preference {key}"
+            for key in self._preference_usage
+            if key not in self._forgotten_preferences
+        ]
 
     def persist_preferences(self) -> None:
         if self._cache is None:
@@ -155,6 +162,36 @@ class CognitiveSurface:
         self._preference_usage = []
         if self._cache is not None:
             self._cache.purge()
+
+    def forget_preferences(self, keys: Sequence[str], *, forgotten_by: str, reason: str) -> list[str]:
+        removed = []
+        for key in keys:
+            if key in self._forgotten_preferences:
+                continue
+            self._forgotten_preferences.add(key)
+            removed.append(key)
+        if not removed:
+            return []
+        self._preferences = [pref for pref in self._preferences if pref.key not in self._forgotten_preferences]
+        self._preference_usage = [key for key in self._preference_usage if key not in self._forgotten_preferences]
+        if self._cache is not None:
+            remaining = [
+                pref for pref in self._cache.load_preferences() if pref.key not in self._forgotten_preferences
+            ]
+            self._cache.write_preferences(remaining)
+        return removed
+
+    def forget_all_preferences(self, *, forgotten_by: str, reason: str) -> list[str]:
+        keys = [pref.key for pref in self._preferences]
+        self._forgotten_preferences.update(keys)
+        self._preferences = []
+        self._preference_usage = []
+        if self._cache is not None:
+            self._cache.purge()
+        return keys
+
+    def list_forgotten_preferences(self) -> tuple[str, ...]:
+        return tuple(sorted(self._forgotten_preferences))
 
     def build_proposal(
         self,

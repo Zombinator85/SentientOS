@@ -138,12 +138,16 @@ class HabitInferenceEngine:
         self._context_actions: MutableMapping[str, set[str]] = {}
         self._context_outcomes: MutableMapping[str, set[str]] = {}
         self._review_alerts: list[HabitReviewAlert] = []
+        self._forgotten_habits: set[str] = set()
 
     def record_observation(self, observation: HabitObservation) -> HabitProposal | None:
         context_signature = _signature_for_payload(observation.context)
         outcome_signature = _signature_for_payload(observation.outcome)
         habit_id = _habit_id_for(observation, context_signature, outcome_signature)
         observed_at = _to_epoch(observation.timestamp)
+
+        if habit_id in self._forgotten_habits:
+            return None
 
         self._register_context_activity(context_signature, observation.action_id, outcome_signature)
         record = self._habits.get(habit_id)
@@ -311,6 +315,28 @@ class HabitInferenceEngine:
     def list_approved(self) -> tuple[RoutineDefinition, ...]:
         return tuple(self._approved_habits.values())
 
+    def list_forgotten(self) -> tuple[str, ...]:
+        return tuple(sorted(self._forgotten_habits))
+
+    def forget_habit(self, habit_id: str, *, forgotten_by: str, reason: str) -> bool:
+        record = self._habits.pop(habit_id, None)
+        self._proposal_status.pop(habit_id, None)
+        self._declined_habits.pop(habit_id, None)
+        self._approved_habits.pop(habit_id, None)
+        self._review_alerts = [alert for alert in self._review_alerts if alert.habit_id != habit_id]
+        if record is not None:
+            self._discard_context_activity(record.context_signature, record.action_id, record.outcome_signature)
+        self._forgotten_habits.add(habit_id)
+        self._log_event(
+            "habit_forgotten",
+            {
+                "habit_id": habit_id,
+                "forgotten_by": forgotten_by,
+                "reason": reason,
+            },
+        )
+        return record is not None
+
     def _build_evidence(self, record: HabitRecord) -> HabitEvidence:
         occurrences = len(record.timestamps)
         intervals = _intervals(record.timestamps)
@@ -365,6 +391,23 @@ class HabitInferenceEngine:
         actions = self._context_actions.get(context_signature, set())
         outcomes = self._context_outcomes.get(context_signature, set())
         return len(actions) > 1 or len(outcomes) > 1
+
+    def _discard_context_activity(
+        self,
+        context_signature: str,
+        action_id: str,
+        outcome_signature: str,
+    ) -> None:
+        actions = self._context_actions.get(context_signature)
+        if actions is not None:
+            actions.discard(action_id)
+            if not actions:
+                self._context_actions.pop(context_signature, None)
+        outcomes = self._context_outcomes.get(context_signature)
+        if outcomes is not None:
+            outcomes.discard(outcome_signature)
+            if not outcomes:
+                self._context_outcomes.pop(context_signature, None)
 
     def _evaluate_invalidation(
         self,

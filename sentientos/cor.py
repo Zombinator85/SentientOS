@@ -185,6 +185,7 @@ class CORSubsystem:
         self._adapters = list(adapters or [])
         self._now = now_fn or time.time
         self._global_silence_until = 0.0
+        self._forgotten_hypotheses: set[str] = set()
 
     def register_adapter(self, adapter: ObservationAdapter) -> None:
         self._adapters.append(adapter)
@@ -198,6 +199,8 @@ class CORSubsystem:
         self._log_event("observation", event.__dict__)
 
     def ingest_hypothesis(self, hypothesis: Hypothesis) -> Optional[ProposalArtifact]:
+        if hypothesis.hypothesis in self._forgotten_hypotheses:
+            return None
         now = self._now()
         self._prune_hypotheses(now)
         self._prune_suppression(now)
@@ -291,11 +294,21 @@ class CORSubsystem:
 
     def forget_hypothesis(self, hypothesis: str, *, reason: str = "operator_forget") -> bool:
         record = self._hypothesis_records.pop(hypothesis, None)
+        self._forgotten_hypotheses.add(hypothesis)
+        self._proposal_suppression.pop(hypothesis, None)
+        self._hypothesis_history = deque(
+            [entry for entry in self._hypothesis_history if entry.hypothesis != hypothesis],
+            maxlen=self._hypothesis_history.maxlen,
+        )
+        self._archived_proposals = deque(
+            [entry for entry in self._archived_proposals if entry.hypothesis != hypothesis],
+            maxlen=self._archived_proposals.maxlen,
+        )
         if record is None:
             return False
         self._log_event(
             "hypothesis_forget",
-            {"hypothesis": hypothesis, "reason": reason, "last_seen": record.last_seen},
+            {"hypothesis_ref": _hash_reference(hypothesis), "reason": reason, "last_seen": record.last_seen},
         )
         return True
 
@@ -332,9 +345,16 @@ class CORSubsystem:
             "beliefs": sorted(beliefs, key=lambda item: item["hypothesis"]),
             "suppressed": suppressions,
             "global_silence_until": self._global_silence_until,
+            "forgotten_hypotheses": sorted(_hash_reference(item) for item in self._forgotten_hypotheses),
         }
         self._log_event("diagnostics", snapshot)
         return snapshot
+
+    def list_hypotheses(self) -> tuple[str, ...]:
+        return tuple(sorted(self._hypothesis_records.keys()))
+
+    def list_forgotten(self) -> tuple[str, ...]:
+        return tuple(sorted(self._forgotten_hypotheses))
 
     def propose_routine(self, summary: str, spec: RoutineSpec, *, proposed_by: str = "cor") -> RoutineProposal:
         proposal = make_routine_proposal(summary=summary, spec=spec, proposed_by=proposed_by)
@@ -459,3 +479,7 @@ class CORSubsystem:
         }
         with LOG_PATH.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry) + "\n")
+
+
+def _hash_reference(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]

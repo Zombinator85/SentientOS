@@ -15,6 +15,8 @@ from sentientos.external_adapters import list_adapters
 from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE_LOG_PATH
 from sentientos.governance.routine_delegation import RoutineRegistry
 from sentientos.governance.semantic_habit_class import DEFAULT_LOG_PATH as SEMANTIC_CLASS_LOG_PATH
+from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
+from sentientos.governance.intentional_forgetting import read_forget_log
 from sentientos.system_identity import compute_system_identity_digest
 from sentientos.authority_surface import (
     build_authority_surface_snapshot,
@@ -50,6 +52,7 @@ def build_system_overview() -> dict[str, object]:
     tasks = _summarize_tasks(_read_audit_log(Path(task_executor.LOG_PATH)))
     routines = _summarize_routines(_read_audit_log(Path(ROUTINE_LOG_PATH)))
     habits = _summarize_semantic_habits(_read_audit_log(Path(SEMANTIC_CLASS_LOG_PATH)))
+    forgetting = _summarize_intentional_forgetting(read_forget_log(FORGET_LOG_PATH))
     adapters = _summarize_adapters()
     privilege = _summarize_privilege_posture()
     return {
@@ -57,6 +60,7 @@ def build_system_overview() -> dict[str, object]:
         "active_tasks": tasks,
         "delegated_routines": routines,
         "semantic_habit_classes": habits,
+        "intentional_forgetting": forgetting,
         "active_adapters": adapters,
         "privilege_posture": privilege,
     }
@@ -274,16 +278,57 @@ def _summarize_routines(entries: Iterable[Mapping[str, object]]) -> dict[str, ob
 
 def _summarize_semantic_habits(entries: Iterable[Mapping[str, object]]) -> list[str]:
     active: dict[str, bool] = {}
+    if _has_forget_all(read_forget_log(FORGET_LOG_PATH)):
+        return []
+    forgotten = _forgotten_targets(read_forget_log(FORGET_LOG_PATH), "class")
     for entry in entries:
         event = entry.get("event")
         name = entry.get("name")
         if not isinstance(name, str) or not name:
+            continue
+        if name in forgotten:
+            active.pop(name, None)
             continue
         if event in {"semantic_class_created", "semantic_class_approved"}:
             active[name] = True
         elif event == "semantic_class_revoked":
             active.pop(name, None)
     return sorted(active)
+
+
+def _summarize_intentional_forgetting(entries: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    summary: list[dict[str, object]] = []
+    for entry in entries:
+        if entry.get("event") != "intentional_forget":
+            continue
+        summary.append({
+            "target_type": entry.get("target_type"),
+            "target": entry.get("target"),
+            "proof_level": entry.get("proof_level"),
+            "timestamp": entry.get("timestamp"),
+            "redacted_target": entry.get("redacted_target", False),
+            "post_state_hash": entry.get("post_state_hash"),
+        })
+    return summary
+
+
+def _forgotten_targets(entries: Iterable[Mapping[str, object]], target_type: str) -> set[str]:
+    targets: set[str] = set()
+    for entry in entries:
+        if entry.get("event") != "intentional_forget":
+            continue
+        if entry.get("target_type") != target_type:
+            continue
+        if entry.get("redacted_target"):
+            continue
+        target = entry.get("target")
+        if isinstance(target, str) and target:
+            targets.add(target)
+    return targets
+
+
+def _has_forget_all(entries: Iterable[Mapping[str, object]]) -> bool:
+    return any(entry.get("event") == "intentional_forget" and entry.get("target_type") == "all" for entry in entries)
 
 
 def _summarize_adapters() -> list[dict[str, object]]:
