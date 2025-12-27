@@ -263,6 +263,8 @@ class RoutineRegistry:
     def approve_routine(self, spec: RoutineSpec, approval: RoutineApproval) -> RoutineDefinition:
         self._validate_spec(spec)
         self._validate_approval(spec, approval)
+        if spec.routine_id in self._state["forgotten"]:
+            raise RoutinePolicyViolation(f"routine is intentionally forgotten: {spec.routine_id}")
         if spec.routine_id in self._state["routines"]:
             raise RoutinePolicyViolation(f"routine already exists: {spec.routine_id}")
         routine = RoutineDefinition(
@@ -342,6 +344,34 @@ class RoutineRegistry:
             self.revoke_routine(routine_id, revoked_by=revoked_by, reason=reason)
         return routine_ids
 
+    def forget_routine(self, routine_id: str, *, forgotten_by: str, reason: str) -> bool:
+        removed = self._state["routines"].pop(routine_id, None) is not None
+        self._state["revoked"].pop(routine_id, None)
+        if routine_id in self._state["forgotten"]:
+            return removed
+        self._state["forgotten"][routine_id] = {
+            "forgotten_by": forgotten_by,
+            "forgotten_at": _now(),
+            "reason": reason,
+        }
+        self._save_state()
+        append_json(
+            self.log_path,
+            {
+                "event": "routine_forgotten",
+                "routine_id": routine_id,
+                "forgotten_by": forgotten_by,
+                "reason": reason,
+            },
+        )
+        return removed
+
+    def forget_all(self, *, forgotten_by: str, reason: str) -> tuple[str, ...]:
+        routine_ids = tuple(self._state["routines"].keys())
+        for routine_id in routine_ids:
+            self.forget_routine(routine_id, forgotten_by=forgotten_by, reason=reason)
+        return routine_ids
+
     def list_routines(self) -> tuple[RoutineDefinition, ...]:
         return tuple(RoutineDefinition.from_dict(payload) for payload in self._state["routines"].values())
 
@@ -350,6 +380,9 @@ class RoutineRegistry:
         if payload is None:
             return None
         return RoutineDefinition.from_dict(payload)
+
+    def list_forgotten(self) -> tuple[str, ...]:
+        return tuple(sorted(self._state["forgotten"].keys()))
 
     def _validate_spec(self, spec: RoutineSpec) -> None:
         if spec.authority_impact not in {"none", "local"}:
@@ -380,21 +413,25 @@ class RoutineRegistry:
 
     def _load_state(self) -> MutableMapping[str, MutableMapping[str, object]]:
         if not self.store_path.exists():
-            return {"routines": {}, "revoked": {}}
+            return {"routines": {}, "revoked": {}, "forgotten": {}}
         payload = json.loads(self.store_path.read_text(encoding="utf-8"))
         routines = payload.get("routines", {})
         revoked = payload.get("revoked", {})
+        forgotten = payload.get("forgotten", {})
         if not isinstance(routines, dict):
             routines = {}
         if not isinstance(revoked, dict):
             revoked = {}
-        return {"routines": routines, "revoked": revoked}
+        if not isinstance(forgotten, dict):
+            forgotten = {}
+        return {"routines": routines, "revoked": revoked, "forgotten": forgotten}
 
     def _save_state(self) -> None:
         self.store_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "routines": self._state["routines"],
             "revoked": self._state["revoked"],
+            "forgotten": self._state["forgotten"],
         }
         self.store_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 

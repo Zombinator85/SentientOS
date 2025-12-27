@@ -15,6 +15,8 @@ from sentientos.authority_surface import (
     resolve_snapshot_source,
 )
 from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE_LOG_PATH
+from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
+from sentientos.governance.intentional_forgetting import read_forget_log
 
 NARRATIVE_LOG_PATH = get_log_path(
     "narrative_synthesis.jsonl",
@@ -213,16 +215,20 @@ def _collect_activity(*, since: datetime | None) -> dict[str, object]:
     task_entries = _filter_entries(_read_log(task_executor.LOG_PATH), since)
     routine_entries = _filter_entries(_read_log(ROUTINE_LOG_PATH), since)
     admission_entries = _filter_entries(_read_log(task_admission.ADMISSION_LOG_PATH), since)
+    forgetting_entries = _filter_entries(read_forget_log(FORGET_LOG_PATH), since)
     tasks = _summarize_tasks(task_entries)
     routines = _summarize_routines(routine_entries)
     admissions = _summarize_admissions(admission_entries)
+    forgetting = _summarize_forgetting(forgetting_entries)
     return {
         "tasks": tasks,
         "routines": routines,
         "admissions": admissions,
+        "forgetting": forgetting,
         "task_entries": task_entries,
         "routine_entries": routine_entries,
         "admission_entries": admission_entries,
+        "forgetting_entries": forgetting_entries,
     }
 
 
@@ -440,6 +446,7 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
     tasks = activity.get("tasks", {}).get("tasks", [])
     routines = activity.get("routines", {}).get("routines", [])
     admissions = activity.get("admissions", {}).get("denials", [])
+    forgetting = activity.get("forgetting", {})
     task_count = len(tasks)
     routine_execs = sum(int(item.get("executions", 0)) for item in routines)
     completed = sum(1 for item in tasks if item.get("status") == "completed")
@@ -474,6 +481,10 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
             lines.append(f"Reversibility signals: {', '.join(reversibility)}.")
         if admissions:
             lines.append(f"Admissions denied: {len(admissions)}.")
+    if forgetting.get("count"):
+        lines.append(
+            f"{forgetting['count']} item(s) were intentionally forgotten. No residual influence remains."
+        )
     references = {
         "task_ids": [item.get("task_id") for item in tasks if item.get("task_id")],
         "routine_ids": [item.get("routine_id") for item in routines if item.get("routine_id")],
@@ -482,8 +493,21 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
         "task_log_entry_ids": _extract_log_ids(activity.get("task_entries", [])),
         "routine_log_entry_ids": _extract_log_ids(activity.get("routine_entries", [])),
         "admission_log_entry_ids": _extract_log_ids(activity.get("admission_entries", [])),
+        "forget_log_entry_ids": _extract_log_ids(activity.get("forgetting_entries", [])),
     }
     return {"title": title, "lines": lines, "references": references}
+
+
+def _summarize_forgetting(entries: Iterable[Mapping[str, object]]) -> dict[str, object]:
+    counts: dict[str, int] = {}
+    total = 0
+    for entry in entries:
+        if entry.get("event") != "intentional_forget":
+            continue
+        target_type = entry.get("target_type") or "unknown"
+        counts[str(target_type)] = counts.get(str(target_type), 0) + 1
+        total += 1
+    return {"count": total, "by_type": counts}
 
 
 def _build_idle_section(activity: Mapping[str, object]) -> dict[str, object]:

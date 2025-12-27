@@ -4,6 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable, Mapping, MutableMapping
 
 from logging_config import get_log_path
@@ -55,6 +56,7 @@ class SemanticHabitClassManager:
     _classes: MutableMapping[str, SemanticHabitClass] = field(default_factory=dict)
     _proposals: MutableMapping[str, SemanticHabitClassProposal] = field(default_factory=dict)
     _declined_signatures: MutableMapping[str, str] = field(default_factory=dict)
+    _forgotten_classes: MutableMapping[str, str] = field(default_factory=dict)
 
     def propose_class(
         self,
@@ -65,6 +67,8 @@ class SemanticHabitClassManager:
         rationale: str,
         proposed_at: str | None = None,
     ) -> SemanticHabitClassProposal | None:
+        if name in self._forgotten_classes:
+            return None
         routine_ids_tuple = tuple(sorted(set(routine_ids)))
         if len(routine_ids_tuple) < 2:
             raise ValueError("semantic habit classes require at least two routines")
@@ -114,6 +118,8 @@ class SemanticHabitClassManager:
         proposal = self._proposals.get(proposal_id)
         if proposal is None:
             raise ValueError(f"Unknown semantic habit class proposal: {proposal_id}")
+        if proposal.name in self._forgotten_classes:
+            raise ValueError(f"Semantic habit class is intentionally forgotten: {proposal.name}")
         if proposal.name in self._classes:
             raise ValueError(f"Semantic habit class already exists: {proposal.name}")
         routine_ids = proposal.routine_ids
@@ -173,6 +179,8 @@ class SemanticHabitClassManager:
         description: str,
         created_at: str | None = None,
     ) -> SemanticHabitClass:
+        if name in self._forgotten_classes:
+            raise ValueError(f"Semantic habit class is intentionally forgotten: {name}")
         if name in self._classes:
             raise ValueError(f"Semantic habit class already exists: {name}")
         routine_ids_tuple = tuple(sorted(set(routine_ids)))
@@ -300,14 +308,48 @@ class SemanticHabitClassManager:
         )
         return updated
 
+    def forget_class(self, name: str, *, forgotten_by: str, reason: str) -> SemanticHabitClass | None:
+        semantic_class = self._classes.pop(name, None)
+        if semantic_class is None:
+            self._proposals = {
+                key: proposal for key, proposal in self._proposals.items() if proposal.name != name
+            }
+            self._forgotten_classes.setdefault(name, reason)
+            return None
+        self._forgotten_classes[name] = reason
+        self._proposals = {
+            key: proposal for key, proposal in self._proposals.items() if proposal.name != name
+        }
+        self._log_event(
+            "semantic_class_forgotten",
+            {
+                "class_id": semantic_class.class_id,
+                "name": semantic_class.name,
+                "forgotten_by": forgotten_by,
+                "reason": reason,
+                "semantic_only": True,
+                "authority_impact": "none",
+            },
+        )
+        return semantic_class
+
     def get_class(self, name: str) -> SemanticHabitClass | None:
         return self._classes.get(name)
+
+    def get_class_by_id(self, class_id: str) -> SemanticHabitClass | None:
+        for semantic_class in self._classes.values():
+            if semantic_class.class_id == class_id:
+                return semantic_class
+        return None
 
     def list_classes(self) -> tuple[SemanticHabitClass, ...]:
         return tuple(self._classes.values())
 
     def list_proposals(self) -> tuple[SemanticHabitClassProposal, ...]:
         return tuple(self._proposals.values())
+
+    def list_forgotten(self) -> tuple[str, ...]:
+        return tuple(sorted(self._forgotten_classes.keys()))
 
     def _resolve_routines(self, routine_ids: Iterable[str]) -> tuple[RoutineDefinition, ...]:
         routines = []
@@ -326,7 +368,7 @@ class SemanticHabitClassManager:
 
     def _log_event(self, event: str, payload: Mapping[str, object]) -> None:
         append_json(
-            self.log_path,
+            Path(self.log_path),
             {
                 "timestamp": _now(),
                 "event": event,

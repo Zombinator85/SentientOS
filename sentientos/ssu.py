@@ -103,6 +103,7 @@ class SymbolicScreenUnderstanding:
         self._sequence = 0
         self._symbol_records: Dict[Tuple[Optional[str], str, Optional[str], Optional[str]], SymbolRecord] = {}
         self._now = now_fn or time.time
+        self._forgotten_symbols: set[Tuple[Optional[str], str, Optional[str], Optional[str]]] = set()
 
     def extract(self, observation: Dict[str, object]) -> SymbolicObservation:
         self._sequence += 1
@@ -123,29 +124,29 @@ class SymbolicScreenUnderstanding:
         symbols = self._build_symbols(app, elements)
         ui_state = self._infer_ui_state(text, symbols)
         if ui_state:
-            symbols.append(
-                SymbolicElement(
-                    app=app,
-                    element_type="ui_state",
-                    label=ui_state,
-                    state=ui_state,
-                    confidence=text_confidence or 0.4,
-                    tentative=(text_confidence or 0.4) < self.config.min_confidence,
-                )
+            candidate = SymbolicElement(
+                app=app,
+                element_type="ui_state",
+                label=ui_state,
+                state=ui_state,
+                confidence=text_confidence or 0.4,
+                tentative=(text_confidence or 0.4) < self.config.min_confidence,
             )
+            if self._symbol_key(candidate) not in self._forgotten_symbols:
+                symbols.append(candidate)
 
         degraded = not symbols or all(symbol.tentative for symbol in symbols)
         if degraded and (app or window_title):
-            symbols.append(
-                SymbolicElement(
-                    app=app,
-                    element_type="app_context",
-                    label=window_title or app,
-                    state=None,
-                    confidence=0.4,
-                    tentative=True,
-                )
+            candidate = SymbolicElement(
+                app=app,
+                element_type="app_context",
+                label=window_title or app,
+                state=None,
+                confidence=0.4,
+                tentative=True,
             )
+            if self._symbol_key(candidate) not in self._forgotten_symbols:
+                symbols.append(candidate)
 
         symbolic = SymbolicObservation(
             timestamp=iso_timestamp,
@@ -184,7 +185,48 @@ class SymbolicScreenUnderstanding:
             for symbol in observation.symbols
             if self._decayed_confidence(symbol) >= self.config.proposal_confidence_threshold
             and not symbol.tentative
+            and self._symbol_key(symbol) not in self._forgotten_symbols
         ]
+
+    def forget_symbol_key(self, key: Tuple[Optional[str], str, Optional[str], Optional[str]]) -> bool:
+        removed = self._symbol_records.pop(key, None) is not None
+        self._forgotten_symbols.add(key)
+        return removed
+
+    def list_forgotten(self) -> Tuple[Tuple[Optional[str], str, Optional[str], Optional[str]], ...]:
+        return tuple(
+            sorted(
+                self._forgotten_symbols,
+                key=lambda item: (item[0] or "", item[1], item[2] or "", item[3] or ""),
+            )
+        )
+
+    def list_symbol_records(self) -> Tuple[Tuple[Optional[str], str, Optional[str], Optional[str]], ...]:
+        return tuple(self._symbol_records.keys())
+
+    @staticmethod
+    def serialize_symbol_key(key: Tuple[Optional[str], str, Optional[str], Optional[str]]) -> str:
+        app, element_type, label, state = key
+        parts = [
+            app or "",
+            element_type,
+            label or "",
+            state or "",
+        ]
+        return "|".join(parts)
+
+    @staticmethod
+    def parse_symbol_key(value: str) -> Tuple[Optional[str], str, Optional[str], Optional[str]]:
+        parts = value.split("|")
+        if len(parts) != 4:
+            raise ValueError("SSU symbol key must have 4 components")
+        app, element_type, label, state = parts
+        return (
+            app or None,
+            element_type,
+            label or None,
+            state or None,
+        )
 
     def build_hypothesis_from_symbols(
         self,
@@ -225,6 +267,8 @@ class SymbolicScreenUnderstanding:
                     metadata=metadata if isinstance(metadata, dict) else {},
                 )
             )
+            if self._symbol_key(symbols[-1]) in self._forgotten_symbols:
+                symbols.pop()
         return symbols
 
     def _record_symbols(self, observation: SymbolicObservation) -> None:

@@ -16,6 +16,8 @@ from sentientos.external_adapters import list_adapters
 from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE_LOG_PATH
 from sentientos.governance.routine_delegation import RoutineDefinition, RoutineRegistry
 from sentientos.governance.semantic_habit_class import DEFAULT_LOG_PATH as SEMANTIC_CLASS_LOG_PATH
+from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
+from sentientos.governance.intentional_forgetting import read_forget_log
 from sentientos.system_identity import compute_system_identity_digest
 
 AUTHORITY_SURFACE_VERSION = "authority_surface_v1"
@@ -245,6 +247,10 @@ def _routine_statuses(entries: Iterable[Mapping[str, object]]) -> dict[str, str]
 
 def _snapshot_semantic_habits() -> list[dict[str, object]]:
     entries = _read_log(Path(SEMANTIC_CLASS_LOG_PATH))
+    forget_entries = read_forget_log(FORGET_LOG_PATH)
+    if _has_forget_all(forget_entries):
+        return []
+    forgotten = _forgotten_targets(forget_entries, "class")
     classes: dict[str, dict[str, object]] = {}
     for entry in entries:
         event = entry.get("event")
@@ -257,6 +263,9 @@ def _snapshot_semantic_habits() -> list[dict[str, object]]:
         class_id = str(entry.get("class_id", ""))
         name = str(entry.get("name", ""))
         if not class_id or not name:
+            continue
+        if name in forgotten:
+            classes.pop(class_id, None)
             continue
         if event == "semantic_class_revoked":
             classes.pop(class_id, None)
@@ -273,6 +282,25 @@ def _snapshot_semantic_habits() -> list[dict[str, object]]:
     snapshot = list(classes.values())
     snapshot.sort(key=lambda item: item["class_id"])
     return snapshot
+
+
+def _forgotten_targets(entries: Iterable[Mapping[str, object]], target_type: str) -> set[str]:
+    targets: set[str] = set()
+    for entry in entries:
+        if entry.get("event") != "intentional_forget":
+            continue
+        if entry.get("target_type") != target_type:
+            continue
+        if entry.get("redacted_target"):
+            continue
+        target = entry.get("target")
+        if isinstance(target, str) and target:
+            targets.add(target)
+    return targets
+
+
+def _has_forget_all(entries: Iterable[Mapping[str, object]]) -> bool:
+    return any(entry.get("event") == "intentional_forget" and entry.get("target_type") == "all" for entry in entries)
 
 
 def _snapshot_privilege_posture(

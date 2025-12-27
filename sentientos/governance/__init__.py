@@ -13,6 +13,11 @@ from .semantic_habit_class import (
     SemanticHabitClassManager,
     SemanticHabitClassProposal,
 )
+from .intentional_forgetting import (
+    IntentionalForgetRequest,
+    IntentionalForgetResult,
+    IntentionalForgettingService,
+)
 from .sanction_engine import AgentStatus, SanctionEngine
 from .governance_cooldown import CooldownRecord, GovernanceCooldown
 
@@ -33,4 +38,7 @@ __all__ = [
     "SemanticHabitClass",
     "SemanticHabitClassManager",
     "SemanticHabitClassProposal",
+    "IntentionalForgetRequest",
+    "IntentionalForgetResult",
+    "IntentionalForgettingService",
 ]
