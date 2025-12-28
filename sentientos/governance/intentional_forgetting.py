@@ -68,6 +68,8 @@ class ForgetDiff:
     skipped: tuple[dict[str, str], ...]
     narrative_summary_hashes: tuple[dict[str, str], ...]
     state_hashes: Mapping[str, str]
+    invariant_status: str
+    invariant_violations: tuple[dict[str, str], ...]
     diff_hash: str
 
     def to_dict(self) -> dict[str, object]:
@@ -86,6 +88,8 @@ class ForgetDiff:
             "skipped": [dict(item) for item in self.skipped],
             "narrative_summary_hashes": [dict(item) for item in self.narrative_summary_hashes],
             "state_hashes": dict(self.state_hashes),
+            "invariant_status": self.invariant_status,
+            "invariant_violations": [dict(item) for item in self.invariant_violations],
             "diff_hash": self.diff_hash,
         }
 
@@ -115,6 +119,15 @@ class _SilentCORSubsystem(CORSubsystem):
         return None
 
 
+class InvariantViolation(RuntimeError):
+    def __init__(self, violations: Sequence[Mapping[str, str]]) -> None:
+        self.violations = tuple(dict(item) for item in violations)
+        message = "Post-commit invariant violation: " + ", ".join(
+            f"{item.get('reason')}" for item in self.violations
+        )
+        super().__init__(message)
+
+
 @dataclass
 class IntentionalForgettingService:
     routine_registry: RoutineRegistry = field(default_factory=RoutineRegistry)
@@ -131,6 +144,8 @@ class IntentionalForgettingService:
         *,
         authority: str = "operator",
     ) -> IntentionalForgetResult:
+        from sentientos.authority_surface import build_authority_surface_snapshot_for_state
+
         timestamp = _now()
         cascade = request.forget_scope == "cascade"
         forget_tx_id = self._forget_tx_id(request, authority=authority)
@@ -164,24 +179,39 @@ class IntentionalForgettingService:
             _append_phase(self.log_path, ForgetCommitPhase.APPLYING, phase_payload)
             outcome = self._apply_forget(request, authority=authority)
             post_state_hash = self._state_hash()
+            authority_snapshot = build_authority_surface_snapshot_for_state(
+                routine_registry=self.routine_registry,
+                class_manager=self.class_manager,
+            )
         except Exception as exc:
             _append_phase(self.log_path, ForgetCommitPhase.ABORTED, phase_payload, error_reason=str(exc))
             raise
         _append_phase(self.log_path, ForgetCommitPhase.COMMITTED, phase_payload)
-        append_json(
-            self.log_path,
-            {
-                "event": "intentional_forget",
-                "target_type": request.target_type,
-                "target": target_ref,
-                "cascade": cascade,
-                "authority": authority,
-                "proof_level": request.proof_level,
-                "forget_tx_id": forget_tx_id,
-                "post_state_hash": post_state_hash,
-                "redacted_target": redacted,
-            },
+        committed_entry = {
+            "event": "intentional_forget",
+            "target_type": request.target_type,
+            "target": target_ref,
+            "cascade": cascade,
+            "authority": authority,
+            "proof_level": request.proof_level,
+            "forget_tx_id": forget_tx_id,
+            "post_state_hash": post_state_hash,
+            "redacted_target": redacted,
+        }
+        proof = _build_rollback_proof(
+            forget_tx_id=forget_tx_id,
+            authority_surface_hash=str(authority_snapshot.get("snapshot_hash", "")),
+            narrative_summary_hash=_build_narrative_summary_hash(
+                _with_entry(read_forget_log(self.log_path), committed_entry)
+            ),
+            semantic_domains=_semantic_domains_for_outcome(request, outcome),
+            post_state_hash=post_state_hash,
         )
+        committed_entry["rollback_proof_hash"] = proof["proof_hash"]
+        append_json(self.log_path, committed_entry)
+        if _find_forget_proof_entry(read_forget_log(self.log_path), forget_tx_id) is None:
+            _append_rollback_proof(self.log_path, proof)
+        self.verify_post_commit_invariants()
         return IntentionalForgetResult(
             target_type=request.target_type,
             target_id=request.target_id,
@@ -265,6 +295,14 @@ class IntentionalForgettingService:
             blocked = [{"target": request.target_type, "reason": error_reason}]
         if replay_status == "already_applied":
             blocked = list(blocked) + [{"target": "forget_tx_id", "reason": "already_applied"}]
+        invariant_violations = simulation._evaluate_post_commit_invariants(
+            forgetting_entries=forgetting_entries
+        )
+        if invariant_violations:
+            blocked = list(blocked) + [
+                {"target": "post_commit_invariants", "reason": item["reason"]}
+                for item in invariant_violations
+            ]
 
         payload = {
             "view": "intentional_forget_diff",
@@ -288,6 +326,8 @@ class IntentionalForgettingService:
             "skipped": _sorted_blockers(outcome.skipped),
             "narrative_summary_hashes": _sorted_hashes(narrative_summary_hashes),
             "state_hashes": {"before": pre_state_hash, "after": post_state_hash},
+            "invariant_status": "violations" if invariant_violations else "ok",
+            "invariant_violations": _sorted_blockers(invariant_violations),
         }
         diff_hash = _hash_payload(payload)
         return ForgetDiff(
@@ -304,6 +344,8 @@ class IntentionalForgettingService:
             skipped=tuple(payload["skipped"]),
             narrative_summary_hashes=tuple(payload["narrative_summary_hashes"]),
             state_hashes=payload["state_hashes"],
+            invariant_status=payload["invariant_status"],
+            invariant_violations=tuple(payload["invariant_violations"]),
             diff_hash=diff_hash,
         )
 
@@ -660,6 +702,8 @@ class IntentionalForgettingService:
             self._recover_transaction(phase_entry)
 
     def _recover_transaction(self, phase_entry: Mapping[str, object]) -> None:
+        from sentientos.authority_surface import build_authority_surface_snapshot_for_state
+
         forget_tx_id = str(phase_entry.get("forget_tx_id", ""))
         if not forget_tx_id:
             return
@@ -698,25 +742,39 @@ class IntentionalForgettingService:
                 _append_phase(self.log_path, ForgetCommitPhase.APPLYING, phase_payload)
             outcome = self._apply_forget(request, authority=authority)
             post_state_hash = self._state_hash()
+            authority_snapshot = build_authority_surface_snapshot_for_state(
+                routine_registry=self.routine_registry,
+                class_manager=self.class_manager,
+            )
         except Exception as exc:
             _append_phase(self.log_path, ForgetCommitPhase.ABORTED, phase_payload, error_reason=str(exc))
             return
         _append_phase(self.log_path, ForgetCommitPhase.COMMITTED, phase_payload)
-        append_json(
-            self.log_path,
-            {
-                "event": "intentional_forget",
-                "target_type": request.target_type,
-                "target": target_ref,
-                "cascade": request.forget_scope == "cascade",
-                "authority": authority,
-                "proof_level": request.proof_level,
-                "forget_tx_id": forget_tx_id,
-                "post_state_hash": post_state_hash,
-                "redacted_target": bool(phase_entry.get("redacted_target", False)),
-            },
+        committed_entry = {
+            "event": "intentional_forget",
+            "target_type": request.target_type,
+            "target": target_ref,
+            "cascade": request.forget_scope == "cascade",
+            "authority": authority,
+            "proof_level": request.proof_level,
+            "forget_tx_id": forget_tx_id,
+            "post_state_hash": post_state_hash,
+            "redacted_target": bool(phase_entry.get("redacted_target", False)),
+        }
+        proof = _build_rollback_proof(
+            forget_tx_id=forget_tx_id,
+            authority_surface_hash=str(authority_snapshot.get("snapshot_hash", "")),
+            narrative_summary_hash=_build_narrative_summary_hash(
+                _with_entry(read_forget_log(self.log_path), committed_entry)
+            ),
+            semantic_domains=_semantic_domains_for_outcome(request, outcome),
+            post_state_hash=post_state_hash,
         )
-        _ = outcome
+        committed_entry["rollback_proof_hash"] = proof["proof_hash"]
+        append_json(self.log_path, committed_entry)
+        if _find_forget_proof_entry(read_forget_log(self.log_path), forget_tx_id) is None:
+            _append_rollback_proof(self.log_path, proof)
+        self.verify_post_commit_invariants()
 
     def _state_hash(self) -> str:
         snapshot = {
@@ -864,6 +922,71 @@ class IntentionalForgettingService:
             "nodes": sorted(nodes),
             "edges": sorted([list(edge) for edge in edges]),
         }
+
+    def verify_post_commit_invariants(self) -> None:
+        violations = self._evaluate_post_commit_invariants()
+        if violations:
+            raise InvariantViolation(violations)
+
+    def _evaluate_post_commit_invariants(
+        self,
+        *,
+        forgetting_entries: Iterable[Mapping[str, object]] | None = None,
+    ) -> list[dict[str, str]]:
+        violations: list[dict[str, str]] = []
+        forgotten_routines = set(self.routine_registry.list_forgotten())
+        active_routines = {routine.routine_id for routine in self.routine_registry.list_routines()}
+        reintroduced_routines = sorted(forgotten_routines.intersection(active_routines))
+        for routine_id in reintroduced_routines:
+            violations.append({"target": f"routine:{routine_id}", "reason": "reintroduced_routine"})
+        if self.habit_engine is not None:
+            forgotten_habits = set(self.habit_engine.list_forgotten())
+            active_habits = {habit.habit_id for habit in self.habit_engine.list_habits()}
+            for habit_id in sorted(forgotten_habits.intersection(active_habits)):
+                violations.append({"target": f"habit:{habit_id}", "reason": "reintroduced_habit"})
+        if self.class_manager is not None:
+            forgotten_classes = set(self.class_manager.list_forgotten())
+            active_classes = {cls.name for cls in self.class_manager.list_classes()}
+            for class_name in sorted(forgotten_classes.intersection(active_classes)):
+                violations.append({"target": f"class:{class_name}", "reason": "reintroduced_class"})
+            for semantic_class in sorted(self.class_manager.list_classes(), key=lambda item: item.name):
+                for routine_id in sorted(semantic_class.routine_ids):
+                    if routine_id in forgotten_routines:
+                        violations.append({
+                            "target": f"semantic_class_member:{semantic_class.name}:{routine_id}",
+                            "reason": "semantic_class_rehydration",
+                        })
+        if self.cor_subsystem is not None:
+            forgotten_hypotheses = set(self.cor_subsystem.list_forgotten())
+            active_hypotheses = set(self.cor_subsystem.list_hypotheses())
+            for hypothesis in sorted(forgotten_hypotheses.intersection(active_hypotheses)):
+                violations.append({
+                    "target": f"cor:{_hash_reference(hypothesis)}",
+                    "reason": "reintroduced_cor",
+                })
+        if self.ssu is not None:
+            forgotten_symbols = set(self.ssu.list_forgotten())
+            active_symbols = set(self.ssu.list_symbol_records())
+            for key in sorted(forgotten_symbols.intersection(active_symbols)):
+                serialized = self.ssu.serialize_symbol_key(key)
+                violations.append({
+                    "target": f"ssu:{_hash_reference(serialized)}",
+                    "reason": "reintroduced_ssu",
+                })
+        if self.cognitive_surface is not None:
+            forgotten_preferences = set(self.cognitive_surface.list_forgotten_preferences())
+            active_preferences = {pref.key for pref in self.cognitive_surface._preferences}
+            for pref_key in sorted(forgotten_preferences.intersection(active_preferences)):
+                violations.append({
+                    "target": f"cognitive:{pref_key}",
+                    "reason": "reintroduced_cognitive",
+                })
+        narrative_violations = _narrative_hash_violations(
+            forgetting_entries or read_forget_log(self.log_path),
+            self,
+        )
+        violations.extend(narrative_violations)
+        return _sorted_blockers(violations)
 
 
 def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, object]]:
@@ -1037,6 +1160,136 @@ def _find_forget_tx_entry(
         if entry.get("forget_tx_id") == forget_tx_id:
             return dict(entry)
     return None
+
+
+def _build_narrative_summary_hash(entries: Iterable[Mapping[str, object]]) -> str:
+    from sentientos import narrative_synthesis
+
+    stable_entries = _stable_forget_entries(entries)
+    summary = narrative_synthesis.build_narrative_summary(
+        since=None,
+        source_from=None,
+        source_to=None,
+        now=datetime(1970, 1, 1, tzinfo=timezone.utc),
+        log_output=False,
+        forgetting_entries=stable_entries,
+    )
+    return _hash_payload(summary)
+
+
+def _build_rollback_proof(
+    *,
+    forget_tx_id: str,
+    authority_surface_hash: str,
+    narrative_summary_hash: str,
+    semantic_domains: Sequence[str],
+    post_state_hash: str,
+) -> dict[str, object]:
+    payload = {
+        "view": "intentional_forget_rollback_proof",
+        "schema_version": "forget_rollback_proof_v1",
+        "forget_tx_id": forget_tx_id,
+        "authority_surface_hash": authority_surface_hash,
+        "narrative_summary_hash": narrative_summary_hash,
+        "semantic_domains": list(semantic_domains),
+        "post_state_hash": post_state_hash,
+    }
+    proof_hash = _hash_payload(payload)
+    payload["proof_hash"] = proof_hash
+    return payload
+
+
+def _append_rollback_proof(log_path: Path, proof: Mapping[str, object]) -> None:
+    entry = dict(proof)
+    entry["event"] = "intentional_forget_rollback_proof"
+    entry["timestamp"] = _now()
+    append_json(log_path, entry)
+
+
+def _find_forget_proof_entry(
+    entries: Iterable[Mapping[str, object]],
+    forget_tx_id: str,
+) -> dict[str, object] | None:
+    for entry in entries:
+        if entry.get("event") != "intentional_forget_rollback_proof":
+            continue
+        if entry.get("forget_tx_id") == forget_tx_id:
+            return dict(entry)
+    return None
+
+
+def _semantic_domains_for_outcome(
+    request: IntentionalForgetRequest,
+    outcome: _ForgetOutcome,
+) -> list[str]:
+    domains = {request.target_type}
+    for entry in outcome.primary + outcome.cascaded + outcome.removals:
+        if entry.startswith("routine:"):
+            domains.add("routine")
+        elif entry.startswith("habit:"):
+            domains.add("habit")
+        elif entry.startswith("class:"):
+            domains.add("class")
+        elif entry.startswith("semantic_class_member:"):
+            domains.add("class")
+            domains.add("routine")
+        elif entry.startswith("cor:"):
+            domains.add("cor")
+        elif entry.startswith("ssu:"):
+            domains.add("ssu")
+        elif entry.startswith("cognitive:"):
+            domains.add("cognitive")
+        elif entry == "all":
+            domains.add("all")
+    return sorted(domains)
+
+
+def _narrative_hash_violations(
+    entries: Iterable[Mapping[str, object]],
+    service: IntentionalForgettingService,
+) -> list[dict[str, str]]:
+    if service.cor_subsystem is None and service.ssu is None:
+        return []
+    forgotten_hashes: list[str] = []
+    if service.cor_subsystem is not None:
+        forgotten_hashes.extend(_hash_reference(item) for item in service.cor_subsystem.list_forgotten())
+    if service.ssu is not None:
+        forgotten_hashes.extend(
+            _hash_reference(service.ssu.serialize_symbol_key(key)) for key in service.ssu.list_forgotten()
+        )
+    if not forgotten_hashes:
+        return []
+    from sentientos import narrative_synthesis
+
+    stable_entries = _stable_forget_entries(entries)
+    summary = narrative_synthesis.build_narrative_summary(
+        since=None,
+        source_from=None,
+        source_to=None,
+        now=datetime(1970, 1, 1, tzinfo=timezone.utc),
+        log_output=False,
+        forgetting_entries=stable_entries,
+    )
+    payload = json.dumps(summary, sort_keys=True)
+    violations = []
+    for forgotten_hash in forgotten_hashes:
+        if forgotten_hash in payload:
+            violations.append({"target": f"hash:{forgotten_hash}", "reason": "narrative_hash_leak"})
+    return violations
+
+
+def _with_entry(entries: Iterable[Mapping[str, object]], entry: Mapping[str, object]) -> list[dict[str, object]]:
+    combined = [dict(item) for item in entries]
+    combined.append(dict(entry))
+    return combined
+
+
+def _stable_forget_entries(entries: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    stable_entries: list[dict[str, object]] = []
+    for entry in entries:
+        cleaned = {key: value for key, value in entry.items() if key not in {"timestamp", "prev_hash", "rolling_hash"}}
+        stable_entries.append(cleaned)
+    return stable_entries
 
 
 def _now() -> str:

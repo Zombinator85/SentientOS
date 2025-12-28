@@ -18,6 +18,7 @@ from .intentional_forgetting import (
     IntentionalForgetRequest,
     IntentionalForgetResult,
     IntentionalForgettingService,
+    InvariantViolation,
 )
 from .sanction_engine import AgentStatus, SanctionEngine
 from .governance_cooldown import CooldownRecord, GovernanceCooldown
@@ -43,4 +44,5 @@ __all__ = [
     "IntentionalForgetRequest",
     "IntentionalForgetResult",
     "IntentionalForgettingService",
+    "InvariantViolation",
 ]

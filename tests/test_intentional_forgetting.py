@@ -15,6 +15,7 @@ from sentientos.governance.intentional_forgetting import (
     ForgetCommitPhase,
     IntentionalForgetRequest,
     IntentionalForgettingService,
+    InvariantViolation,
     read_forget_log,
 )
 from sentientos.governance.routine_delegation import (
@@ -22,6 +23,7 @@ from sentientos.governance.routine_delegation import (
     RoutineActionResult,
     RoutineCatalog,
     RoutineExecutor,
+    RoutineDefinition,
     RoutineRegistry,
     RoutineSpec,
     RoutineTrigger,
@@ -73,6 +75,14 @@ def _committed_forget_entries(path: Path) -> list[dict[str, object]]:
 
 def _phase_entries(path: Path) -> list[dict[str, object]]:
     return [entry for entry in read_forget_log(path) if entry.get("event") == "intentional_forget_phase"]
+
+
+def _proof_entries(path: Path) -> list[dict[str, object]]:
+    return [
+        entry
+        for entry in read_forget_log(path)
+        if entry.get("event") == "intentional_forget_rollback_proof"
+    ]
 
 
 def test_forget_habit_prevents_reproposal(tmp_path: Path) -> None:
@@ -319,6 +329,7 @@ def test_simulation_does_not_mutate_state(tmp_path: Path) -> None:
     assert registry.get_routine(spec.routine_id) is not None
     assert manager.get_class("Focus") is not None
     assert read_forget_log(service.log_path) == []
+    assert _proof_entries(service.log_path) == []
 
 
 def test_simulation_matches_execution_effect(tmp_path: Path) -> None:
@@ -446,6 +457,46 @@ def test_simulation_diff_is_deterministic(tmp_path: Path) -> None:
     assert first.to_dict() == second.to_dict()
 
 
+def test_rollback_proof_is_deterministic(tmp_path: Path) -> None:
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+
+    def run(root: Path) -> dict[str, object]:
+        registry = RoutineRegistry(store_path=root / "routines.json", log_path=root / "routine_log.jsonl")
+        spec = _routine_spec("routine-1")
+        approval = make_routine_approval(
+            approved_by="operator",
+            summary="Toggle lights at sunset",
+            trigger_summary=spec.trigger_description,
+            scope_summary=spec.scope,
+        )
+        registry.approve_routine(spec, approval)
+        service = IntentionalForgettingService(
+            routine_registry=registry,
+            log_path=root / "forget_log.jsonl",
+        )
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+        proofs = _proof_entries(service.log_path)
+        assert proofs
+        return proofs[0]
+
+    first = run(first_root)
+    second = run(second_root)
+    assert first.get("proof_hash") == second.get("proof_hash")
+    assert first.get("authority_surface_hash") == second.get("authority_surface_hash")
+    assert first.get("narrative_summary_hash") == second.get("narrative_summary_hash")
+    assert first.get("semantic_domains") == second.get("semantic_domains")
+
+
 def test_forget_tx_id_is_deterministic(tmp_path: Path) -> None:
     registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
     spec = _routine_spec("routine-1")
@@ -499,6 +550,86 @@ def test_duplicate_execution_is_noop(tmp_path: Path) -> None:
     committed_entries = _committed_forget_entries(service.log_path)
     assert committed_entries[0].get("forget_tx_id") == first.forget_tx_id
     assert len(committed_entries) == 1
+
+
+def test_invariant_verification_blocks_reintroduction(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    service.forget(request)
+    routine = RoutineDefinition(
+        routine_id=spec.routine_id,
+        trigger_id=spec.trigger_id,
+        trigger_description=spec.trigger_description,
+        action_id=spec.action_id,
+        action_description=spec.action_description,
+        scope=spec.scope,
+        reversibility=spec.reversibility,
+        authority_impact=spec.authority_impact,
+        expiration=spec.expiration,
+        priority=spec.priority,
+        precedence_group=spec.precedence_group,
+        group_priority=spec.group_priority,
+        precedence_conditions=spec.precedence_conditions,
+        trigger_specificity=spec.trigger_specificity,
+        time_window=spec.time_window,
+        approval=approval,
+        created_at=approval.approved_at,
+        created_by=approval.approved_by,
+        policy=spec.policy_snapshot(),
+    )
+    registry._state["routines"][spec.routine_id] = routine.to_dict()
+    with pytest.raises(InvariantViolation, match="reintroduced_routine"):
+        service.verify_post_commit_invariants()
+
+
+def test_invariant_verification_is_stable_after_restart(tmp_path: Path) -> None:
+    store_path = tmp_path / "routines.json"
+    log_path = tmp_path / "routine_log.jsonl"
+    registry = RoutineRegistry(store_path=store_path, log_path=log_path)
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    service.forget(
+        IntentionalForgetRequest(
+            target_type="routine",
+            target_id=spec.routine_id,
+            forget_scope="exact",
+            proof_level="structural",
+        )
+    )
+    reloaded = RoutineRegistry(store_path=store_path, log_path=log_path)
+    replay_service = IntentionalForgettingService(
+        routine_registry=reloaded,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    replay_service.verify_post_commit_invariants()
+    replay_service.verify_post_commit_invariants()
 
 
 def test_phase_progression_records_transitions(tmp_path: Path) -> None:
