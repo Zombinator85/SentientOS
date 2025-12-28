@@ -12,6 +12,16 @@ class CognitivePosture(str, Enum):
     OVERLOADED = "overloaded"
 
 
+class LoadNarrative(str, Enum):
+    """Low-resolution load narrative descriptor derived from posture history."""
+
+    STABLE_OPERATION = "STABLE_OPERATION"
+    ACCUMULATING_TENSION = "ACCUMULATING_TENSION"
+    SUSTAINED_TENSION = "SUSTAINED_TENSION"
+    OVERLOADED = "OVERLOADED"
+    RECOVERING = "RECOVERING"
+
+
 DEFAULT_POSTURE_HISTORY_WINDOW = 4
 
 
@@ -75,6 +85,48 @@ def derive_posture_transition(history: Sequence[str]) -> dict[str, object]:
     return {"current_posture": current, "posture_duration": duration, "posture_transition": transition}
 
 
+def derive_load_narrative(
+    posture_history: Sequence[str] | None,
+    transitions: Mapping[str, object] | None,
+) -> LoadNarrative:
+    """Derive a deterministic, non-causal load narrative from posture history.
+
+    Mapping rules (cycle-count-based only):
+    - OVERLOADED: current posture is ``overloaded`` (any duration).
+    - SUSTAINED_TENSION: current posture is ``tense`` with duration >= 3 cycles.
+    - ACCUMULATING_TENSION: current posture is ``tense`` with duration < 3 cycles.
+    - RECOVERING: current posture is ``stable`` after a tense/overloaded transition
+      within the last 1-2 cycles.
+    - STABLE_OPERATION: default baseline for steady stable posture or empty history.
+    """
+
+    history = posture_history or []
+    transition_data = transitions
+    if transition_data is None:
+        transition_data = derive_posture_transition(history)
+    current_posture = transition_data.get("current_posture")
+    if isinstance(current_posture, CognitivePosture):
+        current_posture = current_posture.value
+    duration = int(transition_data.get("posture_duration") or 0)
+    transition = transition_data.get("posture_transition")
+    if not isinstance(current_posture, str) or not current_posture:
+        return LoadNarrative.STABLE_OPERATION
+    if current_posture == CognitivePosture.OVERLOADED.value:
+        return LoadNarrative.OVERLOADED
+    if current_posture == CognitivePosture.TENSE.value:
+        if duration >= 3:
+            return LoadNarrative.SUSTAINED_TENSION
+        return LoadNarrative.ACCUMULATING_TENSION
+    if current_posture == CognitivePosture.STABLE.value:
+        prior = None
+        if isinstance(transition, str) and "→" in transition:
+            prior = transition.split("→", maxsplit=1)[0].lower()
+        if prior in {CognitivePosture.TENSE.value, CognitivePosture.OVERLOADED.value} and duration <= 2:
+            return LoadNarrative.RECOVERING
+        return LoadNarrative.STABLE_OPERATION
+    return LoadNarrative.STABLE_OPERATION
+
+
 def derive_cognitive_posture(pressure_snapshot: Mapping[str, object]) -> CognitivePosture:
     """Derive a qualitative posture from a deterministic pressure snapshot.
 
@@ -95,8 +147,10 @@ def derive_cognitive_posture(pressure_snapshot: Mapping[str, object]) -> Cogniti
 
 __all__ = [
     "CognitivePosture",
+    "LoadNarrative",
     "DEFAULT_POSTURE_HISTORY_WINDOW",
     "derive_cognitive_posture",
+    "derive_load_narrative",
     "derive_posture_transition",
     "update_posture_history",
 ]

@@ -4,7 +4,9 @@ from pathlib import Path
 
 from sentientos.consciousness.cognitive_posture import (
     CognitivePosture,
+    LoadNarrative,
     derive_cognitive_posture,
+    derive_load_narrative,
     derive_posture_transition,
     update_posture_history,
 )
@@ -90,6 +92,8 @@ def test_simulation_posture_parity(tmp_path: Path) -> None:
     assert result["simulation_output"]["cognitive_posture"] == result["cognitive_posture"]
     assert result["posture_history"] == result["simulation_output"]["posture_history"]
     assert result["posture_transition"] == result["simulation_output"]["posture_transition"]
+    assert result["cognitive_load_narrative"] == "ACCUMULATING_TENSION"
+    assert result["simulation_output"]["cognitive_load_narrative"] == result["cognitive_load_narrative"]
     assert history == ["stable", "stable"]
     assert snapshot == {
         "total_active_pressure": 1,
@@ -114,6 +118,50 @@ def test_narrator_acknowledges_cognitive_posture() -> None:
     assert mood in {"stable", "uncertain", "curious"}
     assert focus
     assert attention
+
+
+def test_narrator_reports_load_narrative_transitions() -> None:
+    reflection, _, _, _ = generate_reflection(
+        {"events": [], "cycle": 1},
+        {},
+        cognitive_posture="stable",
+        posture_history=["overloaded", "stable"],
+        posture_transition="OVERLOADED→STABLE",
+        posture_duration=1,
+        cognitive_load_narrative="RECOVERING",
+    )
+
+    assert "Load narrative recovering; transitioned to recovering" in reflection
+
+
+def test_load_narrative_deterministic_and_read_only() -> None:
+    history = ["stable", "tense", "tense"]
+    history_before = list(history)
+    transitions = derive_posture_transition(history)
+    transitions_before = dict(transitions)
+
+    assert derive_load_narrative(history, transitions) == LoadNarrative.ACCUMULATING_TENSION
+    assert derive_load_narrative(history, transitions) == LoadNarrative.ACCUMULATING_TENSION
+    assert history == history_before
+    assert transitions == transitions_before
+
+
+def test_load_narrative_sustained_vs_transient_tension() -> None:
+    transient_history = ["stable", "tense", "tense"]
+    sustained_history = ["stable", "tense", "tense", "tense"]
+
+    transient_transition = derive_posture_transition(transient_history)
+    sustained_transition = derive_posture_transition(sustained_history)
+
+    assert derive_load_narrative(transient_history, transient_transition) == LoadNarrative.ACCUMULATING_TENSION
+    assert derive_load_narrative(sustained_history, sustained_transition) == LoadNarrative.SUSTAINED_TENSION
+
+
+def test_load_narrative_recovery_detection() -> None:
+    history = ["overloaded", "stable"]
+    transition = derive_posture_transition(history)
+
+    assert derive_load_narrative(history, transition) == LoadNarrative.RECOVERING
 
 
 def test_posture_history_window_and_transition() -> None:

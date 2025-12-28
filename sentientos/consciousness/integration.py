@@ -19,6 +19,7 @@ from sentientos.consciousness.cycle_gate import build_cycle_gate
 from sentientos.consciousness.cognitive_posture import (
     DEFAULT_POSTURE_HISTORY_WINDOW,
     derive_cognitive_posture,
+    derive_load_narrative,
     derive_posture_transition,
     update_posture_history,
 )
@@ -198,6 +199,8 @@ def _maybe_run_narrator(context: Mapping[str, object]) -> Optional[str]:
             kwargs["posture_transition"] = context.get("posture_transition")
         if _supports_kwarg(narrator, "posture_duration"):
             kwargs["posture_duration"] = context.get("posture_duration")
+        if _supports_kwarg(narrator, "cognitive_load_narrative"):
+            kwargs["cognitive_load_narrative"] = context.get("cognitive_load_narrative")
         return narrator(pulse_snapshot, self_model, **kwargs)
     return narrator(pulse_snapshot, self_model, log_path=log_path)  # type: ignore[arg-type]
 
@@ -224,6 +227,8 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
                 kwargs["posture_transition"] = context.get("posture_transition")
             if _supports_kwarg(run_cycle, "posture_duration"):
                 kwargs["posture_duration"] = context.get("posture_duration")
+            if _supports_kwarg(run_cycle, "cognitive_load_narrative"):
+                kwargs["cognitive_load_narrative"] = context.get("cognitive_load_narrative")
             if kwargs:
                 run_cycle(**kwargs)
             else:
@@ -243,6 +248,8 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
             result["posture_transition"] = context.get("posture_transition")
         if context.get("posture_duration") is not None:
             result["posture_duration"] = context.get("posture_duration")
+        if context.get("cognitive_load_narrative") is not None:
+            result["cognitive_load_narrative"] = context.get("cognitive_load_narrative")
         return result
     return None
 
@@ -305,6 +312,9 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
             cycle_context["posture_history"] = posture_history
             cycle_context["posture_duration"] = posture_transition_data.get("posture_duration")
             cycle_context["posture_transition"] = posture_transition_data.get("posture_transition")
+            cycle_context["cognitive_load_narrative"] = derive_load_narrative(
+                posture_history, posture_transition_data
+            ).value
 
             heartbeat = _heartbeat_or_interrupt()
             if heartbeat:
@@ -340,6 +350,7 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
                 "posture_history": posture_history,
                 "posture_duration": cycle_context.get("posture_duration"),
                 "posture_transition": cycle_context.get("posture_transition"),
+                "cognitive_load_narrative": cycle_context.get("cognitive_load_narrative"),
             }
     except RecursionLimitExceeded as exc:
         return {
