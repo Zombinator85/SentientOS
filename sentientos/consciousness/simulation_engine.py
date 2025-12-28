@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Mapping, Sequence
 
+from sentientos.consciousness.cognitive_posture import derive_cognitive_posture
 from sentientos.daemons.pulse_bus import apply_pulse_defaults
 from sentientos.glow.self_state import load as load_self_state, update as update_self_state
 from sentientos.integrity import covenant_autoalign
@@ -207,14 +208,23 @@ class SimulationEngine:
     def last_transcript(self) -> Sequence[SimulationMessage]:
         return self._last_transcript
 
-    def run_cycle(self, *, pressure_snapshot: Mapping[str, object] | None = None) -> None:
+    def run_cycle(
+        self,
+        *,
+        pressure_snapshot: Mapping[str, object] | None = None,
+        cognitive_posture: str | None = None,
+    ) -> None:
         covenant_autoalign.autoalign_before_cycle()
         glow_state = load_self_state(path=self._self_path)
         pulse_state = self._load_pulse_metadata()
         focus_meta = pulse_state.get("focus") if isinstance(pulse_state.get("focus"), Mapping) else {}
         context = pulse_state.get("context") if isinstance(pulse_state.get("context"), Mapping) else {}
+        posture_value = cognitive_posture
         if pressure_snapshot:
+            posture_value = derive_cognitive_posture(pressure_snapshot).value
             context = {**context, "pressure_snapshot": dict(pressure_snapshot)}
+        if posture_value:
+            context = {**context, "cognitive_posture": posture_value}
         focus_target = self._resolve_focus_target(focus_meta) or "introspection"
         pulse_meta = apply_pulse_defaults(
             {

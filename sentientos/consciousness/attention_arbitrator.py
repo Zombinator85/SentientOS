@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 from sentientos.daemons import pulse_bus
 from sentientos.glow.self_state import load as load_self_state
 from sentientos.integrity import covenant_autoalign
+from sentientos.consciousness.cognitive_posture import derive_cognitive_posture
 
 logger = logging.getLogger(__name__)
 
@@ -202,9 +203,13 @@ class AttentionArbitratorDaemon:
         pressure_snapshot = context.get("pressure_snapshot") if isinstance(context, Mapping) else None
         pressure_total = None
         overload = None
+        cognitive_posture = None
         if isinstance(pressure_snapshot, Mapping):
             pressure_total = pressure_snapshot.get("total_active_pressure")
             overload = pressure_snapshot.get("overload")
+            cognitive_posture = derive_cognitive_posture(pressure_snapshot).value
+        if isinstance(context, Mapping) and context.get("cognitive_posture"):
+            cognitive_posture = context.get("cognitive_posture")
         logger.debug(
             "Attention arbitrator scaffold cycle executed",
             extra={
@@ -213,6 +218,7 @@ class AttentionArbitratorDaemon:
                 "decision": self.arbitrator.telemetry_snapshot(),
                 "pressure_total": pressure_total,
                 "pressure_overload": overload,
+                "cognitive_posture": cognitive_posture,
             },
         )
         self._last_cycle = datetime.now(timezone.utc)

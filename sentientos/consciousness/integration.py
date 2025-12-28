@@ -16,6 +16,7 @@ from version_consensus import VersionConsensus
 from vow_digest import canonical_vow_digest
 
 from sentientos.consciousness.cycle_gate import build_cycle_gate
+from sentientos.consciousness.cognitive_posture import derive_cognitive_posture
 from sentientos.consciousness.recursion_guard import (
     RecursionGuard,
     RecursionLimitExceeded,
@@ -141,8 +142,13 @@ def _maybe_run_kernel(context: Mapping[str, object]) -> Optional[Dict[str, objec
         kernel = kernel_cls(emitter=emitter or (lambda payload: payload))
     if hasattr(kernel, "run_cycle"):
         run_cycle = kernel.run_cycle
-        if callable(run_cycle) and _supports_kwarg(run_cycle, "pressure_snapshot"):
-            report = run_cycle(pressure_snapshot=context.get("pressure_snapshot"))
+        if callable(run_cycle):
+            kwargs: Dict[str, object] = {}
+            if _supports_kwarg(run_cycle, "pressure_snapshot"):
+                kwargs["pressure_snapshot"] = context.get("pressure_snapshot")
+            if _supports_kwarg(run_cycle, "cognitive_posture"):
+                kwargs["cognitive_posture"] = context.get("cognitive_posture")
+            report = run_cycle(**kwargs) if kwargs else kernel.run_cycle()
         else:
             report = kernel.run_cycle()
         return report if isinstance(report, Mapping) else None
@@ -162,12 +168,13 @@ def _maybe_run_narrator(context: Mapping[str, object]) -> Optional[str]:
     self_model = _coerce_mapping(context.get("self_model"), "self_model")
     log_path = context.get("introspection_log_path")
     if _supports_kwarg(narrator, "pressure_snapshot"):
-        return narrator(
-            pulse_snapshot,
-            self_model,
-            pressure_snapshot=context.get("pressure_snapshot"),
-            log_path=log_path,
-        )
+        kwargs: Dict[str, object] = {
+            "pressure_snapshot": context.get("pressure_snapshot"),
+            "log_path": log_path,
+        }
+        if _supports_kwarg(narrator, "cognitive_posture"):
+            kwargs["cognitive_posture"] = context.get("cognitive_posture")
+        return narrator(pulse_snapshot, self_model, **kwargs)
     return narrator(pulse_snapshot, self_model, log_path=log_path)  # type: ignore[arg-type]
 
 
@@ -181,8 +188,16 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
         simulation_engine = engine_cls()
     if hasattr(simulation_engine, "run_cycle"):
         run_cycle = simulation_engine.run_cycle
-        if callable(run_cycle) and _supports_kwarg(run_cycle, "pressure_snapshot"):
-            run_cycle(pressure_snapshot=context.get("pressure_snapshot"))
+        if callable(run_cycle):
+            kwargs: Dict[str, object] = {}
+            if _supports_kwarg(run_cycle, "pressure_snapshot"):
+                kwargs["pressure_snapshot"] = context.get("pressure_snapshot")
+            if _supports_kwarg(run_cycle, "cognitive_posture"):
+                kwargs["cognitive_posture"] = context.get("cognitive_posture")
+            if kwargs:
+                run_cycle(**kwargs)
+            else:
+                simulation_engine.run_cycle()
         else:
             simulation_engine.run_cycle()
         summary = getattr(simulation_engine, "last_summary", None)
@@ -190,6 +205,8 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
         result = {"summary": summary, "transcript": transcript}
         if context.get("pressure_snapshot") is not None:
             result["pressure_snapshot"] = context.get("pressure_snapshot")
+        if context.get("cognitive_posture") is not None:
+            result["cognitive_posture"] = context.get("cognitive_posture")
         return result
     return None
 
@@ -240,9 +257,13 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
     try:
         with _RECURSION_GUARD.enter():
             cycle_context = dict(context)
+            cycle_context.pop("cognitive_posture", None)
             pressure_snapshot = _resolve_pressure_snapshot(cycle_context)
+            cognitive_posture = None
             if pressure_snapshot is not None:
                 cycle_context["pressure_snapshot"] = pressure_snapshot
+                cognitive_posture = derive_cognitive_posture(pressure_snapshot).value
+                cycle_context["cognitive_posture"] = cognitive_posture
 
             heartbeat = _heartbeat_or_interrupt()
             if heartbeat:
@@ -274,6 +295,7 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
                 "introspection_output": introspection_output,
                 "simulation_output": simulation_output,
                 "pressure_snapshot": pressure_snapshot,
+                "cognitive_posture": cognitive_posture,
             }
     except RecursionLimitExceeded as exc:
         return {

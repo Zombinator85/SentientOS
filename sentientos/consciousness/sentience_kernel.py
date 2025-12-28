@@ -151,7 +151,12 @@ class SentienceKernel:
             payload["goal_context"] = goal.get("context", {})
         return update_self_state(payload, path=self._self_path)
 
-    def run_cycle(self, *, pressure_snapshot: Mapping[str, object] | None = None) -> Dict[str, object]:
+    def run_cycle(
+        self,
+        *,
+        pressure_snapshot: Mapping[str, object] | None = None,
+        cognitive_posture: str | None = None,
+    ) -> Dict[str, object]:
         covenant_autoalign.autoalign_before_cycle()
         self._last_cycle = datetime.now(timezone.utc)
         glow_state = load_self_state(path=self._self_path)
@@ -163,9 +168,16 @@ class SentienceKernel:
             "goal": None,
             "emitted": False,
         }
+        if cognitive_posture is not None:
+            report["cognitive_posture"] = cognitive_posture
 
         if not should_generate:
-            self._update_self_model(goal=None, result=trigger, attention_hint=glow_state.get("attention_hint"), novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0))
+            self._update_self_model(
+                goal=None,
+                result=trigger,
+                attention_hint=glow_state.get("attention_hint"),
+                novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0),
+            )
             return report
 
         goal = self._build_goal(glow_state, trigger)
@@ -179,7 +191,12 @@ class SentienceKernel:
         if self._misaligned_goal(goal):
             logger.warning("Discarded misaligned goal from sentience kernel", extra={"goal": goal})
             self._recent_failures += 1
-            self._update_self_model(goal=None, result="misaligned", attention_hint=glow_state.get("attention_hint"), novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0))
+            self._update_self_model(
+                goal=None,
+                result="misaligned",
+                attention_hint=glow_state.get("attention_hint"),
+                novelty_score=float(glow_state.get("novelty_score", 0.0) or 0.0),
+            )
             report["reason"] = "misaligned"
             return report
 

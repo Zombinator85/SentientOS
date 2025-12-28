@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Mapping, Tuple
 
+from sentientos.consciousness.cognitive_posture import CognitivePosture, derive_cognitive_posture
 from sentientos.glow.self_state import (
     DEFAULT_SELF_STATE,
     save as save_self_state,
@@ -109,6 +110,7 @@ def generate_reflection(
     self_model: Mapping[str, object],
     *,
     pressure_snapshot: Mapping[str, object] | None = None,
+    cognitive_posture: str | CognitivePosture | None = None,
 ) -> Tuple[str, str, str, str]:
     """Create a deterministic, bounded reflection.
 
@@ -132,29 +134,36 @@ def generate_reflection(
     else:
         context_desc = focus
 
+    posture_value = None
+    if isinstance(cognitive_posture, CognitivePosture):
+        posture_value = cognitive_posture.value
+    elif isinstance(cognitive_posture, str) and cognitive_posture.strip():
+        posture_value = cognitive_posture.strip().lower()
+    elif pressure_snapshot:
+        posture_value = derive_cognitive_posture(pressure_snapshot).value
+
     sentences = [
         f"System {cycle_descriptor} {event_note}; noticed {focus}.",
         f"Internal interpretation steady; mood {mood}.",
     ]
     if pressure_snapshot:
-        overload = bool(pressure_snapshot.get("overload"))
-        total_pressure = int(pressure_snapshot.get("total_active_pressure", 0) or 0)
         domains = pressure_snapshot.get("pressure_by_subsystem", [])
         domain_names = [
             str(item.get("subsystem"))
             for item in domains
             if isinstance(item, Mapping) and item.get("subsystem")
         ]
-        if overload or total_pressure:
-            domain_summary = ", ".join(domain_names[:3]) if domain_names else "core domains"
-            tension_line = (
-                f"System under sustained tension across {domain_summary}."
-                if overload
-                else f"Unresolved pressure present across {domain_summary}."
-            )
-            sentences.append(tension_line)
+        domain_summary = ", ".join(domain_names[:3]) if domain_names else "core domains"
+        if posture_value == "overloaded":
+            sentences.append(f"Cognitive posture overloaded; operating under sustained load across {domain_summary}.")
+        elif posture_value == "tense":
+            sentences.append(f"Cognitive posture tense; unresolved pressure across {domain_summary}.")
+        elif posture_value == "stable":
+            sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
         else:
             sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
+    elif posture_value == "stable":
+        sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
     else:
         sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
     reflection = " ".join(sentences[:3])
@@ -200,6 +209,7 @@ def run_cycle(
     self_model: Mapping[str, object],
     *,
     pressure_snapshot: Mapping[str, object] | None = None,
+    cognitive_posture: str | CognitivePosture | None = None,
     log_path: Path | None = None,
 ) -> str:
     """Generate and store an internal reflection without emitting externally."""
@@ -209,6 +219,7 @@ def run_cycle(
         pulse_snapshot,
         self_model,
         pressure_snapshot=pressure_snapshot,
+        cognitive_posture=cognitive_posture,
     )
     updated_model: Dict[str, object] = {**DEFAULT_SELF_STATE, **dict(self_model)}
     updated_model.update(
