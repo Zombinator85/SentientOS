@@ -16,7 +16,7 @@ from sentientos.authority_surface import (
 )
 from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE_LOG_PATH
 from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
-from sentientos.governance.intentional_forgetting import read_forget_log
+from sentientos.governance.intentional_forgetting import read_forget_log, read_forget_pressure
 
 NARRATIVE_LOG_PATH = get_log_path(
     "narrative_synthesis.jsonl",
@@ -229,11 +229,13 @@ def _collect_activity(
     routines = _summarize_routines(routine_entries)
     admissions = _summarize_admissions(admission_entries)
     forgetting = _summarize_forgetting(forgetting_entries)
+    forgetting_pressure = _summarize_forget_pressure(read_forget_pressure(FORGET_LOG_PATH))
     return {
         "tasks": tasks,
         "routines": routines,
         "admissions": admissions,
         "forgetting": forgetting,
+        "forgetting_pressure": forgetting_pressure,
         "task_entries": task_entries,
         "routine_entries": routine_entries,
         "admission_entries": admission_entries,
@@ -500,6 +502,17 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
             summary += f" ({forgetting['deferrals']} deferred)"
         summary += "."
         lines.append(summary)
+    pressure = activity.get("forgetting_pressure", {})
+    pressure_count = int(pressure.get("count", 0) or 0)
+    if pressure_count:
+        scope = pressure.get("scope", [])
+        if scope:
+            scope_summary = ", ".join(scope)
+            lines.append(
+                f"{pressure_count} unresolved forgetting pressure signal(s) remain across {scope_summary}."
+            )
+        else:
+            lines.append(f"{pressure_count} unresolved forgetting pressure signal(s) remain.")
     references = {
         "task_ids": [item.get("task_id") for item in tasks if item.get("task_id")],
         "routine_ids": [item.get("routine_id") for item in routines if item.get("routine_id")],
@@ -530,6 +543,16 @@ def _summarize_forgetting(entries: Iterable[Mapping[str, object]]) -> dict[str, 
         counts[str(target_type)] = counts.get(str(target_type), 0) + 1
         total += 1
     return {"count": total, "by_type": counts, "refusals": refusals, "deferrals": deferrals}
+
+
+def _summarize_forget_pressure(entries: Iterable[Mapping[str, object]]) -> dict[str, object]:
+    counts: dict[str, int] = {}
+    total = 0
+    for entry in entries:
+        target_type = entry.get("target_type") or "unknown"
+        counts[str(target_type)] = counts.get(str(target_type), 0) + 1
+        total += 1
+    return {"count": total, "scope": sorted(counts)}
 
 
 def _build_idle_section(activity: Mapping[str, object]) -> dict[str, object]:

@@ -20,6 +20,7 @@ from sentientos.governance.intentional_forgetting import (
     IntentionalForgettingService,
     InvariantViolation,
     read_forget_log,
+    read_forget_pressure,
 )
 from sentientos.governance.routine_delegation import (
     RoutineAction,
@@ -91,6 +92,12 @@ def _proof_entries(path: Path) -> list[dict[str, object]]:
 def _refusal_entries(path: Path) -> list[dict[str, object]]:
     return [
         entry for entry in read_forget_log(path) if entry.get("event") == "intentional_forget_refusal"
+    ]
+
+
+def _pressure_entries(path: Path) -> list[dict[str, object]]:
+    return [
+        entry for entry in read_forget_log(path) if entry.get("event") == "intentional_forget_pressure"
     ]
 
 
@@ -991,6 +998,195 @@ def test_boundary_defer_requires_acknowledgment(tmp_path: Path) -> None:
     )
     assert result.forget_tx_id
     assert _committed_forget_entries(service.log_path)
+
+
+def test_pressure_created_on_defer(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+
+    with pytest.raises(BoundaryRefusal):
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+
+    pressure_entries = _pressure_entries(service.log_path)
+    assert pressure_entries
+    assert pressure_entries[-1].get("status") == "active"
+    assert pressure_entries[-1].get("phase") == "deferred"
+
+
+def test_pressure_deduplicates_on_reproposal(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)
+
+    assert len(_pressure_entries(service.log_path)) == 1
+
+
+def test_pressure_persists_across_restart(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+
+    reloaded = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+    pressure = read_forget_pressure(reloaded.log_path)
+    assert pressure
+
+
+def test_reconciliation_clears_pressure(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+
+    reconciling = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(),
+    )
+    results = reconciling.reconcile_forgetting_pressure()
+    assert results[0].get("status") == "cleared"
+    assert read_forget_pressure(reconciling.log_path) == []
+
+
+def test_reconciliation_maintains_pressure(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+
+    results = service.reconcile_forgetting_pressure()
+    assert results[0].get("status") == "blocked"
+    assert read_forget_pressure(service.log_path)
+
+
+def test_simulation_reports_pressure_state(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)
+
+    diff = service.simulate_forget(request)
+    assert diff.pressure
 
 
 def test_simulation_matches_boundary_refusal(tmp_path: Path) -> None:

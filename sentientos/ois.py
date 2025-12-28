@@ -16,7 +16,7 @@ from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE
 from sentientos.governance.routine_delegation import RoutineRegistry
 from sentientos.governance.semantic_habit_class import DEFAULT_LOG_PATH as SEMANTIC_CLASS_LOG_PATH
 from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
-from sentientos.governance.intentional_forgetting import read_forget_log
+from sentientos.governance.intentional_forgetting import read_forget_log, read_forget_pressure
 from sentientos.system_identity import compute_system_identity_digest
 from sentientos.authority_surface import (
     build_authority_surface_snapshot,
@@ -53,6 +53,7 @@ def build_system_overview() -> dict[str, object]:
     routines = _summarize_routines(_read_audit_log(Path(ROUTINE_LOG_PATH)))
     habits = _summarize_semantic_habits(_read_audit_log(Path(SEMANTIC_CLASS_LOG_PATH)))
     forgetting = _summarize_intentional_forgetting(read_forget_log(FORGET_LOG_PATH))
+    forgetting_pressure = _summarize_intentional_forget_pressure(read_forget_pressure(FORGET_LOG_PATH))
     adapters = _summarize_adapters()
     privilege = _summarize_privilege_posture()
     return {
@@ -61,6 +62,7 @@ def build_system_overview() -> dict[str, object]:
         "delegated_routines": routines,
         "semantic_habit_classes": habits,
         "intentional_forgetting": forgetting,
+        "intentional_forgetting_pressure": forgetting_pressure,
         "active_adapters": adapters,
         "privilege_posture": privilege,
     }
@@ -308,6 +310,20 @@ def _summarize_intentional_forgetting(entries: Iterable[Mapping[str, object]]) -
             "timestamp": entry.get("timestamp"),
             "redacted_target": entry.get("redacted_target", False),
             "post_state_hash": entry.get("post_state_hash"),
+        })
+    return summary
+
+
+def _summarize_intentional_forget_pressure(entries: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    summary: list[dict[str, object]] = []
+    for entry in entries:
+        summary.append({
+            "forget_tx_id": entry.get("forget_tx_id"),
+            "target_type": entry.get("target_type"),
+            "target": entry.get("target"),
+            "status": entry.get("status"),
+            "phase": entry.get("phase"),
+            "subsystems": entry.get("subsystems", []),
         })
     return summary
 
