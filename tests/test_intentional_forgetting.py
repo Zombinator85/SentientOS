@@ -435,3 +435,133 @@ def test_simulation_diff_is_deterministic(tmp_path: Path) -> None:
     first = service.simulate_forget(request)
     second = service.simulate_forget(request)
     assert first.to_dict() == second.to_dict()
+
+
+def test_forget_tx_id_is_deterministic(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    first = service.simulate_forget(request)
+    second = service.simulate_forget(request)
+    assert first.forget_tx_id == second.forget_tx_id
+
+
+def test_duplicate_execution_is_noop(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    first = service.forget(request)
+    second = service.forget(request)
+
+    assert second.replayed is True
+    assert second.forget_tx_id == first.forget_tx_id
+    assert read_forget_log(service.log_path)[0].get("forget_tx_id") == first.forget_tx_id
+    assert len(read_forget_log(service.log_path)) == 1
+
+
+def test_simulation_reports_prior_execution(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    service.forget(request)
+    diff = service.simulate_forget(request)
+    assert diff.replay_status == "already_applied"
+
+
+def test_failed_execution_does_not_register_tx(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="habit",
+        target_id="habit-1",
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    with pytest.raises(ValueError, match="Habit inference engine is required"):
+        service.forget(request)
+    assert read_forget_log(service.log_path) == []
+
+
+def test_forget_tx_id_stable_across_serialization(tmp_path: Path) -> None:
+    store_path = tmp_path / "routines.json"
+    log_path = tmp_path / "routine_log.jsonl"
+    registry = RoutineRegistry(store_path=store_path, log_path=log_path)
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    first = service.simulate_forget(request)
+
+    reloaded = RoutineRegistry(store_path=store_path, log_path=log_path)
+    replay_service = IntentionalForgettingService(
+        routine_registry=reloaded,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    second = replay_service.simulate_forget(request)
+    assert first.forget_tx_id == second.forget_tx_id
