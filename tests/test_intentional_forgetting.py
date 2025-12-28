@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Mapping
 
 import pytest
 
@@ -19,8 +20,10 @@ from sentientos.governance.intentional_forgetting import (
     IntentionalForgetRequest,
     IntentionalForgettingService,
     InvariantViolation,
+    ForgetPressureBudget,
     read_forget_log,
     read_forget_pressure,
+    read_forget_pressure_budgets,
 )
 from sentientos.governance.routine_delegation import (
     RoutineAction,
@@ -36,6 +39,19 @@ from sentientos.governance.routine_delegation import (
 from sentientos.governance.semantic_habit_class import SemanticHabitClassManager
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+class _BudgetDeferralContract:
+    name = "budget_domain"
+
+    def __init__(self, *, decision: ForgetBoundaryDecision = ForgetBoundaryDecision.DEFER) -> None:
+        self.decision = decision
+
+    def preview_forget(self, request: IntentionalForgetRequest) -> ForgetBoundaryPreview | None:
+        return ForgetBoundaryPreview(subsystem=self.name, decision=self.decision, reason="budgeted")
+
+    def verify_post_commit(self, state: Mapping[str, object]) -> None:
+        return None
 
 
 def _habit_observation(timestamp: str) -> HabitObservation:
@@ -1187,6 +1203,111 @@ def test_simulation_reports_pressure_state(tmp_path: Path) -> None:
 
     diff = service.simulate_forget(request)
     assert diff.pressure
+
+
+def test_pressure_budget_blocks_new_deferrals(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    contract = _BudgetDeferralContract()
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(contract,),
+        pressure_budgets={"budget_domain": ForgetPressureBudget(max_outstanding=1, max_duration=10)},
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id="routine-1",
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)
+    assert read_forget_pressure(service.log_path)
+
+    with pytest.raises(BoundaryRefusal) as excinfo:
+        service.forget(request)
+    assert any(
+        blocker.get("reason") == "refuse:pressure_budget_exceeded"
+        for blocker in excinfo.value.blockers
+    )
+    assert len(_pressure_entries(service.log_path)) == 1
+
+
+def test_pressure_budget_forecast_surfaces_exceedance(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    contract = _BudgetDeferralContract()
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(contract,),
+        pressure_budgets={"budget_domain": ForgetPressureBudget(max_outstanding=0, max_duration=10)},
+    )
+    diff = service.simulate_forget(
+        IntentionalForgetRequest(
+            target_type="routine",
+            target_id="routine-1",
+            forget_scope="exact",
+            proof_level="structural",
+        )
+    )
+    assert any(item.get("status") == "would_exceed" for item in diff.pressure_budgets)
+
+
+def test_reconciliation_frees_budget_capacity(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    contract = _BudgetDeferralContract()
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(contract,),
+        pressure_budgets={"budget_domain": ForgetPressureBudget(max_outstanding=1, max_duration=10)},
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id="routine-1",
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)
+    assert read_forget_pressure(service.log_path)
+
+    contract.decision = ForgetBoundaryDecision.ALLOW
+    service.reconcile_forgetting_pressure()
+    assert read_forget_pressure(service.log_path) == []
+
+    budget_status = read_forget_pressure_budgets(service.log_path, budgets=service.pressure_budgets)
+    assert not budget_status or all(item.get("status") == "ok" for item in budget_status)
+
+
+def test_budget_status_persists_across_restart(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    contract = _BudgetDeferralContract()
+    budgets = {"budget_domain": ForgetPressureBudget(max_outstanding=1, max_duration=10)}
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(contract,),
+        pressure_budgets=budgets,
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id="routine-1",
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)
+
+    reloaded = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(contract,),
+        pressure_budgets=budgets,
+    )
+    budget_status = read_forget_pressure_budgets(reloaded.log_path, budgets=budgets)
+    assert budget_status
+
 
 
 def test_simulation_matches_boundary_refusal(tmp_path: Path) -> None:

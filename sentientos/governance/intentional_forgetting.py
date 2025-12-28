@@ -89,6 +89,27 @@ class ForgetPressureSignal:
     defer_acknowledged: bool = False
 
 
+@dataclass(frozen=True)
+class ForgetPressureBudget:
+    max_outstanding: int | None = None
+    max_duration: int | None = None
+    max_weight: float | None = None
+    advisory: bool = True
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "max_outstanding": self.max_outstanding,
+            "max_duration": self.max_duration,
+            "max_weight": self.max_weight,
+            "advisory": self.advisory,
+        }
+
+
+DEFAULT_PRESSURE_BUDGETS: tuple[tuple[str, ForgetPressureBudget], ...] = (
+    ("default", ForgetPressureBudget(max_outstanding=25, max_duration=500, max_weight=25.0)),
+)
+
+
 class ForgetBoundaryContract(Protocol):
     name: str
 
@@ -118,6 +139,7 @@ class ForgetDiff:
     invariant_violations: tuple[dict[str, str], ...]
     boundary_previews: tuple[dict[str, object], ...]
     pressure: tuple[dict[str, object], ...]
+    pressure_budgets: tuple[dict[str, object], ...]
     diff_hash: str
 
     def to_dict(self) -> dict[str, object]:
@@ -140,6 +162,7 @@ class ForgetDiff:
             "invariant_violations": [dict(item) for item in self.invariant_violations],
             "boundary_previews": [dict(item) for item in self.boundary_previews],
             "pressure": [dict(item) for item in self.pressure],
+            "pressure_budgets": [dict(item) for item in self.pressure_budgets],
             "diff_hash": self.diff_hash,
         }
 
@@ -197,6 +220,9 @@ class IntentionalForgettingService:
     cognitive_surface: CognitiveSurface | None = None
     log_path: Path = field(default_factory=lambda: Path(DEFAULT_LOG_PATH))
     boundary_contracts: tuple[ForgetBoundaryContract, ...] = ()
+    pressure_budgets: Mapping[str, ForgetPressureBudget] = field(
+        default_factory=lambda: dict(DEFAULT_PRESSURE_BUDGETS)
+    )
 
     def forget(
         self,
@@ -234,6 +260,12 @@ class IntentionalForgettingService:
             redacted_target=redacted,
         )
         boundary_previews = self._collect_boundary_previews(request)
+        budget_previews, budget_blocked = self._budget_blockers(
+            boundary_previews,
+            request.defer_acknowledged,
+        )
+        if budget_previews:
+            boundary_previews = list(boundary_previews) + budget_previews
         boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
         try:
             self._validate_request(request)
@@ -241,10 +273,14 @@ class IntentionalForgettingService:
             if boundary_previews:
                 _append_boundary_preview(self.log_path, phase_payload, boundary_previews, request.defer_acknowledged)
             if boundary_blocked:
-                _record_pressure_from_previews(
-                    self.log_path,
-                    phase_payload,
+                pressure_previews = _pressure_previews_for_entry(
                     boundary_previews,
+                    request.defer_acknowledged,
+                    budget_blocked,
+                )
+                self._record_pressure_with_budget(
+                    phase_payload,
+                    pressure_previews,
                     request.defer_acknowledged,
                 )
                 _append_boundary_refusal(
@@ -289,7 +325,7 @@ class IntentionalForgettingService:
         append_json(self.log_path, committed_entry)
         if _find_forget_proof_entry(read_forget_log(self.log_path), forget_tx_id) is None:
             _append_rollback_proof(self.log_path, proof)
-        _clear_pressure(self.log_path, phase_payload, reason="committed")
+        self._clear_pressure_with_budget(phase_payload, reason="committed")
         self.verify_post_commit_invariants()
         return IntentionalForgetResult(
             target_type=request.target_type,
@@ -325,6 +361,12 @@ class IntentionalForgettingService:
                 class_manager=simulation.class_manager,
             )
             boundary_previews = simulation._collect_boundary_previews(request)
+            budget_previews, budget_blocked = simulation._budget_blockers(
+                boundary_previews,
+                request.defer_acknowledged,
+            )
+            if budget_previews:
+                boundary_previews = list(boundary_previews) + budget_previews
             boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
             if boundary_blocked:
                 outcome = _ForgetOutcome()
@@ -351,6 +393,12 @@ class IntentionalForgettingService:
         replay_status = "already_applied" if _forget_tx_applied(self.log_path, forget_tx_id) else "new"
         phase_state = _phase_state_for_tx(read_forget_log(self.log_path), forget_tx_id)
         pressure_state = _pressure_state_for_tx(read_forget_log(self.log_path), forget_tx_id)
+        budget_forecast = _pressure_budget_forecast(
+            read_forget_log(self.log_path),
+            self.pressure_budgets,
+            boundary_previews,
+            request.defer_acknowledged,
+        )
         preview_entry = {
             "event": "intentional_forget",
             "target_type": request.target_type,
@@ -421,6 +469,7 @@ class IntentionalForgettingService:
             "invariant_violations": _sorted_blockers(invariant_violations),
             "boundary_previews": _sorted_boundary_previews(boundary_previews, request.defer_acknowledged),
             "pressure": _sorted_pressure_entries(pressure_state),
+            "pressure_budgets": _sorted_pressure_budgets(budget_forecast),
         }
         diff_hash = _hash_payload(payload)
         return ForgetDiff(
@@ -441,6 +490,7 @@ class IntentionalForgettingService:
             invariant_violations=tuple(payload["invariant_violations"]),
             boundary_previews=tuple(payload["boundary_previews"]),
             pressure=tuple(payload["pressure"]),
+            pressure_budgets=tuple(payload["pressure_budgets"]),
             diff_hash=diff_hash,
         )
 
@@ -833,16 +883,26 @@ class IntentionalForgettingService:
             redacted_target=bool(phase_entry.get("redacted_target", False)),
         )
         boundary_previews = self._collect_boundary_previews(request)
+        budget_previews, budget_blocked = self._budget_blockers(
+            boundary_previews,
+            request.defer_acknowledged,
+        )
+        if budget_previews:
+            boundary_previews = list(boundary_previews) + budget_previews
         boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
         try:
             self._validate_request(request)
             if boundary_previews:
                 _append_boundary_preview(self.log_path, phase_payload, boundary_previews, request.defer_acknowledged)
             if boundary_blocked:
-                _record_pressure_from_previews(
-                    self.log_path,
-                    phase_payload,
+                pressure_previews = _pressure_previews_for_entry(
                     boundary_previews,
+                    request.defer_acknowledged,
+                    budget_blocked,
+                )
+                self._record_pressure_with_budget(
+                    phase_payload,
+                    pressure_previews,
                     request.defer_acknowledged,
                 )
                 _append_boundary_refusal(
@@ -888,7 +948,7 @@ class IntentionalForgettingService:
         append_json(self.log_path, committed_entry)
         if _find_forget_proof_entry(read_forget_log(self.log_path), forget_tx_id) is None:
             _append_rollback_proof(self.log_path, proof)
-        _clear_pressure(self.log_path, phase_payload, reason="committed")
+        self._clear_pressure_with_budget(phase_payload, reason="committed")
         self.verify_post_commit_invariants()
 
     def reconcile_forgetting_pressure(self, *, forget_tx_id: str | None = None) -> list[dict[str, object]]:
@@ -928,26 +988,42 @@ class IntentionalForgettingService:
                 "defer_acknowledged": request.defer_acknowledged,
             }
             boundary_previews = self._collect_boundary_previews(request)
+            budget_previews, budget_blocked = self._budget_blockers(
+                boundary_previews,
+                request.defer_acknowledged,
+            )
+            if budget_previews:
+                boundary_previews = list(boundary_previews) + budget_previews
             boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
             if not boundary_blocked:
-                _clear_pressure(self.log_path, phase_payload, reason="reconciled")
+                self._clear_pressure_with_budget(phase_payload, reason="reconciled")
                 reconciled.append({
                     "forget_tx_id": pressure_id,
                     "status": "cleared",
                     "phase": "allowed",
                 })
                 continue
-            new_pressure = _pressure_entry_from_previews(
-                phase_payload,
+            pressure_previews = _pressure_previews_for_entry(
                 boundary_previews,
                 request.defer_acknowledged,
+                budget_blocked,
             )
-            _append_pressure(self.log_path, new_pressure)
+            new_pressure = None
+            if pressure_previews:
+                new_pressure = _pressure_entry_from_previews(
+                    phase_payload,
+                    pressure_previews,
+                    request.defer_acknowledged,
+                )
+                self._append_pressure_with_budget(new_pressure)
+            subsystems = (new_pressure or {}).get("subsystems", [])
+            if not subsystems and budget_blocked:
+                subsystems = [{"subsystem": name, "decision": "refuse"} for name in sorted(budget_blocked)]
             reconciled.append({
                 "forget_tx_id": pressure_id,
                 "status": "blocked",
-                "phase": new_pressure.get("phase"),
-                "subsystems": new_pressure.get("subsystems", []),
+                "phase": (new_pressure or {}).get("phase") or "budget_exceeded",
+                "subsystems": subsystems,
             })
         return reconciled
 
@@ -1197,6 +1273,76 @@ class IntentionalForgettingService:
                 verifications.append(verification)
         return verifications
 
+    def _budget_blockers(
+        self,
+        previews: Sequence[ForgetBoundaryPreview],
+        defer_acknowledged: bool,
+    ) -> tuple[list[ForgetBoundaryPreview], set[str]]:
+        if not self.pressure_budgets:
+            return [], set()
+        entries = read_forget_log(self.log_path)
+        status = _pressure_budget_forecast(entries, self.pressure_budgets, previews, defer_acknowledged)
+        exceeded = {
+            item["subsystem"]
+            for item in status
+            if item.get("status") in {"exceeded", "would_exceed"}
+        }
+        if not exceeded:
+            return [], set()
+        impacted = _pressure_subsystems_from_previews(previews, defer_acknowledged)
+        blocked = sorted(exceeded.intersection(impacted))
+        if not blocked:
+            return [], set()
+        budget_previews = [
+            ForgetBoundaryPreview(
+                subsystem=subsystem,
+                decision=ForgetBoundaryDecision.REFUSE,
+                reason="pressure_budget_exceeded",
+            )
+            for subsystem in blocked
+        ]
+        return budget_previews, set(blocked)
+
+    def _record_pressure_with_budget(
+        self,
+        phase_payload: Mapping[str, object],
+        previews: Sequence[ForgetBoundaryPreview],
+        defer_acknowledged: bool,
+    ) -> None:
+        if not previews:
+            return
+        before_entries = read_forget_log(self.log_path)
+        _record_pressure_from_previews(self.log_path, phase_payload, previews, defer_acknowledged)
+        after_entries = read_forget_log(self.log_path)
+        _record_pressure_budget_transitions(
+            self.log_path,
+            before_entries,
+            after_entries,
+            self.pressure_budgets,
+        )
+
+    def _append_pressure_with_budget(self, entry: Mapping[str, object]) -> None:
+        before_entries = read_forget_log(self.log_path)
+        _append_pressure(self.log_path, entry)
+        after_entries = read_forget_log(self.log_path)
+        _record_pressure_budget_transitions(
+            self.log_path,
+            before_entries,
+            after_entries,
+            self.pressure_budgets,
+        )
+
+    def _clear_pressure_with_budget(self, phase_payload: Mapping[str, object], *, reason: str) -> None:
+        before_entries = read_forget_log(self.log_path)
+        _clear_pressure(self.log_path, phase_payload, reason=reason)
+        after_entries = read_forget_log(self.log_path)
+        _record_pressure_budget_transitions(
+            self.log_path,
+            before_entries,
+            after_entries,
+            self.pressure_budgets,
+        )
+
 
 def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, object]]:
     target = Path(path)
@@ -1211,6 +1357,15 @@ def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, objec
 def read_forget_pressure(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, object]]:
     entries = read_forget_log(path)
     return _sorted_pressure_entries(_active_pressure_entries(entries))
+
+
+def read_forget_pressure_budgets(
+    path: Path | str = DEFAULT_LOG_PATH,
+    *,
+    budgets: Mapping[str, ForgetPressureBudget] | None = None,
+) -> list[dict[str, object]]:
+    entries = read_forget_log(path)
+    return _sorted_pressure_budgets(_pressure_budget_status(entries, budgets or dict(DEFAULT_PRESSURE_BUDGETS)))
 
 
 def _sanitize_target(target_type: str, target_id: str) -> tuple[str, bool]:
@@ -1326,6 +1481,7 @@ def _pressure_entry_from_previews(
             "reason_hash": _pressure_reason_hash(preview.decision, preview.reason),
         })
     phase = "refused" if any(item["decision"] == ForgetBoundaryDecision.REFUSE.value for item in subsystems) else "deferred"
+    pressure_weight = _pressure_weight_for_previews(subsystems)
     entry = {
         "event": "intentional_forget_pressure",
         "forget_tx_id": phase_payload.get("forget_tx_id"),
@@ -1339,6 +1495,7 @@ def _pressure_entry_from_previews(
         "status": "active",
         "phase": phase,
         "subsystems": _sorted_pressure_subsystems(subsystems),
+        "pressure_weight": pressure_weight,
     }
     entry["pressure_hash"] = _hash_payload(entry)
     return entry
@@ -1400,6 +1557,11 @@ def _append_pressure(log_path: Path, entry: Mapping[str, object]) -> None:
         return
     payload = dict(entry)
     payload["timestamp"] = _now()
+    payload["pressure_log_index"] = len(entries)
+    if latest and latest.get("pressure_birth_index") is not None:
+        payload["pressure_birth_index"] = latest.get("pressure_birth_index")
+    else:
+        payload["pressure_birth_index"] = payload["pressure_log_index"]
     if latest:
         payload["action"] = _pressure_action(latest, entry)
     else:
@@ -1518,6 +1680,12 @@ def _sorted_pressure_entries(items: Iterable[Mapping[str, object]]) -> list[dict
     return normalized
 
 
+def _sorted_pressure_budgets(items: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    normalized = [dict(item) for item in items]
+    normalized.sort(key=lambda item: (item.get("subsystem", ""), str(item.get("status", ""))))
+    return normalized
+
+
 def _sorted_boundary_previews(
     previews: Iterable[ForgetBoundaryPreview],
     defer_acknowledged: bool,
@@ -1550,6 +1718,186 @@ def _boundary_blockers(
             "reason": f"{preview.decision.value}:{preview.reason}",
         })
     return _sorted_blockers(blocked)
+
+
+def _pressure_weight_for_previews(subsystems: Sequence[Mapping[str, str]]) -> float:
+    return float(max(1, len(subsystems)))
+
+
+def _pressure_subsystems_from_previews(
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> set[str]:
+    subsystems: set[str] = set()
+    for preview in previews:
+        if preview.decision == ForgetBoundaryDecision.ALLOW:
+            continue
+        if preview.decision == ForgetBoundaryDecision.DEFER and defer_acknowledged:
+            continue
+        subsystems.add(preview.subsystem)
+    return subsystems
+
+
+def _pressure_previews_for_entry(
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+    budget_blocked: Iterable[str],
+) -> list[ForgetBoundaryPreview]:
+    blocked = set(budget_blocked)
+    return [
+        preview
+        for preview in previews
+        if preview.subsystem not in blocked and preview.reason != "pressure_budget_exceeded"
+    ]
+
+
+def _pressure_budget_for_subsystem(
+    budgets: Mapping[str, ForgetPressureBudget],
+    subsystem: str,
+) -> ForgetPressureBudget | None:
+    return budgets.get(subsystem) or budgets.get("default")
+
+
+def _pressure_budget_status(
+    entries: Iterable[Mapping[str, object]],
+    budgets: Mapping[str, ForgetPressureBudget],
+) -> list[dict[str, object]]:
+    entries_list = [dict(entry) for entry in entries]
+    active_entries = _active_pressure_entries(entries_list)
+    current_index = len(entries_list)
+    status: dict[str, dict[str, object]] = {}
+    for entry in active_entries:
+        weight = float(entry.get("pressure_weight", 1.0) or 1.0)
+        birth_index = entry.get("pressure_birth_index")
+        if birth_index is None:
+            birth_index = entry.get("pressure_log_index") or 0
+        try:
+            birth_index = int(birth_index)
+        except (TypeError, ValueError):
+            birth_index = 0
+        age = max(0, current_index - birth_index)
+        for subsystem_entry in entry.get("subsystems", []) or []:
+            subsystem = str(subsystem_entry.get("subsystem", ""))
+            if not subsystem:
+                continue
+            budget = _pressure_budget_for_subsystem(budgets, subsystem)
+            if budget is None:
+                continue
+            metrics = status.setdefault(subsystem, {
+                "subsystem": subsystem,
+                "outstanding": 0,
+                "total_weight": 0.0,
+                "oldest_duration": 0,
+                "budget": budget.to_dict(),
+                "exceeded": False,
+                "status": "ok",
+                "exceeded_reasons": [],
+            })
+            metrics["outstanding"] = int(metrics["outstanding"]) + 1
+            metrics["total_weight"] = float(metrics["total_weight"]) + weight
+            metrics["oldest_duration"] = max(int(metrics["oldest_duration"]), int(age))
+    for subsystem, metrics in status.items():
+        budget = _pressure_budget_for_subsystem(budgets, subsystem)
+        if budget is None:
+            continue
+        reasons: list[str] = []
+        if budget.max_outstanding is not None and int(metrics["outstanding"]) > budget.max_outstanding:
+            reasons.append("max_outstanding")
+        if budget.max_duration is not None and int(metrics["oldest_duration"]) > budget.max_duration:
+            reasons.append("max_duration")
+        if budget.max_weight is not None and float(metrics["total_weight"]) > budget.max_weight:
+            reasons.append("max_weight")
+        if reasons:
+            metrics["exceeded"] = True
+            metrics["status"] = "exceeded"
+            metrics["exceeded_reasons"] = reasons
+        else:
+            metrics["exceeded"] = False
+            metrics["status"] = "ok"
+            metrics["exceeded_reasons"] = []
+    return list(status.values())
+
+
+def _pressure_budget_forecast(
+    entries: Iterable[Mapping[str, object]],
+    budgets: Mapping[str, ForgetPressureBudget],
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> list[dict[str, object]]:
+    entries_list = [dict(entry) for entry in entries]
+    base_status = {item["subsystem"]: dict(item) for item in _pressure_budget_status(entries_list, budgets)}
+    prospective_subsystems = _pressure_subsystems_from_previews(previews, defer_acknowledged)
+    if prospective_subsystems:
+        synthetic_entry = {
+            "event": "intentional_forget_pressure",
+            "forget_tx_id": "budget_forecast",
+            "status": "active",
+            "pressure_weight": _pressure_weight_for_previews([{"subsystem": name} for name in prospective_subsystems]),
+            "pressure_birth_index": len(entries_list),
+            "subsystems": [{"subsystem": name} for name in sorted(prospective_subsystems)],
+        }
+        entries_list.append(synthetic_entry)
+    forecast = {item["subsystem"]: dict(item) for item in _pressure_budget_status(entries_list, budgets)}
+    combined: list[dict[str, object]] = []
+    subsystems = sorted(set(base_status.keys()).union(forecast.keys()))
+    for subsystem in subsystems:
+        future = forecast.get(subsystem)
+        if not future:
+            continue
+        current = base_status.get(subsystem)
+        status = "ok"
+        if future.get("exceeded"):
+            if current and current.get("exceeded"):
+                status = "exceeded"
+            else:
+                status = "would_exceed"
+        future = dict(future)
+        future["status"] = status
+        combined.append(future)
+    return combined
+
+
+def _append_pressure_budget_event(
+    log_path: Path,
+    *,
+    subsystem: str,
+    status: str,
+    payload: Mapping[str, object],
+) -> None:
+    entry = {
+        "event": "intentional_forget_pressure_budget",
+        "timestamp": _now(),
+        "subsystem": subsystem,
+        "status": status,
+        "budget": payload.get("budget", {}),
+        "outstanding": payload.get("outstanding", 0),
+        "total_weight": payload.get("total_weight", 0.0),
+        "oldest_duration": payload.get("oldest_duration", 0),
+        "exceeded_reasons": payload.get("exceeded_reasons", []),
+    }
+    entry["budget_hash"] = _hash_payload(entry)
+    append_json(log_path, entry)
+
+
+def _record_pressure_budget_transitions(
+    log_path: Path,
+    before_entries: Iterable[Mapping[str, object]],
+    after_entries: Iterable[Mapping[str, object]],
+    budgets: Mapping[str, ForgetPressureBudget],
+) -> None:
+    before = {item["subsystem"]: dict(item) for item in _pressure_budget_status(before_entries, budgets)}
+    after = {item["subsystem"]: dict(item) for item in _pressure_budget_status(after_entries, budgets)}
+    subsystems = sorted(set(before.keys()).union(after.keys()))
+    for subsystem in subsystems:
+        before_exceeded = bool(before.get(subsystem, {}).get("exceeded"))
+        after_payload = after.get(subsystem)
+        after_exceeded = bool(after_payload.get("exceeded")) if after_payload else False
+        if before_exceeded == after_exceeded:
+            continue
+        status = "exceeded" if after_exceeded else "cleared"
+        payload = after_payload or before.get(subsystem, {})
+        if payload:
+            _append_pressure_budget_event(log_path, subsystem=subsystem, status=status, payload=payload)
 
 
 def _forget_target_set(request: IntentionalForgetRequest, target_ref: str) -> tuple[str, ...]:
@@ -1815,11 +2163,14 @@ __all__ = [
     "ForgetBoundaryPreview",
     "ForgetBoundaryVerification",
     "ForgetPressureSignal",
+    "ForgetPressureBudget",
     "BoundaryRefusal",
     "IntentionalForgetRequest",
     "IntentionalForgetResult",
     "IntentionalForgettingService",
     "DEFAULT_LOG_PATH",
+    "DEFAULT_PRESSURE_BUDGETS",
     "read_forget_log",
     "read_forget_pressure",
+    "read_forget_pressure_budgets",
 ]

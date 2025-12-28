@@ -16,7 +16,11 @@ from sentientos.authority_surface import (
 )
 from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE_LOG_PATH
 from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
-from sentientos.governance.intentional_forgetting import read_forget_log, read_forget_pressure
+from sentientos.governance.intentional_forgetting import (
+    read_forget_log,
+    read_forget_pressure,
+    read_forget_pressure_budgets,
+)
 
 NARRATIVE_LOG_PATH = get_log_path(
     "narrative_synthesis.jsonl",
@@ -229,7 +233,10 @@ def _collect_activity(
     routines = _summarize_routines(routine_entries)
     admissions = _summarize_admissions(admission_entries)
     forgetting = _summarize_forgetting(forgetting_entries)
-    forgetting_pressure = _summarize_forget_pressure(read_forget_pressure(FORGET_LOG_PATH))
+    forgetting_pressure = _summarize_forget_pressure(
+        read_forget_pressure(FORGET_LOG_PATH),
+        read_forget_pressure_budgets(FORGET_LOG_PATH),
+    )
     return {
         "tasks": tasks,
         "routines": routines,
@@ -513,6 +520,20 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
             )
         else:
             lines.append(f"{pressure_count} unresolved forgetting pressure signal(s) remain.")
+    overload_count = int(pressure.get("overload_count", 0) or 0)
+    if overload_count:
+        domains = pressure.get("overload_domains", [])
+        if domains:
+            summary = ", ".join(
+                f"{item.get('subsystem')}({item.get('outstanding')})"
+                for item in domains
+                if item.get("subsystem")
+            )
+            lines.append(
+                f"Sustained overload conditions persist in {overload_count} domain(s): {summary}."
+            )
+        else:
+            lines.append(f"Sustained overload conditions persist in {overload_count} domain(s).")
     references = {
         "task_ids": [item.get("task_id") for item in tasks if item.get("task_id")],
         "routine_ids": [item.get("routine_id") for item in routines if item.get("routine_id")],
@@ -545,14 +566,31 @@ def _summarize_forgetting(entries: Iterable[Mapping[str, object]]) -> dict[str, 
     return {"count": total, "by_type": counts, "refusals": refusals, "deferrals": deferrals}
 
 
-def _summarize_forget_pressure(entries: Iterable[Mapping[str, object]]) -> dict[str, object]:
+def _summarize_forget_pressure(
+    entries: Iterable[Mapping[str, object]],
+    budget_status: Iterable[Mapping[str, object]] = (),
+) -> dict[str, object]:
     counts: dict[str, int] = {}
     total = 0
     for entry in entries:
         target_type = entry.get("target_type") or "unknown"
         counts[str(target_type)] = counts.get(str(target_type), 0) + 1
         total += 1
-    return {"count": total, "scope": sorted(counts)}
+    overload_domains = []
+    for item in budget_status:
+        if item.get("status") != "exceeded":
+            continue
+        overload_domains.append({
+            "subsystem": item.get("subsystem"),
+            "outstanding": item.get("outstanding"),
+        })
+    overload_domains.sort(key=lambda item: str(item.get("subsystem", "")))
+    return {
+        "count": total,
+        "scope": sorted(counts),
+        "overload_count": len(overload_domains),
+        "overload_domains": overload_domains,
+    }
 
 
 def _build_idle_section(activity: Mapping[str, object]) -> dict[str, object]:
