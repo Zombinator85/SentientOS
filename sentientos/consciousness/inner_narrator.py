@@ -15,7 +15,7 @@ import json
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Mapping, Tuple
+from typing import Dict, Mapping, Sequence, Tuple
 
 from sentientos.consciousness.cognitive_posture import CognitivePosture, derive_cognitive_posture
 from sentientos.glow.self_state import (
@@ -111,6 +111,9 @@ def generate_reflection(
     *,
     pressure_snapshot: Mapping[str, object] | None = None,
     cognitive_posture: str | CognitivePosture | None = None,
+    posture_history: Sequence[str] | None = None,
+    posture_transition: str | None = None,
+    posture_duration: int | None = None,
 ) -> Tuple[str, str, str, str]:
     """Create a deterministic, bounded reflection.
 
@@ -142,6 +145,14 @@ def generate_reflection(
     elif pressure_snapshot:
         posture_value = derive_cognitive_posture(pressure_snapshot).value
 
+    posture_note = None
+    if posture_value == "tense" and posture_duration is not None and posture_duration >= 3:
+        posture_note = "system has been under sustained tension"
+    elif posture_value == "overloaded" and posture_transition:
+        posture_note = "recent overload detected"
+    elif posture_value == "stable" and posture_transition and posture_transition.endswith("→STABLE"):
+        posture_note = "posture stabilized"
+
     sentences = [
         f"System {cycle_descriptor} {event_note}; noticed {focus}.",
         f"Internal interpretation steady; mood {mood}.",
@@ -155,15 +166,27 @@ def generate_reflection(
         ]
         domain_summary = ", ".join(domain_names[:3]) if domain_names else "core domains"
         if posture_value == "overloaded":
-            sentences.append(f"Cognitive posture overloaded; operating under sustained load across {domain_summary}.")
+            if posture_note:
+                sentences.append(f"Cognitive posture overloaded; {posture_note} across {domain_summary}.")
+            else:
+                sentences.append(f"Cognitive posture overloaded; operating under sustained load across {domain_summary}.")
         elif posture_value == "tense":
-            sentences.append(f"Cognitive posture tense; unresolved pressure across {domain_summary}.")
+            if posture_note:
+                sentences.append(f"Cognitive posture tense; {posture_note} across {domain_summary}.")
+            else:
+                sentences.append(f"Cognitive posture tense; unresolved pressure across {domain_summary}.")
         elif posture_value == "stable":
-            sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
+            if posture_note:
+                sentences.append(f"Cognitive posture stable; {posture_note} toward {context_desc}.")
+            else:
+                sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
         else:
             sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
     elif posture_value == "stable":
-        sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
+        if posture_note:
+            sentences.append(f"Cognitive posture stable; {posture_note} toward {context_desc}.")
+        else:
+            sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
     else:
         sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
     reflection = " ".join(sentences[:3])
@@ -210,6 +233,9 @@ def run_cycle(
     *,
     pressure_snapshot: Mapping[str, object] | None = None,
     cognitive_posture: str | CognitivePosture | None = None,
+    posture_history: Sequence[str] | None = None,
+    posture_transition: str | None = None,
+    posture_duration: int | None = None,
     log_path: Path | None = None,
 ) -> str:
     """Generate and store an internal reflection without emitting externally."""
@@ -220,6 +246,9 @@ def run_cycle(
         self_model,
         pressure_snapshot=pressure_snapshot,
         cognitive_posture=cognitive_posture,
+        posture_history=posture_history,
+        posture_transition=posture_transition,
+        posture_duration=posture_duration,
     )
     updated_model: Dict[str, object] = {**DEFAULT_SELF_STATE, **dict(self_model)}
     updated_model.update(

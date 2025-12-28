@@ -213,6 +213,9 @@ class SimulationEngine:
         *,
         pressure_snapshot: Mapping[str, object] | None = None,
         cognitive_posture: str | None = None,
+        posture_history: Sequence[str] | None = None,
+        posture_transition: str | None = None,
+        posture_duration: int | None = None,
     ) -> None:
         covenant_autoalign.autoalign_before_cycle()
         glow_state = load_self_state(path=self._self_path)
@@ -225,6 +228,12 @@ class SimulationEngine:
             context = {**context, "pressure_snapshot": dict(pressure_snapshot)}
         if posture_value:
             context = {**context, "cognitive_posture": posture_value}
+        if posture_history is not None:
+            context = {**context, "posture_history": list(posture_history)}
+        if posture_transition is not None:
+            context = {**context, "posture_transition": posture_transition}
+        if posture_duration is not None:
+            context = {**context, "posture_duration": posture_duration}
         focus_target = self._resolve_focus_target(focus_meta) or "introspection"
         pulse_meta = apply_pulse_defaults(
             {

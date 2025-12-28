@@ -16,7 +16,12 @@ from version_consensus import VersionConsensus
 from vow_digest import canonical_vow_digest
 
 from sentientos.consciousness.cycle_gate import build_cycle_gate
-from sentientos.consciousness.cognitive_posture import derive_cognitive_posture
+from sentientos.consciousness.cognitive_posture import (
+    DEFAULT_POSTURE_HISTORY_WINDOW,
+    derive_cognitive_posture,
+    derive_posture_transition,
+    update_posture_history,
+)
 from sentientos.consciousness.recursion_guard import (
     RecursionGuard,
     RecursionLimitExceeded,
@@ -113,6 +118,19 @@ def _resolve_pressure_snapshot(context: Mapping[str, object]) -> Optional[Dict[s
     return dict(snapshot)
 
 
+def _resolve_posture_history(
+    context: Mapping[str, object],
+    posture_value: str | None,
+) -> list[str]:
+    history = context.get("posture_history")
+    window = context.get("posture_history_window", DEFAULT_POSTURE_HISTORY_WINDOW)
+    if window is not None and not isinstance(window, int):
+        raise TypeError("posture_history_window must be an int if provided")
+    if history is not None and not isinstance(history, (list, tuple)):
+        raise TypeError("posture_history must be a list or tuple if provided")
+    return update_posture_history(history, posture_value, window=int(window or 0))
+
+
 def _maybe_run_arbitrator(context: Mapping[str, object]) -> Optional[Dict[str, object]]:
     arbitrator = context.get("arbitrator")
     run_default = bool(context.get("run_arbitrator"))
@@ -174,6 +192,12 @@ def _maybe_run_narrator(context: Mapping[str, object]) -> Optional[str]:
         }
         if _supports_kwarg(narrator, "cognitive_posture"):
             kwargs["cognitive_posture"] = context.get("cognitive_posture")
+        if _supports_kwarg(narrator, "posture_history"):
+            kwargs["posture_history"] = context.get("posture_history")
+        if _supports_kwarg(narrator, "posture_transition"):
+            kwargs["posture_transition"] = context.get("posture_transition")
+        if _supports_kwarg(narrator, "posture_duration"):
+            kwargs["posture_duration"] = context.get("posture_duration")
         return narrator(pulse_snapshot, self_model, **kwargs)
     return narrator(pulse_snapshot, self_model, log_path=log_path)  # type: ignore[arg-type]
 
@@ -194,6 +218,12 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
                 kwargs["pressure_snapshot"] = context.get("pressure_snapshot")
             if _supports_kwarg(run_cycle, "cognitive_posture"):
                 kwargs["cognitive_posture"] = context.get("cognitive_posture")
+            if _supports_kwarg(run_cycle, "posture_history"):
+                kwargs["posture_history"] = context.get("posture_history")
+            if _supports_kwarg(run_cycle, "posture_transition"):
+                kwargs["posture_transition"] = context.get("posture_transition")
+            if _supports_kwarg(run_cycle, "posture_duration"):
+                kwargs["posture_duration"] = context.get("posture_duration")
             if kwargs:
                 run_cycle(**kwargs)
             else:
@@ -207,6 +237,12 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
             result["pressure_snapshot"] = context.get("pressure_snapshot")
         if context.get("cognitive_posture") is not None:
             result["cognitive_posture"] = context.get("cognitive_posture")
+        if context.get("posture_history") is not None:
+            result["posture_history"] = context.get("posture_history")
+        if context.get("posture_transition") is not None:
+            result["posture_transition"] = context.get("posture_transition")
+        if context.get("posture_duration") is not None:
+            result["posture_duration"] = context.get("posture_duration")
         return result
     return None
 
@@ -264,6 +300,11 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
                 cycle_context["pressure_snapshot"] = pressure_snapshot
                 cognitive_posture = derive_cognitive_posture(pressure_snapshot).value
                 cycle_context["cognitive_posture"] = cognitive_posture
+            posture_history = _resolve_posture_history(cycle_context, cognitive_posture)
+            posture_transition_data = derive_posture_transition(posture_history)
+            cycle_context["posture_history"] = posture_history
+            cycle_context["posture_duration"] = posture_transition_data.get("posture_duration")
+            cycle_context["posture_transition"] = posture_transition_data.get("posture_transition")
 
             heartbeat = _heartbeat_or_interrupt()
             if heartbeat:
@@ -296,6 +337,9 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
                 "simulation_output": simulation_output,
                 "pressure_snapshot": pressure_snapshot,
                 "cognitive_posture": cognitive_posture,
+                "posture_history": posture_history,
+                "posture_duration": cycle_context.get("posture_duration"),
+                "posture_transition": cycle_context.get("posture_transition"),
             }
     except RecursionLimitExceeded as exc:
         return {
