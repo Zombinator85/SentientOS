@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Mapping, Sequence
+from typing import Iterable, Mapping, Protocol, Sequence
 
 from logging_config import get_log_path
 from log_utils import append_json, read_json
@@ -29,6 +29,7 @@ class IntentionalForgetRequest:
     target_id: str
     forget_scope: str
     proof_level: str
+    defer_acknowledged: bool = False
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,36 @@ class ForgetCommitPhase(str, Enum):
     ABORTED = "aborted"
 
 
+class ForgetBoundaryDecision(str, Enum):
+    ALLOW = "allow"
+    REFUSE = "refuse"
+    DEFER = "defer"
+
+
+@dataclass(frozen=True)
+class ForgetBoundaryPreview:
+    subsystem: str
+    decision: ForgetBoundaryDecision
+    reason: str
+
+
+@dataclass(frozen=True)
+class ForgetBoundaryVerification:
+    subsystem: str
+    status: str
+    reason: str
+
+
+class ForgetBoundaryContract(Protocol):
+    name: str
+
+    def preview_forget(self, request: IntentionalForgetRequest) -> ForgetBoundaryPreview | None:
+        ...
+
+    def verify_post_commit(self, state: Mapping[str, object]) -> ForgetBoundaryVerification | None:
+        ...
+
+
 @dataclass(frozen=True)
 class ForgetDiff:
     request: Mapping[str, str]
@@ -70,6 +101,7 @@ class ForgetDiff:
     state_hashes: Mapping[str, str]
     invariant_status: str
     invariant_violations: tuple[dict[str, str], ...]
+    boundary_previews: tuple[dict[str, object], ...]
     diff_hash: str
 
     def to_dict(self) -> dict[str, object]:
@@ -90,6 +122,7 @@ class ForgetDiff:
             "state_hashes": dict(self.state_hashes),
             "invariant_status": self.invariant_status,
             "invariant_violations": [dict(item) for item in self.invariant_violations],
+            "boundary_previews": [dict(item) for item in self.boundary_previews],
             "diff_hash": self.diff_hash,
         }
 
@@ -128,6 +161,15 @@ class InvariantViolation(RuntimeError):
         super().__init__(message)
 
 
+class BoundaryRefusal(RuntimeError):
+    def __init__(self, blockers: Sequence[Mapping[str, str]]) -> None:
+        self.blockers = tuple(dict(item) for item in blockers)
+        message = "Boundary refusal: " + ", ".join(
+            f"{item.get('target')}" for item in self.blockers
+        )
+        super().__init__(message)
+
+
 @dataclass
 class IntentionalForgettingService:
     routine_registry: RoutineRegistry = field(default_factory=RoutineRegistry)
@@ -137,6 +179,7 @@ class IntentionalForgettingService:
     ssu: SymbolicScreenUnderstanding | None = None
     cognitive_surface: CognitiveSurface | None = None
     log_path: Path = field(default_factory=lambda: Path(DEFAULT_LOG_PATH))
+    boundary_contracts: tuple[ForgetBoundaryContract, ...] = ()
 
     def forget(
         self,
@@ -173,9 +216,21 @@ class IntentionalForgettingService:
             target_ref=target_ref,
             redacted_target=redacted,
         )
+        boundary_previews = self._collect_boundary_previews(request)
+        boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
         try:
             self._validate_request(request)
             _append_phase(self.log_path, ForgetCommitPhase.PREPARED, phase_payload)
+            if boundary_previews:
+                _append_boundary_preview(self.log_path, phase_payload, boundary_previews, request.defer_acknowledged)
+            if boundary_blocked:
+                _append_boundary_refusal(
+                    self.log_path,
+                    phase_payload,
+                    boundary_previews,
+                    request.defer_acknowledged,
+                )
+                raise BoundaryRefusal(boundary_blocked)
             _append_phase(self.log_path, ForgetCommitPhase.APPLYING, phase_payload)
             outcome = self._apply_forget(request, authority=authority)
             post_state_hash = self._state_hash()
@@ -245,12 +300,20 @@ class IntentionalForgettingService:
                 routine_registry=simulation.routine_registry,
                 class_manager=simulation.class_manager,
             )
-            outcome, error_reason = simulation._apply_forget_preview(request, authority=authority)
-            after_snapshot = build_authority_surface_snapshot_for_state(
-                routine_registry=simulation.routine_registry,
-                class_manager=simulation.class_manager,
-            )
-            post_state_hash = simulation._state_hash()
+            boundary_previews = simulation._collect_boundary_previews(request)
+            boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
+            if boundary_blocked:
+                outcome = _ForgetOutcome()
+                error_reason = "boundary_refusal"
+                after_snapshot = before_snapshot
+                post_state_hash = pre_state_hash
+            else:
+                outcome, error_reason = simulation._apply_forget_preview(request, authority=authority)
+                after_snapshot = build_authority_surface_snapshot_for_state(
+                    routine_registry=simulation.routine_registry,
+                    class_manager=simulation.class_manager,
+                )
+                post_state_hash = simulation._state_hash()
 
         authority_diff = diff_authority_surfaces(before_snapshot, after_snapshot)
         target_ref, redacted = _sanitize_target(request.target_type, request.target_id)
@@ -291,8 +354,10 @@ class IntentionalForgettingService:
         narrative_summary_hashes.append({"view": "forget_tx_id", "hash": _hash_reference(forget_tx_id)})
 
         blocked = outcome.blocked
-        if error_reason:
+        if error_reason and error_reason != "boundary_refusal":
             blocked = [{"target": request.target_type, "reason": error_reason}]
+        if boundary_blocked:
+            blocked = list(blocked) + boundary_blocked
         if replay_status == "already_applied":
             blocked = list(blocked) + [{"target": "forget_tx_id", "reason": "already_applied"}]
         invariant_violations = simulation._evaluate_post_commit_invariants(
@@ -313,6 +378,7 @@ class IntentionalForgettingService:
                 "forget_scope": request.forget_scope,
                 "proof_level": request.proof_level,
                 "authority": authority,
+                "defer_acknowledged": request.defer_acknowledged,
             },
             "forget_tx_id": forget_tx_id,
             "replay_status": replay_status,
@@ -328,6 +394,7 @@ class IntentionalForgettingService:
             "state_hashes": {"before": pre_state_hash, "after": post_state_hash},
             "invariant_status": "violations" if invariant_violations else "ok",
             "invariant_violations": _sorted_blockers(invariant_violations),
+            "boundary_previews": _sorted_boundary_previews(boundary_previews, request.defer_acknowledged),
         }
         diff_hash = _hash_payload(payload)
         return ForgetDiff(
@@ -346,6 +413,7 @@ class IntentionalForgettingService:
             state_hashes=payload["state_hashes"],
             invariant_status=payload["invariant_status"],
             invariant_violations=tuple(payload["invariant_violations"]),
+            boundary_previews=tuple(payload["boundary_previews"]),
             diff_hash=diff_hash,
         )
 
@@ -686,6 +754,7 @@ class IntentionalForgettingService:
             ssu=ssu,
             cognitive_surface=cognitive_surface,
             log_path=temp_root / "forget_log.jsonl",
+            boundary_contracts=self.boundary_contracts,
         )
 
     def _recover_incomplete_transactions(self) -> None:
@@ -736,8 +805,20 @@ class IntentionalForgettingService:
             target_ref=target_ref,
             redacted_target=bool(phase_entry.get("redacted_target", False)),
         )
+        boundary_previews = self._collect_boundary_previews(request)
+        boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
         try:
             self._validate_request(request)
+            if boundary_previews:
+                _append_boundary_preview(self.log_path, phase_payload, boundary_previews, request.defer_acknowledged)
+            if boundary_blocked:
+                _append_boundary_refusal(
+                    self.log_path,
+                    phase_payload,
+                    boundary_previews,
+                    request.defer_acknowledged,
+                )
+                raise BoundaryRefusal(boundary_blocked)
             if phase_entry.get("phase") == ForgetCommitPhase.PREPARED.value:
                 _append_phase(self.log_path, ForgetCommitPhase.APPLYING, phase_payload)
             outcome = self._apply_forget(request, authority=authority)
@@ -934,6 +1015,13 @@ class IntentionalForgettingService:
         forgetting_entries: Iterable[Mapping[str, object]] | None = None,
     ) -> list[dict[str, str]]:
         violations: list[dict[str, str]] = []
+        boundary_state = {"state_hash": self._state_hash()}
+        for verification in self._verify_boundary_contracts(boundary_state):
+            if verification.status == "violation":
+                violations.append({
+                    "target": f"boundary:{verification.subsystem}",
+                    "reason": verification.reason,
+                })
         forgotten_routines = set(self.routine_registry.list_forgotten())
         active_routines = {routine.routine_id for routine in self.routine_registry.list_routines()}
         reintroduced_routines = sorted(forgotten_routines.intersection(active_routines))
@@ -988,6 +1076,33 @@ class IntentionalForgettingService:
         violations.extend(narrative_violations)
         return _sorted_blockers(violations)
 
+    def _collect_boundary_previews(self, request: IntentionalForgetRequest) -> list[ForgetBoundaryPreview]:
+        previews: list[ForgetBoundaryPreview] = []
+        for contract in self.boundary_contracts:
+            preview = _normalize_boundary_preview(contract.preview_forget(request), contract.name)
+            if preview is not None:
+                previews.append(preview)
+        for name, subsystem in _boundary_subsystems(self):
+            preview = _preview_from_subsystem(subsystem, name, request)
+            if preview is not None:
+                previews.append(preview)
+        return previews
+
+    def _verify_boundary_contracts(
+        self,
+        state: Mapping[str, object],
+    ) -> list[ForgetBoundaryVerification]:
+        verifications: list[ForgetBoundaryVerification] = []
+        for contract in self.boundary_contracts:
+            verification = _normalize_boundary_verification(contract.verify_post_commit(state), contract.name)
+            if verification is not None:
+                verifications.append(verification)
+        for name, subsystem in _boundary_subsystems(self):
+            verification = _verification_from_subsystem(subsystem, name, state)
+            if verification is not None:
+                verifications.append(verification)
+        return verifications
+
 
 def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, object]]:
     target = Path(path)
@@ -1038,6 +1153,7 @@ def _build_forget_tx_id(
         "authority": authority,
         "target_set": list(target_set),
         "cascade_structure": dict(cascade_structure),
+        "defer_acknowledged": request.defer_acknowledged,
         "schema_version": "forget_tx_v1",
     }
     return _hash_payload(payload)
@@ -1059,7 +1175,35 @@ def _phase_payload(
         "proof_level": request.proof_level,
         "authority": authority,
         "redacted_target": redacted_target,
+        "defer_acknowledged": request.defer_acknowledged,
     }
+
+
+def _append_boundary_preview(
+    log_path: Path,
+    phase_payload: Mapping[str, object],
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> None:
+    entry = dict(phase_payload)
+    entry["event"] = "intentional_forget_boundary_preview"
+    entry["timestamp"] = _now()
+    entry["previews"] = _sorted_boundary_previews(previews, defer_acknowledged)
+    append_json(log_path, entry)
+
+
+def _append_boundary_refusal(
+    log_path: Path,
+    phase_payload: Mapping[str, object],
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> None:
+    entry = dict(phase_payload)
+    entry["event"] = "intentional_forget_refusal"
+    entry["timestamp"] = _now()
+    entry["previews"] = _sorted_boundary_previews(previews, defer_acknowledged)
+    entry["blocked"] = _boundary_blockers(previews, defer_acknowledged)
+    append_json(log_path, entry)
 
 
 def _append_phase(
@@ -1138,6 +1282,40 @@ def _sorted_hashes(items: Iterable[Mapping[str, str]]) -> list[dict[str, str]]:
     normalized = [dict(item) for item in items]
     normalized.sort(key=lambda item: (item.get("view", ""), item.get("hash", "")))
     return normalized
+
+
+def _sorted_boundary_previews(
+    previews: Iterable[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> list[dict[str, object]]:
+    normalized = [
+        {
+            "subsystem": preview.subsystem,
+            "decision": preview.decision.value,
+            "reason": preview.reason,
+            "acknowledged": bool(defer_acknowledged) if preview.decision == ForgetBoundaryDecision.DEFER else False,
+        }
+        for preview in previews
+    ]
+    normalized.sort(key=lambda item: (item.get("subsystem", ""), item.get("decision", "")))
+    return normalized
+
+
+def _boundary_blockers(
+    previews: Iterable[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> list[dict[str, str]]:
+    blocked: list[dict[str, str]] = []
+    for preview in previews:
+        if preview.decision == ForgetBoundaryDecision.ALLOW:
+            continue
+        if preview.decision == ForgetBoundaryDecision.DEFER and defer_acknowledged:
+            continue
+        blocked.append({
+            "target": f"boundary:{preview.subsystem}",
+            "reason": f"{preview.decision.value}:{preview.reason}",
+        })
+    return _sorted_blockers(blocked)
 
 
 def _forget_target_set(request: IntentionalForgetRequest, target_ref: str) -> tuple[str, ...]:
@@ -1292,6 +1470,105 @@ def _stable_forget_entries(entries: Iterable[Mapping[str, object]]) -> list[dict
     return stable_entries
 
 
+def _boundary_subsystems(
+    service: IntentionalForgettingService,
+) -> Iterable[tuple[str, object]]:
+    candidates = [
+        ("routine_registry", service.routine_registry),
+        ("habit_engine", service.habit_engine),
+        ("class_manager", service.class_manager),
+        ("cor_subsystem", service.cor_subsystem),
+        ("ssu", service.ssu),
+        ("cognitive_surface", service.cognitive_surface),
+    ]
+    return [(name, subsystem) for name, subsystem in candidates if subsystem is not None]
+
+
+def _preview_from_subsystem(
+    subsystem: object,
+    name: str,
+    request: IntentionalForgetRequest,
+) -> ForgetBoundaryPreview | None:
+    preview_fn = getattr(subsystem, "preview_forget", None)
+    if preview_fn is None:
+        return None
+    return _normalize_boundary_preview(preview_fn(request), name)
+
+
+def _verification_from_subsystem(
+    subsystem: object,
+    name: str,
+    state: Mapping[str, object],
+) -> ForgetBoundaryVerification | None:
+    verify_fn = getattr(subsystem, "verify_post_commit", None)
+    if verify_fn is None:
+        return None
+    return _normalize_boundary_verification(verify_fn(state), name)
+
+
+def _parse_boundary_decision(value: object) -> ForgetBoundaryDecision | None:
+    if isinstance(value, ForgetBoundaryDecision):
+        return value
+    if isinstance(value, str):
+        try:
+            return ForgetBoundaryDecision(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_boundary_preview(
+    preview: object,
+    default_subsystem: str,
+) -> ForgetBoundaryPreview | None:
+    if preview is None:
+        return None
+    if isinstance(preview, ForgetBoundaryPreview):
+        subsystem = preview.subsystem or default_subsystem
+        return ForgetBoundaryPreview(
+            subsystem=subsystem,
+            decision=preview.decision,
+            reason=preview.reason,
+        )
+    if isinstance(preview, Mapping):
+        decision = _parse_boundary_decision(preview.get("decision"))
+        reason = str(preview.get("reason", ""))
+        subsystem = str(preview.get("subsystem") or default_subsystem)
+        if decision is None:
+            return None
+        return ForgetBoundaryPreview(subsystem=subsystem, decision=decision, reason=reason)
+    if isinstance(preview, (tuple, list)) and len(preview) >= 2:
+        decision = _parse_boundary_decision(preview[0])
+        reason = str(preview[1])
+        if decision is None:
+            return None
+        return ForgetBoundaryPreview(subsystem=default_subsystem, decision=decision, reason=reason)
+    return None
+
+
+def _normalize_boundary_verification(
+    verification: object,
+    default_subsystem: str,
+) -> ForgetBoundaryVerification | None:
+    if verification is None:
+        return None
+    if isinstance(verification, ForgetBoundaryVerification):
+        subsystem = verification.subsystem or default_subsystem
+        return ForgetBoundaryVerification(
+            subsystem=subsystem,
+            status=verification.status,
+            reason=verification.reason,
+        )
+    if isinstance(verification, Mapping):
+        status = str(verification.get("status", ""))
+        reason = str(verification.get("reason", ""))
+        subsystem = str(verification.get("subsystem") or default_subsystem)
+        if not status:
+            return None
+        return ForgetBoundaryVerification(subsystem=subsystem, status=status, reason=reason)
+    return None
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -1299,6 +1576,11 @@ def _now() -> str:
 __all__ = [
     "ForgetDiff",
     "ForgetCommitPhase",
+    "ForgetBoundaryContract",
+    "ForgetBoundaryDecision",
+    "ForgetBoundaryPreview",
+    "ForgetBoundaryVerification",
+    "BoundaryRefusal",
     "IntentionalForgetRequest",
     "IntentionalForgetResult",
     "IntentionalForgettingService",
