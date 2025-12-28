@@ -17,7 +17,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Mapping, Sequence, Tuple
 
-from sentientos.consciousness.cognitive_posture import CognitivePosture, derive_cognitive_posture
+from sentientos.consciousness.cognitive_posture import (
+    CognitivePosture,
+    LoadNarrative,
+    derive_cognitive_posture,
+    derive_load_narrative,
+)
 from sentientos.glow.self_state import (
     DEFAULT_SELF_STATE,
     save as save_self_state,
@@ -114,6 +119,7 @@ def generate_reflection(
     posture_history: Sequence[str] | None = None,
     posture_transition: str | None = None,
     posture_duration: int | None = None,
+    cognitive_load_narrative: str | LoadNarrative | None = None,
 ) -> Tuple[str, str, str, str]:
     """Create a deterministic, bounded reflection.
 
@@ -153,6 +159,37 @@ def generate_reflection(
     elif posture_value == "stable" and posture_transition and posture_transition.endswith("→STABLE"):
         posture_note = "posture stabilized"
 
+    load_narrative = None
+    if isinstance(cognitive_load_narrative, LoadNarrative):
+        load_narrative = cognitive_load_narrative.value
+    elif isinstance(cognitive_load_narrative, str) and cognitive_load_narrative.strip():
+        normalized = cognitive_load_narrative.strip().upper()
+        if normalized in {narrative.value for narrative in LoadNarrative}:
+            load_narrative = normalized
+    elif posture_history is not None:
+        transition_data = None
+        if posture_value is not None or posture_duration is not None or posture_transition is not None:
+            transition_data = {
+                "current_posture": posture_value,
+                "posture_duration": posture_duration,
+                "posture_transition": posture_transition,
+            }
+        load_narrative = derive_load_narrative(posture_history, transition_data).value
+
+    load_phrase = load_narrative.replace("_", " ").lower() if load_narrative else None
+    load_transition_note = None
+    if load_narrative and posture_transition:
+        if load_narrative == LoadNarrative.RECOVERING.value:
+            load_transition_note = "transitioned to recovering"
+        elif load_narrative == LoadNarrative.OVERLOADED.value:
+            load_transition_note = "transitioned to overloaded"
+    load_suffix = ""
+    if load_phrase:
+        if load_transition_note:
+            load_suffix = f" Load narrative {load_phrase}; {load_transition_note}."
+        else:
+            load_suffix = f" Load narrative {load_phrase}."
+
     sentences = [
         f"System {cycle_descriptor} {event_note}; noticed {focus}.",
         f"Internal interpretation steady; mood {mood}.",
@@ -167,28 +204,38 @@ def generate_reflection(
         domain_summary = ", ".join(domain_names[:3]) if domain_names else "core domains"
         if posture_value == "overloaded":
             if posture_note:
-                sentences.append(f"Cognitive posture overloaded; {posture_note} across {domain_summary}.")
+                sentences.append(f"Cognitive posture overloaded; {posture_note} across {domain_summary}.{load_suffix}")
             else:
-                sentences.append(f"Cognitive posture overloaded; operating under sustained load across {domain_summary}.")
+                sentences.append(
+                    f"Cognitive posture overloaded; operating under sustained load across {domain_summary}.{load_suffix}"
+                )
         elif posture_value == "tense":
             if posture_note:
-                sentences.append(f"Cognitive posture tense; {posture_note} across {domain_summary}.")
+                sentences.append(f"Cognitive posture tense; {posture_note} across {domain_summary}.{load_suffix}")
             else:
-                sentences.append(f"Cognitive posture tense; unresolved pressure across {domain_summary}.")
+                sentences.append(
+                    f"Cognitive posture tense; unresolved pressure across {domain_summary}.{load_suffix}"
+                )
         elif posture_value == "stable":
             if posture_note:
-                sentences.append(f"Cognitive posture stable; {posture_note} toward {context_desc}.")
+                sentences.append(f"Cognitive posture stable; {posture_note} toward {context_desc}.{load_suffix}")
             else:
-                sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
+                sentences.append(
+                    f"Cognitive posture stable; attention directed toward {context_desc}.{load_suffix}"
+                )
         else:
-            sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
+            sentences.append(
+                f"Attention directed toward {context_desc} due to recent pulse metadata.{load_suffix}"
+            )
     elif posture_value == "stable":
         if posture_note:
-            sentences.append(f"Cognitive posture stable; {posture_note} toward {context_desc}.")
+            sentences.append(f"Cognitive posture stable; {posture_note} toward {context_desc}.{load_suffix}")
         else:
-            sentences.append(f"Cognitive posture stable; attention directed toward {context_desc}.")
+            sentences.append(
+                f"Cognitive posture stable; attention directed toward {context_desc}.{load_suffix}"
+            )
     else:
-        sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
+        sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.{load_suffix}")
     reflection = " ".join(sentences[:3])
     validate_reflection(reflection)
     return reflection, mood, focus, attention_level
@@ -236,6 +283,7 @@ def run_cycle(
     posture_history: Sequence[str] | None = None,
     posture_transition: str | None = None,
     posture_duration: int | None = None,
+    cognitive_load_narrative: str | LoadNarrative | None = None,
     log_path: Path | None = None,
 ) -> str:
     """Generate and store an internal reflection without emitting externally."""
@@ -249,6 +297,7 @@ def run_cycle(
         posture_history=posture_history,
         posture_transition=posture_transition,
         posture_duration=posture_duration,
+        cognitive_load_narrative=cognitive_load_narrative,
     )
     updated_model: Dict[str, object] = {**DEFAULT_SELF_STATE, **dict(self_model)}
     updated_model.update(

@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Mapping, Sequence
 
-from sentientos.consciousness.cognitive_posture import derive_cognitive_posture
+from sentientos.consciousness.cognitive_posture import derive_cognitive_posture, derive_load_narrative
 from sentientos.daemons.pulse_bus import apply_pulse_defaults
 from sentientos.glow.self_state import load as load_self_state, update as update_self_state
 from sentientos.integrity import covenant_autoalign
@@ -216,6 +216,7 @@ class SimulationEngine:
         posture_history: Sequence[str] | None = None,
         posture_transition: str | None = None,
         posture_duration: int | None = None,
+        cognitive_load_narrative: str | None = None,
     ) -> None:
         covenant_autoalign.autoalign_before_cycle()
         glow_state = load_self_state(path=self._self_path)
@@ -234,6 +235,18 @@ class SimulationEngine:
             context = {**context, "posture_transition": posture_transition}
         if posture_duration is not None:
             context = {**context, "posture_duration": posture_duration}
+        load_narrative_value = cognitive_load_narrative
+        if load_narrative_value is None and posture_history is not None:
+            transition_data = None
+            if posture_value is not None or posture_duration is not None or posture_transition is not None:
+                transition_data = {
+                    "current_posture": posture_value,
+                    "posture_duration": posture_duration,
+                    "posture_transition": posture_transition,
+                }
+            load_narrative_value = derive_load_narrative(posture_history, transition_data).value
+        if load_narrative_value:
+            context = {**context, "cognitive_load_narrative": load_narrative_value}
         focus_target = self._resolve_focus_target(focus_meta) or "introspection"
         pulse_meta = apply_pulse_defaults(
             {
