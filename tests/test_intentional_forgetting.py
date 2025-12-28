@@ -12,7 +12,10 @@ from sentientos.cor import CORConfig, CORSubsystem, Hypothesis
 from sentientos.governance.habit_inference import HabitConfig, HabitInferenceEngine, HabitObservation
 from sentientos.governance.intentional_forgetting import (
     ForgetDiff,
+    ForgetBoundaryDecision,
+    ForgetBoundaryPreview,
     ForgetCommitPhase,
+    BoundaryRefusal,
     IntentionalForgetRequest,
     IntentionalForgettingService,
     InvariantViolation,
@@ -82,6 +85,12 @@ def _proof_entries(path: Path) -> list[dict[str, object]]:
         entry
         for entry in read_forget_log(path)
         if entry.get("event") == "intentional_forget_rollback_proof"
+    ]
+
+
+def _refusal_entries(path: Path) -> list[dict[str, object]]:
+    return [
+        entry for entry in read_forget_log(path) if entry.get("event") == "intentional_forget_refusal"
     ]
 
 
@@ -880,3 +889,133 @@ def test_forget_tx_id_stable_across_serialization(tmp_path: Path) -> None:
     )
     second = replay_service.simulate_forget(request)
     assert first.forget_tx_id == second.forget_tx_id
+
+
+class _BoundaryRefuser:
+    name = "memory"
+
+    def preview_forget(self, request: IntentionalForgetRequest) -> ForgetBoundaryPreview:
+        return ForgetBoundaryPreview(
+            subsystem=self.name,
+            decision=ForgetBoundaryDecision.REFUSE,
+            reason="memory_anchor",
+        )
+
+    def verify_post_commit(self, state: dict[str, object]) -> None:
+        return None
+
+
+class _BoundaryDeferrer:
+    name = "cognition"
+
+    def preview_forget(self, request: IntentionalForgetRequest) -> ForgetBoundaryPreview:
+        return ForgetBoundaryPreview(
+            subsystem=self.name,
+            decision=ForgetBoundaryDecision.DEFER,
+            reason="cognitive_lock",
+        )
+
+    def verify_post_commit(self, state: dict[str, object]) -> None:
+        return None
+
+
+def test_boundary_refusal_blocks_execution(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryRefuser(),),
+    )
+
+    with pytest.raises(BoundaryRefusal):
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+
+    assert registry.get_routine(spec.routine_id) is not None
+    assert _committed_forget_entries(service.log_path) == []
+    assert _proof_entries(service.log_path) == []
+    refusals = _refusal_entries(service.log_path)
+    assert refusals
+
+
+def test_boundary_defer_requires_acknowledgment(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryDeferrer(),),
+    )
+
+    with pytest.raises(BoundaryRefusal):
+        service.forget(
+            IntentionalForgetRequest(
+                target_type="routine",
+                target_id=spec.routine_id,
+                forget_scope="exact",
+                proof_level="structural",
+            )
+        )
+    assert _committed_forget_entries(service.log_path) == []
+    assert _proof_entries(service.log_path) == []
+
+    result = service.forget(
+        IntentionalForgetRequest(
+            target_type="routine",
+            target_id=spec.routine_id,
+            forget_scope="exact",
+            proof_level="structural",
+            defer_acknowledged=True,
+        )
+    )
+    assert result.forget_tx_id
+    assert _committed_forget_entries(service.log_path)
+
+
+def test_simulation_matches_boundary_refusal(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+        boundary_contracts=(_BoundaryRefuser(),),
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    diff = service.simulate_forget(request)
+    assert diff.boundary_previews
+    assert diff.blocked
+    with pytest.raises(BoundaryRefusal):
+        service.forget(request)

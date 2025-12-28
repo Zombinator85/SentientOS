@@ -494,6 +494,12 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
         lines.append(
             f"{forgetting['count']} item(s) were intentionally forgotten. No residual influence remains."
         )
+    if forgetting.get("refusals"):
+        summary = f"{forgetting['refusals']} intentional forgetting request(s) were refused"
+        if forgetting.get("deferrals"):
+            summary += f" ({forgetting['deferrals']} deferred)"
+        summary += "."
+        lines.append(summary)
     references = {
         "task_ids": [item.get("task_id") for item in tasks if item.get("task_id")],
         "routine_ids": [item.get("routine_id") for item in routines if item.get("routine_id")],
@@ -510,13 +516,20 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
 def _summarize_forgetting(entries: Iterable[Mapping[str, object]]) -> dict[str, object]:
     counts: dict[str, int] = {}
     total = 0
+    refusals = 0
+    deferrals = 0
     for entry in entries:
         if entry.get("event") != "intentional_forget":
+            if entry.get("event") == "intentional_forget_refusal":
+                refusals += 1
+                for preview in entry.get("previews", []) or []:
+                    if preview.get("decision") == "defer":
+                        deferrals += 1
             continue
         target_type = entry.get("target_type") or "unknown"
         counts[str(target_type)] = counts.get(str(target_type), 0) + 1
         total += 1
-    return {"count": total, "by_type": counts}
+    return {"count": total, "by_type": counts, "refusals": refusals, "deferrals": deferrals}
 
 
 def _build_idle_section(activity: Mapping[str, object]) -> dict[str, object]:
