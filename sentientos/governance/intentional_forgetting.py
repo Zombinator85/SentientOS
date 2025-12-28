@@ -74,6 +74,21 @@ class ForgetBoundaryVerification:
     reason: str
 
 
+@dataclass(frozen=True)
+class ForgetPressureSignal:
+    forget_tx_id: str
+    target_type: str
+    target: str
+    forget_scope: str
+    proof_level: str
+    authority: str
+    status: str
+    phase: str
+    subsystems: tuple[dict[str, str], ...]
+    redacted_target: bool = False
+    defer_acknowledged: bool = False
+
+
 class ForgetBoundaryContract(Protocol):
     name: str
 
@@ -102,6 +117,7 @@ class ForgetDiff:
     invariant_status: str
     invariant_violations: tuple[dict[str, str], ...]
     boundary_previews: tuple[dict[str, object], ...]
+    pressure: tuple[dict[str, object], ...]
     diff_hash: str
 
     def to_dict(self) -> dict[str, object]:
@@ -123,6 +139,7 @@ class ForgetDiff:
             "invariant_status": self.invariant_status,
             "invariant_violations": [dict(item) for item in self.invariant_violations],
             "boundary_previews": [dict(item) for item in self.boundary_previews],
+            "pressure": [dict(item) for item in self.pressure],
             "diff_hash": self.diff_hash,
         }
 
@@ -224,6 +241,12 @@ class IntentionalForgettingService:
             if boundary_previews:
                 _append_boundary_preview(self.log_path, phase_payload, boundary_previews, request.defer_acknowledged)
             if boundary_blocked:
+                _record_pressure_from_previews(
+                    self.log_path,
+                    phase_payload,
+                    boundary_previews,
+                    request.defer_acknowledged,
+                )
                 _append_boundary_refusal(
                     self.log_path,
                     phase_payload,
@@ -266,6 +289,7 @@ class IntentionalForgettingService:
         append_json(self.log_path, committed_entry)
         if _find_forget_proof_entry(read_forget_log(self.log_path), forget_tx_id) is None:
             _append_rollback_proof(self.log_path, proof)
+        _clear_pressure(self.log_path, phase_payload, reason="committed")
         self.verify_post_commit_invariants()
         return IntentionalForgetResult(
             target_type=request.target_type,
@@ -326,6 +350,7 @@ class IntentionalForgettingService:
         )
         replay_status = "already_applied" if _forget_tx_applied(self.log_path, forget_tx_id) else "new"
         phase_state = _phase_state_for_tx(read_forget_log(self.log_path), forget_tx_id)
+        pressure_state = _pressure_state_for_tx(read_forget_log(self.log_path), forget_tx_id)
         preview_entry = {
             "event": "intentional_forget",
             "target_type": request.target_type,
@@ -395,6 +420,7 @@ class IntentionalForgettingService:
             "invariant_status": "violations" if invariant_violations else "ok",
             "invariant_violations": _sorted_blockers(invariant_violations),
             "boundary_previews": _sorted_boundary_previews(boundary_previews, request.defer_acknowledged),
+            "pressure": _sorted_pressure_entries(pressure_state),
         }
         diff_hash = _hash_payload(payload)
         return ForgetDiff(
@@ -414,6 +440,7 @@ class IntentionalForgettingService:
             invariant_status=payload["invariant_status"],
             invariant_violations=tuple(payload["invariant_violations"]),
             boundary_previews=tuple(payload["boundary_previews"]),
+            pressure=tuple(payload["pressure"]),
             diff_hash=diff_hash,
         )
 
@@ -812,6 +839,12 @@ class IntentionalForgettingService:
             if boundary_previews:
                 _append_boundary_preview(self.log_path, phase_payload, boundary_previews, request.defer_acknowledged)
             if boundary_blocked:
+                _record_pressure_from_previews(
+                    self.log_path,
+                    phase_payload,
+                    boundary_previews,
+                    request.defer_acknowledged,
+                )
                 _append_boundary_refusal(
                     self.log_path,
                     phase_payload,
@@ -855,7 +888,68 @@ class IntentionalForgettingService:
         append_json(self.log_path, committed_entry)
         if _find_forget_proof_entry(read_forget_log(self.log_path), forget_tx_id) is None:
             _append_rollback_proof(self.log_path, proof)
+        _clear_pressure(self.log_path, phase_payload, reason="committed")
         self.verify_post_commit_invariants()
+
+    def reconcile_forgetting_pressure(self, *, forget_tx_id: str | None = None) -> list[dict[str, object]]:
+        entries = read_forget_log(self.log_path)
+        active_pressure = _active_pressure_entries(entries)
+        reconciled: list[dict[str, object]] = []
+        for pressure in active_pressure:
+            pressure_id = str(pressure.get("forget_tx_id", ""))
+            if forget_tx_id and pressure_id != forget_tx_id:
+                continue
+            target_type = str(pressure.get("target_type", ""))
+            target_ref = str(pressure.get("target", ""))
+            target_id = self._resolve_target_id(target_type, target_ref)
+            if target_id is None and target_type != "all":
+                reconciled.append({
+                    "forget_tx_id": pressure_id,
+                    "status": "blocked",
+                    "phase": pressure.get("phase", "refused"),
+                    "reason": "unresolved_target",
+                })
+                continue
+            request = IntentionalForgetRequest(
+                target_type=target_type,
+                target_id=target_id or target_ref,
+                forget_scope=str(pressure.get("forget_scope", "exact")),
+                proof_level=str(pressure.get("proof_level", "structural")),
+                defer_acknowledged=bool(pressure.get("defer_acknowledged", False)),
+            )
+            phase_payload = {
+                "forget_tx_id": pressure_id,
+                "target_type": target_type,
+                "target": target_ref,
+                "forget_scope": request.forget_scope,
+                "proof_level": request.proof_level,
+                "authority": str(pressure.get("authority", "operator")),
+                "redacted_target": bool(pressure.get("redacted_target", False)),
+                "defer_acknowledged": request.defer_acknowledged,
+            }
+            boundary_previews = self._collect_boundary_previews(request)
+            boundary_blocked = _boundary_blockers(boundary_previews, request.defer_acknowledged)
+            if not boundary_blocked:
+                _clear_pressure(self.log_path, phase_payload, reason="reconciled")
+                reconciled.append({
+                    "forget_tx_id": pressure_id,
+                    "status": "cleared",
+                    "phase": "allowed",
+                })
+                continue
+            new_pressure = _pressure_entry_from_previews(
+                phase_payload,
+                boundary_previews,
+                request.defer_acknowledged,
+            )
+            _append_pressure(self.log_path, new_pressure)
+            reconciled.append({
+                "forget_tx_id": pressure_id,
+                "status": "blocked",
+                "phase": new_pressure.get("phase"),
+                "subsystems": new_pressure.get("subsystems", []),
+            })
+        return reconciled
 
     def _state_hash(self) -> str:
         snapshot = {
@@ -1114,6 +1208,11 @@ def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, objec
         return []
 
 
+def read_forget_pressure(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, object]]:
+    entries = read_forget_log(path)
+    return _sorted_pressure_entries(_active_pressure_entries(entries))
+
+
 def _sanitize_target(target_type: str, target_id: str) -> tuple[str, bool]:
     if target_type in {"cor", "ssu"}:
         return f"hash:{_hash_reference(target_id)}", True
@@ -1206,6 +1305,78 @@ def _append_boundary_refusal(
     append_json(log_path, entry)
 
 
+def _pressure_reason_hash(decision: ForgetBoundaryDecision, reason: str) -> str:
+    return _hash_reference(f"{decision.value}:{reason}")
+
+
+def _pressure_entry_from_previews(
+    phase_payload: Mapping[str, object],
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> dict[str, object]:
+    subsystems = []
+    for preview in previews:
+        if preview.decision == ForgetBoundaryDecision.ALLOW:
+            continue
+        if preview.decision == ForgetBoundaryDecision.DEFER and defer_acknowledged:
+            continue
+        subsystems.append({
+            "subsystem": preview.subsystem,
+            "decision": preview.decision.value,
+            "reason_hash": _pressure_reason_hash(preview.decision, preview.reason),
+        })
+    phase = "refused" if any(item["decision"] == ForgetBoundaryDecision.REFUSE.value for item in subsystems) else "deferred"
+    entry = {
+        "event": "intentional_forget_pressure",
+        "forget_tx_id": phase_payload.get("forget_tx_id"),
+        "target_type": phase_payload.get("target_type"),
+        "target": phase_payload.get("target"),
+        "forget_scope": phase_payload.get("forget_scope"),
+        "proof_level": phase_payload.get("proof_level"),
+        "authority": phase_payload.get("authority"),
+        "redacted_target": bool(phase_payload.get("redacted_target", False)),
+        "defer_acknowledged": bool(phase_payload.get("defer_acknowledged", False)),
+        "status": "active",
+        "phase": phase,
+        "subsystems": _sorted_pressure_subsystems(subsystems),
+    }
+    entry["pressure_hash"] = _hash_payload(entry)
+    return entry
+
+
+def _record_pressure_from_previews(
+    log_path: Path,
+    phase_payload: Mapping[str, object],
+    previews: Sequence[ForgetBoundaryPreview],
+    defer_acknowledged: bool,
+) -> None:
+    entry = _pressure_entry_from_previews(phase_payload, previews, defer_acknowledged)
+    _append_pressure(log_path, entry)
+
+
+def _clear_pressure(log_path: Path, phase_payload: Mapping[str, object], *, reason: str) -> None:
+    entries = read_forget_log(log_path)
+    latest = _latest_pressure_entries(entries).get(str(phase_payload.get("forget_tx_id", "")))
+    if not latest or latest.get("status") != "active":
+        return
+    cleared = {
+        "event": "intentional_forget_pressure",
+        "forget_tx_id": phase_payload.get("forget_tx_id"),
+        "target_type": phase_payload.get("target_type"),
+        "target": phase_payload.get("target"),
+        "forget_scope": phase_payload.get("forget_scope"),
+        "proof_level": phase_payload.get("proof_level"),
+        "authority": phase_payload.get("authority"),
+        "redacted_target": bool(phase_payload.get("redacted_target", False)),
+        "defer_acknowledged": bool(phase_payload.get("defer_acknowledged", False)),
+        "status": "cleared",
+        "phase": reason,
+        "subsystems": [],
+    }
+    cleared["pressure_hash"] = _hash_payload(cleared)
+    _append_pressure(log_path, cleared)
+
+
 def _append_phase(
     log_path: Path,
     phase: ForgetCommitPhase,
@@ -1222,6 +1393,30 @@ def _append_phase(
     append_json(log_path, entry)
 
 
+def _append_pressure(log_path: Path, entry: Mapping[str, object]) -> None:
+    entries = read_forget_log(log_path)
+    latest = _latest_pressure_entries(entries).get(str(entry.get("forget_tx_id", "")))
+    if latest and latest.get("pressure_hash") == entry.get("pressure_hash"):
+        return
+    payload = dict(entry)
+    payload["timestamp"] = _now()
+    if latest:
+        payload["action"] = _pressure_action(latest, entry)
+    else:
+        payload["action"] = "created"
+    append_json(log_path, payload)
+
+
+def _pressure_action(previous: Mapping[str, object], current: Mapping[str, object]) -> str:
+    if current.get("status") == "cleared":
+        return "cleared"
+    if previous.get("status") == "active" and current.get("status") == "active":
+        if previous.get("phase") == "deferred" and current.get("phase") == "refused":
+            return "escalated"
+        return "reaffirmed"
+    return "updated"
+
+
 def _latest_phase_entries(entries: Iterable[Mapping[str, object]]) -> dict[str, dict[str, object]]:
     latest: dict[str, dict[str, object]] = {}
     for entry in entries:
@@ -1232,6 +1427,33 @@ def _latest_phase_entries(entries: Iterable[Mapping[str, object]]) -> dict[str, 
             continue
         latest[str(forget_tx_id)] = dict(entry)
     return latest
+
+
+def _latest_pressure_entries(entries: Iterable[Mapping[str, object]]) -> dict[str, dict[str, object]]:
+    latest: dict[str, dict[str, object]] = {}
+    for entry in entries:
+        if entry.get("event") != "intentional_forget_pressure":
+            continue
+        forget_tx_id = entry.get("forget_tx_id")
+        if not forget_tx_id:
+            continue
+        latest[str(forget_tx_id)] = dict(entry)
+    return latest
+
+
+def _pressure_state_for_tx(
+    entries: Iterable[Mapping[str, object]],
+    forget_tx_id: str,
+) -> list[dict[str, object]]:
+    latest = _latest_pressure_entries(entries).get(forget_tx_id)
+    if not latest or latest.get("status") != "active":
+        return []
+    return [dict(latest)]
+
+
+def _active_pressure_entries(entries: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    latest = _latest_pressure_entries(entries)
+    return [dict(entry) for entry in latest.values() if entry.get("status") == "active"]
 
 
 def _phase_state_for_tx(entries: Iterable[Mapping[str, object]], forget_tx_id: str) -> _ForgetPhaseState:
@@ -1281,6 +1503,18 @@ def _sorted_blockers(items: Iterable[Mapping[str, str]]) -> list[dict[str, str]]
 def _sorted_hashes(items: Iterable[Mapping[str, str]]) -> list[dict[str, str]]:
     normalized = [dict(item) for item in items]
     normalized.sort(key=lambda item: (item.get("view", ""), item.get("hash", "")))
+    return normalized
+
+
+def _sorted_pressure_subsystems(items: Iterable[Mapping[str, str]]) -> list[dict[str, str]]:
+    normalized = [dict(item) for item in items]
+    normalized.sort(key=lambda item: (item.get("subsystem", ""), item.get("decision", "")))
+    return normalized
+
+
+def _sorted_pressure_entries(items: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    normalized = [dict(item) for item in items]
+    normalized.sort(key=lambda item: str(item.get("forget_tx_id", "")))
     return normalized
 
 
@@ -1580,10 +1814,12 @@ __all__ = [
     "ForgetBoundaryDecision",
     "ForgetBoundaryPreview",
     "ForgetBoundaryVerification",
+    "ForgetPressureSignal",
     "BoundaryRefusal",
     "IntentionalForgetRequest",
     "IntentionalForgetResult",
     "IntentionalForgettingService",
     "DEFAULT_LOG_PATH",
     "read_forget_log",
+    "read_forget_pressure",
 ]
