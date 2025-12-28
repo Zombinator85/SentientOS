@@ -6,6 +6,7 @@ import json
 import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
@@ -45,11 +46,20 @@ class IntentionalForgetResult:
     redacted_target: bool = False
 
 
+class ForgetCommitPhase(str, Enum):
+    PREPARED = "prepared"
+    APPLYING = "applying"
+    COMMITTED = "committed"
+    ABORTED = "aborted"
+
+
 @dataclass(frozen=True)
 class ForgetDiff:
     request: Mapping[str, str]
     forget_tx_id: str
     replay_status: str
+    phase: str | None
+    execution_status: str
     primary_targets: tuple[str, ...]
     cascaded_removals: tuple[str, ...]
     removals: tuple[str, ...]
@@ -66,6 +76,8 @@ class ForgetDiff:
             "request": dict(self.request),
             "forget_tx_id": self.forget_tx_id,
             "replay_status": self.replay_status,
+            "phase": self.phase,
+            "execution_status": self.execution_status,
             "primary_targets": list(self.primary_targets),
             "cascaded_removals": list(self.cascaded_removals),
             "removals": list(self.removals),
@@ -85,6 +97,12 @@ class _ForgetOutcome:
     removals: list[str] = field(default_factory=list)
     blocked: list[dict[str, str]] = field(default_factory=list)
     skipped: list[dict[str, str]] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class _ForgetPhaseState:
+    phase: str | None
+    execution_status: str
 
 
 class _SilentHabitInferenceEngine(HabitInferenceEngine):
@@ -116,6 +134,7 @@ class IntentionalForgettingService:
         timestamp = _now()
         cascade = request.forget_scope == "cascade"
         forget_tx_id = self._forget_tx_id(request, authority=authority)
+        self._recover_incomplete_transactions()
         prior_entry = _find_forget_tx_entry(read_forget_log(self.log_path), forget_tx_id)
         if prior_entry is not None:
             return IntentionalForgetResult(
@@ -131,9 +150,24 @@ class IntentionalForgettingService:
                 impacted=(),
                 redacted_target=bool(prior_entry.get("redacted_target", False)),
             )
-        outcome = self._apply_forget(request, authority=authority)
-        post_state_hash = self._state_hash()
         target_ref, redacted = _sanitize_target(request.target_type, request.target_id)
+        phase_payload = _phase_payload(
+            request=request,
+            authority=authority,
+            forget_tx_id=forget_tx_id,
+            target_ref=target_ref,
+            redacted_target=redacted,
+        )
+        try:
+            self._validate_request(request)
+            _append_phase(self.log_path, ForgetCommitPhase.PREPARED, phase_payload)
+            _append_phase(self.log_path, ForgetCommitPhase.APPLYING, phase_payload)
+            outcome = self._apply_forget(request, authority=authority)
+            post_state_hash = self._state_hash()
+        except Exception as exc:
+            _append_phase(self.log_path, ForgetCommitPhase.ABORTED, phase_payload, error_reason=str(exc))
+            raise
+        _append_phase(self.log_path, ForgetCommitPhase.COMMITTED, phase_payload)
         append_json(
             self.log_path,
             {
@@ -198,6 +232,7 @@ class IntentionalForgettingService:
             cascade_structure=self._cascade_structure_for_request(request),
         )
         replay_status = "already_applied" if _forget_tx_applied(self.log_path, forget_tx_id) else "new"
+        phase_state = _phase_state_for_tx(read_forget_log(self.log_path), forget_tx_id)
         preview_entry = {
             "event": "intentional_forget",
             "target_type": request.target_type,
@@ -243,6 +278,8 @@ class IntentionalForgettingService:
             },
             "forget_tx_id": forget_tx_id,
             "replay_status": replay_status,
+            "phase": phase_state.phase,
+            "execution_status": phase_state.execution_status,
             "primary_targets": _sorted_unique(outcome.primary),
             "cascaded_removals": _sorted_unique(outcome.cascaded),
             "removals": _sorted_unique(outcome.removals),
@@ -257,6 +294,8 @@ class IntentionalForgettingService:
             request=payload["request"],
             forget_tx_id=forget_tx_id,
             replay_status=replay_status,
+            phase=phase_state.phase,
+            execution_status=phase_state.execution_status,
             primary_targets=tuple(payload["primary_targets"]),
             cascaded_removals=tuple(payload["cascaded_removals"]),
             removals=tuple(payload["removals"]),
@@ -607,6 +646,78 @@ class IntentionalForgettingService:
             log_path=temp_root / "forget_log.jsonl",
         )
 
+    def _recover_incomplete_transactions(self) -> None:
+        entries = read_forget_log(self.log_path)
+        phases = _latest_phase_entries(entries)
+        for forget_tx_id, phase_entry in phases.items():
+            phase = phase_entry.get("phase")
+            if phase not in {ForgetCommitPhase.PREPARED.value, ForgetCommitPhase.APPLYING.value}:
+                continue
+            if _forget_tx_applied(self.log_path, forget_tx_id):
+                if phase != ForgetCommitPhase.COMMITTED.value:
+                    _append_phase(self.log_path, ForgetCommitPhase.COMMITTED, dict(phase_entry))
+                continue
+            self._recover_transaction(phase_entry)
+
+    def _recover_transaction(self, phase_entry: Mapping[str, object]) -> None:
+        forget_tx_id = str(phase_entry.get("forget_tx_id", ""))
+        if not forget_tx_id:
+            return
+        if _forget_tx_applied(self.log_path, forget_tx_id):
+            return
+        target_type = str(phase_entry.get("target_type", ""))
+        target_ref = str(phase_entry.get("target", ""))
+        authority = str(phase_entry.get("authority", "operator"))
+        forget_scope = str(phase_entry.get("forget_scope", "exact"))
+        proof_level = str(phase_entry.get("proof_level", "structural"))
+        target_id = self._resolve_target_id(target_type, target_ref)
+        if target_id is None and target_type not in {"all"}:
+            _append_phase(
+                self.log_path,
+                ForgetCommitPhase.ABORTED,
+                dict(phase_entry),
+                error_reason="unresolved_target",
+            )
+            return
+        request = IntentionalForgetRequest(
+            target_type=target_type,
+            target_id=target_id or target_ref,
+            forget_scope=forget_scope,
+            proof_level=proof_level,
+        )
+        phase_payload = _phase_payload(
+            request=request,
+            authority=authority,
+            forget_tx_id=forget_tx_id,
+            target_ref=target_ref,
+            redacted_target=bool(phase_entry.get("redacted_target", False)),
+        )
+        try:
+            self._validate_request(request)
+            if phase_entry.get("phase") == ForgetCommitPhase.PREPARED.value:
+                _append_phase(self.log_path, ForgetCommitPhase.APPLYING, phase_payload)
+            outcome = self._apply_forget(request, authority=authority)
+            post_state_hash = self._state_hash()
+        except Exception as exc:
+            _append_phase(self.log_path, ForgetCommitPhase.ABORTED, phase_payload, error_reason=str(exc))
+            return
+        _append_phase(self.log_path, ForgetCommitPhase.COMMITTED, phase_payload)
+        append_json(
+            self.log_path,
+            {
+                "event": "intentional_forget",
+                "target_type": request.target_type,
+                "target": target_ref,
+                "cascade": request.forget_scope == "cascade",
+                "authority": authority,
+                "proof_level": request.proof_level,
+                "forget_tx_id": forget_tx_id,
+                "post_state_hash": post_state_hash,
+                "redacted_target": bool(phase_entry.get("redacted_target", False)),
+            },
+        )
+        _ = outcome
+
     def _state_hash(self) -> str:
         snapshot = {
             "routines": sorted(self.routine_registry.list_forgotten()),
@@ -641,6 +752,55 @@ class IntentionalForgettingService:
         if semantic_class is not None:
             return semantic_class
         return self.class_manager.get_class_by_id(class_ref)
+
+    def _resolve_target_id(self, target_type: str, target_ref: str) -> str | None:
+        if target_type == "cor":
+            if self.cor_subsystem is None:
+                return None
+            target_hash = target_ref.replace("hash:", "")
+            for hypothesis in self.cor_subsystem.list_hypotheses():
+                if _hash_reference(hypothesis) == target_hash:
+                    return hypothesis
+            for hypothesis in self.cor_subsystem.list_forgotten():
+                if _hash_reference(hypothesis) == target_hash:
+                    return hypothesis
+            return None
+        if target_type == "ssu":
+            if self.ssu is None:
+                return None
+            target_hash = target_ref.replace("hash:", "")
+            for key in self.ssu.list_symbol_records():
+                serialized = self.ssu.serialize_symbol_key(key)
+                if _hash_reference(serialized) == target_hash:
+                    return serialized
+            for key in self.ssu.list_forgotten():
+                serialized = self.ssu.serialize_symbol_key(key)
+                if _hash_reference(serialized) == target_hash:
+                    return serialized
+            return None
+        return target_ref
+
+    def _validate_request(self, request: IntentionalForgetRequest) -> None:
+        if request.target_type not in {
+            "all",
+            "routine",
+            "habit",
+            "class",
+            "cognitive",
+            "cor",
+            "ssu",
+        }:
+            raise ValueError(f"Unsupported forget target: {request.target_type}")
+        if request.target_type == "habit" and self.habit_engine is None:
+            raise ValueError("Habit inference engine is required to forget habits")
+        if request.target_type == "class" and self.class_manager is None:
+            raise ValueError("Semantic habit class manager is required to forget classes")
+        if request.target_type == "cognitive" and self.cognitive_surface is None:
+            raise ValueError("Cognitive surface is required to forget cognitive artifacts")
+        if request.target_type == "cor" and self.cor_subsystem is None:
+            raise ValueError("COR subsystem is required to forget hypotheses")
+        if request.target_type == "ssu" and self.ssu is None:
+            raise ValueError("SSU subsystem is required to forget symbols")
 
     def _forget_tx_id(self, request: IntentionalForgetRequest, *, authority: str) -> str:
         target_ref, _ = _sanitize_target(request.target_type, request.target_id)
@@ -760,6 +920,74 @@ def _build_forget_tx_id(
     return _hash_payload(payload)
 
 
+def _phase_payload(
+    *,
+    request: IntentionalForgetRequest,
+    authority: str,
+    forget_tx_id: str,
+    target_ref: str,
+    redacted_target: bool,
+) -> dict[str, object]:
+    return {
+        "forget_tx_id": forget_tx_id,
+        "target_type": request.target_type,
+        "target": target_ref,
+        "forget_scope": request.forget_scope,
+        "proof_level": request.proof_level,
+        "authority": authority,
+        "redacted_target": redacted_target,
+    }
+
+
+def _append_phase(
+    log_path: Path,
+    phase: ForgetCommitPhase,
+    payload: Mapping[str, object],
+    *,
+    error_reason: str | None = None,
+) -> None:
+    entry = dict(payload)
+    entry["event"] = "intentional_forget_phase"
+    entry["phase"] = phase.value
+    entry["timestamp"] = _now()
+    if error_reason:
+        entry["error_reason"] = error_reason
+    append_json(log_path, entry)
+
+
+def _latest_phase_entries(entries: Iterable[Mapping[str, object]]) -> dict[str, dict[str, object]]:
+    latest: dict[str, dict[str, object]] = {}
+    for entry in entries:
+        if entry.get("event") != "intentional_forget_phase":
+            continue
+        forget_tx_id = entry.get("forget_tx_id")
+        if not forget_tx_id:
+            continue
+        latest[str(forget_tx_id)] = dict(entry)
+    return latest
+
+
+def _phase_state_for_tx(entries: Iterable[Mapping[str, object]], forget_tx_id: str) -> _ForgetPhaseState:
+    phase_entry = None
+    for entry in entries:
+        if entry.get("event") != "intentional_forget_phase":
+            continue
+        if entry.get("forget_tx_id") == forget_tx_id:
+            phase_entry = entry
+    if phase_entry is None:
+        return _ForgetPhaseState(phase=None, execution_status="none")
+    phase = str(phase_entry.get("phase")) if phase_entry.get("phase") is not None else None
+    if phase in {ForgetCommitPhase.PREPARED.value, ForgetCommitPhase.APPLYING.value}:
+        status = "pending"
+    elif phase == ForgetCommitPhase.COMMITTED.value:
+        status = "committed"
+    elif phase == ForgetCommitPhase.ABORTED.value:
+        status = "aborted"
+    else:
+        status = "unknown"
+    return _ForgetPhaseState(phase=phase, execution_status=status)
+
+
 def _preview_error_reason(message: str) -> str:
     if message.startswith("Unsupported forget target:"):
         return "unsupported_target"
@@ -817,6 +1045,7 @@ def _now() -> str:
 
 __all__ = [
     "ForgetDiff",
+    "ForgetCommitPhase",
     "IntentionalForgetRequest",
     "IntentionalForgetResult",
     "IntentionalForgettingService",

@@ -12,6 +12,7 @@ from sentientos.cor import CORConfig, CORSubsystem, Hypothesis
 from sentientos.governance.habit_inference import HabitConfig, HabitInferenceEngine, HabitObservation
 from sentientos.governance.intentional_forgetting import (
     ForgetDiff,
+    ForgetCommitPhase,
     IntentionalForgetRequest,
     IntentionalForgettingService,
     read_forget_log,
@@ -64,6 +65,14 @@ def _routine_spec(routine_id: str) -> RoutineSpec:
         trigger_specificity=0,
         time_window=None,
     )
+
+
+def _committed_forget_entries(path: Path) -> list[dict[str, object]]:
+    return [entry for entry in read_forget_log(path) if entry.get("event") == "intentional_forget"]
+
+
+def _phase_entries(path: Path) -> list[dict[str, object]]:
+    return [entry for entry in read_forget_log(path) if entry.get("event") == "intentional_forget_phase"]
 
 
 def test_forget_habit_prevents_reproposal(tmp_path: Path) -> None:
@@ -487,10 +496,182 @@ def test_duplicate_execution_is_noop(tmp_path: Path) -> None:
 
     assert second.replayed is True
     assert second.forget_tx_id == first.forget_tx_id
-    assert read_forget_log(service.log_path)[0].get("forget_tx_id") == first.forget_tx_id
-    assert len(read_forget_log(service.log_path)) == 1
+    committed_entries = _committed_forget_entries(service.log_path)
+    assert committed_entries[0].get("forget_tx_id") == first.forget_tx_id
+    assert len(committed_entries) == 1
 
 
+def test_phase_progression_records_transitions(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+
+    service.forget(request)
+
+    phases = [entry.get("phase") for entry in _phase_entries(service.log_path)]
+    assert phases == [
+        ForgetCommitPhase.PREPARED.value,
+        ForgetCommitPhase.APPLYING.value,
+        ForgetCommitPhase.COMMITTED.value,
+    ]
+
+
+def test_recovery_reapplies_applying_phase(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    forget_tx_id = service.simulate_forget(request).forget_tx_id
+    append_json(
+        service.log_path,
+        {
+            "event": "intentional_forget_phase",
+            "phase": ForgetCommitPhase.PREPARED.value,
+            "forget_tx_id": forget_tx_id,
+            "target_type": request.target_type,
+            "target": request.target_id,
+            "forget_scope": request.forget_scope,
+            "proof_level": request.proof_level,
+            "authority": "operator",
+            "redacted_target": False,
+        },
+    )
+    append_json(
+        service.log_path,
+        {
+            "event": "intentional_forget_phase",
+            "phase": ForgetCommitPhase.APPLYING.value,
+            "forget_tx_id": forget_tx_id,
+            "target_type": request.target_type,
+            "target": request.target_id,
+            "forget_scope": request.forget_scope,
+            "proof_level": request.proof_level,
+            "authority": "operator",
+            "redacted_target": False,
+        },
+    )
+
+    result = service.forget(request)
+
+    assert result.replayed is True
+    assert registry.list_routines() == ()
+    assert _committed_forget_entries(service.log_path)
+
+
+def test_replay_after_abort_retries(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    forget_tx_id = service.simulate_forget(request).forget_tx_id
+    append_json(
+        service.log_path,
+        {
+            "event": "intentional_forget_phase",
+            "phase": ForgetCommitPhase.ABORTED.value,
+            "forget_tx_id": forget_tx_id,
+            "target_type": request.target_type,
+            "target": request.target_id,
+            "forget_scope": request.forget_scope,
+            "proof_level": request.proof_level,
+            "authority": "operator",
+            "redacted_target": False,
+        },
+    )
+
+    result = service.forget(request)
+
+    assert result.replayed is False
+    assert registry.list_routines() == ()
+    assert _committed_forget_entries(service.log_path)
+
+
+def test_simulation_reports_phase_state(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    forget_tx_id = service.simulate_forget(request).forget_tx_id
+    append_json(
+        service.log_path,
+        {
+            "event": "intentional_forget_phase",
+            "phase": ForgetCommitPhase.PREPARED.value,
+            "forget_tx_id": forget_tx_id,
+            "target_type": request.target_type,
+            "target": request.target_id,
+            "forget_scope": request.forget_scope,
+            "proof_level": request.proof_level,
+            "authority": "operator",
+            "redacted_target": False,
+        },
+    )
+
+    diff = service.simulate_forget(request)
+
+    assert diff.phase == ForgetCommitPhase.PREPARED.value
+    assert diff.execution_status == "pending"
 def test_simulation_reports_prior_execution(tmp_path: Path) -> None:
     registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
     spec = _routine_spec("routine-1")
@@ -530,7 +711,10 @@ def test_failed_execution_does_not_register_tx(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="Habit inference engine is required"):
         service.forget(request)
-    assert read_forget_log(service.log_path) == []
+    assert _committed_forget_entries(service.log_path) == []
+    phase_entries = _phase_entries(service.log_path)
+    assert phase_entries
+    assert phase_entries[-1].get("phase") == ForgetCommitPhase.ABORTED.value
 
 
 def test_forget_tx_id_stable_across_serialization(tmp_path: Path) -> None:
