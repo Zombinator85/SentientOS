@@ -207,12 +207,14 @@ class SimulationEngine:
     def last_transcript(self) -> Sequence[SimulationMessage]:
         return self._last_transcript
 
-    def run_cycle(self) -> None:
+    def run_cycle(self, *, pressure_snapshot: Mapping[str, object] | None = None) -> None:
         covenant_autoalign.autoalign_before_cycle()
         glow_state = load_self_state(path=self._self_path)
         pulse_state = self._load_pulse_metadata()
         focus_meta = pulse_state.get("focus") if isinstance(pulse_state.get("focus"), Mapping) else {}
         context = pulse_state.get("context") if isinstance(pulse_state.get("context"), Mapping) else {}
+        if pressure_snapshot:
+            context = {**context, "pressure_snapshot": dict(pressure_snapshot)}
         focus_target = self._resolve_focus_target(focus_meta) or "introspection"
         pulse_meta = apply_pulse_defaults(
             {

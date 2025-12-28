@@ -9,6 +9,7 @@ activity.
 """
 from __future__ import annotations
 
+import inspect
 from typing import Any, Callable, Dict, Mapping, MutableMapping, Optional
 
 from version_consensus import VersionConsensus
@@ -23,6 +24,7 @@ from sentientos.consciousness.narrative_goal import (
     current_narrative_goal,
     narrative_goal_satisfied,
 )
+from sentientos.governance.intentional_forgetting import build_forget_pressure_snapshot
 
 # Exposed for orchestration layers to wire into external consensus handling
 # without enforcing network activity or self-scheduling within this module.
@@ -85,6 +87,31 @@ def _coerce_mapping(candidate: Mapping[str, object] | None, name: str) -> Mutabl
     return dict(candidate)
 
 
+def _supports_kwarg(callable_obj: Callable[..., object], name: str) -> bool:
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+    for param in signature.parameters.values():
+        if param.kind == param.VAR_KEYWORD:
+            return True
+        if param.name == name:
+            return True
+    return False
+
+
+def _resolve_pressure_snapshot(context: Mapping[str, object]) -> Optional[Dict[str, object]]:
+    snapshot = context.get("pressure_snapshot")
+    if snapshot is None and context.get("include_pressure_snapshot"):
+        path = context.get("pressure_snapshot_path")
+        snapshot = build_forget_pressure_snapshot(path=path) if path else build_forget_pressure_snapshot()
+    if snapshot is None:
+        return None
+    if not isinstance(snapshot, Mapping):
+        raise TypeError("pressure_snapshot must be a mapping if provided")
+    return dict(snapshot)
+
+
 def _maybe_run_arbitrator(context: Mapping[str, object]) -> Optional[Dict[str, object]]:
     arbitrator = context.get("arbitrator")
     run_default = bool(context.get("run_arbitrator"))
@@ -94,7 +121,11 @@ def _maybe_run_arbitrator(context: Mapping[str, object]) -> Optional[Dict[str, o
         arbitrator_cls = load_attention_arbitrator()
         arbitrator = arbitrator_cls()
     if hasattr(arbitrator, "run_cycle"):
-        arbitrator.run_cycle()
+        run_cycle = arbitrator.run_cycle
+        if callable(run_cycle) and _supports_kwarg(run_cycle, "context"):
+            run_cycle(context=context)
+        else:
+            arbitrator.run_cycle()
     telemetry = arbitrator.telemetry_snapshot() if hasattr(arbitrator, "telemetry_snapshot") else None
     return telemetry if isinstance(telemetry, Mapping) else None
 
@@ -109,7 +140,11 @@ def _maybe_run_kernel(context: Mapping[str, object]) -> Optional[Dict[str, objec
         emitter = context.get("kernel_emitter")
         kernel = kernel_cls(emitter=emitter or (lambda payload: payload))
     if hasattr(kernel, "run_cycle"):
-        report = kernel.run_cycle()
+        run_cycle = kernel.run_cycle
+        if callable(run_cycle) and _supports_kwarg(run_cycle, "pressure_snapshot"):
+            report = run_cycle(pressure_snapshot=context.get("pressure_snapshot"))
+        else:
+            report = kernel.run_cycle()
         return report if isinstance(report, Mapping) else None
     return None
 
@@ -126,6 +161,13 @@ def _maybe_run_narrator(context: Mapping[str, object]) -> Optional[str]:
     pulse_snapshot = _coerce_mapping(context.get("pulse_snapshot"), "pulse_snapshot")
     self_model = _coerce_mapping(context.get("self_model"), "self_model")
     log_path = context.get("introspection_log_path")
+    if _supports_kwarg(narrator, "pressure_snapshot"):
+        return narrator(
+            pulse_snapshot,
+            self_model,
+            pressure_snapshot=context.get("pressure_snapshot"),
+            log_path=log_path,
+        )
     return narrator(pulse_snapshot, self_model, log_path=log_path)  # type: ignore[arg-type]
 
 
@@ -138,10 +180,17 @@ def _maybe_run_simulation(context: Mapping[str, object]) -> Optional[Dict[str, o
         engine_cls = load_simulation_engine()
         simulation_engine = engine_cls()
     if hasattr(simulation_engine, "run_cycle"):
-        simulation_engine.run_cycle()
+        run_cycle = simulation_engine.run_cycle
+        if callable(run_cycle) and _supports_kwarg(run_cycle, "pressure_snapshot"):
+            run_cycle(pressure_snapshot=context.get("pressure_snapshot"))
+        else:
+            simulation_engine.run_cycle()
         summary = getattr(simulation_engine, "last_summary", None)
         transcript = getattr(simulation_engine, "last_transcript", None)
-        return {"summary": summary, "transcript": transcript}
+        result = {"summary": summary, "transcript": transcript}
+        if context.get("pressure_snapshot") is not None:
+            result["pressure_snapshot"] = context.get("pressure_snapshot")
+        return result
     return None
 
 
@@ -190,35 +239,41 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
 
     try:
         with _RECURSION_GUARD.enter():
-            heartbeat = _heartbeat_or_interrupt()
-            if heartbeat:
-                return heartbeat
-
-            pulse_updates = _maybe_run_arbitrator(context)
-
-            heartbeat = _heartbeat_or_interrupt()
-            if heartbeat:
-                return heartbeat
-
-            kernel_updates = _maybe_run_kernel(context)
+            cycle_context = dict(context)
+            pressure_snapshot = _resolve_pressure_snapshot(cycle_context)
+            if pressure_snapshot is not None:
+                cycle_context["pressure_snapshot"] = pressure_snapshot
 
             heartbeat = _heartbeat_or_interrupt()
             if heartbeat:
                 return heartbeat
 
-            introspection_output = _maybe_run_narrator(context)
+            pulse_updates = _maybe_run_arbitrator(cycle_context)
 
             heartbeat = _heartbeat_or_interrupt()
             if heartbeat:
                 return heartbeat
 
-            simulation_output = _maybe_run_simulation(context)
+            kernel_updates = _maybe_run_kernel(cycle_context)
+
+            heartbeat = _heartbeat_or_interrupt()
+            if heartbeat:
+                return heartbeat
+
+            introspection_output = _maybe_run_narrator(cycle_context)
+
+            heartbeat = _heartbeat_or_interrupt()
+            if heartbeat:
+                return heartbeat
+
+            simulation_output = _maybe_run_simulation(cycle_context)
 
             return {
                 "pulse_updates": pulse_updates,
                 "self_model_updates": kernel_updates,
                 "introspection_output": introspection_output,
                 "simulation_output": simulation_output,
+                "pressure_snapshot": pressure_snapshot,
             }
     except RecursionLimitExceeded as exc:
         return {

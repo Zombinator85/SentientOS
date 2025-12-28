@@ -74,10 +74,17 @@ def _derive_focus(pulse_snapshot: Mapping[str, object], self_model: Mapping[str,
     return "introspection"
 
 
-def _derive_mood(pulse_snapshot: Mapping[str, object], self_model: Mapping[str, object]) -> str:
+def _derive_mood(
+    pulse_snapshot: Mapping[str, object],
+    self_model: Mapping[str, object],
+    *,
+    pressure_snapshot: Mapping[str, object] | None = None,
+) -> str:
     events = pulse_snapshot.get("events")
     warnings_present = bool(pulse_snapshot.get("warnings"))
     if warnings_present:
+        return "uncertain"
+    if pressure_snapshot and (pressure_snapshot.get("overload") or pressure_snapshot.get("total_active_pressure")):
         return "uncertain"
     if isinstance(events, list) and events:
         return "curious"
@@ -98,7 +105,10 @@ def _derive_attention_level(pulse_snapshot: Mapping[str, object]) -> str:
 
 
 def generate_reflection(
-    pulse_snapshot: Mapping[str, object], self_model: Mapping[str, object]
+    pulse_snapshot: Mapping[str, object],
+    self_model: Mapping[str, object],
+    *,
+    pressure_snapshot: Mapping[str, object] | None = None,
 ) -> Tuple[str, str, str, str]:
     """Create a deterministic, bounded reflection.
 
@@ -106,7 +116,7 @@ def generate_reflection(
     """
 
     focus = _derive_focus(pulse_snapshot, self_model)
-    mood = _derive_mood(pulse_snapshot, self_model)
+    mood = _derive_mood(pulse_snapshot, self_model, pressure_snapshot=pressure_snapshot)
     attention_level = _derive_attention_level(pulse_snapshot)
     cycle = pulse_snapshot.get("cycle") or pulse_snapshot.get("cycle_id")
     cycle_descriptor = f"cycle {cycle}" if cycle is not None else "current cycle"
@@ -125,8 +135,28 @@ def generate_reflection(
     sentences = [
         f"System {cycle_descriptor} {event_note}; noticed {focus}.",
         f"Internal interpretation steady; mood {mood}.",
-        f"Attention directed toward {context_desc} due to recent pulse metadata.",
     ]
+    if pressure_snapshot:
+        overload = bool(pressure_snapshot.get("overload"))
+        total_pressure = int(pressure_snapshot.get("total_active_pressure", 0) or 0)
+        domains = pressure_snapshot.get("pressure_by_subsystem", [])
+        domain_names = [
+            str(item.get("subsystem"))
+            for item in domains
+            if isinstance(item, Mapping) and item.get("subsystem")
+        ]
+        if overload or total_pressure:
+            domain_summary = ", ".join(domain_names[:3]) if domain_names else "core domains"
+            tension_line = (
+                f"System under sustained tension across {domain_summary}."
+                if overload
+                else f"Unresolved pressure present across {domain_summary}."
+            )
+            sentences.append(tension_line)
+        else:
+            sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
+    else:
+        sentences.append(f"Attention directed toward {context_desc} due to recent pulse metadata.")
     reflection = " ".join(sentences[:3])
     validate_reflection(reflection)
     return reflection, mood, focus, attention_level
@@ -166,12 +196,20 @@ def write_introspection_entry(
 
 
 def run_cycle(
-    pulse_snapshot: Mapping[str, object], self_model: Mapping[str, object], *, log_path: Path | None = None
+    pulse_snapshot: Mapping[str, object],
+    self_model: Mapping[str, object],
+    *,
+    pressure_snapshot: Mapping[str, object] | None = None,
+    log_path: Path | None = None,
 ) -> str:
     """Generate and store an internal reflection without emitting externally."""
 
     covenant_autoalign.autoalign_before_cycle()
-    reflection, mood, focus, attention_level = generate_reflection(pulse_snapshot, self_model)
+    reflection, mood, focus, attention_level = generate_reflection(
+        pulse_snapshot,
+        self_model,
+        pressure_snapshot=pressure_snapshot,
+    )
     updated_model: Dict[str, object] = {**DEFAULT_SELF_STATE, **dict(self_model)}
     updated_model.update(
         {

@@ -49,7 +49,12 @@ class SentienceKernel:
     def _clamp_priority(self, value: float) -> float:
         return max(0.0, min(1.0, value))
 
-    def _should_generate_goal(self, state: Mapping[str, object]) -> tuple[bool, str]:
+    def _should_generate_goal(
+        self,
+        state: Mapping[str, object],
+        *,
+        pressure_snapshot: Mapping[str, object] | None = None,
+    ) -> tuple[bool, str]:
         idle = state.get("last_focus") in (None, "")
         goal_context = state.get("goal_context") if isinstance(state.get("goal_context"), dict) else {}
         system_load = goal_context.get("system_load", 0.2)
@@ -64,7 +69,10 @@ class SentienceKernel:
             return False, "distress_guardrail_active"
         if not (idle or curiosity_trigger) and not low_load:
             return False, "high_priority_activity"
-        return True, "curiosity" if curiosity_trigger else "idle"
+        trigger = "curiosity" if curiosity_trigger else "idle"
+        if pressure_snapshot and bool(pressure_snapshot.get("overload")) and trigger == "curiosity":
+            return True, "reflection_overload"
+        return True, trigger
 
     def _misaligned_goal(self, goal: GoalDict) -> bool:
         description = str(goal.get("description", "")).lower()
@@ -143,11 +151,11 @@ class SentienceKernel:
             payload["goal_context"] = goal.get("context", {})
         return update_self_state(payload, path=self._self_path)
 
-    def run_cycle(self) -> Dict[str, object]:
+    def run_cycle(self, *, pressure_snapshot: Mapping[str, object] | None = None) -> Dict[str, object]:
         covenant_autoalign.autoalign_before_cycle()
         self._last_cycle = datetime.now(timezone.utc)
         glow_state = load_self_state(path=self._self_path)
-        should_generate, trigger = self._should_generate_goal(glow_state)
+        should_generate, trigger = self._should_generate_goal(glow_state, pressure_snapshot=pressure_snapshot)
         report: Dict[str, object] = {
             "timestamp": self._last_cycle.isoformat(),
             "generated": False,
@@ -161,6 +169,13 @@ class SentienceKernel:
             return report
 
         goal = self._build_goal(glow_state, trigger)
+        if pressure_snapshot:
+            goal_context = goal.get("context", {}) if isinstance(goal.get("context"), dict) else {}
+            goal_context.update({
+                "pressure_total": pressure_snapshot.get("total_active_pressure", 0),
+                "pressure_overload": bool(pressure_snapshot.get("overload")),
+            })
+            goal["context"] = goal_context
         if self._misaligned_goal(goal):
             logger.warning("Discarded misaligned goal from sentience kernel", extra={"goal": goal})
             self._recent_failures += 1

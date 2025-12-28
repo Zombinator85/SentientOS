@@ -1368,6 +1368,71 @@ def read_forget_pressure_budgets(
     return _sorted_pressure_budgets(_pressure_budget_status(entries, budgets or dict(DEFAULT_PRESSURE_BUDGETS)))
 
 
+def build_forget_pressure_snapshot(
+    path: Path | str = DEFAULT_LOG_PATH,
+    *,
+    budgets: Mapping[str, ForgetPressureBudget] | None = None,
+) -> dict[str, object]:
+    """Return a deterministic, redaction-safe pressure snapshot."""
+
+    entries = read_forget_log(path)
+    active_entries = _sorted_pressure_entries(_active_pressure_entries(entries))
+    budget_status = _pressure_budget_status(entries, budgets or dict(DEFAULT_PRESSURE_BUDGETS))
+
+    subsystem_counts: dict[str, int] = {}
+    phase_counts: dict[str, int] = {}
+    oldest_birth_index: int | None = None
+    for entry in active_entries:
+        phase = str(entry.get("phase", "unknown"))
+        phase_counts[phase] = phase_counts.get(phase, 0) + 1
+        birth_index = entry.get("pressure_birth_index")
+        if isinstance(birth_index, int):
+            oldest_birth_index = birth_index if oldest_birth_index is None else min(oldest_birth_index, birth_index)
+        subsystems = entry.get("subsystems")
+        if isinstance(subsystems, list):
+            for subsystem in subsystems:
+                if not isinstance(subsystem, Mapping):
+                    continue
+                name = subsystem.get("subsystem")
+                if not name:
+                    continue
+                key = str(name)
+                subsystem_counts[key] = subsystem_counts.get(key, 0) + 1
+
+    pressure_by_subsystem = [
+        {"subsystem": subsystem, "count": count} for subsystem, count in subsystem_counts.items()
+    ]
+    pressure_by_subsystem.sort(key=lambda item: item.get("subsystem", ""))
+
+    overload_domains = []
+    for item in budget_status:
+        if item.get("status") != "exceeded":
+            continue
+        overload_domains.append({
+            "subsystem": item.get("subsystem"),
+            "outstanding": item.get("outstanding"),
+        })
+    overload_domains.sort(key=lambda item: str(item.get("subsystem", "")))
+
+    current_index = len(entries) - 1 if entries else 0
+    oldest_age = None
+    if oldest_birth_index is not None:
+        oldest_age = max(0, current_index - oldest_birth_index)
+
+    snapshot = {
+        "total_active_pressure": len(active_entries),
+        "pressure_by_subsystem": pressure_by_subsystem,
+        "phase_counts": dict(sorted(phase_counts.items(), key=lambda item: item[0])),
+        "refusal_count": int(phase_counts.get("refused", 0)),
+        "deferred_count": int(phase_counts.get("deferred", 0)),
+        "overload": bool(overload_domains),
+        "overload_domains": overload_domains,
+        "oldest_unresolved_age": oldest_age,
+    }
+    snapshot["snapshot_hash"] = _hash_payload(snapshot)
+    return snapshot
+
+
 def _sanitize_target(target_type: str, target_id: str) -> tuple[str, bool]:
     if target_type in {"cor", "ssu"}:
         return f"hash:{_hash_reference(target_id)}", True
@@ -2173,4 +2238,5 @@ __all__ = [
     "read_forget_log",
     "read_forget_pressure",
     "read_forget_pressure_budgets",
+    "build_forget_pressure_snapshot",
 ]
