@@ -37,6 +37,8 @@ class IntentionalForgetResult:
     forget_scope: str
     proof_level: str
     timestamp: str
+    forget_tx_id: str
+    replayed: bool
     cascade: bool
     post_state_hash: str
     impacted: tuple[str, ...] = ()
@@ -46,6 +48,8 @@ class IntentionalForgetResult:
 @dataclass(frozen=True)
 class ForgetDiff:
     request: Mapping[str, str]
+    forget_tx_id: str
+    replay_status: str
     primary_targets: tuple[str, ...]
     cascaded_removals: tuple[str, ...]
     removals: tuple[str, ...]
@@ -60,6 +64,8 @@ class ForgetDiff:
         return {
             "view": "intentional_forget_diff",
             "request": dict(self.request),
+            "forget_tx_id": self.forget_tx_id,
+            "replay_status": self.replay_status,
             "primary_targets": list(self.primary_targets),
             "cascaded_removals": list(self.cascaded_removals),
             "removals": list(self.removals),
@@ -109,6 +115,22 @@ class IntentionalForgettingService:
     ) -> IntentionalForgetResult:
         timestamp = _now()
         cascade = request.forget_scope == "cascade"
+        forget_tx_id = self._forget_tx_id(request, authority=authority)
+        prior_entry = _find_forget_tx_entry(read_forget_log(self.log_path), forget_tx_id)
+        if prior_entry is not None:
+            return IntentionalForgetResult(
+                target_type=request.target_type,
+                target_id=request.target_id,
+                forget_scope=request.forget_scope,
+                proof_level=request.proof_level,
+                timestamp=timestamp,
+                forget_tx_id=forget_tx_id,
+                replayed=True,
+                cascade=cascade,
+                post_state_hash=str(prior_entry.get("post_state_hash", "")),
+                impacted=(),
+                redacted_target=bool(prior_entry.get("redacted_target", False)),
+            )
         outcome = self._apply_forget(request, authority=authority)
         post_state_hash = self._state_hash()
         target_ref, redacted = _sanitize_target(request.target_type, request.target_id)
@@ -121,6 +143,7 @@ class IntentionalForgettingService:
                 "cascade": cascade,
                 "authority": authority,
                 "proof_level": request.proof_level,
+                "forget_tx_id": forget_tx_id,
                 "post_state_hash": post_state_hash,
                 "redacted_target": redacted,
             },
@@ -131,6 +154,8 @@ class IntentionalForgettingService:
             forget_scope=request.forget_scope,
             proof_level=request.proof_level,
             timestamp=timestamp,
+            forget_tx_id=forget_tx_id,
+            replayed=False,
             cascade=cascade,
             post_state_hash=post_state_hash,
             impacted=tuple(outcome.removals),
@@ -165,6 +190,14 @@ class IntentionalForgettingService:
 
         authority_diff = diff_authority_surfaces(before_snapshot, after_snapshot)
         target_ref, redacted = _sanitize_target(request.target_type, request.target_id)
+        forget_tx_id = _build_forget_tx_id(
+            request,
+            authority=authority,
+            target_ref=target_ref,
+            target_set=_forget_target_set(request, target_ref),
+            cascade_structure=self._cascade_structure_for_request(request),
+        )
+        replay_status = "already_applied" if _forget_tx_applied(self.log_path, forget_tx_id) else "new"
         preview_entry = {
             "event": "intentional_forget",
             "target_type": request.target_type,
@@ -172,6 +205,7 @@ class IntentionalForgettingService:
             "cascade": request.forget_scope == "cascade",
             "authority": authority,
             "proof_level": request.proof_level,
+            "forget_tx_id": forget_tx_id,
             "post_state_hash": post_state_hash,
             "redacted_target": redacted,
         }
@@ -189,10 +223,13 @@ class IntentionalForgettingService:
         narrative_summary_hashes = [
             {"view": narrative_summary.get("view", "narrative_summary"), "hash": narrative_hash}
         ]
+        narrative_summary_hashes.append({"view": "forget_tx_id", "hash": _hash_reference(forget_tx_id)})
 
         blocked = outcome.blocked
         if error_reason:
             blocked = [{"target": request.target_type, "reason": error_reason}]
+        if replay_status == "already_applied":
+            blocked = list(blocked) + [{"target": "forget_tx_id", "reason": "already_applied"}]
 
         payload = {
             "view": "intentional_forget_diff",
@@ -204,6 +241,8 @@ class IntentionalForgettingService:
                 "proof_level": request.proof_level,
                 "authority": authority,
             },
+            "forget_tx_id": forget_tx_id,
+            "replay_status": replay_status,
             "primary_targets": _sorted_unique(outcome.primary),
             "cascaded_removals": _sorted_unique(outcome.cascaded),
             "removals": _sorted_unique(outcome.removals),
@@ -216,6 +255,8 @@ class IntentionalForgettingService:
         diff_hash = _hash_payload(payload)
         return ForgetDiff(
             request=payload["request"],
+            forget_tx_id=forget_tx_id,
+            replay_status=replay_status,
             primary_targets=tuple(payload["primary_targets"]),
             cascaded_removals=tuple(payload["cascaded_removals"]),
             removals=tuple(payload["removals"]),
@@ -601,6 +642,69 @@ class IntentionalForgettingService:
             return semantic_class
         return self.class_manager.get_class_by_id(class_ref)
 
+    def _forget_tx_id(self, request: IntentionalForgetRequest, *, authority: str) -> str:
+        target_ref, _ = _sanitize_target(request.target_type, request.target_id)
+        return _build_forget_tx_id(
+            request,
+            authority=authority,
+            target_ref=target_ref,
+            target_set=_forget_target_set(request, target_ref),
+            cascade_structure=self._cascade_structure_for_request(request),
+        )
+
+    def _cascade_structure_for_request(self, request: IntentionalForgetRequest) -> dict[str, object]:
+        cascade = request.forget_scope == "cascade"
+        edges: set[tuple[str, str]] = set()
+        nodes: set[str] = {request.target_type}
+        if request.target_type == "all":
+            nodes.update({
+                "routine",
+                "habit",
+                "class",
+                "cor",
+                "ssu",
+                "cognitive",
+            })
+        if cascade:
+            if request.target_type == "routine":
+                if self.class_manager is not None:
+                    edges.add(("routine", "semantic_class_member"))
+                    nodes.add("semantic_class_member")
+                if self.habit_engine is not None:
+                    edges.add(("routine", "habit"))
+                    nodes.add("habit")
+            elif request.target_type == "habit":
+                edges.add(("habit", "routine"))
+                nodes.add("routine")
+            elif request.target_type == "class":
+                edges.add(("class", "routine"))
+                nodes.add("routine")
+                if self.habit_engine is not None:
+                    edges.add(("routine", "habit"))
+                    nodes.add("habit")
+            elif request.target_type == "all":
+                edges.update({
+                    ("all", "routine"),
+                    ("all", "habit"),
+                    ("all", "class"),
+                    ("all", "cor"),
+                    ("all", "ssu"),
+                    ("all", "cognitive"),
+                })
+                nodes.update({
+                    "routine",
+                    "habit",
+                    "class",
+                    "cor",
+                    "ssu",
+                    "cognitive",
+                })
+        return {
+            "cascade": cascade,
+            "nodes": sorted(nodes),
+            "edges": sorted([list(edge) for edge in edges]),
+        }
+
 
 def read_forget_log(path: Path | str = DEFAULT_LOG_PATH) -> list[dict[str, object]]:
     target = Path(path)
@@ -633,6 +737,29 @@ def _hash_payload(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
+def _build_forget_tx_id(
+    request: IntentionalForgetRequest,
+    *,
+    authority: str,
+    target_ref: str,
+    target_set: Sequence[str],
+    cascade_structure: Mapping[str, object],
+) -> str:
+    payload = {
+        "proposal": {
+            "target_type": request.target_type,
+            "target_id": target_ref,
+            "forget_scope": request.forget_scope,
+            "proof_level": request.proof_level,
+        },
+        "authority": authority,
+        "target_set": list(target_set),
+        "cascade_structure": dict(cascade_structure),
+        "schema_version": "forget_tx_v1",
+    }
+    return _hash_payload(payload)
+
+
 def _preview_error_reason(message: str) -> str:
     if message.startswith("Unsupported forget target:"):
         return "unsupported_target"
@@ -660,6 +787,29 @@ def _sorted_hashes(items: Iterable[Mapping[str, str]]) -> list[dict[str, str]]:
     normalized = [dict(item) for item in items]
     normalized.sort(key=lambda item: (item.get("view", ""), item.get("hash", "")))
     return normalized
+
+
+def _forget_target_set(request: IntentionalForgetRequest, target_ref: str) -> tuple[str, ...]:
+    if request.target_type == "all":
+        return ("all",)
+    return (f"{request.target_type}:{target_ref}",)
+
+
+def _forget_tx_applied(log_path: Path, forget_tx_id: str) -> bool:
+    return _find_forget_tx_entry(read_forget_log(log_path), forget_tx_id) is not None
+
+
+def _find_forget_tx_entry(
+    entries: Iterable[Mapping[str, object]],
+    forget_tx_id: str,
+) -> dict[str, object] | None:
+    for entry in entries:
+        if entry.get("event") != "intentional_forget":
+            continue
+        if entry.get("forget_tx_id") == forget_tx_id:
+            return dict(entry)
+    return None
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
