@@ -523,6 +523,7 @@ def _build_activity_section(activity: Mapping[str, object], title: str = "System
     overload_count = int(pressure.get("overload_count", 0) or 0)
     if overload_count:
         domains = pressure.get("overload_domains", [])
+        lines.append(f"System under sustained tension across {overload_count} domain(s).")
         if domains:
             summary = ", ".join(
                 f"{item.get('subsystem')}({item.get('outstanding')})"

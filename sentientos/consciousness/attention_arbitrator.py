@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from sentientos.daemons import pulse_bus
 from sentientos.glow.self_state import load as load_self_state
@@ -195,16 +195,24 @@ class AttentionArbitratorDaemon:
         self.arbitrator = AttentionArbitrator()
         self._last_cycle: datetime | None = None
 
-    def run_cycle(self) -> None:
+    def run_cycle(self, *, context: Mapping[str, object] | None = None) -> None:
         covenant_autoalign.autoalign_before_cycle()
         glow_state = load_self_state()
         winner = self.arbitrator.choose_focus()
+        pressure_snapshot = context.get("pressure_snapshot") if isinstance(context, Mapping) else None
+        pressure_total = None
+        overload = None
+        if isinstance(pressure_snapshot, Mapping):
+            pressure_total = pressure_snapshot.get("total_active_pressure")
+            overload = pressure_snapshot.get("overload")
         logger.debug(
             "Attention arbitrator scaffold cycle executed",
             extra={
                 "identity": glow_state.get("identity"),
                 "last_focus": getattr(winner, "focus", glow_state.get("last_focus")),
                 "decision": self.arbitrator.telemetry_snapshot(),
+                "pressure_total": pressure_total,
+                "pressure_overload": overload,
             },
         )
         self._last_cycle = datetime.now(timezone.utc)
