@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sentientos.consciousness.cognitive_posture import CognitivePosture, derive_cognitive_posture
+from sentientos.consciousness.cognitive_posture import (
+    CognitivePosture,
+    derive_cognitive_posture,
+    derive_posture_transition,
+    update_posture_history,
+)
 from sentientos.consciousness.inner_narrator import generate_reflection
 from sentientos.consciousness.integration import run_consciousness_cycle
 from sentientos.consciousness.simulation_engine import SimulationEngine
@@ -71,11 +76,21 @@ def test_simulation_posture_parity(tmp_path: Path) -> None:
         "pressure_by_subsystem": [{"subsystem": "memory", "count": 1}],
         "overload": False,
     }
+    history = ["stable", "stable"]
     engine = SimulationEngine(log_path=tmp_path / "simulation.jsonl", pulse_state_path=tmp_path / "pulse.json")
-    result = run_consciousness_cycle({"pressure_snapshot": snapshot, "simulation_engine": engine})
+    result = run_consciousness_cycle(
+        {
+            "pressure_snapshot": snapshot,
+            "posture_history": history,
+            "simulation_engine": engine,
+        }
+    )
 
     assert result["cognitive_posture"] == "tense"
     assert result["simulation_output"]["cognitive_posture"] == result["cognitive_posture"]
+    assert result["posture_history"] == result["simulation_output"]["posture_history"]
+    assert result["posture_transition"] == result["simulation_output"]["posture_transition"]
+    assert history == ["stable", "stable"]
     assert snapshot == {
         "total_active_pressure": 1,
         "pressure_by_subsystem": [{"subsystem": "memory", "count": 1}],
@@ -99,3 +114,21 @@ def test_narrator_acknowledges_cognitive_posture() -> None:
     assert mood in {"stable", "uncertain", "curious"}
     assert focus
     assert attention
+
+
+def test_posture_history_window_and_transition() -> None:
+    history = ["stable", "tense", "tense"]
+    updated = update_posture_history(history, "overloaded", window=3)
+    assert updated == ["tense", "tense", "overloaded"]
+    assert history == ["stable", "tense", "tense"]
+
+    transition = derive_posture_transition(updated)
+    assert transition["posture_transition"] == "TENSE→OVERLOADED"
+    assert transition["posture_duration"] == 1
+
+
+def test_posture_duration_calculation() -> None:
+    history = ["stable", "tense", "tense", "tense"]
+    transition = derive_posture_transition(history)
+    assert transition["current_posture"] == "tense"
+    assert transition["posture_duration"] == 3
