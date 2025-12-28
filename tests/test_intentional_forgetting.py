@@ -10,7 +10,12 @@ from sentientos import narrative_synthesis
 from sentientos.authority_surface import build_authority_surface_snapshot, diff_authority_surfaces
 from sentientos.cor import CORConfig, CORSubsystem, Hypothesis
 from sentientos.governance.habit_inference import HabitConfig, HabitInferenceEngine, HabitObservation
-from sentientos.governance.intentional_forgetting import IntentionalForgetRequest, IntentionalForgettingService
+from sentientos.governance.intentional_forgetting import (
+    ForgetDiff,
+    IntentionalForgetRequest,
+    IntentionalForgettingService,
+    read_forget_log,
+)
 from sentientos.governance.routine_delegation import (
     RoutineAction,
     RoutineActionResult,
@@ -268,3 +273,165 @@ def test_narrative_mentions_forgetting_without_details(monkeypatch: pytest.Monke
     lines = [line for section in summary["sections"] for line in section.get("lines", [])]
     assert any("intentionally forgotten" in line for line in lines)
     assert "routine-1" not in " ".join(lines)
+
+
+def test_simulation_does_not_mutate_state(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    manager = SemanticHabitClassManager(registry=registry, log_path=str(tmp_path / "classes.jsonl"))
+    manager.create_class(
+        "Focus",
+        routine_ids=(spec.routine_id,),
+        created_by="operator",
+        description="Focus routines",
+    )
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        class_manager=manager,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+
+    diff = service.simulate_forget(
+        IntentionalForgetRequest(
+            target_type="routine",
+            target_id=spec.routine_id,
+            forget_scope="cascade",
+            proof_level="structural",
+        )
+    )
+    assert isinstance(diff, ForgetDiff)
+    assert registry.get_routine(spec.routine_id) is not None
+    assert manager.get_class("Focus") is not None
+    assert read_forget_log(service.log_path) == []
+
+
+def test_simulation_matches_execution_effect(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec_one = _routine_spec("routine-1")
+    spec_two = _routine_spec("routine-2")
+    approval_one = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec_one.trigger_description,
+        scope_summary=spec_one.scope,
+    )
+    approval_two = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec_two.trigger_description,
+        scope_summary=spec_two.scope,
+    )
+    registry.approve_routine(spec_one, approval_one)
+    registry.approve_routine(spec_two, approval_two)
+    manager = SemanticHabitClassManager(registry=registry, log_path=str(tmp_path / "classes.jsonl"))
+    manager.create_class(
+        "Focus",
+        routine_ids=(spec_one.routine_id, spec_two.routine_id),
+        created_by="operator",
+        description="Focus routines",
+    )
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        class_manager=manager,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="class",
+        target_id="Focus",
+        forget_scope="cascade",
+        proof_level="structural",
+    )
+    diff = service.simulate_forget(request)
+    result = service.forget(request)
+
+    assert diff.state_hashes["after"] == result.post_state_hash
+    assert tuple(sorted(diff.removals)) == tuple(sorted(result.impacted))
+
+
+def test_simulation_reports_cascade_removals(tmp_path: Path) -> None:
+    config = HabitConfig(
+        min_occurrences=2,
+        max_interval_stddev_seconds=99999.0,
+        max_mean_interval_seconds=99999.0,
+        proposal_confidence_threshold=0.1,
+    )
+    engine = HabitInferenceEngine(config=config)
+    now = datetime.now(timezone.utc)
+    engine.record_observation(_habit_observation(now.isoformat()))
+    proposal = engine.record_observation(_habit_observation((now + timedelta(seconds=10)).isoformat()))
+    assert proposal is not None
+
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    routine_id = f"routine-{proposal.habit_id}"
+    spec = _routine_spec(routine_id)
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        habit_engine=engine,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    diff = service.simulate_forget(
+        IntentionalForgetRequest(
+            target_type="habit",
+            target_id=proposal.habit_id,
+            forget_scope="cascade",
+            proof_level="structural",
+        )
+    )
+    assert f"routine:{routine_id}" in diff.cascaded_removals
+
+
+def test_simulation_reports_blocked_targets(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    diff = service.simulate_forget(
+        IntentionalForgetRequest(
+            target_type="habit",
+            target_id="habit-123",
+            forget_scope="exact",
+            proof_level="structural",
+        )
+    )
+    assert diff.blocked
+    assert diff.state_hashes["before"] == diff.state_hashes["after"]
+
+
+def test_simulation_diff_is_deterministic(tmp_path: Path) -> None:
+    registry = RoutineRegistry(store_path=tmp_path / "routines.json", log_path=tmp_path / "routine_log.jsonl")
+    spec = _routine_spec("routine-1")
+    approval = make_routine_approval(
+        approved_by="operator",
+        summary="Toggle lights at sunset",
+        trigger_summary=spec.trigger_description,
+        scope_summary=spec.scope,
+    )
+    registry.approve_routine(spec, approval)
+    service = IntentionalForgettingService(
+        routine_registry=registry,
+        log_path=tmp_path / "forget_log.jsonl",
+    )
+    request = IntentionalForgetRequest(
+        target_type="routine",
+        target_id=spec.routine_id,
+        forget_scope="exact",
+        proof_level="structural",
+    )
+    first = service.simulate_forget(request)
+    second = service.simulate_forget(request)
+    assert first.to_dict() == second.to_dict()

@@ -14,6 +14,7 @@ from .semantic_habit_class import (
     SemanticHabitClassProposal,
 )
 from .intentional_forgetting import (
+    ForgetDiff,
     IntentionalForgetRequest,
     IntentionalForgetResult,
     IntentionalForgettingService,
@@ -38,6 +39,7 @@ __all__ = [
     "SemanticHabitClass",
     "SemanticHabitClassManager",
     "SemanticHabitClassProposal",
+    "ForgetDiff",
     "IntentionalForgetRequest",
     "IntentionalForgetResult",
     "IntentionalForgettingService",

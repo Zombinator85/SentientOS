@@ -72,10 +72,12 @@ def build_narrative_summary(
     source_from: str | None = None,
     source_to: str | None = None,
     now: datetime | None = None,
+    log_output: bool = True,
+    forgetting_entries: Iterable[Mapping[str, object]] | None = None,
 ) -> dict[str, object]:
     current_time = now or datetime.now(timezone.utc)
     authority = _collect_authority_changes(since=since, source_from=source_from, source_to=source_to)
-    activity = _collect_activity(since=since)
+    activity = _collect_activity(since=since, forgetting_entries=forgetting_entries)
     sections = [
         _build_authority_section(authority),
         _build_activity_section(activity),
@@ -93,7 +95,8 @@ def build_narrative_summary(
         "sections": sections,
         "references": _merge_references(section.get("references", {}) for section in sections),
     }
-    log_narrative_generated("narrative_summary", output.get("window"))
+    if log_output:
+        log_narrative_generated("narrative_summary", output.get("window"))
     return output
 
 
@@ -211,11 +214,17 @@ def _collect_authority_changes(
     }
 
 
-def _collect_activity(*, since: datetime | None) -> dict[str, object]:
+def _collect_activity(
+    *,
+    since: datetime | None,
+    forgetting_entries: Iterable[Mapping[str, object]] | None = None,
+) -> dict[str, object]:
     task_entries = _filter_entries(_read_log(task_executor.LOG_PATH), since)
     routine_entries = _filter_entries(_read_log(ROUTINE_LOG_PATH), since)
     admission_entries = _filter_entries(_read_log(task_admission.ADMISSION_LOG_PATH), since)
-    forgetting_entries = _filter_entries(read_forget_log(FORGET_LOG_PATH), since)
+    if forgetting_entries is None:
+        forgetting_entries = read_forget_log(FORGET_LOG_PATH)
+    forgetting_entries = _filter_entries(forgetting_entries, since)
     tasks = _summarize_tasks(task_entries)
     routines = _summarize_routines(routine_entries)
     admissions = _summarize_admissions(admission_entries)

@@ -15,7 +15,10 @@ from log_utils import append_json, read_json
 from sentientos.external_adapters import list_adapters
 from sentientos.governance.routine_delegation import DEFAULT_LOG_PATH as ROUTINE_LOG_PATH
 from sentientos.governance.routine_delegation import RoutineDefinition, RoutineRegistry
-from sentientos.governance.semantic_habit_class import DEFAULT_LOG_PATH as SEMANTIC_CLASS_LOG_PATH
+from sentientos.governance.semantic_habit_class import (
+    DEFAULT_LOG_PATH as SEMANTIC_CLASS_LOG_PATH,
+    SemanticHabitClassManager,
+)
 from sentientos.governance.intentional_forgetting import DEFAULT_LOG_PATH as FORGET_LOG_PATH
 from sentientos.governance.intentional_forgetting import read_forget_log
 from sentientos.system_identity import compute_system_identity_digest
@@ -35,6 +38,28 @@ def build_authority_surface_snapshot() -> dict[str, object]:
     privilege_posture = _snapshot_privilege_posture(adapters, routines)
     execution_rules = _snapshot_execution_rules(privilege_posture)
 
+    snapshot = {
+        "version": AUTHORITY_SURFACE_VERSION,
+        "adapters": adapters,
+        "delegated_routines": routines,
+        "semantic_habit_classes": semantic_classes,
+        "privilege_posture": privilege_posture,
+        "execution_rules": execution_rules,
+    }
+    snapshot["snapshot_hash"] = compute_authority_surface_hash(snapshot)
+    return snapshot
+
+
+def build_authority_surface_snapshot_for_state(
+    *,
+    routine_registry: RoutineRegistry,
+    class_manager: SemanticHabitClassManager | None = None,
+) -> dict[str, object]:
+    adapters = _snapshot_adapters()
+    routines = _snapshot_routines_from_registry(routine_registry)
+    semantic_classes = _snapshot_semantic_habits_from_manager(class_manager)
+    privilege_posture = _snapshot_privilege_posture(adapters, routines)
+    execution_rules = _snapshot_execution_rules(privilege_posture)
     snapshot = {
         "version": AUTHORITY_SURFACE_VERSION,
         "adapters": adapters,
@@ -184,6 +209,14 @@ def _snapshot_routines() -> list[dict[str, object]]:
     return routines
 
 
+def _snapshot_routines_from_registry(registry: RoutineRegistry) -> list[dict[str, object]]:
+    routines: list[dict[str, object]] = []
+    for routine in registry.list_routines():
+        routines.append(_routine_snapshot(routine, None))
+    routines.sort(key=lambda item: item["routine_id"])
+    return routines
+
+
 def _routine_snapshot(
     routine: RoutineDefinition,
     status: str | None,
@@ -280,6 +313,25 @@ def _snapshot_semantic_habits() -> list[dict[str, object]]:
             "scope": sorted(entry.get("scope", ())),
         }
     snapshot = list(classes.values())
+    snapshot.sort(key=lambda item: item["class_id"])
+    return snapshot
+
+
+def _snapshot_semantic_habits_from_manager(
+    class_manager: SemanticHabitClassManager | None,
+) -> list[dict[str, object]]:
+    if class_manager is None:
+        return []
+    snapshot = [
+        {
+            "class_id": semantic_class.class_id,
+            "name": semantic_class.name,
+            "member_routines": sorted(semantic_class.routine_ids),
+            "semantic_only": True,
+            "scope": sorted(semantic_class.scope),
+        }
+        for semantic_class in class_manager.list_classes()
+    ]
     snapshot.sort(key=lambda item: item["class_id"])
     return snapshot
 
