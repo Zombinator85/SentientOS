@@ -9,11 +9,19 @@ import os
 from pathlib import Path
 
 from . import SentientShell, ShellEventLogger
+from logging_config import get_log_dir
 from sentientos.diagnostics import (
+    DiagnosticErrorFrame,
+    ErrorClass,
     FailedPhase,
+    RecoveryEligibility,
+    RecoveryOutcome,
+    attempt_recovery,
+    build_error_frame,
     format_recovery_eligibility,
     frame_exception,
     persist_error_frame,
+    persist_recovery_proof,
 )
 
 
@@ -48,6 +56,20 @@ def _handle_start_menu(shell: SentientShell, args: argparse.Namespace) -> int:
 
 def _handle_install(shell: SentientShell, args: argparse.Namespace) -> int:
     package = Path(args.path)
+    workspace_frame = _build_install_workspace_frame()
+    if workspace_frame is not None:
+        persist_error_frame(workspace_frame)
+        outcome = _maybe_attempt_recovery(workspace_frame, args)
+        if outcome is None:
+            _emit_error(workspace_frame, args)
+            return 1
+        if outcome.status != "RECOVERY_SUCCEEDED":
+            _emit_error(workspace_frame, args)
+            return 1
+        if outcome.proof is not None:
+            persist_recovery_proof(outcome.proof)
+        if outcome.recovered_frame is not None:
+            persist_error_frame(outcome.recovered_frame)
     try:
         if args.method == "double-click":
             result = shell.install_via_double_click(package)
@@ -76,6 +98,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--explain", action="store_true", help="Show full diagnostic error details.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable diagnostic JSON.")
     parser.add_argument("--trace", action="store_true", help="Show raw traceback for failures.")
+    parser.add_argument(
+        "--no-recover",
+        action="store_true",
+        help="Disable automatic recovery ladders",
+    )
     subparsers = parser.add_subparsers(dest="command")
 
     start_menu = subparsers.add_parser("start-menu", help="Inspect the start menu")
@@ -106,6 +133,40 @@ def _emit_error(frame, args: argparse.Namespace) -> None:
     print(f"error_code: {frame.error_code}")
     print(f"failed_phase: {frame.failed_phase.value}")
     print(format_recovery_eligibility(frame.recovery_eligibility))
+
+
+def _build_install_workspace_frame() -> DiagnosticErrorFrame | None:
+    base = Path(os.getenv("SENTIENTOS_INSTALL_WORKSPACE", ""))
+    workspace = base if base.as_posix() else get_log_dir() / "install_workspace"
+    if workspace.exists():
+        return None
+    return build_error_frame(
+        error_code="MISSING_RESOURCE",
+        error_class=ErrorClass.INSTALL,
+        failed_phase=FailedPhase.INSTALL,
+        suppressed_actions=["retry"],
+        human_summary="Install workspace directory is missing.",
+        technical_details={"missing_path": workspace.as_posix(), "missing_kind": "directory"},
+        recovery_eligibility=RecoveryEligibility.RECOVERABLE,
+    )
+
+
+def _maybe_attempt_recovery(
+    frame: DiagnosticErrorFrame, args: argparse.Namespace
+) -> RecoveryOutcome | None:
+    if getattr(args, "no_recover", False):
+        return None
+    if frame.recovery_eligibility != RecoveryEligibility.RECOVERABLE:
+        return None
+    print("Attempting automatic recovery...")
+    outcome = attempt_recovery(frame)
+    if outcome.status == "RECOVERY_SUCCEEDED":
+        print("Automatic recovery succeeded.")
+        if outcome.proof is not None:
+            print(f"proof_id: {outcome.proof.recovery_id}")
+    else:
+        print("Automatic recovery failed.")
+    return outcome
 
 
 def main(argv: list[str] | None = None) -> int:

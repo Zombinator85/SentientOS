@@ -83,6 +83,7 @@ def _traceback_excerpt(exc: BaseException) -> list[str]:
 @dataclass(frozen=True)
 class DiagnosticErrorFrame:
     schema_version: int
+    status: str
     error_code: str
     error_class: ErrorClass
     failed_phase: FailedPhase
@@ -103,6 +104,7 @@ class DiagnosticErrorFrame:
         ordered = OrderedDict(
             [
                 ("schema_version", self.schema_version),
+                ("status", self.status),
                 ("error_code", self.error_code),
                 ("error_class", self.error_class.value),
                 ("failed_phase", self.failed_phase.value),
@@ -162,6 +164,7 @@ def build_error_frame(
     recovery_reference: Optional[str] = None,
     recovery_eligibility: Optional[RecoveryEligibility] = None,
     eligibility_reason: Optional[str] = None,
+    status: str = "ERROR",
     clock: Optional[LogicalClock] = None,
 ) -> DiagnosticErrorFrame:
     details = technical_details or {}
@@ -172,6 +175,7 @@ def build_error_frame(
     resolved_reason = eligibility_reason or registry_reason
     return DiagnosticErrorFrame(
         schema_version=1,
+        status=status,
         error_code=error_code,
         error_class=error_class,
         failed_phase=failed_phase,

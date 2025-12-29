@@ -214,6 +214,7 @@ def test_cli_harness_start_menu_and_install(monkeypatch: pytest.MonkeyPatch, tmp
 
     monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
     monkeypatch.setattr(shell_cli, "_build_shell", lambda: StubShell())
+    (tmp_path / "logs" / "install_workspace").mkdir(parents=True, exist_ok=True)
 
     assert shell_cli.main(["start-menu", "--list"]) == 0
     assert "File Explorer" in capsys.readouterr().out
