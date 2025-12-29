@@ -14,6 +14,7 @@ from sentientos.diagnostics import (
 from sentientos.introspection.spine import EventType, emit_introspection_event
 from sentientos.memory_economics import MemoryClass, MemoryEconomicPlan, simulate_memory_economics
 
+from .consent import require_consent
 from .contracts import (
     EmbodimentContract,
     SignalDefinition,
@@ -41,6 +42,7 @@ class SimulationResult:
     simulation_only: bool
     mutation_allowed: bool
     introspection_event_id: str | None
+    consent_contract_id: str | None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -57,6 +59,7 @@ class SimulationResult:
             "pressure_tier": self.pressure_tier,
             "memory_plan": self.memory_plan.to_dict(),
             "introspection_event_id": self.introspection_event_id,
+            "consent_contract_id": self.consent_contract_id,
         }
 
 
@@ -95,6 +98,14 @@ def simulate_signal(
             violations=violations,
         )
 
+    consent_contract = None
+    if direction == SignalDirection.EGRESS:
+        consent_contract = require_consent(
+            direction=direction,
+            signal_type=signal_type,
+            context=context,
+            introspection_path=introspection_path,
+        )
     sanitized_payload = redact_payload(payload, definition.redaction_rules)
     simulation_id = _simulation_hash(contract.contract_id, sanitized_payload)
     entry = _memory_entry(
@@ -120,6 +131,7 @@ def simulate_signal(
         memory_cost=memory_cost,
         cognition_cycle_id=cognition_cycle_id,
         introspection_path=introspection_path,
+        consent_contract_id=consent_contract.contract_id if consent_contract else None,
     )
     return SimulationResult(
         simulation_id=simulation_id,
@@ -135,6 +147,7 @@ def simulate_signal(
         simulation_only=True,
         mutation_allowed=False,
         introspection_event_id=introspection_event_id,
+        consent_contract_id=consent_contract.contract_id if consent_contract else None,
     )
 
 
@@ -239,6 +252,7 @@ def _emit_simulation_introspection(
     memory_cost: float,
     cognition_cycle_id: str | None,
     introspection_path: str | None,
+    consent_contract_id: str | None,
 ) -> str | None:
     metadata = {
         "contract_id": contract.contract_id,
@@ -250,6 +264,7 @@ def _emit_simulation_introspection(
         "pressure_tier": memory_plan.pressure_tier.name,
         "memory_plan_hash": memory_plan.plan_hash,
         "cognition_cycle_id": cognition_cycle_id,
+        "consent_contract_id": consent_contract_id,
     }
     emit_introspection_event(
         event_type=EventType.CLI_ACTION,
