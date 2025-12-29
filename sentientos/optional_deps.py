@@ -22,6 +22,7 @@ class OptionalDependencyError(RuntimeError):
 @dataclass(frozen=True)
 class OptionalDependency:
     package: str
+    module_name: str
     features: tuple[str, ...]
     import_probe: Callable[[], ModuleType | None]
     install_hint: str
@@ -40,6 +41,7 @@ def _probe_module(module_name: str) -> ModuleType | None:
 OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     "pyyaml": OptionalDependency(
         package="pyyaml",
+        module_name="yaml",
         features=(
             "alert_rules",
             "slo_definitions",
@@ -54,6 +56,7 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "requests": OptionalDependency(
         package="requests",
+        module_name="requests",
         features=("http_requests_client", "health_check", "usage_monitor", "quota_alert", "quota_reporter"),
         import_probe=lambda: _probe_module("requests"),
         install_hint="pip install requests",
@@ -61,18 +64,21 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "fastapi": OptionalDependency(
         package="fastapi",
+        module_name="fastapi",
         features=("admin_api",),
         import_probe=lambda: _probe_module("fastapi"),
         install_hint="pip install fastapi",
     ),
     "starlette": OptionalDependency(
         package="starlette",
+        module_name="starlette",
         features=("asgi_middleware",),
         import_probe=lambda: _probe_module("starlette"),
         install_hint="pip install starlette",
     ),
     "pyttsx3": OptionalDependency(
         package="pyttsx3",
+        module_name="pyttsx3",
         features=("voice_tts", "tts_bridge_pyttsx3"),
         import_probe=lambda: _probe_module("pyttsx3"),
         install_hint="pip install pyttsx3",
@@ -80,6 +86,7 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "edge-tts": OptionalDependency(
         package="edge-tts",
+        module_name="edge_tts",
         features=("tts_bridge_edge",),
         import_probe=lambda: _probe_module("edge_tts"),
         install_hint="pip install edge-tts",
@@ -87,6 +94,7 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "playwright": OptionalDependency(
         package="playwright",
+        module_name="playwright",
         features=("oracle_playwright",),
         import_probe=lambda: _probe_module("playwright"),
         install_hint="pip install playwright",
@@ -94,24 +102,28 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "transformers": OptionalDependency(
         package="transformers",
+        module_name="transformers",
         features=("local_model_transformers",),
         import_probe=lambda: _probe_module("transformers"),
         install_hint="pip install transformers",
     ),
     "torch": OptionalDependency(
         package="torch",
+        module_name="torch",
         features=("local_model_transformers", "determinism_seed", "local_model_cuda"),
         import_probe=lambda: _probe_module("torch"),
         install_hint="pip install torch",
     ),
     "llama-cpp-python": OptionalDependency(
         package="llama-cpp-python",
+        module_name="llama_cpp",
         features=("local_model_llama_cpp",),
         import_probe=lambda: _probe_module("llama_cpp"),
         install_hint="pip install llama-cpp-python",
     ),
     "numpy": OptionalDependency(
         package="numpy",
+        module_name="numpy",
         features=("determinism_seed", "webcam_statistics"),
         import_probe=lambda: _probe_module("numpy"),
         install_hint="pip install numpy",
@@ -119,6 +131,7 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "pdfrw": OptionalDependency(
         package="pdfrw",
+        module_name="pdfrw",
         features=("ssa_pdf_prefill",),
         import_probe=lambda: _probe_module("pdfrw"),
         install_hint="pip install pdfrw",
@@ -126,18 +139,21 @@ OPTIONAL_DEPENDENCIES: dict[str, OptionalDependency] = {
     ),
     "sounddevice": OptionalDependency(
         package="sounddevice",
+        module_name="sounddevice",
         features=("asr_sounddevice",),
         import_probe=lambda: _probe_module("sounddevice"),
         install_hint="pip install sounddevice",
     ),
     "pyaudio": OptionalDependency(
         package="pyaudio",
+        module_name="pyaudio",
         features=("asr_pyaudio",),
         import_probe=lambda: _probe_module("pyaudio"),
         install_hint="pip install pyaudio",
     ),
     "pywin32": OptionalDependency(
         package="pywin32",
+        module_name="win32serviceutil",
         features=("windows_service",),
         import_probe=lambda: _probe_module("win32serviceutil"),
         install_hint="pip install pywin32",
@@ -240,12 +256,20 @@ def optional_dependency_report() -> dict[str, object]:
     }
 
 
+def optional_dependency_for_module(module_name: str) -> OptionalDependency | None:
+    for entry in OPTIONAL_DEPENDENCIES.values():
+        if entry.module_name == module_name:
+            return entry
+    return None
+
+
 __all__ = [
     "MissingBehavior",
     "OptionalDependency",
     "OptionalDependencyError",
     "OPTIONAL_DEPENDENCIES",
     "dependency_available",
+    "optional_dependency_for_module",
     "optional_dependency_report",
     "optional_feature_statuses",
     "optional_import",

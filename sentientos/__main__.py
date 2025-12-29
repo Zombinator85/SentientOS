@@ -8,10 +8,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
 from sentientos.diagnostics import (
+    DiagnosticErrorFrame,
     FailedPhase,
+    RecoveryEligibility,
+    RecoveryOutcome,
+    attempt_recovery,
     format_recovery_eligibility,
     frame_exception,
     persist_error_frame,
+    persist_recovery_proof,
 )
 
 if TYPE_CHECKING:
@@ -37,6 +42,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--explain", action="store_true", help="Show full diagnostic error details.")
     parser.add_argument("--json", action="store_true", help="Emit machine-readable diagnostic JSON.")
     parser.add_argument("--trace", action="store_true", help="Show raw traceback for failures.")
+    parser.add_argument("--no-recover", action="store_true", help="Disable automatic recovery ladders.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("status", help="Show read-only system status.")
     subparsers.add_parser("doctor", help="Run read-only diagnostics.")
@@ -78,6 +84,19 @@ def _emit_error(frame, args) -> None:
     print(f"error_code: {frame.error_code}")
     print(f"failed_phase: {frame.failed_phase.value}")
     print(format_recovery_eligibility(frame.recovery_eligibility))
+
+
+def _emit_optional_dependency_notice(*, capability: str, module: str) -> None:
+    print(f"Optional capability ‹{capability}› disabled due to missing dependency ‹{module}›.")
+    print(f"Install ‹{module}› to re-enable ‹{capability}›.")
+
+
+def _maybe_attempt_recovery(frame: DiagnosticErrorFrame, args) -> RecoveryOutcome | None:
+    if getattr(args, "no_recover", False):
+        return None
+    if frame.recovery_eligibility != RecoveryEligibility.RECOVERABLE:
+        return None
+    return attempt_recovery(frame)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -138,8 +157,20 @@ def main(argv: Sequence[str] | None = None) -> None:
             failed_phase=FailedPhase.CLI,
             suppressed_actions=["auto_recovery", "retry", "state_mutation"],
         )
-        _emit_error(frame, args)
         persist_error_frame(frame)
+        outcome = _maybe_attempt_recovery(frame, args)
+        if outcome is not None and outcome.status == "RECOVERY_SUCCEEDED":
+            if outcome.proof is not None:
+                persist_recovery_proof(outcome.proof)
+                if outcome.proof.disabled_capability and outcome.proof.missing_module:
+                    _emit_optional_dependency_notice(
+                        capability=outcome.proof.disabled_capability,
+                        module=outcome.proof.missing_module,
+                    )
+            if outcome.recovered_frame is not None:
+                persist_error_frame(outcome.recovered_frame)
+            raise SystemExit(0) from exc
+        _emit_error(frame, args)
         raise SystemExit(1) from exc
 
 
