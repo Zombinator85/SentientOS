@@ -1,0 +1,37 @@
+{
+  "schema_version": "closure_manifest_v1",
+  "system_version": "1.2.0-beta",
+  "constitution_hash_algorithm": "sha256",
+  "constitution_hash": "c00ddf3db101e68dc89c8ac4367ac7e6145423480efa146ccb2e680174dbc925",
+  "invariant_count": 21,
+  "recovery_ladder_count": 2,
+  "embodiment_contract_count": 8,
+  "consent_contract_model": [
+    "explicit",
+    "scoped",
+    "revocable",
+    "time_bound",
+    "role_gated",
+    "simulation_only"
+  ],
+  "memory_classes": [
+    "EPHEMERAL",
+    "WORKING",
+    "CONTEXTUAL",
+    "STRUCTURAL",
+    "AUDIT",
+    "PROOF"
+  ],
+  "closure_epoch": {
+    "type": "logical",
+    "value": "version-1.2.0-beta"
+  },
+  "declaration": "This system is architecturally complete at the pre-actuation level. Any future change must proceed via Extension Law.",
+  "references": {
+    "system_map": "sentientos/system_closure/system_map.json",
+    "operator_handbook": "sentientos/system_closure/operator_handbook.md",
+    "threat_model": "sentientos/system_closure/threat_model.json",
+    "extension_law": "sentientos/system_closure/extension_law.json",
+    "constitution": "sentientos/constitution.py"
+  }
+}

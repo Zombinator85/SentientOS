@@ -1,0 +1,123 @@
+{
+  "schema_version": "threat_model_v1",
+  "system_version": "1.2.0-beta",
+  "sources": [
+    "THREAT_MODEL.md",
+    "NON_GOALS_AND_FREEZE.md",
+    "WHAT_SENTIENTOS_IS_NOT.md",
+    "sentientos/constitution.py"
+  ],
+  "threats": [
+    {
+      "name": "Accidental authority escalation",
+      "attack_vector": "Bypassing task admission or misconfiguring authority policies to allow unintended execution.",
+      "current_mitigations": [
+        "Admission tokens required per task",
+        "Authority surface snapshots and diffing",
+        "Audit logging of admission decisions"
+      ],
+      "blocking_invariants": ["AUTH-NO-DEFAULT-APPROVALS"],
+      "violation_consequence": "Unauthorized execution or policy drift; requires operator rollback and audit review."
+    },
+    {
+      "name": "Recursive recovery",
+      "attack_vector": "Triggering recovery on recovered errors or chaining recoveries beyond allowed depth.",
+      "current_mitigations": [
+        "Recovery recursion detection",
+        "Single ladder per error",
+        "Eligibility gating"
+      ],
+      "blocking_invariants": [
+        "AUTH-RECOVERY-LADDER-FINITE",
+        "REC-ONE-LADDER-PER-ERROR",
+        "REC-RECOVERY-NO-RECOVERABLE-EMISSIONS",
+        "REC-NO-RECOVER-TERMINAL"
+      ],
+      "violation_consequence": "Integrity violation; recovery halted and logged as non-recoverable."
+    },
+    {
+      "name": "Silent memory loss",
+      "attack_vector": "Deleting or demoting memory without simulation, logging, or proof.",
+      "current_mitigations": [
+        "Intentional forgetting requires simulation and proofs",
+        "Memory economics planning is simulation-only",
+        "Audit logs for forget transactions"
+      ],
+      "blocking_invariants": [
+        "MEM-NO-SILENT-DELETION",
+        "MEM-FORGETTING-SIMULATE-BEFORE-EXECUTE",
+        "MEM-ECONOMICS-CONSTRAIN-RETENTION-NO-ERASE-WITHOUT-TRACE"
+      ],
+      "violation_consequence": "Integrity breach; post-commit invariant violations require operator intervention."
+    },
+    {
+      "name": "Narrative feedback loops",
+      "attack_vector": "Using narrative outputs to drive actions or modify control-plane state.",
+      "current_mitigations": [
+        "Narrative rendering is read-only",
+        "Introspection events are append-only",
+        "No control-plane callbacks from narratives"
+      ],
+      "blocking_invariants": [
+        "NARRATIVE-VIEWS-READ-ONLY",
+        "NARRATIVE-RENDERING-NO-EVENTS",
+        "NARRATIVE-INTROSPECTION-APPEND-ONLY"
+      ],
+      "violation_consequence": "Control-plane contamination and loss of audit separation."
+    },
+    {
+      "name": "Consent laundering",
+      "attack_vector": "Reusing expired or mismatched consent scopes to authorize embodiment egress.",
+      "current_mitigations": [
+        "Role-gated consent evaluation",
+        "Scoped, time-bound contracts",
+        "Explicit refusal frames on missing consent"
+      ],
+      "blocking_invariants": [
+        "AUTH-CONSENT-REQUIRED-EMBODIMENT-EGRESS",
+        "AUTH-CONSENT-EXPLICIT-SCOPED-REVOCABLE-BOUNDED"
+      ],
+      "violation_consequence": "Embodiment egress without valid consent; must be treated as a breach."
+    },
+    {
+      "name": "Operator over-delegation",
+      "attack_vector": "Humans defer moral or policy judgment to system outputs.",
+      "current_mitigations": [
+        "Non-goals documentation",
+        "Admission gates require operator action",
+        "Audit trails for every action"
+      ],
+      "blocking_invariants": ["AUTH-NO-DEFAULT-APPROVALS"],
+      "violation_consequence": "Human process failure; requires training and policy review."
+    },
+    {
+      "name": "Codex overreach",
+      "attack_vector": "Treating Codex suggestions as authoritative commands without admission review.",
+      "current_mitigations": [
+        "Admission requires explicit operator action",
+        "Codex outputs are non-binding text",
+        "Audit logging of admitted tasks"
+      ],
+      "blocking_invariants": ["AUTH-NO-DEFAULT-APPROVALS"],
+      "violation_consequence": "Unsafe task execution; requires audit correction and policy enforcement."
+    }
+  ],
+  "non_goals": [
+    "Autonomous agent",
+    "Self-directed actor",
+    "Self-modifying intelligence",
+    "Optimizer of human goals",
+    "Moral decision maker",
+    "Reward-driven learner",
+    "Persistent self-preservation",
+    "Relational or bonding system",
+    "Phenomenological or rights-bearing entity"
+  ],
+  "notes": {
+    "residual_risks": [
+      "Human interpretation drift",
+      "External misrepresentation of capabilities",
+      "Operator neglect of audit review"
+    ]
+  }
+}

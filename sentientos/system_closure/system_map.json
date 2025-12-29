@@ -1,0 +1,233 @@
+{
+  "schema_version": "system_map_v1",
+  "system_version": "1.2.0-beta",
+  "source_of_truth": "sentientos/system_closure/system_map.json",
+  "invariants_source": "sentientos/constitution.py",
+  "module_roots": [
+    "sentientos/authority_surface.py",
+    "sentientos/cognition",
+    "sentientos/consciousness",
+    "sentientos/constitution.py",
+    "sentientos/diagnostics",
+    "sentientos/embodiment",
+    "sentientos/governance",
+    "sentientos/immutability.py",
+    "sentientos/integrity",
+    "sentientos/introspection",
+    "sentientos/memory",
+    "sentientos/memory_economics.py",
+    "sentientos/narrative",
+    "sentientos/narrative_synthesis.py",
+    "sentientos/ois.py",
+    "sentientos/privilege",
+    "sentientos/runtime",
+    "sentientos/verify"
+  ],
+  "subsystems": [
+    {
+      "name": "Constitution",
+      "purpose": "Defines constitutional invariants and binds all other subsystems to immutable constraints.",
+      "authority_boundary": "Canonical source of invariant truth; no subsystem may override or relax it.",
+      "inputs": ["sentientos/constitution.py"],
+      "outputs": ["INVARIANTS", "INVARIANTS_BY_DOMAIN", "CURRENT_SYSTEM_ASSERTIONS"],
+      "does_not_do": ["Runtime enforcement", "Policy mutations", "Automated amendments"],
+      "invariants": [
+        "AUTH-RECOVERY-LADDER-FINITE",
+        "AUTH-RECOVERY-ELIGIBILITY-PROOF-INTROSPECTION",
+        "AUTH-CONSENT-REQUIRED-EMBODIMENT-EGRESS",
+        "AUTH-CONSENT-EXPLICIT-SCOPED-REVOCABLE-BOUNDED",
+        "AUTH-NO-DEFAULT-APPROVALS",
+        "REC-NEVER-RECOVER-IMMUTABLE",
+        "REC-ONE-LADDER-PER-ERROR",
+        "REC-RECOVERY-NO-RECOVERABLE-EMISSIONS",
+        "REC-NO-RECOVER-TERMINAL",
+        "MEM-NO-SILENT-DELETION",
+        "MEM-FORGETTING-SIMULATE-BEFORE-EXECUTE",
+        "MEM-ECONOMICS-CONSTRAIN-RETENTION-NO-ERASE-WITHOUT-TRACE",
+        "MEM-PRESSURE-ESCALATION-DETERMINISTIC-INSPECTABLE",
+        "NARRATIVE-VIEWS-READ-ONLY",
+        "NARRATIVE-RENDERING-NO-EVENTS",
+        "NARRATIVE-INTROSPECTION-APPEND-ONLY",
+        "NARRATIVE-ACTION-EMITS-INTROSPECTION",
+        "EMB-SIGNALS-PASS-CONTRACTS",
+        "EMB-SIGNALS-INCUR-MEMORY-COST",
+        "EMB-SIMULATION-DEFAULT",
+        "EMB-NO-REAL-WORLD-IO-WITHOUT-ADAPTER"
+      ],
+      "modules": ["sentientos/constitution.py"]
+    },
+    {
+      "name": "Cognition Core",
+      "purpose": "Implements cognition-layer processing and cognitive surface modeling without actuation.",
+      "authority_boundary": "Cognition never grants authority, approves actions, or initiates embodiment.",
+      "inputs": ["cognitive surfaces", "operator-provided context"],
+      "outputs": ["cognitive state summaries", "introspection signals"],
+      "does_not_do": ["Embodiment egress", "Task admission", "Autonomous scheduling"],
+      "invariants": ["AUTH-NO-DEFAULT-APPROVALS"],
+      "modules": ["sentientos/cognition", "sentientos/inner_experience.py"]
+    },
+    {
+      "name": "Cognitive Posture & Load",
+      "purpose": "Derives deterministic cognitive posture and load narratives from pressure snapshots.",
+      "authority_boundary": "Read-only posture derivation; no direct state mutation or action issuance.",
+      "inputs": ["pressure snapshot", "posture history"],
+      "outputs": ["cognitive posture", "load narrative", "posture transition"],
+      "does_not_do": ["Resource allocation", "Decision making", "Recovery triggering"],
+      "invariants": ["MEM-PRESSURE-ESCALATION-DETERMINISTIC-INSPECTABLE"],
+      "modules": ["sentientos/consciousness/cognitive_posture.py"]
+    },
+    {
+      "name": "Intentional Forgetting",
+      "purpose": "Coordinates intentional forgetting requests, boundary previews, and rollback proofs.",
+      "authority_boundary": "Forgetting requires simulation, boundary review, and proof recording.",
+      "inputs": ["forget requests", "boundary contracts", "pressure budgets"],
+      "outputs": ["forget diffs", "forget proofs", "pressure signals"],
+      "does_not_do": ["Silent deletion", "Unlogged erasure", "Bypass of boundary contracts"],
+      "invariants": [
+        "MEM-NO-SILENT-DELETION",
+        "MEM-FORGETTING-SIMULATE-BEFORE-EXECUTE",
+        "MEM-ECONOMICS-CONSTRAIN-RETENTION-NO-ERASE-WITHOUT-TRACE"
+      ],
+      "modules": ["sentientos/governance/intentional_forgetting.py"]
+    },
+    {
+      "name": "Memory Economics",
+      "purpose": "Simulates memory budgets, pressure tiers, and deterministic retention planning.",
+      "authority_boundary": "Simulation-only planning; no implicit deletion or mutation.",
+      "inputs": ["memory entries", "budget configuration", "pressure snapshot"],
+      "outputs": ["memory economic plan", "pressure tier", "planned demotions/evictions"],
+      "does_not_do": ["Immediate memory deletion", "Hidden priority changes"],
+      "invariants": [
+        "MEM-ECONOMICS-CONSTRAIN-RETENTION-NO-ERASE-WITHOUT-TRACE",
+        "MEM-PRESSURE-ESCALATION-DETERMINISTIC-INSPECTABLE"
+      ],
+      "modules": ["sentientos/memory_economics.py"]
+    },
+    {
+      "name": "Diagnostic Error Frames",
+      "purpose": "Formats diagnostic error frames with recovery eligibility, invariants, and proofs.",
+      "authority_boundary": "Diagnostics record failures; they do not initiate privileged actions.",
+      "inputs": ["exceptions", "failed phase", "technical details"],
+      "outputs": ["DiagnosticErrorFrame", "human summaries", "content hashes"],
+      "does_not_do": ["Automatic recovery", "State mutation"],
+      "invariants": ["REC-NEVER-RECOVER-IMMUTABLE"],
+      "modules": ["sentientos/diagnostics/error_frame.py"]
+    },
+    {
+      "name": "Recovery Eligibility",
+      "purpose": "Defines which error codes can recover and why.",
+      "authority_boundary": "Eligibility is declarative; it does not execute recovery.",
+      "inputs": ["error codes", "eligibility registry"],
+      "outputs": ["eligibility classification", "eligibility reasons"],
+      "does_not_do": ["Automatic recovery execution", "Error suppression"],
+      "invariants": ["REC-NEVER-RECOVER-IMMUTABLE"],
+      "modules": ["sentientos/diagnostics/recovery_eligibility.py"]
+    },
+    {
+      "name": "Recovery Ladders",
+      "purpose": "Defines deterministic recovery ladders and enforces single-ladder constraints.",
+      "authority_boundary": "Recovery only runs when eligibility permits; recursion is blocked.",
+      "inputs": ["DiagnosticErrorFrame", "recovery registry"],
+      "outputs": ["recovery plans", "recovery outcomes"],
+      "does_not_do": ["Recursive recovery", "Implicit privilege escalation"],
+      "invariants": [
+        "AUTH-RECOVERY-LADDER-FINITE",
+        "REC-ONE-LADDER-PER-ERROR",
+        "REC-RECOVERY-NO-RECOVERABLE-EMISSIONS",
+        "REC-NO-RECOVER-TERMINAL"
+      ],
+      "modules": ["sentientos/diagnostics/recovery.py"]
+    },
+    {
+      "name": "Recovery Proofs",
+      "purpose": "Records hashed recovery proofs for auditability.",
+      "authority_boundary": "Proofs are append-only and do not authorize new recovery.",
+      "inputs": ["recovery plans", "recovery results"],
+      "outputs": ["RecoveryProofArtifact", "install_recovery_proofs.jsonl"],
+      "does_not_do": ["Recovery retries", "Proof mutation"],
+      "invariants": ["AUTH-RECOVERY-ELIGIBILITY-PROOF-INTROSPECTION"],
+      "modules": ["sentientos/diagnostics/recovery.py"]
+    },
+    {
+      "name": "Introspection Spine",
+      "purpose": "Emits append-only introspection events describing system actions.",
+      "authority_boundary": "Introspection is observational; it cannot mutate state.",
+      "inputs": ["structured event metadata"],
+      "outputs": ["introspection_spine.jsonl"],
+      "does_not_do": ["Event-triggered execution", "Control-plane writes"],
+      "invariants": [
+        "NARRATIVE-INTROSPECTION-APPEND-ONLY",
+        "NARRATIVE-ACTION-EMITS-INTROSPECTION"
+      ],
+      "modules": ["sentientos/introspection/spine.py"]
+    },
+    {
+      "name": "Narrative Views",
+      "purpose": "Builds read-only narrative summaries from logs and authority surfaces.",
+      "authority_boundary": "Narrative views never write or trigger execution.",
+      "inputs": ["task admission logs", "audit logs", "forgetting logs"],
+      "outputs": ["narrative summaries", "operator summaries"],
+      "does_not_do": ["State mutation", "Implicit approvals"],
+      "invariants": [
+        "NARRATIVE-VIEWS-READ-ONLY",
+        "NARRATIVE-RENDERING-NO-EVENTS"
+      ],
+      "modules": ["sentientos/narrative_synthesis.py", "sentientos/narrative"]
+    },
+    {
+      "name": "Embodiment Contracts",
+      "purpose": "Defines simulation-only contracts for ingress and egress signals.",
+      "authority_boundary": "All signals must pass contracts; egress requires consent.",
+      "inputs": ["signal payloads", "signal definitions"],
+      "outputs": ["contract validation", "redacted payloads"],
+      "does_not_do": ["Real-world I/O", "Bypass of consent"],
+      "invariants": [
+        "AUTH-CONSENT-REQUIRED-EMBODIMENT-EGRESS",
+        "EMB-SIGNALS-PASS-CONTRACTS",
+        "EMB-SIGNALS-INCUR-MEMORY-COST",
+        "EMB-SIMULATION-DEFAULT",
+        "EMB-NO-REAL-WORLD-IO-WITHOUT-ADAPTER"
+      ],
+      "modules": ["sentientos/embodiment/contracts.py", "sentientos/embodiment/simulation.py"]
+    },
+    {
+      "name": "Consent Governance",
+      "purpose": "Issues, revokes, and evaluates consent contracts for simulated egress.",
+      "authority_boundary": "Explicit, scoped, revocable, time-bound consent with role gates.",
+      "inputs": ["consent grants", "consent revocations", "egress requests"],
+      "outputs": ["consent records", "consent evaluations", "diagnostic refusal frames"],
+      "does_not_do": ["Implicit approvals", "Permanent consent"],
+      "invariants": [
+        "AUTH-CONSENT-EXPLICIT-SCOPED-REVOCABLE-BOUNDED",
+        "AUTH-NO-DEFAULT-APPROVALS"
+      ],
+      "modules": ["sentientos/embodiment/consent.py", "sentientos/cli/consent_cli.py"]
+    },
+    {
+      "name": "Authority Surface & Admission",
+      "purpose": "Snapshots authority posture and reads task admission policies.",
+      "authority_boundary": "Admission tokens gate tasks; authority surfaces are snapshots.",
+      "inputs": ["task admission logs", "control policy", "closure limits"],
+      "outputs": ["authority surface snapshots", "diffs"],
+      "does_not_do": ["Execute tasks", "Auto-approve changes"],
+      "invariants": ["AUTH-NO-DEFAULT-APPROVALS"],
+      "modules": ["sentientos/authority_surface.py", "task_admission.py"]
+    },
+    {
+      "name": "CLI Surfaces",
+      "purpose": "Provides read-only operator interfaces for status, diagnostics, summaries, and consent.",
+      "authority_boundary": "Safe commands are read-only unless explicit privilege enforcement passes.",
+      "inputs": ["operator CLI args"],
+      "outputs": ["read-only reports", "diagnostic frames"],
+      "does_not_do": ["Implicit recovery", "Privilege escalation"],
+      "invariants": ["NARRATIVE-ACTION-EMITS-INTROSPECTION", "AUTH-NO-DEFAULT-APPROVALS"],
+      "modules": ["sentientos/__main__.py", "sentientos/cli"]
+    }
+  ],
+  "cross_references": {
+    "operator_handbook": "sentientos/system_closure/operator_handbook.md",
+    "threat_model": "sentientos/system_closure/threat_model.json",
+    "extension_law": "sentientos/system_closure/extension_law.json",
+    "closure_manifest": "sentientos/system_closure/closure_manifest.json"
+  }
+}
