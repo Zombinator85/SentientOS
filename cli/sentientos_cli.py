@@ -13,6 +13,7 @@ from sentientos.diagnostics import (
     ErrorClass,
     FailedPhase,
     build_error_frame,
+    format_recovery_eligibility,
     frame_exception,
     persist_error_frame,
 )
@@ -129,6 +130,9 @@ def _emit_error(frame, args) -> None:
             "human_summary": frame.human_summary,
             "error_code": frame.error_code,
             "failed_phase": frame.failed_phase.value,
+            "recovery_eligibility": frame.recovery_eligibility.value,
+            "eligibility_reason": frame.eligibility_reason,
+            "automatic_recovery": format_recovery_eligibility(frame.recovery_eligibility),
         }
     )
 

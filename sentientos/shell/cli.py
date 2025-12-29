@@ -9,7 +9,12 @@ import os
 from pathlib import Path
 
 from . import SentientShell, ShellEventLogger
-from sentientos.diagnostics import FailedPhase, frame_exception, persist_error_frame
+from sentientos.diagnostics import (
+    FailedPhase,
+    format_recovery_eligibility,
+    frame_exception,
+    persist_error_frame,
+)
 
 
 def _default_ci_runner() -> bool:
@@ -100,6 +105,7 @@ def _emit_error(frame, args: argparse.Namespace) -> None:
     print(frame.human_summary)
     print(f"error_code: {frame.error_code}")
     print(f"failed_phase: {frame.failed_phase.value}")
+    print(format_recovery_eligibility(frame.recovery_eligibility))
 
 
 def main(argv: list[str] | None = None) -> int:
