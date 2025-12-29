@@ -13,7 +13,8 @@ from sentientos.consciousness.cognitive_posture import (
     update_posture_history,
 )
 
-COGNITIVE_STATE_SNAPSHOT_SCHEMA_VERSION = 1
+COGNITIVE_SNAPSHOT_VERSION = 1
+COGNITIVE_STATE_SNAPSHOT_SCHEMA_VERSION = COGNITIVE_SNAPSHOT_VERSION
 
 _ALLOWED_PRESSURE_FIELDS = {
     "total_active_pressure",
@@ -30,6 +31,61 @@ _ALLOWED_PRESSURE_FIELDS = {
 def _hash_payload(payload: Mapping[str, object]) -> str:
     serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _normalize_snapshot_version(value: object, *, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"{field_name} must be an integer")
+    if value < 0:
+        raise ValueError(f"{field_name} must be a non-negative integer")
+    return value
+
+
+def validate_cognitive_snapshot_version(
+    snapshot: Mapping[str, object],
+    *,
+    expected_version: int | None = None,
+    min_version: int | None = None,
+    max_version: int | None = None,
+) -> int:
+    """Validate that a cognitive snapshot matches the expected schema version.
+
+    The version is a monotonic integer that only changes when schema or
+    semantic meaning changes (not for cosmetic ordering).
+    """
+
+    if expected_version is not None and (min_version is not None or max_version is not None):
+        raise ValueError("Provide either expected_version or a min/max version range, not both")
+
+    version = snapshot.get("cognitive_snapshot_version")
+    if version is None:
+        raise ValueError("Snapshot missing cognitive_snapshot_version")
+
+    normalized_version = _normalize_snapshot_version(version, field_name="cognitive_snapshot_version")
+
+    if expected_version is not None:
+        normalized_expected = _normalize_snapshot_version(expected_version, field_name="expected_version")
+        if normalized_version != normalized_expected:
+            raise ValueError(
+                f"Snapshot version {normalized_version} does not match expected {normalized_expected}"
+            )
+        return normalized_version
+
+    if min_version is not None:
+        normalized_min = _normalize_snapshot_version(min_version, field_name="min_version")
+        if normalized_version < normalized_min:
+            raise ValueError(
+                f"Snapshot version {normalized_version} is below minimum supported {normalized_min}"
+            )
+
+    if max_version is not None:
+        normalized_max = _normalize_snapshot_version(max_version, field_name="max_version")
+        if normalized_version > normalized_max:
+            raise ValueError(
+                f"Snapshot version {normalized_version} exceeds maximum supported {normalized_max}"
+            )
+
+    return normalized_version
 
 
 def _normalize_posture(value: str | CognitivePosture | None) -> str | None:
@@ -147,7 +203,7 @@ def build_cognitive_state_snapshot(
     load_narrative = derive_load_narrative(history, transition_data).value
 
     snapshot: dict[str, object] = {
-        "schema_version": COGNITIVE_STATE_SNAPSHOT_SCHEMA_VERSION,
+        "cognitive_snapshot_version": COGNITIVE_SNAPSHOT_VERSION,
         "pressure_snapshot": sanitized_pressure,
         "cognitive_posture": posture_value,
         "posture_history": list(history),
@@ -160,6 +216,8 @@ def build_cognitive_state_snapshot(
 
 
 __all__ = [
+    "COGNITIVE_SNAPSHOT_VERSION",
     "COGNITIVE_STATE_SNAPSHOT_SCHEMA_VERSION",
     "build_cognitive_state_snapshot",
+    "validate_cognitive_snapshot_version",
 ]

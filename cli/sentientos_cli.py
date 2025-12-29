@@ -6,7 +6,10 @@ import sys
 from pathlib import Path
 
 from agents.forms.review_bundle import redact_dict, redact_log
-from sentientos.consciousness.cognitive_state import build_cognitive_state_snapshot
+from sentientos.consciousness.cognitive_state import (
+    build_cognitive_state_snapshot,
+    validate_cognitive_snapshot_version,
+)
 from sentientos.governance.intentional_forgetting import build_forget_pressure_snapshot
 from sentientos.helpers import compute_system_diagnostics, load_profile_json
 from sentientos.orchestrator import SentientOrchestrator
@@ -34,8 +37,13 @@ def _build_parser() -> argparse.ArgumentParser:
     cognition_subparsers = cognition_parser.add_subparsers(
         dest="cognition_command", required=True
     )
-    cognition_subparsers.add_parser(
+    cognition_status = cognition_subparsers.add_parser(
         "status", help="Show the unified cognitive state snapshot"
+    )
+    cognition_status.add_argument(
+        "--expect-version",
+        type=int,
+        help="Assert the cognitive snapshot version matches the expected value",
     )
 
     ssa_parser = subparsers.add_parser("ssa", help="SSA agent commands")
@@ -97,7 +105,16 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command == "cognition":
         if args.cognition_command == "status":
-            _print_json(_cognitive_status_snapshot())
+            snapshot = _cognitive_status_snapshot()
+            if args.expect_version is not None:
+                try:
+                    validate_cognitive_snapshot_version(
+                        snapshot, expected_version=args.expect_version
+                    )
+                except (TypeError, ValueError) as exc:
+                    _print_json({"error": str(exc)})
+                    sys.exit(1)
+            _print_json(snapshot)
             return
 
     if args.command == "version":
