@@ -12,6 +12,7 @@ from sentientos.consciousness.cognitive_posture import (
     derive_posture_transition,
     update_posture_history,
 )
+from sentientos.introspection.spine import EventType, emit_introspection_event
 
 COGNITIVE_SNAPSHOT_VERSION = 1
 COGNITIVE_STATE_SNAPSHOT_SCHEMA_VERSION = COGNITIVE_SNAPSHOT_VERSION
@@ -212,6 +213,19 @@ def build_cognitive_state_snapshot(
         "cognitive_load_narrative": load_narrative,
     }
     snapshot["snapshot_hash"] = _hash_payload(snapshot)
+    emit_introspection_event(
+        event_type=EventType.SNAPSHOT_EMISSION,
+        phase="cognition",
+        summary="Cognitive state snapshot emitted.",
+        metadata={
+            "snapshot_hash": snapshot.get("snapshot_hash"),
+            "cognitive_posture": snapshot.get("cognitive_posture"),
+            "posture_transition": snapshot.get("posture_transition"),
+            "posture_duration": snapshot.get("posture_duration"),
+            "pressure_snapshot_hash": (sanitized_pressure or {}).get("snapshot_hash"),
+        },
+        linked_artifact_ids=[str(snapshot.get("snapshot_hash", ""))],
+    )
     return snapshot
 
 

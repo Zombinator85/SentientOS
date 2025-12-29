@@ -17,6 +17,7 @@ from sentientos.cor import CORSubsystem
 from sentientos.governance.habit_inference import HabitInferenceEngine
 from sentientos.governance.routine_delegation import RoutineRegistry
 from sentientos.governance.semantic_habit_class import SemanticHabitClass, SemanticHabitClassManager
+from sentientos.introspection.spine import EventType, emit_introspection_event
 from sentientos.ssu import SymbolicScreenUnderstanding
 
 
@@ -1430,6 +1431,18 @@ def build_forget_pressure_snapshot(
         "oldest_unresolved_age": oldest_age,
     }
     snapshot["snapshot_hash"] = _hash_payload(snapshot)
+    emit_introspection_event(
+        event_type=EventType.FORGETTING_PRESSURE,
+        phase="forgetting",
+        summary="Forgetting pressure snapshot emitted.",
+        metadata={
+            "snapshot_hash": snapshot.get("snapshot_hash"),
+            "total_active_pressure": snapshot.get("total_active_pressure"),
+            "overload": snapshot.get("overload"),
+            "oldest_unresolved_age": snapshot.get("oldest_unresolved_age"),
+        },
+        linked_artifact_ids=[str(snapshot.get("snapshot_hash", ""))],
+    )
     return snapshot
 
 

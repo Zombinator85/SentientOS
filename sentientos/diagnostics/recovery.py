@@ -16,6 +16,7 @@ from sentientos.capability_registry import (
     disable_capability,
     is_capability_disabled,
 )
+from sentientos.introspection.spine import EventType, emit_introspection_event
 from sentientos.optional_deps import optional_dependency_for_module
 
 from .error_frame import ErrorClass, FailedPhase, build_error_frame
@@ -462,25 +463,58 @@ def attempt_recovery(
     registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
 ) -> RecoveryOutcome:
     if _is_recovery_recursion_input(frame):
+        _emit_recovery_event(
+            frame,
+            status="refused",
+            reason="recovery_recursion_blocked",
+        )
         return RecoveryOutcome(
             status=RECOVERY_FAILED,
             recovered_frame=_recovery_recursion_violation_frame(frame),
             proof=None,
         )
     if frame.recovery_eligibility != RecoveryEligibility.RECOVERABLE:
+        _emit_recovery_event(
+            frame,
+            status="refused",
+            reason="recovery_ineligible",
+        )
         return RecoveryOutcome(status=RECOVERY_SKIPPED, recovered_frame=None, proof=None)
 
     ladder = registry.get(frame.error_code)
     if ladder is None or not ladder.preconditions(frame):
+        _emit_recovery_event(
+            frame,
+            status="refused",
+            reason="ladder_unavailable" if ladder is None else "preconditions_failed",
+            ladder_id=getattr(ladder, "ladder_id", None),
+        )
         return RecoveryOutcome(status=RECOVERY_SKIPPED, recovered_frame=None, proof=None)
 
     plan = ladder.simulate(frame)
+    _emit_recovery_simulation(frame, ladder, plan)
     result = ladder.execute(plan)
     if not result.success:
+        _emit_recovery_event(
+            frame,
+            status="failed",
+            reason="execution_failed",
+            ladder_id=plan.ladder_id,
+            pre_snapshot_hash=plan.pre_snapshot_hash,
+            post_snapshot_hash=result.post_snapshot_hash,
+        )
         return RecoveryOutcome(status=RECOVERY_FAILED, recovered_frame=None, proof=None)
 
     verified = ladder.verify()
     if not verified:
+        _emit_recovery_event(
+            frame,
+            status="failed",
+            reason="verification_failed",
+            ladder_id=plan.ladder_id,
+            pre_snapshot_hash=plan.pre_snapshot_hash,
+            post_snapshot_hash=result.post_snapshot_hash,
+        )
         return RecoveryOutcome(status=RECOVERY_FAILED, recovered_frame=None, proof=None)
 
     proof = RecoveryProofArtifact.build(
@@ -498,12 +532,75 @@ def attempt_recovery(
         summary=ladder.summarize(plan),
     )
     if _violates_recovery_depth_invariant(recovered_frame):
+        _emit_recovery_event(
+            frame,
+            status="failed",
+            reason="recovery_depth_violation",
+            ladder_id=plan.ladder_id,
+            pre_snapshot_hash=plan.pre_snapshot_hash,
+            post_snapshot_hash=result.post_snapshot_hash,
+        )
         return RecoveryOutcome(
             status=RECOVERY_FAILED,
             recovered_frame=_recovery_recursion_violation_frame(recovered_frame),
             proof=None,
         )
+    _emit_recovery_event(
+        frame,
+        status="executed",
+        reason="recovery_verified",
+        ladder_id=plan.ladder_id,
+        pre_snapshot_hash=plan.pre_snapshot_hash,
+        post_snapshot_hash=result.post_snapshot_hash,
+    )
     return RecoveryOutcome(status=RECOVERY_SUCCEEDED, recovered_frame=recovered_frame, proof=proof)
+
+
+def _emit_recovery_simulation(
+    frame: DiagnosticErrorFrame,
+    ladder: RecoveryLadder,
+    plan: RecoveryPlan | OptionalModuleIsolationPlan,
+) -> None:
+    metadata = {
+        "error_code": frame.error_code,
+        "ladder_id": ladder.ladder_id,
+        "pre_snapshot_hash": getattr(plan, "pre_snapshot_hash", None),
+        "missing_module": getattr(plan, "missing_module", None),
+        "capability": getattr(plan, "capability", None),
+    }
+    emit_introspection_event(
+        event_type=EventType.RECOVERY_SIMULATION,
+        phase=frame.failed_phase.value.lower(),
+        summary="Recovery ladder simulated.",
+        metadata=metadata,
+        linked_artifact_ids=[frame.content_hash()],
+    )
+
+
+def _emit_recovery_event(
+    frame: DiagnosticErrorFrame,
+    *,
+    status: str,
+    reason: str,
+    ladder_id: str | None = None,
+    pre_snapshot_hash: str | None = None,
+    post_snapshot_hash: str | None = None,
+) -> None:
+    metadata = {
+        "error_code": frame.error_code,
+        "ladder_id": ladder_id,
+        "status": status,
+        "reason": reason,
+        "pre_snapshot_hash": pre_snapshot_hash,
+        "post_snapshot_hash": post_snapshot_hash,
+    }
+    emit_introspection_event(
+        event_type=EventType.RECOVERY_EXECUTION,
+        phase=frame.failed_phase.value.lower(),
+        summary="Recovery ladder outcome recorded.",
+        metadata=metadata,
+        linked_artifact_ids=[frame.content_hash()],
+    )
 
 
 validate_recovery_ladders()

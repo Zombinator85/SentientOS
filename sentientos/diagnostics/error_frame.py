@@ -11,6 +11,7 @@ from typing import Any, Mapping, Optional
 import traceback
 
 from .recovery_eligibility import RecoveryEligibility, get_recovery_eligibility
+from sentientos.introspection.spine import EventType, emit_introspection_event
 
 class ErrorClass(str, Enum):
     INSTALL = "INSTALL"
@@ -173,7 +174,7 @@ def build_error_frame(
     registry_eligibility, registry_reason = get_recovery_eligibility(error_code)
     resolved_eligibility = recovery_eligibility or registry_eligibility
     resolved_reason = eligibility_reason or registry_reason
-    return DiagnosticErrorFrame(
+    frame = DiagnosticErrorFrame(
         schema_version=1,
         status=status,
         error_code=error_code,
@@ -192,6 +193,21 @@ def build_error_frame(
         recovery_eligibility=resolved_eligibility,
         eligibility_reason=resolved_reason,
     )
+    emit_introspection_event(
+        event_type=EventType.DIAGNOSTIC,
+        phase=failed_phase.value.lower(),
+        summary="Diagnostic error frame created.",
+        metadata={
+            "error_code": frame.error_code,
+            "error_class": frame.error_class.value,
+            "failed_phase": frame.failed_phase.value,
+            "status": frame.status,
+            "recovery_eligibility": frame.recovery_eligibility.value,
+            "frame_timestamp_logical": frame.timestamp_logical,
+        },
+        linked_artifact_ids=[frame.content_hash()],
+    )
+    return frame
 
 
 def _default_error_code(error_class: ErrorClass, failed_phase: FailedPhase, exc: BaseException) -> str:
