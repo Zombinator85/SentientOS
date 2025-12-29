@@ -11,7 +11,7 @@ from sentientos.governance.intentional_forgetting import (
     DEFAULT_LOG_PATH as DEFAULT_FORGET_LOG,
     build_forget_pressure_snapshot,
 )
-from sentientos.introspection.spine import EventType, emit_introspection_event
+from sentientos.introspection.spine import DEFAULT_LOG_PATH, EventType, emit_introspection_event
 
 
 class MemoryClass(str, Enum):
@@ -240,6 +240,7 @@ def simulate_memory_economics(
     pressure_snapshot: Mapping[str, object] | None = None,
     pressure_log_path: str | None = None,
     emit_introspection: bool = True,
+    introspection_path: str | None = None,
 ) -> MemoryEconomicPlan:
     policy_map = dict(class_policies or DEFAULT_CLASS_POLICIES)
     budget = budget or DEFAULT_BUDGET
@@ -333,6 +334,7 @@ def simulate_memory_economics(
                 "decay_multiplier": tier.decay_multiplier,
             },
             linked_artifact_ids=[plan_hash],
+            path=introspection_path or DEFAULT_LOG_PATH,
         )
     return plan
 
