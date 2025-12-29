@@ -361,6 +361,7 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
                 metadata={
                     "snapshot_hash": cognitive_state_snapshot.get("snapshot_hash"),
                     "cognitive_posture": cycle_context.get("cognitive_posture"),
+                    "cognitive_load_narrative": cycle_context.get("cognitive_load_narrative"),
                     "posture_transition": cycle_context.get("posture_transition"),
                     "posture_duration": cycle_context.get("posture_duration"),
                 },
