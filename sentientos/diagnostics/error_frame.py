@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 import hashlib
 import json
@@ -10,6 +10,7 @@ from collections import OrderedDict
 from typing import Any, Mapping, Optional
 import traceback
 
+from .recovery_eligibility import RecoveryEligibility, get_recovery_eligibility
 
 class ErrorClass(str, Enum):
     INSTALL = "INSTALL"
@@ -95,6 +96,8 @@ class DiagnosticErrorFrame:
     timestamp_logical: int
     recoverable: bool = False
     recovery_reference: Optional[str] = None
+    recovery_eligibility: RecoveryEligibility = RecoveryEligibility.NEVER_RECOVER
+    eligibility_reason: str = "UNKNOWN_ERROR_CODE"
 
     def to_ordered_dict(self) -> OrderedDict:
         ordered = OrderedDict(
@@ -116,6 +119,8 @@ class DiagnosticErrorFrame:
                 ("timestamp_logical", self.timestamp_logical),
                 ("recoverable", self.recoverable),
                 ("recovery_reference", self.recovery_reference),
+                ("recovery_eligibility", self.recovery_eligibility.value),
+                ("eligibility_reason", self.eligibility_reason),
             ]
         )
         return ordered
@@ -155,11 +160,16 @@ def build_error_frame(
     timestamp_logical: Optional[int] = None,
     recoverable: bool = False,
     recovery_reference: Optional[str] = None,
+    recovery_eligibility: Optional[RecoveryEligibility] = None,
+    eligibility_reason: Optional[str] = None,
     clock: Optional[LogicalClock] = None,
 ) -> DiagnosticErrorFrame:
     details = technical_details or {}
     effective_clock = clock or _DEFAULT_CLOCK
     logical_time = timestamp_logical if timestamp_logical is not None else effective_clock.tick()
+    registry_eligibility, registry_reason = get_recovery_eligibility(error_code)
+    resolved_eligibility = recovery_eligibility or registry_eligibility
+    resolved_reason = eligibility_reason or registry_reason
     return DiagnosticErrorFrame(
         schema_version=1,
         error_code=error_code,
@@ -175,6 +185,8 @@ def build_error_frame(
         timestamp_logical=logical_time,
         recoverable=recoverable,
         recovery_reference=recovery_reference,
+        recovery_eligibility=resolved_eligibility,
+        eligibility_reason=resolved_reason,
     )
 
 
