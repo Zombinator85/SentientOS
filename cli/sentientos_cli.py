@@ -8,6 +8,7 @@ from sentientos.consciousness.cognitive_state import (
     build_cognitive_state_snapshot,
     validate_cognitive_snapshot_version,
 )
+from sentientos.embodiment import SignalDirection, SignalType, simulate_signal
 from sentientos.diagnostics import (
     DiagnosticError,
     ErrorClass,
@@ -87,6 +88,39 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("version", help="Print SentientOS version")
     subparsers.add_parser("integrity", help="Show deterministic integrity summary")
 
+    embodiment = subparsers.add_parser("embody", help="Embodiment simulation commands")
+    embodiment_subparsers = embodiment.add_subparsers(dest="embody_command", required=True)
+    simulate = embodiment_subparsers.add_parser(
+        "simulate", help="Simulate embodiment ingress/egress signals"
+    )
+    simulate_subparsers = simulate.add_subparsers(dest="simulate_command", required=True)
+
+    def _add_simulation_args(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--type", required=True, help="Signal type to simulate")
+        parser.add_argument(
+            "--payload", default="{}", help="JSON payload for the simulated signal"
+        )
+        parser.add_argument(
+            "--context", default="cli", help="Execution context label for the simulation"
+        )
+        parser.add_argument(
+            "--cycle-id",
+            default=None,
+            help="Optional cognition cycle identifier to link the simulation",
+        )
+        parser.add_argument(
+            "--introspection-path",
+            default=None,
+            help="Override the introspection spine log path for this simulation",
+        )
+
+    ingress = simulate_subparsers.add_parser(
+        "ingress", help="Simulate an ingress (input) signal"
+    )
+    _add_simulation_args(ingress)
+    egress = simulate_subparsers.add_parser("egress", help="Simulate an egress signal")
+    _add_simulation_args(egress)
+
     return parser
 
 
@@ -135,6 +169,33 @@ def _emit_error(frame, args) -> None:
             "automatic_recovery": format_recovery_eligibility(frame.recovery_eligibility),
         }
     )
+
+
+def _parse_payload(payload: str) -> dict:
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        frame = build_error_frame(
+            error_code="EMBODIMENT_PAYLOAD_INVALID",
+            error_class=ErrorClass.CONFIG,
+            failed_phase=FailedPhase.CLI,
+            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+            human_summary="Embodiment simulation payload must be valid JSON.",
+            technical_details={"payload": payload},
+            caused_by=frame_exception(exc, failed_phase=FailedPhase.CLI, suppressed_actions=[]),
+        )
+        raise DiagnosticError(frame) from exc
+    if not isinstance(parsed, dict):
+        frame = build_error_frame(
+            error_code="EMBODIMENT_PAYLOAD_INVALID",
+            error_class=ErrorClass.CONFIG,
+            failed_phase=FailedPhase.CLI,
+            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+            human_summary="Embodiment simulation payload must be a JSON object.",
+            technical_details={"payload_type": type(parsed).__name__},
+        )
+        raise DiagnosticError(frame)
+    return parsed
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -211,6 +272,28 @@ def main(argv: list[str] | None = None) -> None:
                 bundle = _load_bundle(args.bundle)
                 _print_json(_redacted_bundle_summary(bundle))
                 return
+        if args.command == "embody":
+            direction = (
+                SignalDirection.INGRESS
+                if args.simulate_command == "ingress"
+                else SignalDirection.EGRESS
+            )
+            signal_type = SignalType(args.type)
+            payload = _parse_payload(args.payload)
+            result = simulate_signal(
+                direction,
+                signal_type,
+                payload,
+                context=args.context,
+                cognition_cycle_id=args.cycle_id,
+                introspection_path=args.introspection_path,
+            )
+            _print_json(result.to_dict())
+            return
+    except DiagnosticError as exc:
+        _emit_error(exc.frame, args)
+        persist_error_frame(exc.frame)
+        raise SystemExit(1) from exc
     except Exception as exc:
         if args.trace:
             raise
