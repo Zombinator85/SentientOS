@@ -147,6 +147,7 @@ def _event_verb(event_type: EventType) -> str:
         EventType.RECOVERY_EXECUTION: "recovery executed",
         EventType.COGNITION_CYCLE: "cognition cycle occurred",
         EventType.FORGETTING_PRESSURE: "forgetting pressure emitted",
+        EventType.MEMORY_ECONOMICS: "memory economics simulated",
         EventType.SNAPSHOT_EMISSION: "snapshot emitted",
         EventType.CLI_ACTION: "cli action emitted",
     }
