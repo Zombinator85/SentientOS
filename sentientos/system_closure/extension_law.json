@@ -1,0 +1,135 @@
+{
+  "schema_version": "extension_law_v1",
+  "system_version": "1.2.0-beta",
+  "authority_basis": "sentientos/constitution.py",
+  "pathways": [
+    {
+      "name": "Add a new recovery ladder",
+      "required_artifacts": [
+        "sentientos/diagnostics/recovery.py",
+        "sentientos/system_closure/system_map.json",
+        "sentientos/system_closure/closure_manifest.json"
+      ],
+      "required_proofs": [
+        "Eligibility mapping for new error code",
+        "Docstring sections: Scope, Excluded domains, Safety rationale",
+        "Recovery proof emission plan"
+      ],
+      "required_tests": [
+        "mypy scripts/ sentientos/",
+        "pytest -q",
+        "verify_audits --strict",
+        "python scripts/audit_immutability_verifier.py"
+      ],
+      "approvals": ["Operator", "Steward"],
+      "non_bypassable_constraints": [
+        "REC-ONE-LADDER-PER-ERROR",
+        "REC-RECOVERY-NO-RECOVERABLE-EMISSIONS",
+        "REC-NO-RECOVER-TERMINAL"
+      ]
+    },
+    {
+      "name": "Add a new embodiment adapter",
+      "required_artifacts": [
+        "sentientos/embodiment/contracts.py",
+        "sentientos/embodiment/consent.py",
+        "sentientos/system_closure/system_map.json",
+        "sentientos/system_closure/closure_manifest.json"
+      ],
+      "required_proofs": [
+        "Contract definitions for new signals",
+        "Consent scope mapping",
+        "Simulation-only validation plan"
+      ],
+      "required_tests": [
+        "mypy scripts/ sentientos/",
+        "pytest -q",
+        "verify_audits --strict",
+        "python scripts/audit_immutability_verifier.py"
+      ],
+      "approvals": ["Operator", "Steward"],
+      "non_bypassable_constraints": [
+        "AUTH-CONSENT-REQUIRED-EMBODIMENT-EGRESS",
+        "EMB-SIGNALS-PASS-CONTRACTS",
+        "EMB-SIMULATION-DEFAULT",
+        "EMB-NO-REAL-WORLD-IO-WITHOUT-ADAPTER"
+      ]
+    },
+    {
+      "name": "Change memory economics",
+      "required_artifacts": [
+        "sentientos/memory_economics.py",
+        "sentientos/system_closure/system_map.json",
+        "sentientos/system_closure/closure_manifest.json"
+      ],
+      "required_proofs": [
+        "Updated budget and pressure tier rationale",
+        "Simulation output demonstrating deterministic planning",
+        "Retention and eviction traceability"
+      ],
+      "required_tests": [
+        "mypy scripts/ sentientos/",
+        "pytest -q",
+        "verify_audits --strict",
+        "python scripts/audit_immutability_verifier.py"
+      ],
+      "approvals": ["Operator", "Steward"],
+      "non_bypassable_constraints": [
+        "MEM-ECONOMICS-CONSTRAIN-RETENTION-NO-ERASE-WITHOUT-TRACE",
+        "MEM-PRESSURE-ESCALATION-DETERMINISTIC-INSPECTABLE"
+      ]
+    },
+    {
+      "name": "Modify consent scope",
+      "required_artifacts": [
+        "sentientos/embodiment/consent.py",
+        "sentientos/system_closure/system_map.json",
+        "sentientos/system_closure/closure_manifest.json"
+      ],
+      "required_proofs": [
+        "Explicit scope changes",
+        "Revocation behavior remains intact",
+        "Time-bound contract confirmation"
+      ],
+      "required_tests": [
+        "mypy scripts/ sentientos/",
+        "pytest -q",
+        "verify_audits --strict",
+        "python scripts/audit_immutability_verifier.py"
+      ],
+      "approvals": ["Operator", "Steward"],
+      "non_bypassable_constraints": [
+        "AUTH-CONSENT-EXPLICIT-SCOPED-REVOCABLE-BOUNDED",
+        "AUTH-NO-DEFAULT-APPROVALS"
+      ]
+    },
+    {
+      "name": "Propose a constitutional amendment",
+      "required_artifacts": [
+        "sentientos/constitution.py",
+        "INVARIANT_CROSS_REFERENCE_INDEX.md",
+        "INVARIANT_ENFORCEMENT.md",
+        "sentientos/system_closure/system_map.json",
+        "sentientos/system_closure/closure_manifest.json"
+      ],
+      "required_proofs": [
+        "Invariant impact analysis",
+        "Cross-reference updates",
+        "Operator sign-off on scope"
+      ],
+      "required_tests": [
+        "mypy scripts/ sentientos/",
+        "pytest -q",
+        "verify_audits --strict",
+        "python scripts/audit_immutability_verifier.py"
+      ],
+      "approvals": ["Operator", "Steward", "Council"],
+      "non_bypassable_constraints": [
+        "All invariants must be explicitly updated or reaffirmed",
+        "No implicit approvals",
+        "Audit trails remain append-only"
+      ]
+    }
+  ],
+  "immutability_clause": "No pathway may bypass admission gating, consent requirements, or recovery eligibility checks."
+}
