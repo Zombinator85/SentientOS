@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 
 from agents.forms.review_bundle import redact_dict, redact_log
+from sentientos.consciousness.cognitive_state import build_cognitive_state_snapshot
+from sentientos.governance.intentional_forgetting import build_forget_pressure_snapshot
 from sentientos.helpers import compute_system_diagnostics, load_profile_json
 from sentientos.orchestrator import SentientOrchestrator
 
@@ -25,6 +27,16 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("cycle", help="Run a consciousness cycle")
+
+    cognition_parser = subparsers.add_parser(
+        "cognition", help="Cognitive state inspection commands"
+    )
+    cognition_subparsers = cognition_parser.add_subparsers(
+        dest="cognition_command", required=True
+    )
+    cognition_subparsers.add_parser(
+        "status", help="Show the unified cognitive state snapshot"
+    )
 
     ssa_parser = subparsers.add_parser("ssa", help="SSA agent commands")
     ssa_subparsers = ssa_parser.add_subparsers(dest="ssa_command", required=True)
@@ -69,6 +81,11 @@ def _redacted_bundle_summary(bundle: dict) -> dict:
     }
 
 
+def _cognitive_status_snapshot() -> dict:
+    pressure_snapshot = build_forget_pressure_snapshot()
+    return build_cognitive_state_snapshot(pressure_snapshot=pressure_snapshot)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -77,6 +94,11 @@ def main(argv: list[str] | None = None) -> None:
         orchestrator = SentientOrchestrator()
         _print_json(orchestrator.run_consciousness_cycle())
         return
+
+    if args.command == "cognition":
+        if args.cognition_command == "status":
+            _print_json(_cognitive_status_snapshot())
+            return
 
     if args.command == "version":
         version_path = Path("VERSION")
