@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     pass
 
 
-SAFE_COMMANDS = {"status", "doctor", "ois", "diff", "summary", "trace"}
+SAFE_COMMANDS = {"status", "doctor", "ois", "diff", "summary", "trace", "consent"}
 
 
 def _read_version() -> str:
@@ -51,6 +51,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("ois", help="Read-only Operator Introspection Surface (OIS).")
     subparsers.add_parser("summary", help="Show narrative system summaries (read-only).")
     subparsers.add_parser("trace", help="Read-only introspection trace viewer.")
+    subparsers.add_parser("consent", help="Manage consent contracts (simulation only).")
     subparsers.add_parser("avatar-demo", help="Run the avatar demo.")
     return parser
 
@@ -167,6 +168,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 from sentientos.cli.trace_cli import main as trace_main
 
                 raise SystemExit(trace_main(extra))
+            if args.command == "consent":
+                from sentientos.cli.consent_cli import main as consent_main
+
+                raise SystemExit(consent_main(extra))
             _print_doctor()
             return
 
