@@ -6,7 +6,8 @@ from dataclasses import dataclass
 import hashlib
 import json
 from pathlib import Path
-from typing import Mapping, Protocol
+from typing import Iterable, Mapping, Protocol
+import re
 
 import sys
 
@@ -17,13 +18,19 @@ from sentientos.capability_registry import (
 )
 from sentientos.optional_deps import optional_dependency_for_module
 
+from .error_frame import ErrorClass, FailedPhase, build_error_frame
 from .error_frame import DiagnosticErrorFrame
 from .recovery_eligibility import RecoveryEligibility
+from .recovery_eligibility import RECOVERY_ELIGIBILITY_REGISTRY
 
 
 RECOVERY_SUCCEEDED = "RECOVERY_SUCCEEDED"
 RECOVERY_FAILED = "RECOVERY_FAILED"
 RECOVERY_SKIPPED = "RECOVERY_SKIPPED"
+INTEGRITY_VIOLATION_RECOVERY_RECURSION = "INTEGRITY_VIOLATION_RECOVERY_RECURSION"
+ACK_REQUIRED_LADDER_ALLOWLIST: tuple[str, ...] = ()
+LADDER_DOCSTRING_SECTIONS = ("Scope:", "Excluded domains:", "Safety rationale:")
+_ERROR_CODE_PATTERN = re.compile(r"^[A-Z0-9_]+$")
 
 
 def _snapshot_hash(path: Path) -> str:
@@ -148,6 +155,11 @@ class RecoveryLadder(Protocol):
 
 
 class MissingInstallDirectoryRecoveryLadder:
+    """Scope: Install-time creation of missing workspace directories.
+    Excluded domains: File deletion, file content mutation, permission escalation.
+    Safety rationale: Only creates a verified missing directory for an INSTALL error frame.
+    """
+
     ladder_id = "install-missing-directory-v1"
     applicable_error_codes = ("MISSING_RESOURCE",)
 
@@ -208,6 +220,11 @@ class OptionalModuleIsolationPlan:
 
 
 class OptionalModuleIsolationRecoveryLadder:
+    """Scope: CLI/install/import optional dependency isolation for missing modules.
+    Excluded domains: Protected capabilities (cognition, integrity, forgetting, recovery).
+    Safety rationale: Disables only optional, non-protected capabilities when an import is absent.
+    """
+
     ladder_id = "CLI_IMPORT_OPTIONAL_MODULE_ISOLATION"
     applicable_error_codes = ("CLI_IMPORT_MODULE_MISSING",)
     _allowed_phases = {"CLI", "INSTALL", "IMPORT"}
@@ -283,6 +300,125 @@ RecoveryLadderRegistry: Mapping[str, RecoveryLadder] = {
 }
 
 
+def _unique_ladders(registry: Mapping[str, RecoveryLadder]) -> tuple[RecoveryLadder, ...]:
+    seen: set[int] = set()
+    ladders: list[RecoveryLadder] = []
+    for ladder in registry.values():
+        ladder_id = id(ladder)
+        if ladder_id in seen:
+            continue
+        seen.add(ladder_id)
+        ladders.append(ladder)
+    return tuple(ladders)
+
+
+def ladder_error_code_map(
+    registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
+) -> dict[str, tuple[RecoveryLadder, ...]]:
+    coverage: dict[str, list[RecoveryLadder]] = {}
+    for ladder in _unique_ladders(registry):
+        codes = ladder.applicable_error_codes
+        for code in codes:
+            coverage.setdefault(code, []).append(ladder)
+    return {code: tuple(ladders) for code, ladders in coverage.items()}
+
+
+def validate_recovery_ladders(
+    *,
+    registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
+    eligibility_registry: Mapping[str, tuple[RecoveryEligibility, str]] = RECOVERY_ELIGIBILITY_REGISTRY,
+    ack_required_allowlist: tuple[str, ...] = ACK_REQUIRED_LADDER_ALLOWLIST,
+) -> None:
+    errors: list[str] = []
+    coverage = ladder_error_code_map(registry)
+    seen_ladder_ids: set[str] = set()
+
+    for ladder in _unique_ladders(registry):
+        if not isinstance(ladder.ladder_id, str) or not ladder.ladder_id:
+            errors.append("Recovery ladder missing ladder_id.")
+        elif ladder.ladder_id in seen_ladder_ids:
+            errors.append(f"Duplicate ladder_id detected: {ladder.ladder_id}")
+        else:
+            seen_ladder_ids.add(ladder.ladder_id)
+
+        codes = ladder.applicable_error_codes
+        if not isinstance(codes, tuple) or not codes:
+            errors.append(f"Ladder {ladder.ladder_id} must declare a tuple of applicable_error_codes.")
+            continue
+        for code in codes:
+            if not isinstance(code, str) or not code:
+                errors.append(f"Ladder {ladder.ladder_id} has invalid error_code entry.")
+                continue
+            if _ERROR_CODE_PATTERN.fullmatch(code) is None:
+                errors.append(
+                    f"Ladder {ladder.ladder_id} uses non-explicit error_code pattern: {code}"
+                )
+            if code not in eligibility_registry:
+                errors.append(f"Ladder {ladder.ladder_id} references unknown error_code {code}.")
+            if registry.get(code) is not ladder:
+                errors.append(
+                    f"Ladder {ladder.ladder_id} not explicitly registered for error_code {code}."
+                )
+
+    for code, ladders in coverage.items():
+        if len(ladders) > 1:
+            ladder_ids = ", ".join(sorted({ladder.ladder_id for ladder in ladders}))
+            errors.append(f"Multiple ladders claim error_code {code}: {ladder_ids}")
+
+    for code, (eligibility, _reason) in eligibility_registry.items():
+        ladders = coverage.get(code, ())
+        if eligibility == RecoveryEligibility.NEVER_RECOVER and ladders:
+            errors.append(f"NEVER_RECOVER error_code {code} has a ladder assignment.")
+        if eligibility == RecoveryEligibility.ACK_REQUIRED and ladders and code not in ack_required_allowlist:
+            errors.append(f"ACK_REQUIRED error_code {code} must be explicitly whitelisted.")
+
+    if errors:
+        joined = "\n".join(f"- {error}" for error in errors)
+        raise ValueError(f"Recovery ladder validation failed:\n{joined}")
+
+
+def validate_ladder_docstrings(
+    ladders: Iterable[RecoveryLadder],
+    *,
+    required_sections: tuple[str, ...] = LADDER_DOCSTRING_SECTIONS,
+) -> tuple[str, ...]:
+    issues: list[str] = []
+    for ladder in ladders:
+        docstring = ladder.__class__.__doc__ or ""
+        missing = [section for section in required_sections if section not in docstring]
+        if missing:
+            missing_text = ", ".join(missing)
+            issues.append(f"{ladder.ladder_id} missing docstring sections: {missing_text}")
+    return tuple(issues)
+
+
+def _is_recovery_recursion_input(frame: DiagnosticErrorFrame) -> bool:
+    return frame.status == "RECOVERED" or frame.recovery_reference is not None
+
+
+def _recovery_recursion_violation_frame(frame: DiagnosticErrorFrame) -> DiagnosticErrorFrame:
+    return build_error_frame(
+        error_code="INVARIANT_VIOLATION",
+        error_class=ErrorClass.INTEGRITY,
+        failed_phase=frame.failed_phase,
+        violated_invariant=INTEGRITY_VIOLATION_RECOVERY_RECURSION,
+        suppressed_actions=["auto_recovery", "retry"],
+        human_summary="Automatic recovery recursion detected; recovery halted.",
+        technical_details={
+            "status": frame.status,
+            "error_code": frame.error_code,
+            "recovery_reference": frame.recovery_reference,
+        },
+        caused_by=frame,
+        recovery_eligibility=RecoveryEligibility.NEVER_RECOVER,
+        eligibility_reason="RECOVERY_RECURSION_BLOCKED",
+    )
+
+
+def _violates_recovery_depth_invariant(frame: DiagnosticErrorFrame) -> bool:
+    return frame.recoverable or frame.recovery_eligibility == RecoveryEligibility.RECOVERABLE
+
+
 def persist_recovery_proof(
     proof: RecoveryProofArtifact, *, path: str = "logs/install_recovery_proofs.jsonl"
 ) -> None:
@@ -313,10 +449,10 @@ def promote_recovered_frame(
         technical_details=frame.technical_details,
         caused_by=frame,
         timestamp_logical=frame.timestamp_logical,
-        recoverable=frame.recoverable,
+        recoverable=False,
         recovery_reference=proof.recovery_id,
-        recovery_eligibility=frame.recovery_eligibility,
-        eligibility_reason=frame.eligibility_reason,
+        recovery_eligibility=RecoveryEligibility.NEVER_RECOVER,
+        eligibility_reason="RECOVERY_RECURSION_BLOCKED",
     )
 
 
@@ -325,6 +461,12 @@ def attempt_recovery(
     *,
     registry: Mapping[str, RecoveryLadder] = RecoveryLadderRegistry,
 ) -> RecoveryOutcome:
+    if _is_recovery_recursion_input(frame):
+        return RecoveryOutcome(
+            status=RECOVERY_FAILED,
+            recovered_frame=_recovery_recursion_violation_frame(frame),
+            proof=None,
+        )
     if frame.recovery_eligibility != RecoveryEligibility.RECOVERABLE:
         return RecoveryOutcome(status=RECOVERY_SKIPPED, recovered_frame=None, proof=None)
 
@@ -355,4 +497,13 @@ def attempt_recovery(
         proof=proof,
         summary=ladder.summarize(plan),
     )
+    if _violates_recovery_depth_invariant(recovered_frame):
+        return RecoveryOutcome(
+            status=RECOVERY_FAILED,
+            recovered_frame=_recovery_recursion_violation_frame(recovered_frame),
+            proof=None,
+        )
     return RecoveryOutcome(status=RECOVERY_SUCCEEDED, recovered_frame=recovered_frame, proof=proof)
+
+
+validate_recovery_ladders()
