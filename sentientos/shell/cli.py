@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from . import SentientShell, ShellEventLogger
+from sentientos.diagnostics import FailedPhase, frame_exception, persist_error_frame
 
 
 def _default_ci_runner() -> bool:
@@ -50,7 +51,16 @@ def _handle_install(shell: SentientShell, args: argparse.Namespace) -> int:
         else:
             result = shell.install_from_button(package)
     except Exception as exc:  # pragma: no cover - CLI surface
-        print(json.dumps({"error": str(exc), "package": package.as_posix()}))
+        if getattr(args, "trace", False):
+            raise
+        frame = frame_exception(
+            exc,
+            failed_phase=FailedPhase.INSTALL,
+            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+            technical_details={"package": package.as_posix(), "method": args.method},
+        )
+        _emit_error(frame, args)
+        persist_error_frame(frame)
         return 1
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
@@ -58,6 +68,9 @@ def _handle_install(shell: SentientShell, args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="SentientOS shell harness")
+    parser.add_argument("--explain", action="store_true", help="Show full diagnostic error details.")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable diagnostic JSON.")
+    parser.add_argument("--trace", action="store_true", help="Show raw traceback for failures.")
     subparsers = parser.add_subparsers(dest="command")
 
     start_menu = subparsers.add_parser("start-menu", help="Inspect the start menu")
@@ -75,6 +88,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
+
+
+def _emit_error(frame, args: argparse.Namespace) -> None:
+    if getattr(args, "json", False):
+        print(frame.to_json())
+        return
+    if getattr(args, "explain", False):
+        print(frame.to_json(indent=2))
+        return
+    print(frame.human_summary)
+    print(f"error_code: {frame.error_code}")
+    print(f"failed_phase: {frame.failed_phase.value}")
 
 
 def main(argv: list[str] | None = None) -> int:

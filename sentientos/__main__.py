@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
+from sentientos.diagnostics import FailedPhase, frame_exception, persist_error_frame
+
 if TYPE_CHECKING:
     # Place type-only imports here in the future
     pass
@@ -27,6 +29,9 @@ def _read_version() -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sentientos", description="SentientOS CLI entrypoint")
     parser.add_argument("--version", action="store_true", help="Show the SentientOS version and exit.")
+    parser.add_argument("--explain", action="store_true", help="Show full diagnostic error details.")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable diagnostic JSON.")
+    parser.add_argument("--trace", action="store_true", help="Show raw traceback for failures.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("status", help="Show read-only system status.")
     subparsers.add_parser("doctor", help="Run read-only diagnostics.")
@@ -57,6 +62,18 @@ def _print_doctor() -> None:
     print(json.dumps(report, indent=2, sort_keys=True))
 
 
+def _emit_error(frame, args) -> None:
+    if args.json:
+        print(frame.to_json())
+        return
+    if args.explain:
+        print(frame.to_json(indent=2))
+        return
+    print(frame.human_summary)
+    print(f"error_code: {frame.error_code}")
+    print(f"failed_phase: {frame.failed_phase.value}")
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     """Entry point for the SentientOS package."""
 
@@ -65,47 +82,59 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = _build_parser()
     args, extra = parser.parse_known_args(argv)
 
-    if args.command is None and extra:
-        parser.parse_args(argv)
-        return
-
-    if args.version:
-        print(f"SentientOS {_read_version()}")
-        return
-
-    if args.command in SAFE_COMMANDS:
-        if extra:
+    try:
+        if args.command is None and extra:
             parser.parse_args(argv)
             return
-        if args.command == "status":
-            _print_status()
+
+        if args.version:
+            print(f"SentientOS {_read_version()}")
             return
-        if args.command == "ois":
-            from sentientos.cli.ois_cli import main as ois_main
 
-            raise SystemExit(ois_main(extra))
-        if args.command == "diff":
-            from sentientos.cli.authority_diff_cli import main as diff_main
+        if args.command in SAFE_COMMANDS:
+            if extra:
+                parser.parse_args(argv)
+                return
+            if args.command == "status":
+                _print_status()
+                return
+            if args.command == "ois":
+                from sentientos.cli.ois_cli import main as ois_main
 
-            raise SystemExit(diff_main(extra))
-        if args.command == "summary":
-            from sentientos.cli.summary_cli import main as summary_main
+                raise SystemExit(ois_main(extra))
+            if args.command == "diff":
+                from sentientos.cli.authority_diff_cli import main as diff_main
 
-            raise SystemExit(summary_main(extra))
-        _print_doctor()
-        return
+                raise SystemExit(diff_main(extra))
+            if args.command == "summary":
+                from sentientos.cli.summary_cli import main as summary_main
 
-    if args.command in {"dashboard", "avatar-demo"}:
-        _enforce_privileges()
-        if args.command == "dashboard":
-            from sentientos.cli.dashboard_cli import main as dashboard_main
+                raise SystemExit(summary_main(extra))
+            _print_doctor()
+            return
 
-            raise SystemExit(dashboard_main(extra))
-        from sentientos.cli.avatar_demo_cli import main as avatar_demo_main
+        if args.command in {"dashboard", "avatar-demo"}:
+            _enforce_privileges()
+            if args.command == "dashboard":
+                from sentientos.cli.dashboard_cli import main as dashboard_main
 
-        raise SystemExit(avatar_demo_main(extra))
+                raise SystemExit(dashboard_main(extra))
+            from sentientos.cli.avatar_demo_cli import main as avatar_demo_main
 
-    print(f"SentientOS {_read_version()}\nRun 'support' or 'ritual' for CLI tools.")
+            raise SystemExit(avatar_demo_main(extra))
+
+        print(f"SentientOS {_read_version()}\nRun 'support' or 'ritual' for CLI tools.")
+    except Exception as exc:
+        if args.trace:
+            raise
+        frame = frame_exception(
+            exc,
+            failed_phase=FailedPhase.CLI,
+            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+        )
+        _emit_error(frame, args)
+        persist_error_frame(frame)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI invocation

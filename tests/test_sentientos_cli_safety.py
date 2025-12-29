@@ -90,8 +90,8 @@ def test_actionable_commands_fail_without_privilege(monkeypatch):
     monkeypatch.setitem(sys.modules, "sentientos.cli.dashboard_cli", dashboard_cli)
     monkeypatch.setitem(sys.modules, "sentientos.cli.avatar_demo_cli", avatar_cli)
 
-    with pytest.raises(RuntimeError, match="privilege check invoked"):
+    with pytest.raises(SystemExit):
         sm.main(["dashboard"])
 
-    with pytest.raises(RuntimeError, match="privilege check invoked"):
+    with pytest.raises(SystemExit):
         sm.main(["avatar-demo"])

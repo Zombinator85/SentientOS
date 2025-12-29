@@ -51,7 +51,7 @@ def test_cli_requires_approval(monkeypatch, capsys):
         sentientos_cli.main(["ssa", "execute", "--profile", "profile.json"])
 
     output = json.loads(capsys.readouterr().out)
-    assert output["error"] == "approval_required"
+    assert output["error_code"] == "CLI_APPROVAL_REQUIRED"
 
 
 def test_cli_review_redacts(monkeypatch, capsys):
@@ -100,4 +100,19 @@ def test_cli_cognition_status_expect_version_mismatch(monkeypatch, capsys):
         )
 
     output = json.loads(capsys.readouterr().out)
-    assert "error" in output
+    assert output["error_code"] == "INVARIANT_VIOLATION"
+
+
+def test_cli_cognition_status_skips_optional_agents(monkeypatch, capsys):
+    snapshot = {"cognitive_snapshot_version": COGNITIVE_SNAPSHOT_VERSION, "ok": True}
+    monkeypatch.setattr(sentientos_cli, "_cognitive_status_snapshot", lambda: snapshot)
+
+    def _raise_if_called():
+        raise AssertionError("Optional SSA modules should not load for cognition status.")
+
+    monkeypatch.setattr(sentientos_cli, "_load_review_bundle_redactors", _raise_if_called)
+
+    sentientos_cli.main(["cognition", "status", "--expect-version", str(COGNITIVE_SNAPSHOT_VERSION)])
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["ok"] is True

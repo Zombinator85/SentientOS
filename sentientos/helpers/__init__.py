@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, TYPE_CHECKING
 
-from agents.forms.ssa_disability_agent import SSADisabilityAgent
-from agents.forms.ssa_disability_agent import SSA827Prefill  # re-export typing aid
+if TYPE_CHECKING:
+    from agents.forms.ssa_disability_agent import SSADisabilityAgent, SSA827Prefill
 from drift_report import generate_drift_report
 from sentientos.consciousness.integration import cycle_gate_status
 from sentientos.optional_deps import optional_dependency_report
@@ -29,17 +29,31 @@ def save_bundle_json(bundle_dict: dict, path: str, *, approved: bool = False) ->
     return {"status": "saved", "path": str(path)}
 
 
+def _load_ssa_symbols():
+    from agents.forms.ssa_disability_agent import SSA827Prefill, SSADisabilityAgent
+
+    return SSADisabilityAgent, SSA827Prefill
+
+
 def compute_system_diagnostics() -> Dict[str, Any]:
     digest = canonical_vow_digest()
     vc = VersionConsensus(digest)
     drift = generate_drift_report(digest, digest)
     cycle_gate = cycle_gate_status()
 
-    ssa_summary = {
-        "ssa_agent": SSADisabilityAgent.__name__,
-        "pdf_prefill": SSA827Prefill.__name__,
-        "review_bundle": True,
-    }
+    try:
+        SSADisabilityAgent, SSA827Prefill = _load_ssa_symbols()
+        ssa_summary = {
+            "ssa_agent": SSADisabilityAgent.__name__,
+            "pdf_prefill": SSA827Prefill.__name__,
+            "review_bundle": True,
+        }
+    except ModuleNotFoundError as exc:
+        ssa_summary = {
+            "available": False,
+            "error": "missing_optional_module",
+            "module": exc.name,
+        }
 
     return {
         "canonical_vow_digest": digest,
@@ -57,3 +71,10 @@ __all__ = [
     "SSADisabilityAgent",
     "SSA827Prefill",
 ]
+
+
+def __getattr__(name: str):
+    if name in {"SSADisabilityAgent", "SSA827Prefill"}:
+        SSADisabilityAgent, SSA827Prefill = _load_ssa_symbols()
+        return SSADisabilityAgent if name == "SSADisabilityAgent" else SSA827Prefill
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

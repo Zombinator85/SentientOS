@@ -2,13 +2,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
-from agents.forms.review_bundle import redact_dict, redact_log
 from sentientos.consciousness.cognitive_state import (
     build_cognitive_state_snapshot,
     validate_cognitive_snapshot_version,
+)
+from sentientos.diagnostics import (
+    DiagnosticError,
+    ErrorClass,
+    FailedPhase,
+    build_error_frame,
+    frame_exception,
+    persist_error_frame,
 )
 from sentientos.governance.intentional_forgetting import build_forget_pressure_snapshot
 from sentientos.helpers import compute_system_diagnostics, load_profile_json
@@ -21,12 +27,22 @@ def _print_json(payload: dict) -> None:
 
 def _require_approval(approved: bool) -> None:
     if not approved:
-        _print_json({"error": "approval_required"})
-        sys.exit(1)
+        frame = build_error_frame(
+            error_code="CLI_APPROVAL_REQUIRED",
+            error_class=ErrorClass.CONFIG,
+            failed_phase=FailedPhase.CLI,
+            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+            human_summary="Approval is required before executing SSA actions.",
+            technical_details={"approval_flag": approved},
+        )
+        raise DiagnosticError(frame)
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sentientos", description="SentientOS CLI")
+    parser.add_argument("--explain", action="store_true", help="Show full diagnostic error details.")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable diagnostic JSON.")
+    parser.add_argument("--trace", action="store_true", help="Show raw traceback for failures.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("cycle", help="Run a consciousness cycle")
@@ -73,12 +89,19 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _load_review_bundle_redactors():
+    from agents.forms.review_bundle import redact_dict, redact_log
+
+    return redact_dict, redact_log
+
+
 def _load_bundle(path: str) -> dict:
     with open(Path(path), "r", encoding="utf-8") as handle:
         return json.load(handle)
 
 
 def _redacted_bundle_summary(bundle: dict) -> dict:
+    redact_dict, redact_log = _load_review_bundle_redactors()
     execution_log = bundle.get("execution_log") if isinstance(bundle, dict) else None
     profile = bundle.get("profile") if isinstance(bundle, dict) else None
 
@@ -94,66 +117,107 @@ def _cognitive_status_snapshot() -> dict:
     return build_cognitive_state_snapshot(pressure_snapshot=pressure_snapshot)
 
 
+def _emit_error(frame, args) -> None:
+    if args.json:
+        print(frame.to_json())
+        return
+    if args.explain:
+        print(frame.to_json(indent=2))
+        return
+    _print_json(
+        {
+            "human_summary": frame.human_summary,
+            "error_code": frame.error_code,
+            "failed_phase": frame.failed_phase.value,
+        }
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "cycle":
-        orchestrator = SentientOrchestrator()
-        _print_json(orchestrator.run_consciousness_cycle())
-        return
-
-    if args.command == "cognition":
-        if args.cognition_command == "status":
-            snapshot = _cognitive_status_snapshot()
-            if args.expect_version is not None:
-                try:
-                    validate_cognitive_snapshot_version(
-                        snapshot, expected_version=args.expect_version
-                    )
-                except (TypeError, ValueError) as exc:
-                    _print_json({"error": str(exc)})
-                    sys.exit(1)
-            _print_json(snapshot)
+    try:
+        if args.command == "cycle":
+            orchestrator = SentientOrchestrator()
+            _print_json(orchestrator.run_consciousness_cycle())
             return
 
-    if args.command == "version":
-        version_path = Path("VERSION")
-        if version_path.exists():
-            _print_json({"version": version_path.read_text(encoding="utf-8").strip()})
-        else:
-            _print_json({"version": "unknown"})
-        return
+        if args.command == "cognition":
+            if args.cognition_command == "status":
+                snapshot = _cognitive_status_snapshot()
+                if args.expect_version is not None:
+                    try:
+                        validate_cognitive_snapshot_version(
+                            snapshot, expected_version=args.expect_version
+                        )
+                    except (TypeError, ValueError) as exc:
+                        frame = build_error_frame(
+                            error_code="INVARIANT_VIOLATION",
+                            error_class=ErrorClass.INTEGRITY,
+                            failed_phase=FailedPhase.CLI,
+                            violated_invariant="COGNITIVE_SNAPSHOT_VERSION",
+                            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+                            human_summary=(
+                                "Cognitive snapshot version does not match the expected value."
+                            ),
+                            technical_details={"expected_version": args.expect_version},
+                            caused_by=frame_exception(
+                                exc, failed_phase=FailedPhase.CLI, suppressed_actions=[]
+                            ),
+                        )
+                        raise DiagnosticError(frame) from exc
+                _print_json(snapshot)
+                return
 
-    if args.command == "integrity":
-        _print_json(compute_system_diagnostics())
-        return
-
-    if args.command == "ssa":
-        if args.ssa_command == "dry-run":
-            profile = load_profile_json(args.profile)
-            orchestrator = SentientOrchestrator(profile=profile)
-            _print_json(orchestrator.ssa_dry_run())
+        if args.command == "version":
+            version_path = Path("VERSION")
+            if version_path.exists():
+                _print_json({"version": version_path.read_text(encoding="utf-8").strip()})
+            else:
+                _print_json({"version": "unknown"})
             return
 
-        if args.ssa_command == "execute":
-            _require_approval(args.approve)
-            profile = load_profile_json(args.profile)
-            orchestrator = SentientOrchestrator(profile=profile, approval=args.approve)
-            _print_json(orchestrator.ssa_execute(relay=None))
+        if args.command == "integrity":
+            _print_json(compute_system_diagnostics())
             return
 
-        if args.ssa_command == "prefill-827":
-            _require_approval(args.approve)
-            profile = load_profile_json(args.profile)
-            orchestrator = SentientOrchestrator(profile=profile, approval=args.approve)
-            _print_json(orchestrator.ssa_prefill_827())
-            return
+        if args.command == "ssa":
+            if args.ssa_command == "dry-run":
+                profile = load_profile_json(args.profile)
+                orchestrator = SentientOrchestrator(profile=profile)
+                _print_json(orchestrator.ssa_dry_run())
+                return
 
-        if args.ssa_command == "review":
-            bundle = _load_bundle(args.bundle)
-            _print_json(_redacted_bundle_summary(bundle))
-            return
+            if args.ssa_command == "execute":
+                _require_approval(args.approve)
+                profile = load_profile_json(args.profile)
+                orchestrator = SentientOrchestrator(profile=profile, approval=args.approve)
+                _print_json(orchestrator.ssa_execute(relay=None))
+                return
+
+            if args.ssa_command == "prefill-827":
+                _require_approval(args.approve)
+                profile = load_profile_json(args.profile)
+                orchestrator = SentientOrchestrator(profile=profile, approval=args.approve)
+                _print_json(orchestrator.ssa_prefill_827())
+                return
+
+            if args.ssa_command == "review":
+                bundle = _load_bundle(args.bundle)
+                _print_json(_redacted_bundle_summary(bundle))
+                return
+    except Exception as exc:
+        if args.trace:
+            raise
+        frame = frame_exception(
+            exc,
+            failed_phase=FailedPhase.CLI,
+            suppressed_actions=["auto_recovery", "retry", "state_mutation"],
+        )
+        _emit_error(frame, args)
+        persist_error_frame(frame)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":
