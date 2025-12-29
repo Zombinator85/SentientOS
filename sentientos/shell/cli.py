@@ -164,6 +164,7 @@ def _maybe_attempt_recovery(
         print("Automatic recovery succeeded.")
         if outcome.proof is not None:
             print(f"proof_id: {outcome.proof.recovery_id}")
+        print("No further automatic recovery will be attempted for this error.")
     else:
         print("Automatic recovery failed.")
     return outcome

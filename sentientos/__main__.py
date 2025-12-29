@@ -167,6 +167,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                         capability=outcome.proof.disabled_capability,
                         module=outcome.proof.missing_module,
                     )
+                print("No further automatic recovery will be attempted for this error.")
             if outcome.recovered_frame is not None:
                 persist_error_frame(outcome.recovered_frame)
             raise SystemExit(0) from exc
