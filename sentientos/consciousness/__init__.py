@@ -8,6 +8,7 @@ metadata.
 __all__ = [
     "attention_arbitrator",
     "cognitive_posture",
+    "cognitive_state",
     "sentience_kernel",
     "inner_narrator",
     "simulation_engine",
