@@ -12,7 +12,16 @@ from .error_frame import (
     frame_exception,
     persist_error_frame,
 )
-from .recovery import RecoveryLadderRegistry, RecoveryProofArtifact
+from .recovery import (
+    RECOVERY_FAILED,
+    RECOVERY_SKIPPED,
+    RECOVERY_SUCCEEDED,
+    RecoveryLadderRegistry,
+    RecoveryOutcome,
+    RecoveryProofArtifact,
+    attempt_recovery,
+    persist_recovery_proof,
+)
 from .recovery_eligibility import (
     ERROR_CODE_CATALOG,
     RECOVERY_ELIGIBILITY_REGISTRY,
@@ -32,7 +41,13 @@ __all__ = [
     "frame_exception",
     "persist_error_frame",
     "RecoveryLadderRegistry",
+    "RecoveryOutcome",
     "RecoveryProofArtifact",
+    "RECOVERY_FAILED",
+    "RECOVERY_SKIPPED",
+    "RECOVERY_SUCCEEDED",
+    "attempt_recovery",
+    "persist_recovery_proof",
     "ERROR_CODE_CATALOG",
     "RECOVERY_ELIGIBILITY_REGISTRY",
     "RecoveryEligibility",
