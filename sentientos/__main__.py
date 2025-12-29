@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     pass
 
 
-SAFE_COMMANDS = {"status", "doctor", "ois", "diff", "summary"}
+SAFE_COMMANDS = {"status", "doctor", "ois", "diff", "summary", "trace"}
 
 
 def _read_version() -> str:
@@ -50,6 +50,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("diff", help="Show authority surface changes (read-only).")
     subparsers.add_parser("ois", help="Read-only Operator Introspection Surface (OIS).")
     subparsers.add_parser("summary", help="Show narrative system summaries (read-only).")
+    subparsers.add_parser("trace", help="Read-only introspection trace viewer.")
     subparsers.add_parser("avatar-demo", help="Run the avatar demo.")
     return parser
 
@@ -91,6 +92,32 @@ def _emit_optional_dependency_notice(*, capability: str, module: str) -> None:
     print(f"Install ‹{module}› to re-enable ‹{capability}›.")
 
 
+def _redact_cli_argv(argv: Sequence[str]) -> list[str]:
+    redacted: list[str] = []
+    for token in argv:
+        if token.startswith("-"):
+            redacted.append(token)
+        else:
+            redacted.append("<arg>")
+    return redacted
+
+
+def _emit_cli_action(args: argparse.Namespace, argv: Sequence[str]) -> None:
+    from sentientos.introspection.spine import EventType, emit_introspection_event
+
+    emit_introspection_event(
+        event_type=EventType.CLI_ACTION,
+        phase="cli",
+        summary="CLI command invoked.",
+        metadata={
+            "command": args.command or "root",
+            "argv": _redact_cli_argv(argv),
+            "version_flag": bool(getattr(args, "version", False)),
+            "safe_command": args.command in SAFE_COMMANDS if args.command else False,
+        },
+    )
+
+
 def _maybe_attempt_recovery(frame: DiagnosticErrorFrame, args) -> RecoveryOutcome | None:
     if getattr(args, "no_recover", False):
         return None
@@ -106,6 +133,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     # Argument parsing occurs before privilege enforcement to allow safe introspection commands.
     parser = _build_parser()
     args, extra = parser.parse_known_args(argv)
+    _emit_cli_action(args, argv)
 
     try:
         if args.command is None and extra:
@@ -135,6 +163,10 @@ def main(argv: Sequence[str] | None = None) -> None:
                 from sentientos.cli.summary_cli import main as summary_main
 
                 raise SystemExit(summary_main(extra))
+            if args.command == "trace":
+                from sentientos.cli.trace_cli import main as trace_main
+
+                raise SystemExit(trace_main(extra))
             _print_doctor()
             return
 

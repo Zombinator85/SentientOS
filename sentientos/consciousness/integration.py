@@ -27,6 +27,7 @@ from sentientos.consciousness.narrative_goal import (
     narrative_goal_satisfied,
 )
 from sentientos.governance.intentional_forgetting import build_forget_pressure_snapshot
+from sentientos.introspection.spine import EventType, emit_introspection_event
 
 # Exposed for orchestration layers to wire into external consensus handling
 # without enforcing network activity or self-scheduling within this module.
@@ -340,7 +341,7 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
 
             simulation_output = _maybe_run_simulation(cycle_context)
 
-            return {
+            result = {
                 "pulse_updates": pulse_updates,
                 "self_model_updates": kernel_updates,
                 "introspection_output": introspection_output,
@@ -353,6 +354,19 @@ def run_consciousness_cycle(context: Mapping[str, object]) -> Dict[str, object]:
                 "cognitive_load_narrative": cycle_context.get("cognitive_load_narrative"),
                 "cognitive_state_snapshot": cognitive_state_snapshot,
             }
+            emit_introspection_event(
+                event_type=EventType.COGNITION_CYCLE,
+                phase="cognition",
+                summary="Cognition cycle completed.",
+                metadata={
+                    "snapshot_hash": cognitive_state_snapshot.get("snapshot_hash"),
+                    "cognitive_posture": cycle_context.get("cognitive_posture"),
+                    "posture_transition": cycle_context.get("posture_transition"),
+                    "posture_duration": cycle_context.get("posture_duration"),
+                },
+                linked_artifact_ids=[str(cognitive_state_snapshot.get("snapshot_hash", ""))],
+            )
+            return result
     except RecursionLimitExceeded as exc:
         return {
             "status": "error",
