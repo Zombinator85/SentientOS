@@ -110,6 +110,9 @@ def test_recovery_no_retry(tmp_path: Path) -> None:
         def verify(self) -> bool:
             return False
 
+        def summarize(self, plan: RecoveryPlan) -> str:
+            return f"Test recovery summary for {plan.missing_path}"
+
     missing_dir = tmp_path / "logs" / "install_workspace"
     frame = _install_missing_dir_frame(missing_dir)
     ladder = FailingLadder()

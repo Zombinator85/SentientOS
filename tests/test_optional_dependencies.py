@@ -12,6 +12,7 @@ pytestmark = pytest.mark.no_legacy_skip
 def _register_missing_dependency(monkeypatch) -> None:
     dep = optional_deps.OptionalDependency(
         package="missing-dep",
+        module_name="missing_dep",
         features=("missing_feature",),
         import_probe=lambda: None,
         install_hint="pip install missing-dep",

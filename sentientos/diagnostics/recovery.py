@@ -8,6 +8,15 @@ import json
 from pathlib import Path
 from typing import Mapping, Protocol
 
+import sys
+
+from sentientos.capability_registry import (
+    capability_snapshot_hash,
+    disable_capability,
+    is_capability_disabled,
+)
+from sentientos.optional_deps import optional_dependency_for_module
+
 from .error_frame import DiagnosticErrorFrame
 from .recovery_eligibility import RecoveryEligibility
 
@@ -53,6 +62,8 @@ class RecoveryProofArtifact:
     pre_snapshot_hash: str
     post_snapshot_hash: str
     verification_passed: bool
+    missing_module: str | None = None
+    disabled_capability: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(
@@ -63,6 +74,8 @@ class RecoveryProofArtifact:
                 "pre_snapshot_hash": self.pre_snapshot_hash,
                 "post_snapshot_hash": self.post_snapshot_hash,
                 "verification_passed": self.verification_passed,
+                "missing_module": self.missing_module,
+                "disabled_capability": self.disabled_capability,
             },
             separators=(",", ":"),
             ensure_ascii=False,
@@ -77,6 +90,8 @@ class RecoveryProofArtifact:
         pre_snapshot_hash: str,
         post_snapshot_hash: str,
         verification_passed: bool,
+        missing_module: str | None = None,
+        disabled_capability: str | None = None,
     ) -> "RecoveryProofArtifact":
         payload = json.dumps(
             {
@@ -85,6 +100,8 @@ class RecoveryProofArtifact:
                 "pre_snapshot_hash": pre_snapshot_hash,
                 "post_snapshot_hash": post_snapshot_hash,
                 "verification_passed": verification_passed,
+                "missing_module": missing_module,
+                "disabled_capability": disabled_capability,
             },
             separators=(",", ":"),
             ensure_ascii=False,
@@ -98,6 +115,8 @@ class RecoveryProofArtifact:
             pre_snapshot_hash=pre_snapshot_hash,
             post_snapshot_hash=post_snapshot_hash,
             verification_passed=verification_passed,
+            missing_module=missing_module,
+            disabled_capability=disabled_capability,
         )
 
 
@@ -122,6 +141,9 @@ class RecoveryLadder(Protocol):
         ...
 
     def verify(self) -> bool:
+        ...
+
+    def summarize(self, plan: RecoveryPlan) -> str:
         ...
 
 
@@ -170,9 +192,94 @@ class MissingInstallDirectoryRecoveryLadder:
         path = self._last_plan.missing_path
         return path.exists() and path.is_dir()
 
+    def summarize(self, plan: RecoveryPlan) -> str:
+        return f"Recovered by creating missing directory {plan.missing_path}."
+
+
+@dataclass(frozen=True)
+class OptionalModuleIsolationPlan:
+    ladder_id: str
+    error_code: str
+    missing_module: str
+    capability: str
+    reason: str
+    suppressed_actions: tuple[str, ...]
+    pre_snapshot_hash: str
+
+
+class OptionalModuleIsolationRecoveryLadder:
+    ladder_id = "CLI_IMPORT_OPTIONAL_MODULE_ISOLATION"
+    applicable_error_codes = ("CLI_IMPORT_MODULE_MISSING",)
+    _allowed_phases = {"CLI", "INSTALL", "IMPORT"}
+    _protected_capabilities = {"cognition", "integrity", "forgetting", "recovery"}
+
+    def __init__(self) -> None:
+        self._last_plan: OptionalModuleIsolationPlan | None = None
+        self._last_result: RecoveryResult | None = None
+
+    def preconditions(self, frame: DiagnosticErrorFrame) -> bool:
+        missing_module = frame.technical_details.get("missing_module")
+        if (
+            frame.status != "ERROR"
+            or frame.error_code not in self.applicable_error_codes
+            or frame.failed_phase.value not in self._allowed_phases
+            or not isinstance(missing_module, str)
+            or not missing_module
+        ):
+            return False
+        dependency = optional_dependency_for_module(missing_module)
+        if dependency is None or dependency.missing_behavior == "hard_fail":
+            return False
+        capability = sorted(dependency.features)[0]
+        if capability in self._protected_capabilities:
+            return False
+        if is_capability_disabled(capability):
+            return False
+        return True
+
+    def simulate(self, frame: DiagnosticErrorFrame) -> OptionalModuleIsolationPlan:
+        missing_module = str(frame.technical_details.get("missing_module"))
+        dependency = optional_dependency_for_module(missing_module)
+        if dependency is None:
+            raise ValueError(f"Optional dependency not registered for module '{missing_module}'")
+        capability = sorted(dependency.features)[0]
+        pre_snapshot_hash = capability_snapshot_hash()
+        return OptionalModuleIsolationPlan(
+            ladder_id=self.ladder_id,
+            error_code=frame.error_code,
+            missing_module=missing_module,
+            capability=capability,
+            reason=f"missing optional dependency '{missing_module}'",
+            suppressed_actions=tuple(frame.suppressed_actions),
+            pre_snapshot_hash=pre_snapshot_hash,
+        )
+
+    def execute(self, plan: OptionalModuleIsolationPlan) -> RecoveryResult:
+        self._last_plan = plan
+        success = disable_capability(plan.capability, reason=plan.reason)
+        result = RecoveryResult(success=success, post_snapshot_hash=capability_snapshot_hash())
+        self._last_result = result
+        return result
+
+    def verify(self) -> bool:
+        if self._last_plan is None or self._last_result is None:
+            return False
+        if not is_capability_disabled(self._last_plan.capability):
+            return False
+        if self._last_plan.missing_module in sys.modules:
+            return False
+        return self._last_result.post_snapshot_hash == capability_snapshot_hash()
+
+    def summarize(self, plan: OptionalModuleIsolationPlan) -> str:
+        return (
+            "Recovered by disabling optional capability "
+            f"‹{plan.capability}› due to missing module ‹{plan.missing_module}›."
+        )
+
 
 RecoveryLadderRegistry: Mapping[str, RecoveryLadder] = {
-    "MISSING_RESOURCE": MissingInstallDirectoryRecoveryLadder()
+    "MISSING_RESOURCE": MissingInstallDirectoryRecoveryLadder(),
+    "CLI_IMPORT_MODULE_MISSING": OptionalModuleIsolationRecoveryLadder(),
 }
 
 
@@ -240,10 +347,12 @@ def attempt_recovery(
         pre_snapshot_hash=plan.pre_snapshot_hash,
         post_snapshot_hash=result.post_snapshot_hash,
         verification_passed=verified,
+        missing_module=getattr(plan, "missing_module", None),
+        disabled_capability=getattr(plan, "capability", None),
     )
     recovered_frame = promote_recovered_frame(
         frame,
         proof=proof,
-        summary=f"Recovered by creating missing directory {plan.missing_path}.",
+        summary=ladder.summarize(plan),
     )
     return RecoveryOutcome(status=RECOVERY_SUCCEEDED, recovered_frame=recovered_frame, proof=proof)
