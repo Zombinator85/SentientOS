@@ -7,9 +7,10 @@ persist data unless an approval flag is provided at construction time.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from agents.forms.ssa_disability_agent import SSADisabilityAgent
+if TYPE_CHECKING:
+    from agents.forms.ssa_disability_agent import SSADisabilityAgent
 
 from sentientos.consciousness.integration import run_consciousness_cycle
 
@@ -20,9 +21,15 @@ class SentientOrchestrator:
     def __init__(self, profile: Optional[dict] = None, approval: bool = False):
         self.profile = profile
         self.approval = approval
-        self.agent: Optional[SSADisabilityAgent] = (
-            SSADisabilityAgent(profile) if profile is not None else None
+        self.agent: Optional["SSADisabilityAgent"] = (
+            self._build_agent(profile) if profile is not None else None
         )
+
+    @staticmethod
+    def _build_agent(profile: dict):
+        from agents.forms.ssa_disability_agent import SSADisabilityAgent
+
+        return SSADisabilityAgent(profile)
 
     def _require_agent(self) -> Dict[str, str]:
         return {"error": "no_profile_loaded"}
