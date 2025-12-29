@@ -3,6 +3,7 @@ import json
 import pytest
 
 from cli import sentientos_cli
+from sentientos.consciousness.cognitive_state import COGNITIVE_SNAPSHOT_VERSION
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -77,3 +78,26 @@ def test_cli_integrity(monkeypatch, capsys):
 
     output = json.loads(capsys.readouterr().out)
     assert output["ok"] is True
+
+
+def test_cli_cognition_status_expect_version(monkeypatch, capsys):
+    snapshot = {"cognitive_snapshot_version": COGNITIVE_SNAPSHOT_VERSION, "ok": True}
+    monkeypatch.setattr(sentientos_cli, "_cognitive_status_snapshot", lambda: snapshot)
+
+    sentientos_cli.main(["cognition", "status", "--expect-version", str(COGNITIVE_SNAPSHOT_VERSION)])
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["ok"] is True
+
+
+def test_cli_cognition_status_expect_version_mismatch(monkeypatch, capsys):
+    snapshot = {"cognitive_snapshot_version": COGNITIVE_SNAPSHOT_VERSION + 1, "ok": True}
+    monkeypatch.setattr(sentientos_cli, "_cognitive_status_snapshot", lambda: snapshot)
+
+    with pytest.raises(SystemExit):
+        sentientos_cli.main(
+            ["cognition", "status", "--expect-version", str(COGNITIVE_SNAPSHOT_VERSION)]
+        )
+
+    output = json.loads(capsys.readouterr().out)
+    assert "error" in output

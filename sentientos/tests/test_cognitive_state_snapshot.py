@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-from sentientos.consciousness.cognitive_state import build_cognitive_state_snapshot
+import pytest
+
+from sentientos.consciousness.cognitive_state import (
+    COGNITIVE_SNAPSHOT_VERSION,
+    build_cognitive_state_snapshot,
+    validate_cognitive_snapshot_version,
+)
 from sentientos.consciousness.integration import run_consciousness_cycle
 
 
@@ -40,6 +46,15 @@ def test_cognitive_state_snapshot_deterministic_and_hashable() -> None:
 
     assert snapshot_one == snapshot_two
     assert snapshot_one["snapshot_hash"] == snapshot_two["snapshot_hash"]
+
+
+def test_cognitive_state_snapshot_includes_version() -> None:
+    snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot=_sample_pressure_snapshot(),
+        posture_history=["stable"],
+    )
+
+    assert snapshot["cognitive_snapshot_version"] == COGNITIVE_SNAPSHOT_VERSION
 
 
 def test_cognitive_state_snapshot_redacts_pressure_fields() -> None:
@@ -83,3 +98,59 @@ def test_cognitive_state_snapshot_matches_cycle() -> None:
     )
 
     assert cycle_result["cognitive_state_snapshot"] == expected_snapshot
+
+
+def test_cognitive_state_snapshot_hash_changes_on_version_bump(monkeypatch) -> None:
+    snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot=_sample_pressure_snapshot(),
+        posture_history=["stable"],
+    )
+
+    monkeypatch.setattr(
+        "sentientos.consciousness.cognitive_state.COGNITIVE_SNAPSHOT_VERSION",
+        COGNITIVE_SNAPSHOT_VERSION + 1,
+    )
+
+    bumped_snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot=_sample_pressure_snapshot(),
+        posture_history=["stable"],
+    )
+
+    assert snapshot["snapshot_hash"] != bumped_snapshot["snapshot_hash"]
+
+
+def test_validate_cognitive_snapshot_version_exact_match() -> None:
+    snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot=_sample_pressure_snapshot(),
+        posture_history=["stable"],
+    )
+
+    assert (
+        validate_cognitive_snapshot_version(snapshot, expected_version=COGNITIVE_SNAPSHOT_VERSION)
+        == COGNITIVE_SNAPSHOT_VERSION
+    )
+
+
+def test_validate_cognitive_snapshot_version_range() -> None:
+    snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot=_sample_pressure_snapshot(),
+        posture_history=["stable"],
+    )
+
+    assert validate_cognitive_snapshot_version(
+        snapshot,
+        min_version=COGNITIVE_SNAPSHOT_VERSION,
+        max_version=COGNITIVE_SNAPSHOT_VERSION,
+    ) == COGNITIVE_SNAPSHOT_VERSION
+
+
+def test_validate_cognitive_snapshot_version_mismatch() -> None:
+    snapshot = build_cognitive_state_snapshot(
+        pressure_snapshot=_sample_pressure_snapshot(),
+        posture_history=["stable"],
+    )
+
+    snapshot["cognitive_snapshot_version"] = COGNITIVE_SNAPSHOT_VERSION + 10
+
+    with pytest.raises(ValueError, match="does not match expected"):
+        validate_cognitive_snapshot_version(snapshot, expected_version=COGNITIVE_SNAPSHOT_VERSION)
