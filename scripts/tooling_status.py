@@ -7,6 +7,8 @@ from enum import Enum
 from hashlib import sha256
 from typing import Iterable, Literal, Mapping, TypedDict, cast
 
+from policy_digest import policy_digest_reference
+
 Classification = Literal["mandatory", "advisory", "optional", "artifact-dependent"]
 Status = Literal["passed", "failed", "skipped", "error", "missing"]
 OverallStatus = Literal["PASS", "WARN", "FAIL"]
@@ -2649,33 +2651,47 @@ def evaluate_tooling_status_policy(
     return decision
 
 
+def _attach_policy_digest_metadata(policy: ToolingStatusPolicy) -> ToolingStatusPolicy:
+    """Attach doctrine attribution metadata without altering policy evaluation."""
+
+    metadata = dict(policy.forward_metadata)
+    metadata.setdefault("policy_digest", policy_digest_reference())
+    return replace(policy, forward_metadata=metadata)
+
+
 def policy_ci_strict() -> ToolingStatusPolicy:
-    return ToolingStatusPolicy(
-        schema_version=_POLICY_SCHEMA_VERSION,
-        allowed_overall_statuses=("PASS",),
-        allowed_producer_types=("ci",),
-        required_redaction_profile=None,
-        maximum_advisory_issues=0,
+    return _attach_policy_digest_metadata(
+        ToolingStatusPolicy(
+            schema_version=_POLICY_SCHEMA_VERSION,
+            allowed_overall_statuses=("PASS",),
+            allowed_producer_types=("ci",),
+            required_redaction_profile=None,
+            maximum_advisory_issues=0,
+        )
     )
 
 
 def policy_local_dev_permissive() -> ToolingStatusPolicy:
-    return ToolingStatusPolicy(
-        schema_version=_POLICY_SCHEMA_VERSION,
-        allowed_overall_statuses=("PASS", "WARN"),
-        allowed_producer_types=None,
-        required_redaction_profile=None,
-        maximum_advisory_issues=None,
+    return _attach_policy_digest_metadata(
+        ToolingStatusPolicy(
+            schema_version=_POLICY_SCHEMA_VERSION,
+            allowed_overall_statuses=("PASS", "WARN"),
+            allowed_producer_types=None,
+            required_redaction_profile=None,
+            maximum_advisory_issues=None,
+        )
     )
 
 
 def policy_release_gate() -> ToolingStatusPolicy:
-    return ToolingStatusPolicy(
-        schema_version=_POLICY_SCHEMA_VERSION,
-        allowed_overall_statuses=("PASS",),
-        allowed_producer_types=None,
-        required_redaction_profile=RedactionProfile.SAFE,
-        maximum_advisory_issues=0,
+    return _attach_policy_digest_metadata(
+        ToolingStatusPolicy(
+            schema_version=_POLICY_SCHEMA_VERSION,
+            allowed_overall_statuses=("PASS",),
+            allowed_producer_types=None,
+            required_redaction_profile=RedactionProfile.SAFE,
+            maximum_advisory_issues=0,
+        )
     )
 
 

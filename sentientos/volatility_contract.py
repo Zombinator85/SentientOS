@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable, Mapping, MutableSequence, Sequence
 
+from policy_digest import policy_digest_reference
 
 class VolatilityLevel(str, Enum):
     NORMAL = "normal"
@@ -80,6 +81,7 @@ class CapabilityRoute:
     reason: str
     explanation_depth: str
     monitoring_intensity: str
+    policy_reference: dict[str, str]
 
 
 class CapabilityDenied(RuntimeError):
@@ -91,6 +93,8 @@ class CapabilityDenied(RuntimeError):
         self.action = action
         self.capability = capability
         self.state = state
+        # Doctrine attribution only; this does not expand or authorize capabilities.
+        self.policy_reference = policy_digest_reference()
 
 
 class CapabilityRouter:
@@ -122,6 +126,7 @@ class CapabilityRouter:
                 reason="capability allowed",
                 explanation_depth=definition.required_explanation_depth,
                 monitoring_intensity=definition.monitoring_intensity,
+                policy_reference=policy_digest_reference(),
             )
 
         degraded = self.degrade_capability_map.get(capability)
@@ -135,6 +140,7 @@ class CapabilityRouter:
                 reason="capability rerouted to safer alternative",
                 explanation_depth=definition.required_explanation_depth,
                 monitoring_intensity=definition.monitoring_intensity,
+                policy_reference=policy_digest_reference(),
             )
 
         raise CapabilityDenied(action, capability, definition)
