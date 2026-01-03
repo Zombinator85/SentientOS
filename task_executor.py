@@ -11,6 +11,7 @@ from control_plane.enums import ReasonCode, RequestType
 from control_plane.records import AuthorizationError, AuthorizationRecord
 from sentientos.gradient_contract import GradientInvariantViolation, enforce_no_gradient_fields
 from sentientos.external_adapters import AdapterExecutionContext, execute_adapter_action
+from sentientos.intent_record import capture_intent_record
 
 from logging_config import get_log_path
 from log_utils import append_json
@@ -301,6 +302,11 @@ def execute_task(
         raise RequestFingerprintMismatchError(
             "request fingerprint mismatch between admission token and execution request"
         )
+    capture_intent_record(
+        intent_type="task_dispatch",
+        payload=canonical_request["task"],
+        originating_context="runtime",
+    )
     artifacts: Dict[str, Mapping[str, object]] = {}
     trace: list[StepTrace] = []
     closure = _close_task(task, approval_grants=approval_grants)

@@ -14,6 +14,7 @@ from enum import Enum
 from typing import Callable, Mapping, MutableSequence, Sequence
 
 from policy_digest import policy_digest_reference
+from sentientos.intent_record import capture_intent_record
 
 class VolatilityLevel(str, Enum):
     NORMAL = "normal"
@@ -275,6 +276,16 @@ class VolatilityManager:
         self.audit_log.append(entry)
 
     def transition(self, *, subject: str, to_level: VolatilityLevel, reason: str) -> VolatilityStateDefinition:
+        capture_intent_record(
+            intent_type="volatility_transition",
+            payload={
+                "subject": subject,
+                "from_level": self.current_state.value,
+                "to_level": to_level.value if isinstance(to_level, VolatilityLevel) else str(to_level),
+                "reason": reason,
+            },
+            originating_context="runtime",
+        )
         if to_level not in self.state_definitions:
             raise ValueError("Unknown volatility level")
         if to_level == self.current_state:
