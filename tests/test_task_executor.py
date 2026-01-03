@@ -6,6 +6,7 @@ from typing import Any, Mapping
 import pytest
 
 from control_plane import AuthorizationRecord, Decision, ReasonCode, RequestType, admit_request
+from policy_digest import policy_digest_reference
 import task_executor
 
 
@@ -731,6 +732,95 @@ def test_epr_exhaustion_halts_execution_and_logs_once(monkeypatch, tmp_path):
     entries = [json.loads(line) for line in Path(task_executor.LOG_PATH).read_text().splitlines()]
     exhaustion_entries = [entry for entry in entries if entry.get("event") == "exhaustion"]
     assert len(exhaustion_entries) == 1
+
+
+def test_policy_digest_metadata_is_non_semantic_for_fingerprints_and_exhaustion(monkeypatch, tmp_path):
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_MAX_CLOSURE_ITERATIONS", "2")
+    monkeypatch.setenv("SENTIENTOS_MAX_EPR_ACTIONS_PER_TASK", "2")
+    reload(task_executor)
+
+    def repair_action():
+        return {"closure_changed": False}
+
+    task = task_executor.Task(
+        task_id="policy-digest-exhaust",
+        objective="ignore policy digest in identity",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload()),),
+        allow_epr=True,
+        epr_actions=(
+            task_executor.EprAction(
+                action_id="repair-step",
+                parent_task_id="policy-digest-exhaust",
+                trigger_step_id=1,
+                authority_impact="none",
+                reversibility="guaranteed",
+                rollback_proof="snapshot",
+                external_effects="no",
+                handler=repair_action,
+            ),
+        ),
+    )
+
+    policy_ref = policy_digest_reference()
+    auth_base = AuthorizationRecord.create(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="policy-digest-exhaust",
+        context_hash="ctx-policy-digest",
+        policy_version="v1-static",
+        decision=Decision.ALLOW,
+        reason=ReasonCode.OK,
+        metadata={"policy_digest": policy_ref},
+    )
+    auth_variant = AuthorizationRecord.create(
+        request_type=RequestType.TASK_EXECUTION,
+        requester_id="operator",
+        intent_hash="policy-digest-exhaust",
+        context_hash="ctx-policy-digest",
+        policy_version="v1-static",
+        decision=Decision.ALLOW,
+        reason=ReasonCode.OK,
+        metadata={"policy_digest": {"policy_id": "alt", "policy_hash": "alt"}},
+    )
+
+    provenance = _provenance(task.task_id)
+    canonical_base = task_executor.canonicalise_task_request(
+        task=task,
+        authorization=auth_base,
+        provenance=provenance,
+    )
+    canonical_variant = task_executor.canonicalise_task_request(
+        task=task,
+        authorization=auth_variant,
+        provenance=provenance,
+    )
+    assert canonical_base == canonical_variant
+
+    fingerprint_base = task_executor.request_fingerprint_from_canonical(canonical_base)
+    fingerprint_variant = task_executor.request_fingerprint_from_canonical(canonical_variant)
+    assert fingerprint_base == fingerprint_variant
+
+    token_base = task_executor.AdmissionToken(
+        task_id=task.task_id,
+        provenance=provenance,
+        request_fingerprint=fingerprint_base,
+    )
+    token_variant = task_executor.AdmissionToken(
+        task_id=task.task_id,
+        provenance=provenance,
+        request_fingerprint=fingerprint_variant,
+    )
+
+    with pytest.raises(task_executor.TaskExhausted) as excinfo_base:
+        task_executor.execute_task(task, authorization=auth_base, admission_token=token_base)
+    with pytest.raises(task_executor.TaskExhausted) as excinfo_variant:
+        task_executor.execute_task(task, authorization=auth_variant, admission_token=token_variant)
+
+    assert excinfo_base.value.report == excinfo_variant.value.report
+    entries = [json.loads(line) for line in Path(task_executor.LOG_PATH).read_text().splitlines()]
+    exhaustion_entries = [entry for entry in entries if entry.get("event") == "exhaustion"]
+    assert len(exhaustion_entries) == 2
 
 
 def test_unknown_prerequisite_cycles_exhaust(monkeypatch, tmp_path):

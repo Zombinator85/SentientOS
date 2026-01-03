@@ -9,7 +9,7 @@ clear path to reintegration.
 from __future__ import annotations
 
 import datetime as _dt
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Mapping, MutableSequence, Sequence
 
@@ -81,7 +81,7 @@ class CapabilityRoute:
     reason: str
     explanation_depth: str
     monitoring_intensity: str
-    policy_reference: dict[str, str]
+    policy_reference: dict[str, str] = field(compare=False, hash=False)
 
 
 class CapabilityDenied(RuntimeError):
@@ -126,6 +126,7 @@ class CapabilityRouter:
                 reason="capability allowed",
                 explanation_depth=definition.required_explanation_depth,
                 monitoring_intensity=definition.monitoring_intensity,
+                # PolicyDigest is attribution only. It must not affect semantic identity, hashing, or execution.
                 policy_reference=policy_digest_reference(),
             )
 
@@ -140,6 +141,7 @@ class CapabilityRouter:
                 reason="capability rerouted to safer alternative",
                 explanation_depth=definition.required_explanation_depth,
                 monitoring_intensity=definition.monitoring_intensity,
+                # PolicyDigest is attribution only. It must not affect semantic identity, hashing, or execution.
                 policy_reference=policy_digest_reference(),
             )
 
