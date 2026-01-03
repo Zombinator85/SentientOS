@@ -33,6 +33,7 @@ import os
 import final_approval
 import affective_context as ac
 from sentientos.pressure_engagement import ConstraintEngagementEngine
+from sentientos.intent_record import capture_intent_record
 
 try:
     import yaml  # type: ignore[import-untyped]  # optional YAML policies
@@ -142,6 +143,11 @@ class PolicyEngine:
     # -- Evaluation ---------------------------------------------------------
     def evaluate(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Evaluate an event and return actions triggered."""
+        capture_intent_record(
+            intent_type="tooling_evaluation",
+            payload={"event": event},
+            originating_context="tooling",
+        )
         affective_overlay = ac.capture_affective_context(
             "policy-evaluate", overlay=event.get("emotions", {})
         )
