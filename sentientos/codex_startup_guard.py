@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 import os
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from policy_digest import policy_digest_reference
 from typing import Iterable, Iterator
@@ -120,7 +120,7 @@ class CodexStartupState:
     finalized: bool
     owner_pid: int
     root_pid: int | None
-    policy_reference: dict[str, str]
+    policy_reference: dict[str, str] = field(compare=False, hash=False)
 
 
 def codex_startup_state() -> CodexStartupState:
@@ -133,7 +133,7 @@ def codex_startup_state() -> CodexStartupState:
         finalized=_STARTUP_FINALIZED,
         owner_pid=_STARTUP_OWNER_PID,
         root_pid=int(root_pid) if root_pid and root_pid.isdigit() else None,
-        # Doctrine attribution only; this does not evaluate or alter startup enforcement.
+        # PolicyDigest is attribution only. It must not affect semantic identity, hashing, or execution.
         policy_reference=policy_digest_reference(),
     )
 

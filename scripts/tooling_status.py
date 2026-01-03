@@ -240,7 +240,7 @@ class ToolingStatusPolicy:
     allowed_producer_types: tuple[str, ...] | None
     required_redaction_profile: RedactionProfile | None
     maximum_advisory_issues: int | None
-    forward_metadata: dict[str, object] = field(default_factory=dict)
+    forward_metadata: dict[str, object] = field(default_factory=dict, compare=False, hash=False)
 
 
 class PolicyOverrideMode(Enum):
@@ -1559,7 +1559,6 @@ def _policy_fingerprint(policy: "ToolingStatusPolicy") -> str:
             else None
         ),
         "maximum_advisory_issues": policy.maximum_advisory_issues,
-        "forward_metadata": policy.forward_metadata,
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return sha256(canonical.encode("utf-8")).hexdigest()
@@ -2655,6 +2654,7 @@ def _attach_policy_digest_metadata(policy: ToolingStatusPolicy) -> ToolingStatus
     """Attach doctrine attribution metadata without altering policy evaluation."""
 
     metadata = dict(policy.forward_metadata)
+    # PolicyDigest is attribution only. It must not affect semantic identity, hashing, or execution.
     metadata.setdefault("policy_digest", policy_digest_reference())
     return replace(policy, forward_metadata=metadata)
 
