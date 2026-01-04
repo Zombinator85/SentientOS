@@ -9,6 +9,7 @@ from sentientos.constraint_justification import (
     constraint_justification_catalog,
     enumerate_constraint_review_signals,
 )
+from sentientos.failure_taxonomy import failure_taxonomy_reference
 from sentientos.constraint_registry import ConstraintRegistry
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -23,6 +24,7 @@ def test_constraint_justification_deterministic_serialization_and_hash() -> None
         justification_text="Because the doctrine requires it.",
         review_epoch=7,
         status="active",
+        failure_taxonomy=failure_taxonomy_reference(),
     )
 
     assert justification.canonical_json() == justification.canonical_json()
@@ -40,6 +42,7 @@ def test_constraint_review_signals_surface_missing_and_legacy() -> None:
             justification_text="Active constraint.",
             review_epoch=2,
             status="active",
+            failure_taxonomy=failure_taxonomy_reference(),
         ),
         "constraint-legacy": ConstraintJustification(
             constraint_id="constraint-legacy",
@@ -48,6 +51,7 @@ def test_constraint_review_signals_surface_missing_and_legacy() -> None:
             justification_text="Legacy constraint.",
             review_epoch=1,
             status="legacy",
+            failure_taxonomy=failure_taxonomy_reference(),
         ),
     }
 

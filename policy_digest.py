@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Iterable, Sequence
 
+from sentientos.failure_taxonomy import failure_taxonomy_reference
 
 def _normalize_lines(text: str) -> str:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -31,6 +32,7 @@ class PolicyDigest:
     doctrine_hash: str
     declared_invariants: tuple[str, ...]
     scope: tuple[str, ...]
+    failure_taxonomy: tuple[str, ...] = field(default_factory=tuple)
 
     def canonical_payload(self) -> dict[str, object]:
         return {
@@ -39,6 +41,7 @@ class PolicyDigest:
             "doctrine_hash": self.doctrine_hash,
             "declared_invariants": list(self.declared_invariants),
             "scope": list(self.scope),
+            "failure_taxonomy": list(self.failure_taxonomy),
         }
 
     def canonical_json(self) -> str:
@@ -62,9 +65,11 @@ def build_policy_digest(
     policy_version: str,
     declared_invariants: Sequence[str],
     scope: Sequence[str],
+    failure_taxonomy: Sequence[str] | None = None,
 ) -> PolicyDigest:
     normalized_invariants = _normalize_items(declared_invariants)
     normalized_scope = _normalize_items(scope)
+    normalized_taxonomy = _normalize_items(failure_taxonomy or failure_taxonomy_reference())
     doctrine_hash = _compute_doctrine_hash(normalized_invariants)
     return PolicyDigest(
         policy_id=policy_id,
@@ -72,6 +77,7 @@ def build_policy_digest(
         doctrine_hash=doctrine_hash,
         declared_invariants=normalized_invariants,
         scope=normalized_scope,
+        failure_taxonomy=normalized_taxonomy,
     )
 
 
