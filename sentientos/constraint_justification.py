@@ -10,11 +10,12 @@ permission path.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 from typing import Iterable, Mapping
 
 from policy_digest import policy_digest_reference
+from sentientos.failure_taxonomy import failure_taxonomy_reference
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +42,7 @@ class ConstraintJustification:
     justification_text: str
     review_epoch: int
     status: str
+    failure_taxonomy: tuple[str, ...] = field(default_factory=tuple)
 
     def canonical_payload(self) -> dict[str, object]:
         return {
@@ -50,6 +52,7 @@ class ConstraintJustification:
             "justification_text": self.justification_text,
             "review_epoch": self.review_epoch,
             "status": self.status,
+            "failure_taxonomy": list(self.failure_taxonomy),
         }
 
     def canonical_json(self) -> str:
@@ -78,6 +81,7 @@ def _doctrine_reference() -> DoctrineReference:
 
 
 _DOCTRINE_REFERENCE = _doctrine_reference()
+_FAILURE_TAXONOMY_REFERENCE = failure_taxonomy_reference()
 
 
 _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
@@ -88,6 +92,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Runtime load homeostasis prevents runaway pressure without revoking presence.",
         review_epoch=3,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::browser::open": ConstraintJustification(
         constraint_id="autonomy::browser::open",
@@ -96,6 +101,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Browser opens remain auditable and bound to declared autonomy controls.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::browser::click": ConstraintJustification(
         constraint_id="autonomy::browser::click",
@@ -104,6 +110,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Browser clicks require traceable autonomy constraints and council visibility.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::browser::type": ConstraintJustification(
         constraint_id="autonomy::browser::type",
@@ -112,6 +119,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Browser typing is constrained to prevent unreviewed public posting.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::browser::post": ConstraintJustification(
         constraint_id="autonomy::browser::post",
@@ -120,6 +128,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Browser posting remains quorum-gated and reviewable for accountability.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::gui::click": ConstraintJustification(
         constraint_id="autonomy::gui::click",
@@ -128,6 +137,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="GUI clicks stay bounded to audited, explainable control flows.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::gui::move": ConstraintJustification(
         constraint_id="autonomy::gui::move",
@@ -136,6 +146,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="GUI movement remains safety-scoped and panic-aware without implicit permission.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::gui::type": ConstraintJustification(
         constraint_id="autonomy::gui::type",
@@ -144,6 +155,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="GUI typing is constrained to protect sensitive inputs and audit trails.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "autonomy::gui::focus": ConstraintJustification(
         constraint_id="autonomy::gui::focus",
@@ -152,6 +164,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="GUI focus shifts are logged to preserve operator accountability.",
         review_epoch=2,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "epr::irreversible-external-effects": ConstraintJustification(
         constraint_id="epr::irreversible-external-effects",
@@ -160,6 +173,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="EPR blocks irreversible external effects during bootstrap to keep entrypoints reversible.",
         review_epoch=4,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "volatility::capability-scope": ConstraintJustification(
         constraint_id="volatility::capability-scope",
@@ -168,6 +182,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Volatility routing narrows capabilities without revoking presence or consent signals.",
         review_epoch=4,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
     "cathedral::quarantine-classification": ConstraintJustification(
         constraint_id="cathedral::quarantine-classification",
@@ -176,6 +191,7 @@ _CONSTRAINT_JUSTIFICATIONS: dict[str, ConstraintJustification] = {
         justification_text="Failures classify into quarantine to preserve auditability before rejection.",
         review_epoch=4,
         status="active",
+        failure_taxonomy=_FAILURE_TAXONOMY_REFERENCE,
     ),
 }
 
