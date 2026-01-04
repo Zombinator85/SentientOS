@@ -123,6 +123,8 @@ class PolicyEvaluationSnapshotPayloadRequired(TypedDict):
 class PolicyEvaluationSnapshotPayload(PolicyEvaluationSnapshotPayloadRequired, total=False):
     parent_snapshot_fingerprint: str
     lineage_relation: str
+    snapshot_parent_fingerprint: str
+    snapshot_relation: str
     review_notes: str
     snapshot_fingerprint: str
     evaluation_fingerprint: str
@@ -133,12 +135,22 @@ class PolicyEvaluationSnapshotPayload(PolicyEvaluationSnapshotPayloadRequired, t
 _SCHEMA_VERSION = "1.2"
 _ATTESTATION_SCHEMA_VERSION = "1.2"
 _LINEAGE_SCHEMA_VERSION = "1.1"
-_SNAPSHOT_SCHEMA_VERSION = "1.2"
+_SNAPSHOT_SCHEMA_VERSION = "1.3"
 _SNAPSHOT_LINEAGE_SCHEMA_VERSION = "1.1"
+_SNAPSHOT_RELATION_SCHEMA_VERSION = "1.3"
 _SNAPSHOT_UNCERTAINTY_SCHEMA_VERSION = "1.2"
 _VALID_STATUSES: set[Status] = {"passed", "failed", "skipped", "error", "missing"}
 _VALID_LINEAGE_RELATIONS: set[str] = {"supersedes", "amends", "annotates", "recheck"}
-_AUTHORITATIVE_SNAPSHOT_RELATIONS: set[str] = {"supersedes", "amends"}
+_VALID_SNAPSHOT_RELATIONS: set[str] = {"supersedes", "recheck", "amended", "parallel"}
+_LEGACY_SNAPSHOT_RELATION_ALIASES: dict[str, str] = {
+    "amends": "amended",
+    "annotates": "parallel",
+}
+_LEGACY_SNAPSHOT_RELATION_RENAMES: dict[str, str] = {
+    "amended": "amends",
+    "parallel": "annotates",
+}
+_AUTHORITATIVE_SNAPSHOT_RELATIONS: set[str] = {"supersedes", "amended"}
 _VALID_PRODUCER_TYPES: set[str] = {"local", "ci", "sandbox", "pipeline", "adhoc"}
 _REDACTED_MARKER = "<redacted>"
 _REDACTED_FINGERPRINT = "0" * 64
@@ -345,6 +357,8 @@ class PolicyEvaluationSnapshot:
     options: PolicyEvaluationOptions
     parent_snapshot_fingerprint: str | None = None
     lineage_relation: str | None = None
+    snapshot_parent_fingerprint: str | None = None
+    snapshot_relation: str | None = None
     review_notes: str | None = None
     confidence_band: str | None = None
     uncertainty_score: int | None = None
@@ -368,10 +382,15 @@ class PolicyEvaluationSnapshot:
         return sha256(serialized.encode("utf-8")).hexdigest()
 
     def _redacted_parent_fingerprint(self) -> str | None:
-        if self.parent_snapshot_fingerprint is None:
+        parent = (
+            self.snapshot_parent_fingerprint
+            if self.snapshot_parent_fingerprint is not None
+            else self.parent_snapshot_fingerprint
+        )
+        if parent is None:
             return None
         if self.options.profile.config.include_lineage_parent:
-            return self.parent_snapshot_fingerprint
+            return parent
         return _REDACTED_FINGERPRINT
 
     def _redacted_review_notes(self) -> str | None:
@@ -383,7 +402,7 @@ class PolicyEvaluationSnapshot:
 
     @property
     def fingerprint(self) -> str:
-        payload = {
+        payload: dict[str, object] = {
             "evaluation_fingerprint": self.evaluation_fingerprint,
             "parent_snapshot_fingerprint": self._redacted_parent_fingerprint(),
             "lineage_relation": self.lineage_relation,
@@ -392,6 +411,10 @@ class PolicyEvaluationSnapshot:
             "uncertainty_score": self.uncertainty_score,
             "uncertainty_reason_codes": self.uncertainty_reason_codes,
         }
+        if self.snapshot_parent_fingerprint is not None:
+            payload["snapshot_parent_fingerprint"] = self._redacted_parent_fingerprint()
+        if self.snapshot_relation is not None:
+            payload["snapshot_relation"] = self.snapshot_relation
         serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return sha256(serialized.encode("utf-8")).hexdigest()
 
@@ -429,6 +452,10 @@ class PolicyEvaluationSnapshot:
             payload["parent_snapshot_fingerprint"] = self._redacted_parent_fingerprint()
         if self.lineage_relation is not None:
             payload["lineage_relation"] = self.lineage_relation
+        if self.snapshot_parent_fingerprint is not None:
+            payload["snapshot_parent_fingerprint"] = self._redacted_parent_fingerprint()
+        if self.snapshot_relation is not None:
+            payload["snapshot_relation"] = self.snapshot_relation
         if self.review_notes is not None:
             payload["review_notes"] = self._redacted_review_notes()
         if self.confidence_band is not None:
@@ -551,6 +578,22 @@ def _validate_lineage_relation(value: object) -> str:
             f"lineage_relation must be one of {sorted(_VALID_LINEAGE_RELATIONS)}"
         )
     return value
+
+
+def _validate_snapshot_relation(value: object) -> str:
+    if not isinstance(value, str):
+        raise ValueError("snapshot_relation must be a string when provided")
+    if value in _LEGACY_SNAPSHOT_RELATION_ALIASES:
+        return _LEGACY_SNAPSHOT_RELATION_ALIASES[value]
+    if value not in _VALID_SNAPSHOT_RELATIONS:
+        raise ValueError(
+            f"snapshot_relation must be one of {sorted(_VALID_SNAPSHOT_RELATIONS)}"
+        )
+    return value
+
+
+def _legacy_snapshot_relation(value: str) -> str:
+    return _LEGACY_SNAPSHOT_RELATION_RENAMES.get(value, value)
 
 
 def _validate_confidence_band(value: object) -> str | None:
@@ -1789,6 +1832,9 @@ def parse_policy_evaluation_snapshot(
     lineage_supported = (
         _compare_versions(schema_version_value, _SNAPSHOT_LINEAGE_SCHEMA_VERSION) >= 0
     )
+    snapshot_relation_supported = (
+        _compare_versions(schema_version_value, _SNAPSHOT_RELATION_SCHEMA_VERSION) >= 0
+    )
     uncertainty_supported = (
         _compare_versions(schema_version_value, _SNAPSHOT_UNCERTAINTY_SCHEMA_VERSION)
         >= 0
@@ -1812,11 +1858,16 @@ def parse_policy_evaluation_snapshot(
             {
                 "parent_snapshot_fingerprint",
                 "lineage_relation",
+                "snapshot_parent_fingerprint",
+                "snapshot_relation",
                 "review_notes",
                 "snapshot_fingerprint",
                 "evaluation_fingerprint",
             }
         )
+    if lineage_supported and not snapshot_relation_supported:
+        allowed_fields.discard("snapshot_parent_fingerprint")
+        allowed_fields.discard("snapshot_relation")
     if uncertainty_supported:
         allowed_fields.update(
             {
@@ -1884,6 +1935,8 @@ def parse_policy_evaluation_snapshot(
 
     parent_snapshot_fingerprint: str | None = None
     lineage_relation: str | None = None
+    snapshot_parent_fingerprint: str | None = None
+    snapshot_relation: str | None = None
     review_notes: str | None = None
     evaluation_fingerprint_value: str | None = None
     snapshot_fingerprint_value: str | None = None
@@ -1893,7 +1946,9 @@ def parse_policy_evaluation_snapshot(
 
     if lineage_supported:
         parent_snapshot_payload = payload.get("parent_snapshot_fingerprint")
+        snapshot_parent_payload = payload.get("snapshot_parent_fingerprint")
         relation_payload = payload.get("lineage_relation")
+        snapshot_relation_payload = payload.get("snapshot_relation")
         review_notes_payload = payload.get("review_notes")
         snapshot_fingerprint_payload = payload.get("snapshot_fingerprint")
         evaluation_fingerprint_payload = payload.get("evaluation_fingerprint")
@@ -1902,8 +1957,30 @@ def parse_policy_evaluation_snapshot(
             parent_snapshot_fingerprint = _validate_fingerprint_value(
                 parent_snapshot_payload
             )
+        if snapshot_parent_payload is not None:
+            if not snapshot_relation_supported:
+                raise ValueError("snapshot_parent_fingerprint not supported for this schema version")
+            snapshot_parent_fingerprint = _validate_fingerprint_value(snapshot_parent_payload)
+        if (
+            parent_snapshot_fingerprint is not None
+            and snapshot_parent_fingerprint is not None
+            and parent_snapshot_fingerprint != snapshot_parent_fingerprint
+        ):
+            raise ValueError("Snapshot parent fingerprint mismatch between fields")
         if relation_payload is not None:
             lineage_relation = _validate_lineage_relation(relation_payload)
+        if snapshot_relation_payload is not None:
+            if not snapshot_relation_supported:
+                raise ValueError("snapshot_relation not supported for this schema version")
+            snapshot_relation = _validate_snapshot_relation(snapshot_relation_payload)
+        if lineage_relation is not None and snapshot_relation is not None:
+            normalized_lineage = _validate_snapshot_relation(lineage_relation)
+            if normalized_lineage != snapshot_relation:
+                raise ValueError("Snapshot relation mismatch between fields")
+        if lineage_relation is not None and snapshot_relation is None:
+            snapshot_relation = _validate_snapshot_relation(lineage_relation)
+        if snapshot_relation is not None and lineage_relation is None:
+            lineage_relation = _legacy_snapshot_relation(snapshot_relation)
         if lineage_relation is not None and parent_snapshot_fingerprint is None:
             raise ValueError(
                 "lineage_relation provided without parent_snapshot_fingerprint"
@@ -1912,6 +1989,10 @@ def parse_policy_evaluation_snapshot(
             raise ValueError(
                 "lineage_relation must accompany parent_snapshot_fingerprint"
             )
+        if snapshot_relation is not None and snapshot_parent_fingerprint is None and parent_snapshot_fingerprint is None:
+            raise ValueError("snapshot_relation provided without snapshot_parent_fingerprint")
+        if snapshot_relation is None and snapshot_parent_fingerprint is not None:
+            raise ValueError("snapshot_relation must accompany snapshot_parent_fingerprint")
         if review_notes_payload is not None:
             if not isinstance(review_notes_payload, str):
                 raise ValueError("review_notes must be a string when provided")
@@ -1941,6 +2022,8 @@ def parse_policy_evaluation_snapshot(
         for key in (
             "parent_snapshot_fingerprint",
             "lineage_relation",
+            "snapshot_parent_fingerprint",
+            "snapshot_relation",
             "review_notes",
             "snapshot_fingerprint",
             "evaluation_fingerprint",
@@ -1959,15 +2042,20 @@ def parse_policy_evaluation_snapshot(
         options=options,
         parent_snapshot_fingerprint=parent_snapshot_fingerprint,
         lineage_relation=lineage_relation,
+        snapshot_parent_fingerprint=snapshot_parent_fingerprint,
+        snapshot_relation=snapshot_relation,
         review_notes=review_notes,
         confidence_band=confidence_band,
         uncertainty_score=uncertainty_score,
         uncertainty_reason_codes=uncertainty_reason_codes,
     )
 
-    if snapshot.parent_snapshot_fingerprint is not None and (
-        snapshot.parent_snapshot_fingerprint == snapshot.fingerprint
-    ):
+    effective_parent = (
+        snapshot.snapshot_parent_fingerprint
+        if snapshot.snapshot_parent_fingerprint is not None
+        else snapshot.parent_snapshot_fingerprint
+    )
+    if effective_parent is not None and effective_parent == snapshot.fingerprint:
         raise ValueError("Snapshot cannot reference itself as lineage parent")
 
     if evaluation_fingerprint_value is not None and (
@@ -2016,6 +2104,8 @@ def snapshot_tooling_status_policy_evaluation(
     cache: _PolicyEvaluationCache | None = None,
     parent_snapshot_fingerprint: str | None = None,
     lineage_relation: str | None = None,
+    snapshot_parent_fingerprint: str | None = None,
+    snapshot_relation: str | None = None,
     review_notes: str | None = None,
     confidence_band: str | None = None,
     uncertainty_score: int | None = None,
@@ -2031,13 +2121,39 @@ def snapshot_tooling_status_policy_evaluation(
         if parent_snapshot_fingerprint
         else None
     )
+    snapshot_parent_value = (
+        _validate_fingerprint_value(snapshot_parent_fingerprint)
+        if snapshot_parent_fingerprint
+        else None
+    )
+    if parent_fingerprint_value is not None and snapshot_parent_value is not None:
+        if parent_fingerprint_value != snapshot_parent_value:
+            raise ValueError("Snapshot parent fingerprint mismatch between fields")
+    effective_parent = snapshot_parent_value or parent_fingerprint_value
+
     lineage_relation_value = (
         _validate_lineage_relation(lineage_relation) if lineage_relation else None
     )
+    snapshot_relation_value = (
+        _validate_snapshot_relation(snapshot_relation) if snapshot_relation else None
+    )
+    if lineage_relation_value is not None and snapshot_relation_value is not None:
+        normalized_lineage = _validate_snapshot_relation(lineage_relation_value)
+        if normalized_lineage != snapshot_relation_value:
+            raise ValueError("Snapshot relation mismatch between fields")
+    if snapshot_relation_value is None and lineage_relation_value is not None:
+        snapshot_relation_value = _validate_snapshot_relation(lineage_relation_value)
+    if lineage_relation_value is None and snapshot_relation_value is not None:
+        lineage_relation_value = _legacy_snapshot_relation(snapshot_relation_value)
+
     if lineage_relation_value is not None and parent_fingerprint_value is None:
         raise ValueError("lineage_relation provided without parent_snapshot_fingerprint")
     if parent_fingerprint_value is not None and lineage_relation_value is None:
         raise ValueError("lineage_relation must accompany parent_snapshot_fingerprint")
+    if snapshot_relation_value is not None and snapshot_parent_value is None and parent_fingerprint_value is None:
+        raise ValueError("snapshot_relation provided without snapshot_parent_fingerprint")
+    if snapshot_relation_value is None and snapshot_parent_value is not None:
+        raise ValueError("snapshot_relation must accompany snapshot_parent_fingerprint")
     combined_review_notes = review_notes
     if review_notes is not None:
         if not isinstance(review_notes, str):
@@ -2102,14 +2218,15 @@ def snapshot_tooling_status_policy_evaluation(
         ),
         parent_snapshot_fingerprint=parent_fingerprint_value,
         lineage_relation=lineage_relation_value,
+        snapshot_parent_fingerprint=snapshot_parent_value,
+        snapshot_relation=snapshot_relation_value,
         review_notes=combined_review_notes,
         confidence_band=confidence_band_value,
         uncertainty_score=uncertainty_score_value,
         uncertainty_reason_codes=uncertainty_reason_codes_value,
     )
-    if snapshot.parent_snapshot_fingerprint is not None and (
-        snapshot.parent_snapshot_fingerprint == snapshot.fingerprint
-    ):
+    effective_parent = effective_parent
+    if effective_parent is not None and effective_parent == snapshot.fingerprint:
         raise ValueError("Snapshot cannot reference itself as lineage parent")
     return snapshot.to_payload()
 
@@ -2774,6 +2891,22 @@ def _to_snapshot(
     return parse_policy_evaluation_snapshot(candidate)
 
 
+def _snapshot_parent(snapshot: PolicyEvaluationSnapshot) -> str | None:
+    return (
+        snapshot.snapshot_parent_fingerprint
+        if snapshot.snapshot_parent_fingerprint is not None
+        else snapshot.parent_snapshot_fingerprint
+    )
+
+
+def _snapshot_relation(snapshot: PolicyEvaluationSnapshot) -> str | None:
+    if snapshot.snapshot_relation is not None:
+        return snapshot.snapshot_relation
+    if snapshot.lineage_relation is not None:
+        return _validate_snapshot_relation(snapshot.lineage_relation)
+    return None
+
+
 def snapshot_supersedes(
     candidate: PolicyEvaluationSnapshot | Mapping[str, object],
     reference: PolicyEvaluationSnapshot | Mapping[str, object],
@@ -2781,14 +2914,46 @@ def snapshot_supersedes(
     candidate_snapshot = _to_snapshot(candidate)
     reference_snapshot = _to_snapshot(reference)
 
-    parent_fingerprint = candidate_snapshot.parent_snapshot_fingerprint
+    parent_fingerprint = _snapshot_parent(candidate_snapshot)
     if parent_fingerprint is None:
         return False
-    if candidate_snapshot.lineage_relation not in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
+    relation = _snapshot_relation(candidate_snapshot)
+    if relation not in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
         return False
     if parent_fingerprint == candidate_snapshot.fingerprint:
         raise ValueError("Snapshot cannot reference itself as lineage parent")
     return parent_fingerprint == reference_snapshot.fingerprint
+
+
+def validate_snapshot_lineage(
+    snapshots: Iterable[PolicyEvaluationSnapshot | Mapping[str, object]],
+) -> None:
+    # Lineage ≠ authority; supersession ≠ correctness. We track links to prevent quiet revisionism.
+    parsed_snapshots = [_to_snapshot(entry) for entry in snapshots]
+    fingerprint_index: dict[str, PolicyEvaluationSnapshot] = {}
+    for snapshot in parsed_snapshots:
+        fingerprint = snapshot.fingerprint
+        if fingerprint in fingerprint_index:
+            raise ValueError("Duplicate snapshot fingerprints detected in lineage chain")
+        fingerprint_index[fingerprint] = snapshot
+        parent_fingerprint = _snapshot_parent(snapshot)
+        if parent_fingerprint is not None and parent_fingerprint == fingerprint:
+            raise ValueError("Snapshot cannot reference itself as lineage parent")
+
+    for snapshot in parsed_snapshots:
+        visited: set[str] = set()
+        current = snapshot
+        while True:
+            parent_fingerprint = _snapshot_parent(current)
+            if parent_fingerprint is None:
+                break
+            if parent_fingerprint in visited:
+                raise ValueError("Snapshot lineage cycle detected")
+            visited.add(parent_fingerprint)
+            parent = fingerprint_index.get(parent_fingerprint)
+            if parent is None:
+                break
+            current = parent
 
 
 def detect_supersession_chains(
@@ -2801,19 +2966,18 @@ def detect_supersession_chains(
         if fingerprint in fingerprint_index:
             raise ValueError("Duplicate snapshot fingerprints detected in lineage chain")
         fingerprint_index[fingerprint] = snapshot
-        if snapshot.parent_snapshot_fingerprint is not None and (
-            snapshot.parent_snapshot_fingerprint == fingerprint
-        ):
+        parent_fingerprint = _snapshot_parent(snapshot)
+        if parent_fingerprint is not None and parent_fingerprint == fingerprint:
             raise ValueError("Snapshot cannot reference itself as lineage parent")
 
     for snapshot in parsed_snapshots:
         visited: set[str] = set()
         current = snapshot
         while (
-            current.lineage_relation in _AUTHORITATIVE_SNAPSHOT_RELATIONS
-            and current.parent_snapshot_fingerprint is not None
+            _snapshot_relation(current) in _AUTHORITATIVE_SNAPSHOT_RELATIONS
+            and _snapshot_parent(current) is not None
         ):
-            parent_fingerprint = current.parent_snapshot_fingerprint
+            parent_fingerprint = _snapshot_parent(current)
             if parent_fingerprint in visited:
                 raise ValueError("Snapshot lineage cycle detected")
             visited.add(parent_fingerprint)
@@ -2825,9 +2989,11 @@ def detect_supersession_chains(
     authoritative_children: set[str] = set()
     authoritative_parents: set[str] = set()
     for snapshot in parsed_snapshots:
-        if snapshot.lineage_relation in _AUTHORITATIVE_SNAPSHOT_RELATIONS and snapshot.parent_snapshot_fingerprint is not None:
+        relation = _snapshot_relation(snapshot)
+        parent_fingerprint = _snapshot_parent(snapshot)
+        if relation in _AUTHORITATIVE_SNAPSHOT_RELATIONS and parent_fingerprint is not None:
             authoritative_children.add(snapshot.fingerprint)
-            authoritative_parents.add(snapshot.parent_snapshot_fingerprint)
+            authoritative_parents.add(parent_fingerprint)
 
     tips = [
         snapshot
@@ -2843,10 +3009,10 @@ def detect_supersession_chains(
         visited: set[str] = set()
         while True:
             chain.append(current)
-            parent_fingerprint = current.parent_snapshot_fingerprint
+            parent_fingerprint = _snapshot_parent(current)
             if parent_fingerprint is None:
                 break
-            if current.lineage_relation not in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
+            if _snapshot_relation(current) not in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
                 break
             if parent_fingerprint in visited:
                 raise ValueError("Snapshot lineage cycle detected")
@@ -2870,16 +3036,24 @@ def latest_authoritative_snapshot(
     return chains[0][-1]
 
 
+def collapse_supersession_chains(
+    snapshots: Iterable[PolicyEvaluationSnapshot | Mapping[str, object]]
+) -> tuple[PolicyEvaluationSnapshot, ...]:
+    """Collapse supersession chains to their latest structural tips."""
+    chains = detect_supersession_chains(snapshots)
+    return tuple(chain[-1] for chain in chains)
+
+
 def collect_snapshot_annotations(
     snapshots: Iterable[PolicyEvaluationSnapshot | Mapping[str, object]]
 ) -> dict[str, tuple[PolicyEvaluationSnapshot, ...]]:
     parsed_snapshots = [_to_snapshot(entry) for entry in snapshots]
     annotations: dict[str, list[PolicyEvaluationSnapshot]] = {}
     for snapshot in parsed_snapshots:
-        parent_fingerprint = snapshot.parent_snapshot_fingerprint
+        parent_fingerprint = _snapshot_parent(snapshot)
         if parent_fingerprint is None:
             continue
-        if snapshot.lineage_relation in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
+        if _snapshot_relation(snapshot) in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
             continue
         annotations.setdefault(parent_fingerprint, []).append(snapshot)
 
