@@ -56,6 +56,7 @@ from tests.legacy_policy import LEGACY_SKIP_REASON, is_legacy_candidate, legacy_
 from tests.federation_skip_policy import FEDERATION_SKIP_INTENTS
 
 from sentientos.codex_startup_guard import codex_startup_phase
+from sentientos.federation import enablement as federation_enablement
 
 from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
 from nacl.signing import SigningKey
@@ -80,6 +81,10 @@ def pytest_configure(config):
     config.addinivalue_line(
         'markers',
         'federation_skip(category, reason): explicit federation skip intent metadata'
+    )
+    config.addinivalue_line(
+        'markers',
+        'no_legacy_skip: allow explicitly enabled tests to bypass legacy quarantine'
     )
 
 
@@ -249,9 +254,23 @@ def pytest_collection_modifyitems(config, items):
         "tests.test_glossary_lint",
     }
     legacy_enabled = legacy_marker_enabled(config.option.markexpr)
+    federation_enabled = federation_enablement.is_enabled()
     for item in items:
         module_name = item.module.__name__
         path_str = str(getattr(item, "fspath", ""))
+        intent = FEDERATION_SKIP_INTENTS.get(module_name)
+        if intent is not None and not federation_enabled:
+            reason = (
+                f"{intent.reason} Federation enablement is disabled "
+                f"({federation_enablement.ENABLEMENT_ENV}=false)."
+            )
+            item.add_marker(
+                pytest.mark.federation_skip(category=intent.category.value, reason=reason)
+            )
+            item.add_marker(pytest.mark.skip(reason=reason))
+            continue
+        if intent is not None and federation_enabled:
+            item.add_marker(pytest.mark.no_legacy_skip)
         if is_legacy_candidate(
             module_name=module_name,
             path_str=path_str,
@@ -261,14 +280,7 @@ def pytest_collection_modifyitems(config, items):
         ):
             item.add_marker(pytest.mark.legacy)
             if not legacy_enabled:
-                intent = FEDERATION_SKIP_INTENTS.get(module_name)
-                if intent is not None:
-                    item.add_marker(
-                        pytest.mark.federation_skip(category=intent.category.value, reason=intent.reason)
-                    )
-                    item.add_marker(pytest.mark.skip(reason=intent.reason))
-                else:
-                    item.add_marker(pytest.mark.skip(reason=LEGACY_SKIP_REASON))
+                item.add_marker(pytest.mark.skip(reason=LEGACY_SKIP_REASON))
         if 'requires_node' in item.keywords and not HAS_NODE:
             item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE.info}'))
         if 'requires_go' in item.keywords and not HAS_GO:

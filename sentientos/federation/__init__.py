@@ -30,6 +30,7 @@ from .sync_view import (
 )
 from .replay import PassiveReplay, ReplayResult
 from .delta import DeltaResult, ReplaySeverity, compute_delta
+from .enablement import ENABLEMENT_ENV, is_enabled
 
 __all__ = [
     "NodeId",
@@ -50,6 +51,8 @@ __all__ = [
     "DeltaResult",
     "ReplaySeverity",
     "compute_delta",
+    "ENABLEMENT_ENV",
+    "is_enabled",
     "DriftReport",
     "DriftLevel",
     "compare_summaries",
