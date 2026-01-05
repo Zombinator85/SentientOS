@@ -9,7 +9,7 @@ from sentientos.federation.handshake_semantics import (
     HandshakeRecord,
     SemanticAttestation,
 )
-from sentientos.federation.transport import FederationEnvelope
+from sentientos.federation.transport import FederationEnvelope, OpaqueTransportPayload
 
 
 def _authorization(metadata: dict[str, object] | None = None) -> AuthorizationRecord:
@@ -79,7 +79,7 @@ def _federation_artifacts() -> dict[str, object]:
     envelope = FederationEnvelope(
         envelope_id="env-guard",
         payload_type="handshake_record",
-        payload=b"opaque",
+        payload=OpaqueTransportPayload(b"opaque", tag="handshake_record"),
         sender_node_id="peer-a",
         protocol_version="v1",
     )

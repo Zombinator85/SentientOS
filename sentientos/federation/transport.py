@@ -4,6 +4,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field, is_dataclass
 import base64
+import hashlib
 import json
 import threading
 from typing import Callable, Mapping, MutableMapping, Optional, Sequence
@@ -45,23 +46,68 @@ def _decode_payload(payload: bytes) -> object | None:
         return None
 
 
+class OpaqueTransportPayload:
+    __slots__ = ("_payload", "_tag", "_checksum")
+
+    def __init__(self, payload: object, *, tag: str = "opaque") -> None:
+        self._payload = _encode_payload(payload)
+        self._tag = tag
+        self._checksum: Optional[str] = None
+
+    @property
+    def tag(self) -> str:
+        return self._tag
+
+    @property
+    def length(self) -> int:
+        return len(self._payload)
+
+    def checksum(self) -> str:
+        if self._checksum is None:
+            digest = hashlib.sha256(self._payload).hexdigest()
+            self._checksum = digest
+        return self._checksum
+
+    def decode(self, context: str) -> bytes:
+        if not isinstance(context, str) or not context.strip():
+            raise ValueError("decode context must be a non-empty string")
+        return bytes(self._payload)
+
+    def __repr__(self) -> str:
+        short_checksum = self.checksum()[:12]
+        return f"OpaqueTransportPayload(len={self.length}, tag={self._tag!r}, checksum={short_checksum})"
+
+    def __str__(self) -> str:
+        raise TypeError("OpaqueTransportPayload cannot be stringified; call .decode(context)")
+
+    def __eq__(self, _other: object) -> bool:
+        raise TypeError("OpaqueTransportPayload does not support equality checks")
+
+    def __hash__(self) -> int:
+        raise TypeError("OpaqueTransportPayload is not hashable")
+
+    def __bytes__(self) -> bytes:
+        raise TypeError("OpaqueTransportPayload does not expose raw bytes; call .decode(context)")
+
+
 @dataclass(frozen=True)
 class FederationEnvelope:
     envelope_id: str
     payload_type: str
-    payload: bytes = field(compare=False, hash=False, repr=False)
+    payload: OpaqueTransportPayload = field(compare=False, hash=False)
     sender_node_id: str
     protocol_version: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.payload, bytes):
-            object.__setattr__(self, "payload", _encode_payload(self.payload))
+        if not isinstance(self.payload, OpaqueTransportPayload):
+            raise TypeError("payload must be wrapped in OpaqueTransportPayload")
 
     def to_dict(self) -> MutableMapping[str, object]:
+        payload_bytes = self.payload.decode("federation-envelope:serialize")
         return {
             "envelope_id": self.envelope_id,
             "payload_type": self.payload_type,
-            "payload": base64.b64encode(self.payload).decode("utf-8"),
+            "payload": base64.b64encode(payload_bytes).decode("utf-8"),
             "sender_node_id": self.sender_node_id,
             "protocol_version": self.protocol_version,
         }
@@ -127,7 +173,7 @@ def extract_semantic_attestation(
 ) -> Optional[SemanticAttestation]:
     if envelope.payload_type != "semantic_attestation":
         return None
-    payload = _decode_payload(envelope.payload)
+    payload = _decode_payload(envelope.payload.decode("federation-envelope:semantic-attestation"))
     if isinstance(payload, Mapping):
         declared = payload.get("declared_capabilities")
         declared_caps = tuple(declared) if declared is not None else None
@@ -145,7 +191,7 @@ def extract_semantic_attestation(
 def extract_handshake_record(envelope: FederationEnvelope) -> Optional[HandshakeRecord]:
     if envelope.payload_type != "handshake_record":
         return None
-    payload = _decode_payload(envelope.payload)
+    payload = _decode_payload(envelope.payload.decode("federation-envelope:handshake-record"))
     if isinstance(payload, Mapping):
         attestation_payload = payload["attestation"]
         if isinstance(attestation_payload, Mapping):
