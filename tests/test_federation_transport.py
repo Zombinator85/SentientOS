@@ -12,6 +12,7 @@ from sentientos.federation.handshake_semantics import (
 from sentientos.federation.transport import (
     FederationEnvelope,
     LocalLoopbackTransport,
+    OpaqueTransportPayload,
     explicitly_evaluate_compatibility,
 )
 
@@ -38,7 +39,7 @@ def test_envelope_serialization_is_deterministic() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-1",
         payload_type="semantic_attestation",
-        payload=_payload_bytes(payload),
+        payload=OpaqueTransportPayload(payload, tag="semantic_attestation"),
         sender_node_id="node-a",
         protocol_version="v0",
     )
@@ -57,13 +58,13 @@ def test_transport_does_not_mutate_payloads() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-2",
         payload_type="semantic_attestation",
-        payload=payload_bytes,
+        payload=OpaqueTransportPayload(payload, tag="semantic_attestation"),
         sender_node_id="node-a",
         protocol_version="v0",
     )
     sender.send(envelope, receiver)
     assert payload == payload_snapshot
-    assert receiver.inbox[0].payload == payload_bytes
+    assert receiver.inbox[0].payload.decode("test:transport") == payload_bytes
 
 
 def test_no_implicit_compatibility_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -80,7 +81,7 @@ def test_no_implicit_compatibility_evaluation(monkeypatch: pytest.MonkeyPatch) -
     envelope = FederationEnvelope(
         envelope_id="env-3",
         payload_type="semantic_attestation",
-        payload=_payload_bytes(_sample_attestation("node-a")),
+        payload=OpaqueTransportPayload(_sample_attestation("node-a"), tag="semantic_attestation"),
         sender_node_id="node-a",
         protocol_version="v0",
     )
@@ -94,7 +95,7 @@ def test_loopback_transport_delivers_exactly_once() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-4",
         payload_type="semantic_attestation",
-        payload=_payload_bytes(_sample_attestation("node-a")),
+        payload=OpaqueTransportPayload(_sample_attestation("node-a"), tag="semantic_attestation"),
         sender_node_id="node-a",
         protocol_version="v0",
     )
@@ -114,7 +115,7 @@ def test_receive_causes_no_automatic_action() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-5",
         payload_type="handshake_record",
-        payload=_payload_bytes(handshake),
+        payload=OpaqueTransportPayload(handshake, tag="handshake_record"),
         sender_node_id="node-b",
         protocol_version="v0",
     )
@@ -128,10 +129,34 @@ def test_explicit_compatibility_evaluation_is_opt_in() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-6",
         payload_type="semantic_attestation",
-        payload=_payload_bytes(remote),
+        payload=OpaqueTransportPayload(remote, tag="semantic_attestation"),
         sender_node_id="node-remote",
         protocol_version="v0",
     )
     result = explicitly_evaluate_compatibility(local, envelope)
     assert result is not None
     assert result[0] is CompatibilityResult.COMPATIBLE
+
+
+def test_opaque_payload_rejects_stringification_and_comparison() -> None:
+    payload = OpaqueTransportPayload(b"secret-bytes", tag="test")
+    with pytest.raises(TypeError):
+        str(payload)
+    with pytest.raises(TypeError):
+        _ = payload == payload
+    with pytest.raises(TypeError):
+        hash(payload)
+    with pytest.raises(TypeError):
+        bytes(payload)
+    assert "secret-bytes" not in repr(payload)
+
+
+def test_envelope_requires_explicit_payload_wrapper() -> None:
+    with pytest.raises(TypeError):
+        FederationEnvelope(
+            envelope_id="env-7",
+            payload_type="semantic_attestation",
+            payload=b"raw-bytes",  # type: ignore[arg-type]
+            sender_node_id="node-raw",
+            protocol_version="v0",
+        )
