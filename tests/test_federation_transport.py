@@ -27,12 +27,18 @@ def _sample_attestation(node_id: str) -> SemanticAttestation:
     )
 
 
+def _payload_bytes(payload: object) -> bytes:
+    if hasattr(payload, "to_dict"):
+        payload = payload.to_dict()
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
 def test_envelope_serialization_is_deterministic() -> None:
     payload = {"b": 2, "a": 1}
     envelope = FederationEnvelope(
         envelope_id="env-1",
         payload_type="semantic_attestation",
-        payload=payload,
+        payload=_payload_bytes(payload),
         sender_node_id="node-a",
         protocol_version="v0",
     )
@@ -45,18 +51,19 @@ def test_envelope_serialization_is_deterministic() -> None:
 def test_transport_does_not_mutate_payloads() -> None:
     payload = {"capabilities": ["read", "write"], "meta": {"x": 1}}
     payload_snapshot = copy.deepcopy(payload)
+    payload_bytes = _payload_bytes(payload)
     sender = LocalLoopbackTransport()
     receiver = LocalLoopbackTransport()
     envelope = FederationEnvelope(
         envelope_id="env-2",
         payload_type="semantic_attestation",
-        payload=payload,
+        payload=payload_bytes,
         sender_node_id="node-a",
         protocol_version="v0",
     )
     sender.send(envelope, receiver)
     assert payload == payload_snapshot
-    assert receiver.inbox[0].payload == payload_snapshot
+    assert receiver.inbox[0].payload == payload_bytes
 
 
 def test_no_implicit_compatibility_evaluation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -73,7 +80,7 @@ def test_no_implicit_compatibility_evaluation(monkeypatch: pytest.MonkeyPatch) -
     envelope = FederationEnvelope(
         envelope_id="env-3",
         payload_type="semantic_attestation",
-        payload=_sample_attestation("node-a"),
+        payload=_payload_bytes(_sample_attestation("node-a")),
         sender_node_id="node-a",
         protocol_version="v0",
     )
@@ -87,7 +94,7 @@ def test_loopback_transport_delivers_exactly_once() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-4",
         payload_type="semantic_attestation",
-        payload=_sample_attestation("node-a"),
+        payload=_payload_bytes(_sample_attestation("node-a")),
         sender_node_id="node-a",
         protocol_version="v0",
     )
@@ -107,7 +114,7 @@ def test_receive_causes_no_automatic_action() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-5",
         payload_type="handshake_record",
-        payload=handshake,
+        payload=_payload_bytes(handshake),
         sender_node_id="node-b",
         protocol_version="v0",
     )
@@ -121,7 +128,7 @@ def test_explicit_compatibility_evaluation_is_opt_in() -> None:
     envelope = FederationEnvelope(
         envelope_id="env-6",
         payload_type="semantic_attestation",
-        payload=remote,
+        payload=_payload_bytes(remote),
         sender_node_id="node-remote",
         protocol_version="v0",
     )

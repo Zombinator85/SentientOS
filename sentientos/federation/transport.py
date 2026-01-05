@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict, dataclass, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass
 import base64
 import json
 import threading
@@ -22,33 +22,46 @@ def _stable_json(payload: Mapping[str, object]) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def _normalize_payload(payload: object) -> object:
+def _encode_payload(payload: object) -> bytes:
     if isinstance(payload, bytes):
-        return base64.b64encode(payload).decode("utf-8")
+        return payload
+    if isinstance(payload, (bytearray, memoryview)):
+        return bytes(payload)
     if hasattr(payload, "to_dict"):
-        return getattr(payload, "to_dict")()
+        payload = getattr(payload, "to_dict")()
     if is_dataclass(payload):
-        return asdict(payload)
+        payload = asdict(payload)
     if isinstance(payload, Mapping):
-        return dict(payload)
+        return _stable_json(dict(payload)).encode("utf-8")
     if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
-        return list(payload)
-    return payload
+        return json.dumps(list(payload), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+
+
+def _decode_payload(payload: bytes) -> object | None:
+    try:
+        return json.loads(payload.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return None
 
 
 @dataclass(frozen=True)
 class FederationEnvelope:
     envelope_id: str
     payload_type: str
-    payload: object
+    payload: bytes = field(compare=False, hash=False, repr=False)
     sender_node_id: str
     protocol_version: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.payload, bytes):
+            object.__setattr__(self, "payload", _encode_payload(self.payload))
 
     def to_dict(self) -> MutableMapping[str, object]:
         return {
             "envelope_id": self.envelope_id,
             "payload_type": self.payload_type,
-            "payload": _normalize_payload(self.payload),
+            "payload": base64.b64encode(self.payload).decode("utf-8"),
             "sender_node_id": self.sender_node_id,
             "protocol_version": self.protocol_version,
         }
@@ -114,9 +127,7 @@ def extract_semantic_attestation(
 ) -> Optional[SemanticAttestation]:
     if envelope.payload_type != "semantic_attestation":
         return None
-    payload = envelope.payload
-    if isinstance(payload, SemanticAttestation):
-        return payload
+    payload = _decode_payload(envelope.payload)
     if isinstance(payload, Mapping):
         declared = payload.get("declared_capabilities")
         declared_caps = tuple(declared) if declared is not None else None
@@ -134,9 +145,7 @@ def extract_semantic_attestation(
 def extract_handshake_record(envelope: FederationEnvelope) -> Optional[HandshakeRecord]:
     if envelope.payload_type != "handshake_record":
         return None
-    payload = envelope.payload
-    if isinstance(payload, HandshakeRecord):
-        return payload
+    payload = _decode_payload(envelope.payload)
     if isinstance(payload, Mapping):
         attestation_payload = payload["attestation"]
         if isinstance(attestation_payload, Mapping):
