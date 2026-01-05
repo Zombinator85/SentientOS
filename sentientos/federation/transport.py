@@ -47,12 +47,13 @@ def _decode_payload(payload: bytes) -> object | None:
 
 
 class OpaqueTransportPayload:
-    __slots__ = ("_payload", "_tag", "_checksum")
+    __slots__ = ("_payload", "_tag", "_checksum", "_identity")
 
     def __init__(self, payload: object, *, tag: str = "opaque") -> None:
         self._payload = _encode_payload(payload)
         self._tag = tag
         self._checksum: Optional[str] = None
+        self._identity: Optional[str] = None
 
     @property
     def tag(self) -> str:
@@ -68,14 +69,20 @@ class OpaqueTransportPayload:
             self._checksum = digest
         return self._checksum
 
+    @property
+    def identity(self) -> str:
+        if self._identity is None:
+            self._identity = self.checksum()
+        return self._identity
+
     def decode(self, context: str) -> bytes:
         if not isinstance(context, str) or not context.strip():
             raise ValueError("decode context must be a non-empty string")
         return bytes(self._payload)
 
     def __repr__(self) -> str:
-        short_checksum = self.checksum()[:12]
-        return f"OpaqueTransportPayload(len={self.length}, tag={self._tag!r}, checksum={short_checksum})"
+        short_identity = self.identity[:12]
+        return f"OpaqueTransportPayload(len={self.length}, tag={self._tag!r}, identity={short_identity})"
 
     def __str__(self) -> str:
         raise TypeError("OpaqueTransportPayload cannot be stringified; call .decode(context)")

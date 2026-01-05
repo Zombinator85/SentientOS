@@ -151,6 +151,16 @@ def test_opaque_payload_rejects_stringification_and_comparison() -> None:
     assert "secret-bytes" not in repr(payload)
 
 
+def test_opaque_payload_identity_is_stable_and_non_semantic() -> None:
+    payload_a = OpaqueTransportPayload(b"opaque-identity", tag="test")
+    payload_b = OpaqueTransportPayload(b"opaque-identity", tag="test")
+    payload_c = OpaqueTransportPayload(b"other-payload", tag="test")
+
+    assert payload_a.identity == payload_b.identity
+    assert payload_a.identity != payload_c.identity
+    assert payload_a.identity in repr(payload_a)
+
+
 def test_envelope_requires_explicit_payload_wrapper() -> None:
     with pytest.raises(TypeError):
         FederationEnvelope(
