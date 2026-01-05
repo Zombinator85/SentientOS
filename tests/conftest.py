@@ -53,6 +53,7 @@ require_covenant_alignment()
 import pytest
 
 from tests.legacy_policy import LEGACY_SKIP_REASON, is_legacy_candidate, legacy_marker_enabled
+from tests.federation_skip_policy import FEDERATION_SKIP_INTENTS
 
 from sentientos.codex_startup_guard import codex_startup_phase
 
@@ -76,6 +77,10 @@ def pytest_configure(config):
     config.addinivalue_line('markers', 'requires_dmypy: skip if dmypy missing')
     config.addinivalue_line('markers', 'network: tests that mock HTTP calls')
     config.addinivalue_line('markers', 'legacy: quarantined tests run with -m legacy')
+    config.addinivalue_line(
+        'markers',
+        'federation_skip(category, reason): explicit federation skip intent metadata'
+    )
 
 
 def pytest_addoption(parser):
@@ -256,7 +261,14 @@ def pytest_collection_modifyitems(config, items):
         ):
             item.add_marker(pytest.mark.legacy)
             if not legacy_enabled:
-                item.add_marker(pytest.mark.skip(reason=LEGACY_SKIP_REASON))
+                intent = FEDERATION_SKIP_INTENTS.get(module_name)
+                if intent is not None:
+                    item.add_marker(
+                        pytest.mark.federation_skip(category=intent.category.value, reason=intent.reason)
+                    )
+                    item.add_marker(pytest.mark.skip(reason=intent.reason))
+                else:
+                    item.add_marker(pytest.mark.skip(reason=LEGACY_SKIP_REASON))
         if 'requires_node' in item.keywords and not HAS_NODE:
             item.add_marker(pytest.mark.skip(reason=f'node missing: {NODE.info}'))
         if 'requires_go' in item.keywords and not HAS_GO:
