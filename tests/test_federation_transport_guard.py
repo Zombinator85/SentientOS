@@ -3,6 +3,7 @@ import pytest
 import task_executor
 from control_plane.enums import Decision, ReasonCode, RequestType
 from control_plane.records import AuthorizationRecord
+from sentientos.federation import enablement as federation_enablement
 from sentientos.federation.handshake_semantics import (
     CompatibilityResult,
     HandshakeDecision,
@@ -13,6 +14,18 @@ from sentientos.federation.transport import FederationEnvelope, OpaqueTransportP
 
 
 def _authorization(metadata: dict[str, object] | None = None) -> AuthorizationRecord:
+    if federation_enablement.has_federation_artifacts(metadata):
+        with federation_enablement.legacy_federation_bypass("legacy federation transport guard"):
+            return AuthorizationRecord.create(
+                request_type=RequestType.TASK_EXECUTION,
+                requester_id="operator",
+                intent_hash="intent",
+                context_hash="context",
+                policy_version="policy-v1",
+                decision=Decision.ALLOW,
+                reason=ReasonCode.OK,
+                metadata=metadata,
+            )
     return AuthorizationRecord.create(
         request_type=RequestType.TASK_EXECUTION,
         requester_id="operator",
@@ -76,13 +89,14 @@ def _federation_artifacts() -> dict[str, object]:
         compatibility=CompatibilityResult.COMPATIBLE,
         decision=HandshakeDecision.ACCEPT,
     )
-    envelope = FederationEnvelope(
-        envelope_id="env-guard",
-        payload_type="handshake_record",
-        payload=OpaqueTransportPayload(b"opaque", tag="handshake_record"),
-        sender_node_id="peer-a",
-        protocol_version="v1",
-    )
+    with federation_enablement.legacy_federation_bypass("legacy federation transport guard"):
+        envelope = FederationEnvelope(
+            envelope_id="env-guard",
+            payload_type="handshake_record",
+            payload=OpaqueTransportPayload(b"opaque", tag="handshake_record"),
+            sender_node_id="peer-a",
+            protocol_version="v1",
+        )
     return {"federation_envelope": envelope, "handshake": handshake, "attestation": attestation}
 
 

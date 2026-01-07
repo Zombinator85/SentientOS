@@ -9,6 +9,7 @@ import json
 import threading
 from typing import Callable, Mapping, MutableMapping, Optional, Sequence
 
+from sentientos.federation.enablement import assert_federation_contract
 from sentientos.federation.handshake_semantics import (
     CompatibilityExplanation,
     CompatibilityResult,
@@ -106,6 +107,7 @@ class FederationEnvelope:
     protocol_version: str
 
     def __post_init__(self) -> None:
+        assert_federation_contract("federation-envelope:create")
         if not isinstance(self.payload, OpaqueTransportPayload):
             raise TypeError("payload must be wrapped in OpaqueTransportPayload")
 
@@ -159,11 +161,13 @@ class LocalLoopbackTransport(FederationTransport):
             return tuple(self._events)
 
     def send(self, envelope: FederationEnvelope, destination: object) -> None:
+        assert_federation_contract("federation-transport:send")
         self._record_event("send", envelope)
         if isinstance(destination, FederationTransport):
             destination.receive(envelope)
 
     def receive(self, envelope: FederationEnvelope) -> None:
+        assert_federation_contract("federation-transport:receive")
         self._record_event("receive", envelope)
         with self._lock:
             self._inbox.append(envelope)

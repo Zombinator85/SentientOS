@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Mapping, MutableMapping
 
 from .enums import Decision, ReasonCode, RequestType
+from sentientos.federation.enablement import assert_federation_contract, has_federation_artifacts
 
 
 class AuthorizationError(RuntimeError):
@@ -37,6 +38,8 @@ class AuthorizationRecord:
         metadata: Mapping[str, object] | None,
     ) -> "AuthorizationRecord":
         now = datetime.now(tz=timezone.utc).timestamp()
+        if has_federation_artifacts(metadata):
+            assert_federation_contract("authorization:metadata")
         return cls(
             request_type=request_type,
             requester_id=requester_id,
