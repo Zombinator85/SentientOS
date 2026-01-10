@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import types
 
 import pytest
 
@@ -12,6 +13,9 @@ from sentientos.cathedral.amendment import Amendment
 from sentientos.cathedral.apply import AmendmentApplicator
 from sentientos.integrity import covenant_autoalign
 from sentientos.privilege import require_covenant_alignment
+from tests import conftest as tests_conftest
+from tests.federation_skip_policy import FEDERATION_SKIP_INTENTS
+from tests.integrity import test_repo_invariant_tripwire
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -108,3 +112,54 @@ def test_amendment_pipeline_autoalign(monkeypatch, tmp_path):
 def test_alignment_alias_replaces_blessing():
     # Legacy entry points now delegate to covenant autoalignment.
     assert require_covenant_alignment() is None
+
+
+def test_repo_invariant_tripwire_runs_in_default_suite():
+    test_repo_invariant_tripwire.test_codex_public_surface_contract_tripwire()
+    test_repo_invariant_tripwire.test_federation_public_surface_contract()
+    test_repo_invariant_tripwire.test_executor_exports_no_federation_symbols()
+    test_repo_invariant_tripwire.test_top_level_module_tripwires()
+    test_repo_invariant_tripwire.test_minimal_public_symbol_tripwires()
+    test_repo_invariant_tripwire.test_forbidden_imports_executor_to_federation()
+    test_repo_invariant_tripwire.test_forbidden_imports_codex_startup_to_federation()
+    test_repo_invariant_tripwire.test_forbidden_imports_federation_to_executor()
+
+
+def test_default_suite_policy_keeps_federation_quarantined(monkeypatch):
+    monkeypatch.delenv("SENTIENTOS_FEDERATION_ENABLED", raising=False)
+
+    class DummyConfig:
+        def __init__(self):
+            self.option = types.SimpleNamespace(markexpr=None)
+
+        def getoption(self, _name):
+            return False
+
+    class DummyItem:
+        def __init__(self, module_name, path_str):
+            self.module = types.SimpleNamespace(__name__=module_name)
+            self.fspath = Path(path_str)
+            self.name = "test_dummy"
+            self.keywords = {}
+            self.markers = []
+
+        def add_marker(self, marker):
+            self.markers.append(marker)
+
+    config = DummyConfig()
+    tripwire_item = DummyItem(
+        "tests.integrity.test_repo_invariant_tripwire",
+        "tests/integrity/test_repo_invariant_tripwire.py",
+    )
+    tripwire_item.keywords["always_on_integrity"] = True
+    federation_module = next(iter(FEDERATION_SKIP_INTENTS))
+    federation_item = DummyItem(federation_module, "tests/test_federation_transport.py")
+
+    tests_conftest.pytest_collection_modifyitems(config, [tripwire_item, federation_item])
+
+    tripwire_marker_names = {marker.name for marker in tripwire_item.markers}
+    federation_marker_names = {marker.name for marker in federation_item.markers}
+
+    assert "skip" not in tripwire_marker_names
+    assert "skip" in federation_marker_names
+    assert "federation_skip" in federation_marker_names

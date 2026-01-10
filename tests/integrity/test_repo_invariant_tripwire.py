@@ -5,7 +5,11 @@ import sys
 from types import ModuleType
 from typing import Iterable, Sequence
 
+import pytest
+
 from tests.integrity.test_codex_public_surface import test_codex_public_surface_contract
+
+pytestmark = pytest.mark.always_on_integrity
 
 EXPECTED_FEDERATION_ALL = (
     "NodeId",
@@ -70,6 +74,10 @@ FEDERATION_MODULE_ALLOWLIST = {
     "window",
 }
 
+FEDERATION_PUBLIC_ALLOWLIST = set(EXPECTED_FEDERATION_ALL) | (
+    set(FEDERATION_MODULE_ALLOWLIST) - {"__main__"}
+)
+
 CODEX_STARTUP_MODULE_ALLOWLIST = {
     "codex_context_pruner",
     "codex_quiet_mode",
@@ -79,6 +87,8 @@ CODEX_STARTUP_MODULE_ALLOWLIST = {
 }
 
 CODEX_STARTUP_PUBLIC_ALLOWLIST = {
+    "codex_context_pruner",
+    "codex_quiet_mode",
     "CodexContextPruner",
     "CodexHealer",
     "CodexQuietMode",
@@ -109,6 +119,29 @@ def _assert_public_names(module: ModuleType, allowed: Iterable[str], label: str)
     public = _public_names(module)
     extras = sorted(public - allowed_set)
     missing = sorted(allowed_set - public)
+    if extras or missing:
+        message = [f"{label} public surface drift detected."]
+        if extras:
+            message.append(f"Unexpected public symbols: {extras}.")
+        if missing:
+            message.append(f"Missing expected symbols: {missing}.")
+        message.append(
+            "Remediation: add to the allowlist with justification or remove the public symbol."
+        )
+        raise AssertionError(" ".join(message))
+
+
+def _assert_public_names_with_optional(
+    module: ModuleType,
+    required: Iterable[str],
+    optional: Iterable[str],
+    label: str,
+) -> None:
+    required_set = set(required)
+    optional_set = set(optional)
+    public = _public_names(module)
+    extras = sorted(public - required_set - optional_set)
+    missing = sorted(required_set - public)
     if extras or missing:
         message = [f"{label} public surface drift detected."]
         if extras:
@@ -230,7 +263,12 @@ def test_minimal_public_symbol_tripwires() -> None:
     codex_startup = importlib.import_module("sentientos.codex")
     federation = importlib.import_module("sentientos.federation")
     _assert_public_names(codex_startup, CODEX_STARTUP_PUBLIC_ALLOWLIST, "sentientos.codex")
-    _assert_public_names(federation, EXPECTED_FEDERATION_ALL, "sentientos.federation")
+    _assert_public_names_with_optional(
+        federation,
+        EXPECTED_FEDERATION_ALL,
+        FEDERATION_MODULE_ALLOWLIST - {"__main__"},
+        "sentientos.federation",
+    )
 
 
 def test_forbidden_imports_executor_to_federation() -> None:
