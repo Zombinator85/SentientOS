@@ -33,6 +33,8 @@ def is_legacy_candidate(
         return False
     if module_name.startswith("tests.integrity."):
         return False
+    if "always_on_integrity" in keywords:
+        return False
     if "no_legacy_skip" in keywords:
         return False
     return True

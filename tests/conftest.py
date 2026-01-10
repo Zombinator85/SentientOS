@@ -80,6 +80,10 @@ def pytest_configure(config):
     config.addinivalue_line('markers', 'legacy: quarantined tests run with -m legacy')
     config.addinivalue_line(
         'markers',
+        'always_on_integrity: fast import-only integrity tripwires that run by default'
+    )
+    config.addinivalue_line(
+        'markers',
         'federation_skip(category, reason): explicit federation skip intent metadata'
     )
     config.addinivalue_line(
