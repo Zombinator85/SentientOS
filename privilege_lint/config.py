@@ -6,12 +6,22 @@ from typing import Any
 import tomllib
 
 yaml: Any | None
+_YAML_WARNING_EMITTED = False
 try:  # optional dependency for YAML config files
     import yaml as _yaml  # type: ignore[import-untyped,unused-ignore]  # justified: optional dependency
     yaml = _yaml
 except Exception:  # pragma: no cover - fallback when PyYAML is missing
     yaml = None
+    _YAML_WARNING_EMITTED = True
+
+
+def _warn_missing_yaml() -> None:
+    global _YAML_WARNING_EMITTED
+    if not _YAML_WARNING_EMITTED:
+        return
+    _YAML_WARNING_EMITTED = False
     import sys
+
     print(
         "Warning: optional dependency PyYAML missing; YAML configs will be ignored",
         file=sys.stderr,
@@ -64,6 +74,7 @@ def _load_file(path: Path) -> dict[str, Any]:
     if path.suffix == ".toml":
         return tomllib.loads(path.read_text(encoding="utf-8"))
     if yaml is None:
+        _warn_missing_yaml()
         return {}
     return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
 

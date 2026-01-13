@@ -57,7 +57,20 @@ class AdmissionPolicy:
             object.__setattr__(self, "allowed_step_kinds", frozenset(allowed))
 
 
-ADMISSION_LOG_PATH = get_log_path("task_admission.jsonl", "TASK_ADMISSION_LOG")
+_ADMISSION_LOG_PATH: Path | None = None
+
+
+def init_executor_runtime() -> None:
+    """Initialize executor runtime state explicitly and idempotently."""
+    global _ADMISSION_LOG_PATH
+    if _ADMISSION_LOG_PATH is None:
+        _ADMISSION_LOG_PATH = get_log_path("task_admission.jsonl", "TASK_ADMISSION_LOG")
+
+
+def _resolve_admission_log_path() -> Path:
+    if _ADMISSION_LOG_PATH is None:
+        init_executor_runtime()
+    return _ADMISSION_LOG_PATH
 
 
 def admit(task: task_executor.Task, ctx: AdmissionContext, policy: AdmissionPolicy) -> AdmissionDecision:
@@ -229,8 +242,9 @@ def _log_admission_event(
     ctx: AdmissionContext,
     policy: AdmissionPolicy,
     *,
-    log_path: Path = ADMISSION_LOG_PATH,
+    log_path: Path | None = None,
 ) -> None:
+    resolved_log_path = log_path or _resolve_admission_log_path()
     entry = {
         "event": "TASK_ADMITTED" if decision.allowed else "TASK_ADMISSION_DENIED",
         "task_id": task.task_id,
@@ -246,7 +260,7 @@ def _log_admission_event(
     }
     if ctx.now_utc_iso is not None:
         entry["now_utc_iso"] = ctx.now_utc_iso
-    append_json(log_path, entry)
+    append_json(resolved_log_path, entry)
 
 
 def run_task_with_admission(

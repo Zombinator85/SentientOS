@@ -15,6 +15,7 @@ from sentientos.integrity import covenant_autoalign
 from sentientos.privilege import require_covenant_alignment
 from tests import conftest as tests_conftest
 from tests.federation_skip_policy import FEDERATION_SKIP_INTENTS
+from tests.integrity import test_import_purity
 from tests.integrity import test_repo_invariant_tripwire
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -123,6 +124,7 @@ def test_repo_invariant_tripwire_runs_in_default_suite():
     test_repo_invariant_tripwire.test_forbidden_imports_executor_to_federation()
     test_repo_invariant_tripwire.test_forbidden_imports_codex_startup_to_federation()
     test_repo_invariant_tripwire.test_forbidden_imports_federation_to_executor()
+    test_import_purity.test_core_imports_are_pure()
 
 
 def test_default_suite_policy_keeps_federation_quarantined(monkeypatch):

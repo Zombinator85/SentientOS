@@ -30,17 +30,11 @@ class CodexStartupReentryError(RuntimeError):
 
 _STARTUP_ACTIVE = False
 _STARTUP_FINALIZED = False
-_STARTUP_OWNER_PID = os.getpid()
+_STARTUP_OWNER_PID: int | None = None
+_STARTUP_INITIALIZED = False
+_FORK_HANDLER_REGISTERED = False
 _ROOT_PID_ENV_VAR = "CODEX_STARTUP_ROOT_PID"
 _FINALIZED_ENV_VAR = "CODEX_STARTUP_FINALIZED"
-_ROOT_PID = os.environ.get(_ROOT_PID_ENV_VAR)
-if _ROOT_PID is None:
-    os.environ[_ROOT_PID_ENV_VAR] = str(_STARTUP_OWNER_PID)
-elif _ROOT_PID != str(_STARTUP_OWNER_PID):
-    _STARTUP_FINALIZED = True
-finalized_marker = os.environ.get(_FINALIZED_ENV_VAR)
-if finalized_marker is not None and finalized_marker == os.environ.get(_ROOT_PID_ENV_VAR):
-    _STARTUP_FINALIZED = True
 _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
     # Explicit bootstrap call sites permitted to instantiate governance entrypoints.
     # Keep this list minimal and auditable; include test namespace so fixtures remain valid.
@@ -82,6 +76,7 @@ class CodexProvenanceViolation(RuntimeError):
 def enforce_codex_startup(symbol: str) -> None:
     """Abort startup-only entrypoint construction when bootstrap is not active."""
 
+    init_codex_runtime()
     _ensure_current_process_state()
 
     if not _STARTUP_ACTIVE:
@@ -93,6 +88,7 @@ def enforce_codex_startup(symbol: str) -> None:
 def codex_startup_phase() -> Iterator[None]:
     """Temporarily allow Codex startup-only governance entrypoints to be constructed."""
 
+    init_codex_runtime()
     _ensure_current_process_state()
     global _STARTUP_ACTIVE
 
@@ -126,12 +122,13 @@ class CodexStartupState:
 def codex_startup_state() -> CodexStartupState:
     """Return the immutable, observational Codex startup status; conveys no authority."""
 
+    init_codex_runtime()
     _ensure_current_process_state()
     root_pid = os.environ.get(_ROOT_PID_ENV_VAR)
     return CodexStartupState(
         active=_STARTUP_ACTIVE,
         finalized=_STARTUP_FINALIZED,
-        owner_pid=_STARTUP_OWNER_PID,
+        owner_pid=_STARTUP_OWNER_PID or os.getpid(),
         root_pid=int(root_pid) if root_pid and root_pid.isdigit() else None,
         # PolicyDigest is attribution only. It must not affect semantic identity, hashing, or execution.
         policy_reference=policy_digest_reference(),
@@ -188,6 +185,8 @@ def _is_allowed_caller(caller: str, allowed_callers: Iterable[str]) -> bool:
 def _ensure_current_process_state() -> None:
     global _STARTUP_ACTIVE, _STARTUP_FINALIZED, _STARTUP_OWNER_PID
 
+    if _STARTUP_OWNER_PID is None:
+        _STARTUP_OWNER_PID = os.getpid()
     _sync_with_finalized_environment()
     current_pid = os.getpid()
     if current_pid != _STARTUP_OWNER_PID:
@@ -206,7 +205,8 @@ def _reset_startup_after_fork() -> None:
 def _seal_startup_state() -> None:
     global _STARTUP_FINALIZED
     _STARTUP_FINALIZED = True
-    root_pid = os.environ.get(_ROOT_PID_ENV_VAR, str(_STARTUP_OWNER_PID))
+    owner_pid = _STARTUP_OWNER_PID or os.getpid()
+    root_pid = os.environ.get(_ROOT_PID_ENV_VAR, str(owner_pid))
     os.environ[_ROOT_PID_ENV_VAR] = root_pid
     os.environ[_FINALIZED_ENV_VAR] = root_pid
 
@@ -223,7 +223,24 @@ def _sync_with_finalized_environment() -> None:
         _STARTUP_FINALIZED = True
 
 
-try:
-    os.register_at_fork(after_in_child=_reset_startup_after_fork)
-except AttributeError:  # pragma: no cover - Windows and limited runtimes
-    pass
+def init_codex_runtime() -> None:
+    """Initialize codex startup runtime guards explicitly and idempotently."""
+    global _STARTUP_OWNER_PID, _STARTUP_FINALIZED, _STARTUP_INITIALIZED, _FORK_HANDLER_REGISTERED
+    if _STARTUP_INITIALIZED:
+        return
+    _STARTUP_OWNER_PID = os.getpid()
+    root_pid = os.environ.get(_ROOT_PID_ENV_VAR)
+    if root_pid is None:
+        os.environ[_ROOT_PID_ENV_VAR] = str(_STARTUP_OWNER_PID)
+    elif root_pid != str(_STARTUP_OWNER_PID):
+        _STARTUP_FINALIZED = True
+    finalized_marker = os.environ.get(_FINALIZED_ENV_VAR)
+    if finalized_marker is not None and finalized_marker == os.environ.get(_ROOT_PID_ENV_VAR):
+        _STARTUP_FINALIZED = True
+    if not _FORK_HANDLER_REGISTERED:
+        try:
+            os.register_at_fork(after_in_child=_reset_startup_after_fork)
+        except AttributeError:  # pragma: no cover - Windows and limited runtimes
+            pass
+        _FORK_HANDLER_REGISTERED = True
+    _STARTUP_INITIALIZED = True
