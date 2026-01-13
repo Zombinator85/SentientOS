@@ -1,9 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-
-require_admin_banner()
-require_lumos_approval()
 from logging_config import get_log_path
 import os
 import json
@@ -12,15 +9,39 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
-APPROVAL_LOG = get_log_path("final_approval.jsonl", "FINAL_APPROVAL_LOG")
-APPROVAL_LOG.parent.mkdir(parents=True, exist_ok=True)
-
-APPROVER_FILE = Path(os.getenv("FINAL_APPROVER_FILE", "config/final_approvers.json"))
-APPROVER_FILE.parent.mkdir(parents=True, exist_ok=True)
+_APPROVAL_LOG: Path | None = None
+_APPROVER_FILE: Path | None = None
+_FINAL_APPROVAL_INITIALIZED = False
 
 _LAST_APPROVER = ""
 _OVERRIDE: Optional[List[str]] = None
 _SOURCE = "env"
+
+
+def init_final_approval_runtime() -> None:
+    """Initialize approval runtime state explicitly and idempotently."""
+    global _APPROVAL_LOG, _APPROVER_FILE, _FINAL_APPROVAL_INITIALIZED
+    if _FINAL_APPROVAL_INITIALIZED:
+        return
+    require_admin_banner()
+    require_lumos_approval()
+    _APPROVAL_LOG = get_log_path("final_approval.jsonl", "FINAL_APPROVAL_LOG")
+    _APPROVAL_LOG.parent.mkdir(parents=True, exist_ok=True)
+    _APPROVER_FILE = Path(os.getenv("FINAL_APPROVER_FILE", "config/final_approvers.json"))
+    _APPROVER_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _FINAL_APPROVAL_INITIALIZED = True
+
+
+def _approval_log_path() -> Path:
+    if _APPROVAL_LOG is None:
+        init_final_approval_runtime()
+    return _APPROVAL_LOG
+
+
+def _approver_file() -> Path:
+    if _APPROVER_FILE is None:
+        init_final_approval_runtime()
+    return _APPROVER_FILE
 
 
 def _env_decision(name: str) -> bool:
@@ -49,13 +70,14 @@ def load_approvers() -> List[str]:
     global _SOURCE
     if _OVERRIDE is not None:
         return list(_OVERRIDE)
+    approver_file = _approver_file()
     env_val = os.getenv("REQUIRED_FINAL_APPROVER", "4o")
     parts = re.split(r"[,\s]+", env_val)
     approvers = [a.strip() for a in parts if a.strip()]
     _SOURCE = "env"
-    if APPROVER_FILE.exists():
+    if approver_file.exists():
         try:
-            data = load_file_approvers(APPROVER_FILE)
+            data = load_file_approvers(approver_file)
             if data:
                 approvers = data
                 _SOURCE = "file"
@@ -67,7 +89,10 @@ def load_approvers() -> List[str]:
 def set_approvers(approvers: List[str]) -> None:
     """Persist approver chain and set as override."""
     global _OVERRIDE, _SOURCE
-    APPROVER_FILE.write_text(json.dumps(approvers, ensure_ascii=False, indent=2), encoding="utf-8")
+    _approver_file().write_text(
+        json.dumps(approvers, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     _OVERRIDE = list(approvers)
     _SOURCE = "file"
 
@@ -93,6 +118,7 @@ def request_approval(description: str, *, approvers: Optional[List[str]] = None,
     global _LAST_APPROVER
     chain = approvers or load_approvers()
     approved = True
+    approval_log = _approval_log_path()
     for name in chain:
         ok = _env_decision(name)
         _LAST_APPROVER = name
@@ -105,7 +131,7 @@ def request_approval(description: str, *, approvers: Optional[List[str]] = None,
         }
         if rationale:
             entry["rationale"] = rationale
-        with APPROVAL_LOG.open("a", encoding="utf-8") as f:
+        with approval_log.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
         if not ok:
             approved = False

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
 # Modular policy, gesture, and persona engine.
 
 # Boundary assertion:
@@ -31,17 +29,47 @@ from typing import Any, Dict, List, Optional
 import os
 
 import final_approval
-import affective_context as ac
-from sentientos.pressure_engagement import ConstraintEngagementEngine
-from sentientos.intent_record import capture_intent_record
 
 try:
     import yaml  # type: ignore[import-untyped]  # optional YAML policies
 except Exception:  # pragma: no cover - optional dependency
     yaml = None
 
+_AFFECTIVE_CONTEXT_MODULE = None
+_INTENT_RECORD_MODULE = None
+
+
+def _affective_context_module():
+    global _AFFECTIVE_CONTEXT_MODULE
+    if _AFFECTIVE_CONTEXT_MODULE is None:
+        import affective_context as ac_module
+
+        _AFFECTIVE_CONTEXT_MODULE = ac_module
+    return _AFFECTIVE_CONTEXT_MODULE
+
+
+def _intent_record_module():
+    global _INTENT_RECORD_MODULE
+    if _INTENT_RECORD_MODULE is None:
+        from sentientos import intent_record as intent_record_module
+
+        _INTENT_RECORD_MODULE = intent_record_module
+    return _INTENT_RECORD_MODULE
+
 # Default: NO_GRADIENT_INVARIANT enforcement is on; set SENTIENTOS_ALLOW_UNSAFE=1 only for local experiments.
-_ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+_ALLOW_UNSAFE_GRADIENT = False
+_POLICY_RUNTIME_INITIALIZED = False
+
+
+def init_policy_runtime() -> None:
+    """Initialize policy runtime behavior explicitly and idempotently."""
+    global _ALLOW_UNSAFE_GRADIENT, _POLICY_RUNTIME_INITIALIZED
+    if _POLICY_RUNTIME_INITIALIZED:
+        return
+    require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
+    require_lumos_approval()
+    _ALLOW_UNSAFE_GRADIENT = os.getenv("SENTIENTOS_ALLOW_UNSAFE") == "1"
+    _POLICY_RUNTIME_INITIALIZED = True
 
 
 def _canonical_dumps(payload: Dict[str, Any]) -> str:
@@ -94,6 +122,9 @@ class PolicyEngine:
     """Load and evaluate gesture/persona policies."""
 
     def __init__(self, config_path: str) -> None:
+        init_policy_runtime()
+        from sentientos.pressure_engagement import ConstraintEngagementEngine
+
         self.path = Path(config_path)
         self.policies: List[Dict[str, Any]] = []
         self.personas: Dict[str, Dict[str, Any]] = {}
@@ -143,12 +174,12 @@ class PolicyEngine:
     # -- Evaluation ---------------------------------------------------------
     def evaluate(self, event: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Evaluate an event and return actions triggered."""
-        capture_intent_record(
+        _intent_record_module().capture_intent_record(
             intent_type="tooling_evaluation",
             payload={"event": event},
             originating_context="tooling",
         )
-        affective_overlay = ac.capture_affective_context(
+        affective_overlay = _affective_context_module().capture_affective_context(
             "policy-evaluate", overlay=event.get("emotions", {})
         )
         if not _ALLOW_UNSAFE_GRADIENT and any(
