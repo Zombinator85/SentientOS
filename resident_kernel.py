@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 from types import MappingProxyType
 from typing import Dict, Mapping, Tuple
 import sys
@@ -20,6 +22,8 @@ _EMBODIMENT_PREFIXES = (
     "motion_",
     "eeg_",
 )
+
+_KERNEL_VERSION = "resident-kernel-v1"
 
 _loaded_embodiment = [
     name
@@ -45,6 +49,10 @@ class KernelUnauthorizedError(PermissionError):
     pass
 
 
+class KernelCorruptionError(RuntimeError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class GovernanceView:
     identity_invariants: Tuple[str, str, str]
@@ -66,6 +74,14 @@ class EmbodimentView:
     delta_signals: Mapping[str, int]
     kernel_seq: int
     kernel_time: int
+
+
+@dataclass(frozen=True, slots=True)
+class KernelCheckpoint:
+    version: str
+    governance: Mapping[str, object]
+    embodiment: Mapping[str, object]
+    digest: str
 
 
 class _UpdateToken:
@@ -282,7 +298,7 @@ class _EmbodimentState:
 
 
 class ResidentKernel:
-    __slots__ = ("_governance", "_embodiment")
+    __slots__ = ("_governance", "_embodiment", "_last_checkpoint")
 
     def __init__(self) -> None:
         self._governance = _GovernanceState(
@@ -308,6 +324,7 @@ class ResidentKernel:
             kernel_seq=0,
             kernel_time=0,
         )
+        self._last_checkpoint: KernelCheckpoint | None = None
 
     def governance_view(self) -> GovernanceView:
         return GovernanceView(
@@ -356,14 +373,323 @@ class ResidentKernel:
         if validated:
             self._embodiment._apply(_UPDATE_TOKEN, **validated)
 
-    def create_checkpoint(self) -> None:
-        raise NotImplementedError("Checkpoint creation is not implemented")
+    def create_checkpoint(self) -> KernelCheckpoint:
+        governance = {
+            "identity_invariants": self._governance.identity_invariants,
+            "doctrine_digest": self._governance.doctrine_digest,
+            "active_policy_pointer": self._governance.active_policy_pointer,
+            "authority_flags": dict(self._governance.authority_flags),
+            "system_phase": self._governance.system_phase,
+            "posture_flags": self._governance.posture_flags,
+            "constraint_rejustify_deadline": self._governance.constraint_rejustify_deadline,
+            "last_justification_at": self._governance.last_justification_at,
+            "federation_compat_digest": dict(self._governance.federation_compat_digest),
+        }
+        embodiment = {
+            "sensor_presence_flags": dict(self._embodiment.sensor_presence_flags),
+            "sensor_health_flags": dict(self._embodiment.sensor_health_flags),
+            "actuator_output_state": dict(self._embodiment.actuator_output_state),
+            "delta_signals": dict(self._embodiment.delta_signals),
+            "kernel_seq": self._embodiment.kernel_seq,
+            "kernel_time": self._embodiment.kernel_time,
+        }
+        digest = self._hash_checkpoint_payload(
+            _KERNEL_VERSION,
+            governance,
+            embodiment,
+        )
+        checkpoint = KernelCheckpoint(
+            version=_KERNEL_VERSION,
+            governance=self._freeze_mapping(governance),
+            embodiment=self._freeze_mapping(embodiment),
+            digest=digest,
+        )
+        self._last_checkpoint = checkpoint
+        return checkpoint
 
-    def restore_checkpoint(self) -> None:
-        raise NotImplementedError("Checkpoint restore is not implemented")
+    def restore_checkpoint(self, checkpoint: KernelCheckpoint | Mapping[str, object]) -> None:
+        try:
+            payload = self._coerce_checkpoint_payload(checkpoint)
+            expected_digest = self._hash_checkpoint_payload(
+                payload["version"],
+                payload["governance"],
+                payload["embodiment"],
+            )
+            if expected_digest != payload["digest"]:
+                raise KernelInvariantError("Checkpoint digest mismatch")
+            if payload["version"] != _KERNEL_VERSION:
+                raise KernelInvariantError("Checkpoint version mismatch")
+            validated_governance, validated_embodiment = self._validate_checkpoint_payload(
+                payload["governance"],
+                payload["embodiment"],
+            )
+        except KernelInvariantError:
+            self._force_safe_posture()
+            raise
+        self._governance._apply(_UPDATE_TOKEN, **validated_governance)
+        self._embodiment._apply(_UPDATE_TOKEN, **validated_embodiment)
+        digest = self._hash_checkpoint_payload(
+            _KERNEL_VERSION,
+            validated_governance,
+            validated_embodiment,
+        )
+        self._last_checkpoint = KernelCheckpoint(
+            version=_KERNEL_VERSION,
+            governance=self._freeze_mapping(validated_governance),
+            embodiment=self._freeze_mapping(validated_embodiment),
+            digest=digest,
+        )
 
     def detect_corruption(self) -> None:
-        raise NotImplementedError("Corruption detection is not implemented")
+        checkpoint = self._last_checkpoint
+        if checkpoint is None:
+            raise KernelMisuseError("No checkpoint available for corruption detection")
+        governance = checkpoint.governance
+        embodiment = checkpoint.embodiment
+        if self._governance.identity_invariants != governance["identity_invariants"]:
+            raise KernelCorruptionError("identity_invariants drift detected")
+        current_phase = self._governance.system_phase
+        prior_phase = governance["system_phase"]
+        if current_phase != prior_phase:
+            allowed = _ALLOWED_PHASE_TRANSITIONS.get(prior_phase, set())
+            if current_phase not in allowed:
+                raise KernelCorruptionError(
+                    f"Illegal phase transition: {prior_phase} -> {current_phase}"
+                )
+        monotonic_pairs = [
+            ("kernel_seq", self._embodiment.kernel_seq, embodiment["kernel_seq"]),
+            ("kernel_time", self._embodiment.kernel_time, embodiment["kernel_time"]),
+            (
+                "last_justification_at",
+                self._governance.last_justification_at,
+                governance["last_justification_at"],
+            ),
+            (
+                "constraint_rejustify_deadline",
+                self._governance.constraint_rejustify_deadline,
+                governance["constraint_rejustify_deadline"],
+            ),
+        ]
+        for field, current, prior in monotonic_pairs:
+            if current < prior:
+                raise KernelCorruptionError(f"{field} regressed")
+        for key, prior in embodiment["delta_signals"].items():
+            current = self._embodiment.delta_signals.get(key, 0)
+            if current < prior:
+                raise KernelCorruptionError("delta_signals regressed")
+
+    def _coerce_checkpoint_payload(
+        self, checkpoint: KernelCheckpoint | Mapping[str, object]
+    ) -> Dict[str, object]:
+        if isinstance(checkpoint, KernelCheckpoint):
+            version = checkpoint.version
+            governance = self._defrost_mapping(checkpoint.governance)
+            embodiment = self._defrost_mapping(checkpoint.embodiment)
+            digest = checkpoint.digest
+        elif isinstance(checkpoint, Mapping):
+            try:
+                version = checkpoint["version"]
+                governance = self._defrost_mapping(checkpoint["governance"])
+                embodiment = self._defrost_mapping(checkpoint["embodiment"])
+                digest = checkpoint["digest"]
+            except KeyError as exc:
+                raise KernelInvariantError("Checkpoint missing required fields") from exc
+        else:
+            raise KernelInvariantError("Checkpoint must be a KernelCheckpoint or mapping")
+        if not isinstance(digest, str) or not digest:
+            raise KernelInvariantError("Checkpoint digest must be a non-empty string")
+        if not isinstance(version, str) or not version:
+            raise KernelInvariantError("Checkpoint version must be a non-empty string")
+        return {
+            "version": version,
+            "governance": governance,
+            "embodiment": embodiment,
+            "digest": digest,
+        }
+
+    def _validate_checkpoint_payload(
+        self,
+        governance: Mapping[str, object],
+        embodiment: Mapping[str, object],
+    ) -> Tuple[Dict[str, object], Dict[str, object]]:
+        self._reject_unknown_fields(governance, _ALLOWED_GOV_FIELDS)
+        self._reject_unknown_fields(embodiment, _ALLOWED_EMB_FIELDS)
+        policy_pointer = self._validate_policy_pointer(governance["active_policy_pointer"])
+        last_justification_at = self._validate_monotonic_int(
+            governance["last_justification_at"],
+            0,
+            "last_justification_at",
+        )
+        validated_governance = {
+            "identity_invariants": self._validate_identity_invariants(
+                governance["identity_invariants"]
+            ),
+            "doctrine_digest": self._validate_digest(
+                governance["doctrine_digest"],
+                "doctrine_digest",
+            ),
+            "active_policy_pointer": policy_pointer,
+            "authority_flags": self._validate_checkpoint_authority_flags(
+                governance["authority_flags"],
+                policy_pointer,
+            ),
+            "system_phase": self._validate_phase_value(governance["system_phase"]),
+            "posture_flags": self._validate_posture_flags(governance["posture_flags"]),
+            "constraint_rejustify_deadline": self._validate_checkpoint_deadline(
+                governance["constraint_rejustify_deadline"],
+                last_justification_at,
+            ),
+            "last_justification_at": last_justification_at,
+            "federation_compat_digest": self._validate_federation_digest(
+                governance["federation_compat_digest"]
+            ),
+        }
+        validated_embodiment = {
+            "sensor_presence_flags": self._validate_bool_map(
+                embodiment["sensor_presence_flags"],
+                _ALLOWED_SENSORS,
+                "sensor_presence_flags",
+            ),
+            "sensor_health_flags": self._validate_bool_map(
+                embodiment["sensor_health_flags"],
+                _ALLOWED_SENSORS,
+                "sensor_health_flags",
+            ),
+            "actuator_output_state": self._validate_bool_map(
+                embodiment["actuator_output_state"],
+                _ALLOWED_ACTUATORS,
+                "actuator_output_state",
+            ),
+            "delta_signals": self._validate_counter_map(
+                embodiment["delta_signals"],
+                _ALLOWED_DELTAS,
+                "delta_signals",
+                {key: 0 for key in _ALLOWED_DELTAS},
+            ),
+            "kernel_seq": self._validate_monotonic_int(
+                embodiment["kernel_seq"],
+                0,
+                "kernel_seq",
+            ),
+            "kernel_time": self._validate_monotonic_int(
+                embodiment["kernel_time"],
+                0,
+                "kernel_time",
+            ),
+        }
+        self._validate_checkpoint_sensor_health(
+            validated_embodiment["sensor_presence_flags"],
+            validated_embodiment["sensor_health_flags"],
+        )
+        self._validate_checkpoint_actuator_state(
+            validated_embodiment["actuator_output_state"],
+            validated_governance["system_phase"],
+        )
+        return validated_governance, validated_embodiment
+
+    def _force_safe_posture(self) -> None:
+        self._governance._apply(_UPDATE_TOKEN, posture_flags="safe_brownout")
+
+    def _validate_checkpoint_authority_flags(
+        self, value: object, policy_pointer: Tuple[str, int]
+    ) -> Dict[str, bool]:
+        required = {"operator_present", "operator_verified", "automated_ok"}
+        if not isinstance(value, Mapping):
+            raise KernelInvariantError("authority_flags must be a mapping")
+        if set(value.keys()) != required:
+            raise KernelInvariantError("authority_flags must contain fixed keys")
+        if not all(isinstance(value[key], bool) for key in required):
+            raise KernelInvariantError("authority_flags values must be bools")
+        if value["operator_verified"] and not value["operator_present"]:
+            raise KernelInvariantError(
+                "operator_verified requires operator_present"
+            )
+        if value["automated_ok"] and policy_pointer == ("", 0):
+            raise KernelInvariantError("automated_ok requires active_policy_pointer")
+        return {key: value[key] for key in required}
+
+    def _validate_checkpoint_deadline(self, value: object, last: int) -> int:
+        if not isinstance(value, int) or value < 0:
+            raise KernelInvariantError("constraint_rejustify_deadline must be int")
+        if value < last:
+            raise KernelInvariantError("deadline must be >= last_justification_at")
+        return value
+
+    def _validate_checkpoint_sensor_health(
+        self,
+        presence: Mapping[str, bool],
+        health: Mapping[str, bool],
+    ) -> None:
+        for key, is_healthy in health.items():
+            if is_healthy and not presence.get(key, False):
+                raise KernelInvariantError("sensor health requires presence")
+
+    def _validate_checkpoint_actuator_state(
+        self,
+        state: Mapping[str, bool],
+        phase: str,
+    ) -> None:
+        if phase not in {"ready", "degraded"}:
+            if any(state.values()):
+                raise KernelInvariantError("actuator outputs require ready/degraded")
+
+    def _validate_phase_value(self, value: object) -> str:
+        if not isinstance(value, str) or value not in _ALLOWED_PHASES:
+            raise KernelInvariantError("system_phase must be a known phase")
+        return value
+
+    def _freeze_mapping(self, data: Mapping[str, object]) -> Mapping[str, object]:
+        frozen: Dict[str, object] = {}
+        for key, value in data.items():
+            if isinstance(value, Mapping):
+                frozen[key] = MappingProxyType(dict(value))
+            elif isinstance(value, tuple):
+                frozen[key] = tuple(value)
+            else:
+                frozen[key] = value
+        return MappingProxyType(frozen)
+
+    def _defrost_mapping(self, data: object) -> Dict[str, object]:
+        if not isinstance(data, Mapping):
+            raise KernelInvariantError("Checkpoint sections must be mappings")
+        defrosted: Dict[str, object] = {}
+        for key, value in data.items():
+            if isinstance(value, Mapping):
+                defrosted[key] = dict(value)
+            else:
+                defrosted[key] = value
+        return defrosted
+
+    def _hash_checkpoint_payload(
+        self,
+        version: str,
+        governance: Mapping[str, object],
+        embodiment: Mapping[str, object],
+    ) -> str:
+        payload = {
+            "version": version,
+            "governance": self._normalize_for_hash(governance),
+            "embodiment": self._normalize_for_hash(embodiment),
+        }
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    def _normalize_for_hash(self, value: object) -> object:
+        if isinstance(value, Mapping):
+            return {
+                key: self._normalize_for_hash(value[key])
+                for key in sorted(value)
+            }
+        if isinstance(value, tuple):
+            return [self._normalize_for_hash(item) for item in value]
+        if isinstance(value, list):
+            return [self._normalize_for_hash(item) for item in value]
+        return value
 
     def _reject_unknown_fields(self, changes: Mapping[str, object], allowed: set) -> None:
         unknown = [field for field in changes if field not in allowed]
@@ -619,6 +945,8 @@ class ResidentKernel:
 __all__ = [
     "EmbodimentView",
     "GovernanceView",
+    "KernelCheckpoint",
+    "KernelCorruptionError",
     "KernelInvariantError",
     "KernelMisuseError",
     "KernelUnauthorizedError",
