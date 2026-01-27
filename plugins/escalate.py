@@ -5,18 +5,22 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 """Plugin that logs escalation events."""
-from api.actuator import BaseActuator
-import memory_manager as mm
 import plugin_framework as pf
-import presence_ledger as pl
 
 
 def register(gui: "CathedralGUI") -> None:
-    class EscalateActuator(BaseActuator):
-        def execute(self, intent):
-            text = f"Escalation for {intent.get('goal')}: {intent.get('text','')}"
-            fid = mm.append_memory(text, tags=["escalation"], source="escalate")
-            pl.log("plugin", "escalate", text)
-            return {"escalated": intent.get('goal'), "log_id": fid}
+    class EscalatePlugin(pf.BasePlugin):
+        plugin_type = "escalation"
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = ["memory", "presence", "filesystem"]
 
-    pf.register_plugin('escalate', EscalateActuator())
+        def execute(self, intent, context=None):
+            if context is None:
+                raise RuntimeError("PluginContext required")
+            text = f"Escalation for {intent.get('goal')}: {intent.get('text','')}"
+            fid = context.record_memory(text, tags=["escalation"], source="escalate")
+            context.log_presence("plugin", "escalate", text)
+            return {"escalated": intent.get("goal"), "log_id": fid}
+
+    pf.register_plugin("escalate", EscalatePlugin())

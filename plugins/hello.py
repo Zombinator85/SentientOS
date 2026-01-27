@@ -10,14 +10,18 @@ The actuator just returns a greeting with the provided name.  This file is
 used in the test-suite to demonstrate plugin discovery.
 """
 
-from api.actuator import BaseActuator
 import plugin_framework as pf
 
 
 def register(gui: "CathedralGUI") -> None:
-    class HelloActuator(BaseActuator):
-        def execute(self, intent):
-            name = intent.get('name', 'world')
-            return {'hello': name}
+    class HelloPlugin(pf.BasePlugin):
+        plugin_type = "greeting"
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = []
 
-    pf.register_plugin('hello', HelloActuator())
+        def execute(self, intent, context=None):
+            name = intent.get("name", "world")
+            return {"hello": name}
+
+    pf.register_plugin("hello", HelloPlugin())

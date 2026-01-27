@@ -473,6 +473,16 @@ class ResidentKernel:
         self._checkpoint_epoch_id = None
         return KernelEpoch(self)
 
+    def epoch_active(self) -> bool:
+        """Return True when an unpaused epoch session is active."""
+        return self._active_epoch is not None and not self._active_epoch.paused
+
+    def active_epoch_id(self) -> int | None:
+        """Return the currently active epoch id, if any."""
+        if self._active_epoch is None:
+            return None
+        return self._active_epoch.epoch_id
+
     def end_epoch(self) -> KernelEpochAudit:
         if self._active_epoch is None:
             raise KernelMisuseError("No active epoch session to end")

@@ -11,8 +11,11 @@ from plugin_framework import BasePlugin
 class WaveHandPlugin(BasePlugin):
     plugin_type = "gesture"
     schema = {"speed": "float"}
+    allowed_postures = ["normal"]
+    requires_epoch = True
+    capabilities = ["gesture"]
 
-    def execute(self, event):
+    def execute(self, event, context=None):
         speed = event.get("speed", 1.0)
         return {
             "gesture": "wave",
@@ -20,7 +23,7 @@ class WaveHandPlugin(BasePlugin):
             "explanation": f"Waving hand at speed {speed}"
         }
 
-    def simulate(self, event):
+    def simulate(self, event, context=None):
         speed = event.get("speed", 1.0)
         return {
             "gesture": "wave",

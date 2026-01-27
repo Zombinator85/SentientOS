@@ -6,13 +6,17 @@ require_admin_banner()
 require_lumos_approval()
 """Execute a local Python function via the actuator framework."""
 from importlib import import_module
-from api.actuator import BaseActuator
 import plugin_framework as pf
 
 
 def register(gui: "CathedralGUI") -> None:
-    class PyCallActuator(BaseActuator):
-        def execute(self, intent):
+    class PyCallPlugin(pf.BasePlugin):
+        plugin_type = "runtime_call"
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = []
+
+        def execute(self, intent, context=None):
             target = intent.get("func")
             if not target or ":" not in target:
                 raise ValueError("func must be module:function")
@@ -23,4 +27,4 @@ def register(gui: "CathedralGUI") -> None:
             kwargs = intent.get("kwargs", {})
             return {"result": func(*args, **kwargs)}
 
-    pf.register_plugin("pycall", PyCallActuator())
+    pf.register_plugin("pycall", PyCallPlugin())
