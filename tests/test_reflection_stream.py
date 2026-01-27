@@ -29,15 +29,23 @@ def setup_env(tmp_path, monkeypatch):
     importlib.reload(pf)
     importlib.reload(hm)
     pf.load_plugins()
+    from resident_kernel import ResidentKernel
+    kernel = ResidentKernel()
+    pf.set_kernel(kernel)
+    return kernel
 
 
 def test_plugin_failure_logged(tmp_path, monkeypatch):
     plugins = tmp_path / "plugins"
     plugins.mkdir()
     failing = plugins / "bad.py"
-    failing.write_text("""from plugin_framework import BasePlugin\nclass B(BasePlugin):\n    def execute(self,e): raise RuntimeError('x')\n    def simulate(self,e): raise RuntimeError('x')\n\ndef register(r): r('bad', B())\n""", encoding='utf-8')
-    setup_env(tmp_path, monkeypatch)
-    pf.run_plugin('bad')
+    failing.write_text(
+        """from plugin_framework import BasePlugin\nclass B(BasePlugin):\n    allowed_postures = [\"normal\"]\n    requires_epoch = True\n    capabilities = []\n    def execute(self,e, context=None): raise RuntimeError('x')\n    def simulate(self,e, context=None): raise RuntimeError('x')\n\ndef register(r): r('bad', B())\n""",
+        encoding="utf-8",
+    )
+    kernel = setup_env(tmp_path, monkeypatch)
+    with kernel.begin_epoch("test"):
+        pf.run_plugin("bad", kernel=kernel)
     logs = rs.recent(2)
     events = [l['event'] for l in logs]
     assert {'failure', 'escalation'} & set(events)
@@ -56,4 +64,3 @@ def test_health_escalation(tmp_path, monkeypatch):
     hm.check_all()
     logs = rs.recent(1)
     assert logs and logs[0]['event'] in {'escalation', 'failure'}
-

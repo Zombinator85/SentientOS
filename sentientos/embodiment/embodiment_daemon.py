@@ -79,6 +79,49 @@ class EmbodimentDaemon:
             raise RuntimeError("Epoch audit record missing after tick")
         return epoch.audit_record
 
+    def dispatch_plugin(
+        self,
+        name: str,
+        event: dict[str, object] | None = None,
+        *,
+        dry_run: bool = False,
+        caller: str = "embodiment_daemon",
+    ) -> dict[str, object]:
+        """Dispatch a plugin with posture/epoch enforcement and safe failure handling."""
+        try:
+            import plugin_framework as pf
+            import trust_engine as te
+
+            result = pf.run_plugin(
+                name,
+                event or {},
+                cause="embodiment_dispatch",
+                user=caller,
+                kernel=self._kernel,
+                dry_run=dry_run,
+                caller_module=caller,
+            )
+            if result.get("error"):
+                te.log_event(
+                    "plugin_dispatch_blocked",
+                    "embodiment_dispatch",
+                    str(result.get("error")),
+                    name,
+                    {"caller": caller, "dry_run": dry_run},
+                )
+            return result
+        except Exception as exc:  # pragma: no cover - defensive
+            import trust_engine as te
+
+            te.log_event(
+                "plugin_dispatch_error",
+                "embodiment_dispatch",
+                str(exc),
+                name,
+                {"caller": caller, "dry_run": dry_run},
+            )
+            return {"error": str(exc), "blocked": True}
+
     def _apply_events(self, events: Iterable[SimulatedEvent]) -> None:
         view = self._kernel.embodiment_view()
         sensor_presence_flags = dict(view.sensor_presence_flags)

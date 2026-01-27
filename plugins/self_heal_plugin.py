@@ -31,8 +31,11 @@ def register(gui) -> None:
 
     class HealPlugin(pf.BasePlugin):
         plugin_type = "healer"
+        allowed_postures = ["normal"]
+        requires_epoch = True
+        capabilities = ["filesystem"]
 
-        def execute(self, intent):
+        def execute(self, intent, context=None):
             note = intent.get("issue", "unknown")
             self_patcher.propose_patch(note)
             _log(f"patched:{note}")

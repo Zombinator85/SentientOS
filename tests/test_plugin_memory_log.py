@@ -22,11 +22,15 @@ def test_plugin_memory_logged(tmp_path, monkeypatch):
     import presence_ledger as pl
     import memory_manager as mm
     import plugins.escalate as escalate
+    from resident_kernel import ResidentKernel
     importlib.reload(pl)
     importlib.reload(mm)
     importlib.reload(pf)
     escalate.register(None)
-    pf.run_plugin("escalate", {"goal": "bridge", "text": "check"})
+    kernel = ResidentKernel()
+    pf.set_kernel(kernel)
+    with kernel.begin_epoch("test"):
+        pf.run_plugin("escalate", {"goal": "bridge", "text": "check"}, kernel=kernel)
     mm.summarize_memory()
     day = datetime.date.today().isoformat()
     summary = mem_dir / "distilled" / f"{day}.txt"

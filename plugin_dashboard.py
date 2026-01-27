@@ -7,6 +7,11 @@ require_lumos_approval()
 from flask_stub import Flask, jsonify, request
 import plugin_framework as pf
 import trust_engine as te
+from resident_kernel import ResidentKernel
+
+
+_KERNEL = ResidentKernel()
+pf.set_kernel(_KERNEL)
 
 
 app = Flask(__name__)
@@ -91,7 +96,8 @@ def disable_api():
 @app.route('/api/test', methods=['POST'])
 def test_api():
     name=(request.get_json() or {}).get('plugin')
-    res=pf.test_plugin(name)
+    with _KERNEL.begin_epoch("plugin_dashboard"):
+        res=pf.test_plugin(name, kernel=_KERNEL, dry_run=True)
     return jsonify(res)
 
 @app.route('/api/logs', methods=['GET', 'POST'])
