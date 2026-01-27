@@ -4,11 +4,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
 
 import importlib
-import time
 
 def test_on_demand_trigger(tmp_path, monkeypatch):
     monkeypatch.setenv("MEMORY_DIR", str(tmp_path))
@@ -31,7 +28,9 @@ def test_on_demand_trigger(tmp_path, monkeypatch):
     mgr.add_rule(rule)
     mgr.start()
     trig.fire()
-    time.sleep(0.05)
+    context = rm.ReflexExecutionContext(epoch="test", saturation_budget=5, allow_filesystem=True)
+    mgr.maybe_trigger_reflexes(context)
+    mgr.run_queued_reflexes(context)
     mgr.stop()
     assert calls and calls[0]["cmd"] == "echo hi"
 

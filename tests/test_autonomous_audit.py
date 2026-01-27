@@ -4,8 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
 
 import json
 import hashlib
@@ -58,7 +56,8 @@ def test_audit_entry_and_why_chain(tmp_path, monkeypatch):
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [{"type": "write", "path": "out.txt", "content": "hi"}], name="t")
     mgr = rm.ReflexManager()
     mgr.add_rule(rule)
-    rule.execute()
+    context = rm.ReflexExecutionContext(epoch="test", saturation_budget=5, allow_filesystem=True)
+    rule.execute(context)
 
     data = Path(tmp_path / "audit.jsonl").read_text().splitlines()
     assert data, "no audit log"
@@ -79,7 +78,8 @@ def test_refusal_logged(tmp_path, monkeypatch):
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [{"type": "write", "path": "x.txt", "content": "hi"}], name="t")
     mgr = rm.ReflexManager()
     mgr.add_rule(rule)
-    ok = rule.execute()
+    context = rm.ReflexExecutionContext(epoch="test", saturation_budget=5, allow_filesystem=True)
+    ok = rule.execute(context)
     assert not ok
 
     entry = json.loads(Path(tmp_path / "audit.jsonl").read_text().splitlines()[0])
