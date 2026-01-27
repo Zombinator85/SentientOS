@@ -44,10 +44,12 @@ def test_nested_epoch_forbidden() -> None:
 
 def test_checkpoint_hash_changes_with_epoch() -> None:
     kernel = ResidentKernel()
-    checkpoint_a = kernel.create_checkpoint()
+    with kernel.begin_epoch("snapshot-a"):
+        checkpoint_a = kernel.create_checkpoint()
     with kernel.begin_epoch("tick"):
         pass
-    checkpoint_b = kernel.create_checkpoint()
+    with kernel.begin_epoch("snapshot-b"):
+        checkpoint_b = kernel.create_checkpoint()
     assert checkpoint_a.digest != checkpoint_b.digest
 
 
@@ -55,9 +57,36 @@ def test_restore_rejects_epoch_regression() -> None:
     kernel = ResidentKernel()
     with kernel.begin_epoch("tick"):
         kernel.update_governance("governance_arbiter", system_phase="ready")
-    checkpoint = kernel.create_checkpoint()
+        checkpoint = kernel.create_checkpoint()
     with kernel.begin_epoch("advance"):
         pass
     with kernel.begin_epoch("restore"):
+        kernel.pause_epoch()
         with pytest.raises(KernelInvariantError):
+            kernel.restore_checkpoint(checkpoint)
+
+
+def test_checkpoint_requires_epoch() -> None:
+    kernel = ResidentKernel()
+    with pytest.raises(KernelWriteOutsideEpochError):
+        kernel.create_checkpoint()
+
+
+def test_checkpoint_blocks_duplicate_epoch() -> None:
+    kernel = ResidentKernel()
+    with kernel.begin_epoch("tick"):
+        kernel.update_governance("governance_arbiter", system_phase="ready")
+        first = kernel.create_checkpoint()
+        kernel.update_embodiment("governance_arbiter", kernel_seq=1, kernel_time=1)
+        with pytest.raises(KernelMisuseError):
+            kernel.create_checkpoint()
+    assert first.governance["system_phase"] == "ready"
+
+
+def test_restore_blocked_during_active_epoch() -> None:
+    kernel = ResidentKernel()
+    with kernel.begin_epoch("tick"):
+        checkpoint = kernel.create_checkpoint()
+    with kernel.begin_epoch("restore"):
+        with pytest.raises(KernelMisuseError):
             kernel.restore_checkpoint(checkpoint)
