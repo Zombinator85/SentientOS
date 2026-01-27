@@ -1,30 +1,29 @@
 from __future__ import annotations
+
+import datetime
+import json
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 from logging_config import get_log_path
 
-import os
-import json
-import threading
-import time
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
-import datetime
-
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-"""Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
-require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
-require_lumos_approval()
-try:
-    from watchdog.observers import Observer  # type: ignore[import-untyped]  # optional file watcher
-    from watchdog.events import FileSystemEventHandler  # type: ignore[import-untyped]  # optional file watcher
-except Exception:  # pragma: no cover - optional dependency
-    Observer = None  # type: ignore[import-untyped]  # fallback when watchdog absent
-    FileSystemEventHandler = object  # type: ignore[import-untyped]  # fallback when watchdog absent
-
-from api import actuator
+import autonomous_audit as aa
+import final_approval
 import memory_manager as mm
 import reflection_stream as rs
-import final_approval
-import autonomous_audit as aa
+from api import actuator
+from audit_chain import append_entry
+from presence_ledger import log as log_presence
+from reflex_daemon import (
+    BaseTrigger,
+    ConditionalTrigger,
+    FileChangeTrigger,
+    IntervalTrigger,
+    OnDemandTrigger,
+    ReflexDaemon,
+)
 from ritual import check_master_files
 
 DEFAULT_MANAGER: "ReflexManager | None" = None
@@ -43,102 +42,57 @@ def default_manager() -> "ReflexManager":
         set_default_manager(mgr)
     return mgr
 
+@dataclass
+class ReflexExecutionContext:
+    epoch: str | None
+    saturation_budget: int
+    agent: str | None = None
+    persona: str | None = None
+    allow_filesystem: bool = False
+    allow_goal_mutation: bool = False
+    allow_embodiment: bool = False
+    presence_user: str = "reflex"
 
-panic_event = threading.Event()
+    def allow_reflex(self) -> bool:
+        return bool(self.epoch)
 
+    def consume_budget(self, cost: int = 1) -> bool:
+        if self.saturation_budget < cost:
+            return False
+        self.saturation_budget -= cost
+        return True
 
-class BaseTrigger:
-    """Interface for triggers."""
+    def allow_action(self, action: Dict[str, Any]) -> bool:
+        action_type = action.get("type")
+        if action_type in {"write", "file", "shell"} and not self.allow_filesystem:
+            return False
+        if action_type in {"goal", "goal_create", "goal_update"} and not self.allow_goal_mutation:
+            return False
+        if action_type in {"embodiment", "motion"} and not self.allow_embodiment:
+            return False
+        return True
 
-    def start(self, callback: Callable[[], None]) -> None:
-        raise NotImplementedError
+    def log_reflex_action(self, entry: Dict[str, Any]) -> None:
+        audit_path = get_log_path("reflex_action_audit.jsonl", "REFLEX_ACTION_AUDIT")
+        audit_path.parent.mkdir(parents=True, exist_ok=True)
+        append_entry(audit_path, entry)
+        log_presence(self.presence_user, entry.get("event", "reflex_action"), entry.get("note", ""))
 
-    def stop(self) -> None:  # pragma: no cover - optional
-        pass
-
-
-class IntervalTrigger(BaseTrigger):
-    """Trigger that fires periodically."""
-
-    def __init__(self, seconds: float) -> None:
-        self.seconds = seconds
-        self._stop = threading.Event()
-
-    def start(self, callback: Callable[[], None]) -> None:
-        def loop() -> None:
-            while not self._stop.is_set() and not panic_event.is_set():
-                time.sleep(self.seconds)
-                if not panic_event.is_set():
-                    callback()
-
-        threading.Thread(target=loop, daemon=True).start()
-
-    def stop(self) -> None:
-        self._stop.set()
-
-
-class OnDemandTrigger(BaseTrigger):
-    """Trigger invoked manually via ``fire``."""
-
-    def start(self, callback: Callable[[], None]) -> None:
-        self._callback = callback
-
-    def fire(self, agent: str | None = None, persona: str | None = None) -> None:
-        if hasattr(self, "_callback") and not panic_event.is_set():
-            self._callback(agent=agent, persona=persona)
-
-
-class FileChangeTrigger(BaseTrigger):
-    """Trigger when files under a path change."""
-
-    def __init__(self, path: str) -> None:
-        self.path = Path(path)
-        self.observer: Observer | None = None
-
-    def start(self, callback: Callable[[], None]) -> None:
-        if Observer is None:  # pragma: no cover - missing watchdog
-            raise RuntimeError("watchdog not installed")
-
-        class Handler(FileSystemEventHandler):
-            def on_any_event(self, event) -> None:  # type: ignore[override]  # watchdog callback signature
-                if not panic_event.is_set():
-                    callback()
-
-        self.observer = Observer()
-        self.observer.schedule(Handler(), str(self.path), recursive=True)
-        self.observer.start()
-
-    def stop(self) -> None:  # pragma: no cover - simple
-        if self.observer:
-            self.observer.stop()
-            self.observer.join()
-
-
-class ConditionalTrigger(BaseTrigger):
-    """Trigger when a custom check function returns True."""
-
-    def __init__(self, check: Callable[[], bool], interval: float = 1.0) -> None:
-        self.check = check
-        self.interval = interval
-        self._stop = threading.Event()
-
-    def start(self, callback: Callable[[], None]) -> None:
-        def loop() -> None:
-            while not self._stop.is_set() and not panic_event.is_set():
-                if self.check() and not panic_event.is_set():
-                    callback()
-                time.sleep(self.interval)
-
-        threading.Thread(target=loop, daemon=True).start()
-
-    def stop(self) -> None:
-        self._stop.set()
+    def execute_action(self, action: Dict[str, Any]) -> Any:
+        return actuator.act(action)
 
 
 class ReflexRule:
     """Couples a trigger with one or more actuator intents."""
 
-    def __init__(self, trigger: BaseTrigger, actions: List[Dict[str, Any]], name: str = "", preferred: bool = False, frozen: bool = False) -> None:
+    def __init__(
+        self,
+        trigger: BaseTrigger,
+        actions: List[Dict[str, Any]],
+        name: str = "",
+        preferred: bool = False,
+        frozen: bool = False,
+    ) -> None:
         self.trigger = trigger
         self.actions = actions
         self.name = name
@@ -147,14 +101,8 @@ class ReflexRule:
         self.manager: "ReflexManager | None" = None
         self.frozen = frozen
 
-    def start(self) -> None:
-        self.trigger.start(self.execute)
-
-    def stop(self) -> None:
-        self.trigger.stop()
-
-    def execute(self, agent: str | None = None, persona: str | None = None) -> bool:
-        if panic_event.is_set():
+    def execute(self, context: ReflexExecutionContext, agent: str | None = None, persona: str | None = None) -> bool:
+        if context is None or not context.allow_reflex():
             return False
         ok, missing = check_master_files()
         if not ok:
@@ -166,12 +114,41 @@ class ReflexRule:
                 why_chain=[f"Rule '{self.name}' refused due to missing master files"],
                 agent=agent or "auto",
             )
+            context.log_reflex_action(
+                {
+                    "event": "reflex.refusal",
+                    "rule": self.name,
+                    "note": "sanctity violation",
+                    "missing": missing,
+                }
+            )
             return False
         success = True
         start = time.time()
         for action in self.actions:
+            if not context.allow_action(action):
+                success = False
+                context.log_reflex_action(
+                    {
+                        "event": "reflex.blocked",
+                        "rule": self.name,
+                        "note": "action blocked by context",
+                        "action": action,
+                    }
+                )
+                continue
+            if not context.consume_budget(1):
+                success = False
+                context.log_reflex_action(
+                    {
+                        "event": "reflex.budget_exhausted",
+                        "rule": self.name,
+                        "note": "saturation budget exhausted",
+                    }
+                )
+                break
             try:
-                result = actuator.act(action)
+                result = context.execute_action(action)
                 mem = []
                 if isinstance(result, dict) and result.get("log_id"):
                     mem.append(result["log_id"])
@@ -187,12 +164,28 @@ class ReflexRule:
                     ],
                     agent=agent or "auto",
                 )
+                context.log_reflex_action(
+                    {
+                        "event": "reflex.executed",
+                        "rule": self.name,
+                        "action": action,
+                        "result": result,
+                    }
+                )
             except Exception as e:  # pragma: no cover - defensive
                 success = False
                 mm.append_memory(
                     json.dumps({"error": str(e), "intent": action}),
                     tags=["reflex", "error"],
                     source="reflex",
+                )
+                context.log_reflex_action(
+                    {
+                        "event": "reflex.error",
+                        "rule": self.name,
+                        "action": action,
+                        "error": str(e),
+                    }
                 )
         duration = time.time() - start
         if self.manager:
@@ -211,9 +204,8 @@ class ReflexManager:
         self.experiments: Dict[str, Any] = {}
         self.history: List[Dict[str, Any]] = []
         self.autopromote_trials = autopromote_trials
-        self.TRIAL_LOG.parent.mkdir(parents=True, exist_ok=True)
-        self.AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
         self.audit: List[Dict[str, Any]] = []
+        self.daemon = ReflexDaemon(self.rules)
 
     # ------------------------------------------------------------------
     def _audit(
@@ -248,6 +240,7 @@ class ReflexManager:
         if current is not None:
             entry["current"] = current
         self.audit.append(entry)
+        self.AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
         with self.AUDIT_LOG.open("a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
 
@@ -317,7 +310,6 @@ class ReflexManager:
         """Create and start a rule from autonomous analysis."""
         rule = ReflexRule(trigger, actions, name=name)
         self.add_rule(rule)
-        rule.start()
         self._audit("auto_rule", name, by="auto", comment=json.dumps(signals or {}))
         return rule
 
@@ -336,23 +328,55 @@ class ReflexManager:
         rule.manager = self
         self.rules.append(rule)
 
+    def maybe_trigger_reflexes(
+        self,
+        context: ReflexExecutionContext,
+        *,
+        event: Optional[Dict[str, Any]] = None,
+        now: Optional[float] = None,
+    ) -> int:
+        """Queue reflexes when triggers match and context allows execution."""
+        return self.daemon.maybe_trigger_reflexes(context, event=event, now=now)
+
+    def run_queued_reflexes(self, context: ReflexExecutionContext) -> List[Dict[str, Any]]:
+        """Execute queued reflexes with explicit context gating."""
+        if context is None or not context.allow_reflex():
+            return []
+        results: List[Dict[str, Any]] = []
+        for item in self.daemon.drain_queue():
+            agent = item.agent or context.agent
+            persona = item.persona or context.persona
+            success = item.rule.execute(context, agent=agent, persona=persona)
+            results.append(
+                {
+                    "rule": item.rule.name,
+                    "success": success,
+                    "agent": agent,
+                    "persona": persona,
+                    "event": item.event,
+                }
+            )
+        return results
+
     def execute_rule(
         self,
         name: str,
         *,
+        context: ReflexExecutionContext,
         agent: str | None = None,
         persona: str | None = None,
     ) -> bool:
         """Execute a rule by name and record a trial."""
+        if context is None or not context.allow_reflex():
+            return False
         rule = next((r for r in self.rules if r.name == name), None)
         if not rule:
             raise ValueError(name)
-        return rule.execute(agent=agent, persona=persona)
+        return rule.execute(context, agent=agent, persona=persona)
 
     def start(self) -> None:
         self.load_experiments()
-        for r in self.rules:
-            r.start()
+        self.daemon.reset()
 
     def propose_improvements(self, analytics_data: Dict[str, Any]) -> None:
         """Log reflex improvement proposals based on analytics."""
@@ -398,6 +422,7 @@ class ReflexManager:
             "persona": persona,
         }
         data["history"].append(entry)
+        self.TRIAL_LOG.parent.mkdir(parents=True, exist_ok=True)
         with self.TRIAL_LOG.open("a", encoding="utf-8") as f:
             f.write(json.dumps({"experiment": exp, **entry}) + "\n")
         self.history.append({"action": "trial", **entry, "experiment": exp})
@@ -436,13 +461,13 @@ class ReflexManager:
         data["status"] = "promoted"
         self.save_experiments()
 
-    def ab_test(self, rule_a: ReflexRule, rule_b: ReflexRule) -> ReflexRule:
+    def ab_test(self, rule_a: ReflexRule, rule_b: ReflexRule, *, context: ReflexExecutionContext) -> ReflexRule:
         """Execute two rules and log which succeeded."""
         results: Dict[str, str] = {}
         for rule in (rule_a, rule_b):
             start = time.time()
             try:
-                success = rule.execute()
+                success = rule.execute(context)
                 results[rule.name] = "ok" if success else "fail"
             except Exception as e:  # pragma: no cover - defensive
                 results[rule.name] = str(e)
@@ -629,10 +654,8 @@ class ReflexManager:
         return out
 
     def stop(self) -> None:
-        panic_event.set()
-        for r in self.rules:
-            r.stop()
         self.save_experiments()
+        self.daemon.reset()
 
 
 # --- Helpers -----------------------------------------------------------------
@@ -686,9 +709,4 @@ if __name__ == "__main__":  # pragma: no cover - CLI usage
         mgr.add_rule(r)
     print(f"Loaded {len(mgr.rules)} rules")
     mgr.start()
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Stopping...")
-        mgr.stop()
+    print("Reflex daemon idle: invoke maybe_trigger_reflexes/run_queued_reflexes with context to execute.")

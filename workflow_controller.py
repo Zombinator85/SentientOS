@@ -146,7 +146,12 @@ def load_workflow_file(path: str) -> None:
                 import reflex_manager as rm
 
                 mgr = rm.default_manager()
-                success = mgr.execute_rule(rule)
+                context = rm.ReflexExecutionContext(
+                    epoch=f"workflow:{name}:{datetime.datetime.utcnow().isoformat()}",
+                    saturation_budget=step.get("reflex_budget", 5),
+                    allow_filesystem=step.get("reflex_allow_filesystem", True),
+                )
+                success = mgr.execute_rule(rule, context=context)
                 r = next((rr for rr in mgr.rules if rr.name == rule), None)
                 step["reflex_status"] = r.status if r else None
                 return success
@@ -276,7 +281,14 @@ def run_workflow(
                     import reflex_manager as rm
 
                     mgr = rm.default_manager()
-                    success = mgr.execute_rule(rule, agent=agent, persona=persona)
+                    context = rm.ReflexExecutionContext(
+                        epoch=f"workflow:{wf}:{datetime.datetime.utcnow().isoformat()}",
+                        saturation_budget=step.get("reflex_budget", 5),
+                        agent=agent,
+                        persona=persona,
+                        allow_filesystem=step.get("reflex_allow_filesystem", True),
+                    )
+                    success = mgr.execute_rule(rule, context=context, agent=agent, persona=persona)
                     r = next((rr for rr in mgr.rules if rr.name == rule), None)
                     step["reflex_status"] = r.status if r else None
                     _log(

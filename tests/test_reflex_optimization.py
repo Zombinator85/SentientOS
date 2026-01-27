@@ -4,8 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
 
 import os
 import sys
@@ -29,7 +27,8 @@ def test_ab_autopromotion(tmp_path, monkeypatch):
     mgr = rm.ReflexManager(autopromote_trials=1)
     mgr.add_rule(rule_a)
     mgr.add_rule(rule_b)
-    mgr.ab_test(rule_a, rule_b)
+    context = rm.ReflexExecutionContext(epoch="test", saturation_budget=5)
+    mgr.ab_test(rule_a, rule_b, context=context)
 
     exp = json.loads((tmp_path / "exp.json").read_text())
     assert "A_vs_B" in exp
@@ -83,14 +82,15 @@ def test_trial_autopromotion_and_demote(tmp_path, monkeypatch, capsys):
     rule = rm.ReflexRule(rm.OnDemandTrigger(), [{"type": "shell"}], name="T")
     mgr = rm.ReflexManager(autopromote_trials=1)
     mgr.add_rule(rule)
-    rule.execute()
+    context = rm.ReflexExecutionContext(epoch="test", saturation_budget=5, allow_filesystem=True)
+    rule.execute(context)
     assert rule.status == "preferred"
 
     def fail(*a, **k):
         raise RuntimeError("x")
 
     monkeypatch.setattr(actuator, "act", fail)
-    rule.execute()
+    rule.execute(context)
     assert rule.status == "inactive"
 
     import reflex_dashboard as rd
@@ -209,4 +209,3 @@ def test_workflow_triggered_trials(tmp_path, monkeypatch, capsys):
 
     exp = json.loads((tmp_path / "exp.json").read_text())
     assert exp.get("wtest", {}).get("history")
-
