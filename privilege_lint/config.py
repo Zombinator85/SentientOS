@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-import tomllib
+
+from sentientos.toml_compat import tomllib
 
 yaml: Any | None
 _YAML_WARNING_EMITTED = False
