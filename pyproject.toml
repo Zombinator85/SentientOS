@@ -30,6 +30,7 @@ dependencies = [
     "python-dotenv>=0.21,<1",
     "requests>=2.31,<3",
     "pytest>=7,<8",
+    "tomli; python_version < \"3.11\"",
     "colorama>=0.4,<1",
     "PyYAML>=6,<7",
     "pdfrw>=0.4,<1",

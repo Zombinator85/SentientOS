@@ -16,11 +16,7 @@ import re
 import subprocess
 from pathlib import Path
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # Python <3.11
-    import tomli
-    tomllib = tomli
+from sentientos.toml_compat import tomllib
 
 PYPROJECT = Path("pyproject.toml")
 CHANGELOG = Path("docs/CHANGELOG.md")

@@ -14,6 +14,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from sentientos.toml_compat import tomllib
 
 LOCKS = [
     ("bin", "lock-bin.txt"),
@@ -41,8 +42,6 @@ def compile_lock(pyproject: Path, extra: str) -> str:
 
 
 def extras_with_requirements(pyproject: Path) -> list[str]:
-    import tomllib
-
     data = tomllib.loads(pyproject.read_text())
     extras = data.get("project", {}).get("optional-dependencies", {})
     return [

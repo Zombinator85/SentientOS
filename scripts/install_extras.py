@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from typing import cast
 
-import tomllib
+from sentientos.toml_compat import tomllib
 
 
 def load_extras() -> dict[str, list[str]]:
