@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import logging
 from types import MappingProxyType
 from typing import Dict, Mapping, Tuple
 import sys
@@ -35,6 +36,8 @@ if _loaded_embodiment:
         "ResidentKernel must be imported before embodiment modules: "
         + ", ".join(sorted(_loaded_embodiment))
     )
+
+_logger = logging.getLogger(__name__)
 
 
 class KernelMisuseError(RuntimeError):
@@ -108,6 +111,7 @@ class _EpochSessionState:
     kernel_time: int
     fields_touched: set[str]
     rejected_writes: int
+    paused: bool
 
 
 class KernelEpoch:
@@ -350,7 +354,15 @@ class _EmbodimentState:
 
 
 class ResidentKernel:
-    __slots__ = ("_governance", "_embodiment", "_last_checkpoint", "_active_epoch")
+    __slots__ = (
+        "_governance",
+        "_embodiment",
+        "_last_checkpoint",
+        "_active_epoch",
+        "_checkpoint_in_progress",
+        "_restore_in_progress",
+        "_checkpoint_epoch_id",
+    )
 
     def __init__(self) -> None:
         self._governance = _GovernanceState(
@@ -379,6 +391,9 @@ class ResidentKernel:
         )
         self._last_checkpoint: KernelCheckpoint | None = None
         self._active_epoch: _EpochSessionState | None = None
+        self._checkpoint_in_progress = False
+        self._restore_in_progress = False
+        self._checkpoint_epoch_id: int | None = None
 
     def governance_view(self) -> GovernanceView:
         return GovernanceView(
@@ -453,7 +468,9 @@ class ResidentKernel:
             kernel_time=self._embodiment.kernel_time,
             fields_touched=set(),
             rejected_writes=0,
+            paused=False,
         )
+        self._checkpoint_epoch_id = None
         return KernelEpoch(self)
 
     def end_epoch(self) -> KernelEpochAudit:
@@ -473,43 +490,126 @@ class ResidentKernel:
             validation_passed=session.rejected_writes == 0,
         )
 
-    def create_checkpoint(self) -> KernelCheckpoint:
-        governance = {
-            "identity_invariants": self._governance.identity_invariants,
-            "doctrine_digest": self._governance.doctrine_digest,
-            "active_policy_pointer": self._governance.active_policy_pointer,
-            "authority_flags": dict(self._governance.authority_flags),
-            "system_phase": self._governance.system_phase,
-            "posture_flags": self._governance.posture_flags,
-            "constraint_rejustify_deadline": self._governance.constraint_rejustify_deadline,
-            "last_justification_at": self._governance.last_justification_at,
-            "federation_compat_digest": dict(self._governance.federation_compat_digest),
-            "kernel_epoch": self._governance.kernel_epoch,
-        }
-        embodiment = {
-            "sensor_presence_flags": dict(self._embodiment.sensor_presence_flags),
-            "sensor_health_flags": dict(self._embodiment.sensor_health_flags),
-            "actuator_output_state": dict(self._embodiment.actuator_output_state),
-            "delta_signals": dict(self._embodiment.delta_signals),
-            "kernel_seq": self._embodiment.kernel_seq,
-            "kernel_time": self._embodiment.kernel_time,
-        }
-        digest = self._hash_checkpoint_payload(
-            _KERNEL_VERSION,
-            governance,
-            embodiment,
-        )
-        checkpoint = KernelCheckpoint(
-            version=_KERNEL_VERSION,
-            governance=self._freeze_mapping(governance),
-            embodiment=self._freeze_mapping(embodiment),
-            digest=digest,
-        )
-        self._last_checkpoint = checkpoint
-        return checkpoint
-
-    def restore_checkpoint(self, checkpoint: KernelCheckpoint | Mapping[str, object]) -> None:
+    def pause_epoch(self) -> None:
         self._ensure_epoch_active()
+        self._active_epoch.paused = True
+
+    def resume_epoch(self) -> None:
+        self._ensure_epoch_active()
+        self._active_epoch.paused = False
+
+    def create_checkpoint(self, *, force: bool = False) -> KernelCheckpoint:
+        self._ensure_epoch_active()
+        if self._checkpoint_in_progress or self._restore_in_progress:
+            self._log_audit_warning(
+                "checkpoint contention detected",
+                action="create_checkpoint",
+                epoch_id=self._active_epoch.epoch_id,
+                in_progress=self._checkpoint_in_progress,
+                restore_in_progress=self._restore_in_progress,
+            )
+            raise KernelMisuseError("Checkpoint already in progress")
+        if self._checkpoint_epoch_id == self._active_epoch.epoch_id and not force:
+            self._log_audit_warning(
+                "duplicate checkpoint attempt blocked",
+                action="create_checkpoint",
+                epoch_id=self._active_epoch.epoch_id,
+            )
+            raise KernelMisuseError("Checkpoint already recorded for this epoch")
+        if self._checkpoint_epoch_id == self._active_epoch.epoch_id and force:
+            self._log_audit_warning(
+                "forced checkpoint override",
+                action="create_checkpoint",
+                epoch_id=self._active_epoch.epoch_id,
+            )
+        self._checkpoint_in_progress = True
+        self._checkpoint_epoch_id = self._active_epoch.epoch_id
+        try:
+            governance = {
+                "identity_invariants": self._governance.identity_invariants,
+                "doctrine_digest": self._governance.doctrine_digest,
+                "active_policy_pointer": self._governance.active_policy_pointer,
+                "authority_flags": dict(self._governance.authority_flags),
+                "system_phase": self._governance.system_phase,
+                "posture_flags": self._governance.posture_flags,
+                "constraint_rejustify_deadline": self._governance.constraint_rejustify_deadline,
+                "last_justification_at": self._governance.last_justification_at,
+                "federation_compat_digest": dict(self._governance.federation_compat_digest),
+                "kernel_epoch": self._governance.kernel_epoch,
+            }
+            embodiment = {
+                "sensor_presence_flags": dict(self._embodiment.sensor_presence_flags),
+                "sensor_health_flags": dict(self._embodiment.sensor_health_flags),
+                "actuator_output_state": dict(self._embodiment.actuator_output_state),
+                "delta_signals": dict(self._embodiment.delta_signals),
+                "kernel_seq": self._embodiment.kernel_seq,
+                "kernel_time": self._embodiment.kernel_time,
+            }
+            digest = self._hash_checkpoint_payload(
+                _KERNEL_VERSION,
+                governance,
+                embodiment,
+            )
+            checkpoint = KernelCheckpoint(
+                version=_KERNEL_VERSION,
+                governance=self._freeze_mapping(governance),
+                embodiment=self._freeze_mapping(embodiment),
+                digest=digest,
+            )
+            self._last_checkpoint = checkpoint
+            return checkpoint
+        finally:
+            self._checkpoint_in_progress = False
+
+    def restore_checkpoint(
+        self,
+        checkpoint: KernelCheckpoint | Mapping[str, object],
+        *,
+        force: bool = False,
+    ) -> None:
+        if self._checkpoint_in_progress or self._restore_in_progress:
+            self._log_audit_warning(
+                "restore contention detected",
+                action="restore_checkpoint",
+                epoch_id=self._active_epoch.epoch_id if self._active_epoch else None,
+                checkpoint_in_progress=self._checkpoint_in_progress,
+                restore_in_progress=self._restore_in_progress,
+            )
+            raise KernelMisuseError("Restore already in progress")
+        session = self._active_epoch
+        if session is not None:
+            has_updates = bool(session.fields_touched) or session.rejected_writes > 0
+            if not session.paused and not force:
+                self._log_audit_warning(
+                    "restore blocked during active epoch",
+                    action="restore_checkpoint",
+                    epoch_id=session.epoch_id,
+                    has_updates=has_updates,
+                )
+                raise KernelMisuseError("Restore requires paused or inactive epoch")
+            if has_updates and not force:
+                self._log_audit_warning(
+                    "restore blocked with queued updates",
+                    action="restore_checkpoint",
+                    epoch_id=session.epoch_id,
+                    fields_touched=tuple(sorted(session.fields_touched)),
+                )
+                raise KernelMisuseError("Restore blocked with queued updates")
+            if not session.paused and force:
+                self._log_audit_warning(
+                    "forced restore mid-tick",
+                    action="restore_checkpoint",
+                    epoch_id=session.epoch_id,
+                    has_updates=has_updates,
+                )
+            if has_updates and force:
+                self._log_audit_warning(
+                    "forced restore with queued updates",
+                    action="restore_checkpoint",
+                    epoch_id=session.epoch_id,
+                    fields_touched=tuple(sorted(session.fields_touched)),
+                )
+        self._restore_in_progress = True
         try:
             payload = self._coerce_checkpoint_payload(checkpoint)
             expected_digest = self._hash_checkpoint_payload(
@@ -526,10 +626,18 @@ class ResidentKernel:
                 payload["embodiment"],
             )
             self._validate_restore_epoch(validated_governance["kernel_epoch"])
-        except KernelInvariantError:
+        except KernelInvariantError as exc:
             self._note_epoch_rejection()
             self._force_safe_posture()
+            self._log_audit_alert(
+                "restore validation failed",
+                action="restore_checkpoint",
+                error=str(exc),
+                epoch_id=self._active_epoch.epoch_id if self._active_epoch else None,
+            )
             raise
+        finally:
+            self._restore_in_progress = False
         self._governance._apply(_UPDATE_TOKEN, **validated_governance)
         self._embodiment._apply(_UPDATE_TOKEN, **validated_embodiment)
         self._track_epoch_fields(
@@ -1073,6 +1181,26 @@ class ResidentKernel:
     def _note_epoch_rejection(self) -> None:
         if self._active_epoch is not None:
             self._active_epoch.rejected_writes += 1
+
+    def _log_audit_warning(self, message: str, **context: object) -> None:
+        if context:
+            _logger.warning(
+                "AUDIT WARNING: %s | %s",
+                message,
+                json.dumps(context, sort_keys=True),
+            )
+        else:
+            _logger.warning("AUDIT WARNING: %s", message)
+
+    def _log_audit_alert(self, message: str, **context: object) -> None:
+        if context:
+            _logger.error(
+                "AUDIT ALERT: %s | %s",
+                message,
+                json.dumps(context, sort_keys=True),
+            )
+        else:
+            _logger.error("AUDIT ALERT: %s", message)
 
     def _track_epoch_fields(self, fields: Tuple[str, ...] | list[str] | set[str]) -> None:
         if self._active_epoch is not None:
