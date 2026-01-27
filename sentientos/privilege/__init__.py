@@ -11,8 +11,16 @@ from ..admin_utils import (
     require_lumos_approval,
 )
 
+
+def enforce_privilege() -> None:
+    """Run privilege gates for explicit runtime entrypoints."""
+    require_admin_banner()
+    require_lumos_approval()
+
+
 __all__ = [
     "is_admin",
+    "enforce_privilege",
     "print_privilege_banner",
     "require_admin_banner",
     "require_covenant_alignment",

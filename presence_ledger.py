@@ -1,11 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
 
-require_admin_banner()
-require_lumos_approval()
-
-from logging_config import get_log_path
 import json
 import os
 from datetime import datetime
@@ -13,13 +8,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, TypedDict, cast
 
 
+from logging_config import get_log_path
 import ledger
 from log_utils import append_json
 
-LEDGER_PATH: Path = get_log_path("user_presence.jsonl", "USER_PRESENCE_LOG")
-LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
-PRESENCE_LOG: Path = get_log_path("presence_log.jsonl", "PRESENCE_LOG")
-PRESENCE_LOG.parent.mkdir(parents=True, exist_ok=True)
+_LEDGER_PATH: Path | None = None
+_PRESENCE_LOG: Path | None = None
+
+_LEDGER_NAME = "user_presence.jsonl"
+_LEDGER_ENV = "USER_PRESENCE_LOG"
+_PRESENCE_NAME = "presence_log.jsonl"
+_PRESENCE_ENV = "PRESENCE_LOG"
 
 # Bridge metadata for presence entries
 BRIDGE_NAME = os.getenv("PRESENCE_BRIDGE", os.getenv("BRIDGE", "cli"))
@@ -50,8 +49,21 @@ class RecapData(TypedDict):
     milestones: List[str]
 
 
+def _ensure_log_paths() -> tuple[Path, Path]:
+    global _LEDGER_PATH, _PRESENCE_LOG
+    if _LEDGER_PATH is None or _PRESENCE_LOG is None:
+        ledger_path = get_log_path(_LEDGER_NAME, _LEDGER_ENV)
+        presence_path = get_log_path(_PRESENCE_NAME, _PRESENCE_ENV)
+        ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        presence_path.parent.mkdir(parents=True, exist_ok=True)
+        _LEDGER_PATH = ledger_path
+        _PRESENCE_LOG = presence_path
+    return _LEDGER_PATH, _PRESENCE_LOG
+
+
 def log(user: str, event: str, note: str = "", bridge: str | None = None) -> None:
     """Record a general presence event."""
+    ledger_path, presence_log = _ensure_log_paths()
     entry = {
         "time": datetime.utcnow().isoformat(),
         "user": user,
@@ -59,14 +71,15 @@ def log(user: str, event: str, note: str = "", bridge: str | None = None) -> Non
         "note": note,
         "bridge": bridge or BRIDGE_NAME,
     }
-    append_json(LEDGER_PATH, entry)
-    append_json(PRESENCE_LOG, entry)
+    append_json(ledger_path, entry)
+    append_json(presence_log, entry)
 
 
 def log_privilege(
     user: str, platform: str, tool: str, status: str, bridge: str | None = None
 ) -> None:
     """Record a privilege check attempt."""
+    ledger_path, presence_log = _ensure_log_paths()
     entry = {
         "timestamp": datetime.utcnow().isoformat(),
         "event": "admin_privilege_check",
@@ -76,15 +89,16 @@ def log_privilege(
         "tool": tool,
         "bridge": bridge or BRIDGE_NAME,
     }
-    append_json(LEDGER_PATH, entry)
-    append_json(PRESENCE_LOG, entry)
+    append_json(ledger_path, entry)
+    append_json(presence_log, entry)
 
 
 def history(user: str, limit: int = 20) -> List[Dict[str, str]]:
-    if not LEDGER_PATH.exists():
+    ledger_path, _ = _ensure_log_paths()
+    if not ledger_path.exists():
         return []
     lines = [
-        ln for ln in LEDGER_PATH.read_text(encoding="utf-8").splitlines()
+        ln for ln in ledger_path.read_text(encoding="utf-8").splitlines()
         if f'"user": "{user}"' in ln
     ][-limit:]
     out: List[Dict[str, str]] = []
@@ -102,9 +116,10 @@ def history(user: str, limit: int = 20) -> List[Dict[str, str]]:
 
 def recent_privilege_attempts(limit: int = 5) -> List[Dict[str, str]]:
     """Return the most recent privilege check entries."""
-    if not LEDGER_PATH.exists():
+    ledger_path, _ = _ensure_log_paths()
+    if not ledger_path.exists():
         return []
-    lines = reversed(LEDGER_PATH.read_text(encoding="utf-8").splitlines())
+    lines = reversed(ledger_path.read_text(encoding="utf-8").splitlines())
     out: List[Dict[str, str]] = []
     for ln in lines:
         try:

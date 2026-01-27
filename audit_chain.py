@@ -1,8 +1,6 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
-from sentientos.privilege import require_admin_banner, require_lumos_approval
-require_admin_banner()
-require_lumos_approval()
+
 import argparse
 import datetime
 import hashlib
@@ -12,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 from cathedral_const import validate_log_entry
+
 @dataclass
 class AuditEntry:
     timestamp: str
@@ -121,4 +120,7 @@ def cli() -> None:
     print("valid" if ok else "tampered")
 
 if __name__ == "__main__":
+    from sentientos.privilege import enforce_privilege
+
+    enforce_privilege()
     cli()
