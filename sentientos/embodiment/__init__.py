@@ -9,6 +9,7 @@ from .contracts import (
     get_signal_definition,
     list_embodiment_contracts,
 )
+from .embodiment_digest import get_recent_embodiment_digest
 from .simulation import SimulationResult, simulate_signal
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "SignalDirection",
     "SignalType",
     "SimulationResult",
+    "get_recent_embodiment_digest",
     "get_embodiment_contract",
     "get_signal_definition",
     "list_embodiment_contracts",
