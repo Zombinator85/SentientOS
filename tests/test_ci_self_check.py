@@ -27,7 +27,8 @@ def test_ci_success(monkeypatch):
     import subprocess as sp
     monkeypatch.setattr(sp, "run", fake_run)
     runpy.run_path("scripts/ci_self_check.py", run_name="__main__")
-    assert len(calls) == 4
+    assert len(calls) == 5
+    assert "python -m pip install -e ." in calls
 
 def test_ci_failure(monkeypatch):
     import subprocess as sp
