@@ -4,6 +4,8 @@ import pytest
 
 from sentientos.diagnostics import drift_alerts
 
+pytestmark = pytest.mark.no_legacy_skip
+
 
 def _write_drift_fixture(path) -> None:
     entries = [
