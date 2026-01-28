@@ -23,6 +23,7 @@ from pathlib import Path
 from logging_config import get_log_path
 from typing import Dict, List
 from embodiment.silhouette import write_daily_silhouette
+from sentientos.diagnostics.drift_detector import detect_drift
 from sentientos.embodiment.embodiment_digest import assemble_daily_embodiment_digest
 
 DIGEST_LOG = get_log_path("daily_digest.jsonl", "DAILY_DIGEST_LOG")
@@ -69,6 +70,7 @@ def run_digest(period_hours: int = 24) -> Dict[str, int]:
     current_time = _dt.datetime.utcnow()
     assemble_daily_embodiment_digest(date=current_time.date())
     write_daily_silhouette(cutoff, current_time)
+    detect_drift()
     return summary
 
 

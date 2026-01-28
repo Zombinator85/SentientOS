@@ -1,0 +1,7 @@
+window_days = 7
+posture_repeat_max = 5
+motion_starvation_days = 3
+plugin_dominance_percent = 80
+anomaly_min_severity = 2
+anomaly_streak_days = 3
+emit_pulse = false
