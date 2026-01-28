@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from sentientos.admin_server import admin_metrics, admin_status
 from sentientos.storage import get_data_root
+from embodiment.silhouette_store import load_recent_silhouettes, load_silhouette
 
 app = FastAPI(title="SentientOS Operator Dashboard", docs_url=None, redoc_url=None)
 
@@ -247,14 +248,207 @@ def _status_payload() -> Dict[str, object]:
     }
 
 
+def _silhouette_recent_payload(limit: int) -> Dict[str, object]:
+    silhouettes = load_recent_silhouettes(limit)
+    return {
+        "source": "embodiment_silhouette",
+        "count": len(silhouettes),
+        "silhouettes": silhouettes,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index() -> HTMLResponse:
     return HTMLResponse(_DASHBOARD_HTML)
 
 
+@app.get("/operator/silhouettes", response_class=HTMLResponse)
+async def operator_silhouettes() -> HTMLResponse:
+    return HTMLResponse(_SILHOUETTES_HTML)
+
+
 @app.get("/data/status", response_class=JSONResponse)
 async def dashboard_data(_: None = Depends(require_token)) -> JSONResponse:
     return JSONResponse(_status_payload())
+
+
+@app.get("/api/silhouettes/recent", response_class=JSONResponse)
+async def silhouettes_recent(
+    n: int = 7,
+    _: None = Depends(require_token),
+) -> JSONResponse:
+    if n <= 0:
+        return JSONResponse({"source": "embodiment_silhouette", "count": 0, "silhouettes": []})
+    limit = min(n, 60)
+    return JSONResponse(_silhouette_recent_payload(limit))
+
+
+@app.get("/api/silhouettes/{date_value}", response_class=JSONResponse)
+async def silhouettes_by_date(
+    date_value: str,
+    _: None = Depends(require_token),
+) -> JSONResponse:
+    try:
+        payload = load_silhouette(date_value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if payload is None:
+        raise HTTPException(status_code=404, detail="silhouette not found")
+    return JSONResponse(payload)
+
+
+_SILHOUETTES_HTML = """<!doctype html>
+<html lang=\"en\">
+  <head>
+    <meta charset=\"utf-8\" />
+    <title>Embodiment Silhouettes</title>
+    <style>
+      body { font-family: "Inter", "Segoe UI", sans-serif; background:#0f172a; color:#e2e8f0; margin:0; }
+      header { padding:1.5rem 2rem; background:#1e293b; display:flex; justify-content:space-between; align-items:center; }
+      header h1 { margin:0; font-size:1.5rem; }
+      header a { color:#38bdf8; text-decoration:none; font-size:0.9rem; }
+      main { padding:2rem; }
+      section { background:#1e293b; border-radius:0.75rem; padding:1.5rem; box-shadow:0 4px 10px rgba(15,23,42,0.6); }
+      .controls { display:flex; align-items:center; gap:1rem; margin-bottom:1rem; }
+      .controls button { background:#38bdf8; border:none; color:#0f172a; padding:0.5rem 0.9rem; border-radius:0.45rem; font-weight:600; cursor:pointer; }
+      .controls span { font-size:0.85rem; color:#94a3b8; }
+      .grid-header, summary.row { display:grid; grid-template-columns: 130px 1.6fr 1.4fr 1.6fr; gap:1rem; align-items:center; }
+      .grid-header { font-size:0.75rem; text-transform:uppercase; color:#94a3b8; padding:0 0.25rem 0.5rem; }
+      details.silhouette { background:#0f172a; border-radius:0.6rem; border:1px solid rgba(148,163,184,0.2); margin-bottom:0.75rem; }
+      details.silhouette summary { list-style:none; cursor:pointer; padding:0.75rem 1rem; font-weight:600; }
+      details.silhouette summary::-webkit-details-marker { display:none; }
+      details.silhouette summary span { font-weight:500; color:#e2e8f0; }
+      details.silhouette summary span.label { color:#f8fafc; font-weight:600; }
+      details.silhouette pre { margin:0; padding:0.9rem 1rem 1.1rem; color:#cbd5f5; background:#0b1220; border-top:1px solid rgba(148,163,184,0.15); max-height:320px; overflow:auto; }
+      #empty-state { color:#94a3b8; font-size:0.9rem; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Embodiment Silhouettes</h1>
+      <a href=\"/\">Back to dashboard</a>
+    </header>
+    <main>
+      <section>
+        <div class=\"controls\">
+          <button id=\"refresh\">Refresh</button>
+          <span id=\"status\">Awaiting data...</span>
+        </div>
+        <div class=\"grid-header\">
+          <div>Date</div>
+          <div>Top postures</div>
+          <div>Plugin usage totals</div>
+          <div>Anomaly summary</div>
+        </div>
+        <div id=\"silhouette-list\"></div>
+        <div id=\"empty-state\" hidden>No silhouettes found in glow/silhouettes.</div>
+      </section>
+    </main>
+    <script>
+      let dashboardToken = sessionStorage.getItem('sos_dashboard_token') || '';
+
+      function promptToken() {
+        const token = window.prompt('Enter dashboard token');
+        if (token) {
+          dashboardToken = token.trim();
+          sessionStorage.setItem('sos_dashboard_token', dashboardToken);
+        }
+      }
+
+      function summarizeCounts(counts, limit) {
+        if (!counts) return '—';
+        const entries = Object.entries(counts).map(([key, value]) => [key, Number(value) || 0]);
+        if (!entries.length) return '—';
+        entries.sort((a, b) => b[1] - a[1]);
+        return entries.slice(0, limit).map(([key, value]) => `${key} (${value})`).join(', ');
+      }
+
+      function pluginSummary(usage) {
+        const entries = Object.entries(usage || {}).map(([key, value]) => [key, Number(value) || 0]);
+        const total = entries.reduce((acc, [, value]) => acc + value, 0);
+        if (!entries.length) return '0 total';
+        entries.sort((a, b) => b[1] - a[1]);
+        const top = entries.slice(0, 3).map(([key, value]) => `${key} (${value})`).join(', ');
+        return `${total} total · ${top}`;
+      }
+
+      function anomalySummary(anomalies) {
+        const counts = (anomalies && anomalies.severity_counts) ? anomalies.severity_counts : {};
+        const low = Number(counts.low) || 0;
+        const moderate = Number(counts.moderate) || 0;
+        const critical = Number(counts.critical) || 0;
+        let summary = `low ${low} · mod ${moderate} · crit ${critical}`;
+        if (anomalies && anomalies.latest_anomaly) {
+          const latest = anomalies.latest_anomaly;
+          summary += ` · latest ${latest.severity || 'unknown'} ${latest.channel || 'unknown'} @${latest.timestamp || '?'}`;
+        }
+        return summary;
+      }
+
+      function renderSilhouettes(payload) {
+        const list = document.getElementById('silhouette-list');
+        const empty = document.getElementById('empty-state');
+        list.innerHTML = '';
+        const items = (payload && payload.silhouettes) ? payload.silhouettes : [];
+        if (!items.length) {
+          empty.hidden = false;
+          return;
+        }
+        empty.hidden = true;
+        items.forEach(entry => {
+          const details = document.createElement('details');
+          details.className = 'silhouette';
+          const summary = document.createElement('summary');
+          summary.className = 'row';
+          const date = entry.date || 'unknown';
+          const postures = summarizeCounts(entry.posture_counts || {}, 3);
+          const plugins = pluginSummary(entry.plugin_usage || {});
+          const anomalies = anomalySummary(entry.anomalies || {});
+          summary.innerHTML = `
+            <span class=\"label\">${date}</span>
+            <span>${postures || '—'}</span>
+            <span>${plugins || '—'}</span>
+            <span>${anomalies || '—'}</span>
+          `;
+          const pre = document.createElement('pre');
+          pre.textContent = JSON.stringify(entry, null, 2);
+          details.appendChild(summary);
+          details.appendChild(pre);
+          list.appendChild(details);
+        });
+      }
+
+      async function fetchSilhouettes() {
+        if (!dashboardToken) {
+          promptToken();
+        }
+        const headers = dashboardToken ? { 'Authorization': `Bearer ${dashboardToken}` } : {};
+        const status = document.getElementById('status');
+        status.textContent = 'Loading silhouettes...';
+        try {
+          const response = await fetch('/api/silhouettes/recent?n=30', { headers, cache: 'no-store' });
+          if (response.status === 401 || response.status === 403) {
+            sessionStorage.removeItem('sos_dashboard_token');
+            dashboardToken = '';
+            status.textContent = 'Token required.';
+            promptToken();
+            return;
+          }
+          const payload = await response.json();
+          renderSilhouettes(payload);
+          status.textContent = `Loaded ${payload.count || 0} silhouettes.`;
+        } catch (error) {
+          console.error('Silhouette fetch failed', error);
+          status.textContent = 'Failed to load silhouettes.';
+        }
+      }
+
+      document.getElementById('refresh').addEventListener('click', fetchSilhouettes);
+      fetchSilhouettes();
+    </script>
+  </body>
+</html>
+"""
 
 
 _DASHBOARD_HTML = """<!doctype html>

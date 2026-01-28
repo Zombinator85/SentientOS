@@ -29,6 +29,7 @@ from pathlib import Path
 from logging_config import get_log_path
 from typing import Any, Dict, List, Callable, Optional, Sequence
 
+from embodiment.silhouette_store import load_recent_silhouettes
 pipeline: Optional[Callable[..., Any]]
 try:  # summarisation backend
     from transformers import pipeline as hf_pipeline
@@ -74,6 +75,81 @@ def _filter_date(entries: List[Dict[str, Any]], day: str) -> List[Dict[str, Any]
         if str(ts).startswith(day):
             out.append(e)
     return out
+
+
+def _parse_silhouette_date(value: object) -> _dt.date | None:
+    if isinstance(value, str):
+        try:
+            return _dt.date.fromisoformat(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _filter_silhouettes_by_timeframe(
+    silhouettes: List[Dict[str, Any]],
+    timeframe: str,
+) -> List[Dict[str, Any]]:
+    key = timeframe.strip().lower()
+    if key in {"last_week", "week", "7d", "last-7-days"}:
+        cutoff = _dt.date.today() - _dt.timedelta(days=6)
+        return [
+            entry
+            for entry in silhouettes
+            if (date := _parse_silhouette_date(entry.get("date"))) is not None
+            and date >= cutoff
+        ]
+    raise ValueError("Unsupported timeframe; use 'last_week' or '7d'.")
+
+
+def _anomaly_score(entry: Dict[str, Any]) -> int:
+    anomalies = entry.get("anomalies", {})
+    if not isinstance(anomalies, dict):
+        return 0
+    counts = anomalies.get("severity_counts", {})
+    if not isinstance(counts, dict):
+        counts = {}
+    low = int(counts.get("low", 0) or 0)
+    moderate = int(counts.get("moderate", 0) or 0)
+    critical = int(counts.get("critical", 0) or 0)
+    latest = anomalies.get("latest_anomaly")
+    latest_bonus = 1 if latest else 0
+    return (critical * 3) + (moderate * 2) + low + latest_bonus
+
+
+def _plugin_usage_total(entry: Dict[str, Any]) -> int:
+    usage = entry.get("plugin_usage", {})
+    if not isinstance(usage, dict):
+        return 0
+    return sum(int(value) for value in usage.values() if isinstance(value, (int, float)))
+
+
+def _absence_total(entry: Dict[str, Any]) -> int:
+    motion = entry.get("motion_deltas", {})
+    if not isinstance(motion, dict):
+        return 0
+    value = motion.get("absence_periods", 0)
+    if isinstance(value, (int, float)):
+        return int(value)
+    return 0
+
+
+def get_silhouette_by(metric: str, timeframe: str) -> Dict[str, Any] | None:
+    """Return a silhouette matching the requested metric and timeframe."""
+    silhouettes = load_recent_silhouettes(30)
+    window = _filter_silhouettes_by_timeframe(silhouettes, timeframe)
+    if not window:
+        return None
+    key = metric.strip().lower()
+    if key in {"most_anomalous", "anomalous"}:
+        return max(window, key=_anomaly_score)
+    if key in {"highest_plugin_usage", "plugin_usage", "most_plugins"}:
+        return max(window, key=_plugin_usage_total)
+    if key in {"longest_absence", "absence"}:
+        return max(window, key=_absence_total)
+    raise ValueError(
+        "Unsupported metric; use 'most_anomalous', 'highest_plugin_usage', or 'longest_absence'."
+    )
 
 
 # ---------------------------------------------------------------------------
