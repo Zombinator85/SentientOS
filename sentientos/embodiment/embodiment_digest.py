@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as _dt
 import inspect
 import json
+import math
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
 
@@ -173,9 +174,9 @@ def assemble_daily_embodiment_digest(date: _dt.date | None = None) -> list[dict]
 
 
 def get_recent_embodiment_digest(
-    n: int = 5, *, tags: Sequence[str] | None = None
+    n: int | float = 5, *, tags: Sequence[str] | None = None
 ) -> list[dict]:
-    if n <= 0:
+    if n <= 0 and not math.isinf(n):
         return []
     allowed_filters = set(filter_memory_tags(tags)) if tags else set()
     entries: list[dict] = []
@@ -197,4 +198,6 @@ def get_recent_embodiment_digest(
                     continue
             entries.append(entry)
     entries.sort(key=lambda item: str(item.get("timestamp", "")))
-    return entries[-n:]
+    if math.isinf(n):
+        return entries
+    return entries[-int(n):]
