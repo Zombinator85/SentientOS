@@ -6,6 +6,8 @@ import json
 import logging
 from types import MappingProxyType
 from typing import Dict, Mapping, Tuple
+
+from embodiment.silhouette_store import load_recent_silhouettes
 import sys
 
 
@@ -426,6 +428,10 @@ class ResidentKernel:
             kernel_seq=self._embodiment.kernel_seq,
             kernel_time=self._embodiment.kernel_time,
         )
+
+    def get_recent_silhouettes(self, n: int = 7) -> list[Dict[str, object]]:
+        """Return recent embodiment silhouette artifacts without mutating kernel state."""
+        return load_recent_silhouettes(n)
 
     def update_governance(self, writer_id: str, **changes: object) -> None:
         self._ensure_epoch_active()
