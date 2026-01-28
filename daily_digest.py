@@ -22,6 +22,7 @@ import os
 from pathlib import Path
 from logging_config import get_log_path
 from typing import Dict, List
+from sentientos.embodiment.embodiment_digest import assemble_daily_embodiment_digest
 
 DIGEST_LOG = get_log_path("daily_digest.jsonl", "DAILY_DIGEST_LOG")
 DIGEST_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +65,7 @@ def run_digest(period_hours: int = 24) -> Dict[str, int]:
     with open(DIGEST_LOG, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
     _prune_old(logs_dir)
+    assemble_daily_embodiment_digest(date=_dt.datetime.utcnow().date())
     return summary
 
 

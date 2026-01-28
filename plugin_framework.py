@@ -20,6 +20,7 @@ from typing import Any, Callable, Dict, Iterable, Iterator, Sequence
 import reflection_stream as rs
 import trust_engine as te
 from resident_kernel import ResidentKernel
+from sentientos.embodiment import embodiment_digest
 from utils import is_headless
 
 
@@ -599,6 +600,31 @@ def run_plugin(
                 "caller": caller_module,
             },
         )
+        try:
+            raw_tags = evt.get("memory_tags") or evt.get("tags")
+            if isinstance(raw_tags, (str, bytes)) or raw_tags is None:
+                tag_list = [raw_tags] if isinstance(raw_tags, str) else []
+            else:
+                tag_list = list(raw_tags)
+            summary = embodiment_digest.sanitize_action_summary(evt)
+            embodiment_digest.record_embodiment_digest_entry(
+                kernel=kernel,
+                plugin_name=name,
+                declared_capability=context.capabilities,
+                posture=context.posture,
+                epoch_id=context.epoch_id,
+                action_summary=summary,
+                memory_tags=tag_list,
+                dry_run=bool(dry_run or context.headless or result.get("simulated")),
+            )
+        except Exception as exc:  # pragma: no cover - best effort logging
+            te.log_event(
+                "embodiment_digest_error",
+                cause,
+                str(exc),
+                name,
+                {"epoch_id": context.epoch_id, "posture": context.posture},
+            )
         return result
     except PermissionError as e:
         err = str(e)
