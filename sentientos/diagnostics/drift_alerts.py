@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
-import os
 from pathlib import Path
 from typing import Iterable
 
+from embodiment.silhouette_store import candidate_silhouette_dirs
 from logging_config import get_log_path
 from log_utils import read_json
 
@@ -17,8 +17,8 @@ _DRIFT_TYPE_FLAGS = {
     "ANOMALY_ESCALATION": "anomaly_trend",
 }
 
-_SILHOUETTE_ENV = "SENTIENTOS_SILHOUETTE_DIR"
-_DATA_ROOT_ENV = "SENTIENTOS_DATA_DIR"
+class SilhouettePayloadError(ValueError):
+    """Raised when a silhouette payload is malformed or inconsistent."""
 
 
 def normalize_drift_date(value: str) -> str:
@@ -66,7 +66,7 @@ def get_drift_summary(days: int = 7) -> dict[str, int]:
 def get_silhouette_path(date_str: str) -> Path | None:
     normalized = normalize_drift_date(date_str)
     filename = f"{normalized}.json"
-    for base in _candidate_silhouette_dirs():
+    for base in candidate_silhouette_dirs():
         path = base / filename
         if path.exists():
             return path
@@ -79,11 +79,9 @@ def get_silhouette_payload(date_str: str) -> dict[str, object] | None:
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
-    if isinstance(payload, dict):
-        return payload
-    return None
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SilhouettePayloadError("invalid silhouette payload") from exc
+    return _validate_silhouette_payload(payload, normalize_drift_date(date_str))
 
 
 def _load_drift_entries() -> list[dict[str, object]]:
@@ -181,18 +179,14 @@ def _coerce_positive(value: int | None, default: int) -> int:
     return parsed if parsed > 0 else default
 
 
-def _candidate_silhouette_dirs() -> list[Path]:
-    candidates: list[Path] = []
-    env_dir = os.environ.get(_SILHOUETTE_ENV)
-    if env_dir:
-        candidates.append(Path(env_dir))
-    candidates.append(Path("glow") / "silhouettes")
-    data_root = os.environ.get(_DATA_ROOT_ENV)
-    if data_root:
-        candidates.append(Path(data_root) / "glow" / "silhouettes")
-    else:
-        candidates.append(Path.cwd() / "sentientos_data" / "glow" / "silhouettes")
-    return candidates
+def _validate_silhouette_payload(payload: object, expected_date: str) -> dict[str, object]:
+    if not isinstance(payload, dict):
+        raise SilhouettePayloadError("invalid silhouette payload")
+    if "date" in payload:
+        date_value = payload.get("date")
+        if not isinstance(date_value, str) or date_value != expected_date:
+            raise SilhouettePayloadError("invalid silhouette payload")
+    return payload
 
 
 __all__ = [
@@ -202,4 +196,5 @@ __all__ = [
     "get_silhouette_path",
     "get_silhouette_payload",
     "normalize_drift_date",
+    "SilhouettePayloadError",
 ]
