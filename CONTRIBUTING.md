@@ -69,6 +69,16 @@ errors:
 When running `verify_audits.py` manually, set `LUMOS_AUTO_APPROVE=1` or use
 `--no-input` to bypass the Lumos blessing prompt.
 
+### Test discovery & drift coverage
+Pytest discovery is allowlisted via `pytest.ini` under `testpaths`. The drift
+tests are listed there, so they run as part of the default suite. Default
+invocations are quiet because `pytest.ini` sets `addopts = -q`.
+
+Supported test commands:
+- `pytest` (default suite; quiet due to `addopts = -q`)
+- `pytest tests/test_drift_alerts_contract.py`
+- `pytest tests/test_dashboard_drift_api.py`
+
 ## Procedure Etiquette
 Commit messages should be calm and descriptive. Mention the module affected and the blessing performed.
 Avoid force pushes and never rewrite the audit logs. If a commit references sensitive data, quarantine the file and document the integrity issue instead of deleting history.
