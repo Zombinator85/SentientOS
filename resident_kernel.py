@@ -433,6 +433,14 @@ class ResidentKernel:
         """Return recent embodiment silhouette artifacts without mutating kernel state."""
         return load_recent_silhouettes(n)
 
+    def detect_drift(self, n: int | None = None) -> dict[str, object]:
+        """Run the drift detector over recent silhouettes and return its result."""
+        from sentientos.diagnostics.drift_detector import detect_drift as run_detect_drift
+
+        if n is None:
+            return run_detect_drift()
+        return run_detect_drift(load_recent_silhouettes(n))
+
     def update_governance(self, writer_id: str, **changes: object) -> None:
         self._ensure_epoch_active()
         try:

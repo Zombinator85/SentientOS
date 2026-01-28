@@ -30,6 +30,7 @@ from .recovery_eligibility import (
     get_recovery_eligibility,
     registry_hash as recovery_eligibility_registry_hash,
 )
+from .drift_detector import DriftConfig, detect_drift, load_drift_config
 
 __all__ = [
     "DiagnosticError",
@@ -54,4 +55,7 @@ __all__ = [
     "format_recovery_eligibility",
     "get_recovery_eligibility",
     "recovery_eligibility_registry_hash",
+    "DriftConfig",
+    "detect_drift",
+    "load_drift_config",
 ]
