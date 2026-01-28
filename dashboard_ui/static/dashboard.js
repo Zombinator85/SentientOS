@@ -6,6 +6,12 @@ const CATEGORY_ENDPOINTS = {
   research: "/research",
 };
 
+const DRIFT_ENDPOINTS = {
+  recent: "/api/drift/recent",
+  detail: "/api/drift",
+  silhouette: "/api/drift/silhouette",
+};
+
 const STATE = {
   events: {
     feed: [],
@@ -14,6 +20,8 @@ const STATE = {
     commits: [],
     research: [],
   },
+  driftReports: [],
+  driftSelection: null,
   filter24h: false,
   moduleFilter: "",
 };
@@ -32,6 +40,20 @@ const lists = {
   commits: document.getElementById("commits-list"),
   research: document.getElementById("research-list"),
 };
+
+const driftElements = {
+  list: document.getElementById("drift-list"),
+  detailDate: document.getElementById("drift-detail-date"),
+  detailJson: document.getElementById("drift-detail-json"),
+  detailLink: document.getElementById("drift-detail-link"),
+};
+
+const DRIFT_ICONS = [
+  { key: "posture_stuck", icon: "⚠", label: "posture" },
+  { key: "plugin_dominance", icon: "🔁", label: "plugin" },
+  { key: "motion_starvation", icon: "💤", label: "motion" },
+  { key: "anomaly_trend", icon: "🔺", label: "anomaly" },
+];
 
 function cloneTemplate() {
   const template = document.getElementById("event-template");
@@ -72,6 +94,91 @@ function renderAll() {
   populateModuleFilter();
 }
 
+function renderDriftList() {
+  driftElements.list.innerHTML = "";
+  const reports = STATE.driftReports;
+  if (!reports.length) {
+    const empty = document.createElement("li");
+    empty.className = "drift-empty";
+    empty.textContent = "No drift detections yet.";
+    driftElements.list.appendChild(empty);
+    return;
+  }
+
+  reports.forEach((report) => {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "drift-item";
+    button.dataset.date = report.date;
+    if (STATE.driftSelection === report.date) {
+      button.dataset.active = "true";
+    }
+
+    const title = document.createElement("span");
+    title.className = "drift-date";
+    title.textContent = report.date;
+    button.appendChild(title);
+
+    const tags = document.createElement("span");
+    tags.className = "drift-tags";
+    DRIFT_ICONS.forEach(({ key, icon, label }) => {
+      if (!report[key]) return;
+      const tag = document.createElement("span");
+      tag.className = "drift-tag";
+      tag.title = label;
+      tag.textContent = icon;
+      tags.appendChild(tag);
+    });
+    if (!tags.childElementCount) {
+      const clear = document.createElement("span");
+      clear.className = "drift-tag drift-tag--clear";
+      clear.textContent = "✓";
+      clear.title = "clear";
+      tags.appendChild(clear);
+    }
+    button.appendChild(tags);
+
+    button.addEventListener("click", () => selectDriftDate(report.date));
+    item.appendChild(button);
+    driftElements.list.appendChild(item);
+  });
+}
+
+function renderDriftDetail(report) {
+  driftElements.detailDate.textContent = report.date
+    ? `Drift report for ${report.date}`
+    : "Select a drift date to inspect.";
+  driftElements.detailJson.textContent = JSON.stringify(report, null, 2);
+}
+
+async function selectDriftDate(date) {
+  STATE.driftSelection = date;
+  renderDriftList();
+  try {
+    const response = await fetch(`${DRIFT_ENDPOINTS.detail}/${date}`);
+    if (!response.ok) throw new Error("Failed to load drift report");
+    const report = await response.json();
+    renderDriftDetail(report);
+  } catch (error) {
+    driftElements.detailDate.textContent = "Drift report unavailable.";
+    driftElements.detailJson.textContent = JSON.stringify({ error: error.message }, null, 2);
+  }
+  await updateSilhouetteLink(date);
+}
+
+async function updateSilhouetteLink(date) {
+  driftElements.detailLink.classList.add("hidden");
+  try {
+    const response = await fetch(`${DRIFT_ENDPOINTS.silhouette}/${date}`);
+    if (!response.ok) return;
+    driftElements.detailLink.href = `${DRIFT_ENDPOINTS.silhouette}/${date}`;
+    driftElements.detailLink.classList.remove("hidden");
+  } catch (error) {
+    driftElements.detailLink.classList.add("hidden");
+  }
+}
+
 function populateModuleFilter() {
   const uniqueModules = new Set();
   Object.values(STATE.events).forEach((events) => {
@@ -102,6 +209,31 @@ async function loadInitialData() {
     })
   );
   renderAll();
+}
+
+async function loadDriftData() {
+  try {
+    const response = await fetch(`${DRIFT_ENDPOINTS.recent}?n=7`);
+    if (!response.ok) throw new Error("Failed to load drift reports");
+    const reports = await response.json();
+    STATE.driftReports = Array.isArray(reports) ? reports : [];
+  } catch (error) {
+    STATE.driftReports = [];
+  }
+  renderDriftList();
+  if (STATE.driftReports.length) {
+    selectDriftDate(STATE.driftReports[0].date);
+  } else {
+    renderDriftDetail({
+      date: "",
+      posture_stuck: false,
+      plugin_dominance: false,
+      motion_starvation: false,
+      anomaly_trend: false,
+      tags: [],
+      source: "drift_detector",
+    });
+  }
 }
 
 function addEventToState(event) {
@@ -169,4 +301,5 @@ function connectEventStream() {
 
 setupControls();
 loadInitialData();
+loadDriftData();
 connectEventStream();
