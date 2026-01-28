@@ -17,6 +17,7 @@ from sentientos.diagnostics.drift_alerts import (
     get_recent_drift_reports,
     get_silhouette_payload,
     normalize_drift_date,
+    SilhouettePayloadError,
 )
 
 
@@ -27,6 +28,8 @@ CATEGORIES: Dict[str, str] = {
     "commits": "CommitWatcher",
     "research": "Deep Research",
 }
+
+_MAX_DRIFT_RANGE = 90
 
 
 def _format_sse(payload: Dict[str, object]) -> str:
@@ -113,9 +116,21 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return published.as_dict()
 
+    def _coerce_bounded_positive(value: str | None, default: int, name: str) -> int:
+        if value is None:
+            return default
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=f"{name} must be a positive integer") from exc
+        if parsed <= 0:
+            raise HTTPException(status_code=400, detail=f"{name} must be a positive integer")
+        return min(parsed, _MAX_DRIFT_RANGE)
+
     @app.get("/api/drift/recent")
-    def drift_recent(n: int = 7) -> list[Dict[str, object]]:
-        return get_recent_drift_reports(limit=n)
+    def drift_recent(n: str | None = None) -> list[Dict[str, object]]:
+        limit = _coerce_bounded_positive(n, 7, "n")
+        return get_recent_drift_reports(limit=limit)
 
     @app.get("/api/drift/{date_str}")
     def drift_by_date(date_str: str) -> Dict[str, object]:
@@ -131,7 +146,10 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             normalized = normalize_drift_date(date_str)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        payload = get_silhouette_payload(normalized)
+        try:
+            payload = get_silhouette_payload(normalized)
+        except SilhouettePayloadError as exc:
+            raise HTTPException(status_code=422, detail="invalid silhouette payload") from exc
         if payload is None:
             raise HTTPException(status_code=404, detail="Silhouette not found")
         return payload

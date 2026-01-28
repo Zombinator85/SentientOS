@@ -10,7 +10,7 @@ _SILHOUETTE_ENV = "SENTIENTOS_SILHOUETTE_DIR"
 _DATA_ROOT_ENV = "SENTIENTOS_DATA_DIR"
 
 
-def _candidate_dirs() -> list[Path]:
+def candidate_silhouette_dirs() -> list[Path]:
     candidates: list[Path] = []
     env_dir = os.environ.get(_SILHOUETTE_ENV)
     if env_dir:
@@ -25,10 +25,10 @@ def _candidate_dirs() -> list[Path]:
 
 
 def resolve_silhouette_dir() -> Path:
-    for candidate in _candidate_dirs():
+    for candidate in candidate_silhouette_dirs():
         if candidate.exists():
             return candidate
-    return _candidate_dirs()[0]
+    return candidate_silhouette_dirs()[0]
 
 
 def _iter_silhouette_paths() -> Iterable[Path]:
