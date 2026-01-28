@@ -12,6 +12,12 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
 from .event_stream import EventStream
+from sentientos.diagnostics.drift_alerts import (
+    get_drift_report_for_date,
+    get_recent_drift_reports,
+    get_silhouette_payload,
+    normalize_drift_date,
+)
 
 
 CATEGORIES: Dict[str, str] = {
@@ -106,5 +112,28 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
         except ValueError as exc:  # pragma: no cover - validated upstream, safety net.
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return published.as_dict()
+
+    @app.get("/api/drift/recent")
+    def drift_recent(n: int = 7) -> list[Dict[str, object]]:
+        return get_recent_drift_reports(limit=n)
+
+    @app.get("/api/drift/{date_str}")
+    def drift_by_date(date_str: str) -> Dict[str, object]:
+        try:
+            normalized = normalize_drift_date(date_str)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return get_drift_report_for_date(normalized)
+
+    @app.get("/api/drift/silhouette/{date_str}")
+    def drift_silhouette(date_str: str) -> Dict[str, object]:
+        try:
+            normalized = normalize_drift_date(date_str)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        payload = get_silhouette_payload(normalized)
+        if payload is None:
+            raise HTTPException(status_code=404, detail="Silhouette not found")
+        return payload
 
     return app

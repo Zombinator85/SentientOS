@@ -43,6 +43,19 @@
         <h2>Deep Research</h2>
         <ul class="event-list" id="research-list"></ul>
       </div>
+      <div class="panel panel-wide" data-category="drift">
+        <h2>Drift Alerts</h2>
+        <div class="drift-grid">
+          <ul class="drift-list" id="drift-list" aria-live="polite"></ul>
+          <div class="drift-detail">
+            <div class="drift-detail-header">
+              <span id="drift-detail-date">Select a drift date to inspect.</span>
+              <a id="drift-detail-link" class="drift-link hidden" href="#" target="_blank" rel="noopener">View silhouette</a>
+            </div>
+            <pre id="drift-detail-json">{}</pre>
+          </div>
+        </div>
+      </div>
     </main>
 
     <template id="event-template">

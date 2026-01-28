@@ -441,6 +441,12 @@ class ResidentKernel:
             return run_detect_drift()
         return run_detect_drift(load_recent_silhouettes(n))
 
+    def get_drift_summary(self, days: int = 7) -> dict[str, int]:
+        """Return high-level drift counts over the last N days."""
+        from sentientos.diagnostics.drift_alerts import get_drift_summary as summarize_drift
+
+        return summarize_drift(days)
+
     def update_governance(self, writer_id: str, **changes: object) -> None:
         self._ensure_epoch_active()
         try:

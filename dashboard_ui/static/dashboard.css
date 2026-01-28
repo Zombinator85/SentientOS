@@ -65,6 +65,10 @@ main {
   max-height: 400px;
 }
 
+.panel-wide {
+  grid-column: span 2;
+}
+
 .panel h2 {
   margin-top: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
@@ -103,4 +107,116 @@ main {
 
 .hidden {
   display: none !important;
+}
+
+.drift-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  height: 100%;
+}
+
+.drift-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.drift-empty {
+  padding: 0.5rem;
+  opacity: 0.8;
+}
+
+.drift-item {
+  width: 100%;
+  background: rgba(31, 45, 76, 0.65);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.drift-item[data-active="true"] {
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 0 2px rgba(100, 181, 246, 0.4);
+}
+
+.drift-date {
+  font-weight: 600;
+}
+
+.drift-tags {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.drift-tag {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.drift-tag--clear {
+  opacity: 0.8;
+}
+
+.drift-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(10, 15, 30, 0.7);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.drift-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.drift-link {
+  color: #9ecbff;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.drift-link:hover {
+  text-decoration: underline;
+}
+
+#drift-detail-json {
+  margin: 0;
+  padding: 0.75rem;
+  background: rgba(18, 24, 44, 0.85);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.8rem;
+  overflow: auto;
+  max-height: 240px;
+}
+
+@media (max-width: 900px) {
+  .panel-wide {
+    grid-column: span 1;
+  }
+
+  .drift-grid {
+    grid-template-columns: 1fr;
+  }
 }
