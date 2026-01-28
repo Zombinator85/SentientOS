@@ -1,8 +1,11 @@
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from dashboard_ui import api as dashboard_api
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def test_drift_recent_rejects_invalid_n() -> None:
