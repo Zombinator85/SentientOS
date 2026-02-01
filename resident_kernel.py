@@ -447,6 +447,14 @@ class ResidentKernel:
 
         return summarize_drift(days)
 
+    def get_drift_pressure_signal(self, days: int = 7) -> dict[str, object]:
+        """Return the drift pressure signal computed on demand."""
+        from sentientos.diagnostics.drift_pressure import (
+            get_drift_pressure_signal as build_pressure_signal,
+        )
+
+        return build_pressure_signal(days)
+
     def update_governance(self, writer_id: str, **changes: object) -> None:
         self._ensure_epoch_active()
         try:
