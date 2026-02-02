@@ -17,6 +17,7 @@ const PRESSURE_ENDPOINTS = {
   revalidate: "/api/pressure",
   close: "/api/pressure",
   recent: "/api/pressure/recent",
+  stream: "/api/pressure/stream",
 };
 
 const STATE = {
@@ -35,7 +36,9 @@ const STATE = {
     due: [],
     recent: [],
     closeTarget: null,
+    streamLastId: localStorage.getItem("pressureLastEventId") || "",
   },
+  driftStreamLastDate: localStorage.getItem("driftLastEventId") || "",
 };
 
 const controls = {
@@ -260,6 +263,45 @@ function renderPressureRecent() {
   });
 }
 
+async function refreshPressureDueOnly() {
+  const asOf = new Date().toISOString();
+  try {
+    const response = await fetch(`${PRESSURE_ENDPOINTS.due}?as_of=${encodeURIComponent(asOf)}&limit=50`);
+    if (!response.ok) throw new Error("Failed to refresh due signals");
+    const dueData = await response.json();
+    STATE.pressure.due = Array.isArray(dueData.signals) ? dueData.signals : [];
+    renderPressureDue();
+  } catch (error) {
+    pressureElements.status.textContent = error.message;
+  }
+}
+
+let pressureDueRefreshPending = false;
+
+function schedulePressureDueRefresh() {
+  if (pressureDueRefreshPending) return;
+  pressureDueRefreshPending = true;
+  setTimeout(async () => {
+    pressureDueRefreshPending = false;
+    await refreshPressureDueOnly();
+  }, 500);
+}
+
+function applyPressureStreamEvent(payload) {
+  if (!payload || typeof payload !== "object") return;
+  const entry = {
+    timestamp: payload.timestamp || new Date().toISOString(),
+    digest: payload.signal_id || payload.signalId || "—",
+    event: payload.event_type || "pressure_event",
+  };
+  STATE.pressure.recent.unshift(entry);
+  if (STATE.pressure.recent.length > 50) {
+    STATE.pressure.recent = STATE.pressure.recent.slice(0, 50);
+  }
+  renderPressureRecent();
+  schedulePressureDueRefresh();
+}
+
 async function selectDriftDate(date) {
   STATE.driftSelection = date;
   renderDriftList();
@@ -366,6 +408,24 @@ async function loadPressureData() {
   }
   renderPressureDue();
   renderPressureRecent();
+}
+
+function upsertDriftReport(report) {
+  if (!report || !report.date) return;
+  const existingIndex = STATE.driftReports.findIndex((item) => item.date === report.date);
+  if (existingIndex >= 0) {
+    STATE.driftReports[existingIndex] = { ...STATE.driftReports[existingIndex], ...report };
+  } else {
+    STATE.driftReports.unshift(report);
+  }
+  STATE.driftReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  if (STATE.driftReports.length > 30) {
+    STATE.driftReports = STATE.driftReports.slice(0, 30);
+  }
+  renderDriftList();
+  if (!STATE.driftSelection) {
+    selectDriftDate(report.date);
+  }
 }
 
 async function revalidatePressure(digest) {
@@ -503,8 +563,62 @@ function connectEventStream() {
   };
 }
 
+function connectPressureStream() {
+  const url = new URL(PRESSURE_ENDPOINTS.stream, window.location.origin);
+  if (STATE.pressure.streamLastId) {
+    url.searchParams.set("since_id", STATE.pressure.streamLastId);
+  }
+  url.searchParams.set("limit", "50");
+  const source = new EventSource(url);
+  source.onerror = () => {
+    pressureElements.status.textContent = "Pressure stream disconnected (retrying…)";
+  };
+  source.onmessage = (event) => {
+    if (!event.data) return;
+    try {
+      const payload = JSON.parse(event.data);
+      const lastId = event.lastEventId || payload.event_id;
+      if (lastId) {
+        STATE.pressure.streamLastId = String(lastId);
+        localStorage.setItem("pressureLastEventId", STATE.pressure.streamLastId);
+      }
+      applyPressureStreamEvent(payload);
+    } catch (error) {
+      console.error("Failed to parse pressure event", error);
+    }
+  };
+}
+
+function connectDriftStream() {
+  const url = new URL("/api/drift/stream", window.location.origin);
+  if (STATE.driftStreamLastDate) {
+    url.searchParams.set("since_date", STATE.driftStreamLastDate);
+  }
+  url.searchParams.set("limit", "7");
+  const source = new EventSource(url);
+  source.onerror = () => {
+    driftElements.detailDate.textContent = "Drift stream disconnected (retrying…)";
+  };
+  source.onmessage = (event) => {
+    if (!event.data) return;
+    try {
+      const payload = JSON.parse(event.data);
+      const lastId = event.lastEventId || payload.event_id || payload.date;
+      if (lastId) {
+        STATE.driftStreamLastDate = String(lastId);
+        localStorage.setItem("driftLastEventId", STATE.driftStreamLastDate);
+      }
+      upsertDriftReport(payload);
+    } catch (error) {
+      console.error("Failed to parse drift event", error);
+    }
+  };
+}
+
 setupControls();
 loadInitialData();
 loadDriftData();
 loadPressureData();
 connectEventStream();
+connectPressureStream();
+connectDriftStream();
