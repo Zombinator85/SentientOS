@@ -56,6 +56,37 @@
           </div>
         </div>
       </div>
+      <div class="panel panel-wide" data-category="pressure">
+        <h2>Pressure</h2>
+        <div class="pressure-controls">
+          <label for="pressure-actor">Actor</label>
+          <input id="pressure-actor" type="text" value="operator" />
+          <button id="pressure-refresh" type="button">Refresh</button>
+          <span id="pressure-status" aria-live="polite">Idle</span>
+        </div>
+        <div class="pressure-grid">
+          <div>
+            <h3>Due</h3>
+            <table class="pressure-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>Next Due</th>
+                  <th>Counts</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="pressure-due-body"></tbody>
+            </table>
+          </div>
+          <div>
+            <h3>Recent Events</h3>
+            <ul class="pressure-events" id="pressure-recent-list"></ul>
+          </div>
+        </div>
+      </div>
     </main>
 
     <template id="event-template">
@@ -67,6 +98,37 @@
         <p class="event-message"></p>
       </li>
     </template>
+
+    <div class="modal hidden" id="pressure-close-modal" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Close Pressure Signal</h3>
+          <button type="button" class="modal-close" id="pressure-close-dismiss">×</button>
+        </div>
+        <form id="pressure-close-form">
+          <div class="modal-field">
+            <label for="pressure-close-reason">Reason</label>
+            <select id="pressure-close-reason" required>
+              <option value="resolved">resolved</option>
+              <option value="superseded">superseded</option>
+              <option value="invalid">invalid</option>
+              <option value="duplicate">duplicate</option>
+              <option value="no_longer_applicable">no_longer_applicable</option>
+              <option value="expired">expired</option>
+              <option value="operator_close">operator_close</option>
+            </select>
+          </div>
+          <div class="modal-field">
+            <label for="pressure-close-note">Note</label>
+            <textarea id="pressure-close-note" maxlength="240" rows="3"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="submit">Close</button>
+            <button type="button" id="pressure-close-cancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script src="{{ url_for('static', path='dashboard.js') }}" type="module"></script>
   </body>

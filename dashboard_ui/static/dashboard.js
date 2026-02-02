@@ -12,6 +12,13 @@ const DRIFT_ENDPOINTS = {
   silhouette: "/api/drift/silhouette",
 };
 
+const PRESSURE_ENDPOINTS = {
+  due: "/api/pressure/due",
+  revalidate: "/api/pressure",
+  close: "/api/pressure",
+  recent: "/api/pressure/recent",
+};
+
 const STATE = {
   events: {
     feed: [],
@@ -24,6 +31,11 @@ const STATE = {
   driftSelection: null,
   filter24h: false,
   moduleFilter: "",
+  pressure: {
+    due: [],
+    recent: [],
+    closeTarget: null,
+  },
 };
 
 const controls = {
@@ -46,6 +58,20 @@ const driftElements = {
   detailDate: document.getElementById("drift-detail-date"),
   detailJson: document.getElementById("drift-detail-json"),
   detailLink: document.getElementById("drift-detail-link"),
+};
+
+const pressureElements = {
+  dueBody: document.getElementById("pressure-due-body"),
+  recentList: document.getElementById("pressure-recent-list"),
+  actor: document.getElementById("pressure-actor"),
+  refresh: document.getElementById("pressure-refresh"),
+  status: document.getElementById("pressure-status"),
+  modal: document.getElementById("pressure-close-modal"),
+  modalDismiss: document.getElementById("pressure-close-dismiss"),
+  modalCancel: document.getElementById("pressure-close-cancel"),
+  modalForm: document.getElementById("pressure-close-form"),
+  modalReason: document.getElementById("pressure-close-reason"),
+  modalNote: document.getElementById("pressure-close-note"),
 };
 
 const DRIFT_ICONS = [
@@ -152,6 +178,88 @@ function renderDriftDetail(report) {
   driftElements.detailJson.textContent = JSON.stringify(report, null, 2);
 }
 
+function formatCounts(counts) {
+  if (!counts || typeof counts !== "object") return "—";
+  const entries = Object.entries(counts);
+  if (!entries.length) return "—";
+  return entries.map(([key, value]) => `${key}:${value}`).join(", ");
+}
+
+function renderPressureDue() {
+  pressureElements.dueBody.innerHTML = "";
+  if (!STATE.pressure.due.length) {
+    const row = document.createElement("tr");
+    const cell = document.createElement("td");
+    cell.colSpan = 6;
+    cell.textContent = "No due signals";
+    row.appendChild(cell);
+    pressureElements.dueBody.appendChild(row);
+    return;
+  }
+
+  STATE.pressure.due.forEach((signal) => {
+    const row = document.createElement("tr");
+    const typeCell = document.createElement("td");
+    typeCell.textContent = signal.signal_type || "—";
+    const severityCell = document.createElement("td");
+    severityCell.textContent = signal.severity || "—";
+    const statusCell = document.createElement("td");
+    statusCell.textContent = signal.status || "—";
+    const dueCell = document.createElement("td");
+    dueCell.textContent = signal.next_review_due_at
+      ? new Date(signal.next_review_due_at).toLocaleString()
+      : "—";
+    const countsCell = document.createElement("td");
+    countsCell.textContent = formatCounts(signal.counts);
+    const actionCell = document.createElement("td");
+    const actions = document.createElement("div");
+    actions.className = "pressure-actions";
+
+    const revalidateButton = document.createElement("button");
+    revalidateButton.type = "button";
+    revalidateButton.textContent = "Revalidate";
+    revalidateButton.addEventListener("click", () => revalidatePressure(signal.id));
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.textContent = "Close";
+    closeButton.addEventListener("click", () => openCloseModal(signal.id));
+
+    actions.appendChild(revalidateButton);
+    actions.appendChild(closeButton);
+    actionCell.appendChild(actions);
+
+    row.appendChild(typeCell);
+    row.appendChild(severityCell);
+    row.appendChild(statusCell);
+    row.appendChild(dueCell);
+    row.appendChild(countsCell);
+    row.appendChild(actionCell);
+    pressureElements.dueBody.appendChild(row);
+  });
+}
+
+function renderPressureRecent() {
+  pressureElements.recentList.innerHTML = "";
+  if (!STATE.pressure.recent.length) {
+    const item = document.createElement("li");
+    item.className = "pressure-event";
+    item.textContent = "No recent events";
+    pressureElements.recentList.appendChild(item);
+    return;
+  }
+
+  STATE.pressure.recent.forEach((event) => {
+    const item = document.createElement("li");
+    item.className = "pressure-event";
+    const timestamp = event.timestamp ? new Date(event.timestamp).toLocaleString() : "—";
+    const digest = event.digest || "—";
+    const name = event.event || "pressure_event";
+    item.textContent = `${timestamp} ${name} ${digest}`;
+    pressureElements.recentList.appendChild(item);
+  });
+}
+
 async function selectDriftDate(date) {
   STATE.driftSelection = date;
   renderDriftList();
@@ -236,6 +344,97 @@ async function loadDriftData() {
   }
 }
 
+async function loadPressureData() {
+  pressureElements.status.textContent = "Loading…";
+  const asOf = new Date().toISOString();
+  try {
+    const [dueResponse, recentResponse] = await Promise.all([
+      fetch(`${PRESSURE_ENDPOINTS.due}?as_of=${encodeURIComponent(asOf)}&limit=50`),
+      fetch(`${PRESSURE_ENDPOINTS.recent}?limit=20`),
+    ]);
+    if (!dueResponse.ok) throw new Error("Failed to load due signals");
+    if (!recentResponse.ok) throw new Error("Failed to load recent events");
+    const dueData = await dueResponse.json();
+    const recentData = await recentResponse.json();
+    STATE.pressure.due = Array.isArray(dueData.signals) ? dueData.signals : [];
+    STATE.pressure.recent = Array.isArray(recentData.events) ? recentData.events : [];
+    pressureElements.status.textContent = "Loaded";
+  } catch (error) {
+    pressureElements.status.textContent = error.message;
+    STATE.pressure.due = [];
+    STATE.pressure.recent = [];
+  }
+  renderPressureDue();
+  renderPressureRecent();
+}
+
+async function revalidatePressure(digest) {
+  const actor = pressureElements.actor.value.trim();
+  if (!actor) {
+    pressureElements.status.textContent = "Actor required";
+    return;
+  }
+  pressureElements.status.textContent = "Revalidating…";
+  try {
+    const response = await fetch(`${PRESSURE_ENDPOINTS.revalidate}/${digest}/revalidate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actor, as_of: new Date().toISOString() }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Revalidate failed");
+    }
+    await loadPressureData();
+  } catch (error) {
+    pressureElements.status.textContent = error.message;
+  }
+}
+
+function openCloseModal(digest) {
+  STATE.pressure.closeTarget = digest;
+  pressureElements.modalReason.value = "resolved";
+  pressureElements.modalNote.value = "";
+  pressureElements.modal.classList.remove("hidden");
+}
+
+function closeCloseModal() {
+  STATE.pressure.closeTarget = null;
+  pressureElements.modal.classList.add("hidden");
+}
+
+async function submitCloseModal(event) {
+  event.preventDefault();
+  const digest = STATE.pressure.closeTarget;
+  if (!digest) return;
+  const actor = pressureElements.actor.value.trim();
+  if (!actor) {
+    pressureElements.status.textContent = "Actor required";
+    return;
+  }
+  pressureElements.status.textContent = "Closing…";
+  try {
+    const response = await fetch(`${PRESSURE_ENDPOINTS.close}/${digest}/close`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        actor,
+        reason: pressureElements.modalReason.value,
+        note: pressureElements.modalNote.value.trim(),
+        as_of: new Date().toISOString(),
+      }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || "Close failed");
+    }
+    closeCloseModal();
+    await loadPressureData();
+  } catch (error) {
+    pressureElements.status.textContent = error.message;
+  }
+}
+
 function addEventToState(event) {
   if (!STATE.events[event.category]) {
     STATE.events[event.category] = [];
@@ -278,6 +477,11 @@ function setupControls() {
       controls.status.textContent = `Archive error: ${error.message}`;
     }
   });
+
+  pressureElements.refresh.addEventListener("click", () => loadPressureData());
+  pressureElements.modalDismiss.addEventListener("click", closeCloseModal);
+  pressureElements.modalCancel.addEventListener("click", closeCloseModal);
+  pressureElements.modalForm.addEventListener("submit", submitCloseModal);
 }
 
 function connectEventStream() {
@@ -302,4 +506,5 @@ function connectEventStream() {
 setupControls();
 loadInitialData();
 loadDriftData();
+loadPressureData();
 connectEventStream();
