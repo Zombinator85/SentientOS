@@ -13,6 +13,9 @@ python -m pip install --upgrade pip
 # Reinstall known missing dependencies
 pip install requests playsound TTS==0.14 torch
 
+# Install project dependencies
+python -m pip install -e .[dev]
+
 # Run audit linter with bypass flag
 echo "\n[+] Running privilege_lint_cli.py with LUMOS_AUTO_APPROVE..."
 LUMOS_AUTO_APPROVE=1 python privilege_lint_cli.py
