@@ -53,6 +53,7 @@ audit:
 
 full-suite:
         $(PYTHON) tools/autonomy_readiness.py --quiet
+	$(PYTHON) -m pip install -e .[dev]
         pytest -q
 
 package:

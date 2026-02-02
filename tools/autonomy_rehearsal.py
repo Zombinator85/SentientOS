@@ -14,6 +14,7 @@ import json
 import os
 import statistics
 import subprocess
+import sys
 import time
 import uuid
 from dataclasses import dataclass
@@ -259,7 +260,8 @@ def main() -> None:
     tests_started = time.perf_counter()
 
     if integrity_valid and risk < threshold:
-        for command in (["pytest", "-q"], ["make", "ci"]):
+        install_cmd = [sys.executable, "-m", "pip", "install", "-e", ".[dev]"]
+        for command in (install_cmd, ["pytest", "-q"], ["make", "ci"]):
             record("tests.start", command=command)
             result = _run_command(command, cwd=repo_root)
             record(

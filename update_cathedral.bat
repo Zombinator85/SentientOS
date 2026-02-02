@@ -16,11 +16,18 @@ if errorlevel 1 (
 )
 
 REM -- Run smoke tests
+echo [%date% %time%] pip install -e .[dev] >> "%LOGFILE%"
+python -m pip install -e .[dev] >> "%LOGFILE%" 2>&1
+if errorlevel 1 (
+    echo [%date% %time%] ERROR: pip install failed. >> "%LOGFILE%"
+    exit /b 2
+)
+
 echo [%date% %time%] pytest -q >> "%LOGFILE%"
 pytest -q >> "%LOGFILE%" 2>&1
 if errorlevel 1 (
     echo [%date% %time%] ERROR: pytest failed. >> "%LOGFILE%"
-    exit /b 2
+    exit /b 3
 )
 
 echo [%date% %time%] python verify_audits.py --help >> "%LOGFILE%"
