@@ -37,8 +37,10 @@ const STATE = {
     recent: [],
     closeTarget: null,
     streamLastId: localStorage.getItem("pressureLastEventId") || "",
+    seenIds: new Set(),
   },
   driftStreamLastDate: localStorage.getItem("driftLastEventId") || "",
+  driftSeenIds: new Set(),
 };
 
 const controls = {
@@ -289,9 +291,13 @@ function schedulePressureDueRefresh() {
 
 function applyPressureStreamEvent(payload) {
   if (!payload || typeof payload !== "object") return;
+  if (STATE.pressure.seenIds.has(payload.event_id)) return;
+  if (payload.event_id) {
+    STATE.pressure.seenIds.add(payload.event_id);
+  }
   const entry = {
     timestamp: payload.timestamp || new Date().toISOString(),
-    digest: payload.signal_id || payload.signalId || "—",
+    digest: payload.digest || payload.payload?.digest || "—",
     event: payload.event_type || "pressure_event",
   };
   STATE.pressure.recent.unshift(entry);
@@ -608,7 +614,17 @@ function connectDriftStream() {
         STATE.driftStreamLastDate = String(lastId);
         localStorage.setItem("driftLastEventId", STATE.driftStreamLastDate);
       }
-      upsertDriftReport(payload);
+      if (payload.event_id && STATE.driftSeenIds.has(payload.event_id)) {
+        return;
+      }
+      if (payload.event_id) {
+        STATE.driftSeenIds.add(payload.event_id);
+      }
+      const report = payload.payload || payload;
+      upsertDriftReport({
+        ...report,
+        date: report.date || payload.event_id || payload.date,
+      });
     } catch (error) {
       console.error("Failed to parse drift event", error);
     }
