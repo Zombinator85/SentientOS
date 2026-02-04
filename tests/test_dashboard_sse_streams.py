@@ -5,8 +5,9 @@ import fastapi
 import pytest
 from fastapi.testclient import TestClient
 
-from dashboard_ui.api import _tail_audit_entries, create_app
+from dashboard_ui.api import create_app
 from log_utils import append_json
+from sentientos.streams.audit_stream import tail_audit_entries
 
 
 def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
@@ -72,7 +73,7 @@ def test_tail_audit_entries_is_bounded(tmp_path: Path) -> None:
     log_path = tmp_path / "pressure.jsonl"
     for idx in range(3):
         _write_pressure_event(log_path, f"sig-{idx}", "pressure_enqueue")
-    entries = _tail_audit_entries(log_path, max_lines=2)
+    entries = tail_audit_entries(log_path, max_lines=2)
     assert len(entries) == 2
 
 
@@ -88,8 +89,9 @@ def test_pressure_stream_replay_payload(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     assert len(events) == 2
     payload = events[0]["data"]
+    assert payload["stream"] == "pressure"
     assert payload["event_type"] == "pressure_enqueue"
-    assert payload["signal_id"].startswith("sig-")
+    assert payload["digest"].startswith("sig-")
     assert payload["event_id"] is not None
     assert payload["timestamp"]
     assert "payload" in payload
@@ -120,9 +122,9 @@ def test_drift_stream_replay_payload(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
     assert len(events) == 1
     payload = events[0]["data"]
-    assert payload["event_type"] == "drift_report"
-    assert payload["date"] in {"2024-01-01", "2024-01-02"}
-    assert "summary_counts" in payload
+    assert payload["event_type"] == "drift_day"
+    assert payload["payload"]["date"] in {"2024-01-01", "2024-01-02"}
+    assert "summary_counts" in payload["payload"]
 
 
 def test_stream_disconnect_best_effort(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

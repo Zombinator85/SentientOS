@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from dashboard_ui import api as dashboard_api
 from log_utils import append_json
+from sentientos.streams.audit_stream import tail_audit_entries
 
 
 def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
@@ -72,12 +73,11 @@ def test_pressure_stream_reconnect_no_dupe_and_bounds(
 ) -> None:
     log_path = tmp_path / "pressure.jsonl"
     monkeypatch.setenv("PRESSURE_QUEUE_LOG", str(log_path))
-    monkeypatch.setattr(dashboard_api, "DEFAULT_PRESSURE_QUEUE_LOG", log_path, raising=False)
     for idx in range(205):
         _write_pressure_event(log_path, f"sig-{idx:03d}", "pressure_enqueue")
 
-    all_entries = dashboard_api._tail_audit_entries(log_path, max_lines=205)
-    tail_entries = dashboard_api._tail_audit_entries(log_path, max_lines=200)
+    all_entries = tail_audit_entries(log_path, max_lines=205)
+    tail_entries = tail_audit_entries(log_path, max_lines=200)
     assert len(all_entries) == 205
     assert len(tail_entries) == 200
 
@@ -85,7 +85,7 @@ def test_pressure_stream_reconnect_no_dupe_and_bounds(
     with client.stream("GET", "/api/pressure/stream?limit=500") as response:
         first_batch = _collect_sse_events(response, 3)
 
-    expected_offsets = [offset for offset, _ in tail_entries]
+    expected_offsets = [str(offset) for offset, _ in tail_entries]
     assert [event["data"]["event_id"] for event in first_batch] == expected_offsets[:3]
     last_id = first_batch[-1]["data"]["event_id"]
 
@@ -96,12 +96,12 @@ def test_pressure_stream_reconnect_no_dupe_and_bounds(
 
     reconnect_ids = [event["data"]["event_id"] for event in second_batch]
     assert reconnect_ids == expected_offsets[3:5]
-    assert min(reconnect_ids) > last_id
+    assert min(int(value) for value in reconnect_ids) > int(last_id)
 
     combined_ids = [event["data"]["event_id"] for event in first_batch + second_batch]
     assert len(combined_ids) == len(set(combined_ids))
 
-    allowed_top_keys = {"event_id", "event_type", "signal_id", "timestamp", "payload"}
+    allowed_top_keys = {"stream", "schema_version", "event_id", "event_type", "timestamp", "payload", "digest"}
     allowed_payload_keys = {
         "signal_type",
         "as_of_date",
@@ -143,7 +143,7 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     with client.stream("GET", "/api/drift/stream?limit=2") as response:
         first_batch = _collect_sse_events(response, 1)
 
-    last_date = first_batch[-1]["data"]["date"]
+    last_date = first_batch[-1]["data"]["payload"]["date"]
     _write_drift_event(log_path, "MOTION_STARVATION", "2024-01-03")
 
     with client.stream(
@@ -151,27 +151,25 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     ) as response:
         second_batch = _collect_sse_events(response, 1)
 
-    combined_dates = [event["data"]["date"] for event in first_batch + second_batch]
+    combined_dates = [event["data"]["payload"]["date"] for event in first_batch + second_batch]
     assert len(combined_dates) == len(set(combined_dates))
-    assert second_batch[0]["data"]["date"] > last_date
+    assert second_batch[0]["data"]["payload"]["date"] > last_date
     for batch in (first_batch, second_batch):
-        dates = [event["data"]["date"] for event in batch]
+        dates = [event["data"]["payload"]["date"] for event in batch]
         assert dates == sorted(dates, reverse=True)
 
     allowed_top_keys = {
+        "stream",
+        "schema_version",
         "event_id",
         "event_type",
-        "date",
-        "posture_stuck",
-        "plugin_dominance",
-        "motion_starvation",
-        "anomaly_trend",
-        "summary_counts",
-        "source_hash",
+        "timestamp",
+        "payload",
+        "digest",
     }
     forbidden_keys = {"silhouette", "raw_log", "stack"}
     for event in first_batch + second_batch:
         payload = event["data"]
         assert set(payload.keys()).issubset(allowed_top_keys)
-        assert not forbidden_keys.intersection(payload.keys())
+        assert not forbidden_keys.intersection(payload["payload"].keys())
         assert len(json.dumps(payload)) < 10_000
