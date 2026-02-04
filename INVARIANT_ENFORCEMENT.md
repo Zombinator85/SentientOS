@@ -21,5 +21,5 @@ This repository guards interpretation, gradient, and boundary invariants with st
 ## Snapshot regeneration (operator-facing surfaces)
 - The snapshot test reads operator-visible strings from `sentient_api.py`, `policy_engine.py`, and `codex/amendments.py` without importing them.
 - To accept intentional changes, run:
-  - `REGENERATE_OPERATOR_SNAPSHOT=1 pytest tests/test_operator_surface_snapshot.py`
+  - `REGENERATE_OPERATOR_SNAPSHOT=1 python -m scripts.run_tests tests/test_operator_surface_snapshot.py`
 - Commit the updated `tests/snapshots/operator_surface.json` after review.

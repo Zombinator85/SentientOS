@@ -17,7 +17,7 @@ SentientOS v1.0.0 is the first stable cathedral release focused on autonomy, pro
 
 ## Testing Summary
 - `make ci`
-- `pytest -q`
+- `python -m scripts.run_tests -q`
 - `./scripts/verify_provenance.sh`
 
 ## Release Checklist

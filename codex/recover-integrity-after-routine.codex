@@ -42,6 +42,6 @@ done
 # 3. Revalidate with tests
 touch tests/__init__.py
 pre-commit run --all-files || echo "⚠️ Pre-commit check failed."
-pytest || echo "⚠️ Tests failed."
+python -m scripts.run_tests || echo "⚠️ Tests failed."
 
 echo "✅ Routine recovery complete — verify and stage fixups."

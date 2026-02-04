@@ -8,7 +8,7 @@ This checklist describes everything the installer sets up and how to verify that
 - **Config Files** – copies `.env.example` or other defaults without overwriting existing secrets.
 - **Dependency Installation** – runs `pip install -r requirements.txt` and checks the Python version.
 - **Logging Utilities** – seeds `log_json` helpers and audit routines.
-- **Smoke Test & Audit** – runs `pytest -q` and `python verify_audits.py --help`, writing results to the install log.
+- **Smoke Test & Audit** – runs `python -m scripts.run_tests -q` and `python verify_audits.py --help`, writing results to the install log.
 - **Update Scripts** – places `update_cathedral.bat` (and future `.sh`/`.py` equivalents) in the repo root.
 - **Documentation** – installs up‑to‑date `README.md`, `docs/CODEX_UPDATE_PIPELINE.md`, and onboarding guides.
 - **Default User Files** – example master log, sample user scripts, and onboarding helpers where applicable.

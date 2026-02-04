@@ -19,7 +19,7 @@ The repository currently preserves the integrity issues to maintain a historical
 If a test fails because a module moved or was removed:
 1. Update the import path in the test file.
 2. If the test is obsolete, wrap it with `pytest.skip()` and provide a reason and date.
-3. Rerun `pytest` until all tests either pass or are explicitly skipped.
+3. Rerun `python -m scripts.run_tests` until all tests either pass or are explicitly skipped.
 
 ## 3. Environment & Dependencies
 - Use Python **3.11+**.

@@ -11,7 +11,7 @@ Quick-start minimal:
 
 ```bash
 pip install -r requirements.txt
-pytest -q
+python -m scripts.run_tests -q
 mypy sentientos
 ```
 
@@ -19,7 +19,7 @@ Full extras:
 
 ```bash
 pip install privilege-lint[all]
-pytest -q
+python -m scripts.run_tests -q
 ```
 
 Run mypy locally with: `mypy sentientos`

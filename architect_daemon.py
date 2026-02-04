@@ -96,7 +96,7 @@ _PRIORITY_ACTIVE_STATUSES = {"pending", "in_progress", "done", "discarded"}
 _PRIORITY_HISTORY_STATUSES = {"done", "discarded"}
 
 _DEFAULT_CI_COMMANDS: tuple[tuple[str, ...], ...] = (
-    ("pytest", "-q"),
+    ("python", "-m", "scripts.run_tests", "-q"),
     ("verify_audits", "--strict"),
 )
 _DEFAULT_IMMUTABILITY_COMMAND: tuple[str, ...] = (

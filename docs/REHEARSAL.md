@@ -29,7 +29,7 @@ Add the following steps to continuous integration workflows:
 ```bash
 make rehearse
 make audit
-pytest -q
+python -m scripts.run_tests -q
 ```
 
 CI is considered green when the rehearsal artefacts exist, the audit succeeds, and unit tests pass. The signed artefacts in

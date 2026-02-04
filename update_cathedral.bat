@@ -23,10 +23,10 @@ if errorlevel 1 (
     exit /b 2
 )
 
-echo [%date% %time%] pytest -q >> "%LOGFILE%"
-pytest -q >> "%LOGFILE%" 2>&1
+echo [%date% %time%] python -m scripts.run_tests -q >> "%LOGFILE%"
+python -m scripts.run_tests -q >> "%LOGFILE%" 2>&1
 if errorlevel 1 (
-    echo [%date% %time%] ERROR: pytest failed. >> "%LOGFILE%"
+    echo [%date% %time%] ERROR: test runner failed. >> "%LOGFILE%"
     exit /b 3
 )
 

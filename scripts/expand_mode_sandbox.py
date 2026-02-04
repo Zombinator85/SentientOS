@@ -21,8 +21,8 @@ The design balances the desire for autonomy with the core project doctrine:
 
 Example usage::
 
-    # Prepare a sandbox and run pytest inside it
-    python scripts/expand_mode_sandbox.py --run "pytest -q"
+    # Prepare a sandbox and run tests inside it
+    python scripts/expand_mode_sandbox.py --run "python -m scripts.run_tests -q"
 
     # Execute a custom script and request a unified diff report
     python scripts/expand_mode_sandbox.py --run "python some_agent.py" \
@@ -257,4 +257,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -14,7 +14,7 @@ Updated onboarding and script templates emphasize this pattern for all contribut
 ## Testing
 ✅ python privilege_lint_cli.py
 
-✅ pytest -q
+✅ python -m scripts.run_tests -q
 
 ✅ python verify_audits.py (40% of logs valid; continued progress)
 

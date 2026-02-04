@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import subprocess
-import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,6 +16,8 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class ActionLogger(Protocol):
@@ -56,11 +58,12 @@ class InstallResult:
 
 
 def _default_ci_runner() -> bool:
-    """Run pytest quietly as a lightweight safety check."""
+    """Run the test runner quietly as a lightweight safety check."""
 
     try:
         proc = subprocess.run(
-            ["pytest", "-q"],
+            [sys.executable, "-m", "scripts.run_tests", "-q"],
+            cwd=REPO_ROOT,
             check=False,
             capture_output=True,
             text=True,
