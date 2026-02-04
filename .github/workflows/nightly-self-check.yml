@@ -25,4 +25,4 @@ jobs:
       - name: Run mypy
         run: mypy --strict
       - name: Run pytest
-        run: pytest
+        run: python -m scripts.run_tests

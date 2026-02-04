@@ -490,7 +490,7 @@ Run all tests:
 bash
 Copy
 Edit
-pytest
+python -m scripts.run_tests
 
 Headless / Test Mode
 --------------------
@@ -503,7 +503,7 @@ Example:
 
 ```bash
 export SENTIENTOS_HEADLESS=1
-pytest
+python -m scripts.run_tests
 ```
 
 EEG, Haptics & Biosignals

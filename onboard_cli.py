@@ -45,7 +45,7 @@ def main() -> int:  # pragma: no cover - CLI helper
             with LOG_PATH.open("a", encoding="utf-8") as f:
                 f.write(json.dumps({"timestamp": datetime.utcnow().isoformat(), "event": "check_failed"}) + "\n")
             return 1
-        print("Environment looks good. Run 'pytest -m \"not env\"' next.")
+        print("Environment looks good. Run 'python -m scripts.run_tests -m \"not env\"' next.")
         with LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(json.dumps({"timestamp": datetime.utcnow().isoformat(), "event": "check_passed"}) + "\n")
     else:

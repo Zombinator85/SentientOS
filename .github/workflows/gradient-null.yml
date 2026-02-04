@@ -21,7 +21,7 @@ jobs:
 
       - name: Run invariant-critical tests
         run: |
-          pytest \
+          python -m scripts.run_tests \
             tests/test_sentient_autonomy.py \
             tests/test_sentient_mesh_scheduler.py \
             tests/test_policy_engine.py \

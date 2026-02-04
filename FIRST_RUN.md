@@ -17,7 +17,7 @@ python onboard_cli.py --check
 Run only the passing tests with:
 
 ```bash
-pytest -m "not env"  # legacy suites are skipped
+python -m scripts.run_tests -m "not env"  # legacy suites are skipped
 ```
 
 ## Need Help?

@@ -71,7 +71,7 @@ python scripts/bootstrap_cathedral.py
 Run the same checks used in automation from the repository root:
 
 ```bash
-pytest -q
+python -m scripts.run_tests -q
 make ci
 ```
 
@@ -143,7 +143,7 @@ communicates through local files or sockets.
   * Schedule the Codex automation loop (`GenesisForge`, `SpecAmender`,
     `IntegrityDaemon`, `CodexHealer`) once per minute.  The loop now publishes
     proposals to the Pulse Bus, runs covenant checks plus HungryEyes dual
-    control, executes `pytest -q`/`make ci`, and only then advances amendments
+    control, executes `python -m scripts.run_tests -q`/`make ci`, and only then advances amendments
     to the approved state.
   * Commit approved amendments with the staged batching policy (minor fixes are
     batched every ~5 minutes, major fixes are committed immediately).
@@ -189,7 +189,7 @@ python -m sentientos.windows_service install
    publishes them to the Pulse Bus.
 2. The covenant IntegrityDaemon validates proposals and HungryEyes scores the
    proof report.  Violations are quarantined immediately.
-3. Approved proposals run through the automated test gate (`pytest -q`, then
+3. Approved proposals run through the automated test gate (`python -m scripts.run_tests -q`, then
    `make ci` when available).
 4. `SpecAmender` batches minor approvals or ships major fixes immediately with a
    descriptive commit message.

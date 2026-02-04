@@ -45,7 +45,7 @@ jobs:
       - name: mypy
         run: mypy --strict
       - name: pytest
-        run: pytest
+        run: python -m scripts.run_tests
       - name: Env report
         run: plint-env report --json > env.json
       - uses: actions/upload-artifact@v4

@@ -29,8 +29,8 @@ echo "\n[+] Running connector health check..."
 LUMOS_AUTO_APPROVE=1 python check_connector_health.py || echo "[!] Warning: connector health check skipped or failed."
 
 # Run test suite
-echo "\n[+] Running pytest (non-env)..."
-pytest -m "not env" -q || echo "[!] Some tests failed. Check logs."
+echo "\n[+] Running test runner (non-env)..."
+python -m scripts.run_tests -m "not env" -q || echo "[!] Some tests failed. Check logs."
 
 # Run mypy check (summary only)
 echo "\n[+] Running mypy..."

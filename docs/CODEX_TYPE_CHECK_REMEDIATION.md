@@ -21,7 +21,7 @@ Roadmap and documentation updated to reflect ongoing blockers and required next 
 ## Testing
 ✅ python privilege_lint_cli.py
 
-✅ pytest -q
+✅ python -m scripts.run_tests -q
 
 ❌ mypy --ignore-missing-imports . (errors remain, but several core modules now clean)
 

@@ -79,7 +79,7 @@ jobs:
         run: mypy --strict > MYPY_STATUS.md
 
       - name: Pytest with coverage
-        run: pytest
+        run: python -m scripts.run_tests
 
       - name: Run parliament demo
         run: |
@@ -134,4 +134,4 @@ jobs:
           sudo mv linux-amd64/helm /usr/local/bin/helm
       - run: pip install -e .[dev]
       - name: Run helm integration test
-        run: pytest tests/integration/helm_k8s_test.py
+        run: python -m scripts.run_tests tests/integration/helm_k8s_test.py

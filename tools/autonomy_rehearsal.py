@@ -206,7 +206,7 @@ def main() -> None:
         ],
         "testing_requirements": [
             "python -m scripts.lock install",
-            "pytest -q",
+            "python -m scripts.run_tests -q",
             "make ci",
         ],
         "status": "draft",
@@ -260,8 +260,10 @@ def main() -> None:
     tests_started = time.perf_counter()
 
     if integrity_valid and risk < threshold:
-        install_cmd = [sys.executable, "-m", "pip", "install", "-e", ".[dev]"]
-        for command in (install_cmd, ["pytest", "-q"], ["make", "ci"]):
+        for command in (
+            [sys.executable, "-m", "scripts.run_tests", "-q"],
+            ["make", "ci"],
+        ):
             record("tests.start", command=command)
             result = _run_command(command, cwd=repo_root)
             record(
@@ -395,7 +397,7 @@ def main() -> None:
             "",
             "## CI Outcome",
             "",
-            f"- pytest -q returncode: {test_results[0].returncode if test_results else 'skipped'}",
+            f"- python -m scripts.run_tests -q returncode: {test_results[0].returncode if test_results else 'skipped'}",
             f"- make ci returncode: {test_results[1].returncode if len(test_results) > 1 else 'skipped'}",
             "",
             "## Regressions",

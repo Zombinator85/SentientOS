@@ -159,7 +159,7 @@ def smoke_test() -> None:
     print("Running smoke test...")
     try:
         subprocess.check_call([sys.executable, "verify_audits.py", "--help"])
-        subprocess.call([sys.executable, "-m", "pytest", "-q"])  # allow failures
+        subprocess.call([sys.executable, "-m", "scripts.run_tests", "-q"])  # allow failures
         log_json(PUBLIC_LOG, {"event": "install_test", "status": "ok"})
         print("log_json test passed.")
         _log("smoke_test", "ok")

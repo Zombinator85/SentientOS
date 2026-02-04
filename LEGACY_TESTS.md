@@ -10,7 +10,7 @@ Passing tests can be run with:
 
 ```bash
 bash setup_env.sh
-pytest -m "not env"
+python -m scripts.run_tests -m "not env"
 ```
 
 Contributions to repair or remove these legacy tests are welcome. Update this

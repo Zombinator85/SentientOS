@@ -53,8 +53,7 @@ audit:
 
 full-suite:
         $(PYTHON) tools/autonomy_readiness.py --quiet
-	$(PYTHON) -m pip install -e .[dev]
-        pytest -q
+        $(PYTHON) -m scripts.run_tests -q
 
 package:
         python scripts/package_launcher.py

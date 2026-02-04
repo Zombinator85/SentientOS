@@ -58,8 +58,8 @@ errors:
 ```yaml
 - name: Privilege lint
   run: python privilege_lint.py
-- name: Run pytest
-  run: pytest
+- name: Run tests
+  run: python -m scripts.run_tests
 - name: Type check
   run: mypy --strict
 - name: Verify audits
@@ -75,9 +75,9 @@ tests are listed there, so they run as part of the default suite. Default
 invocations are quiet because `pytest.ini` sets `addopts = -q`.
 
 Supported test commands:
-- `pytest` (default suite; quiet due to `addopts = -q`)
-- `pytest tests/test_drift_alerts_contract.py`
-- `pytest tests/test_dashboard_drift_api.py`
+- `python -m scripts.run_tests` (default suite; quiet due to `addopts = -q`)
+- `python -m scripts.run_tests tests/test_drift_alerts_contract.py`
+- `python -m scripts.run_tests tests/test_dashboard_drift_api.py`
 
 ## Procedure Etiquette
 Commit messages should be calm and descriptive. Mention the module affected and the blessing performed.

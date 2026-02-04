@@ -5,7 +5,7 @@
 - Logs each step of setup and installation.
 - Verifies Python version before proceeding.
 - Ensures all required log directories exist.
-- Runs smoke tests (`pytest -q`, `python verify_audits.py --help`).
+- Runs smoke tests (`python -m scripts.run_tests -q`, `python verify_audits.py --help`).
 - Can be invoked automatically for one-click launch.
 
 ### Update Pipeline (Pull-Based)
@@ -26,7 +26,7 @@
 
 ## Testing
 ```bash
-pytest -q
+python -m scripts.run_tests -q
 python verify_audits.py --help
 ```
 
