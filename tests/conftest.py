@@ -13,6 +13,8 @@ import types
 # Ensure the repository root is on sys.path before importing project modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from scripts.editable_install import editable_install_from_repo_root
+
 # Stub privilege checks before importing modules that may call them on import
 builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
 builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
@@ -22,13 +24,24 @@ import pytest
 
 def _ensure_provisioned_environment() -> None:
     if os.getenv("SENTIENTOS_ALLOW_NAKED_PYTEST") == "1":
+        print(
+            "WARNING: SENTIENTOS_ALLOW_NAKED_PYTEST=1 set; bypassing editable install airlock.",
+            file=sys.stderr,
+        )
         return
+    repo_root = Path(__file__).resolve().parents[1]
+    if not editable_install_from_repo_root(repo_root):
+        pytest.exit(
+            "Not running against an editable install of this repo. Run pip install -e .[dev] or "
+            "python -m scripts.run_tests."
+        )
     try:
         import sentientos  # noqa: F401
         import fastapi  # noqa: F401
     except Exception:
         pytest.exit(
-            "Environment not provisioned. Run python -m scripts.run_tests … or pip install -e .[dev]."
+            "Not running against an editable install of this repo. Run pip install -e .[dev] or "
+            "python -m scripts.run_tests."
         )
 
 

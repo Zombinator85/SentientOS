@@ -87,7 +87,10 @@ def main() -> int:
             if _line_has_pytest_command(line):
                 violations.append(f"{path.relative_to(REPO_ROOT)}:{idx}: {line.strip()}")
     if violations:
-        print("Raw pytest invocations are disallowed. Use python -m scripts.run_tests instead.")
+        print(
+            "Raw pytest invocations are disallowed. "
+            "Editable install required; use python -m scripts.run_tests instead."
+        )
         print("\n".join(violations))
         return 1
     print("pytest airlock guard: OK")

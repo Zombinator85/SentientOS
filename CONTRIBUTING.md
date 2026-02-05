@@ -79,6 +79,10 @@ Supported test commands:
 - `python -m scripts.run_tests tests/test_drift_alerts_contract.py`
 - `python -m scripts.run_tests tests/test_dashboard_drift_api.py`
 
+Tests require an editable (PEP 660) install of this repository. Use
+`python -m scripts.run_tests` to provision an editable install before running
+pytest.
+
 ## Procedure Etiquette
 Commit messages should be calm and descriptive. Mention the module affected and the blessing performed.
 Avoid force pushes and never rewrite the audit logs. If a commit references sensitive data, quarantine the file and document the integrity issue instead of deleting history.
