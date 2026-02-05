@@ -44,6 +44,8 @@ jobs:
           LUMOS_AUTO_APPROVE: '1'
       - name: mypy
         run: mypy --strict
+      - name: pytest airlock guard
+        run: python scripts/pytest_airlock_guard.py
       - name: pytest
         run: python -m scripts.run_tests
       - name: Env report

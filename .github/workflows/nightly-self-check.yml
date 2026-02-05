@@ -24,5 +24,7 @@ jobs:
           LUMOS_AUTO_APPROVE: '1'
       - name: Run mypy
         run: mypy --strict
+      - name: Pytest airlock guard
+        run: python scripts/pytest_airlock_guard.py
       - name: Run pytest
         run: python -m scripts.run_tests

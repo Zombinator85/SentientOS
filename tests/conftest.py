@@ -4,6 +4,7 @@ from __future__ import annotations
 import builtins
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -16,7 +17,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
 builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
 
+import pytest
+
+
+def _ensure_provisioned_environment() -> None:
+    if os.getenv("SENTIENTOS_ALLOW_NAKED_PYTEST") == "1":
+        return
+    try:
+        import sentientos  # noqa: F401
+        import fastapi  # noqa: F401
+    except Exception:
+        pytest.exit(
+            "Environment not provisioned. Run python -m scripts.run_tests … or pip install -e .[dev]."
+        )
+
+
+_ensure_provisioned_environment()
+
 yaml_stub = types.ModuleType("yaml")
+
+
 def _safe_yaml(text, *_, **__):
     if not text:
         return {}
@@ -49,8 +69,6 @@ require_covenant_alignment()
 # The admin banner checks can exit the process during module import if not
 # stubbed ahead of time. Stub them here so test discovery doesn't trip the
 # privilege checks.
-
-import pytest
 
 from tests.legacy_policy import LEGACY_SKIP_REASON, is_legacy_candidate, legacy_marker_enabled
 from tests.federation_skip_policy import FEDERATION_SKIP_INTENTS
