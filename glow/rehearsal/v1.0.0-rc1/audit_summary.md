@@ -15,7 +15,7 @@ The v1.0.0-rc1 rehearsal exercised one amendment end-to-end through the Gap Seek
 | 95th percentile pipeline duration | 8.21 s |
 | Avg HungryEyes risk score | 0.22 (threshold 0.60) |
 | Max HungryEyes risk score | 0.22 |
-| CI commands | `pytest -q`, `make ci` (both returncode 0) |
+| CI commands | `python -m scripts.run_tests -q`, `make ci` (both returncode 0) |
 
 ## Latency Detail
 | Stage | Duration |
@@ -32,14 +32,14 @@ The v1.0.0-rc1 rehearsal exercised one amendment end-to-end through the Gap Seek
 - HungryEyes risk remained well below the 0.60 gate, but only one sample was observed. No recalibration signals detected.
 
 ## System Stability & CI Consistency
-- Both rehearsal commands completed successfully (`pytest -q`, `make ci`) with zero flaky reruns or skips reported.
+- Both rehearsal commands completed successfully (`python -m scripts.run_tests -q`, `make ci`) with zero flaky reruns or skips reported.
 - No quarantines were triggered, and no invariant violations surfaced in the timeline.
 - Pulse Bus events were serialized; no overlapping amendments or race conditions appeared.
 - Absence of an explicit commit/merge event in the timeline should be addressed to guarantee downstream watchers (e.g., release announcers) can reconcile approvals with repository state.
 
 ## Performance Observations
 - Integrity evaluation executed in 14 ms; test and CI stages dominate latency. No CPU, memory, or I/O counters were captured, so deeper performance tuning is deferred.
-- CI runtime was the longest stage; consider caching pytest environments or parallelizing `make ci` if future rehearsals add load.
+- CI runtime was the longest stage; consider caching test environments or parallelizing `make ci` if future rehearsals add load.
 
 ## Quarantine Summary
 - Quarantine count: 0
