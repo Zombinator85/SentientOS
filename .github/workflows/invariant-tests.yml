@@ -27,3 +27,9 @@ jobs:
             tests/test_policy_engine.py \
             tests/test_prompt_assembler.py \
             tests/test_capability_ledger.py
+      - name: Upload test run provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_run_provenance_${{ github.run_id }}_${{ github.job }}
+          path: glow/test_runs/test_run_provenance.json

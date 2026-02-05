@@ -48,6 +48,12 @@ jobs:
         run: python scripts/pytest_airlock_guard.py
       - name: pytest
         run: python -m scripts.run_tests
+      - name: Upload test run provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_run_provenance_${{ github.run_id }}_${{ github.job }}_${{ matrix.mode }}
+          path: glow/test_runs/test_run_provenance.json
       - name: Env report
         run: plint-env report --json > env.json
       - uses: actions/upload-artifact@v4
