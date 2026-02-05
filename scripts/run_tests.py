@@ -29,9 +29,14 @@ def _install_deps() -> bool:
     return proc.returncode == 0
 
 
-def _emit_run_context(install_performed: bool) -> None:
-    print(f"run_tests: python={sys.executable}")
-    print(f"run_tests: install_performed={install_performed}")
+def _emit_run_context(install_performed: bool, pytest_args: list[str]) -> None:
+    joined_args = " ".join(pytest_args) if pytest_args else "(none)"
+    print(
+        "run_tests: "
+        f"python={sys.executable} "
+        f"install_performed={install_performed} "
+        f"pytest_args={joined_args}"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,11 +54,11 @@ def main(argv: list[str] | None = None) -> int:
     if not _imports_ok():
         install_performed = True
         if not _install_deps() or not _imports_ok():
-            _emit_run_context(install_performed)
+            _emit_run_context(install_performed, args.pytest_args)
             print(PRECHECK_MESSAGE)
             return 1
 
-    _emit_run_context(install_performed)
+    _emit_run_context(install_performed, args.pytest_args)
     cmd = [sys.executable, "-m", "pytest"]
     if args.pytest_args:
         cmd.extend(args.pytest_args)
