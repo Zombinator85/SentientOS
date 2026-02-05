@@ -1,10 +1,14 @@
 from pathlib import Path
 
+import pytest
+
 from log_utils import append_json
 from sentientos.streams.audit_stream import tail_audit_entries
 from sentientos.streams.drift_stream import DriftEventStream
 from sentientos.streams.event_stream import ReplayPolicy
 from sentientos.streams.pressure_stream import PressureEventStream
+
+pytestmark = pytest.mark.no_legacy_skip
 
 
 def _write_pressure(log_path: Path, digest: str, event: str, extra: dict | None = None) -> None:

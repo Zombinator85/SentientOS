@@ -44,7 +44,7 @@
 
 ## CI Outcome
 
-- pytest -q returncode: 0
+- python -m scripts.run_tests -q returncode: 0
 - make ci returncode: 0
 
 ## Regressions

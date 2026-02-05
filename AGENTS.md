@@ -79,7 +79,7 @@ unless explicitly marked **sealed** or **deprecated**.
 ### Validation Rules
 - All contributions must pass the following checks before merging:
   - `mypy scripts/ sentientos/`
-  - `pytest -q`
+  - `python -m scripts.run_tests -q`
   - `verify_audits --strict`
   - `python scripts/audit_immutability_verifier.py`
 

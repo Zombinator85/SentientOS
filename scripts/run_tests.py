@@ -29,6 +29,11 @@ def _install_deps() -> bool:
     return proc.returncode == 0
 
 
+def _emit_run_context(install_performed: bool) -> None:
+    print(f"run_tests: python={sys.executable}")
+    print(f"run_tests: install_performed={install_performed}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Install SentientOS dev deps (if needed) and run pytest.",
@@ -40,11 +45,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    install_performed = False
     if not _imports_ok():
+        install_performed = True
         if not _install_deps() or not _imports_ok():
+            _emit_run_context(install_performed)
             print(PRECHECK_MESSAGE)
             return 1
 
+    _emit_run_context(install_performed)
     cmd = [sys.executable, "-m", "pytest"]
     if args.pytest_args:
         cmd.extend(args.pytest_args)
