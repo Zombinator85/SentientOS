@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from dashboard_ui.api import create_app
 from log_utils import append_json
 from sentientos.streams.audit_stream import tail_audit_entries
+from sentientos.streams.schema_registry import current_schema_version
 
 
 def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
@@ -91,6 +92,7 @@ def test_pressure_stream_replay_payload(monkeypatch: pytest.MonkeyPatch, tmp_pat
     payload = events[0]["data"]
     assert payload["stream"] == "pressure"
     assert payload["event_type"] == "pressure_enqueue"
+    assert payload["schema_version"] == current_schema_version("pressure")
     assert payload["digest"].startswith("sig-")
     assert payload["event_id"] is not None
     assert payload["timestamp"]
@@ -123,6 +125,7 @@ def test_drift_stream_replay_payload(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert len(events) == 1
     payload = events[0]["data"]
     assert payload["event_type"] == "drift_day"
+    assert payload["schema_version"] == current_schema_version("drift")
     assert payload["payload"]["date"] in {"2024-01-01", "2024-01-02"}
     assert "summary_counts" in payload["payload"]
 
