@@ -10,6 +10,7 @@ from logging_config import get_log_path
 
 from .audit_stream import follow_audit_entries, tail_audit_entries
 from .event_stream import EventEnvelope, EventStreamAdapter, ReplayPolicy, iter_replay
+from .schema_registry import previous_schema_version
 
 _DRIFT_TYPE_FLAGS = {
     "POSTURE_STUCK": "posture_stuck",
@@ -97,7 +98,7 @@ class DriftEventStream(EventStreamAdapter):
         max_replay_lines: int = 2000,
     ) -> None:
         resolved = log_path or get_log_path("drift_detector.jsonl", "DRIFT_DETECTOR_LOG")
-        super().__init__(stream="drift", schema_version=1, replay_policy=replay_policy)
+        super().__init__(stream="drift", schema_version=previous_schema_version("drift"), replay_policy=replay_policy)
         self.log_path = resolved
         self.max_replay_lines = max_replay_lines
 

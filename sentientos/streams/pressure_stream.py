@@ -7,27 +7,7 @@ from typing import Callable, Iterator
 from logging_config import get_log_path
 from .audit_stream import follow_audit_entries, tail_audit_entries
 from .event_stream import EventEnvelope, EventStreamAdapter, ReplayPolicy, iter_replay
-
-_PRESSURE_PAYLOAD_FIELDS = (
-    "signal_type",
-    "as_of_date",
-    "window_days",
-    "severity",
-    "counts",
-    "source",
-    "enqueued_at",
-    "created_at",
-    "last_reviewed_at",
-    "next_review_due_at",
-    "status",
-    "closure_reason",
-    "closure_note",
-    "review_count",
-    "persistence_count",
-    "reviewed_at",
-    "closed_at",
-    "actor",
-)
+from .schema_registry import PRESSURE_PAYLOAD_FIELDS, previous_schema_version
 
 
 def _parse_cursor(value: str | None) -> int | None:
@@ -48,7 +28,7 @@ class PressureEventStream(EventStreamAdapter):
         replay_policy: ReplayPolicy,
     ) -> None:
         resolved = log_path or get_log_path("pressure_queue.jsonl", "PRESSURE_QUEUE_LOG")
-        super().__init__(stream="pressure", schema_version=1, replay_policy=replay_policy)
+        super().__init__(stream="pressure", schema_version=previous_schema_version("pressure"), replay_policy=replay_policy)
         self.log_path = resolved
 
     def replay(self, since_cursor: str | None, limit: int | None = None) -> list[EventEnvelope]:
@@ -99,7 +79,7 @@ class PressureEventStream(EventStreamAdapter):
         timestamp = entry.get("timestamp")
         if not isinstance(event_type, str) or not isinstance(timestamp, str):
             return None
-        payload = {field: entry.get(field) for field in _PRESSURE_PAYLOAD_FIELDS if field in entry}
+        payload = {field: entry.get(field) for field in PRESSURE_PAYLOAD_FIELDS if field in entry}
         envelope = EventEnvelope(
             stream=self.stream,
             schema_version=self.schema_version,

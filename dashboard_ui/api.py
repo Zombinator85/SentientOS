@@ -33,6 +33,7 @@ from sentientos.pressure_queue import (
     revalidate_pressure_signal,
 )
 from sentientos.streams.pressure_stream import PressureEventStream
+from sentientos.streams.schema_registry import upgrade_envelope
 
 
 CATEGORIES: Dict[str, str] = {
@@ -358,10 +359,11 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             monitor = asyncio.create_task(monitor_disconnect())
             try:
                 for envelope in replay:
+                    upgraded = upgrade_envelope(envelope.as_dict())
                     yield _format_sse(
-                        envelope.as_dict(),
-                        event_id=envelope.event_id,
-                        event_type=envelope.event_type,
+                        upgraded,
+                        event_id=upgraded["event_id"],
+                        event_type=upgraded["event_type"],
                     )
                 for item in adapter.tail(start_cursor, should_stop=lambda: stop):
                     if stop:
@@ -371,10 +373,11 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
                         continue
                     if last_replay_id is not None and int(item.event_id) <= last_replay_id:
                         continue
+                    upgraded = upgrade_envelope(item.as_dict())
                     yield _format_sse(
-                        item.as_dict(),
-                        event_id=item.event_id,
-                        event_type=item.event_type,
+                        upgraded,
+                        event_id=upgraded["event_id"],
+                        event_type=upgraded["event_type"],
                     )
             finally:
                 stop = True
@@ -424,10 +427,11 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             monitor = asyncio.create_task(monitor_disconnect())
             try:
                 for envelope in replay:
+                    upgraded = upgrade_envelope(envelope.as_dict())
                     yield _format_sse(
-                        envelope.as_dict(),
-                        event_id=envelope.event_id,
-                        event_type=envelope.event_type,
+                        upgraded,
+                        event_id=upgraded["event_id"],
+                        event_type=upgraded["event_type"],
                     )
                 for item in adapter.tail(normalized_since_date, should_stop=lambda: stop):
                     if stop:
@@ -438,10 +442,11 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
                     if item.event_id in seen_ids:
                         continue
                     seen_ids.add(item.event_id)
+                    upgraded = upgrade_envelope(item.as_dict())
                     yield _format_sse(
-                        item.as_dict(),
-                        event_id=item.event_id,
-                        event_type=item.event_type,
+                        upgraded,
+                        event_id=upgraded["event_id"],
+                        event_type=upgraded["event_type"],
                     )
             finally:
                 stop = True
