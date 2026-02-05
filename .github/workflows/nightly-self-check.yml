@@ -28,3 +28,9 @@ jobs:
         run: python scripts/pytest_airlock_guard.py
       - name: Run pytest
         run: python -m scripts.run_tests
+      - name: Upload test run provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_run_provenance_${{ github.run_id }}_${{ github.job }}
+          path: glow/test_runs/test_run_provenance.json
