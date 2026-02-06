@@ -22,6 +22,8 @@ jobs:
 
       - name: Run tests
         run: python -m scripts.run_tests
+        env:
+          SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT: "1"
 
       - name: Upload test run provenance
         if: always()
