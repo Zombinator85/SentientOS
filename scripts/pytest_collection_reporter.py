@@ -12,6 +12,11 @@ class _CollectionStats:
     tests_selected: int | None = None
     tests_deselected: int = 0
     tests_executed: int = 0
+    tests_passed: int = 0
+    tests_failed: int = 0
+    tests_skipped: int = 0
+    tests_xfailed: int = 0
+    tests_xpassed: int = 0
 
 
 class PytestCollectionReporter:
@@ -41,6 +46,11 @@ class PytestCollectionReporter:
             "tests_collected": self._stats.tests_collected,
             "tests_selected": self._stats.tests_selected,
             "tests_executed": self._stats.tests_executed,
+            "tests_failed": self._stats.tests_failed,
+            "tests_passed": self._stats.tests_passed,
+            "tests_skipped": self._stats.tests_skipped,
+            "tests_xfailed": self._stats.tests_xfailed,
+            "tests_xpassed": self._stats.tests_xpassed,
             "pytest_exit_code": exitstatus,
         }
         self._report_path.write_text(
@@ -53,6 +63,23 @@ class PytestCollectionReporter:
             return
         if report.passed or report.failed or report.skipped:
             self._stats.tests_executed += 1
+        if report.passed:
+            if report.wasxfail:
+                self._stats.tests_xpassed += 1
+            else:
+                self._stats.tests_passed += 1
+            return
+        if report.failed:
+            if report.wasxfail:
+                self._stats.tests_xfailed += 1
+            else:
+                self._stats.tests_failed += 1
+            return
+        if report.skipped:
+            if report.wasxfail:
+                self._stats.tests_xfailed += 1
+            else:
+                self._stats.tests_skipped += 1
 
 
 def pytest_configure(config) -> None:
