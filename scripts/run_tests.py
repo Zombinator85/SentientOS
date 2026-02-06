@@ -8,6 +8,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from uuid import uuid4
 
 from scripts.editable_install import EditableInstallStatus, get_editable_install_status
 
@@ -80,6 +81,10 @@ def _write_provenance(
     pytest_args: list[str],
     editable_status: EditableInstallStatus,
     bypass_env: bool,
+    allow_no_tests: bool,
+    pytest_exit_code: int | None,
+    tests_collected: int | None,
+    tests_selected: int | None,
     exit_reason: str | None,
 ) -> None:
     run_dir = repo_root / "glow" / "test_runs"
@@ -98,7 +103,14 @@ def _write_provenance(
         "bypass_env": bypass_env,
         "install_performed": install_performed,
         "pytest_args": list(pytest_args),
+        "allow_no_tests": allow_no_tests,
     }
+    if pytest_exit_code is not None:
+        payload["pytest_exit_code"] = pytest_exit_code
+    if tests_collected is not None:
+        payload["tests_collected"] = tests_collected
+    if tests_selected is not None:
+        payload["tests_selected"] = tests_selected
     if exit_reason:
         payload["exit_reason"] = exit_reason
     target = run_dir / "test_run_provenance.json"
@@ -121,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     bypass_env = os.getenv("SENTIENTOS_ALLOW_NAKED_PYTEST") == "1"
+    allow_no_tests = os.getenv("SENTIENTOS_ALLOW_NO_TESTS") == "1"
     install_performed = False
     editable_status = get_editable_install_status(REPO_ROOT)
     if not editable_status.ok:
@@ -132,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
                 pytest_args=args.pytest_args,
                 editable_status=editable_status,
                 bypass_env=bypass_env,
+                allow_no_tests=allow_no_tests,
+                pytest_exit_code=None,
+                tests_collected=None,
+                tests_selected=None,
                 exit_reason="install-failed",
             )
             _emit_run_context(
@@ -153,6 +170,10 @@ def main(argv: list[str] | None = None) -> int:
             pytest_args=args.pytest_args,
             editable_status=editable_status,
             bypass_env=bypass_env,
+            allow_no_tests=allow_no_tests,
+            pytest_exit_code=None,
+            tests_collected=None,
+            tests_selected=None,
             exit_reason="airlock-failed",
         )
         _emit_run_context(
@@ -165,14 +186,6 @@ def main(argv: list[str] | None = None) -> int:
         print(PRECHECK_MESSAGE)
         return 1
 
-    _write_provenance(
-        repo_root=REPO_ROOT,
-        install_performed=install_performed,
-        pytest_args=args.pytest_args,
-        editable_status=editable_status,
-        bypass_env=bypass_env,
-        exit_reason=None,
-    )
     _emit_run_context(
         install_performed,
         args.pytest_args,
@@ -180,10 +193,46 @@ def main(argv: list[str] | None = None) -> int:
         repo_root=REPO_ROOT,
         bypass_env="1" if bypass_env else None,
     )
+    run_dir = REPO_ROOT / "glow" / "test_runs"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    report_path = run_dir / f"pytest_report_{uuid4().hex}.json"
+    env = os.environ.copy()
+    env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     cmd = [sys.executable, "-m", "pytest"]
+    cmd.extend(["-p", "scripts.pytest_collection_reporter"])
     if args.pytest_args:
         cmd.extend(args.pytest_args)
-    return subprocess.run(cmd, cwd=REPO_ROOT).returncode
+    pytest_exit_code = subprocess.run(cmd, cwd=REPO_ROOT, env=env).returncode
+    tests_collected = None
+    tests_selected = None
+    if report_path.exists():
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            report = {}
+        tests_collected = report.get("tests_collected")
+        tests_selected = report.get("tests_selected")
+    exit_reason = None
+    if pytest_exit_code == 5:
+        exit_reason = "no-tests-collected"
+    elif pytest_exit_code != 0:
+        exit_reason = "pytest-failed"
+    _write_provenance(
+        repo_root=REPO_ROOT,
+        install_performed=install_performed,
+        pytest_args=args.pytest_args,
+        editable_status=editable_status,
+        bypass_env=bypass_env,
+        allow_no_tests=allow_no_tests,
+        pytest_exit_code=pytest_exit_code,
+        tests_collected=tests_collected,
+        tests_selected=tests_selected,
+        exit_reason=exit_reason,
+    )
+    if pytest_exit_code == 5 and allow_no_tests:
+        print("WARNING: pytest collected 0 tests, but SENTIENTOS_ALLOW_NO_TESTS=1 overrides failure.")
+        return 0
+    return pytest_exit_code
 
 
 if __name__ == "__main__":
