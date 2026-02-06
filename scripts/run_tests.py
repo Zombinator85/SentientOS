@@ -22,6 +22,13 @@ BYPASS_ENV_VARS = (
     "SENTIENTOS_ALLOW_NO_TESTS",
 )
 ALLOW_NONEXECUTION_ENV = "SENTIENTOS_ALLOW_NONEXECUTION_TEST_RUN"
+ALLOW_BUDGET_VIOLATION_ENV = "SENTIENTOS_ALLOW_BUDGET_VIOLATION"
+MAX_SKIP_RATE_ENV = "SENTIENTOS_CI_MAX_SKIP_RATE"
+MAX_XFAIL_RATE_ENV = "SENTIENTOS_CI_MAX_XFAIL_RATE"
+MIN_PASSED_ENV = "SENTIENTOS_CI_MIN_PASSED"
+DEFAULT_MAX_SKIP_RATE = 0.20
+DEFAULT_MAX_XFAIL_RATE = 0.10
+DEFAULT_MIN_PASSED = 1
 SELECTION_FLAGS_WITH_VALUE = {
     "-k",
     "-m",
@@ -195,6 +202,28 @@ def _execution_mode(pytest_args: list[str]) -> tuple[str, list[str]]:
     return "execute", seen_flags
 
 
+def _float_env(env: dict[str, str], key: str, default: float) -> float:
+    raw = env.get(key)
+    if raw is None or raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        print(f"WARNING: {key}={raw!r} is not a valid float; using {default}.")
+        return default
+
+
+def _int_env(env: dict[str, str], key: str, default: int) -> int:
+    raw = env.get(key)
+    if raw is None or raw == "":
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        print(f"WARNING: {key}={raw!r} is not a valid integer; using {default}.")
+        return default
+
+
 def _run_intent(
     *,
     pytest_args: list[str],
@@ -237,6 +266,16 @@ def _write_provenance(
     tests_collected: int | None,
     tests_selected: int | None,
     tests_executed: int | None,
+    tests_passed: int | None,
+    tests_failed: int | None,
+    tests_skipped: int | None,
+    tests_xfailed: int | None,
+    tests_xpassed: int | None,
+    skip_rate: float | None,
+    xfail_rate: float | None,
+    budget_allow_violation: bool | None,
+    budget_thresholds: dict[str, float | int] | None,
+    budget_violations: list[dict[str, object]] | None,
     exit_reason: str | None,
 ) -> None:
     run_dir = repo_root / "glow" / "test_runs"
@@ -272,6 +311,26 @@ def _write_provenance(
         payload["tests_selected"] = tests_selected
     if tests_executed is not None:
         payload["tests_executed"] = tests_executed
+    if tests_passed is not None:
+        payload["tests_passed"] = tests_passed
+    if tests_failed is not None:
+        payload["tests_failed"] = tests_failed
+    if tests_skipped is not None:
+        payload["tests_skipped"] = tests_skipped
+    if tests_xfailed is not None:
+        payload["tests_xfailed"] = tests_xfailed
+    if tests_xpassed is not None:
+        payload["tests_xpassed"] = tests_xpassed
+    if skip_rate is not None:
+        payload["skip_rate"] = skip_rate
+    if xfail_rate is not None:
+        payload["xfail_rate"] = xfail_rate
+    if budget_allow_violation is not None:
+        payload["budget_allow_violation"] = budget_allow_violation
+    if budget_thresholds is not None:
+        payload["budget_thresholds"] = budget_thresholds
+    if budget_violations is not None:
+        payload["budget_violations"] = budget_violations
     if exit_reason:
         payload["exit_reason"] = exit_reason
     target = run_dir / "test_run_provenance.json"
@@ -326,6 +385,16 @@ def main(argv: list[str] | None = None) -> int:
                 tests_collected=None,
                 tests_selected=None,
                 tests_executed=0,
+                tests_passed=0,
+                tests_failed=0,
+                tests_skipped=0,
+                tests_xfailed=0,
+                tests_xpassed=0,
+                skip_rate=0.0,
+                xfail_rate=0.0,
+                budget_allow_violation=None,
+                budget_thresholds=None,
+                budget_violations=None,
                 exit_reason="install-failed",
             )
             _emit_run_context(
@@ -357,6 +426,16 @@ def main(argv: list[str] | None = None) -> int:
             tests_collected=None,
             tests_selected=None,
             tests_executed=0,
+            tests_passed=0,
+            tests_failed=0,
+            tests_skipped=0,
+            tests_xfailed=0,
+            tests_xpassed=0,
+            skip_rate=0.0,
+            xfail_rate=0.0,
+            budget_allow_violation=None,
+            budget_thresholds=None,
+            budget_violations=None,
             exit_reason="airlock-failed",
         )
         _emit_run_context(
@@ -398,6 +477,16 @@ def main(argv: list[str] | None = None) -> int:
             tests_collected=None,
             tests_selected=None,
             tests_executed=0,
+            tests_passed=0,
+            tests_failed=0,
+            tests_skipped=0,
+            tests_xfailed=0,
+            tests_xpassed=0,
+            skip_rate=0.0,
+            xfail_rate=0.0,
+            budget_allow_violation=None,
+            budget_thresholds=None,
+            budget_violations=None,
             exit_reason="ci-default-required",
         )
         print("CI proof requires executed tests. Collection/info modes are not admissible.")
@@ -414,6 +503,16 @@ def main(argv: list[str] | None = None) -> int:
     tests_collected = None
     tests_selected = None
     tests_executed = None
+    tests_passed = None
+    tests_failed = None
+    tests_skipped = None
+    tests_xfailed = None
+    tests_xpassed = None
+    skip_rate = None
+    xfail_rate = None
+    budget_thresholds = None
+    budget_violations: list[dict[str, object]] | None = None
+    budget_allow_violation = env.get(ALLOW_BUDGET_VIOLATION_ENV) == "1"
     if report_path.exists():
         try:
             report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -422,13 +521,92 @@ def main(argv: list[str] | None = None) -> int:
         tests_collected = report.get("tests_collected")
         tests_selected = report.get("tests_selected")
         tests_executed = report.get("tests_executed")
+        tests_passed = report.get("tests_passed")
+        tests_failed = report.get("tests_failed")
+        tests_skipped = report.get("tests_skipped")
+        tests_xfailed = report.get("tests_xfailed")
+        tests_xpassed = report.get("tests_xpassed")
+    if tests_executed is None:
+        tests_executed = 0
+    if tests_passed is None:
+        tests_passed = 0
+    if tests_failed is None:
+        tests_failed = 0
+    if tests_skipped is None:
+        tests_skipped = 0
+    if tests_xfailed is None:
+        tests_xfailed = 0
+    if tests_xpassed is None:
+        tests_xpassed = 0
+    total_outcomes = tests_passed + tests_failed + tests_skipped + tests_xfailed + tests_xpassed
+    if total_outcomes > 0:
+        skip_rate = tests_skipped / total_outcomes
+        xfail_rate = tests_xfailed / total_outcomes
+    else:
+        skip_rate = 0.0
+        xfail_rate = 0.0
+    budget_thresholds = {
+        "min_passed": _int_env(env, MIN_PASSED_ENV, DEFAULT_MIN_PASSED),
+        "max_skip_rate": _float_env(env, MAX_SKIP_RATE_ENV, DEFAULT_MAX_SKIP_RATE),
+        "max_xfail_rate": _float_env(env, MAX_XFAIL_RATE_ENV, DEFAULT_MAX_XFAIL_RATE),
+    }
+    budget_violations = []
+    if tests_failed != 0:
+        budget_violations.append(
+            {
+                "metric": "tests_failed",
+                "value": tests_failed,
+                "threshold": 0,
+                "rule": "== 0",
+            }
+        )
+    if tests_xpassed != 0:
+        budget_violations.append(
+            {
+                "metric": "tests_xpassed",
+                "value": tests_xpassed,
+                "threshold": 0,
+                "rule": "== 0",
+            }
+        )
+    if tests_passed < budget_thresholds["min_passed"]:
+        budget_violations.append(
+            {
+                "metric": "tests_passed",
+                "value": tests_passed,
+                "threshold": budget_thresholds["min_passed"],
+                "rule": f">= {budget_thresholds['min_passed']}",
+            }
+        )
+    if skip_rate > budget_thresholds["max_skip_rate"]:
+        budget_violations.append(
+            {
+                "metric": "skip_rate",
+                "value": skip_rate,
+                "threshold": budget_thresholds["max_skip_rate"],
+                "rule": f"<= {budget_thresholds['max_skip_rate']}",
+            }
+        )
+    if xfail_rate > budget_thresholds["max_xfail_rate"]:
+        budget_violations.append(
+            {
+                "metric": "xfail_rate",
+                "value": xfail_rate,
+                "threshold": budget_thresholds["max_xfail_rate"],
+                "rule": f"<= {budget_thresholds['max_xfail_rate']}",
+            }
+        )
     exit_reason = None
     if pytest_exit_code == 5:
         exit_reason = "no-tests-collected"
     elif pytest_exit_code != 0:
         exit_reason = "pytest-failed"
-    if tests_executed is None:
-        tests_executed = 0
+    if budget_allow_violation:
+        run_intent = "exceptional"
+        print(
+            "WARNING: SENTIENTOS_ALLOW_BUDGET_VIOLATION=1 is set; "
+            "budget enforcement is overridden and this run is marked exceptional."
+        )
     _write_provenance(
         repo_root=REPO_ROOT,
         install_performed=install_performed,
@@ -445,10 +623,26 @@ def main(argv: list[str] | None = None) -> int:
         tests_collected=tests_collected,
         tests_selected=tests_selected,
         tests_executed=tests_executed,
+        tests_passed=tests_passed,
+        tests_failed=tests_failed,
+        tests_skipped=tests_skipped,
+        tests_xfailed=tests_xfailed,
+        tests_xpassed=tests_xpassed,
+        skip_rate=skip_rate,
+        xfail_rate=xfail_rate,
+        budget_allow_violation=budget_allow_violation,
+        budget_thresholds=budget_thresholds,
+        budget_violations=budget_violations,
         exit_reason=exit_reason,
     )
+    proof_mode = env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1"
+    if proof_mode and budget_allow_violation:
+        print(
+            "ERROR: SENTIENTOS_ALLOW_BUDGET_VIOLATION=1 is not admissible in CI proof mode."
+        )
+        return 1
     if (
-        env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1"
+        proof_mode
         and not allow_nonexecution
         and (
             run_intent != "default"
@@ -457,6 +651,15 @@ def main(argv: list[str] | None = None) -> int:
         )
     ):
         print("CI proof requires executed tests. Collection/info modes are not admissible.")
+        return 1
+    if proof_mode and not allow_nonexecution and budget_violations:
+        print("CI proof budget requirements were not met:")
+        for violation in budget_violations:
+            metric = violation.get("metric")
+            value = violation.get("value")
+            rule = violation.get("rule")
+            threshold = violation.get("threshold")
+            print(f"  - {metric}={value} violates {rule} (threshold={threshold})")
         return 1
     if pytest_exit_code == 5 and allow_no_tests:
         print("WARNING: pytest collected 0 tests, but SENTIENTOS_ALLOW_NO_TESTS=1 overrides failure.")

@@ -30,6 +30,9 @@ jobs:
         run: python -m scripts.run_tests
         env:
           SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT: "1"
+          SENTIENTOS_CI_MIN_PASSED: "1"
+          SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
+          SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
