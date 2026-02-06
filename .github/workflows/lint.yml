@@ -48,6 +48,8 @@ jobs:
         run: python scripts/pytest_airlock_guard.py
       - name: pytest
         run: python -m scripts.run_tests
+        env:
+          SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT: "1"
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4

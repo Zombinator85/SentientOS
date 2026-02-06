@@ -17,6 +17,65 @@ PRECHECK_MESSAGE = (
     "Not running against an editable install of this repo. "
     "Run pip install -e .[dev] or python -m scripts.run_tests."
 )
+BYPASS_ENV_VARS = (
+    "SENTIENTOS_ALLOW_NAKED_PYTEST",
+    "SENTIENTOS_ALLOW_NO_TESTS",
+)
+SELECTION_FLAGS_WITH_VALUE = {
+    "-k",
+    "-m",
+    "--deselect",
+}
+SELECTION_FLAGS_NO_VALUE = {
+    "--lf",
+    "--last-failed",
+    "--ff",
+    "--failed-first",
+    "--sw",
+    "--stepwise",
+    "--sw-skip",
+    "--stepwise-skip",
+}
+NON_SELECTION_FLAGS_WITH_VALUE = {
+    "-c",
+    "-o",
+    "--maxfail",
+    "--tb",
+    "--durations",
+    "--color",
+    "--capture",
+    "--rootdir",
+    "--confcutdir",
+    "--basetemp",
+    "--log-level",
+    "--log-format",
+    "--log-date-format",
+    "--junitxml",
+    "--cov",
+    "--cov-report",
+    "--cov-config",
+    "--cov-fail-under",
+}
+NON_SELECTION_FLAGS_NO_VALUE = {
+    "-q",
+    "-qq",
+    "-v",
+    "-vv",
+    "-vvv",
+    "-s",
+    "-x",
+    "-l",
+    "-ra",
+    "-rf",
+    "-rA",
+    "--disable-warnings",
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+    "--setup-show",
+    "--setup-only",
+    "--setup-plan",
+}
 
 
 def _imports_ok() -> bool:
@@ -62,6 +121,56 @@ def _emit_run_context(
     )
 
 
+def _active_bypass_envs(env: dict[str, str]) -> list[str]:
+    return [name for name in BYPASS_ENV_VARS if env.get(name) == "1"]
+
+
+def _selection_flags(pytest_args: list[str]) -> list[str]:
+    flags: list[str] = []
+    idx = 0
+    while idx < len(pytest_args):
+        arg = pytest_args[idx]
+        if arg == "--":
+            flags.extend(pytest_args[idx + 1:])
+            break
+        if arg.startswith("-"):
+            base = arg.split("=", 1)[0]
+            if base in SELECTION_FLAGS_WITH_VALUE:
+                flags.append(base)
+                if base == arg:
+                    idx += 1
+            elif base in SELECTION_FLAGS_NO_VALUE:
+                flags.append(base)
+            elif base in NON_SELECTION_FLAGS_WITH_VALUE:
+                if base == arg:
+                    idx += 1
+            elif base in NON_SELECTION_FLAGS_NO_VALUE:
+                pass
+            elif arg.startswith("-k") and arg != "-k":
+                flags.append("-k")
+            elif arg.startswith("-m") and arg != "-m":
+                flags.append("-m")
+            else:
+                flags.append(base)
+        else:
+            flags.append(arg)
+        idx += 1
+    return flags
+
+
+def _run_intent(
+    *,
+    pytest_args: list[str],
+    bypass_envs: list[str],
+) -> tuple[str, list[str]]:
+    selection = _selection_flags(pytest_args)
+    if bypass_envs:
+        return "exceptional", selection
+    if selection:
+        return "targeted", selection
+    return "default", selection
+
+
 def _git_sha(repo_root: Path) -> str:
     proc = subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -81,6 +190,8 @@ def _write_provenance(
     pytest_args: list[str],
     editable_status: EditableInstallStatus,
     bypass_env: bool,
+    run_intent: str,
+    selection_flags: list[str],
     allow_no_tests: bool,
     pytest_exit_code: int | None,
     tests_collected: int | None,
@@ -103,6 +214,8 @@ def _write_provenance(
         "bypass_env": bypass_env,
         "install_performed": install_performed,
         "pytest_args": list(pytest_args),
+        "run_intent": run_intent,
+        "selection_flags": list(selection_flags),
         "allow_no_tests": allow_no_tests,
     }
     if pytest_exit_code is not None:
@@ -132,8 +245,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    bypass_env = os.getenv("SENTIENTOS_ALLOW_NAKED_PYTEST") == "1"
-    allow_no_tests = os.getenv("SENTIENTOS_ALLOW_NO_TESTS") == "1"
+    env = os.environ.copy()
+    bypass_envs = _active_bypass_envs(env)
+    bypass_env = bool(bypass_envs)
+    allow_no_tests = env.get("SENTIENTOS_ALLOW_NO_TESTS") == "1"
+    run_intent, selection_flags = _run_intent(
+        pytest_args=args.pytest_args,
+        bypass_envs=bypass_envs,
+    )
     install_performed = False
     editable_status = get_editable_install_status(REPO_ROOT)
     if not editable_status.ok:
@@ -145,6 +264,8 @@ def main(argv: list[str] | None = None) -> int:
                 pytest_args=args.pytest_args,
                 editable_status=editable_status,
                 bypass_env=bypass_env,
+                run_intent=run_intent,
+                selection_flags=selection_flags,
                 allow_no_tests=allow_no_tests,
                 pytest_exit_code=None,
                 tests_collected=None,
@@ -170,6 +291,8 @@ def main(argv: list[str] | None = None) -> int:
             pytest_args=args.pytest_args,
             editable_status=editable_status,
             bypass_env=bypass_env,
+            run_intent=run_intent,
+            selection_flags=selection_flags,
             allow_no_tests=allow_no_tests,
             pytest_exit_code=None,
             tests_collected=None,
@@ -193,10 +316,26 @@ def main(argv: list[str] | None = None) -> int:
         repo_root=REPO_ROOT,
         bypass_env="1" if bypass_env else None,
     )
+    if env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1" and run_intent != "default":
+        _write_provenance(
+            repo_root=REPO_ROOT,
+            install_performed=install_performed,
+            pytest_args=args.pytest_args,
+            editable_status=editable_status,
+            bypass_env=bypass_env,
+            run_intent=run_intent,
+            selection_flags=selection_flags,
+            allow_no_tests=allow_no_tests,
+            pytest_exit_code=None,
+            tests_collected=None,
+            tests_selected=None,
+            exit_reason="ci-default-required",
+        )
+        print("CI requires default test intent; targeted runs are not admissible.")
+        return 1
     run_dir = REPO_ROOT / "glow" / "test_runs"
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = run_dir / f"pytest_report_{uuid4().hex}.json"
-    env = os.environ.copy()
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     cmd = [sys.executable, "-m", "pytest"]
     cmd.extend(["-p", "scripts.pytest_collection_reporter"])
@@ -223,6 +362,8 @@ def main(argv: list[str] | None = None) -> int:
         pytest_args=args.pytest_args,
         editable_status=editable_status,
         bypass_env=bypass_env,
+        run_intent=run_intent,
+        selection_flags=selection_flags,
         allow_no_tests=allow_no_tests,
         pytest_exit_code=pytest_exit_code,
         tests_collected=tests_collected,
