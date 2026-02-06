@@ -11,6 +11,7 @@ class _CollectionStats:
     tests_collected: int | None = None
     tests_selected: int | None = None
     tests_deselected: int = 0
+    tests_executed: int = 0
 
 
 class PytestCollectionReporter:
@@ -39,12 +40,19 @@ class PytestCollectionReporter:
         payload = {
             "tests_collected": self._stats.tests_collected,
             "tests_selected": self._stats.tests_selected,
+            "tests_executed": self._stats.tests_executed,
             "pytest_exit_code": exitstatus,
         }
         self._report_path.write_text(
             json.dumps(payload, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+
+    def pytest_runtest_logreport(self, report) -> None:
+        if report.when != "call":
+            return
+        if report.passed or report.failed or report.skipped:
+            self._stats.tests_executed += 1
 
 
 def pytest_configure(config) -> None:
