@@ -21,6 +21,7 @@ BYPASS_ENV_VARS = (
     "SENTIENTOS_ALLOW_NAKED_PYTEST",
     "SENTIENTOS_ALLOW_NO_TESTS",
 )
+ALLOW_NONEXECUTION_ENV = "SENTIENTOS_ALLOW_NONEXECUTION_TEST_RUN"
 SELECTION_FLAGS_WITH_VALUE = {
     "-k",
     "-m",
@@ -75,6 +76,18 @@ NON_SELECTION_FLAGS_NO_VALUE = {
     "--setup-show",
     "--setup-only",
     "--setup-plan",
+}
+NON_EXECUTION_COLLECT_FLAGS = {
+    "--collect-only",
+    "--co",
+}
+NON_EXECUTION_SETUP_FLAGS = {
+    "--setup-only",
+    "--setup-plan",
+}
+NON_EXECUTION_INFO_FLAGS = {
+    "--fixtures",
+    "--fixtures-per-test",
 }
 
 
@@ -158,6 +171,30 @@ def _selection_flags(pytest_args: list[str]) -> list[str]:
     return flags
 
 
+def _execution_mode(pytest_args: list[str]) -> tuple[str, list[str]]:
+    seen_flags: list[str] = []
+    seen_set: set[str] = set()
+    idx = 0
+    all_nonexecution = NON_EXECUTION_COLLECT_FLAGS | NON_EXECUTION_SETUP_FLAGS | NON_EXECUTION_INFO_FLAGS
+    while idx < len(pytest_args):
+        arg = pytest_args[idx]
+        if arg == "--":
+            break
+        if arg.startswith("-"):
+            base = arg.split("=", 1)[0]
+            if base in all_nonexecution and base not in seen_set:
+                seen_flags.append(base)
+                seen_set.add(base)
+        idx += 1
+    if any(flag in NON_EXECUTION_COLLECT_FLAGS for flag in seen_flags):
+        return "collect-only", seen_flags
+    if any(flag in NON_EXECUTION_SETUP_FLAGS for flag in seen_flags):
+        return "setup-only", seen_flags
+    if any(flag in NON_EXECUTION_INFO_FLAGS for flag in seen_flags):
+        return "info-only", seen_flags
+    return "execute", seen_flags
+
+
 def _run_intent(
     *,
     pytest_args: list[str],
@@ -190,12 +227,16 @@ def _write_provenance(
     pytest_args: list[str],
     editable_status: EditableInstallStatus,
     bypass_env: bool,
+    allow_nonexecution: bool,
     run_intent: str,
     selection_flags: list[str],
     allow_no_tests: bool,
+    execution_mode: str,
+    non_execution_flags: list[str],
     pytest_exit_code: int | None,
     tests_collected: int | None,
     tests_selected: int | None,
+    tests_executed: int | None,
     exit_reason: str | None,
 ) -> None:
     run_dir = repo_root / "glow" / "test_runs"
@@ -203,6 +244,8 @@ def _write_provenance(
     reason = editable_status.reason
     if bypass_env:
         reason = f"{reason}+bypass-env"
+    if allow_nonexecution:
+        reason = f"{reason}+allow-nonexecution"
     payload: dict[str, object] = {
         "schema_version": 1,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -212,11 +255,14 @@ def _write_provenance(
         "editable_ok": editable_status.ok,
         "editable_reason": reason,
         "bypass_env": bypass_env,
+        "allow_nonexecution": allow_nonexecution,
         "install_performed": install_performed,
         "pytest_args": list(pytest_args),
         "run_intent": run_intent,
         "selection_flags": list(selection_flags),
         "allow_no_tests": allow_no_tests,
+        "execution_mode": execution_mode,
+        "non_execution_flags": list(non_execution_flags),
     }
     if pytest_exit_code is not None:
         payload["pytest_exit_code"] = pytest_exit_code
@@ -224,6 +270,8 @@ def _write_provenance(
         payload["tests_collected"] = tests_collected
     if tests_selected is not None:
         payload["tests_selected"] = tests_selected
+    if tests_executed is not None:
+        payload["tests_executed"] = tests_executed
     if exit_reason:
         payload["exit_reason"] = exit_reason
     target = run_dir / "test_run_provenance.json"
@@ -248,11 +296,15 @@ def main(argv: list[str] | None = None) -> int:
     env = os.environ.copy()
     bypass_envs = _active_bypass_envs(env)
     bypass_env = bool(bypass_envs)
+    allow_nonexecution = env.get(ALLOW_NONEXECUTION_ENV) == "1"
     allow_no_tests = env.get("SENTIENTOS_ALLOW_NO_TESTS") == "1"
     run_intent, selection_flags = _run_intent(
         pytest_args=args.pytest_args,
         bypass_envs=bypass_envs,
     )
+    execution_mode, non_execution_flags = _execution_mode(args.pytest_args)
+    if allow_nonexecution:
+        run_intent = "exceptional"
     install_performed = False
     editable_status = get_editable_install_status(REPO_ROOT)
     if not editable_status.ok:
@@ -264,12 +316,16 @@ def main(argv: list[str] | None = None) -> int:
                 pytest_args=args.pytest_args,
                 editable_status=editable_status,
                 bypass_env=bypass_env,
+                allow_nonexecution=allow_nonexecution,
                 run_intent=run_intent,
                 selection_flags=selection_flags,
                 allow_no_tests=allow_no_tests,
+                execution_mode=execution_mode,
+                non_execution_flags=non_execution_flags,
                 pytest_exit_code=None,
                 tests_collected=None,
                 tests_selected=None,
+                tests_executed=0,
                 exit_reason="install-failed",
             )
             _emit_run_context(
@@ -291,12 +347,16 @@ def main(argv: list[str] | None = None) -> int:
             pytest_args=args.pytest_args,
             editable_status=editable_status,
             bypass_env=bypass_env,
+            allow_nonexecution=allow_nonexecution,
             run_intent=run_intent,
             selection_flags=selection_flags,
             allow_no_tests=allow_no_tests,
+            execution_mode=execution_mode,
+            non_execution_flags=non_execution_flags,
             pytest_exit_code=None,
             tests_collected=None,
             tests_selected=None,
+            tests_executed=0,
             exit_reason="airlock-failed",
         )
         _emit_run_context(
@@ -316,22 +376,31 @@ def main(argv: list[str] | None = None) -> int:
         repo_root=REPO_ROOT,
         bypass_env="1" if bypass_env else None,
     )
-    if env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1" and run_intent != "default":
+    if allow_nonexecution:
+        print(
+            "WARNING: SENTIENTOS_ALLOW_NONEXECUTION_TEST_RUN=1 is set; "
+            "CI proof guards for execution are disabled."
+        )
+    if env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1" and run_intent != "default" and not allow_nonexecution:
         _write_provenance(
             repo_root=REPO_ROOT,
             install_performed=install_performed,
             pytest_args=args.pytest_args,
             editable_status=editable_status,
             bypass_env=bypass_env,
+            allow_nonexecution=allow_nonexecution,
             run_intent=run_intent,
             selection_flags=selection_flags,
             allow_no_tests=allow_no_tests,
+            execution_mode=execution_mode,
+            non_execution_flags=non_execution_flags,
             pytest_exit_code=None,
             tests_collected=None,
             tests_selected=None,
+            tests_executed=0,
             exit_reason="ci-default-required",
         )
-        print("CI requires default test intent; targeted runs are not admissible.")
+        print("CI proof requires executed tests. Collection/info modes are not admissible.")
         return 1
     run_dir = REPO_ROOT / "glow" / "test_runs"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -344,6 +413,7 @@ def main(argv: list[str] | None = None) -> int:
     pytest_exit_code = subprocess.run(cmd, cwd=REPO_ROOT, env=env).returncode
     tests_collected = None
     tests_selected = None
+    tests_executed = None
     if report_path.exists():
         try:
             report = json.loads(report_path.read_text(encoding="utf-8"))
@@ -351,25 +421,43 @@ def main(argv: list[str] | None = None) -> int:
             report = {}
         tests_collected = report.get("tests_collected")
         tests_selected = report.get("tests_selected")
+        tests_executed = report.get("tests_executed")
     exit_reason = None
     if pytest_exit_code == 5:
         exit_reason = "no-tests-collected"
     elif pytest_exit_code != 0:
         exit_reason = "pytest-failed"
+    if tests_executed is None:
+        tests_executed = 0
     _write_provenance(
         repo_root=REPO_ROOT,
         install_performed=install_performed,
         pytest_args=args.pytest_args,
         editable_status=editable_status,
         bypass_env=bypass_env,
+        allow_nonexecution=allow_nonexecution,
         run_intent=run_intent,
         selection_flags=selection_flags,
         allow_no_tests=allow_no_tests,
+        execution_mode=execution_mode,
+        non_execution_flags=non_execution_flags,
         pytest_exit_code=pytest_exit_code,
         tests_collected=tests_collected,
         tests_selected=tests_selected,
+        tests_executed=tests_executed,
         exit_reason=exit_reason,
     )
+    if (
+        env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1"
+        and not allow_nonexecution
+        and (
+            run_intent != "default"
+            or execution_mode != "execute"
+            or tests_executed <= 0
+        )
+    ):
+        print("CI proof requires executed tests. Collection/info modes are not admissible.")
+        return 1
     if pytest_exit_code == 5 and allow_no_tests:
         print("WARNING: pytest collected 0 tests, but SENTIENTOS_ALLOW_NO_TESTS=1 overrides failure.")
         return 0
