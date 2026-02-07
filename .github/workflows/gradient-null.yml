@@ -26,9 +26,20 @@ jobs:
             tests/test_sentient_mesh_scheduler.py \
             tests/test_policy_engine.py \
             tests/test_prompt_assembler.py
+      - name: Analyze test provenance trends
+        if: always()
+        run: python scripts/analyze_test_provenance.py
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test_run_provenance_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/test_run_provenance.json
+
+      - name: Upload test trend report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_trend_report_${{ github.run_id }}_${{ github.job }}
+          path: glow/test_runs/test_trend_report.json

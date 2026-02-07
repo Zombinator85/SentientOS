@@ -53,12 +53,23 @@ jobs:
           SENTIENTOS_CI_MIN_PASSED: "1"
           SENTIENTOS_CI_MAX_SKIP_RATE: "0.20"
           SENTIENTOS_CI_MAX_XFAIL_RATE: "0.10"
+      - name: Analyze test provenance trends
+        if: always()
+        run: python scripts/analyze_test_provenance.py
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test_run_provenance_${{ github.run_id }}_${{ github.job }}_${{ matrix.mode }}
           path: glow/test_runs/test_run_provenance.json
+
+      - name: Upload test trend report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_trend_report_${{ github.run_id }}_${{ github.job }}_${{ matrix.mode }}
+          path: glow/test_runs/test_trend_report.json
       - name: Env report
         run: plint-env report --json > env.json
       - uses: actions/upload-artifact@v4
