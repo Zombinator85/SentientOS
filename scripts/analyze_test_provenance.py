@@ -9,9 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DIR = Path("glow/test_runs")
-DEFAULT_INPUT_FILE = DEFAULT_DIR / "test_run_provenance.json"
-DEFAULT_OUTPUT_FILE = DEFAULT_DIR / "test_trend_report.json"
+DEFAULT_RUN_DIR = Path("glow/test_runs")
+DEFAULT_PROVENANCE_DIR = DEFAULT_RUN_DIR / "provenance"
+DEFAULT_INPUT_FILE = DEFAULT_RUN_DIR / "test_run_provenance.json"
+DEFAULT_OUTPUT_FILE = DEFAULT_RUN_DIR / "test_trend_report.json"
 
 
 @dataclass(frozen=True)
@@ -60,10 +61,20 @@ def _load_json(path: Path) -> dict[str, Any] | None:
     return payload
 
 
+def _default_input_dir() -> Path:
+    if DEFAULT_PROVENANCE_DIR.exists():
+        return DEFAULT_PROVENANCE_DIR
+    return DEFAULT_RUN_DIR
+
+
 def _discover_inputs(input_dir: Path, files: list[Path]) -> list[Path]:
     candidates: set[Path] = set(files)
     if input_dir.exists():
-        candidates.update(path for path in input_dir.glob("*.json") if path.is_file())
+        candidates.update(
+            path
+            for path in input_dir.glob("*.json")
+            if path.is_file() and path.name not in {"test_run_provenance.json", "latest.json"}
+        )
     return sorted(candidates)
 
 
@@ -178,7 +189,12 @@ def _summary(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Analyze test provenance trends for avoidance spikes.")
-    parser.add_argument("--dir", type=Path, default=DEFAULT_DIR, help="Directory containing provenance JSON files.")
+    parser.add_argument(
+        "--dir",
+        type=Path,
+        default=_default_input_dir(),
+        help="Directory containing provenance JSON files.",
+    )
     parser.add_argument(
         "--file",
         action="append",
