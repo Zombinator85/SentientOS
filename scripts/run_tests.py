@@ -26,6 +26,7 @@ ALLOW_BUDGET_VIOLATION_ENV = "SENTIENTOS_ALLOW_BUDGET_VIOLATION"
 MAX_SKIP_RATE_ENV = "SENTIENTOS_CI_MAX_SKIP_RATE"
 MAX_XFAIL_RATE_ENV = "SENTIENTOS_CI_MAX_XFAIL_RATE"
 MIN_PASSED_ENV = "SENTIENTOS_CI_MIN_PASSED"
+PROVENANCE_RETENTION_LIMIT_ENV = "SENTIENTOS_PROVENANCE_RETENTION_LIMIT"
 DEFAULT_MAX_SKIP_RATE = 0.20
 DEFAULT_MAX_XFAIL_RATE = 0.10
 DEFAULT_MIN_PASSED = 1
@@ -249,6 +250,51 @@ def _git_sha(repo_root: Path) -> str:
     return sha if proc.returncode == 0 and sha else "unknown"
 
 
+def _atomic_write_json(target: Path, payload: dict[str, object]) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile("w", delete=False, dir=target.parent, encoding="utf-8") as temp_file:
+        json.dump(payload, temp_file, indent=2, sort_keys=True)
+        temp_file.write("\n")
+        temp_path = Path(temp_file.name)
+    temp_path.replace(target)
+
+
+def _sanitize_git_sha(git_sha: str) -> str:
+    compact = "".join(ch for ch in git_sha if ch.isalnum())
+    return compact[:12] if compact else "unknown"
+
+
+def _snapshot_file_name(*, timestamp: datetime, git_sha: str) -> str:
+    stamp = timestamp.strftime("%Y%m%dT%H%M%SZ")
+    return f"{stamp}_{_sanitize_git_sha(git_sha)}_{uuid4().hex}.json"
+
+
+def _apply_snapshot_retention(provenance_dir: Path, env: dict[str, str]) -> None:
+    raw_limit = env.get(PROVENANCE_RETENTION_LIMIT_ENV)
+    if raw_limit in {None, ""}:
+        return
+    try:
+        limit = int(raw_limit)
+    except ValueError:
+        print(
+            f"WARNING: {PROVENANCE_RETENTION_LIMIT_ENV}={raw_limit!r} is not a valid integer; retention disabled."
+        )
+        return
+    if limit <= 0:
+        print(f"WARNING: {PROVENANCE_RETENTION_LIMIT_ENV}={raw_limit!r} must be > 0; retention disabled.")
+        return
+
+    snapshots = sorted(path for path in provenance_dir.glob("*.json") if path.is_file())
+    overflow = len(snapshots) - limit
+    if overflow <= 0:
+        return
+    for stale_path in snapshots[:overflow]:
+        try:
+            stale_path.unlink()
+        except OSError as exc:
+            print(f"WARNING: failed to remove stale provenance snapshot {stale_path}: {exc}")
+
+
 def _write_provenance(
     *,
     repo_root: Path,
@@ -277,20 +323,25 @@ def _write_provenance(
     budget_thresholds: dict[str, float | int] | None,
     budget_violations: list[dict[str, object]] | None,
     exit_reason: str | None,
+    env: dict[str, str],
 ) -> None:
     run_dir = repo_root / "glow" / "test_runs"
+    provenance_dir = run_dir / "provenance"
     run_dir.mkdir(parents=True, exist_ok=True)
+    provenance_dir.mkdir(parents=True, exist_ok=True)
     reason = editable_status.reason
     if bypass_env:
         reason = f"{reason}+bypass-env"
     if allow_nonexecution:
         reason = f"{reason}+allow-nonexecution"
+    timestamp = datetime.now(timezone.utc)
+    git_sha = _git_sha(repo_root)
     payload: dict[str, object] = {
         "schema_version": 1,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": timestamp.isoformat(),
         "python": sys.executable,
         "repo_root": str(repo_root),
-        "git_sha": _git_sha(repo_root),
+        "git_sha": git_sha,
         "editable_ok": editable_status.ok,
         "editable_reason": reason,
         "bypass_env": bypass_env,
@@ -333,12 +384,12 @@ def _write_provenance(
         payload["budget_violations"] = budget_violations
     if exit_reason:
         payload["exit_reason"] = exit_reason
-    target = run_dir / "test_run_provenance.json"
-    with NamedTemporaryFile("w", delete=False, dir=run_dir, encoding="utf-8") as temp_file:
-        json.dump(payload, temp_file, indent=2, sort_keys=True)
-        temp_file.write("\n")
-        temp_path = Path(temp_file.name)
-    temp_path.replace(target)
+    latest_target = run_dir / "test_run_provenance.json"
+    snapshot_target = provenance_dir / _snapshot_file_name(timestamp=timestamp, git_sha=git_sha)
+
+    _atomic_write_json(latest_target, payload)
+    _atomic_write_json(snapshot_target, payload)
+    _apply_snapshot_retention(provenance_dir, env)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -396,6 +447,7 @@ def main(argv: list[str] | None = None) -> int:
                 budget_thresholds=None,
                 budget_violations=None,
                 exit_reason="install-failed",
+                env=env,
             )
             _emit_run_context(
                 install_performed,
@@ -437,6 +489,7 @@ def main(argv: list[str] | None = None) -> int:
             budget_thresholds=None,
             budget_violations=None,
             exit_reason="airlock-failed",
+            env=env,
         )
         _emit_run_context(
             install_performed,
@@ -488,6 +541,7 @@ def main(argv: list[str] | None = None) -> int:
             budget_thresholds=None,
             budget_violations=None,
             exit_reason="ci-default-required",
+            env=env,
         )
         print("CI proof requires executed tests. Collection/info modes are not admissible.")
         return 1
@@ -634,6 +688,7 @@ def main(argv: list[str] | None = None) -> int:
         budget_thresholds=budget_thresholds,
         budget_violations=budget_violations,
         exit_reason=exit_reason,
+        env=env,
     )
     proof_mode = env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1"
     if proof_mode and budget_allow_violation:

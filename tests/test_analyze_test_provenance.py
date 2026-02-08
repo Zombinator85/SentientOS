@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from scripts.analyze_test_provenance import Thresholds, analyze
+import json
+
+from scripts.analyze_test_provenance import Thresholds, _discover_inputs, analyze
 
 
 def _run(*, skip_rate: float, xfail_rate: float, executed: int, passed: int, intent: str = "default", budget_allow: bool = False) -> dict[str, object]:
@@ -61,3 +63,18 @@ def test_analyze_alert_on_spikes_and_override() -> None:
     assert "tests_executed_collapse" in report["avoidance_reasons"]
     assert "budget_allow_violation_seen" in report["avoidance_reasons"]
     assert report["metrics"]["exceptional_count"] == 3
+
+
+def test_discover_inputs_ignores_latest_pointers(tmp_path) -> None:
+    snapshot_a = tmp_path / "20260101T000000Z_sha_deadbeef.json"
+    snapshot_b = tmp_path / "20260101T010000Z_sha_beadfeed.json"
+    latest = tmp_path / "test_run_provenance.json"
+    latest_alias = tmp_path / "latest.json"
+    for path in (snapshot_a, snapshot_b, latest, latest_alias):
+        path.write_text(json.dumps({"run_intent": "default"}), encoding="utf-8")
+
+    discovered = _discover_inputs(tmp_path, [])
+
+    assert latest not in discovered
+    assert latest_alias not in discovered
+    assert discovered == sorted([snapshot_a, snapshot_b])
