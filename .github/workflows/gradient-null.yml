@@ -28,7 +28,7 @@ jobs:
             tests/test_prompt_assembler.py
       - name: Analyze test provenance trends
         if: always()
-        run: python scripts/analyze_test_provenance.py
+        run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain
 
       - name: Upload test run provenance
         if: always()

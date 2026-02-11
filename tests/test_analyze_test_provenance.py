@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from scripts.analyze_test_provenance import Thresholds, _discover_inputs, analyze
+from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
 
 def _run(*, skip_rate: float, xfail_rate: float, executed: int, passed: int, intent: str = "default", budget_allow: bool = False) -> dict[str, object]:
@@ -15,6 +17,32 @@ def _run(*, skip_rate: float, xfail_rate: float, executed: int, passed: int, int
         "tests_passed": passed,
         "budget_allow_violation": budget_allow,
     }
+
+
+def _chain_payload(*, ts: str, source: Path, prev_hash: str | None) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "timestamp": ts,
+        "run_intent": "default",
+        "tests_executed": 10,
+        "tests_passed": 10,
+        "hash_algo": HASH_ALGO,
+        "prev_provenance_hash": prev_hash,
+    }
+    payload["provenance_hash"] = compute_provenance_hash(payload, prev_hash)
+    payload["_source"] = str(source)
+    return payload
+
+
+def _build_chain(tmp_path: Path, count: int = 3) -> list[dict[str, object]]:
+    runs: list[dict[str, object]] = []
+    prev_hash: str | None = None
+    for idx in range(count):
+        ts = f"2026-01-01T00:00:0{idx}+00:00"
+        source = tmp_path / f"20260101T00000{idx}Z_deadbeef_{idx}.json"
+        run = _chain_payload(ts=ts, source=source, prev_hash=prev_hash)
+        prev_hash = str(run["provenance_hash"])
+        runs.append(run)
+    return runs
 
 
 def test_analyze_no_alert_on_stable_runs() -> None:
@@ -65,7 +93,7 @@ def test_analyze_alert_on_spikes_and_override() -> None:
     assert report["metrics"]["exceptional_count"] == 3
 
 
-def test_discover_inputs_ignores_latest_pointers(tmp_path) -> None:
+def test_discover_inputs_ignores_latest_pointers(tmp_path: Path) -> None:
     snapshot_a = tmp_path / "20260101T000000Z_sha_deadbeef.json"
     snapshot_b = tmp_path / "20260101T010000Z_sha_beadfeed.json"
     latest = tmp_path / "test_run_provenance.json"
@@ -78,3 +106,85 @@ def test_discover_inputs_ignores_latest_pointers(tmp_path) -> None:
     assert latest not in discovered
     assert latest_alias not in discovered
     assert discovered == sorted([snapshot_a, snapshot_b])
+
+
+def test_verify_chain_ok_for_synthetic_chain(tmp_path: Path) -> None:
+    report = analyze(
+        _build_chain(tmp_path, 4),
+        Thresholds(
+            window_size=2,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+        verify_chain_enabled=True,
+    )
+
+    assert report["integrity_checked"] is True
+    assert report["integrity_ok"] is True
+    assert report["integrity_issues"] == []
+
+
+def test_verify_chain_detects_mutated_snapshot(tmp_path: Path) -> None:
+    runs = _build_chain(tmp_path, 3)
+    runs[1]["tests_passed"] = 9
+
+    report = analyze(
+        runs,
+        Thresholds(
+            window_size=2,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+        verify_chain_enabled=True,
+    )
+
+    assert report["integrity_ok"] is False
+    assert any(issue["issue"] == "hash-mismatch" for issue in report["integrity_issues"])
+
+
+def test_verify_chain_detects_deleted_middle_snapshot(tmp_path: Path) -> None:
+    runs = _build_chain(tmp_path, 4)
+    runs = [runs[0], runs[2], runs[3]]
+
+    report = analyze(
+        runs,
+        Thresholds(
+            window_size=2,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+        verify_chain_enabled=True,
+    )
+
+    assert report["integrity_ok"] is False
+    assert any(issue["issue"] == "prev-mismatch" for issue in report["integrity_issues"])
+
+
+def test_verify_chain_detects_reordered_files(tmp_path: Path) -> None:
+    runs = _build_chain(tmp_path, 3)
+    runs[1]["_source"], runs[2]["_source"] = runs[2]["_source"], runs[1]["_source"]
+
+    report = analyze(
+        runs,
+        Thresholds(
+            window_size=2,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+        verify_chain_enabled=True,
+    )
+
+    assert report["integrity_ok"] is False
+    assert any(issue["issue"] == "prev-mismatch" for issue in report["integrity_issues"])

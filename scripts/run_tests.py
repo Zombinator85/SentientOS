@@ -11,6 +11,7 @@ from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
 from scripts.editable_install import EditableInstallStatus, get_editable_install_status
+from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRECHECK_MESSAGE = (
@@ -273,6 +274,8 @@ def _apply_snapshot_retention(provenance_dir: Path, env: dict[str, str]) -> None
     raw_limit = env.get(PROVENANCE_RETENTION_LIMIT_ENV)
     if raw_limit in {None, ""}:
         return
+    if not isinstance(raw_limit, str):
+        return
     try:
         limit = int(raw_limit)
     except ValueError:
@@ -384,6 +387,29 @@ def _write_provenance(
         payload["budget_violations"] = budget_violations
     if exit_reason:
         payload["exit_reason"] = exit_reason
+
+    prev_provenance_hash: str | None = None
+    chain_status: str | None = None
+    snapshots = sorted(path for path in provenance_dir.glob("*.json") if path.is_file())
+    if snapshots:
+        previous_path = snapshots[-1]
+        try:
+            previous_payload = json.loads(previous_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            chain_status = f"previous snapshot unreadable: {previous_path.name}"
+        else:
+            previous_hash = previous_payload.get("provenance_hash")
+            if isinstance(previous_hash, str) and len(previous_hash) == 64:
+                prev_provenance_hash = previous_hash
+            else:
+                chain_status = f"previous snapshot missing/invalid provenance_hash: {previous_path.name}"
+
+    payload["hash_algo"] = HASH_ALGO
+    payload["prev_provenance_hash"] = prev_provenance_hash
+    payload["provenance_hash"] = compute_provenance_hash(payload, prev_provenance_hash)
+    if chain_status:
+        payload["chain_status"] = chain_status
+
     latest_target = run_dir / "test_run_provenance.json"
     snapshot_target = provenance_dir / _snapshot_file_name(timestamp=timestamp, git_sha=git_sha)
 

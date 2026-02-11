@@ -9,6 +9,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
+
 DEFAULT_RUN_DIR = Path("glow/test_runs")
 DEFAULT_PROVENANCE_DIR = DEFAULT_RUN_DIR / "provenance"
 DEFAULT_INPUT_FILE = DEFAULT_RUN_DIR / "test_run_provenance.json"
@@ -106,14 +114,77 @@ def _drop_fraction(prior: float, current: float) -> float:
     return max(0.0, (prior - current) / prior)
 
 
-def analyze(runs: list[dict[str, Any]], thresholds: Thresholds) -> dict[str, Any]:
-    ordered_runs = sorted(
+def _ordered_runs_for_analysis(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
         runs,
         key=lambda payload: (
             _parse_timestamp(payload.get("timestamp")),
             str(payload.get("_source", "")),
         ),
     )
+
+
+def verify_chain(runs: list[dict[str, Any]]) -> dict[str, Any]:
+    issues: list[dict[str, str]] = []
+    ordered_runs = _ordered_runs_for_analysis(runs)
+    prior_hash: str | None = None
+
+    for index, run in enumerate(ordered_runs):
+        source = str(run.get("_source", "<unknown>"))
+        hash_algo = run.get("hash_algo")
+        prev_hash = run.get("prev_provenance_hash")
+        actual_hash = run.get("provenance_hash")
+
+        missing = [
+            name
+            for name, value in (
+                ("hash_algo", hash_algo),
+                ("prev_provenance_hash", prev_hash if "prev_provenance_hash" in run else "__missing__"),
+                ("provenance_hash", actual_hash),
+            )
+            if value in (None, "__missing__") and name != "prev_provenance_hash"
+        ]
+        if "prev_provenance_hash" not in run:
+            missing.append("prev_provenance_hash")
+        if missing:
+            issues.append({"file": source, "issue": f"missing-fields:{','.join(missing)}"})
+            prior_hash = None
+            continue
+
+        if hash_algo != HASH_ALGO:
+            issues.append({"file": source, "issue": "bad-hash-algo"})
+
+        expected_prev = prior_hash if index > 0 else None
+        if prev_hash != expected_prev:
+            issues.append({"file": source, "issue": "prev-mismatch"})
+
+        if not isinstance(actual_hash, str) or len(actual_hash) != 64:
+            issues.append({"file": source, "issue": "missing-fields:provenance_hash"})
+            prior_hash = None
+            continue
+
+        run_for_hash = dict(run)
+        run_for_hash.pop("_source", None)
+        expected_hash = compute_provenance_hash(run_for_hash, prev_hash if isinstance(prev_hash, str) else None)
+        if actual_hash != expected_hash:
+            issues.append({"file": source, "issue": "hash-mismatch"})
+
+        prior_hash = actual_hash
+
+    return {
+        "integrity_checked": True,
+        "integrity_ok": len(issues) == 0,
+        "integrity_issues": issues,
+    }
+
+
+def analyze(
+    runs: list[dict[str, Any]],
+    thresholds: Thresholds,
+    *,
+    verify_chain_enabled: bool = False,
+) -> dict[str, Any]:
+    ordered_runs = _ordered_runs_for_analysis(runs)
     latest_runs = ordered_runs[-thresholds.window_size :]
     prior_runs = ordered_runs[-(2 * thresholds.window_size) : -thresholds.window_size]
 
@@ -153,7 +224,7 @@ def analyze(runs: list[dict[str, Any]], thresholds: Thresholds) -> dict[str, Any
     total_checks = 6
     avoidance_score = round(len(unique_reasons) / total_checks, 3)
 
-    return {
+    report: dict[str, Any] = {
         "schema_version": 1,
         "window_size": thresholds.window_size,
         "runs_analyzed": len(latest_runs),
@@ -172,6 +243,19 @@ def analyze(runs: list[dict[str, Any]], thresholds: Thresholds) -> dict[str, Any
         },
     }
 
+    if verify_chain_enabled:
+        report.update(verify_chain(ordered_runs))
+    else:
+        report.update(
+            {
+                "integrity_checked": False,
+                "integrity_ok": True,
+                "integrity_issues": [],
+            }
+        )
+
+    return report
+
 
 def _write_report(path: Path, report: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -181,9 +265,11 @@ def _write_report(path: Path, report: dict[str, Any]) -> None:
 def _summary(report: dict[str, Any]) -> str:
     status = "ALERT" if report["avoidance_alert"] else "OK"
     reasons = ", ".join(report["avoidance_reasons"]) if report["avoidance_reasons"] else "none"
+    integrity = "OK" if report.get("integrity_ok", True) else "BROKEN"
     return (
         f"Trend analysis [{status}] runs={report['runs_analyzed']} "
-        f"window={report['window_size']} score={report['avoidance_score']:.3f} reasons={reasons}"
+        f"window={report['window_size']} score={report['avoidance_score']:.3f} reasons={reasons} "
+        f"integrity={integrity}"
     )
 
 
@@ -224,17 +310,26 @@ def main(argv: list[str] | None = None) -> int:
         default=int(os.getenv("SENTIENTOS_PROVENANCE_EXCEPTIONAL_CLUSTER", "3")),
     )
     parser.add_argument(
+        "--verify-chain",
+        action="store_true",
+        default=os.getenv("SENTIENTOS_PROVENANCE_VERIFY_CHAIN") == "1",
+        help="Verify SHA-256 hash chain across provenance snapshots.",
+    )
+    parser.add_argument(
         "--fail-on-alert",
         action="store_true",
         default=os.getenv("SENTIENTOS_CI_FAIL_ON_AVOIDANCE_ALERT") == "1",
         help="Return non-zero when an avoidance alert is emitted.",
     )
+    parser.add_argument(
+        "--fail-on-integrity-alert",
+        action="store_true",
+        default=os.getenv("SENTIENTOS_CI_FAIL_ON_INTEGRITY_ALERT") == "1",
+        help="Return non-zero when provenance integrity verification fails.",
+    )
     args = parser.parse_args(argv)
 
     input_files = list(args.file)
-    if DEFAULT_INPUT_FILE not in input_files:
-        input_files.append(DEFAULT_INPUT_FILE)
-
     discovered = _discover_inputs(args.dir, input_files)
     loaded_runs: list[dict[str, Any]] = []
     for path in discovered:
@@ -254,12 +349,16 @@ def main(argv: list[str] | None = None) -> int:
             passed_drop=args.passed_drop,
             exceptional_cluster=args.exceptional_cluster,
         ),
+        verify_chain_enabled=args.verify_chain,
     )
     _write_report(args.output, report)
     print(_summary(report))
 
     if report["avoidance_alert"] and args.fail_on_alert:
         print("Avoidance alert emitted and fail-on-alert is enabled.")
+        return 1
+    if report.get("integrity_checked") and not report.get("integrity_ok", True) and args.fail_on_integrity_alert:
+        print("Integrity alert emitted and fail-on-integrity-alert is enabled.")
         return 1
     return 0
 
