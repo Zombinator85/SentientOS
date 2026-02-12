@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from scripts.analyze_test_provenance import Thresholds, _discover_inputs, analyze
+from scripts.export_test_provenance_bundle import main as export_main
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
 
@@ -188,3 +189,63 @@ def test_verify_chain_detects_reordered_files(tmp_path: Path) -> None:
 
     assert report["integrity_ok"] is False
     assert any(issue["issue"] == "prev-mismatch" for issue in report["integrity_issues"])
+
+
+def test_analyze_reports_deduplicated_source_stats(tmp_path: Path) -> None:
+    run = _run(skip_rate=0.05, xfail_rate=0.01, executed=100, passed=95)
+    run["provenance_hash"] = "a" * 64
+    run["prev_provenance_hash"] = "GENESIS"
+    run["hash_algo"] = HASH_ALGO
+    run["_source"] = "live"
+
+    report = analyze(
+        [run],
+        Thresholds(
+            window_size=1,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+        source_stats={"live_dir_count": 1, "bundles_count": 2, "index_entries_used": 1},
+    )
+
+    assert report["sources"] == {"live_dir_count": 1, "bundles_count": 2, "index_entries_used": 1}
+    assert report["deduplicated_runs_total"] == 1
+
+
+def test_analyzer_cli_reads_bundle_and_archive_index(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    provenance_dir = tmp_path / "glow" / "test_runs" / "provenance"
+    bundles_dir = tmp_path / "glow" / "test_runs" / "bundles"
+    provenance_dir.mkdir(parents=True)
+
+    prev = "GENESIS"
+    for index in range(3):
+        snapshot = provenance_dir / f"run_{index}.json"
+        payload = {
+            "timestamp": f"2026-01-01T00:00:0{index}+00:00",
+            "run_intent": "default",
+            "tests_executed": 10,
+            "tests_passed": 10,
+            "skip_rate": 0.0,
+            "xfail_rate": 0.0,
+            "hash_algo": HASH_ALGO,
+            "prev_provenance_hash": prev,
+        }
+        payload["provenance_hash"] = compute_provenance_hash(payload, prev)
+        prev = str(payload["provenance_hash"])
+        snapshot.write_text(f"{json.dumps(payload, indent=2, sort_keys=True)}\n", encoding="utf-8")
+
+    assert export_main(["--dir", str(provenance_dir), "--out", str(bundles_dir), "--last", "2"]) == 0
+
+    from scripts.analyze_test_provenance import main as analyze_main
+
+    report_path = tmp_path / "report.json"
+    assert analyze_main(["--dir", str(provenance_dir), "--output", str(report_path), "--verify-chain"]) == 0
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["sources"]["bundles_count"] == 1
+    assert report["sources"]["index_entries_used"] == 1
+    assert report["deduplicated_runs_total"] == 3

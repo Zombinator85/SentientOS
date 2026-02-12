@@ -5,6 +5,7 @@ import json
 import os
 import tarfile
 import tempfile
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from io import BytesIO
@@ -24,6 +25,7 @@ from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 DEFAULT_PROVENANCE_DIR = Path("glow/test_runs/provenance")
 DEFAULT_BUNDLE_DIR = Path("glow/test_runs/bundles")
 DEFAULT_TREND_REPORT = Path("glow/test_runs/test_trend_report.json")
+DEFAULT_ARCHIVE_INDEX = Path("glow/test_runs/archive_index.jsonl")
 
 
 @dataclass(frozen=True)
@@ -182,6 +184,14 @@ def _write_manifest(
     return manifest
 
 
+def _append_archive_index_entry(index_path: Path, entry: dict[str, Any]) -> None:
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    with index_path.open("a", encoding="utf-8") as handle:
+        handle.write(f"{json.dumps(entry, sort_keys=True)}\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
 def _regenerate_trend_report(window: BundleWindow, target: Path) -> None:
     runs: list[dict[str, Any]] = []
     for record in window.snapshots:
@@ -247,6 +257,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--from", dest="from_timestamp", type=str, help="ISO-8601 timestamp lower bound (inclusive).")
     parser.add_argument("--to", dest="to_timestamp", type=str, help="ISO-8601 timestamp upper bound (inclusive).")
     parser.add_argument("--format", choices=["tar.gz"], default="tar.gz", help="Bundle archive format.")
+    parser.add_argument("--archive-index", type=Path, default=DEFAULT_ARCHIVE_INDEX, help="Append-only bundle archive index path.")
     args = parser.parse_args(argv)
 
     if args.last <= 0:
@@ -282,13 +293,27 @@ def main(argv: list[str] | None = None) -> int:
             trend_report_source = bundle_root / DEFAULT_TREND_REPORT.name
             _regenerate_trend_report(window, trend_report_source)
         _copy_bundle_inputs(bundle_root, window, trend_report_source)
-        _write_manifest(
+        manifest = _write_manifest(
             window=window,
             trend_report_name=DEFAULT_TREND_REPORT.name,
             manifest_path=bundle_root / "manifest.json",
             anchor_prev_hash=anchor_prev_hash,
         )
         _create_deterministic_tar_gz(bundle_root, out_path)
+
+    manifest_bytes = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    index_entry: dict[str, Any] = {
+        "schema_version": 1,
+        "created_at": _iso_timestamp(datetime.now().astimezone()),
+        "bundle_path": str(out_path),
+        "manifest_hash": hashlib.sha256(manifest_bytes).hexdigest(),
+        "first_provenance_hash": str(manifest.get("first_provenance_hash", "")),
+        "last_provenance_hash": str(manifest.get("last_provenance_hash", "")),
+        "count": int(manifest.get("bundle_window", {}).get("count", 0)),
+        "window_from": str(manifest.get("bundle_window", {}).get("from", "")),
+        "window_to": str(manifest.get("bundle_window", {}).get("to", "")),
+    }
+    _append_archive_index_entry(args.archive_index, index_entry)
 
     print(
         f"Exported provenance bundle: {out_path} snapshots={len(window.snapshots)} "
