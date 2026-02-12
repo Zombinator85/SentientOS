@@ -16,11 +16,14 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
+from scripts.read_test_provenance_bundle import read_bundle_runs
 
 DEFAULT_RUN_DIR = Path("glow/test_runs")
 DEFAULT_PROVENANCE_DIR = DEFAULT_RUN_DIR / "provenance"
 DEFAULT_INPUT_FILE = DEFAULT_RUN_DIR / "test_run_provenance.json"
 DEFAULT_OUTPUT_FILE = DEFAULT_RUN_DIR / "test_trend_report.json"
+DEFAULT_BUNDLE_DIR = DEFAULT_RUN_DIR / "bundles"
+DEFAULT_ARCHIVE_INDEX = DEFAULT_RUN_DIR / "archive_index.jsonl"
 
 
 @dataclass(frozen=True)
@@ -84,6 +87,70 @@ def _discover_inputs(input_dir: Path, files: list[Path]) -> list[Path]:
             if path.is_file() and path.name not in {"test_run_provenance.json", "latest.json"}
         )
     return sorted(candidates)
+
+
+def _load_archive_index_entries(index_path: Path) -> list[dict[str, Any]]:
+    if not index_path.exists():
+        return []
+    entries: list[dict[str, Any]] = []
+    for raw_line in index_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            entries.append(payload)
+    return entries
+
+
+def _discover_bundle_inputs(
+    explicit_bundles: list[Path],
+    *,
+    bundle_dir: Path | None,
+    use_archive_index: bool,
+    archive_index: Path,
+) -> tuple[list[Path], int]:
+    candidates: set[Path] = set(explicit_bundles)
+    if bundle_dir and bundle_dir.exists():
+        candidates.update(path for path in bundle_dir.glob("*.tar.gz") if path.is_file())
+
+    index_entries_used = 0
+    if use_archive_index and archive_index.exists():
+        entries = _load_archive_index_entries(archive_index)
+        for entry in entries:
+            bundle = entry.get("bundle_path")
+            if isinstance(bundle, str) and bundle.strip():
+                candidates.add(Path(bundle))
+                index_entries_used += 1
+
+    existing = sorted(path for path in candidates if path.exists() and path.is_file())
+    return existing, index_entries_used
+
+
+def _verify_contiguous_history(runs: list[dict[str, Any]]) -> tuple[bool, list[dict[str, str]], int]:
+    ordered = _ordered_runs_for_analysis(runs)
+    continuity_issues: list[dict[str, str]] = []
+    discontinuity_count = 0
+
+    for index in range(1, len(ordered)):
+        prior = ordered[index - 1]
+        current = ordered[index]
+        prior_hash = prior.get("provenance_hash")
+        prev_hash = current.get("prev_provenance_hash")
+        if isinstance(prior_hash, str) and isinstance(prev_hash, str) and prev_hash == prior_hash:
+            continue
+        discontinuity_count += 1
+        continuity_issues.append(
+            {
+                "prior_file": str(prior.get("_source", "<unknown>")),
+                "current_file": str(current.get("_source", "<unknown>")),
+                "issue": "history-gap",
+            }
+        )
+    return (discontinuity_count == 0, continuity_issues, discontinuity_count)
 
 
 def _safe_number(payload: dict[str, Any], key: str) -> float:
@@ -183,6 +250,8 @@ def analyze(
     thresholds: Thresholds,
     *,
     verify_chain_enabled: bool = False,
+    source_stats: dict[str, int] | None = None,
+    require_contiguous_history: bool = False,
 ) -> dict[str, Any]:
     ordered_runs = _ordered_runs_for_analysis(runs)
     latest_runs = ordered_runs[-thresholds.window_size :]
@@ -243,14 +312,30 @@ def analyze(
         },
     }
 
+    deduplicated_runs_total = len(ordered_runs)
+    report["sources"] = source_stats or {"live_dir_count": 0, "bundles_count": 0, "index_entries_used": 0}
+    report["deduplicated_runs_total"] = deduplicated_runs_total
+
     if verify_chain_enabled:
         report.update(verify_chain(ordered_runs))
+        contiguous_ok, continuity_issues, discontinuity_count = _verify_contiguous_history(ordered_runs)
+        report["continuity_checked"] = True
+        report["continuity_ok"] = contiguous_ok
+        report["continuity_issues"] = continuity_issues
+        report["continuity_discontinuity_count"] = discontinuity_count
+        if require_contiguous_history and not contiguous_ok:
+            report["integrity_ok"] = False
+            report["integrity_issues"] = list(report.get("integrity_issues", [])) + continuity_issues
     else:
         report.update(
             {
                 "integrity_checked": False,
                 "integrity_ok": True,
                 "integrity_issues": [],
+                "continuity_checked": False,
+                "continuity_ok": True,
+                "continuity_issues": [],
+                "continuity_discontinuity_count": 0,
             }
         )
 
@@ -316,6 +401,44 @@ def main(argv: list[str] | None = None) -> int:
         help="Verify SHA-256 hash chain across provenance snapshots.",
     )
     parser.add_argument(
+        "--bundle",
+        action="append",
+        type=Path,
+        default=[],
+        help="Path to provenance bundle archive (tar.gz). Can be provided multiple times.",
+    )
+    parser.add_argument(
+        "--bundle-dir",
+        type=Path,
+        default=DEFAULT_BUNDLE_DIR,
+        help="Directory containing provenance bundles for optional ingestion.",
+    )
+    parser.add_argument(
+        "--archive-index",
+        type=Path,
+        default=DEFAULT_ARCHIVE_INDEX,
+        help="Append-only archive index file used for bundle discovery.",
+    )
+    parser.add_argument(
+        "--use-archive-index",
+        dest="use_archive_index",
+        action="store_true",
+        help="Enable bundle discovery from archive index.",
+    )
+    parser.add_argument(
+        "--no-use-archive-index",
+        dest="use_archive_index",
+        action="store_false",
+        help="Disable bundle discovery from archive index.",
+    )
+    parser.set_defaults(use_archive_index=DEFAULT_ARCHIVE_INDEX.exists())
+    parser.add_argument(
+        "--require-contiguous-history",
+        action="store_true",
+        default=False,
+        help="Fail integrity when adjacent runs across all sources do not form a contiguous prev-hash chain.",
+    )
+    parser.add_argument(
         "--fail-on-alert",
         action="store_true",
         default=os.getenv("SENTIENTOS_CI_FAIL_ON_AVOIDANCE_ALERT") == "1",
@@ -339,6 +462,30 @@ def main(argv: list[str] | None = None) -> int:
         payload["_source"] = str(path)
         loaded_runs.append(payload)
 
+    bundle_paths, index_entries_used = _discover_bundle_inputs(
+        args.bundle,
+        bundle_dir=args.bundle_dir,
+        use_archive_index=args.use_archive_index,
+        archive_index=args.archive_index,
+    )
+    bundle_run_count = 0
+    for bundle_path in bundle_paths:
+        bundle_result = read_bundle_runs(bundle_path)
+        bundle_run_count += len(bundle_result.runs)
+        loaded_runs.extend(bundle_result.runs)
+
+    deduped_by_hash: dict[str, dict[str, Any]] = {}
+    passthrough_runs: list[dict[str, Any]] = []
+    for run in loaded_runs:
+        run_hash = run.get("provenance_hash")
+        if isinstance(run_hash, str) and run_hash:
+            if run_hash in deduped_by_hash:
+                continue
+            deduped_by_hash[run_hash] = run
+        else:
+            passthrough_runs.append(run)
+    loaded_runs = list(deduped_by_hash.values()) + passthrough_runs
+
     report = analyze(
         loaded_runs,
         Thresholds(
@@ -350,6 +497,12 @@ def main(argv: list[str] | None = None) -> int:
             exceptional_cluster=args.exceptional_cluster,
         ),
         verify_chain_enabled=args.verify_chain,
+        source_stats={
+            "live_dir_count": len(discovered),
+            "bundles_count": len(bundle_paths),
+            "index_entries_used": index_entries_used,
+        },
+        require_contiguous_history=args.require_contiguous_history,
     )
     _write_report(args.output, report)
     print(_summary(report))
