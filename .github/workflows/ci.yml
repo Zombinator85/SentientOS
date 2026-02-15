@@ -78,6 +78,11 @@ jobs:
       - name: Mypy strict check
         run: mypy --strict > MYPY_STATUS.md
 
+      - name: Test dependency airlock (collect-only)
+        run: python -m scripts.run_tests -q --collect-only
+        env:
+          SENTIENTOS_ALLOW_NONEXECUTION_TEST_RUN: "1"
+
       - name: Pytest with coverage
         run: python -m scripts.run_tests
         env:
