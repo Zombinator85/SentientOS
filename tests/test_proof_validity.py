@@ -117,6 +117,43 @@ def test_integrity_daemon_logs_proof_report(tmp_path: Path) -> None:
     assert entry["violations"] == []
 
 
+
+
+def test_integrity_daemon_evaluate_report_never_raises_and_logs(tmp_path: Path) -> None:
+    daemon = IntegrityDaemon(tmp_path)
+    proposal = DummyProposal(
+        proposal_id="P-003",
+        spec_id="SPEC-3",
+        summary="",
+        original_spec={**_base_spec(), "lineage": {"seed": "v0"}},
+        proposed_spec={**_base_spec(), "status": "retired", "lineage": None},
+        ledger_diff={"removed": []},
+        deltas={},
+    )
+    evaluation = daemon.evaluate_report(proposal)
+    assert evaluation.valid is False
+    assert evaluation.reason_codes
+
+    ledger_path = tmp_path / "daemon" / "integrity" / "ledger.jsonl"
+    entries = ledger_path.read_text(encoding="utf-8").strip().splitlines()
+    assert entries
+    assert evaluation.ledger_entry.startswith(str(ledger_path))
+
+
+def test_integrity_daemon_evaluate_still_raises(tmp_path: Path) -> None:
+    daemon = IntegrityDaemon(tmp_path)
+    proposal = DummyProposal(
+        proposal_id="P-004",
+        spec_id="SPEC-4",
+        summary="",
+        original_spec={**_base_spec(), "lineage": {"seed": "v0"}},
+        proposed_spec={**_base_spec(), "status": "retired", "lineage": None},
+        ledger_diff={"removed": []},
+        deltas={},
+    )
+    with pytest.raises(IntegrityViolation):
+        daemon.evaluate(proposal)
+
 def test_integrity_daemon_quarantines_invalid_proof(tmp_path: Path) -> None:
     daemon = IntegrityDaemon(tmp_path)
     proposal = DummyProposal(
