@@ -20,6 +20,14 @@ from sentientos.codex_startup_guard import enforce_codex_startup
 
 
 from .integrity_daemon import IntegrityDaemon, IntegrityViolation
+from .proof_budget_governor import (
+    build_governor_event,
+    decide_budget,
+    governor_config_from_env,
+    load_pressure_state,
+    save_pressure_state,
+    update_pressure_state,
+)
 from .proposal_router import (
     CandidateResult,
     choose_candidate,
@@ -638,8 +646,23 @@ class SpecAmender:
         proposed_spec: Mapping[str, Any],
         lineage: Mapping[str, Any] | None,
     ) -> AmendmentProposal:
-        router_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
-        router_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
+        configured_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        configured_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
+        governor_config = governor_config_from_env(configured_k=configured_k, configured_m=configured_m)
+        pressure_state = load_pressure_state()
+        run_context = {
+            "pipeline": "specamend",
+            "spec_id": spec_id,
+            "capability": str((context or {}).get("capability") or spec_id),
+            "router_attempt": 1,
+        }
+        governor_decision = decide_budget(
+            config=governor_config,
+            pressure_state=pressure_state,
+            run_context=run_context,
+        )
+        router_k = governor_decision.k_effective
+        router_m = governor_decision.m_effective
         dominant = str((context or {}).get("dominant_signal") or kind)
         minute_bucket = self._now().strftime("%Y%m%d%H%M")
         router_seed = f"{spec_id}:{dominant}:{minute_bucket}:{router_k}"
@@ -662,10 +685,13 @@ class SpecAmender:
             stage_a = self._integrity_daemon.evaluate_report_stage_a(candidate)
             stage_a_results.append((candidate, stage_a))
 
-        next_k, escalated = maybe_escalate_k(
-            k=router_k,
-            stage_a_results=[(candidate.proposal_id, evaluation) for candidate, evaluation in stage_a_results],
-        )
+        if governor_decision.allow_escalation:
+            next_k, escalated = maybe_escalate_k(
+                k=router_k,
+                stage_a_results=[(candidate.proposal_id, evaluation) for candidate, evaluation in stage_a_results],
+            )
+        else:
+            next_k, escalated = router_k, False
         if escalated:
             k_final = next_k
             candidates = self._draft_amendment_variants(
@@ -685,36 +711,55 @@ class SpecAmender:
                 stage_a = self._integrity_daemon.evaluate_report_stage_a(candidate)
                 stage_a_results.append((candidate, stage_a))
 
-        promoted_ids = promote_candidates(
-            [(candidate.proposal_id, evaluation) for candidate, evaluation in stage_a_results],
-            m=router_m,
-        )
+        promoted_ids: list[str] = []
+        if governor_decision.mode != "diagnostics_only":
+            promoted_ids = promote_candidates(
+                [(candidate.proposal_id, evaluation) for candidate, evaluation in stage_a_results],
+                m=router_m,
+            )
         probe_cache = {
             candidate.proposal_id: evaluation.probe for candidate, evaluation in stage_a_results
         }
         results: list[CandidateResult] = []
-        for candidate in candidates:
-            if candidate.proposal_id not in promoted_ids:
-                continue
-            evaluation = self._integrity_daemon.evaluate_report_stage_b(
-                candidate,
-                probe_cache=probe_cache.get(candidate.proposal_id),
-            )
-            results.append(
-                CandidateResult(
-                    candidate_id=candidate.proposal_id,
-                    proposal=candidate,
-                    evaluation=evaluation,
-                    score=score_evaluation(evaluation),
+        if governor_decision.mode != "diagnostics_only":
+            for candidate in candidates:
+                if candidate.proposal_id not in promoted_ids:
+                    continue
+                evaluation = self._integrity_daemon.evaluate_report_stage_b(
+                    candidate,
+                    probe_cache=probe_cache.get(candidate.proposal_id),
                 )
-            )
-        selected, router_status = choose_candidate(results)
+                results.append(
+                    CandidateResult(
+                        candidate_id=candidate.proposal_id,
+                        proposal=candidate,
+                        evaluation=evaluation,
+                        score=score_evaluation(evaluation),
+                    )
+                )
+        if governor_decision.mode == "diagnostics_only":
+            best_stage_a_candidate, best_stage_a_eval = sorted(
+                stage_a_results,
+                key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id),
+            )[0]
+            selected = None
+            router_status = "diagnostics_only"
+            best_failure_id = best_stage_a_candidate.proposal_id
+            best_failure_reason_codes = list(best_stage_a_eval.reason_codes_a)
+            best_failure_score = score_evaluation_a(best_stage_a_eval)
+            best_failure_violations = [dict(item) for item in best_stage_a_eval.violations_a]
+        else:
+            selected, router_status = choose_candidate(results)
+            best_failure_id = selected.candidate_id
+            best_failure_reason_codes = list(selected.evaluation.reason_codes)
+            best_failure_score = selected.score
+            best_failure_violations = [dict(item) for item in selected.evaluation.violations]
         stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
         stage_b_valid_count = sum(1 for result in results if bool(result.evaluation.valid))
         router_telemetry = {
-            "k_initial": router_k,
+            "k_initial": configured_k,
             "k_final": k_final,
-            "m": router_m,
+            "m": router_m if governor_decision.mode != "diagnostics_only" else 0,
             "escalated": escalated,
             "stage_a_evaluations": len(stage_a_results),
             "stage_b_evaluations": len(results),
@@ -724,15 +769,24 @@ class SpecAmender:
             "selected_candidate_id": selected.candidate_id if router_status == "selected" else None,
         }
         scorecard = {
-            "router_k": router_k,
+            "router_k": configured_k,
+            "router_m": configured_m,
             "router_seed": router_seed,
             "router_status": router_status,
             "router_telemetry": router_telemetry,
             "proof_budget": {
-                "k": router_k,
-                "m": router_m,
+                "k": configured_k,
+                "m": configured_m,
                 "escalated": escalated,
                 "k_final": k_final,
+            },
+            "governor": {
+                "mode": governor_decision.mode,
+                "k_effective": governor_decision.k_effective,
+                "m_effective": governor_decision.m_effective,
+                "allow_escalation": governor_decision.allow_escalation,
+                "reasons": list(governor_decision.decision_reasons),
+                "governor_version": governor_decision.governor_version,
             },
             "promoted_to_stage_b": list(promoted_ids),
             "stage_a": [
@@ -765,21 +819,40 @@ class SpecAmender:
             ],
         }
         if router_status != "selected":
-            scorecard["best_failure_id"] = selected.candidate_id
+            scorecard["best_failure_id"] = best_failure_id
             scorecard["best_failure"] = {
-                "reason_codes": list(selected.evaluation.reason_codes),
-                "score": selected.score,
+                "reason_codes": best_failure_reason_codes,
+                "score": best_failure_score,
             }
             self._append_amendment_log(
                 "routing-failed",
                 spec_id,
-                selected.candidate_id,
+                best_failure_id,
                 {"kind": kind, "summary": summary, "router_scorecard": scorecard},
             )
             self._append_amendment_log(
+                "proof-budget-governor",
+                spec_id,
+                best_failure_id,
+                build_governor_event(
+                    decision=governor_decision,
+                    run_context=run_context,
+                    router_telemetry=router_telemetry,
+                ),
+            )
+            pressure_state = update_pressure_state(
+                prior=pressure_state,
+                decision=governor_decision,
+                router_telemetry=router_telemetry,
+                router_status=router_status,
+                run_context=run_context,
+                config=governor_config,
+            )
+            save_pressure_state(pressure_state)
+            self._append_amendment_log(
                 "proof-budget",
                 spec_id,
-                selected.candidate_id,
+                best_failure_id,
                 {
                     "event_type": "proof_budget",
                     "kind": kind,
@@ -789,11 +862,23 @@ class SpecAmender:
                     "router_telemetry": dict(router_telemetry),
                 },
             )
+            if governor_decision.mode == "diagnostics_only":
+                raise IntegrityViolation(
+                    best_failure_id,
+                    spec_id=spec_id,
+                    reason_codes=["diagnostics_only_mode"],
+                    violations=[
+                        {
+                            "code": "diagnostics_only_mode",
+                            "detail": "Diagnostics-only mode: proof budget constrained",
+                        }
+                    ],
+                )
             raise IntegrityViolation(
-                selected.candidate_id,
+                best_failure_id,
                 spec_id=spec_id,
-                reason_codes=selected.evaluation.reason_codes,
-                violations=selected.evaluation.violations,
+                reason_codes=best_failure_reason_codes,
+                violations=best_failure_violations,
             )
 
         proposal = selected.proposal
@@ -806,6 +891,25 @@ class SpecAmender:
             proposal.proposal_id,
             {"kind": kind, "summary": proposal.summary, "router_scorecard": scorecard},
         )
+        self._append_amendment_log(
+            "proof-budget-governor",
+            proposal.spec_id,
+            proposal.proposal_id,
+            build_governor_event(
+                decision=governor_decision,
+                run_context=run_context,
+                router_telemetry=router_telemetry,
+            ),
+        )
+        pressure_state = update_pressure_state(
+            prior=pressure_state,
+            decision=governor_decision,
+            router_telemetry=router_telemetry,
+            router_status=router_status,
+            run_context=run_context,
+            config=governor_config,
+        )
+        save_pressure_state(pressure_state)
         self._append_amendment_log(
             "proof-budget",
             proposal.spec_id,

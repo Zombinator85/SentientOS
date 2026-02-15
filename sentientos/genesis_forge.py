@@ -21,6 +21,14 @@ from pathlib import Path
 from typing import Callable, Mapping, MutableMapping, Sequence
 
 from codex.integrity_daemon import IntegrityDaemon
+from codex.proof_budget_governor import (
+    build_governor_event,
+    decide_budget,
+    governor_config_from_env,
+    load_pressure_state,
+    save_pressure_state,
+    update_pressure_state,
+)
 from codex.proposal_router import (
     CandidateResult,
     choose_candidate,
@@ -582,10 +590,24 @@ class GenesisForge:
     ) -> list[GenesisOutcome]:
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
-        router_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
-        router_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
+        configured_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        configured_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
+        governor_config = governor_config_from_env(configured_k=configured_k, configured_m=configured_m)
+        pressure_state = load_pressure_state()
         for need in needs:
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
+            run_context = {
+                "pipeline": "genesis",
+                "capability": need.capability,
+                "router_attempt": 1,
+            }
+            governor_decision = decide_budget(
+                config=governor_config,
+                pressure_state=pressure_state,
+                run_context=run_context,
+            )
+            router_k = governor_decision.k_effective
+            router_m = governor_decision.m_effective
             router_seed = f"{need.capability}:{need.source}:{router_k}"
             try:
                 k_final = router_k
@@ -596,12 +618,15 @@ class GenesisForge:
                     stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
                     stage_a_results.append((proposal, stage_a))
 
-                next_k, escalated = maybe_escalate_k(
-                    k=router_k,
-                    stage_a_results=[
-                        (proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results
-                    ],
-                )
+                if governor_decision.allow_escalation:
+                    next_k, escalated = maybe_escalate_k(
+                        k=router_k,
+                        stage_a_results=[
+                            (proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results
+                        ],
+                    )
+                else:
+                    next_k, escalated = router_k, False
                 if escalated:
                     k_final = next_k
                     proposals = self._forge_engine.draft_variants(
@@ -614,38 +639,55 @@ class GenesisForge:
                         stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
                         stage_a_results.append((proposal, stage_a))
 
-                promoted_ids = promote_candidates(
-                    [(proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results],
-                    m=router_m,
-                )
+                promoted_ids = []
+                if governor_decision.mode != "diagnostics_only":
+                    promoted_ids = promote_candidates(
+                        [(proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results],
+                        m=router_m,
+                    )
                 probe_cache = {
                     proposal.proposal_id: evaluation.probe for proposal, evaluation in stage_a_results
                 }
 
                 candidate_results: list[CandidateResult] = []
-                for proposal in proposals:
-                    if proposal.proposal_id not in promoted_ids:
-                        continue
-                    evaluation = self._integrity_daemon.evaluate_report_stage_b(
-                        proposal,
-                        probe_cache=probe_cache.get(proposal.proposal_id),
-                    )
-                    candidate_results.append(
-                        CandidateResult(
-                            candidate_id=proposal.proposal_id,
-                            proposal=proposal,
-                            evaluation=evaluation,
-                            score=score_evaluation(evaluation),
+                if governor_decision.mode != "diagnostics_only":
+                    for proposal in proposals:
+                        if proposal.proposal_id not in promoted_ids:
+                            continue
+                        evaluation = self._integrity_daemon.evaluate_report_stage_b(
+                            proposal,
+                            probe_cache=probe_cache.get(proposal.proposal_id),
                         )
-                    )
+                        candidate_results.append(
+                            CandidateResult(
+                                candidate_id=proposal.proposal_id,
+                                proposal=proposal,
+                                evaluation=evaluation,
+                                score=score_evaluation(evaluation),
+                            )
+                        )
 
-                selected, router_status = choose_candidate(candidate_results)
+                if governor_decision.mode == "diagnostics_only":
+                    best_stage_a_proposal, best_stage_a_eval = sorted(
+                        stage_a_results,
+                        key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id),
+                    )[0]
+                    router_status = "diagnostics_only"
+                    selected = None
+                    best_failure_id = best_stage_a_proposal.proposal_id
+                    best_failure_reason_codes = list(best_stage_a_eval.reason_codes_a)
+                    best_failure_score = score_evaluation_a(best_stage_a_eval)
+                else:
+                    selected, router_status = choose_candidate(candidate_results)
+                    best_failure_id = selected.candidate_id
+                    best_failure_reason_codes = list(selected.evaluation.reason_codes)
+                    best_failure_score = selected.score
                 stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
                 stage_b_valid_count = sum(1 for result in candidate_results if bool(result.evaluation.valid))
                 router_telemetry = {
-                    "k_initial": router_k,
+                    "k_initial": configured_k,
                     "k_final": k_final,
-                    "m": router_m,
+                    "m": router_m if governor_decision.mode != "diagnostics_only" else 0,
                     "escalated": escalated,
                     "stage_a_evaluations": len(stage_a_results),
                     "stage_b_evaluations": len(candidate_results),
@@ -655,16 +697,24 @@ class GenesisForge:
                     "selected_candidate_id": selected.candidate_id if router_status == "selected" else None,
                 }
                 router_scorecard: dict[str, object] = {
-                    "router_k": router_k,
-                    "router_m": router_m,
+                    "router_k": configured_k,
+                    "router_m": configured_m,
                     "router_seed": router_seed,
                     "router_status": router_status,
                     "router_telemetry": router_telemetry,
                     "proof_budget": {
-                        "k": router_k,
-                        "m": router_m,
+                        "k": configured_k,
+                        "m": configured_m,
                         "escalated": escalated,
                         "k_final": k_final,
+                    },
+                    "governor": {
+                        "mode": governor_decision.mode,
+                        "k_effective": governor_decision.k_effective,
+                        "m_effective": governor_decision.m_effective,
+                        "allow_escalation": governor_decision.allow_escalation,
+                        "reasons": list(governor_decision.decision_reasons),
+                        "governor_version": governor_decision.governor_version,
                     },
                     "promoted_to_stage_b": list(promoted_ids),
                     "stage_a": [
@@ -698,10 +748,10 @@ class GenesisForge:
                 }
 
                 if router_status != "selected":
-                    router_scorecard["best_failure_id"] = selected.candidate_id
+                    router_scorecard["best_failure_id"] = best_failure_id
                     router_scorecard["best_failure"] = {
-                        "reason_codes": list(selected.evaluation.reason_codes),
-                        "score": selected.score,
+                        "reason_codes": best_failure_reason_codes,
+                        "score": best_failure_score,
                     }
                     self._ledger.log(
                         "GenesisForge routing_failed",
@@ -709,6 +759,27 @@ class GenesisForge:
                         details=router_scorecard,
                         quarantined=True,
                     )
+                    self._ledger.log(
+                        "proof_budget_governor",
+                        anomaly=anomaly,
+                        details=build_governor_event(
+                            decision=governor_decision,
+                            run_context=run_context,
+                            router_telemetry=router_telemetry,
+                        ),
+                        quarantined=True,
+                    )
+                    pressure_state = update_pressure_state(
+                        prior=pressure_state,
+                        decision=governor_decision,
+                        router_telemetry=router_telemetry,
+                        router_status=router_status,
+                        run_context=run_context,
+                        config=governor_config,
+                    )
+                    save_pressure_state(pressure_state)
+                    if governor_decision.mode == "diagnostics_only":
+                        raise GenesisForgeError("Diagnostics-only mode: proof budget constrained")
                     self._ledger.log(
                         "proof_budget",
                         anomaly=anomaly,
@@ -724,7 +795,7 @@ class GenesisForge:
                     )
                     raise GenesisForgeError(
                         "No admissible candidate "
-                        f"({selected.candidate_id}: {','.join(selected.evaluation.reason_codes)})"
+                        f"({best_failure_id}: {','.join(best_failure_reason_codes)})"
                     )
 
                 proposal = selected.proposal
@@ -763,6 +834,24 @@ class GenesisForge:
                     details=outcome.details,
                 )
                 self._ledger.log(
+                    "proof_budget_governor",
+                    anomaly=anomaly,
+                    details=build_governor_event(
+                        decision=governor_decision,
+                        run_context=run_context,
+                        router_telemetry=router_telemetry,
+                    ),
+                )
+                pressure_state = update_pressure_state(
+                    prior=pressure_state,
+                    decision=governor_decision,
+                    router_telemetry=router_telemetry,
+                    router_status=router_status,
+                    run_context=run_context,
+                    config=governor_config,
+                )
+                save_pressure_state(pressure_state)
+                self._ledger.log(
                     "proof_budget",
                     anomaly=anomaly,
                     details={
@@ -782,8 +871,8 @@ class GenesisForge:
                     details={
                         "error": str(exc),
                         "router_seed": router_seed,
-                        "router_k": router_k,
-                        "router_m": router_m,
+                        "router_k": configured_k,
+                        "router_m": configured_m,
                     },
                     quarantined=True,
                 )

@@ -387,3 +387,54 @@ def test_stage_b_proof_budget_is_capped_by_m(tmp_path: Path, base_spec: dict, mo
     assert len(scorecard["promoted_to_stage_b"]) <= 2
     assert telemetry["stage_b_evaluations"] == daemon.stage_b_calls
     assert telemetry["stage_a_evaluations"] == len(scorecard["stage_a"])
+
+def test_diagnostics_only_mode_skips_stage_b_and_logs_governor(
+    tmp_path: Path, base_spec: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clock = ManualClock()
+    root = tmp_path / "integration"
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "diagnostics_only")
+    engine = SpecAmender(root=root, now=clock.now)
+
+    class CountingDaemon:
+        def __init__(self, daemon: object) -> None:
+            self._daemon = daemon
+            self.stage_b_calls = 0
+
+        def evaluate_report_stage_a(self, proposal: object):
+            return self._daemon.evaluate_report_stage_a(proposal)
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            self.stage_b_calls += 1
+            return self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
+
+        def health(self):
+            return self._daemon.health()
+
+    daemon = CountingDaemon(engine._integrity_daemon)
+    engine._integrity_daemon = daemon  # type: ignore[assignment]
+
+    with pytest.raises(IntegrityViolation) as exc:
+        engine.propose_manual(
+            base_spec["spec_id"],
+            summary="manual proposal",
+            deltas={"objective": {"before": "a", "after": "b"}},
+            context={"origin": "test", "capability": "spec-recurring-gap"},
+            original_spec={**base_spec, "lineage": {"seed": "v0"}},
+            proposed_spec={**base_spec, "lineage": {"seed": "v0"}},
+        )
+
+    assert daemon.stage_b_calls == 0
+    assert "diagnostics_only_mode" in exc.value.reason_codes
+
+    amendment_log = _read_log(root / "amendment_log.jsonl")
+    routing = [entry for entry in amendment_log if entry["event"] == "routing-failed"]
+    assert routing
+    scorecard = routing[-1]["metadata"]["router_scorecard"]
+    assert scorecard["governor"]["mode"] == "diagnostics_only"
+    assert scorecard["stage_b"] == []
+    assert scorecard["stage_a"], "stage-a evidence should still be emitted"
+
+    governor_events = [entry for entry in amendment_log if entry["event"] == "proof-budget-governor"]
+    assert governor_events
+    assert governor_events[-1]["metadata"]["event_type"] == "proof_budget_governor"

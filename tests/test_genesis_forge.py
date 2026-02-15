@@ -416,3 +416,45 @@ def test_genesis_selected_candidate_matches_full_proof_on_promoted(
     full_selected, status = choose_candidate(results)
     assert status == "selected"
     assert full_selected.candidate_id == selected_id
+
+def test_genesis_diagnostics_only_mode_skips_stage_b_and_refuses(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "diagnostics_only")
+    forge = _build_forge(tmp_path)
+
+    class CountingDaemon:
+        def __init__(self, daemon: IntegrityDaemon) -> None:
+            self._daemon = daemon
+            self.stage_b_calls = 0
+
+        def evaluate_report_stage_a(self, proposal: object):
+            return self._daemon.evaluate_report_stage_a(proposal)
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            self.stage_b_calls += 1
+            return self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
+
+    daemon = CountingDaemon(forge._integrity_daemon)
+    forge._integrity_daemon = daemon  # type: ignore[assignment]
+
+    outcomes = forge.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+
+    assert outcomes[0].status == "failed"
+    assert outcomes[0].details["error"] == "Diagnostics-only mode: proof budget constrained"
+    assert daemon.stage_b_calls == 0
+
+    scorecard = None
+    ledger_lines = [json.loads(line) for line in (tmp_path / "ledger.jsonl").read_text().splitlines()]
+    for entry in ledger_lines:
+        if entry["status"] == "GenesisForge routing_failed":
+            scorecard = entry["details"]
+    assert scorecard is not None
+    assert scorecard["governor"]["mode"] == "diagnostics_only"
+    assert scorecard["stage_b"] == []
+    assert scorecard["stage_a"]
+    governor_events = [entry for entry in ledger_lines if entry["status"] == "proof_budget_governor"]
+    assert governor_events
