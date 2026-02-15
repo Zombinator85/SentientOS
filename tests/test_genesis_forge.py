@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from codex.integrity_daemon import IntegrityDaemon
+from codex.proposal_router import CandidateResult, choose_candidate, score_evaluation
 from sentientos.codex_healer import RecoveryLedger
 from sentientos.genesis_forge import (
     AdoptionRite,
@@ -218,13 +219,189 @@ def test_genesis_forge_refuses_when_no_admissible_candidate(tmp_path: Path) -> N
         def __init__(self, base: IntegrityDaemon) -> None:
             self.base = base
 
-        def evaluate_report(self, proposal: object):
-            result = self.base.evaluate_report(proposal)
+        def evaluate_report_stage_a(self, proposal: object):
+            result = self.base.evaluate_report_stage_a(proposal)
+            result.valid_a = False
+            result.reason_codes_a = ["tamper"]
+            result.violations_a = [{"code": "tamper", "detail": "forced-stage-a"}]
+            return result
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            result = self.base.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
             result.valid = False
             result.reason_codes = ["tamper"]
-            result.violations = [{"code": "tamper", "detail": "forced"}]
+            result.violations = [{"code": "tamper", "detail": "forced-stage-b"}]
             return result
+
+        def evaluate_report(self, proposal: object):
+            return self.evaluate_report_stage_b(proposal)
 
     forge._integrity_daemon = AlwaysInvalid(forge._integrity_daemon)  # type: ignore[assignment]
     outcomes = forge.expand(telemetry, vows)
     assert outcomes[0].status == "failed"
+
+
+def _build_forge(tmp_path: Path) -> GenesisForge:
+    return GenesisForge(
+        need_seer=NeedSeer(),
+        forge_engine=ForgeEngine(),
+        integrity_daemon=IntegrityDaemon(tmp_path),
+        trial_run=TrialRun(),
+        spec_binder=SpecBinder(lineage_root=tmp_path / "lineage", covenant_root=tmp_path / "covenant"),
+        adoption_rite=AdoptionRite(
+            live_mount=tmp_path / "live",
+            codex_index=tmp_path / "codex.json",
+            review_board=_review_board,
+        ),
+        ledger=RecoveryLedger(tmp_path / "ledger.jsonl"),
+    )
+
+
+def test_genesis_stage_b_proof_budget_is_capped_by_m(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_ROUTER_K", "5")
+    monkeypatch.setenv("SENTIENTOS_ROUTER_M", "2")
+    forge = _build_forge(tmp_path)
+
+    class CountingDaemon:
+        def __init__(self, daemon: IntegrityDaemon) -> None:
+            self._daemon = daemon
+            self.stage_b_calls = 0
+
+        def evaluate_report_stage_a(self, proposal: object):
+            return self._daemon.evaluate_report_stage_a(proposal)
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            self.stage_b_calls += 1
+            return self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
+
+    daemon = CountingDaemon(forge._integrity_daemon)
+    forge._integrity_daemon = daemon  # type: ignore[assignment]
+
+    outcomes = forge.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+
+    scorecard = outcomes[0].details["router_scorecard"]
+    assert daemon.stage_b_calls <= 2
+    assert scorecard["proof_budget"]["m"] == 2
+    assert len(scorecard["promoted_to_stage_b"]) <= 2
+
+
+def test_genesis_escalates_only_when_all_fail_stage_a(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_ROUTER_K", "3")
+
+    class ConditionalStageADaemon:
+        def __init__(self, daemon: IntegrityDaemon, *, all_fail: bool) -> None:
+            self._daemon = daemon
+            self._all_fail = all_fail
+
+        def evaluate_report_stage_a(self, proposal: object):
+            report = self._daemon.evaluate_report_stage_a(proposal)
+            variant = str(getattr(proposal, "proposal_id", ""))
+            should_fail = self._all_fail or not variant.endswith("V1")
+            if should_fail:
+                report.valid_a = False
+                report.reason_codes_a = ["tamper"]
+                report.violations_a = [{"code": "tamper", "detail": "forced-stage-a"}]
+            return report
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            return self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
+
+    forge_no_escalation = _build_forge(tmp_path / "no_escalation")
+    daemon_no_escalation = ConditionalStageADaemon(forge_no_escalation._integrity_daemon, all_fail=False)
+    forge_no_escalation._integrity_daemon = daemon_no_escalation  # type: ignore[assignment]
+    outcomes_no_escalation = forge_no_escalation.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+    budget_no_escalation = outcomes_no_escalation[0].details["router_scorecard"]["proof_budget"]
+    assert budget_no_escalation["escalated"] is False
+    assert budget_no_escalation["k_final"] == 3
+
+    forge_escalation = _build_forge(tmp_path / "escalation")
+    daemon_escalation = ConditionalStageADaemon(forge_escalation._integrity_daemon, all_fail=True)
+    forge_escalation._integrity_daemon = daemon_escalation  # type: ignore[assignment]
+    outcomes_escalation = forge_escalation.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+    scorecard_escalation = outcomes_escalation[0].details["router_scorecard"]
+    budget_escalation = scorecard_escalation["proof_budget"]
+    assert budget_escalation["escalated"] is True
+    assert budget_escalation["k_final"] == 6
+    assert len(scorecard_escalation["stage_a"]) == 6
+
+
+def test_genesis_selected_candidate_matches_full_proof_on_promoted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SENTIENTOS_ROUTER_K", "5")
+    monkeypatch.setenv("SENTIENTOS_ROUTER_M", "2")
+    forge = _build_forge(tmp_path)
+
+    class OneAdmissibleStageBDaemon:
+        def __init__(self, daemon: IntegrityDaemon) -> None:
+            self._daemon = daemon
+            self._stage_a_ids: set[str] = set()
+            self.admissible_id: str | None = None
+
+        def evaluate_report_stage_a(self, proposal: object):
+            report = self._daemon.evaluate_report_stage_a(proposal)
+            candidate_id = str(getattr(proposal, "proposal_id", ""))
+            self._stage_a_ids.add(candidate_id)
+            ordered = sorted(self._stage_a_ids)
+            if len(ordered) >= 2:
+                self.admissible_id = ordered[1]
+            return report
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            report = self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
+            candidate_id = str(getattr(proposal, "proposal_id", ""))
+            if candidate_id != self.admissible_id:
+                report.valid = False
+                report.reason_codes = ["tamper"]
+                report.violations = [{"code": "tamper", "detail": "forced-stage-b"}]
+            return report
+
+    daemon = OneAdmissibleStageBDaemon(forge._integrity_daemon)
+    forge._integrity_daemon = daemon  # type: ignore[assignment]
+
+    telemetry = [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())]
+    vows = [CovenantVow("vision_input", "camera vow")]
+    outcomes = forge.expand(telemetry, vows)
+
+    scorecard = outcomes[0].details["router_scorecard"]
+    promoted_ids = scorecard["promoted_to_stage_b"]
+    selected_id = scorecard["selected_candidate_id"]
+    assert selected_id == daemon.admissible_id
+
+    need = forge._need_seer.scan(telemetry, vows)[0]
+    proposals = forge._forge_engine.draft_variants(
+        need,
+        k=scorecard["proof_budget"]["k_final"],
+        seed=scorecard["router_seed"],
+    )
+    proposal_map = {proposal.proposal_id: proposal for proposal in proposals}
+
+    results: list[CandidateResult] = []
+    for candidate_id in promoted_ids:
+        proposal = proposal_map[candidate_id]
+        stage_a = daemon.evaluate_report_stage_a(proposal)
+        evaluation = daemon.evaluate_report_stage_b(proposal, probe_cache=stage_a.probe)
+        results.append(
+            CandidateResult(
+                candidate_id=candidate_id,
+                proposal=proposal,
+                evaluation=evaluation,
+                score=score_evaluation(evaluation),
+            )
+        )
+    full_selected, status = choose_candidate(results)
+    assert status == "selected"
+    assert full_selected.candidate_id == selected_id

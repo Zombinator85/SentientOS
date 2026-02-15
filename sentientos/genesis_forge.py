@@ -21,7 +21,16 @@ from pathlib import Path
 from typing import Callable, Mapping, MutableMapping, Sequence
 
 from codex.integrity_daemon import IntegrityDaemon
-from codex.proposal_router import CandidateResult, choose_candidate, score_evaluation, top_violation_codes
+from codex.proposal_router import (
+    CandidateResult,
+    choose_candidate,
+    maybe_escalate_k,
+    promote_candidates,
+    rank_stage_a,
+    score_evaluation,
+    score_evaluation_a,
+    top_violation_codes,
+)
 from sentientos.codex_healer import Anomaly, RecoveryLedger, RepairAction
 from sentientos.codex_startup_guard import enforce_codex_startup
 
@@ -574,14 +583,53 @@ class GenesisForge:
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
         router_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        router_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
         for need in needs:
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
             router_seed = f"{need.capability}:{need.source}:{router_k}"
             try:
+                k_final = router_k
+                escalated = False
                 proposals = self._forge_engine.draft_variants(need, k=router_k, seed=router_seed)
+                stage_a_results: list[tuple[ForgeProposal, object]] = []
+                for proposal in proposals:
+                    stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
+                    stage_a_results.append((proposal, stage_a))
+
+                next_k, escalated = maybe_escalate_k(
+                    k=router_k,
+                    stage_a_results=[
+                        (proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results
+                    ],
+                )
+                if escalated:
+                    k_final = next_k
+                    proposals = self._forge_engine.draft_variants(
+                        need,
+                        k=k_final,
+                        seed=f"{router_seed}:escalated:{k_final}",
+                    )
+                    stage_a_results = []
+                    for proposal in proposals:
+                        stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
+                        stage_a_results.append((proposal, stage_a))
+
+                promoted_ids = promote_candidates(
+                    [(proposal.proposal_id, evaluation) for proposal, evaluation in stage_a_results],
+                    m=router_m,
+                )
+                probe_cache = {
+                    proposal.proposal_id: evaluation.probe for proposal, evaluation in stage_a_results
+                }
+
                 candidate_results: list[CandidateResult] = []
                 for proposal in proposals:
-                    evaluation = self._integrity_daemon.evaluate_report(proposal)
+                    if proposal.proposal_id not in promoted_ids:
+                        continue
+                    evaluation = self._integrity_daemon.evaluate_report_stage_b(
+                        proposal,
+                        probe_cache=probe_cache.get(proposal.proposal_id),
+                    )
                     candidate_results.append(
                         CandidateResult(
                             candidate_id=proposal.proposal_id,
@@ -590,18 +638,43 @@ class GenesisForge:
                             score=score_evaluation(evaluation),
                         )
                     )
+
                 selected, router_status = choose_candidate(candidate_results)
                 router_scorecard: dict[str, object] = {
                     "router_k": router_k,
+                    "router_m": router_m,
                     "router_seed": router_seed,
                     "router_status": router_status,
-                    "candidates": [
+                    "proof_budget": {
+                        "k": router_k,
+                        "m": router_m,
+                        "escalated": escalated,
+                        "k_final": k_final,
+                    },
+                    "promoted_to_stage_b": list(promoted_ids),
+                    "stage_a": [
+                        {
+                            "candidate_id": proposal.proposal_id,
+                            "valid_a": evaluation.valid_a,
+                            "reason_codes_a": list(evaluation.reason_codes_a),
+                            "top_violation_codes_a": top_violation_codes(evaluation.violations_a),
+                            "score_a": score_evaluation_a(evaluation),
+                            "rank_a": rank_stage_a(evaluation, candidate_id=proposal.proposal_id),
+                            "evaluation_artifact": evaluation.ledger_entry,
+                        }
+                        for proposal, evaluation in sorted(
+                            stage_a_results,
+                            key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id),
+                        )
+                    ],
+                    "stage_b": [
                         {
                             "candidate_id": result.candidate_id,
                             "score": result.score,
                             "rank": result.rank,
                             "valid": result.evaluation.valid,
                             "reason_codes": list(result.evaluation.reason_codes),
+                            "violations": [dict(item) for item in result.evaluation.violations],
                             "top_violation_codes": top_violation_codes(result.evaluation.violations),
                             "evaluation_artifact": result.evaluation.ledger_entry,
                         }
@@ -666,7 +739,12 @@ class GenesisForge:
                 self._ledger.log(
                     "GenesisForge integration_failed",
                     anomaly=anomaly,
-                    details={"error": str(exc), "router_seed": router_seed, "router_k": router_k},
+                    details={
+                        "error": str(exc),
+                        "router_seed": router_seed,
+                        "router_k": router_k,
+                        "router_m": router_m,
+                    },
                     quarantined=True,
                 )
                 outcomes.append(
