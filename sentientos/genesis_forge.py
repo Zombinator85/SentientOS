@@ -11,13 +11,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import json
+import os
+import random
 import re
 import uuid
 from pathlib import Path
 from typing import Callable, Mapping, MutableMapping, Sequence
 
-from codex.integrity_daemon import IntegrityDaemon, IntegrityViolation
+from codex.integrity_daemon import IntegrityDaemon
+from codex.proposal_router import CandidateResult, choose_candidate, score_evaluation, top_violation_codes
 from sentientos.codex_healer import Anomaly, RecoveryLedger, RepairAction
 from sentientos.codex_startup_guard import enforce_codex_startup
 
@@ -330,6 +334,74 @@ class ForgeEngine:
         )
         return proposal
 
+    def draft_variants(self, need: GenesisNeed, *, k: int, seed: str) -> list[ForgeProposal]:
+        """Draft deterministic, minimally perturbed variants."""
+
+        base = self.draft(need)
+        count = max(int(k), 1)
+        rng_seed = int.from_bytes(hashlib.sha256(seed.encode("utf-8")).digest()[:8], "big")
+        rng = random.Random(rng_seed)
+        allow_directives = [
+            "maintain_audit_visibility",
+            "preserve_operator_accountability",
+            "witness_integrity_surface",
+        ]
+
+        variants: list[ForgeProposal] = []
+        seen_specs: set[str] = set()
+        for index in range(count * 4):
+            directives = list(base.blueprint.directives)
+            testing = list(base.blueprint.testing_requirements)
+            shift = index % max(len(directives), 1)
+            directives = directives[shift:] + directives[:shift]
+            tshift = (index // 2) % max(len(testing), 1)
+            testing = testing[tshift:] + testing[:tshift]
+            if index % 3 == 1:
+                extra = allow_directives[rng.randrange(len(allow_directives))]
+                if extra not in directives:
+                    directives = directives + [extra]
+
+            proposed_spec = dict(base.proposed_spec)
+            proposed_spec["directives"] = directives
+            proposed_spec["testing_requirements"] = testing
+            lineage = dict(proposed_spec.get("lineage") or {})
+            lineage["router_variant"] = f"{index + 1:02d}"
+            proposed_spec["lineage"] = lineage
+            proposed_spec["ledger_required"] = bool(base.proposed_spec.get("ledger_required", True))
+
+            signature = json.dumps(proposed_spec, sort_keys=True)
+            if signature in seen_specs:
+                continue
+            seen_specs.add(signature)
+
+            blueprint = DaemonBlueprint(
+                name=base.blueprint.name,
+                objective=base.blueprint.objective,
+                directives=list(directives),
+                testing_requirements=list(testing),
+                handler=base.blueprint.handler,
+                test_cases=list(base.blueprint.test_cases),
+            )
+            variant_hash = hashlib.sha256(f"{seed}:{index}".encode("utf-8")).hexdigest()[:10]
+            variants.append(
+                ForgeProposal(
+                    proposal_id=f"GF-{variant_hash}-V{len(variants)+1}",
+                    spec_id=base.spec_id,
+                    summary=f"{base.summary} [variant {len(variants)+1}]",
+                    need=base.need,
+                    blueprint=blueprint,
+                    original_spec=dict(base.original_spec),
+                    proposed_spec=proposed_spec,
+                    deltas=dict(base.deltas),
+                )
+            )
+            if len(variants) >= count:
+                break
+
+        if len(variants) < count:
+            raise GenesisForgeError(f"Unable to produce {count} distinct variants")
+        return variants
+
 
 # ---------------------------------------------------------------------------
 # TrialRun
@@ -501,11 +573,61 @@ class GenesisForge:
     ) -> list[GenesisOutcome]:
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
+        router_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
         for need in needs:
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
+            router_seed = f"{need.capability}:{need.source}:{router_k}"
             try:
-                proposal = self._forge_engine.draft(need)
-                self._integrity_daemon.evaluate(proposal)
+                proposals = self._forge_engine.draft_variants(need, k=router_k, seed=router_seed)
+                candidate_results: list[CandidateResult] = []
+                for proposal in proposals:
+                    evaluation = self._integrity_daemon.evaluate_report(proposal)
+                    candidate_results.append(
+                        CandidateResult(
+                            candidate_id=proposal.proposal_id,
+                            proposal=proposal,
+                            evaluation=evaluation,
+                            score=score_evaluation(evaluation),
+                        )
+                    )
+                selected, router_status = choose_candidate(candidate_results)
+                router_scorecard: dict[str, object] = {
+                    "router_k": router_k,
+                    "router_seed": router_seed,
+                    "router_status": router_status,
+                    "candidates": [
+                        {
+                            "candidate_id": result.candidate_id,
+                            "score": result.score,
+                            "rank": result.rank,
+                            "valid": result.evaluation.valid,
+                            "reason_codes": list(result.evaluation.reason_codes),
+                            "top_violation_codes": top_violation_codes(result.evaluation.violations),
+                            "evaluation_artifact": result.evaluation.ledger_entry,
+                        }
+                        for result in sorted(candidate_results, key=lambda item: item.rank or 999)
+                    ],
+                }
+
+                if router_status != "selected":
+                    router_scorecard["best_failure_id"] = selected.candidate_id
+                    router_scorecard["best_failure"] = {
+                        "reason_codes": list(selected.evaluation.reason_codes),
+                        "score": selected.score,
+                    }
+                    self._ledger.log(
+                        "GenesisForge routing_failed",
+                        anomaly=anomaly,
+                        details=router_scorecard,
+                        quarantined=True,
+                    )
+                    raise GenesisForgeError(
+                        "No admissible candidate "
+                        f"({selected.candidate_id}: {','.join(selected.evaluation.reason_codes)})"
+                    )
+
+                proposal = selected.proposal
+                router_scorecard["selected_candidate_id"] = selected.candidate_id
                 report = self._trial_run.execute(proposal.blueprint)
                 if not report.passed:
                     raise GenesisForgeError(
@@ -525,6 +647,7 @@ class GenesisForge:
                         "spec_id": proposal.spec_id,
                         "lineage": lineage_entry,
                         "adoption": adoption,
+                        "router_scorecard": router_scorecard,
                     },
                 )
                 self._ledger.log(
@@ -539,28 +662,11 @@ class GenesisForge:
                     details=outcome.details,
                 )
                 outcomes.append(outcome)
-            except IntegrityViolation as exc:
-                self._ledger.log(
-                    "GenesisForge rejected",
-                    anomaly=anomaly,
-                    details={
-                        "reason_codes": list(exc.reason_codes),
-                        "spec_id": exc.spec_id,
-                    },
-                    quarantined=True,
-                )
-                outcomes.append(
-                    GenesisOutcome(
-                        need=need,
-                        status="rejected",
-                        details={"reason": "integrity_violation", "codes": list(exc.reason_codes)},
-                    )
-                )
             except GenesisForgeError as exc:
                 self._ledger.log(
                     "GenesisForge integration_failed",
                     anomaly=anomaly,
-                    details={"error": str(exc)},
+                    details={"error": str(exc), "router_seed": router_seed, "router_k": router_k},
                     quarantined=True,
                 )
                 outcomes.append(

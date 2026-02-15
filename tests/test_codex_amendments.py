@@ -294,3 +294,43 @@ def test_integrity_endpoint_reports_health(tmp_path: Path, base_spec: dict) -> N
     assert status["daemon"] == "IntegrityDaemon"
     assert status["passed"] >= 1
     assert status["status"] in {"stable", "watch"}
+
+
+def test_spec_amender_does_not_persist_when_no_admissible_candidate(
+    tmp_path: Path, base_spec: dict
+) -> None:
+    clock = ManualClock()
+    root = tmp_path / "integration"
+    engine = SpecAmender(root=root, now=clock.now)
+
+    class AlwaysInvalid:
+        def __init__(self, daemon: object) -> None:
+            self._daemon = daemon
+
+        def evaluate_report(self, proposal: object):
+            report = self._daemon.evaluate_report(proposal)
+            report.valid = False
+            report.reason_codes = ["tamper"]
+            report.violations = [{"code": "tamper", "detail": "forced"}]
+            return report
+
+        def health(self):
+            return self._daemon.health()
+
+    engine._integrity_daemon = AlwaysInvalid(engine._integrity_daemon)  # type: ignore[assignment]
+
+    with pytest.raises(IntegrityViolation):
+        engine.propose_manual(
+            base_spec["spec_id"],
+            summary="manual proposal",
+            deltas={"objective": {"before": "a", "after": "b"}},
+            context={"origin": "test"},
+            original_spec={**base_spec, "lineage": {"seed": "v0"}},
+            proposed_spec={**base_spec, "lineage": {"seed": "v0"}},
+        )
+
+    assert not list((root / "specs" / "amendments" / "pending").glob("*.json"))
+    amendment_log = _read_log(root / "amendment_log.jsonl")
+    routing = [entry for entry in amendment_log if entry["event"] == "routing-failed"]
+    assert routing
+    assert routing[-1]["metadata"]["router_scorecard"]["router_status"] == "no_admissible_candidate"

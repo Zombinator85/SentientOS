@@ -3,11 +3,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
+import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
 import json
-import uuid
 
 from sentientos.codex_startup_guard import enforce_codex_startup
 
@@ -19,6 +20,7 @@ from sentientos.codex_startup_guard import enforce_codex_startup
 
 
 from .integrity_daemon import IntegrityDaemon, IntegrityViolation
+from .proposal_router import CandidateResult, choose_candidate, score_evaluation, top_violation_codes
 from privilege_lint.reporting import (
     NarratorLink,
     PrivilegeReport,
@@ -535,6 +537,86 @@ class SpecAmender:
             counts[kind] = counts.get(kind, 0) + 1
         return counts
 
+    def _draft_amendment_variants(
+        self,
+        *,
+        spec_id: str,
+        kind: str,
+        summary: str,
+        deltas: Mapping[str, Any],
+        context: Mapping[str, Any],
+        original_spec: Mapping[str, Any],
+        proposed_spec: Mapping[str, Any],
+        lineage: Mapping[str, Any] | None,
+        k: int,
+        seed: str,
+    ) -> list[AmendmentProposal]:
+        count = max(int(k), 1)
+        base_directives = list((proposed_spec or {}).get("directives") or [])
+        base_testing = list((proposed_spec or {}).get("testing_requirements") or [])
+        variants: list[AmendmentProposal] = []
+        seen: set[str] = set()
+        for idx in range(count * 5):
+            directives = list(base_directives)
+            testing = list(base_testing)
+            if directives:
+                shift = idx % len(directives)
+                directives = directives[shift:] + directives[:shift]
+            if testing:
+                shift_t = (idx // 2) % len(testing)
+                testing = testing[shift_t:] + testing[:shift_t]
+
+            variant_spec = dict(proposed_spec)
+            if directives:
+                variant_spec["directives"] = directives
+            if testing:
+                variant_spec["testing_requirements"] = testing
+            lineage_payload = dict(variant_spec.get("lineage") or {})
+            lineage_payload["router_variant"] = f"{idx + 1:02d}"
+            if lineage_payload:
+                variant_spec["lineage"] = lineage_payload
+            option = idx % 3
+            if option == 1:
+                variant_summary = f"{summary} [candidate {idx + 1}]"
+            elif option == 2:
+                variant_summary = f"[candidate {idx + 1}] {summary}"
+            else:
+                variant_summary = summary
+
+            signature = json.dumps(
+                {
+                    "summary": variant_summary,
+                    "proposed_spec": variant_spec,
+                    "deltas": dict(deltas),
+                },
+                sort_keys=True,
+            )
+            if signature in seen:
+                continue
+            seen.add(signature)
+
+            proposal_hash = hashlib.sha256(f"{seed}:{idx}".encode("utf-8")).hexdigest()[:8]
+            proposal = AmendmentProposal(
+                proposal_id=f"{spec_id}-{proposal_hash}-V{len(variants) + 1}",
+                spec_id=spec_id,
+                kind=kind,
+                status="pending",
+                summary=variant_summary,
+                deltas=dict(deltas),
+                context=dict(context),
+                original_spec=dict(original_spec),
+                proposed_spec=variant_spec,
+                created_at=self._now(),
+                updated_at=self._now(),
+                lineage=dict(lineage) if lineage else None,
+            )
+            variants.append(proposal)
+            if len(variants) >= count:
+                break
+        if len(variants) < count:
+            raise RuntimeError(f"Unable to draft {count} amendment variants")
+        return variants
+
     def _create_proposal(
         self,
         *,
@@ -547,28 +629,79 @@ class SpecAmender:
         proposed_spec: Mapping[str, Any],
         lineage: Mapping[str, Any] | None,
     ) -> AmendmentProposal:
-        proposal_id = f"{spec_id}-{uuid.uuid4().hex[:8]}"
-        proposal = AmendmentProposal(
-            proposal_id=proposal_id,
+        router_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        dominant = str((context or {}).get("dominant_signal") or kind)
+        minute_bucket = self._now().strftime("%Y%m%d%H%M")
+        router_seed = f"{spec_id}:{dominant}:{minute_bucket}:{router_k}"
+        candidates = self._draft_amendment_variants(
             spec_id=spec_id,
             kind=kind,
-            status="pending",
             summary=summary,
-            deltas=dict(deltas),
-            context=dict(context),
-            original_spec=dict(original_spec),
-            proposed_spec=dict(proposed_spec),
-            created_at=self._now(),
-            updated_at=self._now(),
-            lineage=dict(lineage) if lineage else None,
+            deltas=deltas,
+            context=context,
+            original_spec=original_spec,
+            proposed_spec=proposed_spec,
+            lineage=lineage,
+            k=router_k,
+            seed=router_seed,
         )
-        self._integrity_daemon.evaluate(proposal)
+        results: list[CandidateResult] = []
+        for candidate in candidates:
+            evaluation = self._integrity_daemon.evaluate_report(candidate)
+            results.append(
+                CandidateResult(
+                    candidate_id=candidate.proposal_id,
+                    proposal=candidate,
+                    evaluation=evaluation,
+                    score=score_evaluation(evaluation),
+                )
+            )
+        selected, router_status = choose_candidate(results)
+        scorecard = {
+            "router_k": router_k,
+            "router_seed": router_seed,
+            "router_status": router_status,
+            "candidates": [
+                {
+                    "candidate_id": result.candidate_id,
+                    "score": result.score,
+                    "rank": result.rank,
+                    "valid": result.evaluation.valid,
+                    "reason_codes": list(result.evaluation.reason_codes),
+                    "top_violation_codes": top_violation_codes(result.evaluation.violations),
+                    "evaluation_artifact": result.evaluation.ledger_entry,
+                }
+                for result in sorted(results, key=lambda item: item.rank or 999)
+            ],
+        }
+        if router_status != "selected":
+            scorecard["best_failure_id"] = selected.candidate_id
+            scorecard["best_failure"] = {
+                "reason_codes": list(selected.evaluation.reason_codes),
+                "score": selected.score,
+            }
+            self._append_amendment_log(
+                "routing-failed",
+                spec_id,
+                selected.candidate_id,
+                {"kind": kind, "summary": summary, "router_scorecard": scorecard},
+            )
+            raise IntegrityViolation(
+                selected.candidate_id,
+                spec_id=spec_id,
+                reason_codes=selected.evaluation.reason_codes,
+                violations=selected.evaluation.violations,
+            )
+
+        proposal = selected.proposal
+        scorecard["selected_candidate_id"] = selected.candidate_id
+        proposal.add_note("router", "selected", {"router_scorecard": scorecard})
         self._persist(proposal)
         self._append_amendment_log(
             "proposed",
             proposal.spec_id,
             proposal.proposal_id,
-            {"kind": kind, "summary": summary},
+            {"kind": kind, "summary": proposal.summary, "router_scorecard": scorecard},
         )
         return proposal
 

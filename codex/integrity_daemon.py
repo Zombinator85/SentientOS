@@ -52,6 +52,20 @@ class ProbeReport:
         }
 
 
+@dataclass(slots=True)
+class IntegrityEvaluation:
+    """Non-raising integrity verdict with full verifier artifacts."""
+
+    valid: bool
+    reason_codes: List[str]
+    violations: List[Dict[str, Any]]
+    probe: Dict[str, Any]
+    proof_report: Dict[str, Any]
+    timestamp: str
+    ledger_entry: str
+    quarantined: bool
+
+
 class IntegrityViolation(RuntimeError):
     """Raised when a proposal fails covenantal integrity checks."""
 
@@ -116,8 +130,8 @@ class IntegrityDaemon:
 
     # ------------------------------------------------------------------
     # Public API
-    def evaluate(self, proposal: Any) -> None:
-        """Run amendment through hostile probes and covenant checks."""
+    def evaluate_report(self, proposal: Any) -> IntegrityEvaluation:
+        """Run checks and return a structured verdict without raising."""
 
         timestamp = self._now().isoformat()
         report = self._probe(proposal)
@@ -131,7 +145,7 @@ class IntegrityDaemon:
         self._health["last_scan"] = timestamp
 
         status_label = "QUARANTINED" if violations else "VALID"
-        ledger_entry = self._record_ledger_entry(
+        ledger_payload = self._record_ledger_entry(
             timestamp=timestamp,
             proposal=proposal,
             probe=report,
@@ -139,32 +153,48 @@ class IntegrityDaemon:
             violations=violations,
             status=status_label,
         )
-
+        proposal_id = str(getattr(proposal, "proposal_id", "unknown"))
+        spec_id = str(getattr(proposal, "spec_id", "unknown"))
+        quarantined = False
         if violations:
             self._health["quarantined"] = int(self._health["quarantined"]) + 1
             codes = sorted({str(entry["code"]) for entry in violations})
-            payload = dict(ledger_entry)
             self._health["status"] = "alert"
             self._health["last_violation"] = {
-                "proposal_id": payload["proposal_id"],
-                "spec_id": payload["spec_id"],
+                "proposal_id": proposal_id,
+                "spec_id": spec_id,
                 "reason_codes": codes,
                 "timestamp": timestamp,
             }
-            self._quarantine(proposal, payload)
-            raise IntegrityViolation(
-                payload["proposal_id"],
-                spec_id=payload["spec_id"],
-                reason_codes=codes,
-                violations=violations,
-            )
-
-        self._health["passed"] = int(self._health["passed"]) + 1
-        if self._health["quarantined"]:
-            self._health["status"] = "watch"
+            self._quarantine(proposal, ledger_payload)
+            quarantined = True
         else:
-            self._health["status"] = "stable"
-        self._health["last_violation"] = None
+            self._health["passed"] = int(self._health["passed"]) + 1
+            self._health["status"] = "watch" if self._health["quarantined"] else "stable"
+            self._health["last_violation"] = None
+
+        return IntegrityEvaluation(
+            valid=not violations,
+            reason_codes=sorted({str(item.get("code", "unknown")) for item in violations}),
+            violations=[dict(item) for item in violations],
+            probe=report.to_dict(),
+            proof_report=proof_report.to_dict(),
+            timestamp=timestamp,
+            ledger_entry=f"{self._ledger_path}#{proposal_id}:{timestamp}",
+            quarantined=quarantined,
+        )
+
+    def evaluate(self, proposal: Any) -> None:
+        """Run amendment through hostile probes and covenant checks."""
+        evaluation = self.evaluate_report(proposal)
+        if evaluation.valid:
+            return
+        raise IntegrityViolation(
+            str(getattr(proposal, "proposal_id", "unknown")),
+            spec_id=str(getattr(proposal, "spec_id", "unknown")),
+            reason_codes=evaluation.reason_codes,
+            violations=evaluation.violations,
+        )
 
     def health(self) -> Dict[str, Any]:
         """Snapshot of daemon health for /daemon/integrity endpoint."""

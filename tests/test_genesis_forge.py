@@ -172,3 +172,59 @@ def test_prevents_overwriting_existing_daemon(tmp_path: Path) -> None:
     assert isinstance(outcomes[0].details["error"], str)
     # Original file remains untouched.
     assert existing.read_text(encoding="utf-8") == "{}"
+
+
+def test_draft_variants_are_distinct_and_preserve_lineage() -> None:
+    need = NeedSeer().scan(
+        [TelemetryStream("vision", "vision_input", "camera", frozenset(), {"frames": 3})],
+        [CovenantVow("vision_input", "camera vow")],
+    )[0]
+    engine = ForgeEngine()
+    variants = engine.draft_variants(need, k=3, seed="vision-seed")
+    assert len(variants) == 3
+    payloads = {json.dumps(item.proposed_spec, sort_keys=True) for item in variants}
+    assert len(payloads) == 3
+    for variant in variants:
+        assert variant.proposed_spec["ledger_required"] is True
+        assert variant.proposed_spec["lineage"]["provenance"] == "GenesisForge"
+
+
+def test_genesis_forge_refuses_when_no_admissible_candidate(tmp_path: Path) -> None:
+    telemetry = [
+        TelemetryStream(
+            name="vision_stream",
+            capability="vision_input",
+            description="Camera frames",
+            handled_by=frozenset(),
+        )
+    ]
+    vows = [CovenantVow("vision_input", "camera vow")]
+
+    forge = GenesisForge(
+        need_seer=NeedSeer(),
+        forge_engine=ForgeEngine(),
+        integrity_daemon=IntegrityDaemon(tmp_path),
+        trial_run=TrialRun(),
+        spec_binder=SpecBinder(lineage_root=tmp_path / "lineage", covenant_root=tmp_path / "covenant"),
+        adoption_rite=AdoptionRite(
+            live_mount=tmp_path / "live",
+            codex_index=tmp_path / "codex.json",
+            review_board=_review_board,
+        ),
+        ledger=RecoveryLedger(tmp_path / "ledger.jsonl"),
+    )
+
+    class AlwaysInvalid:
+        def __init__(self, base: IntegrityDaemon) -> None:
+            self.base = base
+
+        def evaluate_report(self, proposal: object):
+            result = self.base.evaluate_report(proposal)
+            result.valid = False
+            result.reason_codes = ["tamper"]
+            result.violations = [{"code": "tamper", "detail": "forced"}]
+            return result
+
+    forge._integrity_daemon = AlwaysInvalid(forge._integrity_daemon)  # type: ignore[assignment]
+    outcomes = forge.expand(telemetry, vows)
+    assert outcomes[0].status == "failed"
