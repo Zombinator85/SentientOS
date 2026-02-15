@@ -32,15 +32,17 @@ def _ensure_provisioned_environment() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     if not editable_install_from_repo_root(repo_root):
         pytest.exit(
-            "Not running against an editable install of this repo. Run pip install -e .[dev] or "
+            "Not running against an editable install of this repo. Run pip install -e .[dev,test] or "
             "python -m scripts.run_tests."
         )
     try:
         import sentientos  # noqa: F401
         import fastapi  # noqa: F401
+        from starlette.testclient import TestClient  # noqa: F401
+        import httpx  # noqa: F401
     except Exception:
         pytest.exit(
-            "Not running against an editable install of this repo. Run pip install -e .[dev] or "
+            "Not running against an editable install of this repo. Run pip install -e .[dev,test] or "
             "python -m scripts.run_tests."
         )
 

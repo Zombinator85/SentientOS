@@ -15,9 +15,17 @@ from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PRECHECK_MESSAGE = (
-    "Not running against an editable install of this repo. "
-    "Run pip install -e .[dev] or python -m scripts.run_tests."
+    "Not running against a test-capable editable install of this repo. "
+    "Run pip install -e .[dev,test] or python -m scripts.run_tests."
 )
+
+TEST_INFRA_IMPORTS = (
+    ("fastapi", None),
+    ("starlette.testclient", "TestClient"),
+    ("httpx", None),
+    ("sentientos", None),
+)
+INSTALL_EXTRAS = "[dev,test]"
 BYPASS_ENV_VARS = (
     "SENTIENTOS_ALLOW_NAKED_PYTEST",
     "SENTIENTOS_ALLOW_NO_TESTS",
@@ -100,20 +108,30 @@ NON_EXECUTION_INFO_FLAGS = {
 }
 
 
-def _imports_ok() -> bool:
-    proc = subprocess.run(
-        [sys.executable, "-c", "import fastapi, sentientos"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return proc.returncode == 0
+def _imports_ok() -> tuple[bool, str | None]:
+    for module_name, symbol in TEST_INFRA_IMPORTS:
+        if symbol:
+            snippet = f"from {module_name} import {symbol}"
+            label = f"{module_name}.{symbol}"
+        else:
+            snippet = f"import {module_name}"
+            label = module_name
+        proc = subprocess.run(
+            [sys.executable, "-c", snippet],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            details = (proc.stderr or proc.stdout or "unknown import failure").strip()
+            return False, f"{label} import failed: {details}"
+    return True, None
 
 
 def _install_deps() -> bool:
     proc = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-e", ".[dev]"],
+        [sys.executable, "-m", "pip", "install", "-e", f".{INSTALL_EXTRAS}"],
         cwd=REPO_ROOT,
         check=False,
     )
@@ -420,14 +438,18 @@ def _write_provenance(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Install SentientOS dev deps (if needed) and run pytest.",
+        description="Install SentientOS dev/test deps (if needed) and run pytest.",
     )
     parser.add_argument(
         "pytest_args",
-        nargs=argparse.REMAINDER,
+        nargs="*",
         help="Arguments forwarded to pytest.",
     )
-    args = parser.parse_args(argv)
+    args, passthrough_pytest_args = parser.parse_known_args(argv)
+
+    pytest_args = list(args.pytest_args) + list(passthrough_pytest_args)
+    if pytest_args and pytest_args[0] == "--":
+        pytest_args = pytest_args[1:]
 
     env = os.environ.copy()
     bypass_envs = _active_bypass_envs(env)
@@ -435,10 +457,10 @@ def main(argv: list[str] | None = None) -> int:
     allow_nonexecution = env.get(ALLOW_NONEXECUTION_ENV) == "1"
     allow_no_tests = env.get("SENTIENTOS_ALLOW_NO_TESTS") == "1"
     run_intent, selection_flags = _run_intent(
-        pytest_args=args.pytest_args,
+        pytest_args=pytest_args,
         bypass_envs=bypass_envs,
     )
-    execution_mode, non_execution_flags = _execution_mode(args.pytest_args)
+    execution_mode, non_execution_flags = _execution_mode(pytest_args)
     if allow_nonexecution:
         run_intent = "exceptional"
     install_performed = False
@@ -449,7 +471,7 @@ def main(argv: list[str] | None = None) -> int:
             _write_provenance(
                 repo_root=REPO_ROOT,
                 install_performed=install_performed,
-                pytest_args=args.pytest_args,
+                pytest_args=pytest_args,
                 editable_status=editable_status,
                 bypass_env=bypass_env,
                 allow_nonexecution=allow_nonexecution,
@@ -477,7 +499,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             _emit_run_context(
                 install_performed,
-                args.pytest_args,
+                pytest_args,
                 editable_ok=editable_status.ok,
                 repo_root=REPO_ROOT,
                 bypass_env="1" if bypass_env else None,
@@ -486,12 +508,12 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     editable_status = get_editable_install_status(REPO_ROOT)
-    imports_ok = _imports_ok()
+    imports_ok, import_error = _imports_ok()
     if not editable_status.ok or not imports_ok:
         _write_provenance(
             repo_root=REPO_ROOT,
             install_performed=install_performed,
-            pytest_args=args.pytest_args,
+            pytest_args=pytest_args,
             editable_status=editable_status,
             bypass_env=bypass_env,
             allow_nonexecution=allow_nonexecution,
@@ -519,17 +541,19 @@ def main(argv: list[str] | None = None) -> int:
         )
         _emit_run_context(
             install_performed,
-            args.pytest_args,
+            pytest_args,
             editable_ok=editable_status.ok,
             repo_root=REPO_ROOT,
             bypass_env="1" if bypass_env else None,
         )
+        if import_error:
+            print(f"run_tests import airlock failed: {import_error}")
         print(PRECHECK_MESSAGE)
         return 1
 
     _emit_run_context(
         install_performed,
-        args.pytest_args,
+        pytest_args,
         editable_ok=editable_status.ok,
         repo_root=REPO_ROOT,
         bypass_env="1" if bypass_env else None,
@@ -543,7 +567,7 @@ def main(argv: list[str] | None = None) -> int:
         _write_provenance(
             repo_root=REPO_ROOT,
             install_performed=install_performed,
-            pytest_args=args.pytest_args,
+            pytest_args=pytest_args,
             editable_status=editable_status,
             bypass_env=bypass_env,
             allow_nonexecution=allow_nonexecution,
@@ -577,8 +601,8 @@ def main(argv: list[str] | None = None) -> int:
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     cmd = [sys.executable, "-m", "pytest"]
     cmd.extend(["-p", "scripts.pytest_collection_reporter"])
-    if args.pytest_args:
-        cmd.extend(args.pytest_args)
+    if pytest_args:
+        cmd.extend(pytest_args)
     pytest_exit_code = subprocess.run(cmd, cwd=REPO_ROOT, env=env).returncode
     tests_collected = None
     tests_selected = None
@@ -690,7 +714,7 @@ def main(argv: list[str] | None = None) -> int:
     _write_provenance(
         repo_root=REPO_ROOT,
         install_performed=install_performed,
-        pytest_args=args.pytest_args,
+        pytest_args=pytest_args,
         editable_status=editable_status,
         bypass_env=bypass_env,
         allow_nonexecution=allow_nonexecution,
