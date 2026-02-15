@@ -307,12 +307,18 @@ def test_spec_amender_does_not_persist_when_no_admissible_candidate(
         def __init__(self, daemon: object) -> None:
             self._daemon = daemon
 
-        def evaluate_report(self, proposal: object):
-            report = self._daemon.evaluate_report(proposal)
+        def evaluate_report_stage_a(self, proposal: object):
+            return self._daemon.evaluate_report_stage_a(proposal)
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            report = self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
             report.valid = False
             report.reason_codes = ["tamper"]
             report.violations = [{"code": "tamper", "detail": "forced"}]
             return report
+
+        def evaluate_report(self, proposal: object):
+            return self.evaluate_report_stage_b(proposal)
 
         def health(self):
             return self._daemon.health()
@@ -334,3 +340,44 @@ def test_spec_amender_does_not_persist_when_no_admissible_candidate(
     routing = [entry for entry in amendment_log if entry["event"] == "routing-failed"]
     assert routing
     assert routing[-1]["metadata"]["router_scorecard"]["router_status"] == "no_admissible_candidate"
+
+
+def test_stage_b_proof_budget_is_capped_by_m(tmp_path: Path, base_spec: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = ManualClock()
+    root = tmp_path / "integration"
+    monkeypatch.setenv("SENTIENTOS_ROUTER_K", "5")
+    monkeypatch.setenv("SENTIENTOS_ROUTER_M", "2")
+    engine = SpecAmender(root=root, now=clock.now)
+
+    class CountingDaemon:
+        def __init__(self, daemon: object) -> None:
+            self._daemon = daemon
+            self.stage_b_calls = 0
+
+        def evaluate_report_stage_a(self, proposal: object):
+            return self._daemon.evaluate_report_stage_a(proposal)
+
+        def evaluate_report_stage_b(self, proposal: object, *, probe_cache=None):
+            self.stage_b_calls += 1
+            return self._daemon.evaluate_report_stage_b(proposal, probe_cache=probe_cache)
+
+        def health(self):
+            return self._daemon.health()
+
+    daemon = CountingDaemon(engine._integrity_daemon)
+    engine._integrity_daemon = daemon  # type: ignore[assignment]
+
+    proposal = engine.propose_manual(
+        base_spec["spec_id"],
+        summary="manual proposal",
+        deltas={"objective": {"before": "a", "after": "b"}},
+        context={"origin": "test"},
+        original_spec={**base_spec, "lineage": {"seed": "v0"}},
+        proposed_spec={**base_spec, "lineage": {"seed": "v0"}},
+    )
+
+    assert daemon.stage_b_calls <= 2
+    payload = _load_json(root / "specs" / "amendments" / "pending" / f"{proposal.proposal_id}.json")
+    scorecard = payload["operator_notes"][0]["metadata"]["router_scorecard"]
+    assert scorecard["proof_budget"]["m"] == 2
+    assert len(scorecard["promoted_to_stage_b"]) <= 2
