@@ -127,6 +127,9 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
 
     ledger_lines = [json.loads(line) for line in ledger_path.read_text().splitlines()]
     assert any(entry["status"] == "GenesisForge event" for entry in ledger_lines)
+    proof_budget_events = [entry for entry in ledger_lines if entry["status"] == "proof_budget"]
+    assert proof_budget_events
+    assert proof_budget_events[-1]["details"]["event_type"] == "proof_budget"
 
     codex_payload = json.loads(codex_index.read_text())
     assert codex_payload[0]["provenance"] == "GenesisForge"
@@ -285,9 +288,13 @@ def test_genesis_stage_b_proof_budget_is_capped_by_m(
     )
 
     scorecard = outcomes[0].details["router_scorecard"]
+    telemetry = scorecard["router_telemetry"]
     assert daemon.stage_b_calls <= 2
     assert scorecard["proof_budget"]["m"] == 2
     assert len(scorecard["promoted_to_stage_b"]) <= 2
+    assert telemetry["stage_b_evaluations"] == daemon.stage_b_calls
+    assert telemetry["stage_b_evaluations"] <= 2
+    assert telemetry["stage_a_evaluations"] == len(scorecard["stage_a"])
 
 
 def test_genesis_escalates_only_when_all_fail_stage_a(
@@ -333,9 +340,13 @@ def test_genesis_escalates_only_when_all_fail_stage_a(
     )
     scorecard_escalation = outcomes_escalation[0].details["router_scorecard"]
     budget_escalation = scorecard_escalation["proof_budget"]
+    telemetry_escalation = scorecard_escalation["router_telemetry"]
     assert budget_escalation["escalated"] is True
     assert budget_escalation["k_final"] == 6
     assert len(scorecard_escalation["stage_a"]) == 6
+    assert telemetry_escalation["escalated"] is True
+    assert telemetry_escalation["k_final"] == 6
+    assert telemetry_escalation["stage_a_evaluations"] == 6
 
 
 def test_genesis_selected_candidate_matches_full_proof_on_promoted(

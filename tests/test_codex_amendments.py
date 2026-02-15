@@ -340,6 +340,9 @@ def test_spec_amender_does_not_persist_when_no_admissible_candidate(
     routing = [entry for entry in amendment_log if entry["event"] == "routing-failed"]
     assert routing
     assert routing[-1]["metadata"]["router_scorecard"]["router_status"] == "no_admissible_candidate"
+    proof_budget_events = [entry for entry in amendment_log if entry["event"] == "proof-budget"]
+    assert proof_budget_events
+    assert proof_budget_events[-1]["metadata"]["event_type"] == "proof_budget"
 
 
 def test_stage_b_proof_budget_is_capped_by_m(tmp_path: Path, base_spec: dict, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -379,5 +382,8 @@ def test_stage_b_proof_budget_is_capped_by_m(tmp_path: Path, base_spec: dict, mo
     assert daemon.stage_b_calls <= 2
     payload = _load_json(root / "specs" / "amendments" / "pending" / f"{proposal.proposal_id}.json")
     scorecard = payload["operator_notes"][0]["metadata"]["router_scorecard"]
+    telemetry = scorecard["router_telemetry"]
     assert scorecard["proof_budget"]["m"] == 2
     assert len(scorecard["promoted_to_stage_b"]) <= 2
+    assert telemetry["stage_b_evaluations"] == daemon.stage_b_calls
+    assert telemetry["stage_a_evaluations"] == len(scorecard["stage_a"])

@@ -709,10 +709,25 @@ class SpecAmender:
                 )
             )
         selected, router_status = choose_candidate(results)
+        stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
+        stage_b_valid_count = sum(1 for result in results if bool(result.evaluation.valid))
+        router_telemetry = {
+            "k_initial": router_k,
+            "k_final": k_final,
+            "m": router_m,
+            "escalated": escalated,
+            "stage_a_evaluations": len(stage_a_results),
+            "stage_b_evaluations": len(results),
+            "stage_a_valid_count": stage_a_valid_count,
+            "stage_b_valid_count": stage_b_valid_count,
+            "router_status": router_status,
+            "selected_candidate_id": selected.candidate_id if router_status == "selected" else None,
+        }
         scorecard = {
             "router_k": router_k,
             "router_seed": router_seed,
             "router_status": router_status,
+            "router_telemetry": router_telemetry,
             "proof_budget": {
                 "k": router_k,
                 "m": router_m,
@@ -761,6 +776,19 @@ class SpecAmender:
                 selected.candidate_id,
                 {"kind": kind, "summary": summary, "router_scorecard": scorecard},
             )
+            self._append_amendment_log(
+                "proof-budget",
+                spec_id,
+                selected.candidate_id,
+                {
+                    "event_type": "proof_budget",
+                    "kind": kind,
+                    "summary": summary,
+                    "capability": str((context or {}).get("capability") or spec_id),
+                    "run_provenance_hash": os.getenv("SENTIENTOS_RUN_PROVENANCE_HASH"),
+                    "router_telemetry": dict(router_telemetry),
+                },
+            )
             raise IntegrityViolation(
                 selected.candidate_id,
                 spec_id=spec_id,
@@ -777,6 +805,19 @@ class SpecAmender:
             proposal.spec_id,
             proposal.proposal_id,
             {"kind": kind, "summary": proposal.summary, "router_scorecard": scorecard},
+        )
+        self._append_amendment_log(
+            "proof-budget",
+            proposal.spec_id,
+            proposal.proposal_id,
+            {
+                "event_type": "proof_budget",
+                "kind": kind,
+                "summary": proposal.summary,
+                "capability": str((context or {}).get("capability") or proposal.spec_id),
+                "run_provenance_hash": os.getenv("SENTIENTOS_RUN_PROVENANCE_HASH"),
+                "router_telemetry": dict(router_telemetry),
+            },
         )
         return proposal
 
