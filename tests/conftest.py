@@ -289,6 +289,8 @@ def pytest_collection_modifyitems(config, items):
         "tests.consciousness.test_sentience_kernel",
         "tests.integrity.test_covenant_autoalign",
         "tests.test_glossary_lint",
+        "tests.test_pytest_collection_reporter",
+        "tests.test_run_tests_reporter_resilience",
     }
     legacy_enabled = legacy_marker_enabled(config.option.markexpr)
     federation_enabled = federation_enablement.is_enabled()

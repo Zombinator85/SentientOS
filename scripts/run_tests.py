@@ -316,6 +316,53 @@ def _apply_snapshot_retention(provenance_dir: Path, env: dict[str, str]) -> None
             print(f"WARNING: failed to remove stale provenance snapshot {stale_path}: {exc}")
 
 
+
+
+def _normalize_reporter_error(raw: object) -> dict[str, str] | None:
+    if not isinstance(raw, dict):
+        return None
+    error_type = raw.get("type")
+    message = raw.get("message")
+    if not isinstance(error_type, str) or not isinstance(message, str):
+        return None
+    normalized: dict[str, str] = {"type": error_type, "message": message}
+    traceback_text = raw.get("traceback")
+    if isinstance(traceback_text, str) and traceback_text:
+        normalized["traceback"] = traceback_text
+    return normalized
+
+
+def _unavailable_metrics_defaults(reason: str) -> tuple[
+    str,
+    bool,
+    dict[str, str],
+    int | None,
+    int | None,
+    int,
+    int,
+    int,
+    int,
+    int,
+    int,
+    float | None,
+    float | None,
+]:
+    return (
+        "unavailable",
+        False,
+        {"type": "ReporterUnavailable", "message": reason},
+        None,
+        None,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        None,
+        None,
+    )
+
 def _write_provenance(
     *,
     repo_root: Path,
@@ -338,6 +385,9 @@ def _write_provenance(
     tests_skipped: int | None,
     tests_xfailed: int | None,
     tests_xpassed: int | None,
+    metrics_status: str,
+    reporter_ok: bool,
+    reporter_error: dict[str, str] | None,
     skip_rate: float | None,
     xfail_rate: float | None,
     budget_allow_violation: bool | None,
@@ -374,6 +424,9 @@ def _write_provenance(
         "allow_no_tests": allow_no_tests,
         "execution_mode": execution_mode,
         "non_execution_flags": list(non_execution_flags),
+        "metrics_status": metrics_status,
+        "reporter_ok": reporter_ok,
+        "reporter_error": reporter_error,
     }
     if pytest_exit_code is not None:
         payload["pytest_exit_code"] = pytest_exit_code
@@ -489,6 +542,9 @@ def main(argv: list[str] | None = None) -> int:
                 tests_skipped=0,
                 tests_xfailed=0,
                 tests_xpassed=0,
+                metrics_status="unavailable",
+                reporter_ok=False,
+                reporter_error={"type": "ReporterNotRun", "message": "pytest reporter was not executed."},
                 skip_rate=0.0,
                 xfail_rate=0.0,
                 budget_allow_violation=None,
@@ -531,6 +587,9 @@ def main(argv: list[str] | None = None) -> int:
             tests_skipped=0,
             tests_xfailed=0,
             tests_xpassed=0,
+            metrics_status="unavailable",
+            reporter_ok=False,
+            reporter_error={"type": "ReporterNotRun", "message": "pytest reporter was not executed."},
             skip_rate=0.0,
             xfail_rate=0.0,
             budget_allow_violation=None,
@@ -585,6 +644,9 @@ def main(argv: list[str] | None = None) -> int:
             tests_skipped=0,
             tests_xfailed=0,
             tests_xpassed=0,
+            metrics_status="unavailable",
+            reporter_ok=False,
+            reporter_error={"type": "ReporterNotRun", "message": "pytest reporter was not executed."},
             skip_rate=0.0,
             xfail_rate=0.0,
             budget_allow_violation=None,
@@ -612,43 +674,126 @@ def main(argv: list[str] | None = None) -> int:
     tests_skipped = None
     tests_xfailed = None
     tests_xpassed = None
+    metrics_status = "ok"
+    reporter_ok = True
+    reporter_error: dict[str, str] | None = None
     skip_rate = None
     xfail_rate = None
     budget_thresholds = None
     budget_violations: list[dict[str, object]] | None = None
     budget_allow_violation = env.get(ALLOW_BUDGET_VIOLATION_ENV) == "1"
-    if report_path.exists():
+    if not report_path.exists():
+        (
+            metrics_status,
+            reporter_ok,
+            reporter_error,
+            tests_collected,
+            tests_selected,
+            tests_executed,
+            tests_passed,
+            tests_failed,
+            tests_skipped,
+            tests_xfailed,
+            tests_xpassed,
+            skip_rate,
+            xfail_rate,
+        ) = _unavailable_metrics_defaults("pytest metrics report file was not created.")
+    else:
         try:
             report = json.loads(report_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            report = {}
-        tests_collected = report.get("tests_collected")
-        tests_selected = report.get("tests_selected")
-        tests_executed = report.get("tests_executed")
-        tests_passed = report.get("tests_passed")
-        tests_failed = report.get("tests_failed")
-        tests_skipped = report.get("tests_skipped")
-        tests_xfailed = report.get("tests_xfailed")
-        tests_xpassed = report.get("tests_xpassed")
-    if tests_executed is None:
-        tests_executed = 0
-    if tests_passed is None:
-        tests_passed = 0
-    if tests_failed is None:
-        tests_failed = 0
-    if tests_skipped is None:
-        tests_skipped = 0
-    if tests_xfailed is None:
-        tests_xfailed = 0
-    if tests_xpassed is None:
-        tests_xpassed = 0
-    total_outcomes = tests_passed + tests_failed + tests_skipped + tests_xfailed + tests_xpassed
-    if total_outcomes > 0:
-        skip_rate = tests_skipped / total_outcomes
-        xfail_rate = tests_xfailed / total_outcomes
+        except (OSError, json.JSONDecodeError) as exc:
+            (
+                metrics_status,
+                reporter_ok,
+                reporter_error,
+                tests_collected,
+                tests_selected,
+                tests_executed,
+                tests_passed,
+                tests_failed,
+                tests_skipped,
+                tests_xfailed,
+                tests_xpassed,
+                skip_rate,
+                xfail_rate,
+            ) = _unavailable_metrics_defaults(f"invalid pytest metrics report: {exc}")
+        else:
+            tests_collected = report.get("tests_collected")
+            tests_selected = report.get("tests_selected")
+            tests_executed = report.get("tests_executed")
+            tests_passed = report.get("tests_passed")
+            tests_failed = report.get("tests_failed")
+            tests_skipped = report.get("tests_skipped")
+            tests_xfailed = report.get("tests_xfailed")
+            tests_xpassed = report.get("tests_xpassed")
+            reporter_ok = bool(report.get("reporter_ok", True))
+            reporter_error = _normalize_reporter_error(report.get("reporter_error"))
+            required_metrics = (
+                tests_collected,
+                tests_selected,
+                tests_executed,
+                tests_passed,
+                tests_failed,
+                tests_skipped,
+                tests_xfailed,
+                tests_xpassed,
+            )
+            missing_metric = any(not isinstance(metric, int) for metric in required_metrics)
+            if not reporter_ok and reporter_error is None:
+                reporter_error = {
+                    "type": "ReporterError",
+                    "message": "pytest reporter marked itself failed without structured details.",
+                }
+            if not reporter_ok:
+                metrics_status = "unavailable"
+                if reporter_error is None:
+                    reporter_error = {
+                        "type": "ReporterError",
+                        "message": "pytest reporter failed.",
+                    }
+            elif missing_metric:
+                metrics_status = "partial"
+                reporter_ok = False
+                reporter_error = {
+                    "type": "ReporterPartial",
+                    "message": "pytest reporter payload missing one or more expected integer metrics.",
+                }
+            else:
+                metrics_status = "ok"
+
+    if metrics_status == "ok":
+        total_outcomes = tests_passed + tests_failed + tests_skipped + tests_xfailed + tests_xpassed
+        if total_outcomes > 0:
+            skip_rate = tests_skipped / total_outcomes
+            xfail_rate = tests_xfailed / total_outcomes
+        else:
+            skip_rate = 0.0
+            xfail_rate = 0.0
+    elif metrics_status == "partial":
+        tests_executed = tests_executed if isinstance(tests_executed, int) else 0
+        tests_passed = tests_passed if isinstance(tests_passed, int) else 0
+        tests_failed = tests_failed if isinstance(tests_failed, int) else 0
+        tests_skipped = tests_skipped if isinstance(tests_skipped, int) else 0
+        tests_xfailed = tests_xfailed if isinstance(tests_xfailed, int) else 0
+        tests_xpassed = tests_xpassed if isinstance(tests_xpassed, int) else 0
+        if all(isinstance(metric, int) for metric in (tests_passed, tests_failed, tests_skipped, tests_xfailed, tests_xpassed)):
+            total_outcomes = tests_passed + tests_failed + tests_skipped + tests_xfailed + tests_xpassed
+            if total_outcomes > 0:
+                skip_rate = tests_skipped / total_outcomes
+                xfail_rate = tests_xfailed / total_outcomes
+            else:
+                skip_rate = 0.0
+                xfail_rate = 0.0
+        else:
+            skip_rate = None
+            xfail_rate = None
     else:
-        skip_rate = 0.0
-        xfail_rate = 0.0
+        tests_executed = 0
+        tests_passed = 0
+        tests_failed = 0
+        tests_skipped = 0
+        tests_xfailed = 0
+        tests_xpassed = 0
     budget_thresholds = {
         "min_passed": _int_env(env, MIN_PASSED_ENV, DEFAULT_MIN_PASSED),
         "max_skip_rate": _float_env(env, MAX_SKIP_RATE_ENV, DEFAULT_MAX_SKIP_RATE),
@@ -682,7 +827,7 @@ def main(argv: list[str] | None = None) -> int:
                 "rule": f">= {budget_thresholds['min_passed']}",
             }
         )
-    if skip_rate > budget_thresholds["max_skip_rate"]:
+    if skip_rate is not None and skip_rate > budget_thresholds["max_skip_rate"]:
         budget_violations.append(
             {
                 "metric": "skip_rate",
@@ -691,7 +836,7 @@ def main(argv: list[str] | None = None) -> int:
                 "rule": f"<= {budget_thresholds['max_skip_rate']}",
             }
         )
-    if xfail_rate > budget_thresholds["max_xfail_rate"]:
+    if xfail_rate is not None and xfail_rate > budget_thresholds["max_xfail_rate"]:
         budget_violations.append(
             {
                 "metric": "xfail_rate",
@@ -732,6 +877,9 @@ def main(argv: list[str] | None = None) -> int:
         tests_skipped=tests_skipped,
         tests_xfailed=tests_xfailed,
         tests_xpassed=tests_xpassed,
+        metrics_status=metrics_status,
+        reporter_ok=reporter_ok,
+        reporter_error=reporter_error,
         skip_rate=skip_rate,
         xfail_rate=xfail_rate,
         budget_allow_violation=budget_allow_violation,
@@ -745,6 +893,9 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "ERROR: SENTIENTOS_ALLOW_BUDGET_VIOLATION=1 is not admissible in CI proof mode."
         )
+        return 1
+    if proof_mode and not allow_nonexecution and metrics_status != "ok":
+        print("Metrics reporter failed; cannot certify proof mode.")
         return 1
     if (
         proof_mode
