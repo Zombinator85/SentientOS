@@ -11,6 +11,7 @@ from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
 from scripts.editable_install import EditableInstallStatus, get_editable_install_status
+from scripts.analyze_test_failures import generate_failure_digest
 from scripts.provenance_hash_chain import HASH_ALGO, compute_provenance_hash
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -394,8 +395,10 @@ def _write_provenance(
     budget_thresholds: dict[str, float | int] | None,
     budget_violations: list[dict[str, object]] | None,
     exit_reason: str | None,
+    junitxml_path: Path | None,
+    failure_report_path: Path | None,
     env: dict[str, str],
-) -> None:
+) -> dict[str, object]:
     run_dir = repo_root / "glow" / "test_runs"
     provenance_dir = run_dir / "provenance"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -458,6 +461,10 @@ def _write_provenance(
         payload["budget_violations"] = budget_violations
     if exit_reason:
         payload["exit_reason"] = exit_reason
+    if junitxml_path is not None:
+        payload["junitxml_path"] = str(junitxml_path)
+    if failure_report_path is not None:
+        payload["failure_report_path"] = str(failure_report_path)
 
     prev_provenance_hash: str | None = None
     chain_status: str | None = None
@@ -487,6 +494,7 @@ def _write_provenance(
     _atomic_write_json(latest_target, payload)
     _atomic_write_json(snapshot_target, payload)
     _apply_snapshot_retention(provenance_dir, env)
+    return payload
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -551,6 +559,8 @@ def main(argv: list[str] | None = None) -> int:
                 budget_thresholds=None,
                 budget_violations=None,
                 exit_reason="install-failed",
+                junitxml_path=None,
+                failure_report_path=None,
                 env=env,
             )
             _emit_run_context(
@@ -596,6 +606,8 @@ def main(argv: list[str] | None = None) -> int:
             budget_thresholds=None,
             budget_violations=None,
             exit_reason="airlock-failed",
+            junitxml_path=None,
+            failure_report_path=None,
             env=env,
         )
         _emit_run_context(
@@ -653,6 +665,8 @@ def main(argv: list[str] | None = None) -> int:
             budget_thresholds=None,
             budget_violations=None,
             exit_reason="ci-default-required",
+            junitxml_path=None,
+            failure_report_path=None,
             env=env,
         )
         print("CI proof requires executed tests. Collection/info modes are not admissible.")
@@ -660,9 +674,15 @@ def main(argv: list[str] | None = None) -> int:
     run_dir = REPO_ROOT / "glow" / "test_runs"
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = run_dir / f"pytest_report_{uuid4().hex}.json"
+    junitxml_path = run_dir / f"pytest_junitxml_{uuid4().hex}.xml"
+    failure_report_path = run_dir / "test_failure_digest.json"
     env["SENTIENTOS_PYTEST_REPORT_PATH"] = str(report_path)
     cmd = [sys.executable, "-m", "pytest"]
     cmd.extend(["-p", "scripts.pytest_collection_reporter"])
+    if "--junitxml" not in pytest_args and not any(arg.startswith("--junitxml=") for arg in pytest_args):
+        cmd.extend(["--junitxml", str(junitxml_path)])
+    else:
+        junitxml_path = None
     if pytest_args:
         cmd.extend(pytest_args)
     pytest_exit_code = subprocess.run(cmd, cwd=REPO_ROOT, env=env).returncode
@@ -856,7 +876,21 @@ def main(argv: list[str] | None = None) -> int:
             "WARNING: SENTIENTOS_ALLOW_BUDGET_VIOLATION=1 is set; "
             "budget enforcement is overridden and this run is marked exceptional."
         )
-    _write_provenance(
+    if pytest_exit_code not in (0, 5) and junitxml_path is not None and junitxml_path.exists():
+        try:
+            digest = generate_failure_digest(
+                junitxml_path=junitxml_path,
+                output_path=failure_report_path,
+                run_provenance_hash="pending",
+            )
+            print(f"Generated failure digest with {len(digest.get('failure_groups', []))} groups.")
+        except Exception as exc:  # noqa: BLE001
+            print(f"WARNING: failed to generate test failure digest: {exc}")
+            failure_report_path = None
+    else:
+        failure_report_path = None
+
+    provenance_payload = _write_provenance(
         repo_root=REPO_ROOT,
         install_performed=install_performed,
         pytest_args=pytest_args,
@@ -886,8 +920,17 @@ def main(argv: list[str] | None = None) -> int:
         budget_thresholds=budget_thresholds,
         budget_violations=budget_violations,
         exit_reason=exit_reason,
+        junitxml_path=junitxml_path if junitxml_path is not None and junitxml_path.exists() else None,
+        failure_report_path=failure_report_path if failure_report_path is not None and failure_report_path.exists() else None,
         env=env,
     )
+    if failure_report_path is not None and failure_report_path.exists():
+        try:
+            digest = json.loads(failure_report_path.read_text(encoding="utf-8"))
+            digest["run_provenance_hash"] = str(provenance_payload.get("provenance_hash", "unknown"))
+            _atomic_write_json(failure_report_path, digest)
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"WARNING: failed to update failure digest provenance hash: {exc}")
     proof_mode = env.get("SENTIENTOS_CI_REQUIRE_DEFAULT_INTENT") == "1"
     if proof_mode and budget_allow_violation:
         print(

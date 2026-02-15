@@ -104,6 +104,16 @@ jobs:
             glow/test_runs/test_run_provenance.json
             glow/test_runs/provenance/*.json
 
+      - name: Upload test failure digest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test_failure_digest_${{ github.run_id }}_${{ github.job }}
+          path: |
+            glow/test_runs/test_failure_digest.json
+            glow/test_runs/pytest_junitxml*.xml
+          if-no-files-found: ignore
+
       - name: Upload test trend report
         if: always()
         uses: actions/upload-artifact@v4
