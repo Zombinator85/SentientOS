@@ -94,6 +94,53 @@ def test_analyze_alert_on_spikes_and_override() -> None:
     assert report["metrics"]["exceptional_count"] == 3
 
 
+def test_analyze_router_telemetry_flags_proof_burn_spike() -> None:
+    prior = [
+        {
+            "timestamp": f"2026-01-01T00:00:0{idx}+00:00",
+            "run_intent": "default",
+            "router_telemetry": {
+                "stage_b_evaluations": 1,
+                "escalated": False,
+                "stage_a_valid_count": 1,
+                "router_status": "selected",
+            },
+        }
+        for idx in range(4)
+    ]
+    current = [
+        {
+            "timestamp": f"2026-01-01T00:00:1{idx}+00:00",
+            "run_intent": "default",
+            "router_telemetry": {
+                "stage_b_evaluations": 6,
+                "escalated": True,
+                "stage_a_valid_count": 0,
+                "router_status": "no_admissible_candidate" if idx < 3 else "selected",
+            },
+        }
+        for idx in range(4)
+    ]
+
+    report = analyze(
+        prior + current,
+        Thresholds(
+            window_size=4,
+            skip_delta=0.15,
+            xfail_delta=0.10,
+            executed_drop=0.50,
+            passed_drop=0.50,
+            exceptional_cluster=3,
+        ),
+    )
+
+    assert "proof_burn_spike" in report["avoidance_reasons"]
+    assert "escalation_cluster" in report["avoidance_reasons"]
+    assert "admissible_collapse" in report["avoidance_reasons"]
+    assert report["metrics"]["proof_spend_p95"] == 6
+    assert report["metrics"]["stage_a_all_fail_rate"] == 1.0
+
+
 def test_discover_inputs_ignores_latest_pointers(tmp_path: Path) -> None:
     snapshot_a = tmp_path / "20260101T000000Z_sha_deadbeef.json"
     snapshot_b = tmp_path / "20260101T010000Z_sha_beadfeed.json"

@@ -640,11 +640,26 @@ class GenesisForge:
                     )
 
                 selected, router_status = choose_candidate(candidate_results)
+                stage_a_valid_count = sum(1 for _, evaluation in stage_a_results if bool(evaluation.valid_a))
+                stage_b_valid_count = sum(1 for result in candidate_results if bool(result.evaluation.valid))
+                router_telemetry = {
+                    "k_initial": router_k,
+                    "k_final": k_final,
+                    "m": router_m,
+                    "escalated": escalated,
+                    "stage_a_evaluations": len(stage_a_results),
+                    "stage_b_evaluations": len(candidate_results),
+                    "stage_a_valid_count": stage_a_valid_count,
+                    "stage_b_valid_count": stage_b_valid_count,
+                    "router_status": router_status,
+                    "selected_candidate_id": selected.candidate_id if router_status == "selected" else None,
+                }
                 router_scorecard: dict[str, object] = {
                     "router_k": router_k,
                     "router_m": router_m,
                     "router_seed": router_seed,
                     "router_status": router_status,
+                    "router_telemetry": router_telemetry,
                     "proof_budget": {
                         "k": router_k,
                         "m": router_m,
@@ -694,6 +709,19 @@ class GenesisForge:
                         details=router_scorecard,
                         quarantined=True,
                     )
+                    self._ledger.log(
+                        "proof_budget",
+                        anomaly=anomaly,
+                        details={
+                            "event_type": "proof_budget",
+                            "proposal_id": None,
+                            "spec_id": None,
+                            "capability": need.capability,
+                            "run_provenance_hash": os.getenv("SENTIENTOS_RUN_PROVENANCE_HASH"),
+                            "router_telemetry": dict(router_telemetry),
+                        },
+                        quarantined=True,
+                    )
                     raise GenesisForgeError(
                         "No admissible candidate "
                         f"({selected.candidate_id}: {','.join(selected.evaluation.reason_codes)})"
@@ -733,6 +761,18 @@ class GenesisForge:
                         execute=lambda: True,
                     ),
                     details=outcome.details,
+                )
+                self._ledger.log(
+                    "proof_budget",
+                    anomaly=anomaly,
+                    details={
+                        "event_type": "proof_budget",
+                        "proposal_id": proposal.proposal_id,
+                        "spec_id": proposal.spec_id,
+                        "capability": need.capability,
+                        "run_provenance_hash": os.getenv("SENTIENTOS_RUN_PROVENANCE_HASH"),
+                        "router_telemetry": dict(router_telemetry),
+                    },
                 )
                 outcomes.append(outcome)
             except GenesisForgeError as exc:

@@ -95,6 +95,10 @@ jobs:
         if: always()
         run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain
 
+      - name: Analyze router telemetry trends
+        if: always()
+        run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain --output glow/test_runs/router_telemetry_report.json
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -120,6 +124,13 @@ jobs:
         with:
           name: test_trend_report_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/test_trend_report.json
+
+      - name: Upload router telemetry report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: router_telemetry_report_${{ github.run_id }}_${{ github.job }}
+          path: glow/test_runs/router_telemetry_report.json
 
       - name: Run parliament demo
         run: |
@@ -180,6 +191,10 @@ jobs:
         if: always()
         run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain
 
+      - name: Analyze router telemetry trends
+        if: always()
+        run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain --output glow/test_runs/router_telemetry_report.json
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -195,3 +210,10 @@ jobs:
         with:
           name: test_trend_report_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/test_trend_report.json
+
+      - name: Upload router telemetry report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: router_telemetry_report_${{ github.run_id }}_${{ github.job }}
+          path: glow/test_runs/router_telemetry_report.json

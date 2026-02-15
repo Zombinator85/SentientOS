@@ -34,6 +34,9 @@ class Thresholds:
     executed_drop: float
     passed_drop: float
     exceptional_cluster: int
+    proof_p95_jump: float = 1.5
+    escalation_cluster_rate: float = 0.5
+    admissible_collapse_delta: float = 0.3
 
 
 def _float_arg(value: str) -> float:
@@ -166,6 +169,43 @@ def _mean(values: list[float]) -> float:
     return sum(values) / len(values)
 
 
+def _percentile(values: list[float], percentile: float) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return float(ordered[0])
+    index = int(round((len(ordered) - 1) * percentile))
+    index = max(0, min(index, len(ordered) - 1))
+    return float(ordered[index])
+
+
+def _extract_router_telemetry(run: dict[str, Any]) -> dict[str, Any] | None:
+    telemetry = run.get("router_telemetry")
+    if isinstance(telemetry, dict):
+        return telemetry
+
+    metadata = run.get("metadata")
+    if isinstance(metadata, dict):
+        scorecard = metadata.get("router_scorecard")
+        if isinstance(scorecard, dict):
+            nested = scorecard.get("router_telemetry")
+            if isinstance(nested, dict):
+                return nested
+
+    details = run.get("details")
+    if isinstance(details, dict):
+        scorecard = details.get("router_scorecard")
+        if isinstance(scorecard, dict):
+            nested = scorecard.get("router_telemetry")
+            if isinstance(nested, dict):
+                return nested
+        nested = details.get("router_telemetry")
+        if isinstance(nested, dict):
+            return nested
+    return None
+
+
 def _extract_window_metrics(runs: list[dict[str, Any]]) -> dict[str, float]:
     return {
         "skip_rate_mean": _mean([_safe_number(run, "skip_rate") for run in runs]),
@@ -269,6 +309,26 @@ def analyze(
         "bypass_env": sum(1 for run in latest_runs if bool(run.get("bypass_env"))),
     }
 
+    latest_router = [item for item in (_extract_router_telemetry(run) for run in latest_runs) if item]
+    prior_router = [item for item in (_extract_router_telemetry(run) for run in prior_runs) if item]
+
+    latest_proof_spend = [float(item.get("stage_b_evaluations", 0.0)) for item in latest_router]
+    prior_proof_spend = [float(item.get("stage_b_evaluations", 0.0)) for item in prior_router]
+
+    latest_escalation_rate = _mean([1.0 if bool(item.get("escalated")) else 0.0 for item in latest_router])
+    latest_stage_a_all_fail_rate = _mean(
+        [1.0 if float(item.get("stage_a_valid_count", 0.0)) <= 0.0 else 0.0 for item in latest_router]
+    )
+    latest_admissible_rate = _mean(
+        [1.0 if str(item.get("router_status", "")) == "selected" else 0.0 for item in latest_router]
+    )
+
+    prior_proof_spend_p95 = _percentile(prior_proof_spend, 0.95)
+    latest_proof_spend_p95 = _percentile(latest_proof_spend, 0.95)
+    prior_admissible_rate = _mean(
+        [1.0 if str(item.get("router_status", "")) == "selected" else 0.0 for item in prior_router]
+    )
+
     reasons: list[str] = []
 
     if prior_runs and (current["skip_rate_mean"] - prior["skip_rate_mean"]) >= thresholds.skip_delta:
@@ -288,13 +348,21 @@ def analyze(
     if allow_flags_used["budget_allow_violation"] > 0:
         reasons.append("budget_allow_violation_seen")
 
+    if prior_router and prior_proof_spend_p95 > 0:
+        if latest_proof_spend_p95 >= prior_proof_spend_p95 * thresholds.proof_p95_jump:
+            reasons.append("proof_burn_spike")
+    if latest_router and latest_escalation_rate >= thresholds.escalation_cluster_rate:
+        reasons.append("escalation_cluster")
+    if prior_router and (prior_admissible_rate - latest_admissible_rate) >= thresholds.admissible_collapse_delta:
+        reasons.append("admissible_collapse")
+
     unique_reasons = sorted(set(reasons))
     avoidance_alert = bool(unique_reasons)
     total_checks = 6
     avoidance_score = round(len(unique_reasons) / total_checks, 3)
 
     report: dict[str, Any] = {
-        "schema_version": 1,
+        "schema_version": 2,
         "window_size": thresholds.window_size,
         "runs_analyzed": len(latest_runs),
         "avoidance_alert": avoidance_alert,
@@ -309,6 +377,14 @@ def analyze(
             "prior_xfail_rate_mean": prior["xfail_rate_mean"],
             "prior_tests_executed_mean": prior["tests_executed_mean"],
             "prior_tests_passed_mean": prior["tests_passed_mean"],
+            "proof_spend_mean": _mean(latest_proof_spend),
+            "proof_spend_p95": latest_proof_spend_p95,
+            "prior_proof_spend_p95": prior_proof_spend_p95,
+            "escalation_rate": latest_escalation_rate,
+            "stage_a_all_fail_rate": latest_stage_a_all_fail_rate,
+            "admissible_rate": latest_admissible_rate,
+            "prior_admissible_rate": prior_admissible_rate,
+            "router_runs_analyzed": len(latest_router),
         },
     }
 
@@ -395,6 +471,24 @@ def main(argv: list[str] | None = None) -> int:
         default=int(os.getenv("SENTIENTOS_PROVENANCE_EXCEPTIONAL_CLUSTER", "3")),
     )
     parser.add_argument(
+        "--proof-p95-jump",
+        type=_float_arg,
+        default=float(os.getenv("SENTIENTOS_PROVENANCE_PROOF_P95_JUMP", "1.5")),
+        help="Multiplier threshold for stage_b_evaluations p95 spike detection.",
+    )
+    parser.add_argument(
+        "--escalation-cluster-rate",
+        type=_float_arg,
+        default=float(os.getenv("SENTIENTOS_PROVENANCE_ESCALATION_CLUSTER_RATE", "0.5")),
+        help="Minimum escalated fraction in the current window to emit escalation_cluster.",
+    )
+    parser.add_argument(
+        "--admissible-collapse-delta",
+        type=_float_arg,
+        default=float(os.getenv("SENTIENTOS_PROVENANCE_ADMISSIBLE_COLLAPSE_DELTA", "0.3")),
+        help="Minimum admissible-rate drop between prior/current windows to emit admissible_collapse.",
+    )
+    parser.add_argument(
         "--verify-chain",
         action="store_true",
         default=os.getenv("SENTIENTOS_PROVENANCE_VERIFY_CHAIN") == "1",
@@ -450,6 +544,12 @@ def main(argv: list[str] | None = None) -> int:
         default=os.getenv("SENTIENTOS_CI_FAIL_ON_INTEGRITY_ALERT") == "1",
         help="Return non-zero when provenance integrity verification fails.",
     )
+    parser.add_argument(
+        "--fail-on-proof-burn-spike",
+        action="store_true",
+        default=os.getenv("SENTIENTOS_CI_FAIL_ON_PROOF_BURN_SPIKE") == "1",
+        help="Return non-zero when proof_burn_spike is emitted.",
+    )
     args = parser.parse_args(argv)
 
     input_files = list(args.file)
@@ -495,6 +595,9 @@ def main(argv: list[str] | None = None) -> int:
             executed_drop=args.executed_drop,
             passed_drop=args.passed_drop,
             exceptional_cluster=args.exceptional_cluster,
+            proof_p95_jump=args.proof_p95_jump,
+            escalation_cluster_rate=args.escalation_cluster_rate,
+            admissible_collapse_delta=args.admissible_collapse_delta,
         ),
         verify_chain_enabled=args.verify_chain,
         source_stats={
@@ -512,6 +615,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if report.get("integrity_checked") and not report.get("integrity_ok", True) and args.fail_on_integrity_alert:
         print("Integrity alert emitted and fail-on-integrity-alert is enabled.")
+        return 1
+    if args.fail_on_proof_burn_spike and "proof_burn_spike" in report.get("avoidance_reasons", []):
+        print("Proof burn spike emitted and fail-on-proof-burn-spike is enabled.")
         return 1
     return 0
 
