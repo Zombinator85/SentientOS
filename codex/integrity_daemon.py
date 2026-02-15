@@ -66,6 +66,18 @@ class IntegrityEvaluation:
     quarantined: bool
 
 
+@dataclass(slots=True)
+class IntegrityEvaluationA:
+    """Non-raising stage-A verdict (probe + covenant only)."""
+
+    valid_a: bool
+    reason_codes_a: List[str]
+    violations_a: List[Dict[str, Any]]
+    probe: Dict[str, Any]
+    timestamp: str
+    ledger_entry: str
+
+
 class IntegrityViolation(RuntimeError):
     """Raised when a proposal fails covenantal integrity checks."""
 
@@ -130,11 +142,43 @@ class IntegrityDaemon:
 
     # ------------------------------------------------------------------
     # Public API
-    def evaluate_report(self, proposal: Any) -> IntegrityEvaluation:
-        """Run checks and return a structured verdict without raising."""
+    def evaluate_report_stage_a(self, proposal: Any) -> IntegrityEvaluationA:
+        """Run probe + covenant checks and return a non-raising verdict."""
 
         timestamp = self._now().isoformat()
         report = self._probe(proposal)
+        violations = self._covenant_check(proposal, report)
+        self._health["last_scan"] = timestamp
+        status_label = "QUARANTINED" if violations else "VALID"
+        self._record_ledger_entry(
+            timestamp=timestamp,
+            proposal=proposal,
+            probe=report,
+            proof_report=None,
+            violations=violations,
+            status=status_label,
+            stage="A",
+        )
+        proposal_id = str(getattr(proposal, "proposal_id", "unknown"))
+        return IntegrityEvaluationA(
+            valid_a=not violations,
+            reason_codes_a=sorted({str(item.get("code", "unknown")) for item in violations}),
+            violations_a=[dict(item) for item in violations],
+            probe=report.to_dict(),
+            timestamp=timestamp,
+            ledger_entry=f"{self._ledger_path}#{proposal_id}:{timestamp}:A",
+        )
+
+    def evaluate_report_stage_b(
+        self,
+        proposal: Any,
+        *,
+        probe_cache: ProbeReport | Mapping[str, Any] | None = None,
+    ) -> IntegrityEvaluation:
+        """Run full checks and return a structured verdict without raising."""
+
+        timestamp = self._now().isoformat()
+        report = self._probe_from_cache(probe_cache) or self._probe(proposal)
         covenant_violations = self._covenant_check(proposal, report)
         proof_payload = self._prepare_proof_payload(proposal)
         proof_payload["timestamp"] = timestamp
@@ -152,6 +196,7 @@ class IntegrityDaemon:
             proof_report=proof_report,
             violations=violations,
             status=status_label,
+            stage="B",
         )
         proposal_id = str(getattr(proposal, "proposal_id", "unknown"))
         spec_id = str(getattr(proposal, "spec_id", "unknown"))
@@ -180,9 +225,15 @@ class IntegrityDaemon:
             probe=report.to_dict(),
             proof_report=proof_report.to_dict(),
             timestamp=timestamp,
-            ledger_entry=f"{self._ledger_path}#{proposal_id}:{timestamp}",
+            ledger_entry=f"{self._ledger_path}#{proposal_id}:{timestamp}:B",
             quarantined=quarantined,
         )
+
+    def evaluate_report(self, proposal: Any) -> IntegrityEvaluation:
+        """Run checks and return a structured verdict without raising."""
+
+        stage_a = self.evaluate_report_stage_a(proposal)
+        return self.evaluate_report_stage_b(proposal, probe_cache=stage_a.probe)
 
     def evaluate(self, proposal: Any) -> None:
         """Run amendment through hostile probes and covenant checks."""
@@ -401,9 +452,10 @@ class IntegrityDaemon:
         timestamp: str,
         proposal: Any,
         probe: ProbeReport,
-        proof_report: ProofReport,
+        proof_report: ProofReport | None,
         violations: Iterable[Mapping[str, Any]],
         status: str,
+        stage: str,
     ) -> Dict[str, Any]:
         entry = {
             "timestamp": timestamp,
@@ -411,13 +463,37 @@ class IntegrityDaemon:
             "spec_id": getattr(proposal, "spec_id", "unknown"),
             "summary": getattr(proposal, "summary", ""),
             "status": status,
+            "stage": stage,
             "violations": [dict(item) for item in violations],
             "probe": probe.to_dict(),
-            "proof_report": proof_report.to_dict(),
         }
+        if proof_report is not None:
+            entry["proof_report"] = proof_report.to_dict()
         with self._ledger_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, sort_keys=True) + "\n")
         return entry
+
+    def _probe_from_cache(
+        self, probe_cache: ProbeReport | Mapping[str, Any] | None
+    ) -> ProbeReport | None:
+        if isinstance(probe_cache, ProbeReport):
+            return probe_cache
+        if not isinstance(probe_cache, Mapping):
+            return None
+        return ProbeReport(
+            removed_keys=[str(item) for item in self._as_list(probe_cache.get("removed_keys"))],
+            truncated_lists=[str(item) for item in self._as_list(probe_cache.get("truncated_lists"))],
+            lineage_missing=bool(probe_cache.get("lineage_missing")),
+            ledger_removed=bool(probe_cache.get("ledger_removed")),
+            forbidden_status=(
+                str(probe_cache.get("forbidden_status"))
+                if probe_cache.get("forbidden_status")
+                else None
+            ),
+            summary_blank=bool(probe_cache.get("summary_blank")),
+            deltas_empty=bool(probe_cache.get("deltas_empty")),
+            recursion_break=bool(probe_cache.get("recursion_break")),
+        )
 
     def _load_proof_config(self) -> Dict[str, Any]:
         config_path = self._root / "vow" / "config.yaml"

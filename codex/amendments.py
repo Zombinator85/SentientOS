@@ -20,7 +20,16 @@ from sentientos.codex_startup_guard import enforce_codex_startup
 
 
 from .integrity_daemon import IntegrityDaemon, IntegrityViolation
-from .proposal_router import CandidateResult, choose_candidate, score_evaluation, top_violation_codes
+from .proposal_router import (
+    CandidateResult,
+    choose_candidate,
+    maybe_escalate_k,
+    promote_candidates,
+    rank_stage_a,
+    score_evaluation,
+    score_evaluation_a,
+    top_violation_codes,
+)
 from privilege_lint.reporting import (
     NarratorLink,
     PrivilegeReport,
@@ -630,9 +639,12 @@ class SpecAmender:
         lineage: Mapping[str, Any] | None,
     ) -> AmendmentProposal:
         router_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        router_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
         dominant = str((context or {}).get("dominant_signal") or kind)
         minute_bucket = self._now().strftime("%Y%m%d%H%M")
         router_seed = f"{spec_id}:{dominant}:{minute_bucket}:{router_k}"
+        k_final = router_k
+        escalated = False
         candidates = self._draft_amendment_variants(
             spec_id=spec_id,
             kind=kind,
@@ -645,9 +657,49 @@ class SpecAmender:
             k=router_k,
             seed=router_seed,
         )
+        stage_a_results: list[tuple[AmendmentProposal, Any]] = []
+        for candidate in candidates:
+            stage_a = self._integrity_daemon.evaluate_report_stage_a(candidate)
+            stage_a_results.append((candidate, stage_a))
+
+        next_k, escalated = maybe_escalate_k(
+            k=router_k,
+            stage_a_results=[(candidate.proposal_id, evaluation) for candidate, evaluation in stage_a_results],
+        )
+        if escalated:
+            k_final = next_k
+            candidates = self._draft_amendment_variants(
+                spec_id=spec_id,
+                kind=kind,
+                summary=summary,
+                deltas=deltas,
+                context=context,
+                original_spec=original_spec,
+                proposed_spec=proposed_spec,
+                lineage=lineage,
+                k=k_final,
+                seed=f"{router_seed}:escalated:{k_final}",
+            )
+            stage_a_results = []
+            for candidate in candidates:
+                stage_a = self._integrity_daemon.evaluate_report_stage_a(candidate)
+                stage_a_results.append((candidate, stage_a))
+
+        promoted_ids = promote_candidates(
+            [(candidate.proposal_id, evaluation) for candidate, evaluation in stage_a_results],
+            m=router_m,
+        )
+        probe_cache = {
+            candidate.proposal_id: evaluation.probe for candidate, evaluation in stage_a_results
+        }
         results: list[CandidateResult] = []
         for candidate in candidates:
-            evaluation = self._integrity_daemon.evaluate_report(candidate)
+            if candidate.proposal_id not in promoted_ids:
+                continue
+            evaluation = self._integrity_daemon.evaluate_report_stage_b(
+                candidate,
+                probe_cache=probe_cache.get(candidate.proposal_id),
+            )
             results.append(
                 CandidateResult(
                     candidate_id=candidate.proposal_id,
@@ -661,13 +713,36 @@ class SpecAmender:
             "router_k": router_k,
             "router_seed": router_seed,
             "router_status": router_status,
-            "candidates": [
+            "proof_budget": {
+                "k": router_k,
+                "m": router_m,
+                "escalated": escalated,
+                "k_final": k_final,
+            },
+            "promoted_to_stage_b": list(promoted_ids),
+            "stage_a": [
+                {
+                    "candidate_id": candidate.proposal_id,
+                    "valid_a": evaluation.valid_a,
+                    "reason_codes_a": list(evaluation.reason_codes_a),
+                    "top_violation_codes_a": top_violation_codes(evaluation.violations_a),
+                    "score_a": score_evaluation_a(evaluation),
+                    "rank_a": rank_stage_a(evaluation, candidate_id=candidate.proposal_id),
+                    "evaluation_artifact": evaluation.ledger_entry,
+                }
+                for candidate, evaluation in sorted(
+                    stage_a_results,
+                    key=lambda item: rank_stage_a(item[1], candidate_id=item[0].proposal_id),
+                )
+            ],
+            "stage_b": [
                 {
                     "candidate_id": result.candidate_id,
                     "score": result.score,
                     "rank": result.rank,
                     "valid": result.evaluation.valid,
                     "reason_codes": list(result.evaluation.reason_codes),
+                    "violations": [dict(item) for item in result.evaluation.violations],
                     "top_violation_codes": top_violation_codes(result.evaluation.violations),
                     "evaluation_artifact": result.evaluation.ledger_entry,
                 }
