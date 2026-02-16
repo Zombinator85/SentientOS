@@ -298,6 +298,9 @@ def build_forensic_report(
             "audit_convergence_report_path": (
                 str(DEFAULT_AUDIT_CONVERGENCE_REPORT) if DEFAULT_AUDIT_CONVERGENCE_REPORT.exists() else None
             ),
+            "contract_status_path": (
+                "glow/contracts/contract_status.json" if Path("glow/contracts/contract_status.json").exists() else None
+            ),
         },
     }
     return report
