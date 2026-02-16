@@ -22,6 +22,7 @@ from typing import Callable, Mapping, MutableMapping, Sequence
 
 from codex.integrity_daemon import IntegrityDaemon
 from codex.proof_budget_governor import (
+    PressureStateWriteResult,
     build_governor_event,
     decide_budget,
     governor_config_from_env,
@@ -594,6 +595,12 @@ class GenesisForge:
         configured_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
         governor_config = governor_config_from_env(configured_k=configured_k, configured_m=configured_m)
         pressure_state = load_pressure_state()
+        pressure_state_write = PressureStateWriteResult(
+            state_update_skipped=True,
+            pressure_state_prev_hash=pressure_state.state_hash,
+            pressure_state_new_hash=None,
+            pressure_state_snapshot_path=None,
+        )
         for need in needs:
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
             run_context = {
@@ -759,16 +766,6 @@ class GenesisForge:
                         details=router_scorecard,
                         quarantined=True,
                     )
-                    self._ledger.log(
-                        "proof_budget_governor",
-                        anomaly=anomaly,
-                        details=build_governor_event(
-                            decision=governor_decision,
-                            run_context=run_context,
-                            router_telemetry=router_telemetry,
-                        ),
-                        quarantined=True,
-                    )
                     pressure_state = update_pressure_state(
                         prior=pressure_state,
                         decision=governor_decision,
@@ -777,7 +774,19 @@ class GenesisForge:
                         run_context=run_context,
                         config=governor_config,
                     )
-                    save_pressure_state(pressure_state)
+                    pressure_state_write = save_pressure_state(pressure_state)
+                    self._ledger.log(
+                        "proof_budget_governor",
+                        anomaly=anomaly,
+                        details=build_governor_event(
+                            decision=governor_decision,
+                            config=governor_config,
+                            run_context=run_context,
+                            router_telemetry=router_telemetry,
+                            pressure_state_write=pressure_state_write,
+                        ),
+                        quarantined=True,
+                    )
                     if governor_decision.mode == "diagnostics_only":
                         raise GenesisForgeError("Diagnostics-only mode: proof budget constrained")
                     self._ledger.log(
@@ -833,15 +842,6 @@ class GenesisForge:
                     ),
                     details=outcome.details,
                 )
-                self._ledger.log(
-                    "proof_budget_governor",
-                    anomaly=anomaly,
-                    details=build_governor_event(
-                        decision=governor_decision,
-                        run_context=run_context,
-                        router_telemetry=router_telemetry,
-                    ),
-                )
                 pressure_state = update_pressure_state(
                     prior=pressure_state,
                     decision=governor_decision,
@@ -850,7 +850,18 @@ class GenesisForge:
                     run_context=run_context,
                     config=governor_config,
                 )
-                save_pressure_state(pressure_state)
+                pressure_state_write = save_pressure_state(pressure_state)
+                self._ledger.log(
+                    "proof_budget_governor",
+                    anomaly=anomaly,
+                    details=build_governor_event(
+                        decision=governor_decision,
+                        config=governor_config,
+                        run_context=run_context,
+                        router_telemetry=router_telemetry,
+                        pressure_state_write=pressure_state_write,
+                    ),
+                )
                 self._ledger.log(
                     "proof_budget",
                     anomaly=anomaly,

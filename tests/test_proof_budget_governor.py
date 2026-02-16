@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
 from codex.proof_budget_governor import (
     GovernorConfig,
     PressureState,
+    build_governor_event,
     decide_budget,
+    save_pressure_state,
+    update_pressure_state,
 )
+from scripts.verify_pressure_state_chain import verify_pressure_state_chain
 
 
 def _config() -> GovernorConfig:
@@ -20,6 +29,18 @@ def _config() -> GovernorConfig:
         pressure_window=6,
         proof_burn_spike_runs=2,
         escalation_cluster_runs=2,
+    )
+
+
+def _next_state(prior: PressureState, *, status: str = "selected") -> PressureState:
+    decision = decide_budget(config=_config(), pressure_state=prior, run_context={"pipeline": "genesis"})
+    return update_pressure_state(
+        prior=prior,
+        decision=decision,
+        router_telemetry={"escalated": False, "stage_b_evaluations": 1},
+        router_status=status,
+        run_context={"pipeline": "genesis", "capability": "vision", "router_attempt": 1},
+        config=_config(),
     )
 
 
@@ -59,3 +80,73 @@ def test_admissible_collapse_forces_diagnostics_only_after_threshold() -> None:
     assert decision.m_effective == 0
     assert decision.allow_escalation is False
     assert "admissible_collapse" in decision.decision_reasons
+
+
+def test_pressure_state_chain_verifies_for_sequence(tmp_path: Path) -> None:
+    state_dir = tmp_path / "pressure_state"
+    state = PressureState(recent_runs=[])
+    for _ in range(3):
+        state = _next_state(state)
+        write_result = save_pressure_state(state, path=state_dir)
+        assert write_result.state_update_skipped is False
+
+    result = verify_pressure_state_chain(state_dir)
+    assert result["integrity_ok"] is True
+    assert result["snapshot_count"] == 3
+
+
+def test_pressure_state_chain_detects_mutation(tmp_path: Path) -> None:
+    state_dir = tmp_path / "pressure_state"
+    state = PressureState(recent_runs=[])
+    for _ in range(2):
+        state = _next_state(state)
+        save_pressure_state(state, path=state_dir)
+
+    latest_snapshot = sorted((state_dir / "snapshots").glob("*.json"))[-1]
+    payload = json.loads(latest_snapshot.read_text(encoding="utf-8"))
+    payload["state"]["consecutive_no_admissible"] = 999
+    latest_snapshot.write_text(json.dumps(payload, sort_keys=True, indent=2), encoding="utf-8")
+
+    result = verify_pressure_state_chain(state_dir)
+    assert result["integrity_ok"] is False
+    assert any("state_hash mismatch" in issue for issue in result["issues"])
+
+
+def test_pressure_state_chain_detects_missing_middle_snapshot(tmp_path: Path) -> None:
+    state_dir = tmp_path / "pressure_state"
+    state = PressureState(recent_runs=[])
+    for _ in range(3):
+        state = _next_state(state)
+        save_pressure_state(state, path=state_dir)
+
+    snapshots = sorted((state_dir / "snapshots").glob("*.json"))
+    snapshots[1].unlink()
+
+    result = verify_pressure_state_chain(state_dir)
+    assert result["integrity_ok"] is False
+    assert any("prev_state_hash mismatch" in issue for issue in result["issues"])
+
+
+def test_lock_contention_skips_state_update_without_crash(tmp_path: Path) -> None:
+    fcntl = pytest.importorskip("fcntl")
+    state_dir = tmp_path / "pressure_state"
+    lock_path = state_dir / ".lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        state = PressureState(recent_runs=[])
+        write_result = save_pressure_state(state, path=state_dir)
+
+    assert write_result.state_update_skipped is True
+    assert write_result.pressure_state_new_hash is None
+
+    decision = decide_budget(config=_config(), pressure_state=state, run_context={"pipeline": "genesis"})
+    governor_event = build_governor_event(
+        decision=decision,
+        config=_config(),
+        run_context={"pipeline": "genesis", "capability": "vision", "router_attempt": 1},
+        router_telemetry={"escalated": False},
+        pressure_state_write=write_result,
+    )
+    assert governor_event["governor"]["state_update_skipped"] is True
