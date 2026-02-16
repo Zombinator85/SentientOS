@@ -71,6 +71,11 @@ jobs:
           python -m scripts.verify_audits logs/ || true
           python -m scripts.plan_audit_repairs logs/ || true
           python -m scripts.converge_audits logs/ --max-iterations 5 --no-apply || true
+          if [ -f glow/audits/baseline/audit_baseline.json ]; then
+            python -m scripts.detect_audit_drift logs/
+          else
+            echo "[audit-sanity] baseline not found; skipping drift detection"
+          fi
           python - <<'PYCODE'
           import json
           import os

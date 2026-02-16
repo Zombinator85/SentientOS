@@ -20,6 +20,9 @@ DEFAULT_TEST_RUN_DIR = Path("glow/test_runs")
 DEFAULT_ROUTING_DIR = Path("glow/routing")
 DEFAULT_REPORT_DIR = Path("glow/reports")
 DEFAULT_AMENDMENT_LOG = Path("integration/amendment_log.jsonl")
+DEFAULT_AUDIT_BASELINE = Path("glow/audits/baseline/audit_baseline.json")
+DEFAULT_AUDIT_DRIFT_REPORT = Path("glow/audits/audit_drift_report.json")
+DEFAULT_AUDIT_CONVERGENCE_REPORT = Path("glow/audits/audit_convergence_report.json")
 
 
 def _iso_now() -> str:
@@ -290,6 +293,11 @@ def build_forensic_report(
             "router_telemetry_report_path": str(router_report) if router_report.exists() else None,
             "bundle_paths": _discover_bundle_paths(test_run_dir, archive_index),
             "archive_index_path": str(archive_index) if archive_index.exists() else None,
+            "audit_baseline_path": str(DEFAULT_AUDIT_BASELINE) if DEFAULT_AUDIT_BASELINE.exists() else None,
+            "audit_drift_report_path": str(DEFAULT_AUDIT_DRIFT_REPORT) if DEFAULT_AUDIT_DRIFT_REPORT.exists() else None,
+            "audit_convergence_report_path": (
+                str(DEFAULT_AUDIT_CONVERGENCE_REPORT) if DEFAULT_AUDIT_CONVERGENCE_REPORT.exists() else None
+            ),
         },
     }
     return report
