@@ -34,6 +34,7 @@ _PRESSURE_EVENT_TYPES = (
 )
 
 _DRIFT_EVENT_TYPES = ("drift_day",)
+_PERCEPTION_EVENT_TYPES = ("perception.screen",)
 
 _BASE_REQUIRED_ENVELOPE_KEYS = (
     "stream",
@@ -52,6 +53,25 @@ _DRIFT_PAYLOAD_FIELDS = (
     "anomaly_trend",
     "summary_counts",
     "source_hash",
+)
+
+_PERCEPTION_PAYLOAD_FIELDS = (
+    "event_type",
+    "timestamp",
+    "source",
+    "extractor_id",
+    "extractor_version",
+    "confidence",
+    "privacy_class",
+    "provenance",
+    "active_app",
+    "window_title",
+    "focused_element_hint",
+    "text_excerpt",
+    "cursor_position",
+    "screen_geometry",
+    "degraded",
+    "degradation_reason",
 )
 
 
@@ -125,9 +145,36 @@ def _drift_schema_versions() -> Mapping[int, StreamSchemaVersion]:
     }
 
 
+def _perception_schema_versions() -> Mapping[int, StreamSchemaVersion]:
+    required_payload = frozenset(
+        {
+            "event_type",
+            "timestamp",
+            "source",
+            "extractor_id",
+            "extractor_version",
+            "confidence",
+            "privacy_class",
+            "provenance",
+        }
+    )
+    allowed_payload = frozenset(_PERCEPTION_PAYLOAD_FIELDS)
+    per_event_required = {event_type: required_payload for event_type in _PERCEPTION_EVENT_TYPES}
+    per_event_allowed = {event_type: allowed_payload for event_type in _PERCEPTION_EVENT_TYPES}
+    return {
+        1: StreamSchemaVersion(
+            version=1,
+            required_envelope_keys=frozenset(_BASE_REQUIRED_ENVELOPE_KEYS),
+            required_payload_keys=per_event_required,
+            allowed_payload_keys=per_event_allowed,
+        )
+    }
+
+
 _STREAM_REGISTRY = {
     "pressure": StreamSchemaRegistry(stream="pressure", current_version=2, versions=_pressure_schema_versions()),
     "drift": StreamSchemaRegistry(stream="drift", current_version=2, versions=_drift_schema_versions()),
+    "perception": StreamSchemaRegistry(stream="perception", current_version=1, versions=_perception_schema_versions()),
 }
 
 

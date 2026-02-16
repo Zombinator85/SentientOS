@@ -83,6 +83,11 @@ jobs:
           else
             echo "[audit-sanity] pulse baseline not found; skipping pulse drift detection"
           fi
+          if [ -f glow/perception/baseline/perception_schema_baseline.json ]; then
+            python -m scripts.detect_perception_schema_drift
+          else
+            echo "[audit-sanity] perception baseline not found; skipping perception drift detection"
+          fi
           if [ -f glow/self/baseline/self_model_baseline.json ]; then
             python -m scripts.detect_self_model_drift
           else

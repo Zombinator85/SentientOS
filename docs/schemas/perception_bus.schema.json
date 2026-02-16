@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/perception_bus.schema.json",
+  "title": "SentientOS Perception Bus",
+  "type": "object",
+  "required": [
+    "event_type",
+    "timestamp",
+    "source",
+    "extractor_id",
+    "extractor_version",
+    "confidence",
+    "privacy_class",
+    "provenance"
+  ],
+  "properties": {
+    "event_type": {
+      "type": "string",
+      "enum": ["perception.screen"]
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "extractor_id": {
+      "type": "string"
+    },
+    "extractor_version": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "privacy_class": {
+      "type": "string",
+      "enum": ["public", "internal", "restricted", "sensitive"]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "active_app": {"type": "string"},
+    "window_title": {"type": "string"},
+    "focused_element_hint": {"type": "string"},
+    "text_excerpt": {"type": "string"},
+    "cursor_position": {
+      "type": "object",
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "screen_geometry": {
+      "type": "object",
+      "properties": {
+        "width": {"type": "number"},
+        "height": {"type": "number"}
+      },
+      "additionalProperties": false
+    },
+    "degraded": {"type": "boolean"},
+    "degradation_reason": {"type": "string"}
+  },
+  "additionalProperties": false
+}

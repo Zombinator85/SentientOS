@@ -13,6 +13,7 @@ from scripts import generate_immutable_manifest
 from scripts.detect_audit_drift import detect_drift as detect_audit_drift
 from scripts.detect_federation_identity_drift import detect_drift as detect_federation_identity_drift
 from scripts.detect_pulse_schema_drift import detect_drift as detect_pulse_schema_drift
+from scripts.detect_perception_schema_drift import detect_drift as detect_perception_schema_drift
 from scripts.detect_self_model_drift import detect_drift as detect_self_model_drift
 
 
@@ -38,6 +39,13 @@ def _pulse_detector() -> dict[str, Any]:
     return detect_pulse_schema_drift(
         baseline_path=Path("glow/pulse/baseline/pulse_schema_baseline.json"),
         output_path=Path("glow/pulse/pulse_schema_drift_report.json"),
+    )
+
+
+def _perception_detector() -> dict[str, Any]:
+    return detect_perception_schema_drift(
+        baseline_path=Path("glow/perception/baseline/perception_schema_baseline.json"),
+        output_path=Path("glow/perception/perception_schema_drift_report.json"),
     )
 
 
@@ -69,6 +77,13 @@ DRIFT_DOMAINS: tuple[DriftDomain, ...] = (
         report_path=Path("glow/pulse/pulse_schema_drift_report.json"),
         strict_gate_envvar="SENTIENTOS_CI_FAIL_ON_PULSE_DRIFT",
         detector=_pulse_detector,
+    ),
+    DriftDomain(
+        name="perception",
+        baseline_path=Path("glow/perception/baseline/perception_schema_baseline.json"),
+        report_path=Path("glow/perception/perception_schema_drift_report.json"),
+        strict_gate_envvar="SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT",
+        detector=_perception_detector,
     ),
     DriftDomain(
         name="self_model",

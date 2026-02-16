@@ -150,6 +150,13 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
             git_sha=git_sha,
         ),
         _domain_status(
+            domain_name="perception",
+            baseline_path=Path("glow/perception/baseline/perception_schema_baseline.json"),
+            drift_report_path=Path("glow/perception/perception_schema_drift_report.json"),
+            strict_gate_envvar="SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT",
+            git_sha=git_sha,
+        ),
+        _domain_status(
             domain_name="self_model",
             baseline_path=Path("glow/self/baseline/self_model_baseline.json"),
             drift_report_path=Path("glow/self/self_model_drift_report.json"),
