@@ -22,6 +22,7 @@ def test_emit_contract_status_handles_missing_baselines(tmp_path: Path, monkeypa
     assert by_domain["audits"]["drift_type"] == "baseline_missing"
     assert by_domain["pulse"]["drift_type"] == "baseline_missing"
     assert by_domain["self_model"]["drift_type"] == "baseline_missing"
+    assert by_domain["perception"]["drift_type"] == "baseline_missing"
     assert by_domain["federation_identity"]["drift_type"] == "baseline_missing"
     assert by_domain["vow_manifest"]["baseline_present"] is False
     assert by_domain["vow_manifest"]["drift_type"] == "preflight_required"
@@ -88,6 +89,41 @@ def test_emit_contract_status_ingests_minimal_baseline_and_drift(tmp_path: Path,
     assert pulse["captured_by"] == "deadbeef"
     assert pulse["captured_at"] == "2026-01-01T00:00:00Z"
     assert pulse["tool_version"] == "1"
+
+
+def test_emit_contract_status_includes_perception_domain(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    _write_json(
+        tmp_path / "glow" / "perception" / "baseline" / "perception_schema_baseline.json",
+        {
+            "schema_version": 1,
+            "schema": {},
+            "schema_fingerprint": "perception-abc",
+            "provenance": {
+                "captured_at": "2026-01-02T00:00:00Z",
+                "captured_by": "feedface",
+                "tool_version": "1",
+            },
+        },
+    )
+    _write_json(
+        tmp_path / "glow" / "perception" / "perception_schema_drift_report.json",
+        {
+            "drifted": False,
+            "drift_type": "none",
+            "explanation": "No perception schema drift detected.",
+            "fingerprint_changed": False,
+            "tuple_diff_detected": False,
+        },
+    )
+
+    payload = emit_contract_status(tmp_path / "glow" / "contracts" / "contract_status.json")
+    perception = next(item for item in payload["contracts"] if item["domain_name"] == "perception")
+
+    assert perception["baseline_present"] is True
+    assert perception["drift_type"] == "none"
+    assert perception["strict_gate_envvar"] == "SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT"
 
 
 def test_contract_drift_non_strict_continues_when_vow_preflight_fails(tmp_path: Path, monkeypatch) -> None:

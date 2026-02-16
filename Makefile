@@ -1,7 +1,7 @@
 .PHONY: lock lock-install docs docs-live ci rehearse audit perf
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
-.PHONY: pulse-baseline pulse-drift self-baseline self-drift federation-baseline federation-drift
+.PHONY: pulse-baseline pulse-drift perception-baseline perception-drift self-baseline self-drift federation-baseline federation-drift
 .PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status
 
 PYTHON ?= python3
@@ -89,6 +89,13 @@ pulse-drift:
 	$(PYTHON) -m scripts.detect_pulse_schema_drift
 	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/pulse/pulse_schema_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
 
+perception-baseline:
+	$(PYTHON) -m scripts.capture_perception_schema_baseline
+
+perception-drift:
+	$(PYTHON) -m scripts.detect_perception_schema_drift
+	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/perception/perception_schema_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
+
 self-baseline:
 	$(PYTHON) -m scripts.capture_self_model_baseline
 
@@ -117,6 +124,7 @@ contract-drift:
 contract-baseline:
 	$(PYTHON) -m scripts.capture_audit_baseline logs $(if $(ACCEPT_MANUAL),--accept-manual,)
 	$(PYTHON) -m scripts.capture_pulse_schema_baseline
+	$(PYTHON) -m scripts.capture_perception_schema_baseline
 	$(PYTHON) -m scripts.capture_self_model_baseline
 	$(PYTHON) -m scripts.capture_federation_identity_baseline
 

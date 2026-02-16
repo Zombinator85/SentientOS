@@ -68,3 +68,16 @@ bounded.
   "validation": {"status": "invalid", "reason": "priority missing"}
 }
 ```
+
+## Perception Event Family
+
+Pulse supports controlled ingestion of perception adapters through the `perception.*`
+event family. The initial allowed type is `perception.screen` only.
+
+Perception payloads must include: `event_type`, `timestamp`, `source`,
+`extractor_id`, `extractor_version`, `confidence`, `privacy_class`, and
+`provenance`.
+
+Perception events are telemetry-only and non-privileged: they cannot directly
+grant permissions or drive action selection without explicit `/vow` whitelist
+invariants.
