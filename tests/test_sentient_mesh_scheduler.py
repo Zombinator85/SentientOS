@@ -26,14 +26,14 @@ def test_mesh_scheduler_cycle_generates_transcripts(tmp_path, monkeypatch):
         trust=2.5,
         load=0.2,
         capabilities=["sentient_script", "council"],
-        emotion={"Joy": 0.6},
+        affect={"Joy": 0.6},
     )
     mesh.update_node(
         "beta",
         trust=1.1,
         load=0.1,
         capabilities=["sentient_script"],
-        emotion={"Calm": 0.4},
+        affect={"Calm": 0.4},
     )
 
     job = MeshJob(
@@ -148,3 +148,21 @@ def test_weight_freeze_rejects_midcycle_trust_mutation(tmp_path):
         mesh.cycle([job])
 
     mutator.join()
+
+
+
+def test_mesh_node_state_aliases_legacy_emotion_field() -> None:
+    from sentient_mesh import MeshNodeState
+
+    legacy_payload = {
+        "node_id": "legacy",
+        "capabilities": ["sentient_script"],
+        "emotion": {"Calm": 0.8},
+    }
+
+    state = MeshNodeState.from_dict(legacy_payload)
+
+    assert state.affect == {"Calm": 0.8}
+    serialized = state.to_dict()
+    assert serialized["affect"] == {"Calm": 0.8}
+    assert serialized["emotion"] == {"Calm": 0.8}

@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import threading
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 
@@ -56,11 +56,38 @@ class MeshNodeState:
     capabilities: set[str] = field(default_factory=set)
     trust: float = 0.0
     load: float = 0.0
-    emotion: Mapping[str, float] = field(default_factory=dict)
+    affect: Mapping[str, float] = field(default_factory=dict)
+    emotion: InitVar[Optional[Mapping[str, float]]] = None
     dream_state: Mapping[str, object] = field(default_factory=dict)
     advisory_only: bool = False
     attributes: Mapping[str, object] = field(default_factory=dict)
     last_updated: float = field(default=0.0)
+
+    def __post_init__(self, emotion: Optional[Mapping[str, float]]) -> None:
+        if emotion is not None and not self.affect:
+            self.affect = dict(emotion)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, object]) -> "MeshNodeState":
+        """Parse node state payloads while accepting legacy emotion aliases."""
+        normalized = dict(payload)
+        if "affect" not in normalized and "emotion" in normalized:
+            normalized["affect"] = normalized["emotion"]
+
+        state = cls(
+            node_id=str(normalized.get("node_id") or ""),
+            affect=dict(normalized.get("affect") or {}),
+        )
+        for key, value in normalized.items():
+            if key in {"node_id", "affect", "emotion"} or not hasattr(state, key):
+                continue
+            if key == "capabilities":
+                setattr(state, key, set(value) if value is not None else set())
+            elif key in {"dream_state", "attributes"}:
+                setattr(state, key, dict(value) if value is not None else {})
+            else:
+                setattr(state, key, value)
+        return state
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -68,7 +95,8 @@ class MeshNodeState:
             "capabilities": sorted(self.capabilities),
             "trust": round(self.trust, 3),
             "load": round(self.load, 3),
-            "emotion": dict(self.emotion),
+            "affect": dict(self.affect),
+            "emotion": dict(self.affect),
             "dream_state": dict(self.dream_state),
             "advisory_only": self.advisory_only,
             "attributes": dict(self.attributes),
@@ -229,6 +257,7 @@ class SentientMesh:
         trust: float | None = None,
         load: float | None = None,
         capabilities: Optional[Iterable[str]] = None,
+        affect: Optional[Mapping[str, float]] = None,
         emotion: Optional[Mapping[str, float]] = None,
         dream_state: Optional[Mapping[str, object]] = None,
         advisory_only: Optional[bool] = None,
@@ -245,8 +274,10 @@ class SentientMesh:
                 state.trust = float(trust)
             if load is not None:
                 state.load = float(load)
-            if emotion is not None:
-                state.emotion = dict(emotion)
+            if affect is not None:
+                state.affect = dict(affect)
+            elif emotion is not None:
+                state.affect = dict(emotion)
             if dream_state is not None:
                 state.dream_state = dict(dream_state)
             if advisory_only is not None:
@@ -321,7 +352,7 @@ class SentientMesh:
                 node_id: state.trust for node_id, state in self._nodes.items()
             }
             emotion_matrix: Dict[str, Dict[str, float]] = {
-                node_id: {k: float(v) for k, v in state.emotion.items()}
+                node_id: {k: float(v) for k, v in state.affect.items()}
                 for node_id, state in self._nodes.items()
             }
             sessions_summary: Dict[str, List[Dict[str, object]]] = {}
@@ -493,7 +524,7 @@ class SentientMesh:
                     "assignments": {},
                     "trust_vector": {node: state.trust for node, state in self._nodes.items()},
                     "emotion_matrix": {
-                        node: {k: float(v) for k, v in state.emotion.items()}
+                        node: {k: float(v) for k, v in state.affect.items()}
                         for node, state in self._nodes.items()
                     },
                     "council_sessions": {},
@@ -523,7 +554,7 @@ class SentientMesh:
             for state in self._nodes.values():
                 bucket = str(int(round(state.trust)))
                 histogram[bucket] = histogram.get(bucket, 0) + 1
-                for key, value in state.emotion.items():
+                for key, value in state.affect.items():
                     emotion[key] = emotion.get(key, 0.0) + float(value)
             total_nodes = max(1, len(self._nodes))
             consensus_delta = {k: round(v / total_nodes, 3) for k, v in emotion.items()}
