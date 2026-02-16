@@ -57,13 +57,29 @@ def test_plan_is_deterministic_and_apply_repairs_only_safe(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
+    c_first_prev = "independent-prev"
+    c_first_hash = ai._hash_entry("2025-01-01T00:00:03Z", {"c": 3}, c_first_prev)
+    c_second_hash = ai._hash_entry("2025-01-01T00:00:02Z", {"c": 4}, c_first_hash)
     (logs / "c.jsonl").write_text(
-        json.dumps(
-            {
-                "timestamp": "2025-01-01T00:00:02Z",
-                "prev_hash": prev,
-                "rolling_hash": "0" * 64,
-            }
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "timestamp": "2025-01-01T00:00:03Z",
+                        "data": {"c": 3},
+                        "prev_hash": c_first_prev,
+                        "rolling_hash": c_first_hash,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "timestamp": "2025-01-01T00:00:02Z",
+                        "data": {"c": 4},
+                        "prev_hash": c_first_hash,
+                        "rolling_hash": c_second_hash,
+                    }
+                ),
+            ]
         )
         + "\n",
         encoding="utf-8",
@@ -81,10 +97,10 @@ def test_plan_is_deterministic_and_apply_repairs_only_safe(tmp_path: Path) -> No
     assert _normalize_plan(plan_one) == _normalize_plan(plan_two)
 
     repairs = {repair["paths"][0]: repair for repair in plan_one["repairs"]}
-    assert repairs[str(logs / "b.jsonl")]["action"] == "rebuild_chain"
-    assert repairs[str(logs / "b.jsonl")]["safe"] is True
-    assert repairs[str(logs / "c.jsonl")]["action"] == "manual_required"
-    assert repairs[str(logs / "c.jsonl")]["safe"] is False
+    assert repairs["logs/b.jsonl"]["action"] == "rebuild_chain"
+    assert repairs["logs/b.jsonl"]["safe"] is True
+    assert repairs["logs/c.jsonl"]["action"] == "manual_required"
+    assert repairs["logs/c.jsonl"]["safe"] is False
 
     verify_before = subprocess.run(
         [sys.executable, "-m", "scripts.verify_audits", "logs/", "--no-input"],
