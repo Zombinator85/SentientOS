@@ -14,7 +14,7 @@ def run(cmd: str, **kw: Any) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, shell=True, check=True, **kw)
 
 run("python scripts/ritual_enforcer.py --fix")
-run("python verify_audits.py logs/ --auto-repair", **AUTO)
+run("python -m scripts.verify_audits logs/ --auto-repair", **AUTO)
 run("python -m pip install -e .[dev]", **AUTO)
 run("mypy --strict --exclude tests sentientos", **AUTO)
 run("python -m scripts.run_tests -q -m 'not env'", **AUTO)

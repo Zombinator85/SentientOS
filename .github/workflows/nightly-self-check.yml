@@ -15,7 +15,7 @@ jobs:
           python-version: '3.11'
       - run: pip install -e .[dev]
       - name: Verify audits
-        run: python verify_audits.py logs/
+        run: python -m scripts.verify_audits logs/
         env:
           LUMOS_AUTO_APPROVE: '1'
       - name: Privilege lint

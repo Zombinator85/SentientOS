@@ -17,7 +17,7 @@ BLESSINGS_FILE = Path("SANCTUARY_BLESSINGS.jsonl")
 
 def run_verify() -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["python", "verify_audits.py", "logs/"], capture_output=True, text=True
+        ["python", "-m", "scripts.verify_audits", "logs/"], capture_output=True, text=True
     )
 
 

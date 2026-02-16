@@ -30,7 +30,7 @@ jobs:
         id: repair
         run: |
           set +e
-          python verify_audits.py logs/ --auto-repair --no-input | tee audit_output.txt
+          python -m scripts.verify_audits logs/ --auto-repair --no-input | tee audit_output.txt
           echo "status=$?" >> "$GITHUB_OUTPUT"
           if [ -n "$(git status --porcelain)" ]; then
             echo "patched=true" >> "$GITHUB_OUTPUT"

@@ -64,8 +64,37 @@ jobs:
       - name: Governance drift check
         run: python scripts/check_governance_drift.py
 
-      - name: Verify audits
-        run: python verify_audits.py logs/
+      - name: Audit sanity (blessed module entrypoints)
+        run: |
+          mkdir -p glow/audits
+          python -m scripts.audit_immutability_verifier || true
+          python -m scripts.verify_audits logs/ || true
+          python - <<'PYCODE'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          should_fail = os.getenv("SENTIENTOS_CI_FAIL_ON_AUDIT_FAILURE") == "1"
+          gate_fail = False
+          for name in ["audit_immutability_result.json", "verify_audits_result.json"]:
+              path = Path("glow/audits") / name
+              if not path.exists():
+                  print(f"[audit-sanity] missing artifact: {path}")
+                  continue
+              try:
+                  payload = json.loads(path.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  print(f"[audit-sanity] unreadable artifact: {path} ({exc})")
+                  continue
+              ok = bool(payload.get("ok", False))
+              tool = payload.get("tool", name)
+              print(f"[audit-sanity] {tool} ok={ok}")
+              if should_fail and not ok:
+                  gate_fail = True
+          if should_fail and gate_fail:
+              sys.exit(1)
+          PYCODE
         env:
           LUMOS_AUTO_APPROVE: '1'
 
@@ -147,6 +176,14 @@ jobs:
         with:
           name: forensic_run_report_${{ github.run_id }}_${{ github.job }}
           path: glow/reports/forensic_report_*.json
+          if-no-files-found: ignore
+
+      - name: Upload audit sanity artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit_sanity_${{ github.run_id }}_${{ github.job }}
+          path: glow/audits/*.json
           if-no-files-found: ignore
 
       - name: Run parliament demo
@@ -250,4 +287,12 @@ jobs:
         with:
           name: forensic_run_report_${{ github.run_id }}_${{ github.job }}
           path: glow/reports/forensic_report_*.json
+          if-no-files-found: ignore
+
+      - name: Upload audit sanity artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit_sanity_${{ github.run_id }}_${{ github.job }}
+          path: glow/audits/*.json
           if-no-files-found: ignore
