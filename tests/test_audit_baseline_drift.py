@@ -63,6 +63,45 @@ def test_detect_audit_drift_reports_new_and_resolved_issues(tmp_path: Path) -> N
     assert resolved_report["resolved_issues"]
 
 
+def test_detect_audit_drift_fingerprint_only(tmp_path: Path) -> None:
+    logs = tmp_path / "logs"
+    log = _make_clean_logs(logs)
+
+    baseline_path = tmp_path / "baseline.json"
+    capture_baseline(target=logs, output=baseline_path, accept_manual=False)
+
+    payloads = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
+    payloads[0]["event"] = "alpha-updated"
+    log.write_text("\n".join(json.dumps(item, sort_keys=True) for item in payloads) + "\n", encoding="utf-8")
+
+    report = detect_drift(target=logs, baseline_path=baseline_path, output_path=tmp_path / "drift.json")
+
+    assert report["tuple_diff_detected"] is False
+    assert report["fingerprint_changed"] is True
+    assert report["drifted"] is True
+    assert report["drift_type"] == "fingerprint_only"
+
+
+def test_detect_audit_drift_tuple_only_with_simulated_fingerprint_match(tmp_path: Path, monkeypatch) -> None:
+    logs = tmp_path / "logs"
+    log = _make_clean_logs(logs)
+
+    baseline_path = tmp_path / "baseline.json"
+    baseline = capture_baseline(target=logs, output=baseline_path, accept_manual=False)
+
+    with log.open("a", encoding="utf-8") as handle:
+        handle.write('{"oops":')
+
+    monkeypatch.setattr("scripts.detect_audit_drift._fingerprint", lambda manifest: str(baseline["baseline_fingerprint"]))
+
+    report = detect_drift(target=logs, baseline_path=baseline_path, output_path=tmp_path / "drift_tuple_only.json")
+
+    assert report["tuple_diff_detected"] is True
+    assert report["fingerprint_changed"] is False
+    assert report["drifted"] is True
+    assert report["drift_type"] == "tuple_only"
+
+
 def test_capture_accept_manual_records_explicit_status(tmp_path: Path) -> None:
     logs = tmp_path / "logs"
     log = _make_clean_logs(logs)
@@ -75,3 +114,14 @@ def test_capture_accept_manual_records_explicit_status(tmp_path: Path) -> None:
     assert payload["ok"] is False
     assert payload["manual_issues_accepted"] is True
     assert on_disk["manual_issues_accepted"] is True
+
+
+def test_capture_baseline_includes_provenance_metadata(tmp_path: Path) -> None:
+    logs = tmp_path / "logs"
+    _make_clean_logs(logs)
+
+    payload = capture_baseline(target=logs, output=tmp_path / "baseline.json", accept_manual=False)
+
+    assert payload["captured_at"].endswith("Z")
+    assert isinstance(payload["captured_by"], str)
+    assert payload["tool_version"]

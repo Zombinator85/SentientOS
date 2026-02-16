@@ -3,12 +3,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from scripts import converge_audits, verify_audits
 
+__version__ = "1"
 SCHEMA_VERSION = 1
 DEFAULT_TARGET = Path("logs")
 DEFAULT_OUTPUT = Path("glow/audits/baseline/audit_baseline.json")
@@ -72,6 +74,26 @@ def _issue_tuples(issues_by_path: dict[str, list[dict[str, Any]]]) -> list[dict[
     return sorted(flattened, key=lambda i: (i["code"], i["path"], i["expected"], i["actual"]))
 
 
+def _captured_by_commit() -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "--verify", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return ""
+    return completed.stdout.strip()
+
+
+def _tool_version() -> str:
+    version = str(globals().get("__version__", "")).strip()
+    if version:
+        return version
+    return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+
 def capture_baseline(*, target: Path, output: Path, accept_manual: bool) -> dict[str, Any]:
     issues_by_path, _, _ = verify_audits.verify_audits_detailed(directory=target, quarantine=True, repair=False)
     convergence_report = converge_audits.run_convergence(target=target, max_iterations=1, apply_repairs=False)
@@ -84,9 +106,13 @@ def capture_baseline(*, target: Path, output: Path, accept_manual: bool) -> dict
         if not manual_required:
             raise SystemExit("Refusing to capture baseline: audits are unclean but no manual-required issues were identified.")
 
+    captured_at = _iso_now()
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "timestamp": _iso_now(),
+        "timestamp": captured_at,
+        "captured_at": captured_at,
+        "captured_by": _captured_by_commit(),
+        "tool_version": _tool_version(),
         "target": f"{target.as_posix().rstrip('/')}/",
         "ok": ok,
         "manual_issues_accepted": bool(accept_manual and not ok),
