@@ -176,6 +176,10 @@ jobs:
             python scripts/forensic_run_report.py
           fi
 
+      - name: Emit contract status rollup
+        if: always()
+        run: python -m scripts.emit_contract_status || true
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -223,6 +227,14 @@ jobs:
         with:
           name: audit_sanity_${{ github.run_id }}_${{ github.job }}
           path: glow/audits/*.json
+          if-no-files-found: ignore
+
+      - name: Upload contract status artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract_status_${{ github.run_id }}_${{ github.job }}
+          path: glow/contracts/*.json
           if-no-files-found: ignore
 
       - name: Run parliament demo
@@ -297,6 +309,10 @@ jobs:
             python scripts/forensic_run_report.py
           fi
 
+      - name: Emit contract status rollup
+        if: always()
+        run: python -m scripts.emit_contract_status || true
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -334,4 +350,12 @@ jobs:
         with:
           name: audit_sanity_${{ github.run_id }}_${{ github.job }}
           path: glow/audits/*.json
+          if-no-files-found: ignore
+
+      - name: Upload contract status artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract_status_${{ github.run_id }}_${{ github.job }}
+          path: glow/contracts/*.json
           if-no-files-found: ignore

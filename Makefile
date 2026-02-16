@@ -1,6 +1,8 @@
 .PHONY: lock lock-install docs docs-live ci rehearse audit perf
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
+.PHONY: pulse-baseline pulse-drift self-baseline self-drift federation-baseline federation-drift
+.PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status
 
 PYTHON ?= python3
 
@@ -78,6 +80,46 @@ audit-drift:
 
 audit-verify:
 	$(PYTHON) -m scripts.audit_immutability_verifier
+
+pulse-baseline:
+	$(PYTHON) -m scripts.capture_pulse_schema_baseline
+
+pulse-drift:
+	$(PYTHON) -m scripts.detect_pulse_schema_drift
+	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/pulse/pulse_schema_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
+
+self-baseline:
+	$(PYTHON) -m scripts.capture_self_model_baseline
+
+self-drift:
+	$(PYTHON) -m scripts.detect_self_model_drift
+	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/self/self_model_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
+
+federation-baseline:
+	$(PYTHON) -m scripts.capture_federation_identity_baseline
+
+federation-drift:
+	$(PYTHON) -m scripts.detect_federation_identity_drift
+	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/federation/federation_identity_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
+
+vow-manifest:
+	mkdir -p /vow
+	$(PYTHON) -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json
+
+vow-verify:
+	$(PYTHON) -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json
+
+contract-drift:
+	$(PYTHON) -m scripts.contract_drift
+
+contract-baseline:
+	$(PYTHON) -m scripts.capture_audit_baseline logs $(if $(ACCEPT_MANUAL),--accept-manual,)
+	$(PYTHON) -m scripts.capture_pulse_schema_baseline
+	$(PYTHON) -m scripts.capture_self_model_baseline
+	$(PYTHON) -m scripts.capture_federation_identity_baseline
+
+contract-status:
+	$(PYTHON) -m scripts.emit_contract_status
 
 speak:
 	$(PYTHON) sosctl.py say "$(if $(MSG),$(MSG),Hello from SentientOS)"
