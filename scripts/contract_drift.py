@@ -3,10 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from scripts import generate_immutable_manifest
 from scripts.detect_audit_drift import detect_drift as detect_audit_drift
 from scripts.detect_federation_identity_drift import detect_drift as detect_federation_identity_drift
 from scripts.detect_pulse_schema_drift import detect_drift as detect_pulse_schema_drift
@@ -85,7 +88,11 @@ DRIFT_DOMAINS: tuple[DriftDomain, ...] = (
 
 
 def _read_json(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _drift_explanation(payload: dict[str, Any]) -> str:
@@ -103,8 +110,116 @@ def _drift_type(payload: dict[str, Any]) -> str:
     return value if isinstance(value, str) and value else "unknown"
 
 
+def _resolve_vow_manifest_path() -> Path:
+    if Path("/vow").exists():
+        return Path("/vow/immutable_manifest.json")
+    return Path("vow/immutable_manifest.json")
+
+
+def _ensure_vow_manifest(manifest_path: Path) -> tuple[bool, str | None]:
+    if manifest_path.exists():
+        return (True, None)
+    try:
+        generate_immutable_manifest.generate_manifest(output=manifest_path)
+    except Exception as exc:  # pragma: no cover - exercised via caller behavior
+        return (False, f"failed to generate vow immutable manifest at {manifest_path}: {exc}")
+    return (True, None)
+
+
+def _run_audit_immutability_verifier(manifest_path: Path) -> dict[str, Any]:
+    command = [
+        sys.executable,
+        "-m",
+        "scripts.audit_immutability_verifier",
+        "--manifest",
+        str(manifest_path),
+    ]
+    completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    payload = _read_json(Path("glow/audits/audit_immutability_result.json"))
+    if completed.returncode == 0:
+        return {
+            "domain": "audit_immutability",
+            "baseline_present": True,
+            "drift_type": "none",
+            "drift_explanation": None,
+            "drifted": False,
+            "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
+        }
+
+    explanation = "audit immutability verifier failed"
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        issues = payload.get("issues")
+        if isinstance(error, str) and error:
+            explanation = error
+        elif isinstance(issues, list) and issues:
+            explanation = "; ".join(str(issue) for issue in issues)
+    elif completed.stderr.strip():
+        explanation = completed.stderr.strip()
+
+    return {
+        "domain": "audit_immutability",
+        "baseline_present": True,
+        "drift_type": "verification_failed",
+        "drift_explanation": explanation,
+        "drifted": True,
+        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
+    }
+
+
 def run_contract_drift(*, from_existing_reports: bool = False) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
+
+    manifest_path = _resolve_vow_manifest_path()
+    manifest_ok, manifest_error = _ensure_vow_manifest(manifest_path)
+    if manifest_ok:
+        results.append(
+            {
+                "domain": "vow_manifest",
+                "baseline_present": True,
+                "drift_type": "none",
+                "drift_explanation": None,
+                "drifted": False,
+                "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
+            }
+        )
+        if from_existing_reports:
+            verification_payload = _read_json(Path("glow/audits/audit_immutability_result.json"))
+            result_ok = bool(verification_payload.get("ok", False))
+            results.append(
+                {
+                    "domain": "audit_immutability",
+                    "baseline_present": True,
+                    "drift_type": "none" if result_ok else "verification_failed",
+                    "drift_explanation": None if result_ok else (verification_payload or {}).get("error"),
+                    "drifted": False if result_ok else True,
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
+                }
+            )
+        else:
+            results.append(_run_audit_immutability_verifier(manifest_path))
+    else:
+        results.append(
+            {
+                "domain": "vow_manifest",
+                "baseline_present": False,
+                "drift_type": "preflight_failed",
+                "drift_explanation": manifest_error,
+                "drifted": None,
+                "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
+            }
+        )
+        results.append(
+            {
+                "domain": "audit_immutability",
+                "baseline_present": False,
+                "drift_type": "preflight_required",
+                "drift_explanation": "vow immutable manifest missing; run make vow-manifest",
+                "drifted": None,
+                "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
+            }
+        )
+
     for domain in DRIFT_DOMAINS:
         if not domain.baseline_path.exists():
             results.append(
@@ -138,11 +253,7 @@ def run_contract_drift(*, from_existing_reports: bool = False) -> list[dict[str,
 
 
 def _should_fail_strict(results: list[dict[str, Any]]) -> bool:
-    return any(
-        result.get("baseline_present")
-        and str(result.get("drift_type", "none")) != "none"
-        for result in results
-    )
+    return any(str(result.get("drift_type", "none")) not in {"none", "baseline_missing"} for result in results)
 
 
 def _print_summary(results: list[dict[str, Any]]) -> None:

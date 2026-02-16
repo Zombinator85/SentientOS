@@ -58,6 +58,28 @@ def _baseline_meta(baseline: dict[str, Any] | None) -> tuple[str | None, str | N
     )
 
 
+
+
+def _resolve_vow_manifest_path() -> Path:
+    if Path("/vow").exists():
+        return Path("/vow/immutable_manifest.json")
+    return Path("vow/immutable_manifest.json")
+
+
+def _vow_manifest_meta(manifest: dict[str, Any] | None) -> tuple[str | None, str | None, str | None]:
+    if not manifest:
+        return (None, None, None)
+
+    manifest_sha = manifest.get("manifest_sha256")
+    captured_by = manifest.get("captured_by")
+    tool_version = manifest.get("tool_version")
+
+    return (
+        str(manifest_sha) if isinstance(manifest_sha, str) else None,
+        str(captured_by) if isinstance(captured_by, str) else None,
+        str(tool_version) if isinstance(tool_version, str) else None,
+    )
+
 def _domain_status(
     *,
     domain_name: str,
@@ -143,13 +165,29 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         ),
         _domain_status(
             domain_name="vow_manifest",
-            baseline_path=Path("/vow/immutable_manifest.json") if Path("/vow").exists() else Path("vow/immutable_manifest.json"),
+            baseline_path=_resolve_vow_manifest_path(),
             drift_report_path=Path("glow/audits/audit_immutability_result.json"),
             strict_gate_envvar="SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
             git_sha=git_sha,
             baseline_optional=True,
         ),
     ]
+
+    vow_manifest = next((entry for entry in contracts if entry.get("domain_name") == "vow_manifest"), None)
+    if isinstance(vow_manifest, dict):
+        manifest_path = _resolve_vow_manifest_path()
+        manifest_present = manifest_path.exists()
+        manifest_payload = _read_json(manifest_path) if manifest_present else None
+        manifest_sha, manifest_captured_by, manifest_tool_version = _vow_manifest_meta(manifest_payload)
+        if not manifest_present:
+            vow_manifest["baseline_present"] = False
+            vow_manifest["last_baseline_path"] = None
+            vow_manifest["drifted"] = None
+            vow_manifest["drift_type"] = "preflight_required"
+            vow_manifest["drift_explanation"] = "vow immutable manifest missing; run make vow-manifest"
+        vow_manifest["manifest_sha256"] = manifest_sha
+        vow_manifest["manifest_captured_by"] = manifest_captured_by
+        vow_manifest["manifest_tool_version"] = manifest_tool_version
 
     payload = {
         "schema_version": 1,

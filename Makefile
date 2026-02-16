@@ -79,7 +79,8 @@ audit-drift:
 	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/audits/audit_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\", \"\")}')"
 
 audit-verify:
-	$(PYTHON) -m scripts.audit_immutability_verifier
+	@if [ "$(NO_GENERATE)" != "1" ]; then $(MAKE) vow-manifest; fi
+	$(PYTHON) -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json
 
 pulse-baseline:
 	$(PYTHON) -m scripts.capture_pulse_schema_baseline
@@ -107,6 +108,7 @@ vow-manifest:
 	$(PYTHON) -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json
 
 vow-verify:
+	@if [ "$(NO_GENERATE)" != "1" ]; then $(MAKE) vow-manifest; fi
 	$(PYTHON) -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json
 
 contract-drift:
