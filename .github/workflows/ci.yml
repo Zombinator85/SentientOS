@@ -176,6 +176,18 @@ jobs:
             python scripts/forensic_run_report.py
           fi
 
+      - name: Vow manifest preflight
+        if: always()
+        run: python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json || true
+
+      - name: Audit immutability preflight
+        if: always()
+        run: python -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json || true
+
+      - name: Contract drift rollup
+        if: always()
+        run: python -m scripts.contract_drift || true
+
       - name: Emit contract status rollup
         if: always()
         run: python -m scripts.emit_contract_status || true
@@ -308,6 +320,18 @@ jobs:
           else
             python scripts/forensic_run_report.py
           fi
+
+      - name: Vow manifest preflight
+        if: always()
+        run: python -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json || true
+
+      - name: Audit immutability preflight
+        if: always()
+        run: python -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json || true
+
+      - name: Contract drift rollup
+        if: always()
+        run: python -m scripts.contract_drift || true
 
       - name: Emit contract status rollup
         if: always()

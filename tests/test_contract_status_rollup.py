@@ -23,7 +23,30 @@ def test_emit_contract_status_handles_missing_baselines(tmp_path: Path, monkeypa
     assert by_domain["pulse"]["drift_type"] == "baseline_missing"
     assert by_domain["self_model"]["drift_type"] == "baseline_missing"
     assert by_domain["federation_identity"]["drift_type"] == "baseline_missing"
-    assert by_domain["vow_manifest"]["drift_type"] == "none"
+    assert by_domain["vow_manifest"]["baseline_present"] is False
+    assert by_domain["vow_manifest"]["drift_type"] == "preflight_required"
+
+
+def test_emit_contract_status_includes_vow_manifest_provenance(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    _write_json(
+        tmp_path / "vow" / "immutable_manifest.json",
+        {
+            "manifest_sha256": "manifest-sha",
+            "captured_by": "cafebabe",
+            "tool_version": "2",
+            "files": {},
+        },
+    )
+
+    payload = emit_contract_status(tmp_path / "glow" / "contracts" / "contract_status.json")
+    vow_manifest = next(item for item in payload["contracts"] if item["domain_name"] == "vow_manifest")
+
+    assert vow_manifest["baseline_present"] is True
+    assert vow_manifest["manifest_sha256"] == "manifest-sha"
+    assert vow_manifest["manifest_captured_by"] == "cafebabe"
+    assert vow_manifest["manifest_tool_version"] == "2"
 
 
 def test_emit_contract_status_ingests_minimal_baseline_and_drift(tmp_path: Path, monkeypatch) -> None:
@@ -65,6 +88,35 @@ def test_emit_contract_status_ingests_minimal_baseline_and_drift(tmp_path: Path,
     assert pulse["captured_by"] == "deadbeef"
     assert pulse["captured_at"] == "2026-01-01T00:00:00Z"
     assert pulse["tool_version"] == "1"
+
+
+def test_contract_drift_non_strict_continues_when_vow_preflight_fails(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    # Create one normal domain baseline+report to prove processing continues.
+    _write_json(
+        tmp_path / "glow" / "pulse" / "baseline" / "pulse_schema_baseline.json",
+        {"schema": {}, "schema_fingerprint": "abc"},
+    )
+    _write_json(
+        tmp_path / "glow" / "pulse" / "pulse_schema_drift_report.json",
+        {"drifted": False, "drift_type": "none", "explanation": "ok"},
+    )
+
+    # Block generator so vow preflight cannot succeed.
+    monkeypatch.setattr("scripts.contract_drift.generate_immutable_manifest.generate_manifest", lambda output: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    rc = contract_drift_main(["--from-existing-reports"])
+    assert rc == 0
+
+
+def test_contract_drift_strict_fails_when_vow_preflight_fails(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("STRICT", "1")
+    monkeypatch.setattr("scripts.contract_drift.generate_immutable_manifest.generate_manifest", lambda output: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    rc = contract_drift_main(["--from-existing-reports"])
+    assert rc == 1
 
 
 def test_contract_drift_strict_fails_when_any_drift_reported(tmp_path: Path, monkeypatch) -> None:
