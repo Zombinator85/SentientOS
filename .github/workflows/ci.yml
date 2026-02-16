@@ -70,6 +70,7 @@ jobs:
           python -m scripts.audit_immutability_verifier || true
           python -m scripts.verify_audits logs/ || true
           python -m scripts.plan_audit_repairs logs/ || true
+          python -m scripts.converge_audits logs/ --max-iterations 5 --no-apply || true
           python - <<'PYCODE'
           import json
           import os
@@ -77,6 +78,7 @@ jobs:
           from pathlib import Path
 
           should_fail = os.getenv("SENTIENTOS_CI_FAIL_ON_AUDIT_FAILURE") == "1"
+          fail_on_unclean = os.getenv("SENTIENTOS_CI_FAIL_ON_AUDIT_UNCLEAN") == "1"
           gate_fail = False
           for name in ["audit_immutability_result.json", "verify_audits_result.json"]:
               path = Path("glow/audits") / name
@@ -93,7 +95,21 @@ jobs:
               print(f"[audit-sanity] {tool} ok={ok}")
               if should_fail and not ok:
                   gate_fail = True
+          convergence_path = Path("glow/audits/audit_convergence_report.json")
+          if convergence_path.exists():
+              try:
+                  convergence = json.loads(convergence_path.read_text(encoding="utf-8"))
+                  print(f"[audit-sanity] converge_audits ok={bool(convergence.get('ok', False))}")
+                  if fail_on_unclean and (not convergence.get("ok", False)) and convergence.get("no_safe_repairs_remaining", False):
+                      gate_fail = True
+              except Exception as exc:
+                  print(f"[audit-sanity] unreadable artifact: {convergence_path} ({exc})")
+          else:
+              print(f"[audit-sanity] missing artifact: {convergence_path}")
+
           if should_fail and gate_fail:
+              sys.exit(1)
+          if fail_on_unclean and gate_fail:
               sys.exit(1)
           PYCODE
         env:

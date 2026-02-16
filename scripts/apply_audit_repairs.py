@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from scripts.provenance_hash_chain import GENESIS_PREV_HASH
 DEFAULT_PLAN_PATH = Path("glow/audits/audit_repair_plan.json")
 DEFAULT_RESULT_PATH = Path("glow/audits/audit_repair_result.json")
 REPAIR_CHAIN_PATH = Path("glow/audits/repairs/repair_receipts.jsonl")
+QUARANTINE_INDEX_PATH = Path("glow/audits/quarantine_index.jsonl")
 SCHEMA_VERSION = 1
 
 
@@ -78,6 +80,15 @@ def _atomic_write_text(path: Path, content: str) -> None:
 
 def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _append_jsonl(path: Path, payloads: list[dict[str, Any]]) -> None:
+    if not payloads:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        for payload in payloads:
+            handle.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
 def _read_entries(path: Path) -> list[dict[str, Any]]:
@@ -154,6 +165,40 @@ def _build_result() -> dict[str, Any]:
         "errors": [],
         "before_hashes": {},
         "after_hashes": {},
+        "quarantine_paths": [],
+    }
+
+
+def _quarantine_base(target_dir: Path) -> Path:
+    return target_dir / "quarantine"
+
+
+def _quarantine_path(base_dir: Path, original_path: Path, repair_id: str, sequence: int) -> Path:
+    safe_name = str(original_path).replace(os.sep, "__")
+    return base_dir / f"{repair_id}_{sequence:04d}_{safe_name}"
+
+
+def _quarantine_file(
+    *,
+    original_path: Path,
+    base_dir: Path,
+    reason_codes: list[str],
+    repair_id: str,
+    sequence: int,
+) -> dict[str, Any]:
+    base_dir.mkdir(parents=True, exist_ok=True)
+    quarantine_path = _quarantine_path(base_dir, original_path, repair_id, sequence)
+    shutil.copy2(original_path, quarantine_path)
+    hash_before = _file_sha256(original_path)
+    hash_after = _file_sha256(quarantine_path)
+    return {
+        "timestamp": _utc_now(),
+        "original_path": str(original_path),
+        "quarantine_path": str(quarantine_path),
+        "reason_codes": sorted(set(reason_codes)) or ["unknown"],
+        "hash_before": hash_before,
+        "hash_after": hash_after,
+        "repair_id": repair_id,
     }
 
 
@@ -161,11 +206,15 @@ def apply_repairs(plan: dict[str, Any], plan_path: Path) -> dict[str, Any]:
     result = _build_result()
     safe_repairs = [repair for repair in plan.get("repairs", []) if repair.get("safe") is True]
     safe_paths = {str(path) for repair in safe_repairs for path in repair.get("paths", []) if repair.get("action") == "rebuild_chain"}
+    quarantine_records: list[dict[str, Any]] = []
+    quarantine_sequence = 0
 
     target_dir = Path(str(plan.get("target", "logs/")))
     if not target_dir.exists():
         result["errors"].append({"plan": str(plan_path), "error": f"target not found: {target_dir}"})
         return result
+
+    quarantine_dir = _quarantine_base(target_dir)
 
     prev = "0" * 64
     for path in sorted(p for p in target_dir.iterdir() if p.is_file()):
@@ -193,6 +242,22 @@ def apply_repairs(plan: dict[str, Any], plan_path: Path) -> dict[str, Any]:
 
     for repair in plan.get("repairs", []):
         if not repair.get("safe"):
+            reason_codes = [str(code) for code in repair.get("reason_codes", [])]
+            repair_id = str(repair.get("repair_id", "repair-unknown"))
+            for raw_path in sorted(str(path) for path in repair.get("paths", [])):
+                path = Path(raw_path)
+                if not path.exists() or not path.is_file():
+                    continue
+                quarantine_sequence += 1
+                quarantine_record = _quarantine_file(
+                    original_path=path,
+                    base_dir=quarantine_dir,
+                    reason_codes=reason_codes,
+                    repair_id=repair_id,
+                    sequence=quarantine_sequence,
+                )
+                quarantine_records.append(quarantine_record)
+                result["quarantine_paths"].append(quarantine_record["quarantine_path"])
             result["skipped"].append(
                 {
                     "repair_id": repair.get("repair_id"),
@@ -200,6 +265,8 @@ def apply_repairs(plan: dict[str, Any], plan_path: Path) -> dict[str, Any]:
                     "reason": "unsafe_manual_required",
                 }
             )
+
+    _append_jsonl(QUARANTINE_INDEX_PATH, quarantine_records)
 
     return result
 
