@@ -99,6 +99,15 @@ jobs:
         if: always()
         run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain --output glow/test_runs/router_telemetry_report.json
 
+      - name: Generate forensic run report
+        if: always()
+        run: |
+          if [ "${SENTIENTOS_CI_FAIL_ON_FORENSIC_INTEGRITY:-0}" = "1" ]; then
+            python scripts/forensic_run_report.py --fail-on-integrity
+          else
+            python scripts/forensic_run_report.py
+          fi
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -131,6 +140,14 @@ jobs:
         with:
           name: router_telemetry_report_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/router_telemetry_report.json
+
+      - name: Upload forensic run report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forensic_run_report_${{ github.run_id }}_${{ github.job }}
+          path: glow/reports/forensic_report_*.json
+          if-no-files-found: ignore
 
       - name: Run parliament demo
         run: |
@@ -195,6 +212,15 @@ jobs:
         if: always()
         run: python scripts/analyze_test_provenance.py --dir glow/test_runs/provenance --verify-chain --output glow/test_runs/router_telemetry_report.json
 
+      - name: Generate forensic run report
+        if: always()
+        run: |
+          if [ "${SENTIENTOS_CI_FAIL_ON_FORENSIC_INTEGRITY:-0}" = "1" ]; then
+            python scripts/forensic_run_report.py --fail-on-integrity
+          else
+            python scripts/forensic_run_report.py
+          fi
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -217,3 +243,11 @@ jobs:
         with:
           name: router_telemetry_report_${{ github.run_id }}_${{ github.job }}
           path: glow/test_runs/router_telemetry_report.json
+
+      - name: Upload forensic run report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forensic_run_report_${{ github.run_id }}_${{ github.job }}
+          path: glow/reports/forensic_report_*.json
+          if-no-files-found: ignore
