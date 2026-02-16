@@ -7,7 +7,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -26,6 +26,25 @@ SCHEMA_VERSION = "1.0"
 MAX_ISSUES = 20
 MAX_ISSUE_LENGTH = 200
 
+IssueCode = Literal[
+    "missing_entry",
+    "extra_entry",
+    "hash_mismatch",
+    "timestamp_order_violation",
+    "schema_violation",
+    "chain_prev_mismatch",
+    "genesis_marker_mismatch",
+    "unknown",
+]
+
+
+class AuditIssue(TypedDict):
+    code: IssueCode
+    path: str
+    expected: str
+    actual: str
+    details: str
+
 # enable auto-approve when `CI` or `GIT_HOOKS` is set (see docs/ENVIRONMENT.md)
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (os.getenv("CI") or os.getenv("GIT_HOOKS")):
     os.environ["LUMOS_AUTO_APPROVE"] = "1"
@@ -39,20 +58,43 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+def _bounded_text(value: object) -> str:
+    return str(value)[:MAX_ISSUE_LENGTH]
+
+
 def _bounded_issues(issues: List[str]) -> List[str]:
-    bounded: List[str] = []
+    return [_bounded_text(issue) for issue in issues[:MAX_ISSUES]]
+
+
+def _bounded_structured_issues(issues: List[AuditIssue]) -> List[AuditIssue]:
+    bounded: List[AuditIssue] = []
     for issue in issues[:MAX_ISSUES]:
-        bounded.append(issue[:MAX_ISSUE_LENGTH])
+        bounded.append(
+            {
+                "code": issue["code"],
+                "path": _bounded_text(issue["path"]),
+                "expected": _bounded_text(issue["expected"]),
+                "actual": _bounded_text(issue["actual"]),
+                "details": _bounded_text(issue["details"]),
+            }
+        )
     return bounded
 
 
-def write_result(*, ok: bool, issues: List[str], error: str | None) -> dict[str, object]:
+def write_result(
+    *,
+    ok: bool,
+    issues: List[str],
+    structured_issues: List[AuditIssue],
+    error: str | None,
+) -> dict[str, object]:
     payload: dict[str, object] = {
         "schema_version": SCHEMA_VERSION,
         "timestamp": _iso_now(),
         "tool": "verify_audits",
         "ok": ok,
         "issues": _bounded_issues(issues),
+        "structured_issues": _bounded_structured_issues(structured_issues),
         "error": error,
     }
     RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -101,6 +143,37 @@ def _attempt_repair(line: str) -> Optional[str]:
     return s
 
 
+def _parse_timestamp(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+
+
+def _format_issue(path: Path, lineno: int, message: str) -> str:
+    return f"{path.name}:{lineno}: {message}"
+
+
+def _make_issue(
+    *,
+    code: IssueCode,
+    path: Path,
+    expected: object,
+    actual: object,
+    details: object,
+) -> AuditIssue:
+    return {
+        "code": code,
+        "path": str(path),
+        "expected": _bounded_text(expected),
+        "actual": _bounded_text(actual),
+        "details": _bounded_text(details),
+    }
+
+
 def check_file(
     path: Path,
     prev_digest: str = "0" * 64,
@@ -116,10 +189,12 @@ def check_file(
         stats.setdefault("unrecoverable", 0)
 
     errors: List[str] = []
+    structured: List[AuditIssue] = []
     bad_lines: List[str] = []
     repair_lines: List[str] = []
     prev = prev_digest
     first = True
+    prev_ts: datetime | None = None
     for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
@@ -134,21 +209,48 @@ def check_file(
                     if stats is not None:
                         stats["fixed"] += 1
                 else:
-                    errors.append(f"{path.name}:{lineno}: {exc.msg}")
+                    errors.append(_format_issue(path, lineno, exc.msg))
+                    structured.append(
+                        _make_issue(
+                            code="schema_violation",
+                            path=path,
+                            expected="valid JSON object",
+                            actual=line.strip() or "<empty>",
+                            details=f"line {lineno}: {exc.msg}",
+                        )
+                    )
                     bad_lines.append(line)
                     if stats is not None:
                         stats["quarantined"] += 1
                         stats["unrecoverable"] += 1
                     continue
             else:
-                errors.append(f"{path.name}:{lineno}: {exc.msg}")
+                errors.append(_format_issue(path, lineno, exc.msg))
+                structured.append(
+                    _make_issue(
+                        code="schema_violation",
+                        path=path,
+                        expected="valid JSON object",
+                        actual=line.strip() or "<empty>",
+                        details=f"line {lineno}: {exc.msg}",
+                    )
+                )
                 bad_lines.append(line)
                 if stats is not None:
                     stats["quarantined"] += 1
                 continue
 
         if not isinstance(entry, dict):
-            errors.append(f"{path.name}:{lineno}: not a JSON object")
+            errors.append(_format_issue(path, lineno, "not a JSON object"))
+            structured.append(
+                _make_issue(
+                    code="schema_violation",
+                    path=path,
+                    expected="JSON object",
+                    actual=type(entry).__name__,
+                    details=f"line {lineno}: not a JSON object",
+                )
+            )
             bad_lines.append(line)
             if stats is not None:
                 stats["quarantined"] += 1
@@ -156,24 +258,93 @@ def check_file(
             continue
 
         if entry.get("_void") is True:
+            structured.append(
+                _make_issue(
+                    code="extra_entry",
+                    path=path,
+                    expected="non-void entry",
+                    actual="_void=true",
+                    details=f"line {lineno}: void marker encountered",
+                )
+            )
             continue
 
         if entry.get("prev_hash") != prev:
             if first:
-                errors.append(f"{path.name}:{lineno}: prev hash mismatch")
+                errors.append(_format_issue(path, lineno, "prev hash mismatch"))
+                code: IssueCode = "genesis_marker_mismatch" if prev == "0" * 64 else "chain_prev_mismatch"
+                structured.append(
+                    _make_issue(
+                        code=code,
+                        path=path,
+                        expected=prev,
+                        actual=entry.get("prev_hash", "<missing>"),
+                        details=f"line {lineno}: prev hash mismatch",
+                    )
+                )
             else:
-                errors.append(f"{path.name}:{lineno}: chain break")
+                errors.append(_format_issue(path, lineno, "chain break"))
+                structured.append(
+                    _make_issue(
+                        code="chain_prev_mismatch",
+                        path=path,
+                        expected=prev,
+                        actual=entry.get("prev_hash", "<missing>"),
+                        details=f"line {lineno}: chain break",
+                    )
+                )
         if "data" not in entry:
-            errors.append(f"{path.name}:{lineno}: missing data field")
+            errors.append(_format_issue(path, lineno, "missing data field"))
+            structured.append(
+                _make_issue(
+                    code="missing_entry",
+                    path=path,
+                    expected="data field",
+                    actual="missing",
+                    details=f"line {lineno}: missing data field",
+                )
+            )
             bad_lines.append(line)
             if stats is not None:
                 stats["quarantined"] += 1
                 stats["unrecoverable"] += 1
             continue
+        current_ts = _parse_timestamp(entry.get("timestamp"))
+        if current_ts is None:
+            structured.append(
+                _make_issue(
+                    code="schema_violation",
+                    path=path,
+                    expected="ISO-8601 timestamp",
+                    actual=entry.get("timestamp", "<missing>"),
+                    details=f"line {lineno}: invalid timestamp",
+                )
+            )
+        elif prev_ts is not None and current_ts < prev_ts:
+            errors.append(_format_issue(path, lineno, "timestamp order violation"))
+            structured.append(
+                _make_issue(
+                    code="timestamp_order_violation",
+                    path=path,
+                    expected=prev_ts.isoformat(),
+                    actual=current_ts.isoformat(),
+                    details=f"line {lineno}: timestamp moved backwards",
+                )
+            )
+
         digest = ai._hash_entry(entry["timestamp"], entry["data"], entry.get("prev_hash", prev))
         current = entry.get("rolling_hash") or entry.get("hash")
         if current != digest:
-            errors.append(f"{path.name}:{lineno}: hash mismatch")
+            errors.append(_format_issue(path, lineno, "hash mismatch"))
+            structured.append(
+                _make_issue(
+                    code="hash_mismatch",
+                    path=path,
+                    expected=digest,
+                    actual=current or "<missing>",
+                    details=f"line {lineno}: hash mismatch",
+                )
+            )
             bad_lines.append(line)
             if stats is not None:
                 stats["quarantined"] += 1
@@ -181,6 +352,7 @@ def check_file(
             continue
         prev = current
         first = False
+        prev_ts = current_ts or prev_ts
 
     if quarantine and bad_lines:
         bad_path = path.with_suffix(path.suffix + ".bad")
@@ -190,7 +362,24 @@ def check_file(
         repair_path = path.with_suffix(path.suffix + ".repairable")
         repair_path.write_text("\n".join(repair_lines) + "\n", encoding="utf-8")
 
+    path_errors[str(path)] = structured
     return len(errors) == 0, errors, prev
+
+
+path_errors: Dict[str, List[AuditIssue]] = {}
+
+
+def verify_audits_detailed(
+    quarantine: bool = False,
+    directory: Path | None = None,
+    *,
+    repair: bool = False,
+) -> tuple[dict[str, List[AuditIssue]], float, Dict[str, int]]:
+    issues_by_path: dict[str, List[AuditIssue]] = {}
+    results, percent, stats = verify_audits(quarantine=quarantine, directory=directory, repair=repair)
+    for path in sorted(results.keys()):
+        issues_by_path[path] = list(path_errors.get(path, []))
+    return issues_by_path, percent, stats
 
 
 def verify_audits(
@@ -201,6 +390,7 @@ def verify_audits(
 ) -> tuple[dict[str, List[str]], float, Dict[str, int]]:
     """Verify multiple audit logs."""
     results: dict[str, List[str]] = {}
+    path_errors.clear()
     logs: List[Path] = []
     stats: Dict[str, int] = {"fixed": 0, "quarantined": 0, "unrecoverable": 0}
 
@@ -244,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     all_issues: List[str] = []
+    structured_issues: List[AuditIssue] = []
     error: str | None = None
     try:
         auto_env = (
@@ -306,6 +497,7 @@ def main(argv: list[str] | None = None) -> int:
             chain_ok = all(not e for e in res.values())
 
         for file, errors in res.items():
+            structured_issues.extend(path_errors.get(file, []))
             if not errors:
                 print(f"{file}: valid")
             else:
@@ -343,11 +535,11 @@ def main(argv: list[str] | None = None) -> int:
 
         summary = tooling_status.render_result("verify_audits", status=status_label, reason=reason)
         print(json.dumps(summary, sort_keys=True))
-        write_result(ok=chain_ok, issues=all_issues, error=None)
+        write_result(ok=chain_ok, issues=all_issues, structured_issues=structured_issues, error=None)
         return exit_code
     except Exception as exc:  # pragma: no cover - defensive
         error = str(exc)
-        write_result(ok=False, issues=all_issues, error=error)
+        write_result(ok=False, issues=all_issues, structured_issues=structured_issues, error=error)
         print(json.dumps({"tool": "verify_audits", "status": "error", "reason": error}, sort_keys=True))
         return 1
 

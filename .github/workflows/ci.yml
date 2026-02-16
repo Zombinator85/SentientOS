@@ -69,6 +69,7 @@ jobs:
           mkdir -p glow/audits
           python -m scripts.audit_immutability_verifier || true
           python -m scripts.verify_audits logs/ || true
+          python -m scripts.plan_audit_repairs logs/ || true
           python - <<'PYCODE'
           import json
           import os
