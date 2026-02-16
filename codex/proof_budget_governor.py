@@ -2,13 +2,29 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
+import tempfile
+import time
 from typing import Any, Mapping, Sequence
+import uuid
+
+from scripts.provenance_hash_chain import HASH_ALGO, canonical_json_bytes
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover
+    fcntl = None
 
 GOVERNOR_VERSION = "v1"
 DEFAULT_PRESSURE_STATE_PATH = Path("glow/routing/pressure_state.json")
+DEFAULT_PRESSURE_STATE_DIR = Path("glow/routing/pressure_state")
+LOCK_ACQUIRE_TIMEOUT_SECONDS = 0.2
+LOCK_POLL_SECONDS = 0.01
+GENESIS_PREV_STATE_HASH = "GENESIS"
 
 
 @dataclass(slots=True, frozen=True)
@@ -40,10 +56,14 @@ class GovernorConfig:
 class PressureState:
     consecutive_no_admissible: int = 0
     recent_runs: list[dict[str, Any]] | None = None
+    state_hash: str | None = None
+    prev_state_hash: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         payload["recent_runs"] = list(self.recent_runs or [])
+        payload.pop("state_hash", None)
+        payload.pop("prev_state_hash", None)
         return payload
 
     @classmethod
@@ -52,6 +72,81 @@ class PressureState:
             consecutive_no_admissible=max(0, int(payload.get("consecutive_no_admissible", 0))),
             recent_runs=[dict(item) for item in payload.get("recent_runs", []) if isinstance(item, Mapping)],
         )
+
+
+@dataclass(slots=True, frozen=True)
+class PressureStateWriteResult:
+    state_update_skipped: bool
+    pressure_state_prev_hash: str | None
+    pressure_state_new_hash: str | None
+    pressure_state_snapshot_path: str | None
+
+
+def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=path.parent, delete=False) as handle:
+        tmp_path = Path(handle.name)
+        handle.write(json.dumps(payload, sort_keys=True, indent=2))
+        handle.flush()
+        os.fsync(handle.fileno())
+    tmp_path.replace(path)
+
+
+def _state_paths(path: Path | None) -> tuple[Path, Path, Path, Path]:
+    if path is None:
+        return (
+            DEFAULT_PRESSURE_STATE_DIR,
+            DEFAULT_PRESSURE_STATE_DIR / "latest.json",
+            DEFAULT_PRESSURE_STATE_DIR / "snapshots",
+            DEFAULT_PRESSURE_STATE_DIR / ".lock",
+        )
+    if path.suffix.lower() == ".json":
+        state_dir = path.parent
+        return (state_dir, path, state_dir / "snapshots", state_dir / ".lock")
+    return (path, path / "latest.json", path / "snapshots", path / ".lock")
+
+
+def _compute_state_hash(snapshot_payload: Mapping[str, Any], prev_state_hash: str | None) -> str:
+    material = {key: value for key, value in snapshot_payload.items() if key != "state_hash"}
+    prev_marker = prev_state_hash or GENESIS_PREV_STATE_HASH
+    digest = hashlib.sha256()
+    digest.update(prev_marker.encode("utf-8"))
+    digest.update(b"\n")
+    digest.update(canonical_json_bytes(dict(material)))
+    return digest.hexdigest()
+
+
+def _parse_state_document(payload: Mapping[str, Any]) -> PressureState:
+    if isinstance(payload.get("state"), Mapping):
+        state = PressureState.from_payload(payload["state"])
+        state.state_hash = str(payload.get("state_hash") or "") or None
+        state.prev_state_hash = str(payload.get("prev_state_hash") or "") or None
+        return state
+    return PressureState.from_payload(payload)
+
+
+def _lock_file(lock_path: Path, timeout_seconds: float) -> Any | None:
+    if fcntl is None:
+        return None
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    handle = lock_path.open("a+", encoding="utf-8")
+    deadline = time.monotonic() + max(timeout_seconds, 0.0)
+    while True:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return handle
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                handle.close()
+                return None
+            time.sleep(LOCK_POLL_SECONDS)
+
+
+def _unlock_file(handle: Any | None) -> None:
+    if handle is None or fcntl is None:
+        return
+    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    handle.close()
 
 
 def _flag_enabled(value: str) -> bool:
@@ -72,22 +167,70 @@ def governor_config_from_env(*, configured_k: int, configured_m: int) -> Governo
 
 
 def load_pressure_state(path: Path | None = None) -> PressureState:
-    state_path = path or DEFAULT_PRESSURE_STATE_PATH
-    if not state_path.exists():
+    _, latest_path, _, _ = _state_paths(path)
+    if latest_path.exists():
+        try:
+            payload = json.loads(latest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return PressureState(recent_runs=[])
+        if not isinstance(payload, Mapping):
+            return PressureState(recent_runs=[])
+        return _parse_state_document(payload)
+    if path is None and DEFAULT_PRESSURE_STATE_PATH.exists():
+        try:
+            payload = json.loads(DEFAULT_PRESSURE_STATE_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return PressureState(recent_runs=[])
+        if not isinstance(payload, Mapping):
+            return PressureState(recent_runs=[])
+        return PressureState.from_payload(payload)
+    if not latest_path.exists():
         return PressureState(recent_runs=[])
+    return PressureState(recent_runs=[])
+
+
+def save_pressure_state(state: PressureState, path: Path | None = None) -> PressureStateWriteResult:
+    _, latest_path, snapshots_dir, lock_path = _state_paths(path)
+    lock_handle = _lock_file(lock_path, timeout_seconds=LOCK_ACQUIRE_TIMEOUT_SECONDS)
+    if lock_handle is None:
+        return PressureStateWriteResult(
+            state_update_skipped=True,
+            pressure_state_prev_hash=state.state_hash,
+            pressure_state_new_hash=None,
+            pressure_state_snapshot_path=None,
+        )
     try:
-        payload = json.loads(state_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return PressureState(recent_runs=[])
-    if not isinstance(payload, Mapping):
-        return PressureState(recent_runs=[])
-    return PressureState.from_payload(payload)
+        prior = load_pressure_state(path)
+        prev_state_hash = prior.state_hash
+        snapshot_payload: dict[str, Any] = {
+            "state": state.as_dict(),
+            "hash_algo": HASH_ALGO,
+            "prev_state_hash": prev_state_hash or GENESIS_PREV_STATE_HASH,
+            "governor_version": GOVERNOR_VERSION,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        state_hash = _compute_state_hash(snapshot_payload, prev_state_hash)
+        snapshot_payload["state_hash"] = state_hash
+        snapshot_name = (
+            f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}_{state_hash[:12]}_{uuid.uuid4().hex}.json"
+        )
+        snapshot_path = snapshots_dir / snapshot_name
+        _atomic_write_json(snapshot_path, snapshot_payload)
+        _atomic_write_json(latest_path, snapshot_payload)
+        state.state_hash = state_hash
+        state.prev_state_hash = prev_state_hash
+        return PressureStateWriteResult(
+            state_update_skipped=False,
+            pressure_state_prev_hash=prev_state_hash,
+            pressure_state_new_hash=state_hash,
+            pressure_state_snapshot_path=str(snapshot_path),
+        )
+    finally:
+        _unlock_file(lock_handle)
 
 
-def save_pressure_state(state: PressureState, path: Path | None = None) -> None:
-    state_path = path or DEFAULT_PRESSURE_STATE_PATH
-    state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps(state.as_dict(), sort_keys=True, indent=2), encoding="utf-8")
+def governor_config_fingerprint(config: GovernorConfig) -> str:
+    return hashlib.sha256(canonical_json_bytes(asdict(config))).hexdigest()
 
 
 def _recent_runs(state: PressureState, *, window: int) -> list[dict[str, Any]]:
@@ -194,8 +337,10 @@ def update_pressure_state(
 def build_governor_event(
     *,
     decision: BudgetDecision,
+    config: GovernorConfig,
     run_context: Mapping[str, Any],
     router_telemetry: Mapping[str, Any],
+    pressure_state_write: PressureStateWriteResult,
 ) -> dict[str, Any]:
     return {
         "event_type": "proof_budget_governor",
@@ -209,6 +354,11 @@ def build_governor_event(
             "allow_escalation": decision.allow_escalation,
             "reasons": list(decision.decision_reasons),
             "governor_version": decision.governor_version,
+            "config_fingerprint": governor_config_fingerprint(config),
+            "pressure_state_prev_hash": pressure_state_write.pressure_state_prev_hash,
+            "pressure_state_new_hash": pressure_state_write.pressure_state_new_hash,
+            "pressure_state_snapshot_path": pressure_state_write.pressure_state_snapshot_path,
+            "state_update_skipped": pressure_state_write.state_update_skipped,
         },
         "router_telemetry": dict(router_telemetry),
     }

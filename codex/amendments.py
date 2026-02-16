@@ -21,6 +21,7 @@ from sentientos.codex_startup_guard import enforce_codex_startup
 
 from .integrity_daemon import IntegrityDaemon, IntegrityViolation
 from .proof_budget_governor import (
+    PressureStateWriteResult,
     build_governor_event,
     decide_budget,
     governor_config_from_env,
@@ -650,6 +651,12 @@ class SpecAmender:
         configured_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
         governor_config = governor_config_from_env(configured_k=configured_k, configured_m=configured_m)
         pressure_state = load_pressure_state()
+        pressure_state_write = PressureStateWriteResult(
+            state_update_skipped=True,
+            pressure_state_prev_hash=pressure_state.state_hash,
+            pressure_state_new_hash=None,
+            pressure_state_snapshot_path=None,
+        )
         run_context = {
             "pipeline": "specamend",
             "spec_id": spec_id,
@@ -830,16 +837,6 @@ class SpecAmender:
                 best_failure_id,
                 {"kind": kind, "summary": summary, "router_scorecard": scorecard},
             )
-            self._append_amendment_log(
-                "proof-budget-governor",
-                spec_id,
-                best_failure_id,
-                build_governor_event(
-                    decision=governor_decision,
-                    run_context=run_context,
-                    router_telemetry=router_telemetry,
-                ),
-            )
             pressure_state = update_pressure_state(
                 prior=pressure_state,
                 decision=governor_decision,
@@ -848,7 +845,19 @@ class SpecAmender:
                 run_context=run_context,
                 config=governor_config,
             )
-            save_pressure_state(pressure_state)
+            pressure_state_write = save_pressure_state(pressure_state)
+            self._append_amendment_log(
+                "proof-budget-governor",
+                spec_id,
+                best_failure_id,
+                build_governor_event(
+                    decision=governor_decision,
+                    config=governor_config,
+                    run_context=run_context,
+                    router_telemetry=router_telemetry,
+                    pressure_state_write=pressure_state_write,
+                ),
+            )
             self._append_amendment_log(
                 "proof-budget",
                 spec_id,
@@ -891,16 +900,6 @@ class SpecAmender:
             proposal.proposal_id,
             {"kind": kind, "summary": proposal.summary, "router_scorecard": scorecard},
         )
-        self._append_amendment_log(
-            "proof-budget-governor",
-            proposal.spec_id,
-            proposal.proposal_id,
-            build_governor_event(
-                decision=governor_decision,
-                run_context=run_context,
-                router_telemetry=router_telemetry,
-            ),
-        )
         pressure_state = update_pressure_state(
             prior=pressure_state,
             decision=governor_decision,
@@ -909,7 +908,19 @@ class SpecAmender:
             run_context=run_context,
             config=governor_config,
         )
-        save_pressure_state(pressure_state)
+        pressure_state_write = save_pressure_state(pressure_state)
+        self._append_amendment_log(
+            "proof-budget-governor",
+            proposal.spec_id,
+            proposal.proposal_id,
+            build_governor_event(
+                decision=governor_decision,
+                config=governor_config,
+                run_context=run_context,
+                router_telemetry=router_telemetry,
+                pressure_state_write=pressure_state_write,
+            ),
+        )
         self._append_amendment_log(
             "proof-budget",
             proposal.spec_id,
