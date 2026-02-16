@@ -79,11 +79,33 @@ def detect_drift(*, target: Path, baseline_path: Path, output_path: Path, max_it
     convergence_path.parent.mkdir(parents=True, exist_ok=True)
     convergence_path.write_text(json.dumps(convergence_report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
+    baseline_fingerprint = str(baseline.get("baseline_fingerprint", ""))
+    current_fingerprint = _fingerprint(_manifest(target))
+    tuple_diff_detected = bool(new_issues or resolved_issues)
+    fingerprint_changed = baseline_fingerprint != current_fingerprint
+
+    if tuple_diff_detected and fingerprint_changed:
+        drift_type = "tuple_and_fingerprint"
+        explanation = "Audit tuple differences and manifest fingerprint changes were detected."
+    elif tuple_diff_detected:
+        drift_type = "tuple_only"
+        explanation = "Audit tuple differences were detected with an unchanged manifest fingerprint."
+    elif fingerprint_changed:
+        drift_type = "fingerprint_only"
+        explanation = "Manifest fingerprint changed with no audit tuple differences."
+    else:
+        drift_type = "none"
+        explanation = "No audit drift was detected."
+
     report: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "baseline_fingerprint": str(baseline.get("baseline_fingerprint", "")),
-        "current_fingerprint": _fingerprint(_manifest(target)),
-        "drifted": bool(new_issues or resolved_issues),
+        "baseline_fingerprint": baseline_fingerprint,
+        "current_fingerprint": current_fingerprint,
+        "drifted": bool(tuple_diff_detected or fingerprint_changed),
+        "fingerprint_changed": fingerprint_changed,
+        "tuple_diff_detected": tuple_diff_detected,
+        "drift_type": drift_type,
+        "drift_explanation": explanation,
         "new_issues": [
             {"code": code, "path": path, "expected": expected, "actual": actual}
             for code, path, expected, actual in new_issues
@@ -124,7 +146,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     print(json.dumps({"tool": "detect_audit_drift", "drifted": report["drifted"], "output": args.output}, sort_keys=True))
 
-    if os.getenv("SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT") == "1" and report["drifted"]:
+    if os.getenv("SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT") == "1" and report["drift_type"] != "none":
+        print(
+            json.dumps(
+                {
+                    "tool": "detect_audit_drift",
+                    "ci_fail": True,
+                    "drift_type": report["drift_type"],
+                    "trigger": (
+                        "tuple_and_fingerprint"
+                        if report["drift_type"] == "tuple_and_fingerprint"
+                        else "tuple_diff_detected"
+                        if report["drift_type"] == "tuple_only"
+                        else "fingerprint_changed"
+                    ),
+                },
+                sort_keys=True,
+            )
+        )
         return 1
     return 0
 
