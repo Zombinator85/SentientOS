@@ -68,3 +68,10 @@ This glossary freezes terminology across SentientOS. Definitions are authoritati
 - **Explicit exclusions:** Does not mean intention, motivation, or emotional leaning.
 - **Where used:** `codex/amendments.py`, `preference` settings in governance specs.
 
+
+
+## Affect Telemetry
+- **Frozen definition:** Bounded expression metadata (e.g., valence/intensity tags) that may influence phrasing, rendering, or presentation only.
+- **Common incorrect interpretations:** Subjective feeling; internal preference; motivational drive; reward function.
+- **Explicit exclusions:** Does not mean subjective feeling, preference, motivation, or reward signal; it cannot influence action selection, routing authority, or privileges.
+- **Where used:** `affective_context.py`, `sentientos/pressure_engagement.py`, `sentientos/runtime/load_homeostasis.py`, `non_appetitive_positive_signal_spec.py`.

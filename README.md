@@ -1,5 +1,5 @@
 # 🏛️ SentientOS
-A deterministic memory and emotion relay for model-presence computing.
+A deterministic memory and affect relay (expression-only affect telemetry) for model-presence computing.
 
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
@@ -19,6 +19,9 @@ does not ship or depend on them. See [EXTENSIONS.md](EXTENSIONS.md) and
 
 For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
 Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation without review is considered a breaking change.
+
+### Migration note
+- `MeshNodeState` now uses `affect` as the primary field for expression-only telemetry. Legacy payloads using `emotion` are still accepted as an alias, and serialized output currently includes both keys for compatibility.
 
 > Semantic regression guard: `scripts/semantic_lint.sh` enforces language neutrality, and interpretation drift is treated as a breaking change alongside API or schema updates.
 
@@ -203,7 +206,7 @@ its own amendments entirely offline.
 ```bash
 python -m gui.cathedral_gui
 ```
-The standalone GUI `gui/cathedral_gui.py` allows editing `.env`, testing prompts, and exporting logs. It includes dropdowns for model selection and an emotion selector.
+The standalone GUI `gui/cathedral_gui.py` allows editing `.env`, testing prompts, and exporting logs. It includes dropdowns for model selection and an affect telemetry selector.
 
 For a lightweight Streamlit interface run:
 

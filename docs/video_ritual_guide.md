@@ -3,7 +3,7 @@
 This short guide mirrors the music procedure but for video clips.
 
 1. **Create a video** with `video_cli.py create FILE TITLE --prompt PROMPT`.
-   The event is logged to `logs/video_log.jsonl` with the given emotion tags.
+   The event is logged to `logs/video_log.jsonl` with the given affect telemetry tags.
 2. **Watch a video** with `video_cli.py play FILE` and enter how it made you feel.
 3. Presence events are appended to `logs/user_presence.jsonl` so that the dashboard can reflect recent activity.
 4. **Share a clip** with `video_cli.py share FILE --peer PEER --emotion Joy=1.0`.
@@ -14,6 +14,6 @@ This short guide mirrors the music procedure but for video clips.
    `logs/user_presence.jsonl` and `logs/video_log.jsonl` so the ledger and
    dashboard remain consistent.
 
-Federation workflows can reuse the same endpoints as the music wall. Each video entry includes the prompt, title, user and emotion metadata so peers can sync and bless the memory.
+Federation workflows can reuse the same endpoints as the music wall. Each video entry includes the prompt, title, user and tone metadata so peers can sync and bless the memory.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.
