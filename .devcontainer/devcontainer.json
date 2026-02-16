@@ -5,5 +5,5 @@
   },
   "workspaceFolder": "/workspace",
   "remoteUser": "root",
-  "postCreateCommand": "python3 -m pip install -r requirements-dev.txt"
+  "postCreateCommand": "python3 -m pip install -r requirements-dev.txt && mkdir -p /vow && python3 -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json"
 }

@@ -98,6 +98,7 @@ def load_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> dict:
 
 def verify_once(
     manifest_path: Path = DEFAULT_MANIFEST,
+    allow_missing_manifest: bool = False,
     logger: Callable[[dict], None] = log_event,
 ) -> AuditCheckOutcome:
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -110,15 +111,25 @@ def verify_once(
     try:
         manifest = load_manifest(manifest_path)
     except FileNotFoundError:
+        if not allow_missing_manifest:
+            failure = {
+                "event": "immutability_check",
+                "status": "failed",
+                "reason": "manifest_missing",
+                "ts": ts,
+                "manifest": str(manifest_path),
+            }
+            _record(failure)
+            return AuditCheckOutcome("failed", reason="manifest_missing", recorded_events=recorded)
         warning = {
             "event": "immutability_check",
             "status": "skipped",
-            "reason": "manifest_missing",
+            "reason": "manifest_missing_allowed",
             "ts": ts,
             "manifest": str(manifest_path),
         }
         _record(warning)
-        return AuditCheckOutcome("skipped", reason="manifest_missing", recorded_events=recorded)
+        return AuditCheckOutcome("skipped", reason="manifest_missing_allowed", recorded_events=recorded)
     except Exception as exc:
         error_event = {
             "event": "immutability_check",
@@ -152,7 +163,7 @@ def run_loop(
     manifest_path: Path = DEFAULT_MANIFEST,
 ) -> None:
     while not stop.is_set():
-        verify_once(manifest_path, logger)
+        verify_once(manifest_path=manifest_path, logger=logger)
         if stop.wait(interval):
             break
 
@@ -173,11 +184,19 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="Verify immutable manifest file hashes")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST, help="manifest path")
+    parser.add_argument(
+        "--allow-missing-manifest",
+        action="store_true",
+        help="allow degraded environments to skip when the manifest is unavailable",
+    )
     args = parser.parse_args(argv)
 
     issues: list[str] = []
     try:
-        result = verify_once(manifest_path=args.manifest)
+        result = verify_once(
+            manifest_path=args.manifest,
+            allow_missing_manifest=args.allow_missing_manifest,
+        )
         if result.reason:
             issues.append(result.reason)
         if result.recorded_events:

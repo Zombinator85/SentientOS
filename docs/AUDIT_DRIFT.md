@@ -29,6 +29,16 @@ Interpretation:
 
 ## Baseline Lifecycle
 
+## Common Operations
+
+Use the ergonomic Make targets for day-to-day baseline lifecycle operations:
+
+- `make audit-baseline` captures `glow/audits/baseline/audit_baseline.json`.
+- `make audit-baseline ACCEPT_MANUAL=1` passes `--accept-manual` for explicit manual-issue acceptance.
+- `make audit-drift` runs drift detection and prints `drift_type` and `drift_explanation`.
+- `make audit-verify` runs `python -m scripts.audit_immutability_verifier`.
+
+
 Baselines are captured with `capture_audit_baseline` and written to:
 
 - `glow/audits/baseline/audit_baseline.json`
@@ -52,6 +62,8 @@ Regenerate the baseline when you intentionally accept audit-state changes, inclu
 Do **not** regenerate baseline for unexplained drift. Investigate first.
 
 ## Manual Issue Acceptance (`--accept-manual`)
+
+`make audit-baseline ACCEPT_MANUAL=1` is equivalent to invoking `capture_audit_baseline --accept-manual`.
 
 By default, baseline capture refuses unclean audits.
 

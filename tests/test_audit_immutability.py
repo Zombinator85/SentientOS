@@ -101,11 +101,25 @@ def test_emotion_pump_cli_invocation(tmp_path: Path, monkeypatch) -> None:
     assert any(e["event"] == "immutability_check" for e in events)
 
 
-def test_emotion_pump_skips_without_manifest(tmp_path: Path) -> None:
+def test_emotion_pump_fails_without_manifest_by_default(tmp_path: Path) -> None:
     missing_manifest = tmp_path / "missing.json"
     events: list[dict] = []
     outcome = aiv.verify_once(manifest_path=missing_manifest, logger=events.append)
-    assert outcome.status == "skipped"
+    assert outcome.status == "failed"
     assert outcome.reason == "manifest_missing"
+    statuses = [e for e in events if e["event"] == "immutability_check"]
+    assert statuses and statuses[0]["status"] == "failed"
+
+
+def test_emotion_pump_allows_missing_manifest_in_degraded_mode(tmp_path: Path) -> None:
+    missing_manifest = tmp_path / "missing.json"
+    events: list[dict] = []
+    outcome = aiv.verify_once(
+        manifest_path=missing_manifest,
+        allow_missing_manifest=True,
+        logger=events.append,
+    )
+    assert outcome.status == "skipped"
+    assert outcome.reason == "manifest_missing_allowed"
     statuses = [e for e in events if e["event"] == "immutability_check"]
     assert statuses and statuses[0]["status"] == "skipped"

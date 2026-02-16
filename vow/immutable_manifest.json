@@ -1,18 +1,42 @@
 {
+  "canonical_serialization": {
+    "path_normalization": "posix_relative",
+    "separators": [
+      ",",
+      ":"
+    ],
+    "sort_keys": true
+  },
+  "captured_by": "54a370e1b706cee40d78a804951c883f3390f0fc",
   "files": {
     "NEWLEGACY.txt": {
       "sha256": "67d689ea6797c72ea7326ad431a0f5f54a7804d79d0ab6fea7e85d53c787b9d5",
-      "timestamp": "2025-09-05T22:38:29"
+      "size": 73
     },
-    "vow/init.py": {
-      "sha256": "08822045a7c30f8717ca80e053ac7fade2b679a0b529d1016b891d095ea7a29d",
-      "timestamp": "2025-09-05T22:38:29"
+    "scripts/audit_immutability_verifier.py": {
+      "sha256": "ce9404a76533b79ea311e9983d75714a4aebfbbd921c96ee3f92f2ab349a199e",
+      "size": 7374
+    },
+    "scripts/verify_audits.py": {
+      "sha256": "2807fdc4b537819dd66a3501d60b083991a835c639a77fddd957ba51eac849f1",
+      "size": 18690
     },
     "vow/config.yaml": {
-      "sha256": "8303fc7b6be511e6cb04a0d9fc8490d648829dc0e2b040340eddd61c24eca24d",
-      "timestamp": "2025-09-05T22:38:29"
+      "sha256": "52877f0eacc7013f98baabe1847aed6fe6fe1e602b70b1b6e9fd3bf1f58627a8",
+      "size": 1081
+    },
+    "vow/init.py": {
+      "sha256": "2a203a9191f6705fc0f73eb73130db28d53936ae0129a4e5b500977f7ae177e2",
+      "size": 43259
+    },
+    "vow/invariants.yaml": {
+      "sha256": "056527263bde63da51de3ab99001400c867a92b1195691041ac2df74ec02ac79",
+      "size": 1107
     }
   },
-  "generated": "2025-09-05T22:38:29",
-  "manifest_sha256": "43e9fee584ddea509f4641371f650cb016be9c8e865abca4fa09d0d71a1453e9"
+  "generated_by": "scripts.generate_immutable_manifest",
+  "manifest_sha256": "c496a3db076bac343cc7bd0656051d34b102df648181f0da3848c3434d6891ab",
+  "manifest_type": "sentientos_immutable",
+  "schema_version": 1,
+  "tool_version": "1"
 }
