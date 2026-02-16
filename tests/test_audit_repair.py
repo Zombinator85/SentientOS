@@ -4,7 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import os
@@ -32,11 +31,11 @@ def test_audit_repair(tmp_path: Path) -> None:
     env["LUMOS_AUTO_APPROVE"] = "1"
     env["PYTHONPATH"] = "."
 
-    cp = subprocess.run([sys.executable, "verify_audits.py", str(tmp_path), "--check-only"], env=env)
+    cp = subprocess.run([sys.executable, "-m", "scripts.verify_audits", str(tmp_path), "--check-only"], env=env)
     assert cp.returncode != 0
 
     cp = subprocess.run([sys.executable, "scripts/audit_repair.py", "--logs-dir", str(tmp_path), "--fix"], env=env)
     assert cp.returncode == 0
 
-    cp = subprocess.run([sys.executable, "verify_audits.py", str(tmp_path), "--check-only"], env=env)
+    cp = subprocess.run([sys.executable, "-m", "scripts.verify_audits", str(tmp_path), "--check-only"], env=env)
     assert cp.returncode == 0

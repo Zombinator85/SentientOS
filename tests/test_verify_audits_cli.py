@@ -4,7 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import os
@@ -28,7 +27,7 @@ def test_cli_env_auto(tmp_path: Path) -> None:
     env = os.environ.copy()
     env["LUMOS_AUTO_APPROVE"] = "1"
     env["PYTHONPATH"] = "."
-    cp = subprocess.run([sys.executable, "verify_audits.py", str(tmp_path)], env=env)
+    cp = subprocess.run([sys.executable, "-m", "scripts.verify_audits", str(tmp_path)], env=env)
     assert cp.returncode == 0
 
 
@@ -36,5 +35,5 @@ def test_cli_flag_auto(tmp_path: Path) -> None:
     _make_log(tmp_path)
     env = os.environ.copy()
     env["PYTHONPATH"] = "."
-    cp = subprocess.run([sys.executable, "verify_audits.py", str(tmp_path), "--auto-approve"], env=env)
+    cp = subprocess.run([sys.executable, "-m", "scripts.verify_audits", str(tmp_path), "--auto-approve"], env=env)
     assert cp.returncode == 0
