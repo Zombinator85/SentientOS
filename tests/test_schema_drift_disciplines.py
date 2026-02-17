@@ -65,6 +65,7 @@ def test_perception_schema_capture_is_deterministic(tmp_path: Path) -> None:
     assert payload_one["schema_fingerprint"] == payload_two["schema_fingerprint"]
     assert "perception.audio" in payload_one["schema"]["events"]
     assert "perception.vision" in payload_one["schema"]["events"]
+    assert "perception.gaze" in payload_one["schema"]["events"]
 
 
 def test_perception_schema_capture_then_detect_reports_none(tmp_path: Path) -> None:
@@ -127,3 +128,26 @@ def test_perception_schema_detects_vision_type_change(monkeypatch, tmp_path: Pat
     drift = detect_perception(baseline_path=baseline, output_path=report)
     assert drift["drifted"] is True
     assert any(item["field"] == "faces_detected" and item["event_type"] == "perception.vision" for item in drift["type_changes"])
+
+
+def test_perception_schema_detects_gaze_required_key_change(monkeypatch, tmp_path: Path) -> None:
+    baseline = tmp_path / "perception_baseline.json"
+    report = tmp_path / "perception_drift.json"
+    capture_perception(baseline)
+
+    from scripts import detect_perception_schema_drift as module
+
+    original = module._schema()
+    mutated = {**original, "events": {**original.get("events", {})}}
+    gaze_event = dict(mutated["events"]["perception.gaze"])
+    gaze_event["required_fields"] = sorted(list(gaze_event["required_fields"]) + ["display_geometry"])
+    mutated["events"]["perception.gaze"] = gaze_event
+
+    monkeypatch.setattr(module, "_schema", lambda: mutated)
+
+    drift = detect_perception(baseline_path=baseline, output_path=report)
+    assert drift["drifted"] is True
+    assert any(
+        item["field"] == "display_geometry" and item["event_type"] == "perception.gaze" and item["change"] == "added_required"
+        for item in drift["required_key_changes"]
+    )

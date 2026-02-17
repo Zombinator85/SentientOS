@@ -1,7 +1,7 @@
 .PHONY: lock lock-install docs docs-live ci rehearse audit perf
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
-.PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision self-baseline self-drift federation-baseline federation-drift
+.PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
 .PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status
 
 PYTHON ?= python3
@@ -151,3 +151,6 @@ perception-audio:
 
 perception-vision:
 	$(PYTHON) -m scripts.perception.vision_adapter --privacy-class internal --iterations 1
+
+perception-gaze:
+	$(PYTHON) -m scripts.perception.gaze_adapter --privacy-class internal --iterations 1

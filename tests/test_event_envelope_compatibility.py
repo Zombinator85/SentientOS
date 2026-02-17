@@ -147,3 +147,38 @@ def test_perception_vision_envelope_current_version_is_accepted() -> None:
     upgraded = upgrade_envelope(envelope)
     assert upgraded["event_type"] == "perception.vision"
     assert upgraded["payload"]["faces_detected"] == 1
+
+
+def test_perception_gaze_envelope_current_version_is_accepted() -> None:
+    current = current_schema_version("perception")
+    envelope = {
+        "stream": "perception",
+        "schema_version": current,
+        "event_id": "gaze-1",
+        "event_type": "perception.gaze",
+        "timestamp": "2024-01-01T00:00:00+00:00",
+        "payload": {
+            "event_type": "perception.gaze",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "source": "local.gaze",
+            "extractor_id": "gaze_adapter",
+            "extractor_version": "1",
+            "confidence": 0.4,
+            "privacy_class": "internal",
+            "provenance": {"host": "test", "pipeline_id": "mediapipe_facemesh"},
+            "gaze_point_norm": [0.5, 0.4],
+            "gaze_point_px": [960.0, 432.0],
+            "gaze_vector": [0.02, -0.05, 0.99],
+            "calibration_state": "uncalibrated",
+            "calibration_confidence": 0.2,
+            "source_pipeline": "camera_estimate",
+            "screen_id": "display-1",
+            "display_geometry": {"x": 0.0, "y": 0.0, "width": 1920.0, "height": 1080.0},
+            "raw_samples_retained": False,
+            "redaction_applied": True,
+        },
+    }
+
+    upgraded = upgrade_envelope(envelope)
+    assert upgraded["event_type"] == "perception.gaze"
+    assert upgraded["payload"]["gaze_point_norm"] == [0.5, 0.4]

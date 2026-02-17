@@ -19,7 +19,8 @@
       "enum": [
         "perception.screen",
         "perception.audio",
-        "perception.vision"
+        "perception.vision",
+        "perception.gaze"
       ]
     },
     "timestamp": {
@@ -171,6 +172,88 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1
+    },
+    "gaze_point_norm": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "gaze_point_px": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number"
+      }
+    },
+    "gaze_vector": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "number"
+      }
+    },
+    "calibration_state": {
+      "type": "string",
+      "enum": [
+        "uncalibrated",
+        "calibrating",
+        "calibrated",
+        "unknown"
+      ]
+    },
+    "calibration_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "source_pipeline": {
+      "type": "string",
+      "enum": [
+        "eye_tracker_sdk",
+        "camera_estimate",
+        "os_accessibility",
+        "none"
+      ]
+    },
+    "screen_id": {
+      "type": "string"
+    },
+    "display_geometry": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "minimum": 1
+        },
+        "height": {
+          "type": "number",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "raw_samples_retained": {
+      "type": "boolean",
+      "default": false
+    },
+    "raw_samples_reference": {
+      "type": "string"
     }
   },
   "additionalProperties": false,
@@ -345,6 +428,117 @@
         "properties": {
           "features": {
             "$ref": "#/$defs/vision_features"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "perception.gaze"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "gaze_point_norm",
+          "confidence",
+          "calibration_state",
+          "source_pipeline",
+          "raw_samples_retained",
+          "redaction_applied"
+        ],
+        "properties": {
+          "gaze_point_norm": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "gaze_point_px": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number"
+            }
+          },
+          "gaze_vector": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "calibration_state": {
+            "type": "string",
+            "enum": [
+              "uncalibrated",
+              "calibrating",
+              "calibrated",
+              "unknown"
+            ]
+          },
+          "calibration_confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source_pipeline": {
+            "type": "string",
+            "enum": [
+              "eye_tracker_sdk",
+              "camera_estimate",
+              "os_accessibility",
+              "none"
+            ]
+          },
+          "screen_id": {
+            "type": "string"
+          },
+          "display_geometry": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "width": {
+                "type": "number",
+                "minimum": 1
+              },
+              "height": {
+                "type": "number",
+                "minimum": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          "raw_samples_retained": {
+            "type": "boolean",
+            "default": false
+          },
+          "redaction_applied": {
+            "type": "boolean"
+          },
+          "raw_samples_reference": {
+            "type": "string"
           }
         }
       }
