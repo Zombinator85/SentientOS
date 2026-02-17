@@ -69,3 +69,40 @@ def test_invalid_envelope_rejected() -> None:
         assert "unexpected" in str(exc)
     else:
         raise AssertionError("Expected invalid envelope to be rejected.")
+
+
+def test_perception_audio_envelope_current_version_is_accepted() -> None:
+    current = current_schema_version("perception")
+    envelope = {
+        "stream": "perception",
+        "schema_version": current,
+        "event_id": "audio-1",
+        "event_type": "perception.audio",
+        "timestamp": "2024-01-01T00:00:00+00:00",
+        "payload": {
+            "event_type": "perception.audio",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "source": "local.microphone",
+            "extractor_id": "audio_adapter",
+            "extractor_version": "1",
+            "confidence": 0.8,
+            "privacy_class": "internal",
+            "provenance": {"host": "test"},
+            "sample_rate_hz": 16000,
+            "window_ms": 500,
+            "features": {
+                "rms_energy": 0.2,
+                "zcr": 0.1,
+                "spectral_centroid_hz": 1200.0,
+                "spectral_rolloff_hz": 3000.0,
+            },
+            "clipping_detected": False,
+            "channel_count": 1,
+            "raw_audio_retained": False,
+            "redaction_applied": True,
+        },
+    }
+
+    upgraded = upgrade_envelope(envelope)
+    assert upgraded["event_type"] == "perception.audio"
+    assert upgraded["payload"]["sample_rate_hz"] == 16000

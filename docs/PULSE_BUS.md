@@ -72,11 +72,14 @@ bounded.
 ## Perception Event Family
 
 Pulse supports controlled ingestion of perception adapters through the `perception.*`
-event family. The initial allowed type is `perception.screen` only.
+event family. Allowed types are `perception.screen` and `perception.audio`.
 
 Perception payloads must include: `event_type`, `timestamp`, `source`,
 `extractor_id`, `extractor_version`, `confidence`, `privacy_class`, and
-`provenance`.
+`provenance`. Audio events also require `sample_rate_hz`, `window_ms`,
+`features`, `clipping_detected`, `channel_count`, `raw_audio_retained`, and
+`redaction_applied`. Raw audio retention defaults to off and semantic
+transcription is out of scope for this bus contract.
 
 Perception events are telemetry-only and non-privileged: they cannot directly
 grant permissions or drive action selection without explicit `/vow` whitelist

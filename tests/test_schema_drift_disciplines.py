@@ -63,6 +63,7 @@ def test_perception_schema_capture_is_deterministic(tmp_path: Path) -> None:
     payload_two = capture_perception(second)
     assert payload_one["schema"] == payload_two["schema"]
     assert payload_one["schema_fingerprint"] == payload_two["schema_fingerprint"]
+    assert "perception.audio" in payload_one["schema"]["events"]
 
 
 def test_perception_schema_capture_then_detect_reports_none(tmp_path: Path) -> None:
@@ -83,9 +84,12 @@ def test_perception_schema_detects_added_field_and_event(monkeypatch, tmp_path: 
 
     original = module._schema()
     mutated = {**original, "events": {**original.get("events", {})}}
-    base_event = dict(mutated["events"]["perception.screen"])
+    base_event = dict(mutated["events"]["perception.audio"])
     base_event["allowed_fields"] = sorted(list(base_event["allowed_fields"]) + ["new_field"])
-    mutated["events"]["perception.screen"] = base_event
+    field_types = dict(base_event["field_types"])
+    field_types["sample_rate_hz"] = "int"
+    base_event["field_types"] = field_types
+    mutated["events"]["perception.audio"] = base_event
     mutated["events"]["perception.synthetic"] = {
         "required_fields": ["event_type", "timestamp"],
         "allowed_fields": ["event_type", "timestamp", "source"],
@@ -98,4 +102,5 @@ def test_perception_schema_detects_added_field_and_event(monkeypatch, tmp_path: 
     drift = detect_perception(baseline_path=baseline, output_path=report)
     assert drift["drifted"] is True
     assert "perception.synthetic" in drift["added_event_types"]
-    assert any(item["field"] == "new_field" for item in drift["added_fields"])
+    assert any(item["field"] == "new_field" and item["event_type"] == "perception.audio" for item in drift["added_fields"])
+    assert any(item["field"] == "sample_rate_hz" and item["event_type"] == "perception.audio" for item in drift["type_changes"])

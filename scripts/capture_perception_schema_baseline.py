@@ -40,8 +40,8 @@ def _schema() -> dict[str, Any]:
             "allowed_fields": allowed_fields,
             "field_types": {field: "any" for field in allowed_fields},
             "field_enums": {
-                "event_type": ["perception.screen"],
-                "privacy_class": ["public", "internal", "restricted", "sensitive"],
+                "event_type": [event_type],
+                "privacy_class": ["public", "internal", "private", "restricted", "sensitive"],
             },
         }
 

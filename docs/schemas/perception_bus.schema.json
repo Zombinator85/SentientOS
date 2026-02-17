@@ -16,7 +16,10 @@
   "properties": {
     "event_type": {
       "type": "string",
-      "enum": ["perception.screen"]
+      "enum": [
+        "perception.screen",
+        "perception.audio"
+      ]
     },
     "timestamp": {
       "type": "string"
@@ -37,34 +40,123 @@
     },
     "privacy_class": {
       "type": "string",
-      "enum": ["public", "internal", "restricted", "sensitive"]
+      "enum": [
+        "public",
+        "internal",
+        "private",
+        "restricted",
+        "sensitive"
+      ]
     },
     "provenance": {
       "type": "object",
       "additionalProperties": true
     },
-    "active_app": {"type": "string"},
-    "window_title": {"type": "string"},
-    "focused_element_hint": {"type": "string"},
-    "text_excerpt": {"type": "string"},
+    "active_app": {
+      "type": "string"
+    },
+    "window_title": {
+      "type": "string"
+    },
+    "focused_element_hint": {
+      "type": "string"
+    },
+    "text_excerpt": {
+      "type": "string"
+    },
     "cursor_position": {
       "type": "object",
       "properties": {
-        "x": {"type": "number"},
-        "y": {"type": "number"}
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
       },
       "additionalProperties": false
     },
     "screen_geometry": {
       "type": "object",
       "properties": {
-        "width": {"type": "number"},
-        "height": {"type": "number"}
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        }
       },
       "additionalProperties": false
     },
-    "degraded": {"type": "boolean"},
-    "degradation_reason": {"type": "string"}
+    "degraded": {
+      "type": "boolean"
+    },
+    "degradation_reason": {
+      "type": "string"
+    },
+    "sample_rate_hz": {
+      "type": "integer"
+    },
+    "window_ms": {
+      "type": "integer"
+    },
+    "features": {
+      "type": "object",
+      "required": [
+        "rms_energy",
+        "zcr",
+        "spectral_centroid_hz",
+        "spectral_rolloff_hz"
+      ],
+      "properties": {
+        "rms_energy": {
+          "type": "number"
+        },
+        "zcr": {
+          "type": "number"
+        },
+        "spectral_centroid_hz": {
+          "type": "number"
+        },
+        "spectral_rolloff_hz": {
+          "type": "number"
+        },
+        "f0_hz_estimate": {
+          "type": "number"
+        },
+        "speech_prob": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tempo_bpm_estimate": {
+          "type": "number"
+        },
+        "pauses_per_min": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "clipping_detected": {
+      "type": "boolean"
+    },
+    "channel_count": {
+      "type": "integer"
+    },
+    "device_hint": {
+      "type": "string"
+    },
+    "raw_audio_retained": {
+      "type": "boolean",
+      "default": false
+    },
+    "redaction_applied": {
+      "type": "boolean"
+    },
+    "raw_audio_reference": {
+      "type": "string"
+    }
   },
   "additionalProperties": false
 }

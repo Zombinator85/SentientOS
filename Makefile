@@ -1,7 +1,7 @@
 .PHONY: lock lock-install docs docs-live ci rehearse audit perf
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
-.PHONY: pulse-baseline pulse-drift perception-baseline perception-drift self-baseline self-drift federation-baseline federation-drift
+.PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio self-baseline self-drift federation-baseline federation-drift
 .PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status
 
 PYTHON ?= python3
@@ -145,3 +145,6 @@ social-smoke:
 
 %:
 	@:
+
+perception-audio:
+	$(PYTHON) -m scripts.perception.audio_adapter --privacy-class internal --window-ms 500 --iterations 1

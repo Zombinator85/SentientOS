@@ -34,7 +34,7 @@ _PRESSURE_EVENT_TYPES = (
 )
 
 _DRIFT_EVENT_TYPES = ("drift_day",)
-_PERCEPTION_EVENT_TYPES = ("perception.screen",)
+_PERCEPTION_EVENT_TYPES = ("perception.screen", "perception.audio")
 
 _BASE_REQUIRED_ENVELOPE_KEYS = (
     "stream",
@@ -72,6 +72,15 @@ _PERCEPTION_PAYLOAD_FIELDS = (
     "screen_geometry",
     "degraded",
     "degradation_reason",
+    "sample_rate_hz",
+    "window_ms",
+    "features",
+    "clipping_detected",
+    "channel_count",
+    "device_hint",
+    "raw_audio_retained",
+    "redaction_applied",
+    "raw_audio_reference",
 )
 
 
@@ -159,7 +168,29 @@ def _perception_schema_versions() -> Mapping[int, StreamSchemaVersion]:
         }
     )
     allowed_payload = frozenset(_PERCEPTION_PAYLOAD_FIELDS)
-    per_event_required = {event_type: required_payload for event_type in _PERCEPTION_EVENT_TYPES}
+    audio_required_payload = frozenset(
+        {
+            "event_type",
+            "timestamp",
+            "source",
+            "extractor_id",
+            "extractor_version",
+            "confidence",
+            "privacy_class",
+            "provenance",
+            "sample_rate_hz",
+            "window_ms",
+            "features",
+            "clipping_detected",
+            "channel_count",
+            "raw_audio_retained",
+            "redaction_applied",
+        }
+    )
+    per_event_required = {
+        "perception.screen": required_payload,
+        "perception.audio": audio_required_payload,
+    }
     per_event_allowed = {event_type: allowed_payload for event_type in _PERCEPTION_EVENT_TYPES}
     return {
         1: StreamSchemaVersion(

@@ -6,22 +6,23 @@ observations into SentientOS telemetry.
 ## Event Family
 
 - `perception.*` is the canonical family for perception adapters.
-- This baseline defines `perception.screen` only.
+- This baseline defines `perception.screen` and `perception.audio`.
 
 ## Required Common Fields
 
 Every perception event payload **must** include:
 
-- `event_type` (string; for this baseline: `"perception.screen"`)
+- `event_type` (string; for this baseline: `"perception.screen"` or `"perception.audio"`)
 - `timestamp` (string; ISO-8601 UTC)
 - `source` (string; adapter subsystem source)
 - `extractor_id` (string; adapter identifier, e.g. `"screen_adapter"`)
 - `extractor_version` (string)
 - `confidence` (number in `[0.0, 1.0]`)
-- `privacy_class` (enum: `"public"`, `"internal"`, `"restricted"`, `"sensitive"`)
+- `privacy_class` (enum: `"public"`, `"internal"`, `"private"`, `"restricted"`, `"sensitive"`)
 - `provenance` (object; model/version/host/runtime details)
 
 `perception.screen` may also include:
+
 
 - `active_app` (string)
 - `window_title` (string)
@@ -31,6 +32,29 @@ Every perception event payload **must** include:
 - `screen_geometry` (object with optional `width`, `height` numeric members)
 - `degraded` (boolean)
 - `degradation_reason` (string)
+
+
+`perception.audio` payloads must include:
+
+- `sample_rate_hz` (integer)
+- `window_ms` (integer)
+- `features` (object) with:
+  - `rms_energy` (number)
+  - `zcr` (number)
+  - `spectral_centroid_hz` (number)
+  - `spectral_rolloff_hz` (number)
+  - `f0_hz_estimate` (number, optional)
+  - `speech_prob` (number in `[0.0, 1.0]`, optional)
+  - `tempo_bpm_estimate` (number, optional)
+  - `pauses_per_min` (number, optional)
+- `clipping_detected` (boolean)
+- `channel_count` (integer)
+- `device_hint` (string, optional)
+- `raw_audio_retained` (boolean; defaults to `false`)
+- `redaction_applied` (boolean)
+
+`perception.audio` is explicitly prosodic telemetry. Semantic transcription is
+not required, and raw audio must not be stored by default.
 
 ## Hard Constraints
 
