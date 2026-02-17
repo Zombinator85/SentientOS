@@ -8,10 +8,23 @@ from sentientos.forge_goals import resolve_goal
 from sentientos.forge_model import CommandResult, CommandSpec
 
 
+def _ok_step(command: CommandSpec, cwd: Path) -> CommandResult:
+    return CommandResult(
+        step=command.step,
+        argv=command.argv,
+        cwd=str(cwd),
+        env_overlay={},
+        timeout_seconds=command.timeout_seconds,
+        returncode=0,
+        stdout="ok",
+        stderr="",
+    )
+
+
 def test_goal_registry_resolution() -> None:
     baseline = resolve_goal("baseline_reclamation")
     assert baseline.goal_id == "baseline_reclamation"
-    assert baseline.apply_commands
+    assert baseline.apply_commands == []
 
     smoke = resolve_goal("forge_smoke_noop")
     assert smoke.gate_profile == "smoke_noop"
@@ -35,20 +48,7 @@ def test_apply_records_command_results(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
     goal = resolve_goal("forge_self_hosting")
     session = forge._create_session("2025-01-01T00-00-00Z")
-
-    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
-        return CommandResult(
-            step=command.step,
-            argv=command.argv,
-            cwd=str(cwd),
-            env_overlay={},
-            timeout_seconds=command.timeout_seconds,
-            returncode=0,
-            stdout="ok",
-            stderr="",
-        )
-
-    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setattr(forge, "_run_step", _ok_step)
     result = forge.apply(goal, session)
 
     assert result.status == "success"
@@ -69,7 +69,146 @@ def test_autopublish_flags_disabled_by_default(tmp_path: Path, monkeypatch) -> N
     assert not list((tmp_path / "glow" / "forge").glob("pr_*.json"))
 
 
-def test_docket_emission_on_choice_point(tmp_path: Path, monkeypatch) -> None:
+def test_no_progress_emits_docket_and_stops(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+
+    def fake_create_session(generated_at: str):
+        root = tmp_path / "session"
+        root.mkdir(parents=True, exist_ok=True)
+        return type("Session", (), {
+            "session_id": "s1",
+            "root_path": str(root),
+            "strategy": "copy",
+            "branch_name": "forge/s1",
+            "preserved_on_failure": False,
+            "cleanup_performed": False,
+        })()
+
+    run_counter = {"value": 0}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_path = cwd / "glow" / "contracts"
+            status_path.mkdir(parents=True, exist_ok=True)
+            (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            run_counter["value"] += 1
+            return CommandResult(
+                step=command.step,
+                argv=command.argv,
+                cwd=str(cwd),
+                env_overlay={},
+                timeout_seconds=command.timeout_seconds,
+                returncode=1,
+                stdout="FAILED tests/test_alpha.py::test_one - AssertionError: CHOICE_POINT ambiguous",
+                stderr="",
+            )
+        return _ok_step(command, cwd)
+
+    monkeypatch.setattr(forge, "_create_session", fake_create_session)
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setattr(forge, "_cleanup_session", lambda session: None)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "failed"
+    assert report.docket_path is not None
+    assert Path(report.docket_path).exists()
+    assert run_counter["value"] == 2
+
+
+def test_budget_governor_stops_after_max_iterations(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+
+    def fake_create_session(generated_at: str):
+        root = tmp_path / "session"
+        root.mkdir(parents=True, exist_ok=True)
+        return type("Session", (), {
+            "session_id": "s1",
+            "root_path": str(root),
+            "strategy": "copy",
+            "branch_name": "forge/s1",
+            "preserved_on_failure": False,
+            "cleanup_performed": False,
+        })()
+
+    monkeypatch.setenv("SENTIENTOS_FORGE_MAX_ITERS", "1")
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_path = cwd / "glow" / "contracts"
+            status_path.mkdir(parents=True, exist_ok=True)
+            (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            return CommandResult(
+                step=command.step,
+                argv=command.argv,
+                cwd=str(cwd),
+                env_overlay={},
+                timeout_seconds=command.timeout_seconds,
+                returncode=1,
+                stdout="FAILED tests/test_alpha.py::test_one - AssertionError: still broken",
+                stderr="",
+            )
+        return _ok_step(command, cwd)
+
+    monkeypatch.setattr(forge, "_create_session", fake_create_session)
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setattr(forge, "_cleanup_session", lambda session: None)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "failed"
+    assert report.baseline_budget is not None
+    assert report.baseline_budget["iterations_used"] == 1
+
+
+def test_progress_reduces_failure_count(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+
+    def fake_create_session(generated_at: str):
+        root = tmp_path / "session"
+        root.mkdir(parents=True, exist_ok=True)
+        return type("Session", (), {
+            "session_id": "s1",
+            "root_path": str(root),
+            "strategy": "copy",
+            "branch_name": "forge/s1",
+            "preserved_on_failure": False,
+            "cleanup_performed": False,
+        })()
+
+    state = {"iter": 0}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_path = cwd / "glow" / "contracts"
+            status_path.mkdir(parents=True, exist_ok=True)
+            (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            state["iter"] += 1
+            if state["iter"] == 1:
+                stdout = "\n".join([
+                    "FAILED tests/test_alpha.py::test_one - AssertionError: one",
+                    "FAILED tests/test_beta.py::test_two - AssertionError: two",
+                ])
+                return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, stdout, "")
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "", "")
+        return _ok_step(command, cwd)
+
+    monkeypatch.setattr(forge, "_create_session", fake_create_session)
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setattr(forge, "_cleanup_session", lambda session: None)
+    monkeypatch.setattr("sentientos.cathedral_forge.generate_fix_candidates", lambda clusters, root: [])
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.test_failures_before == 2
+    assert report.test_failures_after == 0
+    assert report.outcome == "success"
+
+
+def test_contract_drift_gate_prevents_success_at_end(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
 
     def fake_create_session(generated_at: str):
@@ -89,19 +228,11 @@ def test_docket_emission_on_choice_point(tmp_path: Path, monkeypatch) -> None:
             status_path = cwd / "glow" / "contracts"
             status_path.mkdir(parents=True, exist_ok=True)
             (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
-        stdout = ""
-        if command.step == "inventory_failures":
-            stdout = "CHOICE_POINT: ambiguous fix required"
-        return CommandResult(
-            step=command.step,
-            argv=command.argv,
-            cwd=str(cwd),
-            env_overlay={},
-            timeout_seconds=command.timeout_seconds,
-            returncode=0,
-            stdout=stdout,
-            stderr="",
-        )
+        if command.step == "contract_drift_end":
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, "drift", "")
+        if command.step.startswith("baseline_harvest_"):
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "", "")
+        return _ok_step(command, cwd)
 
     monkeypatch.setattr(forge, "_create_session", fake_create_session)
     monkeypatch.setattr(forge, "_run_step", fake_run_step)
@@ -109,11 +240,8 @@ def test_docket_emission_on_choice_point(tmp_path: Path, monkeypatch) -> None:
 
     report = forge.run("baseline_reclamation")
 
-    assert report.docket_path is not None
-    docket_path = Path(report.docket_path)
-    assert docket_path.exists()
-    payload = json.loads(docket_path.read_text(encoding="utf-8"))
-    assert payload["choices"]
+    assert report.outcome == "failed"
+    assert "apply_failed" in report.failure_reasons
 
 
 def test_run_smoke_profile_still_works(tmp_path: Path, monkeypatch) -> None:
