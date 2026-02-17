@@ -3,18 +3,22 @@ from __future__ import annotations
 import argparse
 import json
 import platform
+import re
 import shutil
 import socket
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from sentientos.daemons import pulse_bus
 
 EXTRACTOR_ID = "screen_adapter"
 EXTRACTOR_VERSION = "1"
-PRIVACY_CHOICES = ("public", "internal", "restricted", "sensitive")
+PRIVACY_CHOICES = ("public", "internal", "private", "restricted", "sensitive")
+
+URL_TOKEN_RE = re.compile(r"((?:https?://)?(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/\S*)?)")
 
 
 def _iso_now() -> str:
@@ -75,6 +79,8 @@ def _linux_snapshot() -> dict[str, Any]:
     degraded = window_id is None and app_name is None and window_title is None
     return {
         "active_app": app_name,
+        "window_class": app_name,
+        "process_name": app_name,
         "window_title": window_title,
         "cursor_position": cursor_position,
         "screen_geometry": screen_geometry,
@@ -108,6 +114,7 @@ def _mac_snapshot() -> dict[str, Any]:
     degraded = app is None and title is None
     return {
         "active_app": app,
+        "process_name": app,
         "window_title": title,
         "cursor_position": None,
         "screen_geometry": None,
@@ -153,6 +160,7 @@ def _windows_snapshot() -> dict[str, Any]:
     degraded = title is None and app_name is None
     return {
         "active_app": app_name,
+        "process_name": app_name,
         "window_title": title,
         "cursor_position": cursor,
         "screen_geometry": None,
@@ -171,8 +179,69 @@ def snapshot_screen_context() -> dict[str, Any]:
     return _linux_snapshot()
 
 
-def build_perception_payload(*, privacy_class: str, text_excerpt: str | None, focused_element_hint: str | None) -> dict[str, Any]:
+def _extract_url_token(window_title: str | None) -> str | None:
+    if not window_title:
+        return None
+    match = URL_TOKEN_RE.search(window_title)
+    if not match:
+        return None
+    token = match.group(1)
+    if token.startswith(("http://", "https://")):
+        return token
+    return f"https://{token}"
+
+
+def _extract_domain(url_candidate: str | None) -> str | None:
+    if not url_candidate:
+        return None
+    try:
+        parsed = urlparse(url_candidate)
+    except ValueError:
+        return None
+    hostname = parsed.hostname
+    return hostname.lower() if isinstance(hostname, str) and hostname else None
+
+
+def _classify_ui_context(active_app: str | None, window_title: str | None) -> dict[str, Any]:
+    app = (active_app or "").lower()
+    title = window_title or None
+    if any(token in app for token in ("chrome", "firefox", "edge", "safari", "browser", "brave")):
+        return {"kind": "browser", "doc_title": title}
+    if any(token in app for token in ("code", "vim", "emacs", "sublime", "notepad", "pycharm", "idea", "editor")):
+        return {"kind": "editor", "doc_title": title}
+    if any(token in app for token in ("terminal", "iterm", "powershell", "cmd", "console", "xterm", "gnome-terminal", "kitty")):
+        return {"kind": "terminal", "doc_title": title}
+    return {"kind": "unknown", "doc_title": title}
+
+
+def build_perception_payload(
+    *,
+    privacy_class: str,
+    text_excerpt: str | None,
+    focused_element_hint: str | None,
+    include_domain: bool,
+    include_url_full: bool,
+    include_text_excerpt: bool,
+) -> dict[str, Any]:
     observation = snapshot_screen_context()
+    window_title = observation.get("window_title")
+    url_candidate = _extract_url_token(window_title if isinstance(window_title, str) else None)
+    browser_domain = _extract_domain(url_candidate) if include_domain else None
+    url_allowed = include_url_full and privacy_class == "private"
+    text_allowed = include_text_excerpt and privacy_class in {"internal", "private"}
+    ui_context = _classify_ui_context(
+        observation.get("active_app") if isinstance(observation.get("active_app"), str) else None,
+        window_title if isinstance(window_title, str) else None,
+    )
+
+    redaction_notes: list[str] = []
+    if include_url_full and privacy_class != "private":
+        redaction_notes.append("browser_url_full omitted: privacy_class must be private")
+    if include_text_excerpt and privacy_class not in {"internal", "private"}:
+        redaction_notes.append("text_excerpt omitted: requires internal/private privacy_class")
+    if include_domain and browser_domain is None:
+        redaction_notes.append("browser_domain unavailable from current platform metadata")
+
     payload: dict[str, Any] = {
         "event_type": "perception.screen",
         "timestamp": _iso_now(),
@@ -189,15 +258,23 @@ def build_perception_payload(*, privacy_class: str, text_excerpt: str | None, fo
             "python_version": platform.python_version(),
         },
         "active_app": observation.get("active_app"),
+        "window_class": observation.get("window_class"),
+        "process_name": observation.get("process_name"),
         "window_title": observation.get("window_title"),
+        "browser_domain": browser_domain,
+        "browser_url_full": url_candidate if url_allowed else None,
         "focused_element_hint": focused_element_hint,
+        "ui_context": ui_context,
         "cursor_position": observation.get("cursor_position"),
         "screen_geometry": observation.get("screen_geometry"),
+        "raw_artifact_retained": False,
+        "redaction_applied": bool(redaction_notes),
+        "redaction_notes": "; ".join(redaction_notes) if redaction_notes else None,
         "degraded": bool(observation.get("degraded", False)),
         "degradation_reason": observation.get("degradation_reason"),
     }
-    if privacy_class in {"public", "internal"} and text_excerpt:
-        payload["text_excerpt"] = text_excerpt
+    if text_allowed and text_excerpt:
+        payload["text_excerpt"] = text_excerpt[:256]
     return {key: value for key, value in payload.items() if value is not None}
 
 
@@ -231,6 +308,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--privacy-class", default="internal", choices=PRIVACY_CHOICES)
     parser.add_argument("--text-excerpt", default=None)
     parser.add_argument("--focused-element-hint", default=None)
+    parser.add_argument("--include-domain", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--include-url-full", action="store_true", default=False)
+    parser.add_argument("--include-text-excerpt", action="store_true", default=False)
     parser.add_argument("--output-log", default="glow/perception/perception_screen_events.jsonl")
     args = parser.parse_args(argv)
 
@@ -238,6 +318,9 @@ def main(argv: list[str] | None = None) -> int:
         privacy_class=args.privacy_class,
         text_excerpt=args.text_excerpt,
         focused_element_hint=args.focused_element_hint,
+        include_domain=bool(args.include_domain),
+        include_url_full=bool(args.include_url_full),
+        include_text_excerpt=bool(args.include_text_excerpt),
     )
     result = emit_pulse(payload, output_log=Path(args.output_log))
     print(json.dumps(result, sort_keys=True))

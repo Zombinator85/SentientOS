@@ -151,3 +151,26 @@ def test_perception_schema_detects_gaze_required_key_change(monkeypatch, tmp_pat
         item["field"] == "display_geometry" and item["event_type"] == "perception.gaze" and item["change"] == "added_required"
         for item in drift["required_key_changes"]
     )
+
+
+def test_perception_schema_detects_screen_required_key_change(monkeypatch, tmp_path: Path) -> None:
+    baseline = tmp_path / "perception_baseline.json"
+    report = tmp_path / "perception_drift.json"
+    capture_perception(baseline)
+
+    from scripts import detect_perception_schema_drift as module
+
+    original = module._schema()
+    mutated = {**original, "events": {**original.get("events", {})}}
+    screen_event = dict(mutated["events"]["perception.screen"])
+    screen_event["required_fields"] = sorted(list(screen_event["required_fields"]) + ["active_app"])
+    mutated["events"]["perception.screen"] = screen_event
+
+    monkeypatch.setattr(module, "_schema", lambda: mutated)
+
+    drift = detect_perception(baseline_path=baseline, output_path=report)
+    assert drift["drifted"] is True
+    assert any(
+        item["field"] == "active_app" and item["event_type"] == "perception.screen" and item["change"] == "added_required"
+        for item in drift["required_key_changes"]
+    )
