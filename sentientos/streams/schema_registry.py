@@ -34,7 +34,7 @@ _PRESSURE_EVENT_TYPES = (
 )
 
 _DRIFT_EVENT_TYPES = ("drift_day",)
-_PERCEPTION_EVENT_TYPES = ("perception.screen", "perception.audio", "perception.vision")
+_PERCEPTION_EVENT_TYPES = ("perception.screen", "perception.audio", "perception.vision", "perception.gaze")
 
 _BASE_REQUIRED_ENVELOPE_KEYS = (
     "stream",
@@ -88,6 +88,16 @@ _PERCEPTION_PAYLOAD_FIELDS = (
     "raw_frame_reference",
     "lighting_score",
     "motion_score",
+    "gaze_point_norm",
+    "gaze_point_px",
+    "gaze_vector",
+    "calibration_state",
+    "calibration_confidence",
+    "source_pipeline",
+    "screen_id",
+    "display_geometry",
+    "raw_samples_retained",
+    "raw_samples_reference",
 )
 
 
@@ -212,6 +222,23 @@ def _perception_schema_versions() -> Mapping[int, StreamSchemaVersion]:
                 "faces_detected",
                 "features",
                 "raw_frame_retained",
+                "redaction_applied",
+            }
+        ),
+        "perception.gaze": frozenset(
+            {
+                "event_type",
+                "timestamp",
+                "source",
+                "extractor_id",
+                "extractor_version",
+                "confidence",
+                "privacy_class",
+                "provenance",
+                "gaze_point_norm",
+                "calibration_state",
+                "source_pipeline",
+                "raw_samples_retained",
                 "redaction_applied",
             }
         ),

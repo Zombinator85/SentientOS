@@ -38,6 +38,7 @@ def detect_drift(*, baseline_path: Path, output_path: Path) -> dict[str, Any]:
     removed_fields: list[dict[str, str]] = []
     type_changes: list[dict[str, str]] = []
     enum_changes: list[dict[str, str]] = []
+    required_key_changes: list[dict[str, str]] = []
 
     for event_type in sorted(set(current_events) & set(baseline_events)):
         base_event = baseline_events[event_type]
@@ -65,10 +66,17 @@ def detect_drift(*, baseline_path: Path, output_path: Path) -> dict[str, Any]:
             if base_enums.get(field) != curr_enums.get(field):
                 enum_changes.append({"event_type": event_type, "field": field, "from": json.dumps(base_enums.get(field), sort_keys=True), "to": json.dumps(curr_enums.get(field), sort_keys=True)})
 
+        base_required = set(base_event.get("required_fields", []) or [])
+        curr_required = set(curr_event.get("required_fields", []) or [])
+        for field in sorted(curr_required - base_required):
+            required_key_changes.append({"event_type": event_type, "field": field, "change": "added_required"})
+        for field in sorted(base_required - curr_required):
+            required_key_changes.append({"event_type": event_type, "field": field, "change": "removed_required"})
+
     baseline_fingerprint = str(baseline.get("schema_fingerprint", ""))
     current_fingerprint = _fingerprint(current_schema)
     fingerprint_changed = baseline_fingerprint != current_fingerprint
-    schema_diff_detected = bool(added_event_types or removed_event_types or added_fields or removed_fields or type_changes or enum_changes)
+    schema_diff_detected = bool(added_event_types or removed_event_types or added_fields or removed_fields or type_changes or enum_changes or required_key_changes)
 
     if schema_diff_detected and fingerprint_changed:
         drift_type = "schema_and_fingerprint"
@@ -99,6 +107,7 @@ def detect_drift(*, baseline_path: Path, output_path: Path) -> dict[str, Any]:
         "removed_fields": removed_fields,
         "type_changes": type_changes,
         "enum_changes": enum_changes,
+        "required_key_changes": required_key_changes,
         "notes": [f"baseline={baseline_path.as_posix()}"],
         "provenance": baseline.get("provenance", {}),
     }

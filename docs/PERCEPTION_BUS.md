@@ -6,13 +6,13 @@ observations into SentientOS telemetry.
 ## Event Family
 
 - `perception.*` is the canonical family for perception adapters.
-- This baseline defines `perception.screen`, `perception.audio`, and `perception.vision`.
+- This baseline defines `perception.screen`, `perception.audio`, `perception.vision`, and `perception.gaze`.
 
 ## Required Common Fields
 
 Every perception event payload **must** include:
 
-- `event_type` (string; for this baseline: `"perception.screen"`, `"perception.audio"`, or `"perception.vision"`)
+- `event_type` (string; for this baseline: `"perception.screen"`, `"perception.audio"`, `"perception.vision"`, or `"perception.gaze"`)
 - `timestamp` (string; ISO-8601 UTC)
 - `source` (string; adapter subsystem source)
 - `extractor_id` (string; adapter identifier, e.g. `"screen_adapter"`)
@@ -77,6 +77,25 @@ Every perception event payload **must** include:
 - `motion_score` (number in `[0.0, 1.0]`)
 - `degradation_reason` (string)
 
+
+`perception.gaze` payloads must include:
+
+- `gaze_point_norm` (`[x, y]` normalized to `0..1`; may be `null` when unavailable)
+- `confidence` (number in `[0.0, 1.0]`)
+- `calibration_state` (`"uncalibrated"|"calibrating"|"calibrated"|"unknown"`)
+- `source_pipeline` (`"eye_tracker_sdk"|"camera_estimate"|"os_accessibility"|"none"`)
+- `raw_samples_retained` (boolean; defaults to `false`)
+- `redaction_applied` (boolean)
+
+`perception.gaze` may additionally include:
+
+- `gaze_point_px` (`[x, y]` in pixels when screen geometry is known)
+- `gaze_vector` (`[dx, dy, dz]`, optional unit-ish vector)
+- `calibration_confidence` (number in `[0.0, 1.0]`)
+- `screen_id` (string; optional display identifier)
+- `display_geometry` (object with optional `x`, `y`, `width`, `height`)
+- `degradation_reason` (string)
+
 ## Privacy, Safety, and Scope Constraints
 
 1. Perception events are **non-privileged** signals.
@@ -90,6 +109,8 @@ Every perception event payload **must** include:
 8. `perception.vision` outputs are geometry/telemetry only; no biometric identity claims.
 9. No emotion-classification claims. If future labels exist, they must be explicitly
    scoped as expression-only telemetry and remain non-privileged.
+10. `perception.gaze` is attentional telemetry only and must not be interpreted as intention, truth, or certainty.
+11. `perception.gaze` must surface calibration and confidence state; uncertainty must never be hidden.
 
 ## Retention Guidance
 
@@ -103,3 +124,6 @@ Every perception event payload **must** include:
 - `perception.vision` defaults to `raw_frame_retained=false`.
 - If raw frames are retained, store frames in a quarantine path and emit only a
   reference path (`raw_frame_reference`) in the event payload.
+- `perception.gaze` defaults to `raw_samples_retained=false`.
+- If raw gaze samples are retained, quarantine the raw sample file and emit only
+  a reference field (`raw_samples_reference`) in the payload.
