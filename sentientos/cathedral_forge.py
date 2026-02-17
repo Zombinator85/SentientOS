@@ -9,11 +9,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import tempfile
 from typing import Any
 
 from sentientos.forge_budget import BudgetConfig
+from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_goals import GoalSpec, resolve_goal
@@ -103,6 +103,11 @@ class CathedralForge:
         plan = self.plan(goal)
         plan_path = self._plan_path(plan.generated_at)
         session = self._create_session(generated_at)
+        forge_env = bootstrap_env(Path(session.root_path))
+        session.env_python_path = forge_env.python
+        session.env_venv_path = forge_env.venv_path
+        session.env_reused = not forge_env.created
+        session.env_install_summary = forge_env.install_summary
 
         ci_commands_run: list[str] = []
         step_results: list[CommandResult] = []
@@ -118,26 +123,34 @@ class CathedralForge:
 
         try:
             drift_result = self._run_step(
-                CommandSpec(step="contract_drift", argv=[sys.executable, "-m", "scripts.contract_drift"]),
+                CommandSpec(step="contract_drift", argv=[forge_env.python, "-m", "scripts.contract_drift"]),
                 Path(session.root_path),
             )
             step_results.append(drift_result)
-            ci_commands_run.append("python -m scripts.contract_drift")
+            ci_commands_run.append(f"{forge_env.python} -m scripts.contract_drift")
             drift_failed = drift_result.returncode != 0
             if drift_failed:
                 failure_reasons.append("contract_drift_failed")
 
             status_result = self._run_step(
-                CommandSpec(step="contract_status", argv=[sys.executable, "-m", "scripts.emit_contract_status"]),
+                CommandSpec(step="contract_status", argv=[forge_env.python, "-m", "scripts.emit_contract_status"]),
                 Path(session.root_path),
             )
             step_results.append(status_result)
-            ci_commands_run.append("python -m scripts.emit_contract_status")
+            ci_commands_run.append(f"{forge_env.python} -m scripts.emit_contract_status")
 
             status_payload = self._load_json(Path(session.root_path) / CONTRACT_STATUS_PATH)
             artifacts_written.append(str(CONTRACT_STATUS_PATH))
             if status_result.returncode != 0:
                 failure_reasons.append("contract_status_emit_failed")
+
+            env_import = self._run_step(
+                CommandSpec(step="env_import_sentientos", argv=[forge_env.python, "-c", "import sentientos"]),
+                Path(session.root_path),
+            )
+            step_results.append(env_import)
+            if env_import.returncode != 0:
+                failure_reasons.append("forge_env_import_failed")
 
             preflight = ForgePreflight(
                 contract_drift=ForgeCheckResult(
@@ -159,7 +172,7 @@ class CathedralForge:
                         baseline_harvests,
                         baseline_fixes,
                         baseline_budget,
-                    ) = self._run_baseline_engine(goal, goal_spec, session, generated_at)
+                    ) = self._run_baseline_engine(goal, goal_spec, session, generated_at, forge_env)
                     if docket_path:
                         artifacts_written.append(docket_path)
                 else:
@@ -171,7 +184,7 @@ class CathedralForge:
 
             tests_result = ForgeTestResult(status="fail", command=goal_profile.test_command_display, summary="skipped: preflight/apply failed")
             if not failure_reasons:
-                tests_step = self._run_step(CommandSpec(step="tests", argv=goal_profile.test_command), Path(session.root_path))
+                tests_step = self._run_step(CommandSpec(step="tests", argv=goal_profile.test_command(forge_env.python)), Path(session.root_path))
                 step_results.append(tests_step)
                 ci_commands_run.append(goal_profile.test_command_display)
                 tests_result = ForgeTestResult(
@@ -329,6 +342,7 @@ class CathedralForge:
         goal_spec: GoalSpec,
         session: ForgeSession,
         generated_at: str,
+        forge_env: ForgeEnv,
     ) -> tuple[ApplyResult, int | None, int | None, str | None, list[HarvestResult], list[FixResult], dict[str, int]]:
         cwd = Path(session.root_path)
         budget = BudgetConfig.from_env()
@@ -345,7 +359,7 @@ class CathedralForge:
             harvest_step = self._run_step(
                 CommandSpec(
                     step=f"baseline_harvest_{iteration}",
-                    argv=[sys.executable, "-m", "pytest", "-q", "--maxfail=50", "--disable-warnings"],
+                    argv=self._baseline_harvest_argv(forge_env.python),
                 ),
                 cwd,
             )
@@ -358,7 +372,7 @@ class CathedralForge:
             test_failures_after = harvest.total_failed
 
             if harvest.total_failed == 0:
-                end_drift = self._run_step(CommandSpec(step="contract_drift_end", argv=[sys.executable, "-m", "scripts.contract_drift"]), cwd)
+                end_drift = self._run_step(CommandSpec(step="contract_drift_end", argv=[forge_env.python, "-m", "scripts.contract_drift"]), cwd)
                 step_results.append(end_drift)
                 if end_drift.returncode != 0:
                     return (
@@ -437,6 +451,12 @@ class CathedralForge:
             fixes,
             _budget_payload(budget, budget.max_iterations, len(touched_files_total)),
         )
+
+    def _baseline_harvest_argv(self, python_bin: str) -> list[str]:
+        runner = os.getenv("SENTIENTOS_FORGE_HARVEST_RUNNER", "pytest").strip().lower()
+        if runner == "run_tests":
+            return [python_bin, "-m", "scripts.run_tests", "-q", "--maxfail=50"]
+        return [python_bin, "-m", "pytest", "-q", "--maxfail=50", "--disable-warnings"]
 
     def _run_optional_formatters(self, cwd: Path, files: list[str], step_results: list[CommandResult], goal_spec: GoalSpec) -> None:
         probe = subprocess.run(["ruff", "--version"], cwd=cwd, capture_output=True, text=True, check=False)
@@ -570,12 +590,12 @@ def resolve_goal_profile(goal_spec: GoalSpec) -> GoalProfile:
     if goal_spec.gate_profile == "smoke_noop":
         return GoalProfile(
             name="smoke_noop",
-            test_command=[sys.executable, "-m", "scripts.run_tests", "-q", "tests/test_cathedral_forge.py"],
+            test_command=lambda python_bin: [python_bin, "-m", "scripts.run_tests", "-q", "tests/test_cathedral_forge.py"],
             test_command_display="python -m scripts.run_tests -q tests/test_cathedral_forge.py",
         )
     return GoalProfile(
         name="default",
-        test_command=[sys.executable, "-m", "scripts.run_tests", "-q"],
+        test_command=lambda python_bin: [python_bin, "-m", "scripts.run_tests", "-q"],
         test_command_display="python -m scripts.run_tests -q",
     )
 

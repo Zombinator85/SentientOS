@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
+from typing import Callable, Mapping
 
 
 @dataclass(slots=True)
@@ -38,7 +38,7 @@ class CommandResult:
 @dataclass(slots=True)
 class GoalProfile:
     name: str
-    test_command: list[str]
+    test_command: Callable[[str], list[str]]
     test_command_display: str
 
 
@@ -48,6 +48,10 @@ class ForgeSession:
     root_path: str
     strategy: str
     branch_name: str
+    env_python_path: str = ""
+    env_venv_path: str = ""
+    env_reused: bool = False
+    env_install_summary: str = ""
     preserved_on_failure: bool = False
     cleanup_performed: bool = False
 

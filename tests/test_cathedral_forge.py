@@ -4,8 +4,19 @@ import json
 from pathlib import Path
 
 from sentientos.cathedral_forge import CathedralForge
+from sentientos.forge_env import ForgeEnv
 from sentientos.forge_goals import resolve_goal
 from sentientos.forge_model import CommandResult, CommandSpec
+
+
+def _fake_env(root: Path) -> ForgeEnv:
+    return ForgeEnv(
+        python="/tmp/fake-python",
+        pip="/tmp/fake-pip",
+        venv_path=str(root / ".forge" / "venv"),
+        created=False,
+        install_summary="reused",
+    )
 
 
 def _ok_step(command: CommandSpec, cwd: Path) -> CommandResult:
@@ -72,6 +83,8 @@ def test_autopublish_flags_disabled_by_default(tmp_path: Path, monkeypatch) -> N
 def test_no_progress_emits_docket_and_stops(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
 
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
     def fake_create_session(generated_at: str):
         root = tmp_path / "session"
         root.mkdir(parents=True, exist_ok=True)
@@ -120,6 +133,8 @@ def test_no_progress_emits_docket_and_stops(tmp_path: Path, monkeypatch) -> None
 def test_budget_governor_stops_after_max_iterations(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
 
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
     def fake_create_session(generated_at: str):
         root = tmp_path / "session"
         root.mkdir(parents=True, exist_ok=True)
@@ -166,6 +181,8 @@ def test_budget_governor_stops_after_max_iterations(tmp_path: Path, monkeypatch)
 def test_progress_reduces_failure_count(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
 
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
     def fake_create_session(generated_at: str):
         root = tmp_path / "session"
         root.mkdir(parents=True, exist_ok=True)
@@ -211,6 +228,8 @@ def test_progress_reduces_failure_count(tmp_path: Path, monkeypatch) -> None:
 def test_contract_drift_gate_prevents_success_at_end(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
 
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
     def fake_create_session(generated_at: str):
         root = tmp_path / "session"
         root.mkdir(parents=True, exist_ok=True)
@@ -247,6 +266,8 @@ def test_contract_drift_gate_prevents_success_at_end(tmp_path: Path, monkeypatch
 def test_run_smoke_profile_still_works(tmp_path: Path, monkeypatch) -> None:
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
 
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
     def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
         if command.step == "contract_status":
             status_dir = cwd / "glow" / "contracts"
@@ -268,3 +289,41 @@ def test_run_smoke_profile_still_works(tmp_path: Path, monkeypatch) -> None:
 
     assert report.goal_profile == "smoke_noop"
     assert report.outcome == "success"
+    assert report.session.env_python_path == "/tmp/fake-python"
+
+
+def test_run_uses_forge_env_python_for_all_python_steps(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    fake_python = "/tmp/forge-python"
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: ForgeEnv(fake_python, "pip", str(root / ".forge" / "venv"), False, "reused"))
+
+    seen: dict[str, list[str]] = {}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        seen[command.step] = command.argv
+        if command.step == "contract_status":
+            status_dir = cwd / "glow" / "contracts"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            (status_dir / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "", "")
+        return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "ok", "")
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "success"
+    assert seen["contract_drift"][0] == fake_python
+    assert seen["contract_status"][0] == fake_python
+    assert seen["tests"][0] == fake_python
+    assert seen["baseline_harvest_1"][0] == fake_python
+
+
+def test_baseline_harvest_runner_run_tests_mode(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setenv("SENTIENTOS_FORGE_HARVEST_RUNNER", "run_tests")
+
+    argv = forge._baseline_harvest_argv("/tmp/py")
+
+    assert argv[:3] == ["/tmp/py", "-m", "scripts.run_tests"]
