@@ -18,7 +18,8 @@
       "type": "string",
       "enum": [
         "perception.screen",
-        "perception.audio"
+        "perception.audio",
+        "perception.vision"
       ]
     },
     "timestamp": {
@@ -101,6 +102,80 @@
       "type": "integer"
     },
     "features": {
+      "type": "object"
+    },
+    "clipping_detected": {
+      "type": "boolean"
+    },
+    "channel_count": {
+      "type": "integer"
+    },
+    "device_hint": {
+      "type": "string"
+    },
+    "raw_audio_retained": {
+      "type": "boolean",
+      "default": false
+    },
+    "redaction_applied": {
+      "type": "boolean"
+    },
+    "raw_audio_reference": {
+      "type": "string"
+    },
+    "frame_size": {
+      "type": "object",
+      "required": [
+        "width",
+        "height"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "fps_estimate": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "faces_detected": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "raw_frame_retained": {
+      "type": "boolean",
+      "default": false
+    },
+    "raw_frame_reference": {
+      "type": "string"
+    },
+    "lighting_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "motion_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "audio_features": {
       "type": "object",
       "required": [
         "rms_energy",
@@ -138,25 +213,141 @@
       },
       "additionalProperties": false
     },
-    "clipping_detected": {
-      "type": "boolean"
-    },
-    "channel_count": {
-      "type": "integer"
-    },
-    "device_hint": {
-      "type": "string"
-    },
-    "raw_audio_retained": {
-      "type": "boolean",
-      "default": false
-    },
-    "redaction_applied": {
-      "type": "boolean"
-    },
-    "raw_audio_reference": {
-      "type": "string"
+    "vision_features": {
+      "type": "object",
+      "required": [
+        "face_present"
+      ],
+      "properties": {
+        "face_present": {
+          "type": "boolean"
+        },
+        "face_bbox": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "face_landmarks": {
+          "type": "object",
+          "required": [
+            "format",
+            "points"
+          ],
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "mediapipe_468",
+                "dlib_68",
+                "none"
+              ]
+            },
+            "points": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "gaze_vector": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          }
+        },
+        "gaze_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "blink_rate_estimate": {
+          "type": "number",
+          "minimum": 0,
+          "description": "blinks per minute"
+        },
+        "head_pose_rpy": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number"
+          },
+          "description": "roll, pitch, yaw in degrees"
+        },
+        "head_pose_confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "perception.audio"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "sample_rate_hz",
+          "window_ms",
+          "features",
+          "clipping_detected",
+          "channel_count",
+          "raw_audio_retained",
+          "redaction_applied"
+        ],
+        "properties": {
+          "features": {
+            "$ref": "#/$defs/audio_features"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "event_type": {
+            "const": "perception.vision"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "frame_size",
+          "fps_estimate",
+          "faces_detected",
+          "features",
+          "raw_frame_retained",
+          "redaction_applied"
+        ],
+        "properties": {
+          "features": {
+            "$ref": "#/$defs/vision_features"
+          }
+        }
+      }
+    }
+  ]
 }

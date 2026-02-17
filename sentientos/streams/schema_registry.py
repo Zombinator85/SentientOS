@@ -34,7 +34,7 @@ _PRESSURE_EVENT_TYPES = (
 )
 
 _DRIFT_EVENT_TYPES = ("drift_day",)
-_PERCEPTION_EVENT_TYPES = ("perception.screen", "perception.audio")
+_PERCEPTION_EVENT_TYPES = ("perception.screen", "perception.audio", "perception.vision")
 
 _BASE_REQUIRED_ENVELOPE_KEYS = (
     "stream",
@@ -81,6 +81,13 @@ _PERCEPTION_PAYLOAD_FIELDS = (
     "raw_audio_retained",
     "redaction_applied",
     "raw_audio_reference",
+    "frame_size",
+    "fps_estimate",
+    "faces_detected",
+    "raw_frame_retained",
+    "raw_frame_reference",
+    "lighting_score",
+    "motion_score",
 )
 
 
@@ -190,6 +197,24 @@ def _perception_schema_versions() -> Mapping[int, StreamSchemaVersion]:
     per_event_required = {
         "perception.screen": required_payload,
         "perception.audio": audio_required_payload,
+        "perception.vision": frozenset(
+            {
+                "event_type",
+                "timestamp",
+                "source",
+                "extractor_id",
+                "extractor_version",
+                "confidence",
+                "privacy_class",
+                "provenance",
+                "frame_size",
+                "fps_estimate",
+                "faces_detected",
+                "features",
+                "raw_frame_retained",
+                "redaction_applied",
+            }
+        ),
     }
     per_event_allowed = {event_type: allowed_payload for event_type in _PERCEPTION_EVENT_TYPES}
     return {

@@ -106,3 +106,44 @@ def test_perception_audio_envelope_current_version_is_accepted() -> None:
     upgraded = upgrade_envelope(envelope)
     assert upgraded["event_type"] == "perception.audio"
     assert upgraded["payload"]["sample_rate_hz"] == 16000
+
+
+def test_perception_vision_envelope_current_version_is_accepted() -> None:
+    current = current_schema_version("perception")
+    envelope = {
+        "stream": "perception",
+        "schema_version": current,
+        "event_id": "vision-1",
+        "event_type": "perception.vision",
+        "timestamp": "2024-01-01T00:00:00+00:00",
+        "payload": {
+            "event_type": "perception.vision",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "source": "local.webcam",
+            "extractor_id": "vision_adapter",
+            "extractor_version": "1",
+            "confidence": 0.7,
+            "privacy_class": "internal",
+            "provenance": {"host": "test", "pipeline_id": "opencv_haar"},
+            "frame_size": {"width": 1280, "height": 720},
+            "fps_estimate": 30.0,
+            "faces_detected": 1,
+            "features": {
+                "face_present": True,
+                "face_bbox": [0.2, 0.2, 0.3, 0.4],
+                "face_landmarks": {"format": "none", "points": []},
+                "gaze_vector": [0.1, -0.1, 0.98],
+                "gaze_confidence": 0.4,
+                "head_pose_rpy": [0.0, 1.5, 4.2],
+                "head_pose_confidence": 0.35,
+            },
+            "raw_frame_retained": False,
+            "redaction_applied": True,
+            "lighting_score": 0.5,
+            "motion_score": 0.2,
+        },
+    }
+
+    upgraded = upgrade_envelope(envelope)
+    assert upgraded["event_type"] == "perception.vision"
+    assert upgraded["payload"]["faces_detected"] == 1
