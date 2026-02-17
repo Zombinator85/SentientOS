@@ -290,6 +290,9 @@ def test_run_smoke_profile_still_works(tmp_path: Path, monkeypatch) -> None:
     assert report.goal_profile == "smoke_noop"
     assert report.outcome == "success"
     assert report.session.env_python_path == "/tmp/fake-python"
+    assert report.session.env_venv_path.endswith(".forge/venv")
+    assert report.session.env_reused is True
+    assert report.session.env_install_summary == "reused"
 
 
 def test_run_uses_forge_env_python_for_all_python_steps(tmp_path: Path, monkeypatch) -> None:

@@ -6,6 +6,10 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import subprocess
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.11
+    import tomli as tomllib
 import venv
 
 
@@ -44,10 +48,8 @@ def bootstrap_env(session_root: Path) -> ForgeEnv:
     summary: list[str] = []
     summary.append(_run_best_effort([str(python_path), "-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"], session_root, "upgrade"))
 
-    install_args = ["-e", ".[test]"] if _has_test_extra(session_root) else ["-e", "."]
-    summary.append(
-        _run_best_effort([str(python_path), "-m", "pip", "install", *install_args], session_root, "install")
-    )
+    install_summary, _ = _install_repo(python_path, session_root)
+    summary.append(install_summary)
 
     import_check = subprocess.run(
         [str(python_path), "-c", "import sentientos"],
@@ -84,10 +86,22 @@ def _venv_pip(venv_path: Path) -> Path:
 def _has_test_extra(repo_root: Path) -> bool:
     pyproject = repo_root / "pyproject.toml"
     try:
-        content = pyproject.read_text(encoding="utf-8")
-    except OSError:
+        payload = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
         return False
-    return "[project.optional-dependencies]" in content and "test" in content
+    optional = payload.get("project", {}).get("optional-dependencies", {})
+    return isinstance(optional, dict) and "test" in optional
+
+
+def _install_repo(python_path: Path, session_root: Path) -> tuple[str, bool]:
+    if _has_test_extra(session_root):
+        test_summary = _run_best_effort([str(python_path), "-m", "pip", "install", "-e", ".[test]"], session_root, "install[test]")
+        if test_summary.endswith("rc=0"):
+            return test_summary, True
+        fallback_summary = _run_best_effort([str(python_path), "-m", "pip", "install", "-e", "."], session_root, "install_fallback")
+        return f"{test_summary} | {fallback_summary}", fallback_summary.endswith("rc=0")
+    base_summary = _run_best_effort([str(python_path), "-m", "pip", "install", "-e", "."], session_root, "install")
+    return base_summary, base_summary.endswith("rc=0")
 
 
 def _run_best_effort(argv: list[str], cwd: Path, label: str) -> str:
