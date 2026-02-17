@@ -1,0 +1,22 @@
+name: Forge Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  forge-smoke:
+    if: ${{ vars.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' || env.SENTIENTOS_CI_RUN_FORGE_SMOKE == '1' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Forge plan smoke
+        run: python -m sentientos.forge plan "forge_smoke"
+      - name: Forge run smoke
+        run: python -m sentientos.forge run "forge_smoke_noop"

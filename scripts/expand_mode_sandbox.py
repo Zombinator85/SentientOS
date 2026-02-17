@@ -11,6 +11,8 @@ review.
 
 The design balances the desire for autonomy with the core project doctrine:
 
+* Make changes as large as required to accomplish the objective, but keep them coherent, tested, and contract-validated.
+
 * The original checkout remains untouched unless the operator explicitly
   applies the generated patch.
 * Covenant paths (``vow/`` by default) are mirrored into the sandbox but kept
