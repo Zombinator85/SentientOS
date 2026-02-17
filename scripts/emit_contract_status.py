@@ -113,6 +113,7 @@ def _domain_status(
         "drifted": drifted,
         "drift_type": drift_type,
         "drift_explanation": drift_explanation,
+        "drift_provenance": drift_payload.get("provenance") if isinstance(drift_payload, dict) else None,
         "fingerprint_changed": (
             drift_payload.get("fingerprint_changed")
             if isinstance(drift_payload, dict) and "fingerprint_changed" in drift_payload

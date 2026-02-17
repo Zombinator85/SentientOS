@@ -182,3 +182,57 @@ def test_perception_gaze_envelope_current_version_is_accepted() -> None:
     upgraded = upgrade_envelope(envelope)
     assert upgraded["event_type"] == "perception.gaze"
     assert upgraded["payload"]["gaze_point_norm"] == [0.5, 0.4]
+
+
+def test_perception_screen_envelope_current_version_accepts_optional_fields() -> None:
+    current = current_schema_version("perception")
+    envelope = {
+        "stream": "perception",
+        "schema_version": current,
+        "event_id": "screen-1",
+        "event_type": "perception.screen",
+        "timestamp": "2024-01-01T00:00:00+00:00",
+        "payload": {
+            "event_type": "perception.screen",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "source": "local.screen",
+            "extractor_id": "screen_adapter",
+            "extractor_version": "1",
+            "confidence": 0.9,
+            "privacy_class": "internal",
+            "provenance": {"host": "test"},
+            "active_app": "Editor",
+            "window_title": "notes.md",
+            "ui_context": {"kind": "editor", "doc_title": "notes.md"},
+            "raw_artifact_retained": False,
+            "redaction_applied": False,
+        },
+    }
+    upgraded = upgrade_envelope(envelope)
+    assert upgraded["event_type"] == "perception.screen"
+    assert upgraded["payload"]["ui_context"]["kind"] == "editor"
+
+
+def test_perception_screen_older_payload_without_new_optional_fields_is_accepted() -> None:
+    current = current_schema_version("perception")
+    envelope = {
+        "stream": "perception",
+        "schema_version": current,
+        "event_id": "screen-legacy",
+        "event_type": "perception.screen",
+        "timestamp": "2024-01-01T00:00:00+00:00",
+        "payload": {
+            "event_type": "perception.screen",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "source": "local.screen",
+            "extractor_id": "screen_adapter",
+            "extractor_version": "1",
+            "confidence": 0.9,
+            "privacy_class": "internal",
+            "provenance": {"host": "test"},
+            "active_app": "Editor",
+            "window_title": "notes.md",
+        },
+    }
+    upgraded = upgrade_envelope(envelope)
+    assert upgraded["payload"]["active_app"] == "Editor"

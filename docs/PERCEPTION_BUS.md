@@ -25,10 +25,21 @@ Every perception event payload **must** include:
 
 - `active_app` (string)
 - `window_title` (string)
+- `window_class` (string, optional)
+- `process_name` (string, optional)
+- `browser_domain` (string, optional; domain only by default)
+- `browser_url_full` (string, optional; only when `privacy_class=private` **and** adapter flag `--include-url-full` is enabled)
 - `focused_element_hint` (string)
-- `text_excerpt` (string; only when privacy policy permits)
+- `ui_context` (optional object):
+  - `kind` (`browser|editor|terminal|unknown`)
+  - `doc_title` (string, optional)
+  - `workspace_hint` (string, optional)
+- `text_excerpt` (string, optional; explicit opt-in only via `--include-text-excerpt`, truncated, and privacy-gated)
 - `cursor_position` (object with optional `x`, `y` numeric members)
 - `screen_geometry` (object with optional `width`, `height` numeric members)
+- `raw_artifact_retained` (boolean; defaults to `false`)
+- `redaction_applied` (boolean)
+- `redaction_notes` (string, optional)
 - `degraded` (boolean)
 - `degradation_reason` (string)
 
@@ -111,6 +122,7 @@ Every perception event payload **must** include:
    scoped as expression-only telemetry and remain non-privileged.
 10. `perception.gaze` is attentional telemetry only and must not be interpreted as intention, truth, or certainty.
 11. `perception.gaze` must surface calibration and confidence state; uncertainty must never be hidden.
+12. Screen adapters must **not OCR everything by default**. Any `text_excerpt` field is optional, explicit opt-in, truncated, and privacy-gated.
 
 ## Retention Guidance
 
@@ -121,6 +133,7 @@ Every perception event payload **must** include:
   active app, window class/title hints, confidence, and provenance.
 - If `privacy_class` is `restricted` or `sensitive`, redact or omit
   `text_excerpt` by default.
+- `perception.screen` defaults to `raw_artifact_retained=false`.
 - `perception.vision` defaults to `raw_frame_retained=false`.
 - If raw frames are retained, store frames in a quarantine path and emit only a
   reference path (`raw_frame_reference`) in the event payload.

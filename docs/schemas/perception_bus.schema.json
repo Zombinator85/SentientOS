@@ -1,276 +1,15 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://sentientos.local/schemas/perception_bus.schema.json",
-  "title": "SentientOS Perception Bus",
-  "type": "object",
-  "required": [
-    "event_type",
-    "timestamp",
-    "source",
-    "extractor_id",
-    "extractor_version",
-    "confidence",
-    "privacy_class",
-    "provenance"
-  ],
-  "properties": {
-    "event_type": {
-      "type": "string",
-      "enum": [
-        "perception.screen",
-        "perception.audio",
-        "perception.vision",
-        "perception.gaze"
-      ]
-    },
-    "timestamp": {
-      "type": "string"
-    },
-    "source": {
-      "type": "string"
-    },
-    "extractor_id": {
-      "type": "string"
-    },
-    "extractor_version": {
-      "type": "string"
-    },
-    "confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "privacy_class": {
-      "type": "string",
-      "enum": [
-        "public",
-        "internal",
-        "private",
-        "restricted",
-        "sensitive"
-      ]
-    },
-    "provenance": {
-      "type": "object",
-      "additionalProperties": true
-    },
-    "active_app": {
-      "type": "string"
-    },
-    "window_title": {
-      "type": "string"
-    },
-    "focused_element_hint": {
-      "type": "string"
-    },
-    "text_excerpt": {
-      "type": "string"
-    },
-    "cursor_position": {
-      "type": "object",
-      "properties": {
-        "x": {
-          "type": "number"
-        },
-        "y": {
-          "type": "number"
-        }
-      },
-      "additionalProperties": false
-    },
-    "screen_geometry": {
-      "type": "object",
-      "properties": {
-        "width": {
-          "type": "number"
-        },
-        "height": {
-          "type": "number"
-        }
-      },
-      "additionalProperties": false
-    },
-    "degraded": {
-      "type": "boolean"
-    },
-    "degradation_reason": {
-      "type": "string"
-    },
-    "sample_rate_hz": {
-      "type": "integer"
-    },
-    "window_ms": {
-      "type": "integer"
-    },
-    "features": {
-      "type": "object"
-    },
-    "clipping_detected": {
-      "type": "boolean"
-    },
-    "channel_count": {
-      "type": "integer"
-    },
-    "device_hint": {
-      "type": "string"
-    },
-    "raw_audio_retained": {
-      "type": "boolean",
-      "default": false
-    },
-    "redaction_applied": {
-      "type": "boolean"
-    },
-    "raw_audio_reference": {
-      "type": "string"
-    },
-    "frame_size": {
-      "type": "object",
-      "required": [
-        "width",
-        "height"
-      ],
-      "properties": {
-        "width": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "height": {
-          "type": "integer",
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
-    },
-    "fps_estimate": {
-      "type": [
-        "number",
-        "null"
-      ],
-      "minimum": 0
-    },
-    "faces_detected": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "minimum": 0
-    },
-    "raw_frame_retained": {
-      "type": "boolean",
-      "default": false
-    },
-    "raw_frame_reference": {
-      "type": "string"
-    },
-    "lighting_score": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "motion_score": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "gaze_point_norm": {
-      "type": [
-        "array",
-        "null"
-      ],
-      "minItems": 2,
-      "maxItems": 2,
-      "items": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 1
-      }
-    },
-    "gaze_point_px": {
-      "type": "array",
-      "minItems": 2,
-      "maxItems": 2,
-      "items": {
-        "type": "number"
-      }
-    },
-    "gaze_vector": {
-      "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
-      "items": {
-        "type": "number"
-      }
-    },
-    "calibration_state": {
-      "type": "string",
-      "enum": [
-        "uncalibrated",
-        "calibrating",
-        "calibrated",
-        "unknown"
-      ]
-    },
-    "calibration_confidence": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1
-    },
-    "source_pipeline": {
-      "type": "string",
-      "enum": [
-        "eye_tracker_sdk",
-        "camera_estimate",
-        "os_accessibility",
-        "none"
-      ]
-    },
-    "screen_id": {
-      "type": "string"
-    },
-    "display_geometry": {
-      "type": "object",
-      "properties": {
-        "x": {
-          "type": "number"
-        },
-        "y": {
-          "type": "number"
-        },
-        "width": {
-          "type": "number",
-          "minimum": 1
-        },
-        "height": {
-          "type": "number",
-          "minimum": 1
-        }
-      },
-      "additionalProperties": false
-    },
-    "raw_samples_retained": {
-      "type": "boolean",
-      "default": false
-    },
-    "raw_samples_reference": {
-      "type": "string"
-    }
-  },
-  "additionalProperties": false,
   "$defs": {
     "audio_features": {
-      "type": "object",
-      "required": [
-        "rms_energy",
-        "zcr",
-        "spectral_centroid_hz",
-        "spectral_rolloff_hz"
-      ],
+      "additionalProperties": false,
       "properties": {
-        "rms_energy": {
+        "f0_hz_estimate": {
           "type": "number"
         },
-        "zcr": {
+        "pauses_per_min": {
+          "type": "number"
+        },
+        "rms_energy": {
           "type": "number"
         },
         "spectral_centroid_hz": {
@@ -279,109 +18,115 @@
         "spectral_rolloff_hz": {
           "type": "number"
         },
-        "f0_hz_estimate": {
-          "type": "number"
-        },
         "speech_prob": {
-          "type": "number",
+          "maximum": 1,
           "minimum": 0,
-          "maximum": 1
+          "type": "number"
         },
         "tempo_bpm_estimate": {
           "type": "number"
         },
-        "pauses_per_min": {
+        "zcr": {
           "type": "number"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "rms_energy",
+        "zcr",
+        "spectral_centroid_hz",
+        "spectral_rolloff_hz"
+      ],
+      "type": "object"
     },
     "vision_features": {
-      "type": "object",
-      "required": [
-        "face_present"
-      ],
+      "additionalProperties": false,
       "properties": {
-        "face_present": {
-          "type": "boolean"
+        "blink_rate_estimate": {
+          "description": "blinks per minute",
+          "minimum": 0,
+          "type": "number"
         },
         "face_bbox": {
-          "type": "array",
-          "minItems": 4,
-          "maxItems": 4,
           "items": {
-            "type": "number",
+            "maximum": 1,
             "minimum": 0,
-            "maximum": 1
-          }
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
         },
         "face_landmarks": {
-          "type": "object",
-          "required": [
-            "format",
-            "points"
-          ],
+          "additionalProperties": false,
           "properties": {
             "format": {
-              "type": "string",
               "enum": [
                 "mediapipe_468",
                 "dlib_68",
                 "none"
-              ]
+              ],
+              "type": "string"
             },
             "points": {
-              "type": "array",
               "items": {
-                "type": "array",
-                "minItems": 2,
-                "maxItems": 2,
                 "items": {
-                  "type": "number",
+                  "maximum": 1,
                   "minimum": 0,
-                  "maximum": 1
-                }
-              }
+                  "type": "number"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              "type": "array"
             }
           },
-          "additionalProperties": false
+          "required": [
+            "format",
+            "points"
+          ],
+          "type": "object"
         },
-        "gaze_vector": {
-          "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
-          "items": {
-            "type": "number"
-          }
+        "face_present": {
+          "type": "boolean"
         },
         "gaze_confidence": {
-          "type": "number",
+          "maximum": 1,
           "minimum": 0,
-          "maximum": 1
+          "type": "number"
         },
-        "blink_rate_estimate": {
-          "type": "number",
-          "minimum": 0,
-          "description": "blinks per minute"
-        },
-        "head_pose_rpy": {
-          "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
+        "gaze_vector": {
           "items": {
             "type": "number"
           },
-          "description": "roll, pitch, yaw in degrees"
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         },
         "head_pose_confidence": {
-          "type": "number",
+          "maximum": 1,
           "minimum": 0,
-          "maximum": 1
+          "type": "number"
+        },
+        "head_pose_rpy": {
+          "description": "roll, pitch, yaw in degrees",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
         }
       },
-      "additionalProperties": false
+      "required": [
+        "face_present"
+      ],
+      "type": "object"
     }
   },
+  "$id": "https://sentientos.local/schemas/perception_bus.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
   "allOf": [
     {
       "if": {
@@ -392,6 +137,11 @@
         }
       },
       "then": {
+        "properties": {
+          "features": {
+            "$ref": "#/$defs/audio_features"
+          }
+        },
         "required": [
           "sample_rate_hz",
           "window_ms",
@@ -400,12 +150,7 @@
           "channel_count",
           "raw_audio_retained",
           "redaction_applied"
-        ],
-        "properties": {
-          "features": {
-            "$ref": "#/$defs/audio_features"
-          }
-        }
+        ]
       }
     },
     {
@@ -417,6 +162,11 @@
         }
       },
       "then": {
+        "properties": {
+          "features": {
+            "$ref": "#/$defs/vision_features"
+          }
+        },
         "required": [
           "frame_size",
           "fps_estimate",
@@ -424,12 +174,7 @@
           "features",
           "raw_frame_retained",
           "redaction_applied"
-        ],
-        "properties": {
-          "features": {
-            "$ref": "#/$defs/vision_features"
-          }
-        }
+        ]
       }
     },
     {
@@ -441,6 +186,98 @@
         }
       },
       "then": {
+        "properties": {
+          "calibration_confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "calibration_state": {
+            "enum": [
+              "uncalibrated",
+              "calibrating",
+              "calibrated",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          "display_geometry": {
+            "additionalProperties": false,
+            "properties": {
+              "height": {
+                "minimum": 1,
+                "type": "number"
+              },
+              "width": {
+                "minimum": 1,
+                "type": "number"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              }
+            },
+            "type": "object"
+          },
+          "gaze_point_norm": {
+            "items": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "gaze_point_px": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "gaze_vector": {
+            "items": {
+              "type": "number"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "type": "array"
+          },
+          "raw_samples_reference": {
+            "type": "string"
+          },
+          "raw_samples_retained": {
+            "default": false,
+            "type": "boolean"
+          },
+          "redaction_applied": {
+            "type": "boolean"
+          },
+          "screen_id": {
+            "type": "string"
+          },
+          "source_pipeline": {
+            "enum": [
+              "eye_tracker_sdk",
+              "camera_estimate",
+              "os_accessibility",
+              "none"
+            ],
+            "type": "string"
+          }
+        },
         "required": [
           "gaze_point_norm",
           "confidence",
@@ -448,100 +285,306 @@
           "source_pipeline",
           "raw_samples_retained",
           "redaction_applied"
-        ],
-        "properties": {
-          "gaze_point_norm": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "minItems": 2,
-            "maxItems": 2,
-            "items": {
-              "type": "number",
-              "minimum": 0,
-              "maximum": 1
-            }
-          },
-          "gaze_point_px": {
-            "type": "array",
-            "minItems": 2,
-            "maxItems": 2,
-            "items": {
-              "type": "number"
-            }
-          },
-          "gaze_vector": {
-            "type": "array",
-            "minItems": 3,
-            "maxItems": 3,
-            "items": {
-              "type": "number"
-            }
-          },
-          "confidence": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "calibration_state": {
-            "type": "string",
-            "enum": [
-              "uncalibrated",
-              "calibrating",
-              "calibrated",
-              "unknown"
-            ]
-          },
-          "calibration_confidence": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 1
-          },
-          "source_pipeline": {
-            "type": "string",
-            "enum": [
-              "eye_tracker_sdk",
-              "camera_estimate",
-              "os_accessibility",
-              "none"
-            ]
-          },
-          "screen_id": {
-            "type": "string"
-          },
-          "display_geometry": {
-            "type": "object",
-            "properties": {
-              "x": {
-                "type": "number"
-              },
-              "y": {
-                "type": "number"
-              },
-              "width": {
-                "type": "number",
-                "minimum": 1
-              },
-              "height": {
-                "type": "number",
-                "minimum": 1
-              }
-            },
-            "additionalProperties": false
-          },
-          "raw_samples_retained": {
-            "type": "boolean",
-            "default": false
-          },
-          "redaction_applied": {
-            "type": "boolean"
-          },
-          "raw_samples_reference": {
-            "type": "string"
-          }
-        }
+        ]
       }
     }
-  ]
+  ],
+  "properties": {
+    "active_app": {
+      "type": "string"
+    },
+    "browser_domain": {
+      "type": "string"
+    },
+    "browser_url_full": {
+      "type": "string"
+    },
+    "calibration_confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "calibration_state": {
+      "enum": [
+        "uncalibrated",
+        "calibrating",
+        "calibrated",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "channel_count": {
+      "type": "integer"
+    },
+    "clipping_detected": {
+      "type": "boolean"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "cursor_position": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "degradation_reason": {
+      "type": "string"
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "device_hint": {
+      "type": "string"
+    },
+    "display_geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "minimum": 1,
+          "type": "number"
+        },
+        "width": {
+          "minimum": 1,
+          "type": "number"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "event_type": {
+      "enum": [
+        "perception.screen",
+        "perception.audio",
+        "perception.vision",
+        "perception.gaze"
+      ],
+      "type": "string"
+    },
+    "extractor_id": {
+      "type": "string"
+    },
+    "extractor_version": {
+      "type": "string"
+    },
+    "faces_detected": {
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "features": {
+      "type": "object"
+    },
+    "focused_element_hint": {
+      "type": "string"
+    },
+    "fps_estimate": {
+      "minimum": 0,
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "frame_size": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "width": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
+    "gaze_point_norm": {
+      "items": {
+        "maximum": 1,
+        "minimum": 0,
+        "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "gaze_point_px": {
+      "items": {
+        "type": "number"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "gaze_vector": {
+      "items": {
+        "type": "number"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    },
+    "lighting_score": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "motion_score": {
+      "maximum": 1,
+      "minimum": 0,
+      "type": "number"
+    },
+    "privacy_class": {
+      "enum": [
+        "public",
+        "internal",
+        "private",
+        "restricted",
+        "sensitive"
+      ],
+      "type": "string"
+    },
+    "process_name": {
+      "type": "string"
+    },
+    "provenance": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "raw_artifact_retained": {
+      "default": false,
+      "type": "boolean"
+    },
+    "raw_audio_reference": {
+      "type": "string"
+    },
+    "raw_audio_retained": {
+      "default": false,
+      "type": "boolean"
+    },
+    "raw_frame_reference": {
+      "type": "string"
+    },
+    "raw_frame_retained": {
+      "default": false,
+      "type": "boolean"
+    },
+    "raw_samples_reference": {
+      "type": "string"
+    },
+    "raw_samples_retained": {
+      "default": false,
+      "type": "boolean"
+    },
+    "redaction_applied": {
+      "type": "boolean"
+    },
+    "redaction_notes": {
+      "type": "string"
+    },
+    "sample_rate_hz": {
+      "type": "integer"
+    },
+    "screen_geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "screen_id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "source_pipeline": {
+      "enum": [
+        "eye_tracker_sdk",
+        "camera_estimate",
+        "os_accessibility",
+        "none"
+      ],
+      "type": "string"
+    },
+    "text_excerpt": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "ui_context": {
+      "additionalProperties": false,
+      "properties": {
+        "doc_title": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "browser",
+            "editor",
+            "terminal",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "workspace_hint": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object"
+    },
+    "window_class": {
+      "type": "string"
+    },
+    "window_ms": {
+      "type": "integer"
+    },
+    "window_title": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_type",
+    "timestamp",
+    "source",
+    "extractor_id",
+    "extractor_version",
+    "confidence",
+    "privacy_class",
+    "provenance"
+  ],
+  "title": "SentientOS Perception Bus",
+  "type": "object"
 }

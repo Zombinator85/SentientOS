@@ -115,6 +115,7 @@ def test_emit_contract_status_includes_perception_domain(tmp_path: Path, monkeyp
             "explanation": "No perception schema drift detected.",
             "fingerprint_changed": False,
             "tuple_diff_detected": False,
+            "provenance": {"detector": "fixture"},
         },
     )
 
@@ -124,6 +125,7 @@ def test_emit_contract_status_includes_perception_domain(tmp_path: Path, monkeyp
     assert perception["baseline_present"] is True
     assert perception["drift_type"] == "none"
     assert perception["strict_gate_envvar"] == "SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT"
+    assert perception["drift_provenance"] == {"detector": "fixture"}
 
 
 def test_contract_drift_non_strict_continues_when_vow_preflight_fails(tmp_path: Path, monkeypatch) -> None:

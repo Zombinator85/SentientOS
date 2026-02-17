@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status
+.PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status embodied-status
 
 PYTHON ?= python3
 
@@ -80,7 +80,8 @@ audit-drift:
 
 audit-verify:
 	@if [ "$(NO_GENERATE)" != "1" ]; then $(MAKE) vow-manifest; fi
-	$(PYTHON) -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json
+	@MANIFEST=$$( [ -f /vow/immutable_manifest.json ] && echo /vow/immutable_manifest.json || echo vow/immutable_manifest.json ); \
+	$(PYTHON) -m scripts.audit_immutability_verifier --manifest $$MANIFEST
 
 pulse-baseline:
 	$(PYTHON) -m scripts.capture_pulse_schema_baseline
@@ -111,12 +112,17 @@ federation-drift:
 	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/federation/federation_identity_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
 
 vow-manifest:
-	mkdir -p /vow
-	$(PYTHON) -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json
+	@if [ -d /vow ] || mkdir -p /vow 2>/dev/null; then \
+		$(PYTHON) -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json; \
+	else \
+		mkdir -p vow; \
+		$(PYTHON) -m scripts.generate_immutable_manifest --manifest vow/immutable_manifest.json; \
+	fi
 
 vow-verify:
 	@if [ "$(NO_GENERATE)" != "1" ]; then $(MAKE) vow-manifest; fi
-	$(PYTHON) -m scripts.audit_immutability_verifier --manifest /vow/immutable_manifest.json
+	@MANIFEST=$$( [ -f /vow/immutable_manifest.json ] && echo /vow/immutable_manifest.json || echo vow/immutable_manifest.json ); \
+	$(PYTHON) -m scripts.audit_immutability_verifier --manifest $$MANIFEST
 
 contract-drift:
 	$(PYTHON) -m scripts.contract_drift
@@ -154,3 +160,8 @@ perception-vision:
 
 perception-gaze:
 	$(PYTHON) -m scripts.perception.gaze_adapter --privacy-class internal --iterations 1
+
+embodied-status:
+	$(MAKE) contract-drift
+	$(MAKE) contract-status
+	$(PYTHON) -c "import json;from pathlib import Path;f=Path('glow/contracts/contract_status.json');p=json.loads(f.read_text(encoding='utf-8'));print('[embodied-status] contract_status='+str(f));print('[embodied-status] domains='+str(len(p.get('contracts', []))))"
