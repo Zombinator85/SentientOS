@@ -22,24 +22,26 @@ def main(argv: list[str] | None = None) -> int:
     forge = CathedralForge()
 
     if args.command == "plan":
-        payload = forge.plan(args.goal)
-        print(json.dumps({"command": "plan", "goal": payload.goal, "generated_at": payload.generated_at}, sort_keys=True))
+        plan_payload = forge.plan(args.goal)
+        print(json.dumps({"command": "plan", "goal": plan_payload.goal, "generated_at": plan_payload.generated_at}, sort_keys=True))
         return 0
 
-    payload = forge.run(args.goal)
+    run_payload = forge.run(args.goal)
     print(
         json.dumps(
             {
                 "command": "run",
-                "goal": payload.goal,
-                "generated_at": payload.generated_at,
-                "outcome": payload.outcome,
-                "failure_reasons": payload.failure_reasons,
+                "goal": run_payload.goal,
+                "goal_profile": run_payload.goal_profile,
+                "generated_at": run_payload.generated_at,
+                "outcome": run_payload.outcome,
+                "failure_reasons": run_payload.failure_reasons,
+                "ci_commands_run": run_payload.ci_commands_run,
             },
             sort_keys=True,
         )
     )
-    return 0 if payload.outcome == "success" else 1
+    return 0 if run_payload.outcome == "success" else 1
 
 
 if __name__ == "__main__":

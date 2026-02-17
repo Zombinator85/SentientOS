@@ -14,6 +14,7 @@ from typing import Any
 SCHEMA_VERSION = 1
 FORGE_DIR = Path("glow/forge")
 CONTRACT_STATUS_PATH = Path("glow/contracts/contract_status.json")
+MAX_REPORT_OUTPUT_CHARS = 4000
 
 
 @dataclass(slots=True)
@@ -32,6 +33,13 @@ class ForgePlan:
     phases: list[ForgePhase]
     risk_notes: list[str]
     rollback_notes: list[str]
+
+
+@dataclass(slots=True)
+class GoalProfile:
+    name: str
+    test_command: list[str]
+    test_command_display: str
 
 
 @dataclass(slots=True)
@@ -59,11 +67,13 @@ class ForgeReport:
     schema_version: int
     generated_at: str
     goal: str
+    goal_profile: str
     git_sha: str
     plan_path: str
     preflight: ForgePreflight
     tests: ForgeTestResult
     ci_commands_run: list[str]
+    command_results: list[ForgeTestResult]
     artifacts_written: list[str]
     outcome: str
     failure_reasons: list[str]
@@ -79,6 +89,7 @@ class CathedralForge:
 
     def plan(self, goal: str) -> ForgePlan:
         generated_at = _iso_now()
+        goal_profile = resolve_goal_profile(goal)
         plan = ForgePlan(
             schema_version=SCHEMA_VERSION,
             generated_at=generated_at,
@@ -90,7 +101,7 @@ class CathedralForge:
                     commands_to_run=[
                         "python -m scripts.contract_drift",
                         "python -m scripts.emit_contract_status",
-                        "python -m scripts.run_tests -q",
+                        goal_profile.test_command_display,
                     ],
                     expected_contract_impact="No unmanaged contract drift; all drift is explicit and reviewed.",
                 ),
@@ -100,7 +111,7 @@ class CathedralForge:
                     commands_to_run=[
                         "python -m scripts.contract_drift",
                         "python -m scripts.emit_contract_status",
-                        "python -m scripts.run_tests -q",
+                        goal_profile.test_command_display,
                     ],
                     expected_contract_impact="Contract status rollup captures new baseline compatibility.",
                 ),
@@ -120,10 +131,12 @@ class CathedralForge:
 
     def run(self, goal: str) -> ForgeReport:
         generated_at = _iso_now()
+        goal_profile = resolve_goal_profile(goal)
         plan = self.plan(goal)
         plan_path = self._plan_path(plan.generated_at)
 
         ci_commands_run: list[str] = []
+        command_results: list[ForgeTestResult] = []
         artifacts_written: list[str] = [str(plan_path)]
         failure_reasons: list[str] = []
         notes: list[str] = []
@@ -131,6 +144,7 @@ class CathedralForge:
         contract_drift_command = "python -m scripts.contract_drift"
         ci_commands_run.append(contract_drift_command)
         drift_result = self._run_command([sys.executable, "-m", "scripts.contract_drift"])
+        command_results.append(_result_from_completed("contract_drift", contract_drift_command, drift_result))
         drift_failed = drift_result.returncode != 0
         drift_summary = _summarize_command("contract_drift", drift_result)
         contract_drift_status = "fail" if drift_failed else "pass"
@@ -140,13 +154,14 @@ class CathedralForge:
         contract_status_command = "python -m scripts.emit_contract_status"
         ci_commands_run.append(contract_status_command)
         status_result = self._run_command([sys.executable, "-m", "scripts.emit_contract_status"])
+        command_results.append(_result_from_completed("contract_status", contract_status_command, status_result))
         status_payload = self._load_json(self.repo_root / CONTRACT_STATUS_PATH)
         artifacts_written.append(str(CONTRACT_STATUS_PATH))
         if status_result.returncode != 0:
             failure_reasons.append("contract_status_emit_failed")
             notes.append(_summarize_command("contract_status", status_result))
 
-        test_command = "python -m scripts.run_tests -q"
+        test_command = goal_profile.test_command_display
         tests_result = ForgeTestResult(status="fail", command=test_command, summary="skipped: preflight failed")
 
         preflight = ForgePreflight(
@@ -157,7 +172,8 @@ class CathedralForge:
 
         if not failure_reasons:
             ci_commands_run.append(test_command)
-            test_run = self._run_command([sys.executable, "-m", "scripts.run_tests", "-q"])
+            test_run = self._run_command(goal_profile.test_command)
+            command_results.append(_result_from_completed("tests", test_command, test_run))
             tests_result = ForgeTestResult(
                 status="pass" if test_run.returncode == 0 else "fail",
                 command=test_command,
@@ -171,11 +187,13 @@ class CathedralForge:
             schema_version=SCHEMA_VERSION,
             generated_at=generated_at,
             goal=goal,
+            goal_profile=goal_profile.name,
             git_sha=self._git_sha(),
             plan_path=str(plan_path),
             preflight=preflight,
             tests=tests_result,
             ci_commands_run=ci_commands_run,
+            command_results=command_results,
             artifacts_written=artifacts_written,
             outcome=outcome,
             failure_reasons=failure_reasons,
@@ -225,6 +243,45 @@ def _summarize_command(name: str, completed: subprocess.CompletedProcess[str]) -
     if not message:
         return f"{name} returncode={completed.returncode}"
     return f"{name} returncode={completed.returncode}: {message}"
+
+
+def resolve_goal_profile(goal: str) -> GoalProfile:
+    if goal == "forge_smoke_noop" or goal.startswith("forge_smoke_"):
+        return GoalProfile(
+            name="smoke_noop",
+            test_command=[sys.executable, "-m", "scripts.run_tests", "-q", "tests/test_cathedral_forge.py"],
+            test_command_display="python -m scripts.run_tests -q tests/test_cathedral_forge.py",
+        )
+    return GoalProfile(
+        name="default",
+        test_command=[sys.executable, "-m", "scripts.run_tests", "-q"],
+        test_command_display="python -m scripts.run_tests -q",
+    )
+
+
+def _truncate_output(value: str) -> str:
+    if len(value) <= MAX_REPORT_OUTPUT_CHARS:
+        return value
+    return value[:MAX_REPORT_OUTPUT_CHARS] + "\n...[truncated]"
+
+
+def _result_from_completed(step: str, command: str, completed: subprocess.CompletedProcess[str]) -> ForgeTestResult:
+    stdout = _truncate_output(completed.stdout or "")
+    stderr = _truncate_output(completed.stderr or "")
+    summary = json.dumps(
+        {
+            "step": step,
+            "exit_code": completed.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+        },
+        sort_keys=True,
+    )
+    return ForgeTestResult(
+        status="pass" if completed.returncode == 0 else "fail",
+        command=command,
+        summary=summary,
+    )
 
 
 def _dataclass_to_dict(value: Any) -> dict[str, Any]:

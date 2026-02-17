@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status embodied-status
+.PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge
 
 PYTHON ?= python3
 
@@ -136,6 +136,15 @@ contract-baseline:
 
 contract-status:
 	$(PYTHON) -m scripts.emit_contract_status
+
+
+forge-ci:
+	$(MAKE) contract-drift
+	$(MAKE) contract-status
+	$(PYTHON) -m sentientos.forge run "forge_smoke_noop"
+
+mypy-forge:
+	$(PYTHON) -m mypy --strict --follow-imports=skip sentientos/cathedral_forge.py sentientos/forge.py
 
 speak:
 	$(PYTHON) sosctl.py say "$(if $(MSG),$(MSG),Hello from SentientOS)"
