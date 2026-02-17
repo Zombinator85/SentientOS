@@ -54,12 +54,7 @@ def _baseline_reclamation() -> GoalSpec:
         goal_id="baseline_reclamation",
         description="Stabilize the default test baseline with deterministic, low-risk repairs.",
         phases=_default_phases("baseline_reclamation"),
-        apply_commands=_commands(
-            ("inventory_failures", "python -m scripts.run_tests -q"),
-            ("format_repo", "ruff format sentientos scripts tests"),
-            ("sort_imports", "ruff check --select I --fix sentientos scripts tests"),
-            ("baseline_gate", "python -m scripts.run_tests -q"),
-        ),
+        apply_commands=[],
         gate_profile="default",
         touched_paths_globs=["sentientos/**/*.py", "scripts/**/*.py", "tests/**/*.py"],
         risk_notes=[
