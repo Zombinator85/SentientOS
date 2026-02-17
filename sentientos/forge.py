@@ -32,11 +32,13 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "command": "run",
                 "goal": run_payload.goal,
+                "goal_id": run_payload.goal_id,
                 "goal_profile": run_payload.goal_profile,
                 "generated_at": run_payload.generated_at,
                 "outcome": run_payload.outcome,
                 "failure_reasons": run_payload.failure_reasons,
                 "ci_commands_run": run_payload.ci_commands_run,
+                "session_root": run_payload.session.root_path,
             },
             sort_keys=True,
         )
