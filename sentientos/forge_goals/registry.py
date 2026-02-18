@@ -103,10 +103,29 @@ def _repo_green_storm() -> GoalSpec:
     )
 
 
+def _stability_repair() -> GoalSpec:
+    return GoalSpec(
+        goal_id="stability_repair",
+        description="Rebuild stability doctrine prerequisites and emit readiness contract.",
+        phases=_default_phases("stability_repair"),
+        apply_commands=_commands(
+            ("vow_artifacts", "make vow-artifacts"),
+            ("mypy_forge", "make mypy-forge"),
+            ("forge_ci", "make forge-ci"),
+            ("emit_stability_doctrine", "python -m scripts.emit_stability_doctrine"),
+        ),
+        gate_profile="default",
+        touched_paths_globs=["sentientos/**/*.py", "scripts/**/*.py", "glow/contracts/*.json", "Makefile"],
+        risk_notes=["Stability repair can fail fast when environment prerequisites are unavailable."],
+        rollback_notes=["Revert stability repair changes and inspect emitted dockets for failing gate steps."],
+    )
+
+
 REGISTRY: dict[str, GoalSpec] = {
     "baseline_reclamation": _baseline_reclamation(),
     "forge_self_hosting": _forge_self_hosting(),
     "repo_green_storm": _repo_green_storm(),
+    "stability_repair": _stability_repair(),
 }
 
 

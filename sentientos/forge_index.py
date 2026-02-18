@@ -41,6 +41,12 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         if str(row.get("checks_overall")) in {"failure", "pending", "held_failed_checks"}
     ][:50]
 
+    stability_doctrine = _load_json(root / "glow/contracts/stability_doctrine.json")
+    raw_toolchain = stability_doctrine.get("toolchain")
+    raw_vow = stability_doctrine.get("vow_artifacts")
+    doctrine_toolchain: dict[str, Any] = raw_toolchain if isinstance(raw_toolchain, dict) else {}
+    doctrine_vow: dict[str, Any] = raw_vow if isinstance(raw_vow, dict) else {}
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -60,6 +66,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         },
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
+        "stability_doctrine_latest": stability_doctrine or None,
+        "vow_artifacts_sha256": doctrine_vow.get("immutable_manifest_sha256") if isinstance(doctrine_vow.get("immutable_manifest_sha256"), str) else None,
+        "verify_audits_available": bool(doctrine_toolchain.get("verify_audits_available", False)),
         "corrupt_count": {
             "queue": queue_corrupt,
             "receipts": receipt_corrupt,

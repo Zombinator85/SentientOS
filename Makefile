@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge
+.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge
 
 PYTHON ?= python3
 
@@ -79,7 +79,7 @@ audit-drift:
 	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/audits/audit_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\", \"\")}')"
 
 audit-verify:
-	@if [ "$(NO_GENERATE)" != "1" ]; then $(MAKE) vow-manifest; fi
+	$(MAKE) vow-artifacts
 	@MANIFEST=$$( [ -f /vow/immutable_manifest.json ] && echo /vow/immutable_manifest.json || echo vow/immutable_manifest.json ); \
 	$(PYTHON) -m scripts.audit_immutability_verifier --manifest $$MANIFEST
 
@@ -111,6 +111,13 @@ federation-drift:
 	$(PYTHON) -m scripts.detect_federation_identity_drift
 	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/federation/federation_identity_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
 
+
+verify-audits-strict:
+	$(PYTHON) -m sentientos.verify_audits --strict
+
+vow-artifacts:
+	$(PYTHON) -m sentientos.vow_artifacts ensure
+
 vow-manifest:
 	@if [ -d /vow ] || mkdir -p /vow 2>/dev/null; then \
 		$(PYTHON) -m scripts.generate_immutable_manifest --manifest /vow/immutable_manifest.json; \
@@ -120,11 +127,12 @@ vow-manifest:
 	fi
 
 vow-verify:
-	@if [ "$(NO_GENERATE)" != "1" ]; then $(MAKE) vow-manifest; fi
+	$(MAKE) vow-artifacts
 	@MANIFEST=$$( [ -f /vow/immutable_manifest.json ] && echo /vow/immutable_manifest.json || echo vow/immutable_manifest.json ); \
 	$(PYTHON) -m scripts.audit_immutability_verifier --manifest $$MANIFEST
 
 contract-drift:
+	$(MAKE) vow-artifacts
 	$(PYTHON) -m scripts.contract_drift
 
 contract-baseline:
@@ -139,6 +147,7 @@ contract-status:
 
 
 forge-ci:
+	$(MAKE) vow-artifacts
 	$(MAKE) contract-drift
 	$(MAKE) contract-status
 	$(PYTHON) -m sentientos.forge run "forge_smoke_noop"

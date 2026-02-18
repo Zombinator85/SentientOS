@@ -12,7 +12,7 @@ from typing import Any
 from sentientos.event_stream import record_forge_event
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
-DEFAULT_WATCHED = ["ci_baseline", "forge_observatory"]
+DEFAULT_WATCHED = ["ci_baseline", "forge_observatory", "stability_doctrine"]
 STATE_PATH = Path("glow/forge/sentinel_state.json")
 POLICY_PATH = Path("glow/forge/sentinel_policy.json")
 
@@ -25,6 +25,7 @@ class SentinelPolicy:
         default_factory=lambda: {
             "ci_baseline": "campaign:ci_baseline_recovery",
             "forge_observatory": "forge_smoke_noop",
+            "stability_doctrine": "stability_repair",
         }
     )
     drift_thresholds: dict[str, dict[str, Any]] = field(
@@ -38,9 +39,13 @@ class SentinelPolicy:
                 "corrupt_count_gt": 0,
                 "index_required": True,
             },
+            "stability_doctrine": {
+                "require_toolchain": True,
+                "require_vow_artifacts": True,
+            },
         }
     )
-    cooldown_minutes: dict[str, int] = field(default_factory=lambda: {"global": 30, "ci_baseline": 60, "forge_observatory": 60})
+    cooldown_minutes: dict[str, int] = field(default_factory=lambda: {"global": 30, "ci_baseline": 60, "forge_observatory": 60, "stability_doctrine": 60})
     max_enqueues_per_day: int = 3
     allow_autopublish: bool = False
     allow_automerge: bool = False
@@ -66,6 +71,7 @@ class ContractSentinel:
         self.ci_baseline_path = self.repo_root / "glow/contracts/ci_baseline.json"
         self.forge_index_path = self.repo_root / "glow/forge/index.json"
         self.forge_policy_path = self.repo_root / "glow/forge/policy.json"
+        self.stability_doctrine_path = self.repo_root / "glow/contracts/stability_doctrine.json"
 
     def load_policy(self) -> SentinelPolicy:
         payload = _load_json(self.policy_path)
@@ -207,6 +213,17 @@ class ContractSentinel:
                 "index_present": self.forge_index_path.exists(),
                 "corrupt_total": total_corrupt,
             }
+        if "stability_doctrine" in policy.watched_domains:
+            doctrine = _load_json(self.stability_doctrine_path)
+            raw_toolchain = doctrine.get("toolchain")
+            raw_vow = doctrine.get("vow_artifacts")
+            toolchain: dict[str, Any] = raw_toolchain if isinstance(raw_toolchain, dict) else {}
+            vow: dict[str, Any] = raw_vow if isinstance(raw_vow, dict) else {}
+            domains["stability_doctrine"] = {
+                "doctrine_present": self.stability_doctrine_path.exists(),
+                "verify_audits_available": bool(toolchain.get("verify_audits_available", False)),
+                "immutable_manifest_present": bool(vow.get("immutable_manifest_present", False)),
+            }
         return {"contract_status": status, "domains": domains}
 
     def _domain_trigger(self, *, domain: str, policy: SentinelPolicy, snapshot: dict[str, Any]) -> dict[str, Any] | None:
@@ -247,6 +264,15 @@ class ContractSentinel:
                 return {"reason": "index_missing"}
             if corrupt_total > corrupt_gt:
                 return {"reason": "corrupt_count", "corrupt_total": corrupt_total, "threshold": corrupt_gt}
+            return None
+        if domain == "stability_doctrine":
+            thresholds = policy.drift_thresholds.get("stability_doctrine", {})
+            if not bool(current.get("doctrine_present", False)):
+                return {"reason": "doctrine_missing"}
+            if bool(thresholds.get("require_toolchain", True)) and not bool(current.get("verify_audits_available", False)):
+                return {"reason": "toolchain_missing"}
+            if bool(thresholds.get("require_vow_artifacts", True)) and not bool(current.get("immutable_manifest_present", False)):
+                return {"reason": "vow_artifacts_missing"}
             return None
         return None
 
