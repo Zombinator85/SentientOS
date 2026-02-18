@@ -40,6 +40,9 @@ def test_goal_registry_resolution() -> None:
     smoke = resolve_goal("forge_smoke_noop")
     assert smoke.gate_profile == "smoke_noop"
 
+    storm = resolve_goal("repo_green_storm")
+    assert storm.goal_id == "repo_green_storm"
+
     adhoc = resolve_goal("custom migration")
     assert adhoc.goal_id == "adhoc"
 
@@ -327,6 +330,50 @@ def test_baseline_harvest_runner_run_tests_mode(tmp_path: Path, monkeypatch) -> 
     forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
     monkeypatch.setenv("SENTIENTOS_FORGE_HARVEST_RUNNER", "run_tests")
 
-    argv = forge._baseline_harvest_argv("/tmp/py")
+    argv = forge._baseline_harvest_argv("/tmp/py", "baseline_reclamation")
 
     assert argv[:3] == ["/tmp/py", "-m", "scripts.run_tests"]
+
+
+def test_repo_green_storm_harvest_runner_defaults_to_run_tests(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.delenv("SENTIENTOS_FORGE_HARVEST_RUNNER", raising=False)
+
+    argv = forge._baseline_harvest_argv("/tmp/py", "repo_green_storm")
+
+    assert argv[:3] == ["/tmp/py", "-m", "scripts.run_tests"]
+
+
+def test_repo_green_storm_report_progress_delta(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_dir = cwd / "glow" / "contracts"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            (status_dir / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, "FAILED tests/test_a.py::test_x - AssertionError: x", "")
+        return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "ok", "")
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setattr("sentientos.cathedral_forge.generate_fix_candidates", lambda clusters, root: [])
+
+    # avoid running full test suite in ci baseline emitter
+    monkeypatch.setattr("sentientos.cathedral_forge.emit_ci_baseline", lambda **kwargs: type("S", (), {
+        "schema_version": 1,
+        "generated_at": "2025-01-01T00:00:00Z",
+        "git_sha": "abc",
+        "runner": "scripts.run_tests",
+        "passed": False,
+        "failed_count": 10 if kwargs.get("run_command", False) else 7,
+        "top_clusters": [],
+        "last_green_sha": None,
+    })())
+
+    report = forge.run("repo_green_storm")
+
+    assert report.outcome == "failed"
+    assert report.progress_delta is not None
+    assert int(report.progress_delta["failed_count_before"]) >= int(report.progress_delta["failed_count_after"])

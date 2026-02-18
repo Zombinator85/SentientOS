@@ -84,9 +84,29 @@ def _forge_self_hosting() -> GoalSpec:
     )
 
 
+def _repo_green_storm() -> GoalSpec:
+    return GoalSpec(
+        goal_id="repo_green_storm",
+        description="Drive the default full suite to green and encode baseline integrity.",
+        phases=_default_phases("repo_green_storm"),
+        apply_commands=[],
+        gate_profile="default",
+        touched_paths_globs=["sentientos/**/*.py", "scripts/**/*.py", "tests/**/*.py", "glow/contracts/*.json", ".github/workflows/*.yml"],
+        risk_notes=[
+            "Wide remediation campaigns can introduce side effects across unrelated test domains.",
+            "Cluster-first fixes should prioritize import/root-cause repair before assertion edits.",
+        ],
+        rollback_notes=[
+            "Revert repo_green_storm commits and replay only deterministic root-cause remediations.",
+            "Use emitted docket artifacts to continue unresolved failure clusters safely.",
+        ],
+    )
+
+
 REGISTRY: dict[str, GoalSpec] = {
     "baseline_reclamation": _baseline_reclamation(),
     "forge_self_hosting": _forge_self_hosting(),
+    "repo_green_storm": _repo_green_storm(),
 }
 
 

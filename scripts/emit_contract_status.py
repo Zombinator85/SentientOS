@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from sentientos.ci_baseline import evaluate_ci_baseline_drift
+
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
 
 
@@ -179,6 +181,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
             git_sha=git_sha,
             baseline_optional=True,
         ),
+        _ci_baseline_status(git_sha=git_sha),
     ]
 
     vow_manifest = next((entry for entry in contracts if entry.get("domain_name") == "vow_manifest"), None)
@@ -207,6 +210,38 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return payload
+
+
+def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:
+    baseline_path = Path("glow/contracts/ci_baseline.json")
+    baseline_present = baseline_path.exists()
+    baseline_payload = _read_json(baseline_path) if baseline_present else None
+    drift = evaluate_ci_baseline_drift(baseline_payload)
+    failed_count = baseline_payload.get("failed_count") if isinstance(baseline_payload, dict) else None
+    passed = baseline_payload.get("passed") if isinstance(baseline_payload, dict) else None
+    top_clusters = baseline_payload.get("top_clusters") if isinstance(baseline_payload, dict) else None
+
+    return {
+        "domain_name": "ci_baseline",
+        "baseline_present": baseline_present,
+        "last_baseline_path": str(baseline_path) if baseline_present else None,
+        "drift_report_path": None,
+        "drifted": drift.drifted,
+        "drift_type": drift.drift_type,
+        "drift_explanation": drift.drift_explanation,
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_CI_BASELINE_DRIFT",
+        "captured_by": None,
+        "captured_at": baseline_payload.get("generated_at") if isinstance(baseline_payload, dict) else None,
+        "tool_version": None,
+        "git_sha": git_sha,
+        "runner": baseline_payload.get("runner") if isinstance(baseline_payload, dict) else "scripts.run_tests",
+        "passed": passed,
+        "failed_count": failed_count,
+        "top_clusters": top_clusters if isinstance(top_clusters, list) else [],
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
