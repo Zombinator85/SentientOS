@@ -23,6 +23,7 @@ from sentientos.forge_campaigns import resolve_campaign
 from sentientos.forge_goals import GoalSpec, resolve_goal
 from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_provenance import ForgeProvenance
+from sentientos.github_checks import PRChecks, PRRef, detect_capabilities, wait_for_pr_checks
 from sentientos.forge_transaction import (
     ForgeGitOps,
     TransactionPolicy,
@@ -97,6 +98,7 @@ class ForgeReport:
     campaign_subreports: list[dict[str, object]] | None = None
     provenance_run_id: str | None = None
     provenance_path: str | None = None
+    publish_remote: dict[str, object] | None = None
 
 
 class CathedralForge:
@@ -389,14 +391,16 @@ class CathedralForge:
                 transaction_status = "aborted"
 
             publish_notes: list[str] = []
+            publish_remote: dict[str, object] | None = None
             eligible_for_publish = not failure_reasons and transaction_status == "committed"
             if eligible_for_publish:
-                publish_notes = self._maybe_publish(
+                publish_notes, publish_remote = self._maybe_publish(
                     goal_spec,
                     session,
                     improvement_summary=transaction_improvement_summary,
                     ci_baseline_before=ci_baseline_before,
                     ci_baseline_after=ci_baseline_after,
+                    metadata=metadata,
                 )
             notes.extend(publish_notes)
             if baseline_budget:
@@ -442,6 +446,7 @@ class CathedralForge:
                 quarantine_ref=quarantine_ref,
                 rollback_performed=rollback_performed,
                 transaction_improvement_summary=transaction_improvement_summary,
+                publish_remote=publish_remote,
             )
             run_finished_at = _iso_now()
             header = provenance.build_header(
@@ -719,13 +724,28 @@ class CathedralForge:
         improvement_summary: str | None,
         ci_baseline_before: dict[str, object] | None,
         ci_baseline_after: dict[str, object] | None,
-    ) -> list[str]:
+        metadata: dict[str, object] | None,
+    ) -> tuple[list[str], dict[str, object]]:
         notes: list[str] = []
+        remote: dict[str, object] = {
+            "pr_url": None,
+            "pr_number": None,
+            "head_sha": None,
+            "checks_overall": "unknown",
+            "checks_summary": [],
+            "automerge_attempted": False,
+            "automerge_result": "not_attempted",
+            "canary_timeout": False,
+        }
         root = Path(session.root_path)
         if os.getenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "0") != "1":
-            return notes
-        if os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1" and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH", "0") != "1":
-            return notes
+            return notes, remote
+        sentinel_triggered = os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1"
+        if sentinel_triggered:
+            if os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH", "0") != "1":
+                return notes, remote
+            if os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
+                notes.append("sentinel_automerge_disallowed")
         if os.getenv("SENTIENTOS_FORGE_AUTOCOMMIT") == "1":
             delta_before = ci_baseline_before.get("failed_count") if isinstance(ci_baseline_before, dict) else None
             delta_after = ci_baseline_after.get("failed_count") if isinstance(ci_baseline_after, dict) else None
@@ -733,16 +753,114 @@ class CathedralForge:
             subprocess.run(["git", "add", "-A"], cwd=root, check=False, capture_output=True, text=True)
             subprocess.run(["git", "commit", "-m", message], cwd=root, check=False, capture_output=True, text=True)
             notes.append("autocommit_enabled")
+
+        pr_ref = PRRef(number=None, url="", head_sha=self._git_sha(root), branch=session.branch_name, created_at=_iso_now())
         if os.getenv("SENTIENTOS_FORGE_AUTOPR") == "1":
-            metadata = self._build_pr_metadata(goal, root, improvement_summary=improvement_summary, ci_baseline_before=ci_baseline_before, ci_baseline_after=ci_baseline_after)
+            metadata_payload = self._build_pr_metadata(goal, root, improvement_summary=improvement_summary, ci_baseline_before=ci_baseline_before, ci_baseline_after=ci_baseline_after)
             metadata_path = self._pr_path(_iso_now())
-            _write_json(metadata_path, metadata)
+            _write_json(metadata_path, metadata_payload)
             make_probe = subprocess.run(["make", "-n", "make_pr"], cwd=root, capture_output=True, text=True, check=False)
             if make_probe.returncode == 0:
                 subprocess.run(["make", "make_pr"], cwd=root, capture_output=True, text=True, check=False)
                 notes.append("autopr_make_pr_invoked")
             notes.append(f"autopr_metadata:{metadata_path}")
-        return notes
+            pr_ref = _extract_pr_ref(metadata_payload, default=pr_ref)
+            remote["pr_url"] = pr_ref.url or None
+            remote["pr_number"] = pr_ref.number
+            remote["head_sha"] = pr_ref.head_sha or None
+            if self._active_provenance is not None:
+                payload = json.dumps({"pr": _dataclass_to_dict(pr_ref), "metadata_path": str(metadata_path)}, sort_keys=True)
+                step = self._active_provenance.make_step(
+                    step_id="publish_pr_created",
+                    kind="publish",
+                    command={"action": "create_pr"},
+                    cwd=str(root),
+                    env_fingerprint=_env_fingerprint(),
+                    started_at=_iso_now(),
+                    finished_at=_iso_now(),
+                    exit_code=0,
+                    stdout=payload,
+                    stderr="",
+                    artifacts_written=[str(metadata_path)],
+                )
+                self._active_provenance.add_step(step, stdout=payload, stderr="")
+
+        canary_enabled = os.getenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "0") == "1"
+        timeout_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_TIMEOUT_SECONDS", "1800")))
+        poll_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_POLL_SECONDS", "20")))
+        auto_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
+        if sentinel_triggered and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
+            auto_merge = False
+
+        if canary_enabled:
+            caps = detect_capabilities()
+            if not any(caps.values()):
+                notes.append("remote_checks_unavailable")
+                remote["checks_overall"] = "remote_checks_unavailable"
+            else:
+                checks, timing = wait_for_pr_checks(pr_ref, timeout_seconds=timeout_seconds, poll_interval_seconds=poll_seconds)
+                remote["checks_overall"] = checks.overall
+                remote["checks_summary"] = _checks_summary(checks)
+                remote["canary_timeout"] = bool(timing.get("timed_out"))
+                if self._active_provenance is not None:
+                    payload = json.dumps({"checks": _checks_to_dict(checks), "timing": timing}, sort_keys=True)
+                    step = self._active_provenance.make_step(
+                        step_id="publish_checks_polled",
+                        kind="publish",
+                        command={"action": "wait_for_pr_checks", "timeout_seconds": timeout_seconds, "poll_interval_seconds": poll_seconds},
+                        cwd=str(root),
+                        env_fingerprint=_env_fingerprint(),
+                        started_at=_iso_now(),
+                        finished_at=_iso_now(),
+                        exit_code=0,
+                        stdout=payload,
+                        stderr="",
+                        artifacts_written=[],
+                    )
+                    self._active_provenance.add_step(step, stdout=payload, stderr="")
+
+                if timing.get("timed_out") or checks.overall == "failure":
+                    notes.append("held_failed_checks")
+                    quarantine_path = self.forge_dir / f"quarantine_{_safe_timestamp(_iso_now())}.json"
+                    quarantine_payload = {
+                        "kind": "publish_checks",
+                        "pr_url": checks.pr.url,
+                        "pr_number": checks.pr.number,
+                        "overall": checks.overall,
+                        "timed_out": bool(timing.get("timed_out")),
+                        "checks": [_dataclass_to_dict(item) for item in checks.checks],
+                    }
+                    _write_json(quarantine_path, quarantine_payload)
+                    notes.append(f"publish_quarantine:{quarantine_path}")
+                    if metadata and metadata.get("sentinel_triggered"):
+                        notes.append("sentinel_cooldown_extension_requested")
+                elif checks.overall == "success":
+                    if auto_merge:
+                        remote["automerge_attempted"] = True
+                        merged = self._merge_pr(checks.pr)
+                        remote["automerge_result"] = "merged" if merged else "merge_failed"
+                        notes.append("automerge_merged" if merged else "automerge_failed")
+                    else:
+                        notes.append("ready_to_merge")
+
+        if self._active_provenance is not None:
+            outcome_payload = json.dumps({"remote": remote, "notes": notes}, sort_keys=True)
+            step = self._active_provenance.make_step(
+                step_id="publish_outcome",
+                kind="publish",
+                command={"action": "publish_outcome"},
+                cwd=str(root),
+                env_fingerprint=_env_fingerprint(),
+                started_at=_iso_now(),
+                finished_at=_iso_now(),
+                exit_code=0,
+                stdout=outcome_payload,
+                stderr="",
+                artifacts_written=[],
+            )
+            self._active_provenance.add_step(step, stdout=outcome_payload, stderr="")
+
+        return notes, remote
 
     def _build_pr_metadata(
         self,
@@ -781,6 +899,32 @@ class CathedralForge:
                 "docket": str(self._docket_path(_iso_now())),
             },
         }
+
+
+    def _merge_pr(self, pr: PRRef) -> bool:
+        if not pr.number and not pr.url:
+            return False
+        if shutil.which("gh") is None:
+            return False
+        target = str(pr.number) if pr.number is not None else pr.url
+        result = subprocess.run(["gh", "pr", "merge", target, "--merge", "--delete-branch", "--auto"], cwd=self.repo_root, capture_output=True, text=True, check=False)
+        if self._active_provenance is not None:
+            payload = json.dumps({"target": target, "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr}, sort_keys=True)
+            step = self._active_provenance.make_step(
+                step_id="publish_merge_attempted",
+                kind="publish",
+                command={"action": "merge_pr", "target": target},
+                cwd=str(self.repo_root),
+                env_fingerprint=_env_fingerprint(),
+                started_at=_iso_now(),
+                finished_at=_iso_now(),
+                exit_code=result.returncode,
+                stdout=payload,
+                stderr=result.stderr,
+                artifacts_written=[],
+            )
+            self._active_provenance.add_step(step, stdout=payload, stderr=result.stderr)
+        return result.returncode == 0
 
     def _run_baseline_engine(
         self,
@@ -1023,6 +1167,37 @@ class CathedralForge:
         return payload if isinstance(payload, dict) else {}
 
 
+
+
+def _extract_pr_ref(metadata_payload: dict[str, Any], *, default: PRRef) -> PRRef:
+    raw = metadata_payload.get("pr")
+    if not isinstance(raw, dict):
+        return default
+    number_raw = raw.get("number")
+    number = number_raw if isinstance(number_raw, int) else None
+    return PRRef(
+        number=number,
+        url=str(raw.get("url", default.url)),
+        head_sha=str(raw.get("head_sha", default.head_sha)),
+        branch=str(raw.get("branch", default.branch)),
+        created_at=str(raw.get("created_at", default.created_at)),
+    )
+
+
+def _checks_summary(checks: PRChecks) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for item in checks.checks:
+        if item.conclusion not in {"", "success"}:
+            rows.append({"name": item.name, "conclusion": item.conclusion, "details_url": item.details_url})
+    return rows[:10]
+
+
+def _checks_to_dict(checks: PRChecks) -> dict[str, object]:
+    return {
+        "pr": _dataclass_to_dict(checks.pr),
+        "overall": checks.overall,
+        "checks": [_dataclass_to_dict(item) for item in checks.checks],
+    }
 
 def _git_changed_paths(cwd: Path) -> list[str]:
     result = subprocess.run(["git", "status", "--porcelain"], cwd=cwd, capture_output=True, text=True, check=False)

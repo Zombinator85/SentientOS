@@ -97,9 +97,11 @@ class ForgeDaemon:
             prev_allow = os.environ.get("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH")
             prev_sent = os.environ.get("SENTIENTOS_FORGE_SENTINEL_TRIGGERED")
             prev_sent_allow = os.environ.get("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH")
+            prev_sent_merge = os.environ.get("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE")
             os.environ["SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("auto_publish")) else "0"
             os.environ["SENTIENTOS_FORGE_SENTINEL_TRIGGERED"] = "1" if sentinel_triggered else "0"
             os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("sentinel_allow_autopublish")) else "0"
+            os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE"] = "1" if bool(request.autopublish_flags.get("sentinel_allow_automerge")) else "0"
             report = self.forge.run(request.goal, initiator="daemon", request_id=request.request_id, metadata=request.metadata)
             if prev_allow is None:
                 os.environ.pop("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", None)
@@ -113,10 +115,15 @@ class ForgeDaemon:
                 os.environ.pop("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH", None)
             else:
                 os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH"] = prev_sent_allow
+            if prev_sent_merge is None:
+                os.environ.pop("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", None)
+            else:
+                os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE"] = prev_sent_merge
             pr_metadata_path = _extract_pr_metadata_path(report.notes)
             report_path = str(self.forge._report_path(report.generated_at))
             status = "success" if report.outcome == "success" else "failed"
             error = "\n".join(report.failure_reasons) if report.failure_reasons else None
+            publish_remote = report.publish_remote if isinstance(report.publish_remote, dict) else {}
             self.queue.mark_finished(
                 request.request_id,
                 status=status,
@@ -128,13 +135,25 @@ class ForgeDaemon:
                 error=error,
                 provenance_run_id=report.provenance_run_id,
                 provenance_path=report.provenance_path,
+                publish_status=str(publish_remote.get("checks_overall")) if publish_remote.get("checks_overall") is not None else None,
+                publish_pr_url=str(publish_remote.get("pr_url")) if isinstance(publish_remote.get("pr_url"), str) else None,
+                publish_checks_overall=str(publish_remote.get("checks_overall")) if publish_remote.get("checks_overall") is not None else None,
             )
             self._emit_forge_event(status=status, request=request, report_path=report_path, error=error, provenance_run_id=report.provenance_run_id, provenance_path=report.provenance_path)
-            if bool(request.metadata.get("sentinel_triggered")) and report.transaction_status in {"quarantined", "rolled_back"}:
+            remote_gate_failed = isinstance(report.publish_remote, dict) and str(report.publish_remote.get("checks_overall")) in {"failure", "pending"}
+            if bool(request.metadata.get("sentinel_triggered")) and (report.transaction_status in {"quarantined", "rolled_back"} or remote_gate_failed):
                 domain = request.metadata.get("trigger_domain")
                 if isinstance(domain, str):
                     sentinel = ContractSentinel(repo_root=self.repo_root, queue=self.queue)
-                    sentinel.note_quarantine(domain=domain, quarantine_ref=report.quarantine_ref, reasons=report.regression_reasons or report.failure_reasons)
+                    reasons = report.regression_reasons or report.failure_reasons
+                    if remote_gate_failed:
+                        reasons = [*(reasons or []), "remote_checks_gate"]
+                    qref = report.quarantine_ref
+                    if not qref and isinstance(report.publish_remote, dict):
+                        raw_pr_url = report.publish_remote.get("pr_url")
+                        if isinstance(raw_pr_url, str) and raw_pr_url:
+                            qref = raw_pr_url
+                    sentinel.note_quarantine(domain=domain, quarantine_ref=qref, reasons=reasons or ["remote_checks_gate"])
             if status != "success":
                 self._maybe_requeue(request, report)
             self._emit(f"ForgeDaemon completed {request.request_id} with status={status}")

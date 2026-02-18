@@ -13,6 +13,7 @@ from sentientos.forge_index import rebuild_index
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 from sentientos.forge_replay import replay_provenance
 from sentientos.forge_status import compute_status
+from sentientos.github_checks import fetch_pr_checks, wait_for_pr_checks
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -51,6 +52,11 @@ def main(argv: list[str] | None = None) -> int:
     replay_parser.add_argument("--dry-run", action="store_true", help="Print replay plan without executing")
     show_quarantine_parser = subparsers.add_parser("show-quarantine", help="Show quarantine by path or id")
     show_quarantine_parser.add_argument("target", help="quarantine path or timestamp id")
+    pr_checks_parser = subparsers.add_parser("pr-checks", help="Show current PR checks")
+    pr_checks_parser.add_argument("target", help="PR URL or number")
+    wait_checks_parser = subparsers.add_parser("wait-checks", help="Wait for PR checks")
+    wait_checks_parser.add_argument("target", help="PR URL or number")
+    wait_checks_parser.add_argument("--timeout", type=int, default=1800, help="Timeout in seconds")
 
     args = parser.parse_args(argv)
     forge = CathedralForge()
@@ -131,6 +137,9 @@ def main(argv: list[str] | None = None) -> int:
                             "report_path": item.report_path,
                             "provenance_run_id": item.provenance_run_id,
                             "provenance_path": item.provenance_path,
+                            "publish_status": item.publish_status,
+                            "publish_pr_url": item.publish_pr_url,
+                            "publish_checks_overall": item.publish_checks_overall,
                         }
                         for item in receipts
                     ],
@@ -239,10 +248,27 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
+    if args.command == "pr-checks":
+        checks = _checks_for_target(args.target)
+        print(json.dumps({"command": "pr-checks", "pr": checks.pr.__dict__, "overall": checks.overall, "checks": [item.__dict__ for item in checks.checks]}, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "wait-checks":
+        checks = _checks_for_target(args.target)
+        final, timing = wait_for_pr_checks(checks.pr, timeout_seconds=max(1, int(args.timeout)), poll_interval_seconds=20)
+        print(json.dumps({"command": "wait-checks", "pr": final.pr.__dict__, "overall": final.overall, "timing": timing, "checks": [item.__dict__ for item in final.checks]}, indent=2, sort_keys=True))
+        return 0 if final.overall == "success" else 1
+
     daemon = ForgeDaemon(queue=queue)
     daemon.run_tick()
     print(json.dumps({"command": "run-daemon-tick", "status": "ok"}, sort_keys=True))
     return 0
+
+
+def _checks_for_target(target: str) -> object:
+    if target.isdigit():
+        return fetch_pr_checks(pr_number=int(target))
+    return fetch_pr_checks(pr_url=target)
 
 
 def _load_artifact(forge: CathedralForge, target: str, *, kind: str) -> dict[str, object]:

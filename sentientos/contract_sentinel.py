@@ -43,6 +43,7 @@ class SentinelPolicy:
     cooldown_minutes: dict[str, int] = field(default_factory=lambda: {"global": 30, "ci_baseline": 60, "forge_observatory": 60})
     max_enqueues_per_day: int = 3
     allow_autopublish: bool = False
+    allow_automerge: bool = False
 
 
 @dataclass(slots=True)
@@ -78,6 +79,7 @@ class ContractSentinel:
             cooldown_minutes={str(k): int(v) for k, v in payload.get("cooldown_minutes", {"global": 30}).items() if isinstance(v, int)},
             max_enqueues_per_day=int(payload.get("max_enqueues_per_day", 3)),
             allow_autopublish=bool(payload.get("allow_autopublish", False)),
+            allow_automerge=bool(payload.get("allow_automerge", False)),
         )
 
     def save_policy(self, policy: SentinelPolicy) -> None:
@@ -145,7 +147,7 @@ class ContractSentinel:
                     },
                     "sentinel_triggered": True,
                 },
-                autopublish_flags=({"auto_publish": True, "sentinel_allow_autopublish": True} if policy.allow_autopublish else {}),
+                autopublish_flags=({"auto_publish": True, "sentinel_allow_autopublish": True, "sentinel_allow_automerge": bool(policy.allow_automerge)} if policy.allow_autopublish else {}),
             )
             request_id = self.queue.enqueue(request)
             state.last_enqueued_at_by_domain[domain] = now
