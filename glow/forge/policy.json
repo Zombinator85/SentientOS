@@ -3,7 +3,8 @@
   "allowlisted_goal_ids": [
     "forge_smoke_noop",
     "baseline_reclamation",
-    "repo_green_storm"
+    "repo_green_storm",
+    "stability_repair"
   ],
   "allowlisted_autopublish_flags": [],
   "max_budget": {

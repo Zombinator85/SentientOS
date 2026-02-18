@@ -361,6 +361,18 @@ def _render_forge_panel() -> None:
             if st.button("Release PR"):
                 st.json({"ok": train.release(int(selected_pr)), "pr": int(selected_pr)})
 
+
+    st.subheader("Stability Doctrine")
+    doctrine = index.get("stability_doctrine_latest") if isinstance(index.get("stability_doctrine_latest"), dict) else {}
+    toolchain = doctrine.get("toolchain") if isinstance(doctrine.get("toolchain"), dict) else {}
+    vow = doctrine.get("vow_artifacts") if isinstance(doctrine.get("vow_artifacts"), dict) else {}
+    stable = bool(toolchain.get("verify_audits_available", False)) and bool(vow.get("immutable_manifest_present", False))
+    if stable:
+        st.success("Stability Doctrine ready")
+    else:
+        st.error("Stability Doctrine not ready")
+    st.json(doctrine)
+
     st.subheader("Queue (pending)")
     st.dataframe(index.get("latest_queue", []))
     st.subheader("Receipts (latest)")

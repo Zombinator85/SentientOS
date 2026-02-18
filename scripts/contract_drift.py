@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from scripts import generate_immutable_manifest
 from scripts.detect_audit_drift import detect_drift as detect_audit_drift
 from scripts.detect_federation_identity_drift import detect_drift as detect_federation_identity_drift
 from scripts.detect_pulse_schema_drift import detect_drift as detect_pulse_schema_drift
@@ -132,12 +131,12 @@ def _resolve_vow_manifest_path() -> Path:
 
 
 def _ensure_vow_manifest(manifest_path: Path) -> tuple[bool, str | None]:
-    if manifest_path.exists():
-        return (True, None)
     try:
-        generate_immutable_manifest.generate_manifest(output=manifest_path)
+        payload = ensure_vow_artifacts(manifest_path=manifest_path)
     except Exception as exc:  # pragma: no cover - exercised via caller behavior
         return (False, f"failed to generate vow immutable manifest at {manifest_path}: {exc}")
+    if not bool(payload.get("manifest_present")):
+        return (False, f"vow immutable manifest missing at {manifest_path}")
     return (True, None)
 
 

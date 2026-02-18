@@ -183,6 +183,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
             baseline_optional=True,
         ),
         _ci_baseline_status(git_sha=git_sha),
+        _stability_doctrine_status(git_sha=git_sha),
         _forge_observatory_status(git_sha=git_sha),
     ]
 
@@ -245,6 +246,42 @@ def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:
         "top_clusters": top_clusters if isinstance(top_clusters, list) else [],
     }
 
+
+
+def _stability_doctrine_status(*, git_sha: str) -> dict[str, Any]:
+    doctrine_path = Path("glow/contracts/stability_doctrine.json")
+    payload = _read_json(doctrine_path) if doctrine_path.exists() else None
+    toolchain = payload.get("toolchain") if isinstance(payload, dict) and isinstance(payload.get("toolchain"), dict) else {}
+    vow = payload.get("vow_artifacts") if isinstance(payload, dict) and isinstance(payload.get("vow_artifacts"), dict) else {}
+    verify_ok = bool(toolchain.get("verify_audits_available", False))
+    manifest_ok = bool(vow.get("immutable_manifest_present", False))
+    drifted = not (verify_ok and manifest_ok)
+    reason_bits: list[str] = []
+    if not verify_ok:
+        reason_bits.append("toolchain_missing")
+    if not manifest_ok:
+        reason_bits.append("vow_artifacts_missing")
+
+    return {
+        "domain_name": "stability_doctrine",
+        "baseline_present": doctrine_path.exists(),
+        "last_baseline_path": str(doctrine_path) if doctrine_path.exists() else None,
+        "drift_report_path": None,
+        "drifted": drifted if doctrine_path.exists() else None,
+        "drift_type": "none" if doctrine_path.exists() and not drifted else ("stability_not_ready" if doctrine_path.exists() else "baseline_missing"),
+        "drift_explanation": ",".join(reason_bits) if reason_bits else None,
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_STABILITY_DOCTRINE",
+        "captured_by": payload.get("git_sha") if isinstance(payload, dict) else None,
+        "captured_at": payload.get("generated_at") if isinstance(payload, dict) else None,
+        "tool_version": None,
+        "git_sha": git_sha,
+        "verify_audits_available": verify_ok,
+        "immutable_manifest_present": manifest_ok,
+        "immutable_manifest_sha256": vow.get("immutable_manifest_sha256") if isinstance(vow.get("immutable_manifest_sha256"), str) else None,
+    }
 
 def _forge_observatory_status(*, git_sha: str) -> dict[str, Any]:
     index_path = Path("glow/forge/index.json")
