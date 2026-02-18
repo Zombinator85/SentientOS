@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.ci_baseline import evaluate_ci_baseline_drift
+from sentientos.forge_index import rebuild_index
 
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
 
@@ -182,6 +183,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
             baseline_optional=True,
         ),
         _ci_baseline_status(git_sha=git_sha),
+        _forge_observatory_status(git_sha=git_sha),
     ]
 
     vow_manifest = next((entry for entry in contracts if entry.get("domain_name") == "vow_manifest"), None)
@@ -241,6 +243,53 @@ def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:
         "passed": passed,
         "failed_count": failed_count,
         "top_clusters": top_clusters if isinstance(top_clusters, list) else [],
+    }
+
+
+def _forge_observatory_status(*, git_sha: str) -> dict[str, Any]:
+    index_path = Path("glow/forge/index.json")
+    receipts_path = Path("pulse/forge_receipts.jsonl")
+
+    try:
+        index_payload = rebuild_index(Path.cwd())
+        index_present = True
+    except Exception:
+        index_payload = None
+        index_present = False
+
+    receipts_readable = receipts_path.exists()
+    last_report_parseable = False
+    corrupt_count = 0
+    if isinstance(index_payload, dict):
+        corrupt = index_payload.get("corrupt_count")
+        if isinstance(corrupt, dict):
+            total = corrupt.get("total")
+            if isinstance(total, int):
+                corrupt_count = total
+        latest_reports = index_payload.get("latest_reports")
+        if isinstance(latest_reports, list) and latest_reports:
+            last_report_parseable = isinstance(latest_reports[-1], dict)
+
+    return {
+        "domain_name": "forge_observatory",
+        "baseline_present": index_present,
+        "last_baseline_path": str(index_path) if index_present else None,
+        "drift_report_path": None,
+        "drifted": bool(corrupt_count),
+        "drift_type": "corrupt_jsonl" if corrupt_count else "none",
+        "drift_explanation": f"corrupt_jsonl_lines={corrupt_count}",
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_FORGE_OBSERVATORY_DRIFT",
+        "captured_by": None,
+        "captured_at": index_payload.get("generated_at") if isinstance(index_payload, dict) else None,
+        "tool_version": None,
+        "git_sha": git_sha,
+        "index_present": index_present,
+        "receipts_readable": receipts_readable,
+        "last_report_parseable": last_report_parseable,
+        "corrupt_jsonl_lines": corrupt_count,
     }
 
 

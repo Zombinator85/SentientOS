@@ -8,7 +8,9 @@ import json
 from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_env_cache import list_cache_entries, prune_cache
+from sentientos.forge_index import rebuild_index
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
+from sentientos.forge_status import compute_status
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,6 +33,12 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("run-daemon-tick", help="Run a single daemon tick")
     subparsers.add_parser("env-cache", help="List shared ForgeEnv cache entries")
     subparsers.add_parser("env-cache-prune", help="Prune shared ForgeEnv cache entries")
+    subparsers.add_parser("status", help="Show live forge daemon status")
+    subparsers.add_parser("index", help="Rebuild and print forge observability index")
+    show_report_parser = subparsers.add_parser("show-report", help="Pretty-print a forge report by path or id")
+    show_report_parser.add_argument("target", help="report path or timestamp id")
+    show_docket_parser = subparsers.add_parser("show-docket", help="Pretty-print a forge docket by path or id")
+    show_docket_parser.add_argument("target", help="docket path or timestamp id")
 
     args = parser.parse_args(argv)
     forge = CathedralForge()
@@ -143,10 +151,74 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"command": "env-cache-prune", "removed": removed, "removed_count": len(removed)}, sort_keys=True))
         return 0
 
+    if args.command == "status":
+        status = compute_status(forge.repo_root)
+        print(json.dumps({"command": "status", "status": status.to_dict()}, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "index":
+        index_payload = rebuild_index(forge.repo_root)
+        print(
+            json.dumps(
+                {
+                    "command": "index",
+                    "generated_at": index_payload.get("generated_at"),
+                    "reports": len(index_payload.get("latest_reports", [])),
+                    "dockets": len(index_payload.get("latest_dockets", [])),
+                    "receipts": len(index_payload.get("latest_receipts", [])),
+                    "queue_pending": len(index_payload.get("latest_queue", [])),
+                    "corrupt_count": index_payload.get("corrupt_count"),
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if args.command == "show-report":
+        payload = _load_artifact(forge, args.target, kind="report")
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "show-docket":
+        payload = _load_artifact(forge, args.target, kind="docket")
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
     daemon = ForgeDaemon(queue=queue)
     daemon.run_tick()
     print(json.dumps({"command": "run-daemon-tick", "status": "ok"}, sort_keys=True))
     return 0
+
+
+def _load_artifact(forge: CathedralForge, target: str, *, kind: str) -> dict[str, object]:
+    from pathlib import Path
+
+    if target.endswith(".json"):
+        path = Path(target)
+    else:
+        suffix = target.replace(":", "-")
+        prefix = "report" if kind == "report" else "docket"
+        path = forge.forge_dir / f"{prefix}_{suffix}.json"
+    if not path.is_absolute():
+        path = forge.repo_root / path
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"error": f"unreadable {kind}", "path": str(path)}
+    if not isinstance(payload, dict):
+        return {"error": f"invalid {kind} payload", "path": str(path)}
+    return _truncate_large_fields(payload)
+
+
+def _truncate_large_fields(payload: dict[str, object], *, max_chars: int = 2000) -> dict[str, object]:
+    trimmed: dict[str, object] = {}
+    for key, value in payload.items():
+        if isinstance(value, str) and len(value) > max_chars:
+            trimmed[key] = value[:max_chars] + "...<truncated>"
+            continue
+        trimmed[key] = value
+    return trimmed
 
 
 if __name__ == "__main__":
