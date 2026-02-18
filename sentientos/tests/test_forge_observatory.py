@@ -46,6 +46,7 @@ def test_rebuild_index_counts_corrupt_lines(tmp_path: Path) -> None:
     assert corrupt["total"] == 2
     assert payload["latest_prs"]
     assert payload["latest_check_failures"]
+    assert "merge_train" in payload
 
 
 def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -79,6 +80,7 @@ def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> N
     assert status.runs_remaining_hour >= 0
     assert status.files_remaining_day >= 0
     assert isinstance(status.sentinel_enabled, bool)
+    assert isinstance(status.train_enabled, bool)
 
 
 def test_cli_status_and_index(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]

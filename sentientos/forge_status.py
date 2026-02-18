@@ -12,6 +12,7 @@ from typing import Any
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_queue import ForgeQueue
 from sentientos.forge_provenance import validate_chain
+from sentientos.forge_merge_train import ForgeMergeTrain
 
 
 @dataclass(slots=True)
@@ -35,6 +36,9 @@ class ForgeStatus:
     last_quarantine: dict[str, Any] | None
     provenance_chain_valid: bool
     provenance_last_run_id: str | None
+    train_enabled: bool
+    train_head: dict[str, Any] | None
+    train_last_error: str | None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -91,6 +95,17 @@ def compute_status(repo_root: Path) -> ForgeStatus:
     last_trigger_domain = _last_trigger_domain(root, queue)
     last_quarantine = _last_quarantine(root)
     chain = validate_chain(root)
+    merge_train = ForgeMergeTrain(repo_root=root)
+    train_policy = merge_train.load_policy()
+    train_state = merge_train.load_state()
+    train_head = None
+    train_last_error = None
+    if train_state.entries:
+        active = [item for item in train_state.entries if item.status != "merged"]
+        rows = active or train_state.entries
+        head = sorted(rows, key=lambda item: item.created_at)[0]
+        train_head = {"pr_url": head.pr_url, "status": head.status, "goal_id": head.goal_id}
+        train_last_error = head.last_error
 
     return ForgeStatus(
         daemon_enabled=daemon_enabled,
@@ -112,6 +127,9 @@ def compute_status(repo_root: Path) -> ForgeStatus:
         last_quarantine=last_quarantine,
         provenance_chain_valid=bool(chain.get("valid", False)),
         provenance_last_run_id=str(chain.get("last_run_id")) if isinstance(chain.get("last_run_id"), str) else None,
+        train_enabled=train_policy.enabled,
+        train_head=train_head,
+        train_last_error=train_last_error,
     )
 
 

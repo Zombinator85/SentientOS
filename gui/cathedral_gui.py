@@ -7,6 +7,7 @@ require_lumos_approval()
 
 """Streamlit-based control panel with Tkinter fallback."""
 
+from dataclasses import asdict
 import os
 import sys
 import subprocess
@@ -20,6 +21,7 @@ from gui import wdm_panel
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_daemon import _load_policy
 from sentientos.forge_index import rebuild_index
+from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 from sentientos.forge_status import compute_status
 from sentientos.github_checks import fetch_pr_checks
@@ -290,6 +292,8 @@ def _render_forge_panel() -> None:
     queue = ForgeQueue(pulse_root=repo_root / "pulse")
     sentinel = ContractSentinel(repo_root=repo_root, queue=queue)
 
+    train = ForgeMergeTrain(repo_root=repo_root, queue=queue)
+
     st.title("Forge Observatory")
     st.subheader("Live Status")
     st.json(status.to_dict())
@@ -324,6 +328,38 @@ def _render_forge_panel() -> None:
         if st.button("Rebuild index"):
             refreshed = rebuild_index(repo_root)
             st.success(f"index generated at {refreshed.get('generated_at')}")
+
+
+    st.subheader("Merge Train")
+    train_policy = train.load_policy()
+    train_state = train.load_state()
+    st.json({"enabled": train_policy.enabled, "base_branch": train_policy.base_branch, "max_active_prs": train_policy.max_active_prs, "last_merged_pr": train_state.last_merged_pr})
+    tcol1, tcol2, tcol3 = st.columns(3)
+    with tcol1:
+        if st.button("Tick Train Now"):
+            st.json(train.tick())
+    with tcol2:
+        if st.button("Enable Train"):
+            train_policy.enabled = True
+            train.save_policy(train_policy)
+            st.success("Merge train enabled")
+    with tcol3:
+        if st.button("Disable Train"):
+            train_policy.enabled = False
+            train.save_policy(train_policy)
+            st.success("Merge train disabled")
+
+    entries = [asdict(entry) for entry in train_state.entries]
+    st.dataframe(entries)
+    if entries:
+        selected_pr = st.selectbox("Train PR", [int(item.get("pr_number", 0) or 0) for item in entries if item.get("pr_number")])
+        hcol, rcol = st.columns(2)
+        with hcol:
+            if st.button("Hold PR"):
+                st.json({"ok": train.hold(int(selected_pr)), "pr": int(selected_pr)})
+        with rcol:
+            if st.button("Release PR"):
+                st.json({"ok": train.release(int(selected_pr)), "pr": int(selected_pr)})
 
     st.subheader("Queue (pending)")
     st.dataframe(index.get("latest_queue", []))

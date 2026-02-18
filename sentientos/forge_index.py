@@ -9,6 +9,7 @@ from typing import Any
 
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
+from sentientos.forge_merge_train import ForgeMergeTrain
 
 SCHEMA_VERSION = 1
 INDEX_PATH = Path("glow/forge/index.json")
@@ -30,6 +31,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     receipt_rows, receipt_corrupt = _read_jsonl(root / RECEIPTS_PATH)
 
     sentinel_summary = ContractSentinel(repo_root=root).summary()
+    merge_train = ForgeMergeTrain(repo_root=root)
+    train_state = merge_train.load_state()
 
     latest_prs = _latest_prs(receipt_rows)
     latest_check_failures = [
@@ -49,6 +52,12 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "latest_quarantines": _latest_quarantines(root),
         "latest_prs": latest_prs,
         "latest_check_failures": latest_check_failures,
+        "merge_train": {
+            "enabled": merge_train.load_policy().enabled,
+            "last_merged_pr": train_state.last_merged_pr,
+            "entries_by_status": _train_entries_by_status(train_state.entries),
+            "head": _train_head(train_state.entries),
+        },
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "corrupt_count": {
@@ -204,3 +213,23 @@ def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _train_entries_by_status(entries: list[object]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for entry in entries:
+        status = str(getattr(entry, "status", "unknown"))
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def _train_head(entries: list[object]) -> dict[str, object] | None:
+    if not entries:
+        return None
+    head = sorted(entries, key=lambda item: str(getattr(item, "created_at", "")))[0]
+    return {
+        "pr_url": getattr(head, "pr_url", None),
+        "status": getattr(head, "status", None),
+        "goal_id": getattr(head, "goal_id", None),
+        "last_error": getattr(head, "last_error", None),
+    }

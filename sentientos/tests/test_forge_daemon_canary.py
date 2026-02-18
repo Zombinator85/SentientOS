@@ -45,6 +45,21 @@ class _Sentinel:
 
 def test_sentinel_cooldown_extension_on_failed_remote_checks(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/policy.json").write_text(
+        """{
+  "allowlisted_goal_ids": ["forge_smoke_noop"],
+  "allowlisted_requesters": ["ContractSentinel"],
+  "allowlisted_autopublish_flags": [
+    "auto_publish",
+    "sentinel_allow_autopublish",
+    "sentinel_allow_automerge",
+    "retry_on_failure",
+    "lineage"
+  ]
+}
+""",
+        encoding="utf-8",
+    )
     queue = ForgeQueue(pulse_root=tmp_path / "pulse")
     request_id = queue.enqueue(
         ForgeRequest(
