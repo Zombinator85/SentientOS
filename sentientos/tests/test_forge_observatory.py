@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+import importlib
+import json
+import sys
+import types
+from pathlib import Path
+
+from sentientos import forge
+from sentientos.event_stream import FORGE_EVENTS_PATH, record_forge_event
+from sentientos.forge_index import rebuild_index
+from sentientos.forge_status import compute_status
+
+
+def _write_jsonl(path: Path, rows: list[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+
+
+def test_rebuild_index_counts_corrupt_lines(tmp_path: Path) -> None:
+    _write_jsonl(
+        tmp_path / "pulse/forge_queue.jsonl",
+        [
+            '{"request_id":"r1","goal":"forge_smoke_noop","priority":1,"requested_at":"2026-01-01T00:00:00Z"}',
+            "{not-json}",
+        ],
+    )
+    _write_jsonl(
+        tmp_path / "pulse/forge_receipts.jsonl",
+        [
+            '{"request_id":"r2","status":"success","finished_at":"2026-01-01T01:00:00Z"}',
+            "[]",
+        ],
+    )
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text('{"passed":true}\n', encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    corrupt = payload["corrupt_count"]
+    assert corrupt["queue"] == 1
+    assert corrupt["receipts"] == 1
+    assert corrupt["total"] == 2
+
+
+def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _write_jsonl(
+        tmp_path / "pulse/forge_receipts.jsonl",
+        [
+            '{"request_id":"r1","status":"success","finished_at":"2099-01-01T00:00:00Z","report_path":"glow/forge/report_future.json"}',
+            '{"request_id":"r2","status":"failed","finished_at":"2099-01-01T00:10:00Z"}',
+        ],
+    )
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/report_future.json").write_text('{"baseline_budget":{"total_files_changed":7}}\n', encoding="utf-8")
+    (tmp_path / ".forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".forge/forge.lock").write_text(
+        json.dumps({"request_id": "r3", "goal": "forge_smoke_noop", "started_at": "2099-01-01T00:00:00Z", "pid": 1234}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_MAX_RUNS_PER_DAY", "5")
+    monkeypatch.setenv("SENTIENTOS_FORGE_MAX_RUNS_PER_HOUR", "3")
+    monkeypatch.setenv("SENTIENTOS_FORGE_MAX_FILES_CHANGED_PER_DAY", "20")
+
+    status = compute_status(tmp_path)
+
+    assert status.daemon_enabled is True
+    assert status.lock_owner_pid == 1234
+    assert status.current_request_id == "r3"
+    assert status.current_goal == "forge_smoke_noop"
+    assert status.runs_remaining_day >= 0
+    assert status.runs_remaining_hour >= 0
+    assert status.files_remaining_day >= 0
+
+
+def test_cli_status_and_index(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    _write_jsonl(tmp_path / "pulse/forge_queue.jsonl", ['{"request_id":"r1","goal":"forge_smoke_noop"}'])
+
+    assert forge.main(["status"]) == 0
+    assert forge.main(["index"]) == 0
+
+
+def test_event_emission_writes_jsonl(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+    record_forge_event({"event": "forge_test", "status": "ok", "request_id": "r1", "goal_id": "forge_smoke_noop"})
+    lines = FORGE_EVENTS_PATH.read_text(encoding="utf-8").strip().splitlines()
+    assert lines
+    payload = json.loads(lines[-1])
+    assert payload["event"] == "forge_test"
+    assert payload["request_id"] == "r1"
+
+
+def test_gui_smoke_import_registers_forge_panel(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    fake_priv = types.ModuleType("sentientos.privilege")
+    fake_priv.require_admin_banner = lambda: None
+    fake_priv.require_lumos_approval = lambda: None
+    monkeypatch.setitem(sys.modules, "sentientos.privilege", fake_priv)
+
+    module = importlib.import_module("gui.cathedral_gui")
+    assert module.forge_panel_registered() is True

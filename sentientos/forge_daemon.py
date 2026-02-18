@@ -11,7 +11,8 @@ import os
 from pathlib import Path
 
 from sentientos.cathedral_forge import CathedralForge, ForgeReport
-from sentientos.event_stream import record as record_event
+from sentientos.event_stream import record as record_event, record_forge_event
+from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
 LOGGER = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ class ForgeDaemon:
         if os.getenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "0") != "1":
             return
         if self._is_lock_active():
+            self._emit_forge_event(status="lock_skip", request=None, message="ForgeDaemon tick skipped: active forge lock")
             self._emit("ForgeDaemon tick skipped: active forge lock")
             return
 
@@ -68,6 +70,7 @@ class ForgeDaemon:
                 report_path=None,
                 error=policy_error,
             )
+            self._emit_forge_event(status="rejected_policy", request=request, error=policy_error)
             self._emit(f"ForgeDaemon policy rejected request {request.request_id}: {policy_error}", level="warning")
             return
 
@@ -78,12 +81,14 @@ class ForgeDaemon:
                 report_path=None,
                 error="daemon budget exhausted",
             )
+            self._emit_forge_event(status="skipped_budget", request=request, error="daemon budget exhausted")
             self._emit(f"ForgeDaemon budget gate skipped request {request.request_id}", level="warning")
             return
 
         started_at = _iso_now()
         self._write_lock(request)
         self.queue.mark_started(request.request_id, started_at=started_at)
+        self._emit_forge_event(status="started", request=request)
         self._emit(f"ForgeDaemon running request {request.request_id} ({request.goal})")
 
         try:
@@ -102,6 +107,7 @@ class ForgeDaemon:
                 pr_metadata_path=pr_metadata_path,
                 error=error,
             )
+            self._emit_forge_event(status=status, request=request, report_path=report_path, error=error)
             if status != "success":
                 self._maybe_requeue(request, report)
             self._emit(f"ForgeDaemon completed {request.request_id} with status={status}")
@@ -113,6 +119,7 @@ class ForgeDaemon:
                 report_path=None,
                 error=str(exc),
             )
+            self._emit_forge_event(status="failed", request=request, error=str(exc))
             self._emit(f"ForgeDaemon failed request {request.request_id}: {exc}", level="error")
         finally:
             self._clear_lock()
@@ -223,7 +230,10 @@ class ForgeDaemon:
 
     def _write_lock(self, request: ForgeRequest) -> None:
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
-        self.lock_path.write_text(json.dumps({"request_id": request.request_id, "started_at": _iso_now()}, sort_keys=True), encoding="utf-8")
+        self.lock_path.write_text(
+            json.dumps({"request_id": request.request_id, "goal": request.goal, "started_at": _iso_now(), "pid": os.getpid()}, sort_keys=True),
+            encoding="utf-8",
+        )
 
     def _clear_lock(self) -> None:
         with contextlib.suppress(OSError):
@@ -233,6 +243,29 @@ class ForgeDaemon:
         log_level = getattr(LOGGER, level, LOGGER.info)
         log_level(message)
         record_event(message, level=level)
+
+    def _emit_forge_event(
+        self,
+        *,
+        status: str,
+        request: ForgeRequest | None,
+        report_path: str | None = None,
+        error: str | None = None,
+        message: str | None = None,
+    ) -> None:
+        payload: dict[str, object] = {
+            "event": "forge_daemon",
+            "status": status,
+            "request_id": request.request_id if request else None,
+            "goal_id": request.goal_id if request else None,
+            "goal": request.goal if request else None,
+            "report_path": report_path,
+            "error": error,
+            "message": message or status,
+            "level": "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"} else "info",
+        }
+        record_forge_event(payload)
+        update_index_incremental(self.repo_root, event=payload)
 
 
 def _iso_now() -> str:

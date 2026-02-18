@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 import uuid
 
+from sentientos.event_stream import record_forge_event
+
 LOGGER = logging.getLogger(__name__)
 
 PULSE_ROOT = Path("pulse")
@@ -56,6 +58,17 @@ class ForgeQueue:
         payload["request_id"] = request_id
         payload.setdefault("requested_at", _iso_now())
         self._append_jsonl(self.queue_path, payload)
+        record_forge_event(
+            {
+                "event": "forge_queue",
+                "status": "enqueued",
+                "request_id": request_id,
+                "goal_id": payload.get("goal_id"),
+                "goal": payload.get("goal"),
+                "message": "enqueued",
+                "level": "info",
+            }
+        )
         return request_id
 
     def next_request(self) -> ForgeRequest | None:

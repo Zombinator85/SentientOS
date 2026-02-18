@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import logging
+import json
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import Lock
 from typing import Deque, Dict, List
 
@@ -23,6 +25,7 @@ class EventRecord:
 _HISTORY_LIMIT = 128
 _HISTORY: Deque[EventRecord] = deque(maxlen=_HISTORY_LIMIT)
 _LOCK = Lock()
+FORGE_EVENTS_PATH = Path("pulse/forge_events.jsonl")
 
 
 def record(message: str, *, level: str = "info") -> EventRecord:
@@ -49,6 +52,23 @@ def clear() -> None:
 
     with _LOCK:
         _HISTORY.clear()
+
+
+def record_forge_event(event: dict[str, object]) -> dict[str, object]:
+    """Append a structured forge event to pulse/forge_events.jsonl and in-memory history."""
+
+    payload = {
+        "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        **event,
+    }
+    FORGE_EVENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with FORGE_EVENTS_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+
+    message = str(payload.get("message") or payload.get("event") or "forge_event")
+    level = str(payload.get("level") or "info")
+    record(message, level=level)
+    return payload
 
 
 def _level_for(level: str) -> int:
