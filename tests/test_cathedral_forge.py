@@ -77,9 +77,10 @@ def test_autopublish_flags_disabled_by_default(tmp_path: Path, monkeypatch) -> N
     monkeypatch.delenv("SENTIENTOS_FORGE_AUTOCOMMIT", raising=False)
     monkeypatch.delenv("SENTIENTOS_FORGE_AUTOPR", raising=False)
 
-    notes = forge._maybe_publish(goal, session)
+    notes, remote = forge._maybe_publish(goal, session, improvement_summary=None, ci_baseline_before=None, ci_baseline_after=None, metadata=None)
 
     assert notes == []
+    assert remote["checks_overall"] == "unknown"
     assert not list((tmp_path / "glow" / "forge").glob("pr_*.json"))
 
 
@@ -544,3 +545,58 @@ def test_publish_blocked_when_transaction_regressed(tmp_path: Path, monkeypatch)
     assert report.outcome == "failed"
     assert report.transaction_status in {"quarantined", "rolled_back"}
     assert called["publish"] == 0
+
+
+def test_canary_publish_holds_on_failed_checks(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    goal = resolve_goal("forge_self_hosting")
+    session = forge._create_session("2025-01-01T00-00-00Z")
+
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOPR", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
+    monkeypatch.setattr("sentientos.cathedral_forge.detect_capabilities", lambda: {"gh": True, "token": False})
+
+    from sentientos.github_checks import PRChecks, PRRef, CheckRun
+
+    pr = PRRef(number=10, url="https://github.com/o/r/pull/10", head_sha="abc", branch="b", created_at="2026-01-01T00:00:00Z")
+    monkeypatch.setattr(
+        "sentientos.cathedral_forge.wait_for_pr_checks",
+        lambda _ref, timeout_seconds, poll_interval_seconds: (
+            PRChecks(pr=pr, checks=[CheckRun(name="ci", status="completed", conclusion="failure", details_url="u")], overall="failure"),
+            {"timed_out": False, "elapsed_seconds": 1.0, "polls": 1},
+        ),
+    )
+
+    notes, remote = forge._maybe_publish(goal, session, improvement_summary="ok", ci_baseline_before=None, ci_baseline_after=None, metadata={"sentinel_triggered": True})
+
+    assert "held_failed_checks" in notes
+    assert remote["checks_overall"] == "failure"
+    assert list((tmp_path / "glow" / "forge").glob("quarantine_*.json"))
+
+
+def test_canary_publish_records_ready_to_merge(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    goal = resolve_goal("forge_self_hosting")
+    session = forge._create_session("2025-01-01T00-00-00Z")
+
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOPR", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    monkeypatch.setattr("sentientos.cathedral_forge.detect_capabilities", lambda: {"gh": True, "token": False})
+
+    from sentientos.github_checks import PRChecks, PRRef, CheckRun
+
+    pr = PRRef(number=11, url="https://github.com/o/r/pull/11", head_sha="abc", branch="b", created_at="2026-01-01T00:00:00Z")
+    monkeypatch.setattr(
+        "sentientos.cathedral_forge.wait_for_pr_checks",
+        lambda _ref, timeout_seconds, poll_interval_seconds: (
+            PRChecks(pr=pr, checks=[CheckRun(name="ci", status="completed", conclusion="success", details_url="u")], overall="success"),
+            {"timed_out": False, "elapsed_seconds": 1.0, "polls": 1},
+        ),
+    )
+
+    notes, remote = forge._maybe_publish(goal, session, improvement_summary="ok", ci_baseline_before=None, ci_baseline_after=None, metadata=None)
+    assert "ready_to_merge" in notes
+    assert remote["checks_overall"] == "success"

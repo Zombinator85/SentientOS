@@ -31,6 +31,13 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
 
     sentinel_summary = ContractSentinel(repo_root=root).summary()
 
+    latest_prs = _latest_prs(receipt_rows)
+    latest_check_failures = [
+        row
+        for row in latest_prs
+        if str(row.get("checks_overall")) in {"failure", "pending", "held_failed_checks"}
+    ][:50]
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -40,6 +47,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "latest_receipts": receipt_rows[-200:],
         "latest_queue": _pending_from_rows(queue_rows, receipt_rows),
         "latest_quarantines": _latest_quarantines(root),
+        "latest_prs": latest_prs,
+        "latest_check_failures": latest_check_failures,
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "corrupt_count": {
@@ -126,6 +135,26 @@ def _pending_from_rows(queue_rows: list[dict[str, object]], receipt_rows: list[d
 
     pending.sort(key=lambda item: (_priority(item), str(item.get("requested_at", "")), str(item.get("request_id", ""))))
     return pending
+
+
+def _latest_prs(receipt_rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for row in reversed(receipt_rows):
+        url = row.get("publish_pr_url")
+        if not isinstance(url, str) or not url:
+            continue
+        rows.append(
+            {
+                "request_id": row.get("request_id"),
+                "status": row.get("status"),
+                "finished_at": row.get("finished_at"),
+                "pr_url": url,
+                "checks_overall": row.get("publish_checks_overall") or row.get("publish_status"),
+            }
+        )
+        if len(rows) >= 50:
+            break
+    return rows
 
 
 def _load_json(path: Path) -> dict[str, object]:

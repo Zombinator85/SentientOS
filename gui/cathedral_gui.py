@@ -22,6 +22,7 @@ from sentientos.forge_daemon import _load_policy
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 from sentientos.forge_status import compute_status
+from sentientos.github_checks import fetch_pr_checks
 
 requests: Any = None
 try:
@@ -328,6 +329,23 @@ def _render_forge_panel() -> None:
     st.dataframe(index.get("latest_queue", []))
     st.subheader("Receipts (latest)")
     st.dataframe(index.get("latest_receipts", []))
+
+
+    st.subheader("Latest PRs")
+    latest_prs = index.get("latest_prs", [])
+    st.dataframe(latest_prs)
+    if isinstance(latest_prs, list) and latest_prs:
+        last_pr = latest_prs[0]
+        st.write(f"Last PR: {last_pr.get('pr_url', 'n/a')}")
+        st.write(f"Checks: {last_pr.get('checks_overall', 'unknown')}")
+        if st.button("Poll now"):
+            target = str(last_pr.get("pr_url", ""))
+            if target:
+                checks = fetch_pr_checks(pr_url=target)
+                st.json({"overall": checks.overall, "checks": [item.__dict__ for item in checks.checks]})
+
+    st.subheader("Latest check failures")
+    st.dataframe(index.get("latest_check_failures", []))
 
     st.subheader("Quarantines")
     quarantines = index.get("latest_quarantines", [])

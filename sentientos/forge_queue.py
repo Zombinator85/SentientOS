@@ -45,6 +45,9 @@ class ForgeReceipt:
     error: str | None = None
     provenance_run_id: str | None = None
     provenance_path: str | None = None
+    publish_status: str | None = None
+    publish_pr_url: str | None = None
+    publish_checks_overall: str | None = None
 
 
 class ForgeQueue:
@@ -104,6 +107,9 @@ class ForgeQueue:
         finished_at: str | None = None,
         provenance_run_id: str | None = None,
         provenance_path: str | None = None,
+        publish_status: str | None = None,
+        publish_pr_url: str | None = None,
+        publish_checks_overall: str | None = None,
     ) -> ForgeReceipt:
         receipt = ForgeReceipt(
             request_id=request_id,
@@ -117,6 +123,9 @@ class ForgeQueue:
             error=error,
             provenance_run_id=provenance_run_id,
             provenance_path=provenance_path,
+            publish_status=publish_status,
+            publish_pr_url=publish_pr_url,
+            publish_checks_overall=publish_checks_overall,
         )
         self._append_jsonl(self.receipts_path, asdict(receipt))
         return receipt
@@ -275,4 +284,7 @@ def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:
         error=_opt("error"),
         provenance_run_id=_opt("provenance_run_id"),
         provenance_path=_opt("provenance_path"),
+        publish_status=_opt("publish_status"),
+        publish_pr_url=_opt("publish_pr_url"),
+        publish_checks_overall=_opt("publish_checks_overall"),
     )

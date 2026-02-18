@@ -28,7 +28,7 @@ def test_rebuild_index_counts_corrupt_lines(tmp_path: Path) -> None:
     _write_jsonl(
         tmp_path / "pulse/forge_receipts.jsonl",
         [
-            '{"request_id":"r2","status":"success","finished_at":"2026-01-01T01:00:00Z"}',
+            '{"request_id":"r2","status":"success","finished_at":"2026-01-01T01:00:00Z","publish_pr_url":"https://github.com/o/r/pull/2","publish_checks_overall":"failure"}',
             "[]",
         ],
     )
@@ -44,6 +44,8 @@ def test_rebuild_index_counts_corrupt_lines(tmp_path: Path) -> None:
     assert corrupt["queue"] == 1
     assert corrupt["receipts"] == 1
     assert corrupt["total"] == 2
+    assert payload["latest_prs"]
+    assert payload["latest_check_failures"]
 
 
 def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
