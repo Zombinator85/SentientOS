@@ -377,3 +377,74 @@ def test_repo_green_storm_report_progress_delta(tmp_path: Path, monkeypatch) -> 
     assert report.outcome == "failed"
     assert report.progress_delta is not None
     assert int(report.progress_delta["failed_count_before"]) >= int(report.progress_delta["failed_count_after"])
+
+
+def test_smoke_noop_uses_short_timeouts(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+    monkeypatch.setenv("SENTIENTOS_FORGE_SMOKE_TIMEOUT_SECONDS", "17")
+
+    seen: dict[str, int] = {}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        seen[command.step] = command.timeout_seconds
+        if command.step == "contract_status":
+            status_dir = cwd / "glow" / "contracts"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            (status_dir / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "ok", "")
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+
+    report = forge.run("forge_smoke_noop")
+
+    assert report.outcome == "success"
+    assert seen["contract_drift"] == 17
+    assert seen["contract_status"] == 17
+    assert seen["env_import_sentientos"] == 17
+    assert seen["tests"] == 17
+
+
+def test_non_smoke_skips_env_import_by_default(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
+    steps: list[str] = []
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        steps.append(command.step)
+        if command.step == "contract_status":
+            status_dir = cwd / "glow" / "contracts"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            (status_dir / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "ok", "")
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "success"
+    assert "env_import_sentientos" not in steps
+
+
+def test_non_smoke_can_require_env_import(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+    monkeypatch.setenv("SENTIENTOS_FORGE_REQUIRE_ENV_IMPORT", "1")
+
+    steps: list[str] = []
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        steps.append(command.step)
+        if command.step == "contract_status":
+            status_dir = cwd / "glow" / "contracts"
+            status_dir.mkdir(parents=True, exist_ok=True)
+            (status_dir / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "ok", "")
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "success"
+    assert "env_import_sentientos" in steps
