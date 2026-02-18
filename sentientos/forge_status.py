@@ -31,6 +31,7 @@ class ForgeStatus:
     sentinel_last_enqueued: dict[str, Any] | None
     sentinel_state: dict[str, Any]
     last_trigger_domain: str | None
+    last_quarantine: dict[str, Any] | None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -85,6 +86,7 @@ def compute_status(repo_root: Path) -> ForgeStatus:
 
     sentinel_summary = ContractSentinel(repo_root=root).summary()
     last_trigger_domain = _last_trigger_domain(root, queue)
+    last_quarantine = _last_quarantine(root)
 
     return ForgeStatus(
         daemon_enabled=daemon_enabled,
@@ -103,6 +105,7 @@ def compute_status(repo_root: Path) -> ForgeStatus:
         sentinel_last_enqueued=sentinel_summary.get("sentinel_last_enqueued") if isinstance(sentinel_summary.get("sentinel_last_enqueued"), dict) else None,
         sentinel_state={str(k): v for k, v in sentinel_summary.get("sentinel_state", {}).items()} if isinstance(sentinel_summary.get("sentinel_state"), dict) else {},
         last_trigger_domain=last_trigger_domain,
+        last_quarantine=last_quarantine,
     )
 
 
@@ -144,6 +147,15 @@ def _parse_iso(value: str | None) -> datetime | None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
 
+
+
+def _last_quarantine(repo_root: Path) -> dict[str, Any] | None:
+    files = sorted((repo_root / "glow/forge").glob("quarantine_*.json"), key=lambda item: item.name)
+    if not files:
+        return None
+    payload = _load_json(files[-1])
+    payload["path"] = str(files[-1].relative_to(repo_root))
+    return payload
 
 def _last_trigger_domain(repo_root: Path, queue: ForgeQueue) -> str | None:
     queue_path = repo_root / "pulse/forge_queue.jsonl"

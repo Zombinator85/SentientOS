@@ -44,6 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     show_report_parser.add_argument("target", help="report path or timestamp id")
     show_docket_parser = subparsers.add_parser("show-docket", help="Pretty-print a forge docket by path or id")
     show_docket_parser.add_argument("target", help="docket path or timestamp id")
+    subparsers.add_parser("quarantines", help="List recent quarantines")
+    show_quarantine_parser = subparsers.add_parser("show-quarantine", help="Show quarantine by path or id")
+    show_quarantine_parser.add_argument("target", help="quarantine path or timestamp id")
 
     args = parser.parse_args(argv)
     forge = CathedralForge()
@@ -213,6 +216,16 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
         return 0
 
+    if args.command == "quarantines":
+        index_payload = rebuild_index(forge.repo_root)
+        print(json.dumps({"command": "quarantines", "rows": index_payload.get("latest_quarantines", [])}, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "show-quarantine":
+        payload = _load_artifact(forge, args.target, kind="quarantine")
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
     daemon = ForgeDaemon(queue=queue)
     daemon.run_tick()
     print(json.dumps({"command": "run-daemon-tick", "status": "ok"}, sort_keys=True))
@@ -226,7 +239,7 @@ def _load_artifact(forge: CathedralForge, target: str, *, kind: str) -> dict[str
         path = Path(target)
     else:
         suffix = target.replace(":", "-")
-        prefix = "report" if kind == "report" else "docket"
+        prefix = "report" if kind == "report" else ("docket" if kind == "docket" else "quarantine")
         path = forge.forge_dir / f"{prefix}_{suffix}.json"
     if not path.is_absolute():
         path = forge.repo_root / path

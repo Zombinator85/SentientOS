@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from sentientos.cathedral_forge import CathedralForge, ForgeReport
+from sentientos.contract_sentinel import ContractSentinel
 from sentientos.event_stream import record as record_event, record_forge_event
 from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
@@ -92,7 +93,26 @@ class ForgeDaemon:
         self._emit(f"ForgeDaemon running request {request.request_id} ({request.goal})")
 
         try:
+            sentinel_triggered = bool(request.metadata.get("sentinel_triggered"))
+            prev_allow = os.environ.get("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH")
+            prev_sent = os.environ.get("SENTIENTOS_FORGE_SENTINEL_TRIGGERED")
+            prev_sent_allow = os.environ.get("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH")
+            os.environ["SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("auto_publish")) else "0"
+            os.environ["SENTIENTOS_FORGE_SENTINEL_TRIGGERED"] = "1" if sentinel_triggered else "0"
+            os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("sentinel_allow_autopublish")) else "0"
             report = self.forge.run(request.goal)
+            if prev_allow is None:
+                os.environ.pop("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", None)
+            else:
+                os.environ["SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH"] = prev_allow
+            if prev_sent is None:
+                os.environ.pop("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", None)
+            else:
+                os.environ["SENTIENTOS_FORGE_SENTINEL_TRIGGERED"] = prev_sent
+            if prev_sent_allow is None:
+                os.environ.pop("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH", None)
+            else:
+                os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH"] = prev_sent_allow
             pr_metadata_path = _extract_pr_metadata_path(report.notes)
             report_path = str(self.forge._report_path(report.generated_at))
             status = "success" if report.outcome == "success" else "failed"
@@ -108,6 +128,11 @@ class ForgeDaemon:
                 error=error,
             )
             self._emit_forge_event(status=status, request=request, report_path=report_path, error=error)
+            if bool(request.metadata.get("sentinel_triggered")) and report.transaction_status in {"quarantined", "rolled_back"}:
+                domain = request.metadata.get("trigger_domain")
+                if isinstance(domain, str):
+                    sentinel = ContractSentinel(repo_root=self.repo_root, queue=self.queue)
+                    sentinel.note_quarantine(domain=domain, quarantine_ref=report.quarantine_ref, reasons=report.regression_reasons or report.failure_reasons)
             if status != "success":
                 self._maybe_requeue(request, report)
             self._emit(f"ForgeDaemon completed {request.request_id} with status={status}")

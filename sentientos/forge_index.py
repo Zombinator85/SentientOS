@@ -36,6 +36,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "latest_dockets": [_load_json(path) | {"path": str(path.relative_to(root))} for path in dockets[-50:]],
         "latest_receipts": receipt_rows[-200:],
         "latest_queue": _pending_from_rows(queue_rows, receipt_rows),
+        "latest_quarantines": _latest_quarantines(root),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "corrupt_count": {
@@ -130,6 +131,15 @@ def _load_json(path: Path) -> dict[str, object]:
         return {}
     return payload if isinstance(payload, dict) else {}
 
+
+
+def _latest_quarantines(root: Path) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for path in sorted((root / "glow/forge").glob("quarantine_*.json"), key=lambda item: item.name)[-50:]:
+        payload = _load_json(path)
+        payload["path"] = str(path.relative_to(root))
+        rows.append(payload)
+    return rows
 
 def _env_cache_summary(repo_root: Path) -> dict[str, object]:
     cache_path = repo_root / "glow/forge/env_cache.json"

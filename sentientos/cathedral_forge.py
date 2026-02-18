@@ -20,6 +20,14 @@ from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix
 from sentientos.forge_campaigns import resolve_campaign
 from sentientos.forge_goals import GoalSpec, resolve_goal
 from sentientos.forge_pr_notes import build_pr_notes
+from sentientos.forge_transaction import (
+    ForgeGitOps,
+    TransactionPolicy,
+    capture_snapshot,
+    compare_snapshots,
+    quarantine,
+    rollback_session,
+)
 from sentientos.forge_model import (
     ApplyResult,
     CommandResult,
@@ -78,6 +86,12 @@ class ForgeReport:
     ci_baseline_before: dict[str, object] | None = None
     ci_baseline_after: dict[str, object] | None = None
     progress_delta: dict[str, float | int] | None = None
+    transaction_status: str = "aborted"
+    regression_reasons: list[str] | None = None
+    quarantine_ref: str | None = None
+    rollback_performed: bool = False
+    transaction_improvement_summary: str | None = None
+    campaign_subreports: list[dict[str, object]] | None = None
 
 
 class CathedralForge:
@@ -86,6 +100,7 @@ class CathedralForge:
     def __init__(self, *, repo_root: Path | None = None, forge_dir: Path = FORGE_DIR) -> None:
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.forge_dir = forge_dir
+        self.git_ops = ForgeGitOps()
 
     def plan(self, goal: str) -> ForgePlan:
         generated_at = _iso_now()
@@ -132,8 +147,20 @@ class CathedralForge:
         ci_baseline_before: dict[str, object] | None = None
         ci_baseline_after: dict[str, object] | None = None
         progress_delta: dict[str, float | int] | None = None
+        transaction_status = "aborted"
+        regression_reasons: list[str] = []
+        quarantine_ref: str | None = None
+        rollback_performed = False
+        transaction_improvement_summary: str | None = None
+        transaction_policy = TransactionPolicy()
+        before_snapshot = None
+        after_snapshot = None
 
         try:
+            if goal_profile.name != "smoke_noop" and transaction_policy.enabled:
+                before_snapshot = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
+                ci_baseline_before = dict(before_snapshot.ci_baseline)
+
             drift_result = self._run_step(
                 CommandSpec(
                     step="contract_drift",
@@ -188,11 +215,11 @@ class CathedralForge:
             )
 
             if goal_spec.goal_id == "repo_green_storm":
-                before_snapshot = emit_ci_baseline(
+                before_ci_snapshot = emit_ci_baseline(
                     output_path=Path(session.root_path) / CI_BASELINE_PATH,
                     run_command=True,
                 )
-                ci_baseline_before = _dataclass_to_dict(before_snapshot)
+                ci_baseline_before = _dataclass_to_dict(before_ci_snapshot)
                 artifacts_written.append(str(CI_BASELINE_PATH))
 
             apply_result = ApplyResult(status="skipped", step_results=[], summary="skipped: preflight failed")
@@ -258,7 +285,47 @@ class CathedralForge:
                 if after_failed > 0:
                     failure_reasons.append("repo_green_storm_not_green")
 
-            publish_notes = self._maybe_publish(goal_spec, session)
+            if goal_profile.name != "smoke_noop" and transaction_policy.enabled:
+                after_snapshot = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
+                ci_baseline_after = dict(after_snapshot.ci_baseline)
+                regressed, regression_reasons, improved, improvement_summary = compare_snapshots(
+                    before_snapshot,
+                    after_snapshot,
+                    policy=transaction_policy,
+                )
+                transaction_improvement_summary = improvement_summary
+                gates_failed = bool(failure_reasons)
+                if regressed or gates_failed:
+                    failure_reasons.extend([reason for reason in regression_reasons if reason not in failure_reasons])
+                    notes_path = self.forge_dir / f"quarantine_{_safe_timestamp(_iso_now())}.json"
+                    if transaction_policy.quarantine_on_failure:
+                        quarantine_ref = quarantine(
+                            Path(session.root_path),
+                            transaction_policy.quarantine_branch_prefix,
+                            notes_path,
+                            git_ops=self.git_ops,
+                        )
+                        if quarantine_ref:
+                            artifacts_written.append(str(notes_path))
+                    rollback_performed = rollback_session(Path(session.root_path), git_ops=self.git_ops)
+                    transaction_status = "quarantined" if quarantine_ref else "rolled_back"
+                elif improved:
+                    transaction_status = "committed"
+                else:
+                    transaction_status = "aborted"
+            else:
+                transaction_status = "aborted"
+
+            publish_notes: list[str] = []
+            eligible_for_publish = not failure_reasons and transaction_status == "committed"
+            if eligible_for_publish:
+                publish_notes = self._maybe_publish(
+                    goal_spec,
+                    session,
+                    improvement_summary=transaction_improvement_summary,
+                    ci_baseline_before=ci_baseline_before,
+                    ci_baseline_after=ci_baseline_after,
+                )
             notes.extend(publish_notes)
             if baseline_budget:
                 notes.append(
@@ -298,6 +365,11 @@ class CathedralForge:
                 ci_baseline_before=ci_baseline_before,
                 ci_baseline_after=ci_baseline_after,
                 progress_delta=progress_delta,
+                transaction_status=transaction_status,
+                regression_reasons=regression_reasons or None,
+                quarantine_ref=quarantine_ref,
+                rollback_performed=rollback_performed,
+                transaction_improvement_summary=transaction_improvement_summary,
             )
             _write_json(self._report_path(generated_at), _dataclass_to_dict(report))
             return report
@@ -310,14 +382,20 @@ class CathedralForge:
         campaign = resolve_campaign(campaign_id)
         if campaign is None:
             return self.run("forge_smoke_noop")
+
         notes: list[str] = [f"campaign_id:{campaign.campaign_id}"]
         failure_reasons: list[str] = []
         artifacts: list[str] = []
         step_results: list[CommandResult] = []
+        subreports: list[dict[str, object]] = []
         last_report: ForgeReport | None = None
+        transaction_policy = TransactionPolicy()
+        before = capture_snapshot(self.repo_root, self.repo_root, git_ops=self.git_ops)
+
         for campaign_goal in campaign.goals:
             report = self.run(campaign_goal)
             last_report = report
+            subreports.append({"goal": campaign_goal, "outcome": report.outcome, "report_generated_at": report.generated_at})
             notes.append(f"campaign_goal:{campaign_goal}:{report.outcome}")
             artifacts.append(report.plan_path)
             if report.docket_path:
@@ -326,9 +404,28 @@ class CathedralForge:
                 failure_reasons.append(f"campaign_goal_failed:{campaign_goal}")
                 if campaign.stop_on_failure:
                     break
+
         generated_at = _iso_now()
         if last_report is None:
             return self.run("forge_smoke_noop")
+
+        after = capture_snapshot(self.repo_root, self.repo_root, git_ops=self.git_ops)
+        regressed, regression_reasons, improved, improvement_summary = compare_snapshots(before, after, policy=transaction_policy)
+        quarantine_ref: str | None = None
+        rollback_performed = False
+        transaction_status = "aborted"
+        if regressed or failure_reasons:
+            failure_reasons.extend([reason for reason in regression_reasons if reason not in failure_reasons])
+            notes_path = self.forge_dir / f"quarantine_{_safe_timestamp(generated_at)}.json"
+            if transaction_policy.quarantine_on_failure:
+                quarantine_ref = quarantine(self.repo_root, transaction_policy.quarantine_branch_prefix, notes_path, git_ops=self.git_ops)
+                if quarantine_ref:
+                    artifacts.append(str(notes_path))
+            rollback_performed = rollback_session(self.repo_root, git_ops=self.git_ops)
+            transaction_status = "quarantined" if quarantine_ref else "rolled_back"
+        elif improved:
+            transaction_status = "committed"
+
         return ForgeReport(
             schema_version=SCHEMA_VERSION,
             generated_at=generated_at,
@@ -346,15 +443,21 @@ class CathedralForge:
             outcome="failed" if failure_reasons else "success",
             failure_reasons=failure_reasons,
             notes=notes,
-            test_failures_before=last_report.test_failures_before,
-            test_failures_after=last_report.test_failures_after,
+            test_failures_before=before.ci_baseline.get("failed_count") if isinstance(before.ci_baseline.get("failed_count"), int) else None,
+            test_failures_after=after.ci_baseline.get("failed_count") if isinstance(after.ci_baseline.get("failed_count"), int) else None,
             docket_path=last_report.docket_path,
             baseline_harvests=last_report.baseline_harvests,
             baseline_fixes=last_report.baseline_fixes,
             baseline_budget=last_report.baseline_budget,
-            ci_baseline_before=last_report.ci_baseline_before,
-            ci_baseline_after=last_report.ci_baseline_after,
+            ci_baseline_before=before.ci_baseline,
+            ci_baseline_after=after.ci_baseline,
             progress_delta=last_report.progress_delta,
+            transaction_status=transaction_status,
+            regression_reasons=regression_reasons or None,
+            quarantine_ref=quarantine_ref,
+            rollback_performed=rollback_performed,
+            transaction_improvement_summary=improvement_summary,
+            campaign_subreports=subreports,
         )
 
     def apply(self, goal: GoalSpec, session: ForgeSession) -> ApplyResult:
@@ -441,16 +544,30 @@ class CathedralForge:
             return max(1, int(os.getenv("SENTIENTOS_FORGE_SMOKE_TIMEOUT_SECONDS", "30")))
         return 600
 
-    def _maybe_publish(self, goal: GoalSpec, session: ForgeSession) -> list[str]:
+    def _maybe_publish(
+        self,
+        goal: GoalSpec,
+        session: ForgeSession,
+        *,
+        improvement_summary: str | None,
+        ci_baseline_before: dict[str, object] | None,
+        ci_baseline_after: dict[str, object] | None,
+    ) -> list[str]:
         notes: list[str] = []
         root = Path(session.root_path)
+        if os.getenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "0") != "1":
+            return notes
+        if os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1" and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH", "0") != "1":
+            return notes
         if os.getenv("SENTIENTOS_FORGE_AUTOCOMMIT") == "1":
-            message = f"[forge:{goal.goal_id}] automated forge session"
+            delta_before = ci_baseline_before.get("failed_count") if isinstance(ci_baseline_before, dict) else None
+            delta_after = ci_baseline_after.get("failed_count") if isinstance(ci_baseline_after, dict) else None
+            message = f"[forge:{goal.goal_id}] transaction {improvement_summary or 'improved'} ci_delta={delta_before}->{delta_after}"
             subprocess.run(["git", "add", "-A"], cwd=root, check=False, capture_output=True, text=True)
             subprocess.run(["git", "commit", "-m", message], cwd=root, check=False, capture_output=True, text=True)
             notes.append("autocommit_enabled")
         if os.getenv("SENTIENTOS_FORGE_AUTOPR") == "1":
-            metadata = self._build_pr_metadata(goal, root)
+            metadata = self._build_pr_metadata(goal, root, improvement_summary=improvement_summary, ci_baseline_before=ci_baseline_before, ci_baseline_after=ci_baseline_after)
             metadata_path = self._pr_path(_iso_now())
             _write_json(metadata_path, metadata)
             make_probe = subprocess.run(["make", "-n", "make_pr"], cwd=root, capture_output=True, text=True, check=False)
@@ -460,7 +577,15 @@ class CathedralForge:
             notes.append(f"autopr_metadata:{metadata_path}")
         return notes
 
-    def _build_pr_metadata(self, goal: GoalSpec, root: Path) -> dict[str, Any]:
+    def _build_pr_metadata(
+        self,
+        goal: GoalSpec,
+        root: Path,
+        *,
+        improvement_summary: str | None,
+        ci_baseline_before: dict[str, object] | None,
+        ci_baseline_after: dict[str, object] | None,
+    ) -> dict[str, Any]:
         changed_paths = _git_changed_paths(root)
         body = build_pr_notes(
             diff_stats=_git_diff_stats(root),
@@ -469,6 +594,15 @@ class CathedralForge:
             tests_run=["contract_drift", "emit_contract_status", goal.gate_profile],
             risks=[*goal.risk_notes, *goal.rollback_notes, f"goal_id={goal.goal_id}"],
         )
+        transaction_section = "\n\n## Transaction\n" + "\n".join([
+            f"- status: committed",
+            f"- improvement: {improvement_summary or 'n/a'}",
+            f"- ci_baseline_before: {ci_baseline_before}",
+            f"- ci_baseline_after: {ci_baseline_after}",
+            "- contract_status_before: embedded in report",
+            "- contract_status_after: embedded in report",
+        ])
+        body = body + transaction_section
         return {
             "title": f"[forge:{goal.goal_id}] automated forge proposal",
             "body": body,
