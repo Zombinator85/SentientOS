@@ -99,3 +99,26 @@ def test_pr_notes_generator_avoids_placeholder_content() -> None:
     assert "placeholder PR body" not in body.lower()
     assert "What changed" in body
     assert "wired daemon tick" in body
+
+
+def test_daemon_policy_rejects_non_allowlisted_goal(tmp_path: Path, monkeypatch) -> None:
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    queue.enqueue(ForgeRequest(request_id="req-1", goal="unsafe_goal", goal_id="unsafe_goal"))
+    forge = _FakeForge(tmp_path)
+
+    policy_path = tmp_path / "glow" / "forge" / "policy.json"
+    policy_path.parent.mkdir(parents=True, exist_ok=True)
+    policy_path.write_text(json.dumps({
+        "allowlisted_goal_ids": ["forge_smoke_noop"],
+        "allowlisted_autopublish_flags": [],
+        "max_budget": {},
+    }), encoding="utf-8")
+
+    daemon = ForgeDaemon(queue=queue, forge=forge, repo_root=tmp_path)
+    monkeypatch.setenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "1")
+
+    daemon.run_tick()
+
+    assert forge.runs == []
+    receipts = queue.recent_receipts(limit=5)
+    assert any(receipt.status == "rejected_policy" for receipt in receipts)

@@ -15,6 +15,7 @@ from sentientos.event_stream import record as record_event
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
 LOGGER = logging.getLogger(__name__)
+POLICY_PATH = Path("glow/forge/policy.json")
 
 
 @dataclass(slots=True)
@@ -46,6 +47,7 @@ class ForgeDaemon:
         self.lock_path = self.repo_root / ".forge" / "forge.lock"
         self.lock_ttl_seconds = max(60, int(os.getenv("SENTIENTOS_FORGE_LOCK_TTL_SECONDS", "7200")))
         self.governor = ForgeGovernor.from_env()
+        self.policy = _load_policy(self.repo_root / POLICY_PATH)
 
     def run_tick(self) -> None:
         if os.getenv("SENTIENTOS_FORGE_DAEMON_ENABLED", "0") != "1":
@@ -56,6 +58,17 @@ class ForgeDaemon:
 
         request = self.queue.next_request()
         if request is None:
+            return
+
+        policy_error = self._validate_request_policy(request)
+        if policy_error:
+            self.queue.mark_finished(
+                request.request_id,
+                status="rejected_policy",
+                report_path=None,
+                error=policy_error,
+            )
+            self._emit(f"ForgeDaemon policy rejected request {request.request_id}: {policy_error}", level="warning")
             return
 
         if not self._within_budget(request):
@@ -103,6 +116,28 @@ class ForgeDaemon:
             self._emit(f"ForgeDaemon failed request {request.request_id}: {exc}", level="error")
         finally:
             self._clear_lock()
+
+    def _validate_request_policy(self, request: ForgeRequest) -> str | None:
+        allowed_goals = self.policy.get("allowlisted_goal_ids")
+        if isinstance(allowed_goals, list):
+            goal_id = request.goal_id or request.goal
+            if goal_id not in {item for item in allowed_goals if isinstance(item, str)}:
+                return f"goal_id_not_allowlisted:{goal_id}"
+
+        allowed_flags = self.policy.get("allowlisted_autopublish_flags")
+        if isinstance(allowed_flags, list):
+            allowed_set = {item for item in allowed_flags if isinstance(item, str)}
+            for key in request.autopublish_flags:
+                if key not in allowed_set:
+                    return f"autopublish_flag_not_allowlisted:{key}"
+
+        max_budget = self.policy.get("max_budget")
+        if isinstance(max_budget, dict) and request.max_budget_overrides:
+            for key, value in request.max_budget_overrides.items():
+                cap = max_budget.get(key)
+                if isinstance(cap, int) and value > cap:
+                    return f"budget_override_exceeds_policy:{key}>{cap}"
+        return None
 
     def _within_budget(self, request: ForgeRequest) -> bool:
         now = datetime.now(timezone.utc)
@@ -235,3 +270,15 @@ def _extract_pr_metadata_path(notes: list[str]) -> str | None:
 def _is_in_window(value: str | None, floor: datetime) -> bool:
     parsed = _parse_iso(value)
     return parsed is not None and parsed >= floor
+
+
+def _load_policy(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {
+            "allowlisted_goal_ids": ["forge_smoke_noop", "baseline_reclamation", "repo_green_storm"],
+            "allowlisted_autopublish_flags": [],
+            "max_budget": {},
+        }
+    return payload if isinstance(payload, dict) else {}

@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 from typing import Any
 
+from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
 from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
@@ -73,6 +74,9 @@ class ForgeReport:
     baseline_harvests: list[HarvestResult] | None = None
     baseline_fixes: list[FixResult] | None = None
     baseline_budget: dict[str, int] | None = None
+    ci_baseline_before: dict[str, object] | None = None
+    ci_baseline_after: dict[str, object] | None = None
+    progress_delta: dict[str, float | int] | None = None
 
 
 class CathedralForge:
@@ -121,6 +125,9 @@ class CathedralForge:
         baseline_harvests: list[HarvestResult] = []
         baseline_fixes: list[FixResult] = []
         baseline_budget: dict[str, int] | None = None
+        ci_baseline_before: dict[str, object] | None = None
+        ci_baseline_after: dict[str, object] | None = None
+        progress_delta: dict[str, float | int] | None = None
 
         try:
             drift_result = self._run_step(
@@ -162,9 +169,17 @@ class CathedralForge:
                 contract_status_embedded=status_payload,
             )
 
+            if goal_spec.goal_id == "repo_green_storm":
+                before_snapshot = emit_ci_baseline(
+                    output_path=Path(session.root_path) / CI_BASELINE_PATH,
+                    run_command=True,
+                )
+                ci_baseline_before = _dataclass_to_dict(before_snapshot)
+                artifacts_written.append(str(CI_BASELINE_PATH))
+
             apply_result = ApplyResult(status="skipped", step_results=[], summary="skipped: preflight failed")
             if not failure_reasons:
-                if goal_spec.goal_id == "baseline_reclamation":
+                if goal_spec.goal_id in {"baseline_reclamation", "repo_green_storm"}:
                     (
                         apply_result,
                         test_failures_before,
@@ -195,6 +210,26 @@ class CathedralForge:
                 )
                 if tests_step.returncode != 0:
                     failure_reasons.append("tests_failed")
+
+            if goal_spec.goal_id == "repo_green_storm":
+                after_snapshot = emit_ci_baseline(output_path=Path(session.root_path) / CI_BASELINE_PATH, run_command=True)
+                ci_baseline_after = _dataclass_to_dict(after_snapshot)
+                artifacts_written.append(str(CI_BASELINE_PATH))
+                before_failed = int((ci_baseline_before or {}).get("failed_count", test_failures_before or 0))
+                after_failed = int((ci_baseline_after or {}).get("failed_count", test_failures_after or 0))
+                if before_failed > 0:
+                    reduction_pct = ((before_failed - after_failed) / before_failed) * 100
+                else:
+                    reduction_pct = 0.0
+                progress_delta = {
+                    "failed_count_before": before_failed,
+                    "failed_count_after": after_failed,
+                    "reduction_pct": round(reduction_pct, 2),
+                }
+                if after_failed > 0 and reduction_pct >= float(os.getenv("SENTIENTOS_FORGE_PROGRESS_MIN_PCT", "30")):
+                    notes.append(f"repo_green_storm_progress:{reduction_pct:.2f}%")
+                if after_failed > 0:
+                    failure_reasons.append("repo_green_storm_not_green")
 
             publish_notes = self._maybe_publish(goal_spec, session)
             notes.extend(publish_notes)
@@ -233,6 +268,9 @@ class CathedralForge:
                 baseline_harvests=baseline_harvests or None,
                 baseline_fixes=baseline_fixes or None,
                 baseline_budget=baseline_budget,
+                ci_baseline_before=ci_baseline_before,
+                ci_baseline_after=ci_baseline_after,
+                progress_delta=progress_delta,
             )
             _write_json(self._report_path(generated_at), _dataclass_to_dict(report))
             return report
@@ -376,7 +414,7 @@ class CathedralForge:
             harvest_step = self._run_step(
                 CommandSpec(
                     step=f"baseline_harvest_{iteration}",
-                    argv=self._baseline_harvest_argv(forge_env.python),
+                    argv=self._baseline_harvest_argv(forge_env.python, goal_spec.goal_id),
                 ),
                 cwd,
             )
@@ -411,7 +449,7 @@ class CathedralForge:
                     _budget_payload(budget, iteration, len(touched_files_total)),
                 )
 
-            candidates = generate_fix_candidates(harvest.clusters, cwd)
+            candidates = _prioritize_root_cause_candidates(generate_fix_candidates(harvest.clusters, cwd), harvest.clusters)
             selected = candidates[: budget.max_fixes_per_iteration]
             iteration_changed: set[str] = set()
             progress = False
@@ -428,6 +466,27 @@ class CathedralForge:
                 self._run_optional_formatters(cwd, sorted(iteration_changed), step_results, goal_spec)
                 if os.getenv("SENTIENTOS_FORGE_AUTOCOMMIT") == "1":
                     self._autocommit_iteration(cwd, goal_spec.goal_id, iteration)
+
+            rerun_every = max(1, int(os.getenv("SENTIENTOS_FORGE_FULL_RERUN_EVERY", "2")))
+            if progress:
+                nodeids = [cluster.signature.nodeid for cluster in harvest.clusters if cluster.signature.nodeid and cluster.signature.nodeid != "unknown"]
+                if nodeids:
+                    targeted_step = self._run_step(
+                        CommandSpec(
+                            step=f"baseline_targeted_rerun_{iteration}",
+                            argv=[forge_env.python, "-m", "scripts.run_tests", "-q", *nodeids[:20]],
+                        ),
+                        cwd,
+                    )
+                    step_results.append(targeted_step)
+                    if targeted_step.returncode != 0 and iteration % rerun_every != 0:
+                        continue
+                if iteration % rerun_every == 0:
+                    cadence_step = self._run_step(
+                        CommandSpec(step=f"baseline_full_rerun_{iteration}", argv=self._baseline_harvest_argv(forge_env.python, goal_spec.goal_id)),
+                        cwd,
+                    )
+                    step_results.append(cadence_step)
 
             if len(iteration_changed) > budget.max_files_changed_per_iteration or len(touched_files_total) > budget.max_total_files_changed:
                 docket_path = self._emit_docket(goal, goal_spec.goal_id, generated_at, harvest.clusters, selected, "budget limits reached")
@@ -469,8 +528,9 @@ class CathedralForge:
             _budget_payload(budget, budget.max_iterations, len(touched_files_total)),
         )
 
-    def _baseline_harvest_argv(self, python_bin: str) -> list[str]:
-        runner = os.getenv("SENTIENTOS_FORGE_HARVEST_RUNNER", "pytest").strip().lower()
+    def _baseline_harvest_argv(self, python_bin: str, goal_id: str = "baseline_reclamation") -> list[str]:
+        default_runner = "run_tests" if goal_id == "repo_green_storm" else "pytest"
+        runner = os.getenv("SENTIENTOS_FORGE_HARVEST_RUNNER", default_runner).strip().lower()
         if runner == "run_tests":
             return [python_bin, "-m", "scripts.run_tests", "-q", "--maxfail=50"]
         return [python_bin, "-m", "pytest", "-q", "--maxfail=50", "--disable-warnings"]
@@ -664,3 +724,18 @@ def _budget_payload(config: BudgetConfig, iterations_used: int, total_files_chan
         "iterations_used": iterations_used,
         "total_files_changed": total_files_changed,
     }
+
+
+def _prioritize_root_cause_candidates(candidates: list[Any], clusters: list[FailureCluster]) -> list[Any]:
+    has_import_cluster = any(cluster.signature.error_type in {"ImportError", "ModuleNotFoundError"} for cluster in clusters)
+    if not has_import_cluster:
+        return candidates
+
+    def _score(candidate: Any) -> tuple[int, str]:
+        description = getattr(candidate, "description", "")
+        if not isinstance(description, str):
+            description = ""
+        priority = 0 if "import" in description.lower() or "module" in description.lower() else 1
+        return (priority, description)
+
+    return sorted(candidates, key=_score)

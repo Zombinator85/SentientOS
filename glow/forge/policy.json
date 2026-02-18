@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "allowlisted_goal_ids": [
+    "forge_smoke_noop",
+    "baseline_reclamation",
+    "repo_green_storm"
+  ],
+  "allowlisted_autopublish_flags": [],
+  "max_budget": {
+    "max_iterations": 5,
+    "max_fixes_per_iteration": 5,
+    "max_total_files_changed": 200
+  }
+}

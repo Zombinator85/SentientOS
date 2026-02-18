@@ -197,6 +197,14 @@ jobs:
         if: always()
         run: python -m scripts.emit_contract_status || true
 
+      - name: Optional CI baseline contract gate
+        if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
+        run: |
+          python -m scripts.run_tests -q
+          python scripts/emit_ci_baseline.py
+          python scripts/emit_contract_status.py
+
+
       - name: Upload test run provenance
         if: always()
         uses: actions/upload-artifact@v4
@@ -341,6 +349,14 @@ jobs:
       - name: Emit contract status rollup
         if: always()
         run: python -m scripts.emit_contract_status || true
+
+      - name: Optional CI baseline contract gate
+        if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
+        run: |
+          python -m scripts.run_tests -q
+          python scripts/emit_ci_baseline.py
+          python scripts/emit_contract_status.py
+
 
       - name: Upload test run provenance
         if: always()
