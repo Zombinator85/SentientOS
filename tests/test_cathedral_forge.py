@@ -494,3 +494,53 @@ def test_campaign_goal_executes_order_and_stops_on_failure(tmp_path: Path, monke
 
     assert calls == ["repo_green_storm"]
     assert campaign_report.outcome == "failed"
+
+
+def test_publish_blocked_when_transaction_regressed(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+
+    def fake_create_session(generated_at: str):
+        root = tmp_path / "session"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "glow/contracts").mkdir(parents=True, exist_ok=True)
+        (root / "glow/contracts/ci_baseline.json").write_text('{"passed": true, "failed_count": 0}', encoding="utf-8")
+        (root / "glow/contracts/contract_status.json").write_text('{"contracts": []}', encoding="utf-8")
+        return type("Session", (), {
+            "session_id": "s1",
+            "root_path": str(root),
+            "strategy": "copy",
+            "branch_name": "forge/s1",
+            "preserved_on_failure": False,
+            "cleanup_performed": False,
+            "env_python_path": "",
+            "env_venv_path": "",
+            "env_reused": True,
+            "env_install_summary": "",
+            "env_cache_key": "",
+        })()
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            (cwd / "glow/contracts/contract_status.json").write_text('{"contracts": []}', encoding="utf-8")
+        if command.step == "tests":
+            (cwd / "glow/contracts/ci_baseline.json").write_text('{"passed": false, "failed_count": 2}', encoding="utf-8")
+        return _ok_step(command, cwd)
+
+    called = {"publish": 0}
+
+    def fake_publish(*args, **kwargs):
+        called["publish"] += 1
+        return []
+
+    monkeypatch.setattr(forge, "_create_session", fake_create_session)
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setattr(forge, "_cleanup_session", lambda session: None)
+    monkeypatch.setattr(forge, "_maybe_publish", fake_publish)
+
+    report = forge.run("forge_self_hosting")
+
+    assert report.outcome == "failed"
+    assert report.transaction_status in {"quarantined", "rolled_back"}
+    assert called["publish"] == 0

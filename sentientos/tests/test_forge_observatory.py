@@ -108,3 +108,15 @@ def test_gui_smoke_import_registers_forge_panel(monkeypatch) -> None:  # type: i
 
     module = importlib.import_module("gui.cathedral_gui")
     assert module.forge_panel_registered() is True
+
+
+def test_index_includes_quarantines(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/forge/quarantine_2026-01-01T00-00-00Z.json").write_text('{"quarantine_ref":"quarantine/forge-1","reasons":["no_progress"]}\n', encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    assert "latest_quarantines" in payload
+    assert payload["latest_quarantines"]

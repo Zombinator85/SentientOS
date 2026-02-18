@@ -329,6 +329,15 @@ def _render_forge_panel() -> None:
     st.subheader("Receipts (latest)")
     st.dataframe(index.get("latest_receipts", []))
 
+    st.subheader("Quarantines")
+    quarantines = index.get("latest_quarantines", [])
+    st.dataframe(quarantines)
+    if isinstance(quarantines, list) and quarantines:
+        selected = st.selectbox("Quarantine", [str(item.get("path", "")) for item in quarantines])
+        if selected:
+            st.code(selected)
+            st.json(next((item for item in quarantines if str(item.get("path", "")) == selected), {}))
+
     if allowed_goals:
         st.subheader("Enqueue allowlisted goal")
         selected_goal = st.selectbox("Goal", allowed_goals)

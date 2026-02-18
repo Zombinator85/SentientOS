@@ -93,3 +93,21 @@ def test_campaign_spec_exists_and_order() -> None:
     assert isinstance(campaign, CampaignSpec)
     assert campaign.goals == ["repo_green_storm"]
     assert campaign.stop_on_failure is True
+
+
+def test_note_quarantine_extends_cooldown_and_records_state(tmp_path: Path) -> None:
+    _seed_contracts(tmp_path, prev_failed=0, cur_failed=2)
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    sentinel = ContractSentinel(repo_root=tmp_path, queue=queue)
+    policy = sentinel.load_policy()
+    policy.enabled = True
+    policy.cooldown_minutes = {"global": 1, "ci_baseline": 2}
+    sentinel.save_policy(policy)
+
+    sentinel.note_quarantine(domain="ci_baseline", quarantine_ref="quarantine/forge-123", reasons=["contract_drift_appeared"])
+
+    next_policy = sentinel.load_policy()
+    state = sentinel.load_state()
+    assert next_policy.cooldown_minutes["ci_baseline"] == 6
+    assert state.last_quarantine_by_domain["ci_baseline"] == "quarantine/forge-123"
+    assert state.last_quarantine_reasons["ci_baseline"] == ["contract_drift_appeared"]

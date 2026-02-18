@@ -51,6 +51,8 @@ class SentinelState:
     last_enqueued_at_by_domain: dict[str, str] = field(default_factory=dict)
     enqueues_today: int = 0
     last_reset_date: str = ""
+    last_quarantine_by_domain: dict[str, str] = field(default_factory=dict)
+    last_quarantine_reasons: dict[str, list[str]] = field(default_factory=dict)
 
 
 class ContractSentinel:
@@ -90,6 +92,8 @@ class ContractSentinel:
             last_enqueued_at_by_domain={str(k): str(v) for k, v in payload.get("last_enqueued_at_by_domain", {}).items()} if isinstance(payload.get("last_enqueued_at_by_domain"), dict) else {},
             enqueues_today=int(payload.get("enqueues_today", 0)),
             last_reset_date=str(payload.get("last_reset_date", _today_utc())),
+            last_quarantine_by_domain={str(k): str(v) for k, v in payload.get("last_quarantine_by_domain", {}).items()} if isinstance(payload.get("last_quarantine_by_domain"), dict) else {},
+            last_quarantine_reasons={str(k): [str(item) for item in v if isinstance(item, str)] for k, v in payload.get("last_quarantine_reasons", {}).items() if isinstance(v, list)} if isinstance(payload.get("last_quarantine_reasons"), dict) else {},
         )
 
     def save_state(self, state: SentinelState) -> None:
@@ -136,7 +140,7 @@ class ContractSentinel:
                     "trigger_digest": digest,
                     "sentinel_triggered": True,
                 },
-                autopublish_flags=({"auto_publish": True} if policy.allow_autopublish else {}),
+                autopublish_flags=({"auto_publish": True, "sentinel_allow_autopublish": True} if policy.allow_autopublish else {}),
             )
             request_id = self.queue.enqueue(request)
             state.last_enqueued_at_by_domain[domain] = now
@@ -172,6 +176,8 @@ class ContractSentinel:
                 "enqueues_today": state.enqueues_today,
                 "max_enqueues_per_day": policy.max_enqueues_per_day,
                 "cooldown_remaining_seconds": cooldown_remaining,
+                "last_quarantine_by_domain": state.last_quarantine_by_domain,
+                "last_quarantine_reasons": state.last_quarantine_reasons,
             },
         }
 
@@ -325,6 +331,27 @@ class ContractSentinel:
                 **details,
             }
         )
+
+    def note_quarantine(self, *, domain: str, quarantine_ref: str | None, reasons: list[str]) -> None:
+        policy = self.load_policy()
+        state = self.load_state()
+        state.last_quarantine_by_domain[domain] = quarantine_ref or ""
+        state.last_quarantine_reasons[domain] = [str(item) for item in reasons]
+        state.last_enqueued_at_by_domain[domain] = _iso_now()
+        self.save_state(state)
+        record_forge_event({
+            "event": "sentinel_quarantine",
+            "domain": domain,
+            "quarantine_ref": quarantine_ref,
+            "reasons": reasons,
+            "level": "warning",
+        })
+        extra = max(1, policy.cooldown_minutes.get(domain, policy.cooldown_minutes.get("global", 30))) * 3
+        state.last_enqueued_at_by_domain[domain] = _iso_now()
+        policy.cooldown_minutes[domain] = extra
+        self.save_policy(policy)
+        self.save_state(state)
+
 
 
 def _load_json(path: Path) -> dict[str, Any]:
