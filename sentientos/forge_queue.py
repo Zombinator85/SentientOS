@@ -43,6 +43,8 @@ class ForgeReceipt:
     commit_sha: str | None = None
     pr_metadata_path: str | None = None
     error: str | None = None
+    provenance_run_id: str | None = None
+    provenance_path: str | None = None
 
 
 class ForgeQueue:
@@ -100,6 +102,8 @@ class ForgeQueue:
         error: str | None = None,
         started_at: str | None = None,
         finished_at: str | None = None,
+        provenance_run_id: str | None = None,
+        provenance_path: str | None = None,
     ) -> ForgeReceipt:
         receipt = ForgeReceipt(
             request_id=request_id,
@@ -111,6 +115,8 @@ class ForgeQueue:
             commit_sha=commit_sha,
             pr_metadata_path=pr_metadata_path,
             error=error,
+            provenance_run_id=provenance_run_id,
+            provenance_path=provenance_path,
         )
         self._append_jsonl(self.receipts_path, asdict(receipt))
         return receipt
@@ -267,4 +273,6 @@ def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:
         commit_sha=_opt("commit_sha"),
         pr_metadata_path=_opt("pr_metadata_path"),
         error=_opt("error"),
+        provenance_run_id=_opt("provenance_run_id"),
+        provenance_path=_opt("provenance_path"),
     )

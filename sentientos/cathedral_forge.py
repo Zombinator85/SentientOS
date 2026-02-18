@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 from typing import Any
+import uuid
 
 from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
 from sentientos.forge_budget import BudgetConfig
@@ -20,6 +22,7 @@ from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix
 from sentientos.forge_campaigns import resolve_campaign
 from sentientos.forge_goals import GoalSpec, resolve_goal
 from sentientos.forge_pr_notes import build_pr_notes
+from sentientos.forge_provenance import ForgeProvenance
 from sentientos.forge_transaction import (
     ForgeGitOps,
     TransactionPolicy,
@@ -92,6 +95,8 @@ class ForgeReport:
     rollback_performed: bool = False
     transaction_improvement_summary: str | None = None
     campaign_subreports: list[dict[str, object]] | None = None
+    provenance_run_id: str | None = None
+    provenance_path: str | None = None
 
 
 class CathedralForge:
@@ -101,6 +106,7 @@ class CathedralForge:
         self.repo_root = (repo_root or Path.cwd()).resolve()
         self.forge_dir = forge_dir
         self.git_ops = ForgeGitOps()
+        self._active_provenance: ForgeProvenance | None = None
 
     def plan(self, goal: str) -> ForgePlan:
         generated_at = _iso_now()
@@ -117,9 +123,9 @@ class CathedralForge:
         _write_json(self._plan_path(generated_at), _dataclass_to_dict(plan))
         return plan
 
-    def run(self, goal: str) -> ForgeReport:
+    def run(self, goal: str, *, initiator: str = "manual", request_id: str | None = None, metadata: dict[str, object] | None = None) -> ForgeReport:
         if goal.startswith("campaign:"):
-            return self._run_campaign(goal)
+            return self._run_campaign(goal, initiator=initiator, request_id=request_id, metadata=metadata)
         generated_at = _iso_now()
         goal_spec = resolve_goal(goal)
         goal_profile = resolve_goal_profile(goal_spec)
@@ -155,11 +161,30 @@ class CathedralForge:
         transaction_policy = TransactionPolicy()
         before_snapshot = None
         after_snapshot = None
+        run_started_at = generated_at
+        provenance = ForgeProvenance(self.repo_root, run_id=str(uuid.uuid4()))
+        self._active_provenance = provenance
 
         try:
             if goal_profile.name != "smoke_noop" and transaction_policy.enabled:
                 before_snapshot = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
                 ci_baseline_before = dict(before_snapshot.ci_baseline)
+                provenance.add_step(
+                    provenance.make_step(
+                        step_id="snapshot_before",
+                        kind="snapshot",
+                        command={"action": "capture_snapshot", "phase": "before"},
+                        cwd=str(session.root_path),
+                        env_fingerprint=_env_fingerprint(),
+                        started_at=_iso_now(),
+                        finished_at=_iso_now(),
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        artifacts_written=[],
+                        notes="transaction before snapshot",
+                    )
+                )
 
             drift_result = self._run_step(
                 CommandSpec(
@@ -288,6 +313,22 @@ class CathedralForge:
             if goal_profile.name != "smoke_noop" and transaction_policy.enabled:
                 after_snapshot = capture_snapshot(self.repo_root, Path(session.root_path), git_ops=self.git_ops)
                 ci_baseline_after = dict(after_snapshot.ci_baseline)
+                provenance.add_step(
+                    provenance.make_step(
+                        step_id="snapshot_after",
+                        kind="snapshot",
+                        command={"action": "capture_snapshot", "phase": "after"},
+                        cwd=str(session.root_path),
+                        env_fingerprint=_env_fingerprint(),
+                        started_at=_iso_now(),
+                        finished_at=_iso_now(),
+                        exit_code=0,
+                        stdout="",
+                        stderr="",
+                        artifacts_written=[],
+                        notes="transaction after snapshot",
+                    )
+                )
                 regressed, regression_reasons, improved, improvement_summary = compare_snapshots(
                     before_snapshot,
                     after_snapshot,
@@ -307,7 +348,38 @@ class CathedralForge:
                         )
                         if quarantine_ref:
                             artifacts_written.append(str(notes_path))
+                            provenance.add_step(
+                                provenance.make_step(
+                                    step_id="quarantine",
+                                    kind="quarantine",
+                                    command={"action": "quarantine", "notes_path": str(notes_path)},
+                                    cwd=str(session.root_path),
+                                    env_fingerprint=_env_fingerprint(),
+                                    started_at=_iso_now(),
+                                    finished_at=_iso_now(),
+                                    exit_code=0,
+                                    stdout="",
+                                    stderr="",
+                                    artifacts_written=[str(notes_path)],
+                                )
+                            )
                     rollback_performed = rollback_session(Path(session.root_path), git_ops=self.git_ops)
+                    if rollback_performed:
+                        provenance.add_step(
+                            provenance.make_step(
+                                step_id="rollback",
+                                kind="rollback",
+                                command={"action": "rollback_session"},
+                                cwd=str(session.root_path),
+                                env_fingerprint=_env_fingerprint(),
+                                started_at=_iso_now(),
+                                finished_at=_iso_now(),
+                                exit_code=0,
+                                stdout="",
+                                stderr="",
+                                artifacts_written=[],
+                            )
+                        )
                     transaction_status = "quarantined" if quarantine_ref else "rolled_back"
                 elif improved:
                     transaction_status = "committed"
@@ -371,13 +443,36 @@ class CathedralForge:
                 rollback_performed=rollback_performed,
                 transaction_improvement_summary=transaction_improvement_summary,
             )
+            run_finished_at = _iso_now()
+            header = provenance.build_header(
+                started_at=run_started_at,
+                finished_at=run_finished_at,
+                initiator=initiator,
+                request_id=request_id,
+                goal=goal,
+                goal_id=goal_spec.goal_id,
+                campaign_id=(goal.split(":", 1)[1] if goal.startswith("campaign:") else None),
+                transaction_status=transaction_status,
+                quarantine_ref=quarantine_ref,
+            )
+            provenance_path, _bundle, _chain = provenance.finalize(
+                header=header,
+                env_cache_key=session.env_cache_key,
+                before_snapshot=before_snapshot,
+                after_snapshot=after_snapshot,
+                artifacts=[*artifacts_written, str(self._report_path(generated_at))],
+            )
+            report.provenance_run_id = provenance.run_id
+            report.provenance_path = str(provenance_path)
             _write_json(self._report_path(generated_at), _dataclass_to_dict(report))
+            self._active_provenance = None
             return report
         except Exception:
             session.preserved_on_failure = True
+            self._active_provenance = None
             raise
 
-    def _run_campaign(self, goal: str) -> ForgeReport:
+    def _run_campaign(self, goal: str, *, initiator: str = "manual", request_id: str | None = None, metadata: dict[str, object] | None = None) -> ForgeReport:
         campaign_id = goal.split(":", 1)[1] if ":" in goal else ""
         campaign = resolve_campaign(campaign_id)
         if campaign is None:
@@ -393,7 +488,7 @@ class CathedralForge:
         before = capture_snapshot(self.repo_root, self.repo_root, git_ops=self.git_ops)
 
         for campaign_goal in campaign.goals:
-            report = self.run(campaign_goal)
+            report = self.run(campaign_goal, initiator=initiator, request_id=request_id, metadata=metadata)
             last_report = report
             subreports.append({"goal": campaign_goal, "outcome": report.outcome, "report_generated_at": report.generated_at})
             notes.append(f"campaign_goal:{campaign_goal}:{report.outcome}")
@@ -425,6 +520,41 @@ class CathedralForge:
             transaction_status = "quarantined" if quarantine_ref else "rolled_back"
         elif improved:
             transaction_status = "committed"
+
+        campaign_provenance = ForgeProvenance(self.repo_root, run_id=str(uuid.uuid4()))
+        campaign_header = campaign_provenance.build_header(
+            started_at=before.timestamp,
+            finished_at=generated_at,
+            initiator=initiator,
+            request_id=request_id,
+            goal=goal,
+            goal_id=goal,
+            campaign_id=campaign_id,
+            transaction_status=transaction_status,
+            quarantine_ref=quarantine_ref,
+        )
+        campaign_step = campaign_provenance.make_step(
+            step_id="campaign_summary",
+            kind="apply",
+            command={"action": "campaign", "goals": list(campaign.goals)},
+            cwd=str(self.repo_root),
+            env_fingerprint=_env_fingerprint(),
+            started_at=before.timestamp,
+            finished_at=generated_at,
+            exit_code=0 if not failure_reasons else 1,
+            stdout=json.dumps(subreports, sort_keys=True),
+            stderr="",
+            artifacts_written=artifacts,
+            notes="campaign aggregate",
+        )
+        campaign_provenance.add_step(campaign_step, stdout=json.dumps(subreports, sort_keys=True), stderr="")
+        campaign_prov_path, _campaign_bundle, _campaign_chain = campaign_provenance.finalize(
+            header=campaign_header,
+            env_cache_key=last_report.session.env_cache_key,
+            before_snapshot=before,
+            after_snapshot=after,
+            artifacts=artifacts,
+        )
 
         return ForgeReport(
             schema_version=SCHEMA_VERSION,
@@ -458,6 +588,8 @@ class CathedralForge:
             rollback_performed=rollback_performed,
             transaction_improvement_summary=improvement_summary,
             campaign_subreports=subreports,
+            provenance_run_id=campaign_provenance.run_id,
+            provenance_path=str(campaign_prov_path),
         )
 
     def apply(self, goal: GoalSpec, session: ForgeSession) -> ApplyResult:
@@ -500,6 +632,7 @@ class CathedralForge:
 
     def _run_step(self, command: CommandSpec, cwd: Path) -> CommandResult:
         env = merge_env(os.environ, command.env)
+        started_at = _iso_now()
         try:
             completed = subprocess.run(
                 command.argv,
@@ -510,7 +643,7 @@ class CathedralForge:
                 check=False,
                 timeout=command.timeout_seconds,
             )
-            return CommandResult(
+            result = CommandResult(
                 step=command.step,
                 argv=command.argv,
                 cwd=str(cwd),
@@ -520,8 +653,10 @@ class CathedralForge:
                 stdout=_truncate_output(completed.stdout or ""),
                 stderr=_truncate_output(completed.stderr or ""),
             )
+            self._record_provenance_step(command=command, cwd=cwd, env=env, started_at=started_at, finished_at=_iso_now(), result=result)
+            return result
         except subprocess.TimeoutExpired as exc:
-            return CommandResult(
+            result = CommandResult(
                 step=command.step,
                 argv=command.argv,
                 cwd=str(cwd),
@@ -532,6 +667,38 @@ class CathedralForge:
                 stderr=_truncate_output((exc.stderr or "") if isinstance(exc.stderr, str) else ""),
                 timed_out=True,
             )
+            self._record_provenance_step(command=command, cwd=cwd, env=env, started_at=started_at, finished_at=_iso_now(), result=result)
+            return result
+
+    def _record_provenance_step(
+        self,
+        *,
+        command: CommandSpec,
+        cwd: Path,
+        env: dict[str, str],
+        started_at: str,
+        finished_at: str,
+        result: CommandResult,
+    ) -> None:
+        if self._active_provenance is None:
+            return
+        kind = _step_kind(command.step)
+        step = self._active_provenance.make_step(
+            step_id=command.step,
+            kind=kind,
+            command={"argv": command.argv, "step": command.step},
+            cwd=str(cwd),
+            env_fingerprint=_env_fingerprint(env),
+            started_at=started_at,
+            finished_at=finished_at,
+            exit_code=result.returncode,
+            stdout=result.stdout,
+            stderr=result.stderr,
+            artifacts_written=[],
+            notes="timeout" if result.timed_out else "",
+        )
+        self._active_provenance.add_step(step, stdout=result.stdout, stderr=result.stderr)
+
 
 
     def _preflight_timeout_seconds(self, goal_profile: GoalProfile) -> int:
@@ -963,3 +1130,22 @@ def _prioritize_root_cause_candidates(candidates: list[Any], clusters: list[Fail
         return (priority, description)
 
     return sorted(candidates, key=_score)
+
+
+def _step_kind(step: str) -> str:
+    lowered = step.lower()
+    if "drift" in lowered or "status" in lowered or "env_import" in lowered:
+        return "preflight"
+    if lowered.startswith("baseline_") or lowered.startswith("apply"):
+        return "apply"
+    if "test" in lowered:
+        return "tests"
+    return "apply"
+
+
+def _env_fingerprint(env: dict[str, str] | None = None) -> str:
+    source = env if env is not None else dict(os.environ)
+    keys = ["PATH", "PYTHONPATH", "VIRTUAL_ENV", "SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "SENTIENTOS_FORGE_SENTINEL_TRIGGERED"]
+    payload = {key: source.get(key, "") for key in keys}
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()

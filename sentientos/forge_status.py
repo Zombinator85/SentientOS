@@ -11,6 +11,7 @@ from typing import Any
 
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_queue import ForgeQueue
+from sentientos.forge_provenance import validate_chain
 
 
 @dataclass(slots=True)
@@ -32,6 +33,8 @@ class ForgeStatus:
     sentinel_state: dict[str, Any]
     last_trigger_domain: str | None
     last_quarantine: dict[str, Any] | None
+    provenance_chain_valid: bool
+    provenance_last_run_id: str | None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -87,6 +90,7 @@ def compute_status(repo_root: Path) -> ForgeStatus:
     sentinel_summary = ContractSentinel(repo_root=root).summary()
     last_trigger_domain = _last_trigger_domain(root, queue)
     last_quarantine = _last_quarantine(root)
+    chain = validate_chain(root)
 
     return ForgeStatus(
         daemon_enabled=daemon_enabled,
@@ -106,6 +110,8 @@ def compute_status(repo_root: Path) -> ForgeStatus:
         sentinel_state={str(k): v for k, v in sentinel_summary.get("sentinel_state", {}).items()} if isinstance(sentinel_summary.get("sentinel_state"), dict) else {},
         last_trigger_domain=last_trigger_domain,
         last_quarantine=last_quarantine,
+        provenance_chain_valid=bool(chain.get("valid", False)),
+        provenance_last_run_id=str(chain.get("last_run_id")) if isinstance(chain.get("last_run_id"), str) else None,
     )
 
 

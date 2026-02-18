@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.contract_sentinel import ContractSentinel
+from sentientos.forge_provenance import validate_chain
 
 SCHEMA_VERSION = 1
 INDEX_PATH = Path("glow/forge/index.json")
@@ -23,6 +24,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     reports = sorted((root / "glow/forge").glob("report_*.json"), key=lambda item: item.name)
     dockets = sorted((root / "glow/forge").glob("docket_*.json"), key=lambda item: item.name)
+    provenance = sorted((root / "glow/forge/provenance").glob("prov_*.json"), key=lambda item: item.name)
 
     queue_rows, queue_corrupt = _read_jsonl(root / QUEUE_PATH)
     receipt_rows, receipt_corrupt = _read_jsonl(root / RECEIPTS_PATH)
@@ -34,6 +36,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "generated_at": _iso_now(),
         "latest_reports": [_load_json(path) | {"path": str(path.relative_to(root))} for path in reports[-50:]],
         "latest_dockets": [_load_json(path) | {"path": str(path.relative_to(root))} for path in dockets[-50:]],
+        "latest_provenance": [_load_json(path) | {"path": str(path.relative_to(root))} for path in provenance[-50:]],
         "latest_receipts": receipt_rows[-200:],
         "latest_queue": _pending_from_rows(queue_rows, receipt_rows),
         "latest_quarantines": _latest_quarantines(root),
@@ -47,6 +50,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "sentinel_enabled": sentinel_summary.get("sentinel_enabled", False),
         "sentinel_last_enqueued": sentinel_summary.get("sentinel_last_enqueued"),
         "sentinel_state": sentinel_summary.get("sentinel_state"),
+        "provenance_chain": validate_chain(root),
     }
 
     target = root / INDEX_PATH

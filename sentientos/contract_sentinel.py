@@ -138,6 +138,11 @@ class ContractSentinel:
                     "trigger_domain": domain,
                     "trigger_snapshot": trigger,
                     "trigger_digest": digest,
+                    "trigger_provenance": {
+                        "source": "contract_sentinel",
+                        "triggered_at": now,
+                        "domain": domain,
+                    },
                     "sentinel_triggered": True,
                 },
                 autopublish_flags=({"auto_publish": True, "sentinel_allow_autopublish": True} if policy.allow_autopublish else {}),
