@@ -17,6 +17,7 @@ from sentientos.boot_chronicler import build_boot_ceremony_link
 from sentientos.codex import CodexHealer, GenesisForge, IntegrityDaemon, SpecAmender
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_daemon import ForgeDaemon
+from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
 from sentientos.utils import git_commit_push
 
@@ -40,6 +41,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     build_boot_ceremony_link(emitter).narrate()
     model = LocalModel.autoload()
     forge_daemon = ForgeDaemon()
+    merge_train = ForgeMergeTrain(repo_root=forge_daemon.repo_root)
     contract_sentinel = ContractSentinel()
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
@@ -53,6 +55,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
             contract_sentinel.tick()
         CodexHealer.monitor()
         forge_daemon.run_tick()
+        merge_train.tick()
 
         plan = SpecAmender.next_commit()
         if plan:

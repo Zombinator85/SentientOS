@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import json
 
 from sentientos.cathedral_forge import CathedralForge
@@ -10,6 +11,7 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_env_cache import list_cache_entries, prune_cache
 from sentientos.forge_index import rebuild_index
+from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 from sentientos.forge_replay import replay_provenance
 from sentientos.forge_status import compute_status
@@ -57,10 +59,19 @@ def main(argv: list[str] | None = None) -> int:
     wait_checks_parser = subparsers.add_parser("wait-checks", help="Wait for PR checks")
     wait_checks_parser.add_argument("target", help="PR URL or number")
     wait_checks_parser.add_argument("--timeout", type=int, default=1800, help="Timeout in seconds")
+    subparsers.add_parser("train-status", help="Show merge train status")
+    subparsers.add_parser("train-enable", help="Enable merge train")
+    subparsers.add_parser("train-disable", help="Disable merge train")
+    subparsers.add_parser("train-tick", help="Run merge train tick")
+    hold_parser = subparsers.add_parser("train-hold", help="Hold a PR in merge train")
+    hold_parser.add_argument("pr", type=int, help="PR number")
+    release_parser = subparsers.add_parser("train-release", help="Release a held PR in merge train")
+    release_parser.add_argument("pr", type=int, help="PR number")
 
     args = parser.parse_args(argv)
     forge = CathedralForge()
     queue = ForgeQueue()
+    merge_train = ForgeMergeTrain(repo_root=forge.repo_root, queue=ForgeQueue(pulse_root=forge.repo_root / "pulse"))
     sentinel = ContractSentinel(repo_root=forge.repo_root, queue=ForgeQueue(pulse_root=forge.repo_root / "pulse"))
 
     if args.command == "plan":
@@ -258,6 +269,41 @@ def main(argv: list[str] | None = None) -> int:
         final, timing = wait_for_pr_checks(checks.pr, timeout_seconds=max(1, int(args.timeout)), poll_interval_seconds=20)
         print(json.dumps({"command": "wait-checks", "pr": final.pr.__dict__, "overall": final.overall, "timing": timing, "checks": [item.__dict__ for item in final.checks]}, indent=2, sort_keys=True))
         return 0 if final.overall == "success" else 1
+
+    if args.command == "train-status":
+        state = merge_train.load_state()
+        policy = merge_train.load_policy()
+        print(json.dumps({"command": "train-status", "enabled": policy.enabled, "policy": asdict(policy), "state": {"entries": [asdict(item) for item in state.entries], "last_merged_pr": state.last_merged_pr, "last_failure_at": state.last_failure_at}}, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "train-enable":
+        policy = merge_train.load_policy()
+        policy.enabled = True
+        merge_train.save_policy(policy)
+        print(json.dumps({"command": "train-enable", "enabled": True}, sort_keys=True))
+        return 0
+
+    if args.command == "train-disable":
+        policy = merge_train.load_policy()
+        policy.enabled = False
+        merge_train.save_policy(policy)
+        print(json.dumps({"command": "train-disable", "enabled": False}, sort_keys=True))
+        return 0
+
+    if args.command == "train-tick":
+        result = merge_train.tick()
+        print(json.dumps({"command": "train-tick", "result": result}, indent=2, sort_keys=True))
+        return 0 if result.get("status") not in {"failed"} else 1
+
+    if args.command == "train-hold":
+        ok = merge_train.hold(int(args.pr))
+        print(json.dumps({"command": "train-hold", "pr": int(args.pr), "ok": ok}, sort_keys=True))
+        return 0 if ok else 1
+
+    if args.command == "train-release":
+        ok = merge_train.release(int(args.pr))
+        print(json.dumps({"command": "train-release", "pr": int(args.pr), "ok": ok}, sort_keys=True))
+        return 0 if ok else 1
 
     daemon = ForgeDaemon(queue=queue)
     daemon.run_tick()
