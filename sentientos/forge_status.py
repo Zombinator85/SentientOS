@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_queue import ForgeQueue
 
 
@@ -26,6 +27,10 @@ class ForgeStatus:
     runs_remaining_hour: int
     files_remaining_day: int
     last_receipt: dict[str, Any] | None
+    sentinel_enabled: bool
+    sentinel_last_enqueued: dict[str, Any] | None
+    sentinel_state: dict[str, Any]
+    last_trigger_domain: str | None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -78,6 +83,9 @@ def compute_status(repo_root: Path) -> ForgeStatus:
             "finished_at": item.finished_at,
         }
 
+    sentinel_summary = ContractSentinel(repo_root=root).summary()
+    last_trigger_domain = _last_trigger_domain(root, queue)
+
     return ForgeStatus(
         daemon_enabled=daemon_enabled,
         lock_active=lock_active,
@@ -91,6 +99,10 @@ def compute_status(repo_root: Path) -> ForgeStatus:
         runs_remaining_hour=max(0, max_runs_hour - runs_hour),
         files_remaining_day=max(0, max_files_day - files_day),
         last_receipt=last_receipt,
+        sentinel_enabled=bool(sentinel_summary.get("sentinel_enabled", False)),
+        sentinel_last_enqueued=sentinel_summary.get("sentinel_last_enqueued") if isinstance(sentinel_summary.get("sentinel_last_enqueued"), dict) else None,
+        sentinel_state={str(k): v for k, v in sentinel_summary.get("sentinel_state", {}).items()} if isinstance(sentinel_summary.get("sentinel_state"), dict) else {},
+        last_trigger_domain=last_trigger_domain,
     )
 
 
@@ -131,3 +143,32 @@ def _parse_iso(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _last_trigger_domain(repo_root: Path, queue: ForgeQueue) -> str | None:
+    queue_path = repo_root / "pulse/forge_queue.jsonl"
+    try:
+        lines = queue_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    requests: dict[str, dict[str, Any]] = {}
+    for line in lines:
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict) and isinstance(payload.get("request_id"), str):
+            requests[str(payload["request_id"])] = payload
+    for receipt in reversed(queue.recent_receipts(limit=300)):
+        req = requests.get(receipt.request_id)
+        if not isinstance(req, dict):
+            continue
+        metadata = req.get("metadata")
+        if req.get("requested_by") != "ContractSentinel" or not isinstance(metadata, dict):
+            continue
+        domain = metadata.get("trigger_domain")
+        if isinstance(domain, str):
+            return domain
+    return None

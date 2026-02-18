@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from sentientos.contract_sentinel import ContractSentinel
+
 SCHEMA_VERSION = 1
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
@@ -25,6 +27,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     queue_rows, queue_corrupt = _read_jsonl(root / QUEUE_PATH)
     receipt_rows, receipt_corrupt = _read_jsonl(root / RECEIPTS_PATH)
 
+    sentinel_summary = ContractSentinel(repo_root=root).summary()
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -39,6 +43,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             "receipts": receipt_corrupt,
             "total": queue_corrupt + receipt_corrupt,
         },
+        "sentinel_enabled": sentinel_summary.get("sentinel_enabled", False),
+        "sentinel_last_enqueued": sentinel_summary.get("sentinel_last_enqueued"),
+        "sentinel_state": sentinel_summary.get("sentinel_state"),
     }
 
     target = root / INDEX_PATH

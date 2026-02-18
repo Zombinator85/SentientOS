@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional
 
 import json
 from gui import wdm_panel
+from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_daemon import _load_policy
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
@@ -286,10 +287,32 @@ def _render_forge_panel() -> None:
     raw_allowed = policy.get("allowlisted_goal_ids")
     allowed_goals = [item for item in raw_allowed if isinstance(item, str)] if isinstance(raw_allowed, list) else []
     queue = ForgeQueue(pulse_root=repo_root / "pulse")
+    sentinel = ContractSentinel(repo_root=repo_root, queue=queue)
 
     st.title("Forge Observatory")
     st.subheader("Live Status")
     st.json(status.to_dict())
+
+    st.subheader("Contract Sentinel")
+    sentinel_status = sentinel.summary()
+    st.json(sentinel_status)
+    scol1, scol2, scol3 = st.columns(3)
+    with scol1:
+        if st.button("Sentinel enable"):
+            policy = sentinel.load_policy()
+            policy.enabled = True
+            sentinel.save_policy(policy)
+            st.success("Sentinel enabled")
+    with scol2:
+        if st.button("Sentinel disable"):
+            policy = sentinel.load_policy()
+            policy.enabled = False
+            sentinel.save_policy(policy)
+            st.success("Sentinel disabled")
+    with scol3:
+        if st.button("Run Sentinel tick now"):
+            result = sentinel.tick()
+            st.json(result)
 
     col1, col2 = st.columns(2)
     with col1:
