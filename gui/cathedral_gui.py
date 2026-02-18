@@ -347,6 +347,27 @@ def _render_forge_panel() -> None:
     else:
         st.info("No allowlisted goals configured in glow/forge/policy.json")
 
+
+    st.subheader("Provenance")
+    provenance_rows = index.get("latest_provenance", [])
+    st.dataframe(provenance_rows)
+    chain_payload = index.get("provenance_chain", {})
+    st.json(chain_payload)
+    pcol1, pcol2 = st.columns(2)
+    with pcol1:
+        selected_prov = st.selectbox("Provenance bundle", [str(item.get("path", "")) for item in provenance_rows] if isinstance(provenance_rows, list) and provenance_rows else [""])
+        if selected_prov:
+            st.code(selected_prov)
+    with pcol2:
+        if st.button("Validate provenance chain"):
+            refreshed = rebuild_index(repo_root)
+            st.json(refreshed.get("provenance_chain", {}))
+    replay_target = st.text_input("Replay target (run_id or provenance path)", value="")
+    replay_dry_run = st.checkbox("Replay dry-run", value=True)
+    if st.button("Replay") and replay_target.strip():
+        result = subprocess.run([sys.executable, "-m", "sentientos.forge", "replay", replay_target.strip(), *( ["--dry-run"] if replay_dry_run else [] )], capture_output=True, text=True, check=False)
+        st.code(result.stdout or result.stderr)
+
     st.subheader("Latest report")
     reports = index.get("latest_reports", [])
     st.json(reports[-1] if isinstance(reports, list) and reports else {})

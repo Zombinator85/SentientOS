@@ -100,7 +100,7 @@ class ForgeDaemon:
             os.environ["SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("auto_publish")) else "0"
             os.environ["SENTIENTOS_FORGE_SENTINEL_TRIGGERED"] = "1" if sentinel_triggered else "0"
             os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("sentinel_allow_autopublish")) else "0"
-            report = self.forge.run(request.goal)
+            report = self.forge.run(request.goal, initiator="daemon", request_id=request.request_id, metadata=request.metadata)
             if prev_allow is None:
                 os.environ.pop("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", None)
             else:
@@ -126,8 +126,10 @@ class ForgeDaemon:
                 commit_sha=report.git_sha or None,
                 pr_metadata_path=pr_metadata_path,
                 error=error,
+                provenance_run_id=report.provenance_run_id,
+                provenance_path=report.provenance_path,
             )
-            self._emit_forge_event(status=status, request=request, report_path=report_path, error=error)
+            self._emit_forge_event(status=status, request=request, report_path=report_path, error=error, provenance_run_id=report.provenance_run_id, provenance_path=report.provenance_path)
             if bool(request.metadata.get("sentinel_triggered")) and report.transaction_status in {"quarantined", "rolled_back"}:
                 domain = request.metadata.get("trigger_domain")
                 if isinstance(domain, str):
@@ -277,6 +279,8 @@ class ForgeDaemon:
         report_path: str | None = None,
         error: str | None = None,
         message: str | None = None,
+        provenance_run_id: str | None = None,
+        provenance_path: str | None = None,
     ) -> None:
         payload: dict[str, object] = {
             "event": "forge_daemon",
@@ -287,6 +291,8 @@ class ForgeDaemon:
             "report_path": report_path,
             "error": error,
             "message": message or status,
+            "provenance_run_id": provenance_run_id,
+            "provenance_path": provenance_path,
             "level": "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"} else "info",
         }
         record_forge_event(payload)

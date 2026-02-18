@@ -11,6 +11,7 @@ from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_env_cache import list_cache_entries, prune_cache
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
+from sentientos.forge_replay import replay_provenance
 from sentientos.forge_status import compute_status
 
 
@@ -45,6 +46,9 @@ def main(argv: list[str] | None = None) -> int:
     show_docket_parser = subparsers.add_parser("show-docket", help="Pretty-print a forge docket by path or id")
     show_docket_parser.add_argument("target", help="docket path or timestamp id")
     subparsers.add_parser("quarantines", help="List recent quarantines")
+    replay_parser = subparsers.add_parser("replay", help="Replay a forge provenance run")
+    replay_parser.add_argument("target", help="run_id or provenance bundle path")
+    replay_parser.add_argument("--dry-run", action="store_true", help="Print replay plan without executing")
     show_quarantine_parser = subparsers.add_parser("show-quarantine", help="Show quarantine by path or id")
     show_quarantine_parser.add_argument("target", help="quarantine path or timestamp id")
 
@@ -72,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
                     "failure_reasons": run_payload.failure_reasons,
                     "ci_commands_run": run_payload.ci_commands_run,
                     "session_root": run_payload.session.root_path,
+                    "provenance_run_id": run_payload.provenance_run_id,
+                    "provenance_path": run_payload.provenance_path,
                 },
                 sort_keys=True,
             )
@@ -123,6 +129,8 @@ def main(argv: list[str] | None = None) -> int:
                             "status": item.status,
                             "finished_at": item.finished_at,
                             "report_path": item.report_path,
+                            "provenance_run_id": item.provenance_run_id,
+                            "provenance_path": item.provenance_path,
                         }
                         for item in receipts
                     ],
@@ -214,6 +222,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "show-docket":
         payload = _load_artifact(forge, args.target, kind="docket")
         print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "replay":
+        replay_path = replay_provenance(args.target, repo_root=forge.repo_root, dry_run=bool(args.dry_run))
+        print(json.dumps({"command": "replay", "target": args.target, "dry_run": bool(args.dry_run), "report_path": str(replay_path)}, sort_keys=True))
         return 0
 
     if args.command == "quarantines":
