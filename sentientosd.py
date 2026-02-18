@@ -14,6 +14,7 @@ from sentientos.boot_ceremony import (
 )
 from sentientos.boot_chronicler import build_boot_ceremony_link
 from sentientos.codex import CodexHealer, GenesisForge, IntegrityDaemon, SpecAmender
+from sentientos.forge_daemon import ForgeDaemon
 from sentientos.local_model import LocalModel
 from sentientos.utils import git_commit_push
 
@@ -36,6 +37,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     first_contact.invite_conversation()
     build_boot_ceremony_link(emitter).narrate()
     model = LocalModel.autoload()
+    forge_daemon = ForgeDaemon()
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
     while not shutdown_event.is_set():
@@ -44,6 +46,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         SpecAmender.cycle()
         IntegrityDaemon.guard()
         CodexHealer.monitor()
+        forge_daemon.run_tick()
 
         plan = SpecAmender.next_commit()
         if plan:
