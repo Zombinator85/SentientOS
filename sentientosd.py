@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import signal
 from contextlib import suppress
 
@@ -14,6 +15,7 @@ from sentientos.boot_ceremony import (
 )
 from sentientos.boot_chronicler import build_boot_ceremony_link
 from sentientos.codex import CodexHealer, GenesisForge, IntegrityDaemon, SpecAmender
+from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.local_model import LocalModel
 from sentientos.utils import git_commit_push
@@ -38,6 +40,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     build_boot_ceremony_link(emitter).narrate()
     model = LocalModel.autoload()
     forge_daemon = ForgeDaemon()
+    contract_sentinel = ContractSentinel()
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
     while not shutdown_event.is_set():
@@ -45,6 +48,9 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         GenesisForge.expand()
         SpecAmender.cycle()
         IntegrityDaemon.guard()
+        # Sentinel runs after integrity guard so contract artifacts are trustworthy, before forge daemon so queued repairs execute same tick.
+        if os.getenv("SENTIENTOS_SENTINEL_ENABLED", "0") == "1":
+            contract_sentinel.tick()
         CodexHealer.monitor()
         forge_daemon.run_tick()
 

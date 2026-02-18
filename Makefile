@@ -144,7 +144,7 @@ forge-ci:
 	$(PYTHON) -m sentientos.forge run "forge_smoke_noop"
 
 mypy-forge:
-	$(PYTHON) -m mypy --strict --follow-imports=skip sentientos/cathedral_forge.py sentientos/forge.py sentientos/forge_daemon.py sentientos/forge_queue.py sentientos/forge_index.py sentientos/forge_status.py
+	$(PYTHON) -m mypy --strict --follow-imports=skip sentientos/cathedral_forge.py sentientos/forge.py sentientos/forge_daemon.py sentientos/forge_queue.py sentientos/forge_index.py sentientos/forge_status.py sentientos/contract_sentinel.py sentientos/forge_campaigns.py
 
 speak:
 	$(PYTHON) sosctl.py say "$(if $(MSG),$(MSG),Hello from SentientOS)"

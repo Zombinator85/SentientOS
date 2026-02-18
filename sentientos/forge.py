@@ -6,6 +6,7 @@ import argparse
 import json
 
 from sentientos.cathedral_forge import CathedralForge
+from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_env_cache import list_cache_entries, prune_cache
 from sentientos.forge_index import rebuild_index
@@ -35,6 +36,10 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("env-cache-prune", help="Prune shared ForgeEnv cache entries")
     subparsers.add_parser("status", help="Show live forge daemon status")
     subparsers.add_parser("index", help="Rebuild and print forge observability index")
+    subparsers.add_parser("sentinel-status", help="Show Contract Sentinel state")
+    subparsers.add_parser("sentinel-enable", help="Enable Contract Sentinel policy")
+    subparsers.add_parser("sentinel-disable", help="Disable Contract Sentinel policy")
+    subparsers.add_parser("sentinel-run-tick", help="Run a single Contract Sentinel tick")
     show_report_parser = subparsers.add_parser("show-report", help="Pretty-print a forge report by path or id")
     show_report_parser.add_argument("target", help="report path or timestamp id")
     show_docket_parser = subparsers.add_parser("show-docket", help="Pretty-print a forge docket by path or id")
@@ -43,6 +48,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     forge = CathedralForge()
     queue = ForgeQueue()
+    sentinel = ContractSentinel(repo_root=forge.repo_root, queue=ForgeQueue(pulse_root=forge.repo_root / "pulse"))
 
     if args.command == "plan":
         plan_payload = forge.plan(args.goal)
@@ -173,6 +179,28 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+        return 0
+
+    if args.command == "sentinel-status":
+        print(json.dumps({"command": "sentinel-status", "status": sentinel.summary()}, indent=2, sort_keys=True))
+        return 0
+
+    if args.command == "sentinel-enable":
+        policy = sentinel.load_policy()
+        policy.enabled = True
+        sentinel.save_policy(policy)
+        print(json.dumps({"command": "sentinel-enable", "enabled": True}, sort_keys=True))
+        return 0
+
+    if args.command == "sentinel-disable":
+        policy = sentinel.load_policy()
+        policy.enabled = False
+        sentinel.save_policy(policy)
+        print(json.dumps({"command": "sentinel-disable", "enabled": False}, sort_keys=True))
+        return 0
+
+    if args.command == "sentinel-run-tick":
+        print(json.dumps({"command": "sentinel-run-tick", "result": sentinel.tick()}, indent=2, sort_keys=True))
         return 0
 
     if args.command == "show-report":

@@ -29,6 +29,7 @@ class ForgeRequest:
     priority: int = 100
     autopublish_flags: dict[str, object] = field(default_factory=dict)
     max_budget_overrides: dict[str, int] | None = None
+    metadata: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -233,6 +234,8 @@ def _request_from_row(row: dict[str, object]) -> ForgeRequest | None:
     autopublish_flags: dict[object, object] = raw_flags if isinstance(raw_flags, dict) else {}
     raw_budget = row.get("max_budget_overrides")
     max_budget_overrides: dict[object, object] | None = raw_budget if isinstance(raw_budget, dict) else None
+    raw_metadata = row.get("metadata")
+    metadata: dict[object, object] = raw_metadata if isinstance(raw_metadata, dict) else {}
     return ForgeRequest(
         request_id=request_id,
         goal=goal,
@@ -242,6 +245,7 @@ def _request_from_row(row: dict[str, object]) -> ForgeRequest | None:
         priority=priority,
         autopublish_flags={str(k): v for k, v in autopublish_flags.items()},
         max_budget_overrides={str(k): int(v) for k, v in max_budget_overrides.items() if isinstance(v, int)} if max_budget_overrides else None,
+        metadata={str(k): v for k, v in metadata.items()},
     )
 
 

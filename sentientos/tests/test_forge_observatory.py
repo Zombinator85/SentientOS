@@ -39,6 +39,8 @@ def test_rebuild_index_counts_corrupt_lines(tmp_path: Path) -> None:
     payload = rebuild_index(tmp_path)
 
     corrupt = payload["corrupt_count"]
+    assert "sentinel_enabled" in payload
+    assert "sentinel_state" in payload
     assert corrupt["queue"] == 1
     assert corrupt["receipts"] == 1
     assert corrupt["total"] == 2
@@ -74,6 +76,7 @@ def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> N
     assert status.runs_remaining_day >= 0
     assert status.runs_remaining_hour >= 0
     assert status.files_remaining_day >= 0
+    assert isinstance(status.sentinel_enabled, bool)
 
 
 def test_cli_status_and_index(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]

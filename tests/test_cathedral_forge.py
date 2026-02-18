@@ -448,3 +448,49 @@ def test_non_smoke_can_require_env_import(tmp_path: Path, monkeypatch) -> None:
 
     assert report.outcome == "success"
     assert "env_import_sentientos" in steps
+
+
+def test_campaign_goal_executes_order_and_stops_on_failure(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    calls: list[str] = []
+
+    original_run = CathedralForge.run
+
+    def fake_run(self: CathedralForge, goal: str):
+        if goal.startswith("campaign:"):
+            return original_run(self, goal)
+        calls.append(goal)
+        report = type("R", (), {})()
+        report.schema_version = 2
+        report.generated_at = "2025-01-01T00:00:00Z"
+        report.goal = goal
+        report.goal_id = goal
+        report.goal_profile = "default"
+        report.git_sha = "sha"
+        report.plan_path = "glow/forge/plan_x.json"
+        report.preflight = type("P", (), {"contract_drift": None, "contract_status_path": "", "contract_status_embedded": {}})()
+        report.tests = type("T", (), {"status": "pass", "command": "", "summary": ""})()
+        report.ci_commands_run = []
+        report.session = type("S", (), {"root_path": str(tmp_path)})()
+        report.step_results = []
+        report.artifacts_written = []
+        report.outcome = "failed" if goal == "repo_green_storm" else "success"
+        report.failure_reasons = ["x"] if report.outcome == "failed" else []
+        report.notes = []
+        report.test_failures_before = None
+        report.test_failures_after = None
+        report.docket_path = None
+        report.baseline_harvests = None
+        report.baseline_fixes = None
+        report.baseline_budget = None
+        report.ci_baseline_before = None
+        report.ci_baseline_after = None
+        report.progress_delta = None
+        return report
+
+    monkeypatch.setattr(CathedralForge, "run", fake_run)
+
+    campaign_report = original_run(forge, "campaign:ci_baseline_recovery")
+
+    assert calls == ["repo_green_storm"]
+    assert campaign_report.outcome == "failed"

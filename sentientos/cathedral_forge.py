@@ -17,6 +17,7 @@ from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
+from sentientos.forge_campaigns import resolve_campaign
 from sentientos.forge_goals import GoalSpec, resolve_goal
 from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_model import (
@@ -102,6 +103,8 @@ class CathedralForge:
         return plan
 
     def run(self, goal: str) -> ForgeReport:
+        if goal.startswith("campaign:"):
+            return self._run_campaign(goal)
         generated_at = _iso_now()
         goal_spec = resolve_goal(goal)
         goal_profile = resolve_goal_profile(goal_spec)
@@ -237,8 +240,10 @@ class CathedralForge:
                 after_snapshot = emit_ci_baseline(output_path=Path(session.root_path) / CI_BASELINE_PATH, run_command=True)
                 ci_baseline_after = _dataclass_to_dict(after_snapshot)
                 artifacts_written.append(str(CI_BASELINE_PATH))
-                before_failed = int((ci_baseline_before or {}).get("failed_count", test_failures_before or 0))
-                after_failed = int((ci_baseline_after or {}).get("failed_count", test_failures_after or 0))
+                before_raw = (ci_baseline_before or {}).get("failed_count", test_failures_before or 0)
+                after_raw = (ci_baseline_after or {}).get("failed_count", test_failures_after or 0)
+                before_failed = before_raw if isinstance(before_raw, int) else (test_failures_before or 0)
+                after_failed = after_raw if isinstance(after_raw, int) else (test_failures_after or 0)
                 if before_failed > 0:
                     reduction_pct = ((before_failed - after_failed) / before_failed) * 100
                 else:
@@ -299,6 +304,58 @@ class CathedralForge:
         except Exception:
             session.preserved_on_failure = True
             raise
+
+    def _run_campaign(self, goal: str) -> ForgeReport:
+        campaign_id = goal.split(":", 1)[1] if ":" in goal else ""
+        campaign = resolve_campaign(campaign_id)
+        if campaign is None:
+            return self.run("forge_smoke_noop")
+        notes: list[str] = [f"campaign_id:{campaign.campaign_id}"]
+        failure_reasons: list[str] = []
+        artifacts: list[str] = []
+        step_results: list[CommandResult] = []
+        last_report: ForgeReport | None = None
+        for campaign_goal in campaign.goals:
+            report = self.run(campaign_goal)
+            last_report = report
+            notes.append(f"campaign_goal:{campaign_goal}:{report.outcome}")
+            artifacts.append(report.plan_path)
+            if report.docket_path:
+                artifacts.append(report.docket_path)
+            if report.outcome != "success":
+                failure_reasons.append(f"campaign_goal_failed:{campaign_goal}")
+                if campaign.stop_on_failure:
+                    break
+        generated_at = _iso_now()
+        if last_report is None:
+            return self.run("forge_smoke_noop")
+        return ForgeReport(
+            schema_version=SCHEMA_VERSION,
+            generated_at=generated_at,
+            goal=goal,
+            goal_id=goal,
+            goal_profile="campaign",
+            git_sha=last_report.git_sha,
+            plan_path=last_report.plan_path,
+            preflight=last_report.preflight,
+            tests=last_report.tests,
+            ci_commands_run=last_report.ci_commands_run,
+            session=last_report.session,
+            step_results=step_results,
+            artifacts_written=artifacts,
+            outcome="failed" if failure_reasons else "success",
+            failure_reasons=failure_reasons,
+            notes=notes,
+            test_failures_before=last_report.test_failures_before,
+            test_failures_after=last_report.test_failures_after,
+            docket_path=last_report.docket_path,
+            baseline_harvests=last_report.baseline_harvests,
+            baseline_fixes=last_report.baseline_fixes,
+            baseline_budget=last_report.baseline_budget,
+            ci_baseline_before=last_report.ci_baseline_before,
+            ci_baseline_after=last_report.ci_baseline_after,
+            progress_delta=last_report.progress_delta,
+        )
 
     def apply(self, goal: GoalSpec, session: ForgeSession) -> ApplyResult:
         if not goal.apply_commands:
