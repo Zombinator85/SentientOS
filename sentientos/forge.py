@@ -7,6 +7,7 @@ import json
 
 from sentientos.cathedral_forge import CathedralForge
 from sentientos.forge_daemon import ForgeDaemon
+from sentientos.forge_env_cache import list_cache_entries, prune_cache
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
 
@@ -28,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("queue", help="List pending queue entries")
     subparsers.add_parser("receipts", help="List recent forge receipts")
     subparsers.add_parser("run-daemon-tick", help="Run a single daemon tick")
+    subparsers.add_parser("env-cache", help="List shared ForgeEnv cache entries")
+    subparsers.add_parser("env-cache-prune", help="Prune shared ForgeEnv cache entries")
 
     args = parser.parse_args(argv)
     forge = CathedralForge()
@@ -110,6 +113,34 @@ def main(argv: list[str] | None = None) -> int:
                 sort_keys=True,
             )
         )
+        return 0
+
+
+    if args.command == "env-cache":
+        entries = list_cache_entries(forge.repo_root)
+        print(
+            json.dumps(
+                {
+                    "command": "env-cache",
+                    "entries": [
+                        {
+                            "venv_path": item.venv_path,
+                            "last_used_at": item.last_used_at,
+                            "created_at": item.created_at,
+                            "extras_tag": item.key.extras_tag,
+                            "python_version": item.key.python_version,
+                        }
+                        for item in entries
+                    ],
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
+
+    if args.command == "env-cache-prune":
+        removed = prune_cache(forge.repo_root)
+        print(json.dumps({"command": "env-cache-prune", "removed": removed, "removed_count": len(removed)}, sort_keys=True))
         return 0
 
     daemon = ForgeDaemon(queue=queue)

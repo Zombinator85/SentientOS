@@ -52,6 +52,7 @@ class ForgeSession:
     env_venv_path: str = ""
     env_reused: bool = False
     env_install_summary: str = ""
+    env_cache_key: str = ""
     preserved_on_failure: bool = False
     cleanup_performed: bool = False
 

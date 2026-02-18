@@ -113,6 +113,7 @@ class CathedralForge:
         session.env_venv_path = forge_env.venv_path
         session.env_reused = not forge_env.created
         session.env_install_summary = forge_env.install_summary
+        session.env_cache_key = forge_env.cache_key
 
         ci_commands_run: list[str] = []
         step_results: list[CommandResult] = []
@@ -131,7 +132,11 @@ class CathedralForge:
 
         try:
             drift_result = self._run_step(
-                CommandSpec(step="contract_drift", argv=[forge_env.python, "-m", "scripts.contract_drift"]),
+                CommandSpec(
+                    step="contract_drift",
+                    argv=[forge_env.python, "-m", "scripts.contract_drift"],
+                    timeout_seconds=self._preflight_timeout_seconds(goal_profile),
+                ),
                 Path(session.root_path),
             )
             step_results.append(drift_result)
@@ -141,7 +146,11 @@ class CathedralForge:
                 failure_reasons.append("contract_drift_failed")
 
             status_result = self._run_step(
-                CommandSpec(step="contract_status", argv=[forge_env.python, "-m", "scripts.emit_contract_status"]),
+                CommandSpec(
+                    step="contract_status",
+                    argv=[forge_env.python, "-m", "scripts.emit_contract_status"],
+                    timeout_seconds=self._preflight_timeout_seconds(goal_profile),
+                ),
                 Path(session.root_path),
             )
             step_results.append(status_result)
@@ -152,13 +161,19 @@ class CathedralForge:
             if status_result.returncode != 0:
                 failure_reasons.append("contract_status_emit_failed")
 
-            env_import = self._run_step(
-                CommandSpec(step="env_import_sentientos", argv=[forge_env.python, "-c", "import sentientos"]),
-                Path(session.root_path),
-            )
-            step_results.append(env_import)
-            if env_import.returncode != 0:
-                failure_reasons.append("forge_env_import_failed")
+            should_run_env_import = goal_profile.name == "smoke_noop" or os.getenv("SENTIENTOS_FORGE_REQUIRE_ENV_IMPORT", "0") == "1"
+            if should_run_env_import:
+                env_import = self._run_step(
+                    CommandSpec(
+                        step="env_import_sentientos",
+                        argv=[forge_env.python, "-c", "import sentientos"],
+                        timeout_seconds=self._preflight_timeout_seconds(goal_profile),
+                    ),
+                    Path(session.root_path),
+                )
+                step_results.append(env_import)
+                if env_import.returncode != 0:
+                    failure_reasons.append("forge_env_import_failed")
 
             preflight = ForgePreflight(
                 contract_drift=ForgeCheckResult(
@@ -200,7 +215,14 @@ class CathedralForge:
 
             tests_result = ForgeTestResult(status="fail", command=goal_profile.test_command_display, summary="skipped: preflight/apply failed")
             if not failure_reasons:
-                tests_step = self._run_step(CommandSpec(step="tests", argv=goal_profile.test_command(forge_env.python)), Path(session.root_path))
+                tests_step = self._run_step(
+                    CommandSpec(
+                        step="tests",
+                        argv=goal_profile.test_command(forge_env.python),
+                        timeout_seconds=self._tests_timeout_seconds(goal_profile),
+                    ),
+                    Path(session.root_path),
+                )
                 step_results.append(tests_step)
                 ci_commands_run.append(goal_profile.test_command_display)
                 tests_result = ForgeTestResult(
@@ -351,6 +373,17 @@ class CathedralForge:
                 timed_out=True,
             )
 
+
+    def _preflight_timeout_seconds(self, goal_profile: GoalProfile) -> int:
+        if goal_profile.name == "smoke_noop":
+            return max(1, int(os.getenv("SENTIENTOS_FORGE_SMOKE_TIMEOUT_SECONDS", "30")))
+        return 600
+
+    def _tests_timeout_seconds(self, goal_profile: GoalProfile) -> int:
+        if goal_profile.name == "smoke_noop":
+            return max(1, int(os.getenv("SENTIENTOS_FORGE_SMOKE_TIMEOUT_SECONDS", "30")))
+        return 600
+
     def _maybe_publish(self, goal: GoalSpec, session: ForgeSession) -> list[str]:
         notes: list[str] = []
         root = Path(session.root_path)
@@ -462,7 +495,7 @@ class CathedralForge:
                 if result.applied:
                     progress = True
 
-            if iteration_changed:
+            if iteration_changed and goal_spec.gate_profile != "smoke_noop":
                 self._run_optional_formatters(cwd, sorted(iteration_changed), step_results, goal_spec)
                 if os.getenv("SENTIENTOS_FORGE_AUTOCOMMIT") == "1":
                     self._autocommit_iteration(cwd, goal_spec.goal_id, iteration)
