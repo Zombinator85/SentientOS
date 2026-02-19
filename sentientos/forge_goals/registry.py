@@ -111,6 +111,7 @@ def _stability_repair() -> GoalSpec:
         apply_commands=_commands(
             ("vow_artifacts", "make vow-artifacts"),
             ("mypy_forge", "make mypy-forge"),
+            ("audit_repair", "make audit-repair"),
             ("forge_ci", "make forge-ci"),
             ("emit_stability_doctrine", "python -m scripts.emit_stability_doctrine"),
         ),

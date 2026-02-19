@@ -366,11 +366,18 @@ def _render_forge_panel() -> None:
     doctrine = index.get("stability_doctrine_latest") if isinstance(index.get("stability_doctrine_latest"), dict) else {}
     toolchain = doctrine.get("toolchain") if isinstance(doctrine.get("toolchain"), dict) else {}
     vow = doctrine.get("vow_artifacts") if isinstance(doctrine.get("vow_artifacts"), dict) else {}
-    stable = bool(toolchain.get("verify_audits_available", False)) and bool(vow.get("immutable_manifest_present", False))
+    audit_status = str(doctrine.get("audit_strict_status", "unknown"))
+    latest_audit_dockets = index.get("latest_audit_dockets", []) if isinstance(index.get("latest_audit_dockets"), list) else []
+    stable = bool(toolchain.get("verify_audits_available", False)) and bool(vow.get("immutable_manifest_present", False)) and audit_status == "pass"
     if stable:
         st.success("Stability Doctrine ready")
     else:
         st.error("Stability Doctrine not ready")
+    st.write(f"audit_strict_status: {audit_status}")
+    if latest_audit_dockets:
+        latest_docket = latest_audit_dockets[-1]
+        st.write(f"latest_audit_docket: {latest_docket.get('path', 'n/a')}")
+        st.json(latest_docket)
     st.json(doctrine)
 
     st.subheader("Queue (pending)")
