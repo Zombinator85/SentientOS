@@ -5,9 +5,13 @@ require_admin_banner()
 require_lumos_approval()
 import json
 import time
+from pathlib import Path
 from typing import Dict, Any
 from logging_config import get_log_path
-AUDIT_PATH = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_LOG")
+from sentientos.audit_sink import resolve_audit_paths
+
+_REPO_ROOT = Path(__file__).resolve().parent
+AUDIT_PATH = resolve_audit_paths(_REPO_ROOT).runtime_path
 STATE_FILE = get_log_path("lumos_reflex_state.json")
 REFLEX_LOG = get_log_path("lumos_reflex_daemon.jsonl", "LUMOS_REFLEX_LOG")
 
