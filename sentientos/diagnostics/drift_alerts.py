@@ -88,7 +88,29 @@ def _load_drift_entries() -> list[dict[str, object]]:
     log_path = get_log_path("drift_detector.jsonl", "DRIFT_DETECTOR_LOG")
     if not log_path.exists():
         return []
-    return read_json(log_path)
+    entries = read_json(log_path)
+    if not entries:
+        raw_entries: list[dict[str, object]] = []
+        for line in log_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                raw_entries.append(payload)
+        entries = raw_entries
+    normalized: list[dict[str, object]] = []
+    for entry in entries:
+        row = dict(entry)
+        if "type" not in row and isinstance(row.get("event"), str):
+            row["type"] = row["event"]
+        if "drift_type" not in row and isinstance(row.get("name"), str):
+            row["drift_type"] = row["name"]
+        normalized.append(row)
+    return normalized
 
 
 def _collect_reports(entries: Iterable[dict[str, object]]) -> dict[str, dict[str, object]]:

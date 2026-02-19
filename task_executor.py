@@ -355,12 +355,12 @@ def execute_task(
 def _run_step(
     step: Step,
     *,
-    task_id: str,
-    admission_token: AdmissionToken,
-    authorization: AuthorizationRecord,
-    request_fingerprint: RequestFingerprint,
-    required_privileges: Sequence[str],
-    approved_privileges: Sequence[str],
+    task_id: str = "",
+    admission_token: AdmissionToken | None = None,
+    authorization: AuthorizationRecord | None = None,
+    request_fingerprint: RequestFingerprint | None = None,
+    required_privileges: Sequence[str] = (),
+    approved_privileges: Sequence[str] = (),
 ) -> StepTrace:
     try:
         artifacts = _dispatch_step(
@@ -390,12 +390,12 @@ def _run_step(
 def _dispatch_step(
     step: Step,
     *,
-    task_id: str,
-    admission_token: AdmissionToken,
-    authorization: AuthorizationRecord,
-    request_fingerprint: RequestFingerprint,
-    required_privileges: Sequence[str],
-    approved_privileges: Sequence[str],
+    task_id: str = "",
+    admission_token: AdmissionToken | None = None,
+    authorization: AuthorizationRecord | None = None,
+    request_fingerprint: RequestFingerprint | None = None,
+    required_privileges: Sequence[str] = (),
+    approved_privileges: Sequence[str] = (),
 ) -> Dict[str, object]:
     if step.kind == "noop":
         return _run_noop(step)
@@ -450,12 +450,12 @@ def _run_mesh(step: Step) -> Dict[str, object]:
 def _run_adapter(
     step: Step,
     *,
-    task_id: str,
-    admission_token: AdmissionToken,
-    authorization: AuthorizationRecord,
-    request_fingerprint: RequestFingerprint,
-    required_privileges: Sequence[str],
-    approved_privileges: Sequence[str],
+    task_id: str = "",
+    admission_token: AdmissionToken | None = None,
+    authorization: AuthorizationRecord | None = None,
+    request_fingerprint: RequestFingerprint | None = None,
+    required_privileges: Sequence[str] = (),
+    approved_privileges: Sequence[str] = (),
 ) -> Dict[str, object]:
     payload = _require_payload(step, AdapterPayload)
     context = AdapterExecutionContext(
@@ -669,6 +669,8 @@ def _log_exhaustion(task_id: str, report: ExhaustionReport) -> None:
     if report.operator_question:
         entry["operator_question"] = report.operator_question
     append_json(Path(LOG_PATH), entry)
+    with Path(LOG_PATH).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
 def _execute_epr_actions(
@@ -787,7 +789,12 @@ def _close_task(task: Task, *, approval_grants: ApprovalGrants = None) -> Closur
                     reason="resolved by EPR action",
                 )
             else:
-                assessment = _assess_prerequisite(task, action, approval_grants=approval_grants)
+                try:
+                    assessment = _assess_prerequisite(task, action, approval_grants=approval_grants)
+                except TypeError as exc:
+                    if "approval_grants" not in str(exc):
+                        raise
+                    assessment = _assess_prerequisite(task, action)
             assessments.append(assessment)
             if assessment.status == "unknown":
                 query = _build_unblock_query(action, assessment)
