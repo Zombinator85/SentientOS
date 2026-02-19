@@ -120,18 +120,135 @@ def test_no_progress_emits_docket_and_stops(tmp_path: Path, monkeypatch) -> None
                 stdout="FAILED tests/test_alpha.py::test_one - AssertionError: CHOICE_POINT ambiguous",
                 stderr="",
             )
+        if command.step.startswith("baseline_full_rerun_confirm_"):
+            return CommandResult(
+                step=command.step,
+                argv=command.argv,
+                cwd=str(cwd),
+                env_overlay={},
+                timeout_seconds=command.timeout_seconds,
+                returncode=1,
+                stdout="FAILED tests/test_alpha.py::test_one - AssertionError: CHOICE_POINT ambiguous",
+                stderr="",
+            )
         return _ok_step(command, cwd)
 
     monkeypatch.setattr(forge, "_create_session", fake_create_session)
     monkeypatch.setattr(forge, "_run_step", fake_run_step)
     monkeypatch.setattr(forge, "_cleanup_session", lambda session: None)
+    monkeypatch.setenv("SENTIENTOS_FORGE_NO_IMPROVEMENT_LIMIT", "1")
 
     report = forge.run("baseline_reclamation")
 
     assert report.outcome == "failed"
+    assert "no progress" in report.failure_reasons
     assert report.docket_path is not None
     assert Path(report.docket_path).exists()
+    assert report.baseline_progress
     assert run_counter["value"] == 2
+
+
+def test_baseline_engine_progress_without_fix_application(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+    monkeypatch.setattr("sentientos.cathedral_forge.generate_fix_candidates", lambda clusters, root: [])
+
+    state = {"iter": 0}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_path = cwd / "glow" / "contracts"
+            status_path.mkdir(parents=True, exist_ok=True)
+            (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            state["iter"] += 1
+            if state["iter"] == 1:
+                out = "\n".join([
+                    "FAILED tests/test_alpha.py::test_one - AssertionError: one",
+                    "FAILED tests/test_beta.py::test_two - AssertionError: two",
+                ])
+                return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, out, "")
+            if state["iter"] == 2:
+                out = "FAILED tests/test_alpha.py::test_one - AssertionError: one"
+                return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, out, "")
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "", "")
+        return _ok_step(command, cwd)
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+    monkeypatch.setenv("SENTIENTOS_FORGE_NO_IMPROVEMENT_LIMIT", "1")
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "success"
+    assert report.baseline_progress is not None
+    assert any(
+        isinstance(entry.get("delta"), dict) and entry["delta"].get("improved") is True
+        for entry in report.baseline_progress
+        if isinstance(entry, dict)
+    )
+
+
+def test_baseline_engine_cluster_digest_change_counts_as_improvement(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+    monkeypatch.setattr("sentientos.cathedral_forge.generate_fix_candidates", lambda clusters, root: [])
+    monkeypatch.setenv("SENTIENTOS_FORGE_MAX_ITERS", "2")
+    monkeypatch.setenv("SENTIENTOS_FORGE_NO_IMPROVEMENT_LIMIT", "1")
+
+    state = {"iter": 0}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_path = cwd / "glow" / "contracts"
+            status_path.mkdir(parents=True, exist_ok=True)
+            (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            state["iter"] += 1
+            msg = "a" if state["iter"] == 1 else "b"
+            out = f"FAILED tests/test_alpha.py::test_one - AssertionError: {msg}"
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, out, "")
+        return _ok_step(command, cwd)
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "failed"
+    assert "no progress" not in report.failure_reasons
+
+
+def test_baseline_engine_confirm_rerun_prevents_false_no_progress(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    monkeypatch.setattr("sentientos.cathedral_forge.bootstrap_env", lambda root: _fake_env(root))
+    monkeypatch.setattr("sentientos.cathedral_forge.generate_fix_candidates", lambda clusters, root: [])
+    monkeypatch.setenv("SENTIENTOS_FORGE_NO_IMPROVEMENT_LIMIT", "1")
+
+    state = {"iter": 0}
+
+    def fake_run_step(command: CommandSpec, cwd: Path) -> CommandResult:
+        if command.step == "contract_status":
+            status_path = cwd / "glow" / "contracts"
+            status_path.mkdir(parents=True, exist_ok=True)
+            (status_path / "contract_status.json").write_text(json.dumps({"schema_version": 1}), encoding="utf-8")
+        if command.step.startswith("baseline_harvest_"):
+            state["iter"] += 1
+            out = "FAILED tests/test_alpha.py::test_one - AssertionError: same"
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 1, out, "")
+        if command.step.startswith("baseline_full_rerun_confirm_"):
+            return CommandResult(command.step, command.argv, str(cwd), {}, command.timeout_seconds, 0, "", "")
+        return _ok_step(command, cwd)
+
+    monkeypatch.setattr(forge, "_run_step", fake_run_step)
+
+    report = forge.run("baseline_reclamation")
+
+    assert report.outcome == "success"
+    assert report.baseline_progress is not None
+    assert any(
+        isinstance(entry.get("notes"), list) and "confirm_full_rerun" in entry["notes"]
+        for entry in report.baseline_progress
+        if isinstance(entry, dict)
+    )
 
 
 def test_budget_governor_stops_after_max_iterations(tmp_path: Path, monkeypatch) -> None:
@@ -484,6 +601,7 @@ def test_campaign_goal_executes_order_and_stops_on_failure(tmp_path: Path, monke
         report.baseline_harvests = None
         report.baseline_fixes = None
         report.baseline_budget = None
+        report.baseline_progress = None
         report.ci_baseline_before = None
         report.ci_baseline_after = None
         report.progress_delta = None

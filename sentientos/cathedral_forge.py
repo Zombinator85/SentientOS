@@ -21,6 +21,7 @@ from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_fai
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
 from sentientos.forge_goals import GoalSpec, resolve_goal
+from sentientos.forge_progress import ProgressSnapshot, delta as progress_delta_from, snapshot_from_harvest
 from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_provenance import ForgeProvenance
 from sentientos.github_checks import PRChecks, PRRef, detect_capabilities, wait_for_pr_checks
@@ -50,6 +51,8 @@ SCHEMA_VERSION = 2
 FORGE_DIR = Path("glow/forge")
 CONTRACT_STATUS_PATH = Path("glow/contracts/contract_status.json")
 MAX_REPORT_OUTPUT_CHARS = 4000
+MAX_BASELINE_PROGRESS_ENTRIES = 60
+MAX_BASELINE_PROGRESS_NODEIDS = 10
 
 
 @dataclass(slots=True)
@@ -87,6 +90,7 @@ class ForgeReport:
     baseline_harvests: list[HarvestResult] | None = None
     baseline_fixes: list[FixResult] | None = None
     baseline_budget: dict[str, int] | None = None
+    baseline_progress: list[dict[str, object]] | None = None
     ci_baseline_before: dict[str, object] | None = None
     ci_baseline_after: dict[str, object] | None = None
     progress_delta: dict[str, float | int] | None = None
@@ -152,6 +156,7 @@ class CathedralForge:
         baseline_harvests: list[HarvestResult] = []
         baseline_fixes: list[FixResult] = []
         baseline_budget: dict[str, int] | None = None
+        baseline_progress: list[dict[str, object]] = []
         ci_baseline_before: dict[str, object] | None = None
         ci_baseline_after: dict[str, object] | None = None
         progress_delta: dict[str, float | int] | None = None
@@ -260,7 +265,9 @@ class CathedralForge:
                         baseline_harvests,
                         baseline_fixes,
                         baseline_budget,
+                        baseline_progress,
                     ) = self._run_baseline_engine(goal, goal_spec, session, generated_at, forge_env)
+                    baseline_progress = _cap_baseline_progress(baseline_progress)
                     if docket_path:
                         artifacts_written.append(docket_path)
                 else:
@@ -268,6 +275,8 @@ class CathedralForge:
 
                 step_results.extend(apply_result.step_results)
                 if apply_result.status != "success":
+                    if apply_result.summary == "no progress":
+                        failure_reasons.append("no progress")
                     failure_reasons.append("apply_failed")
 
             tests_result = ForgeTestResult(status="fail", command=goal_profile.test_command_display, summary="skipped: preflight/apply failed")
@@ -438,6 +447,7 @@ class CathedralForge:
                 baseline_harvests=baseline_harvests or None,
                 baseline_fixes=baseline_fixes or None,
                 baseline_budget=baseline_budget,
+                baseline_progress=baseline_progress or None,
                 ci_baseline_before=ci_baseline_before,
                 ci_baseline_after=ci_baseline_after,
                 progress_delta=progress_delta,
@@ -502,6 +512,12 @@ class CathedralForge:
                 artifacts.append(report.docket_path)
             if report.outcome != "success":
                 failure_reasons.append(f"campaign_goal_failed:{campaign_goal}")
+                if report.docket_path and "no progress" in report.failure_reasons:
+                    notes.append(f"campaign_goal:{campaign_goal}:no_progress:{report.docket_path}")
+                if "no progress" in report.failure_reasons:
+                    summary = _summarize_baseline_progress(report.baseline_progress)
+                    if summary:
+                        notes.append(f"campaign_goal:{campaign_goal}:no_progress_detail:{summary}")
                 if campaign.stop_on_failure:
                     break
 
@@ -584,6 +600,7 @@ class CathedralForge:
             baseline_harvests=last_report.baseline_harvests,
             baseline_fixes=last_report.baseline_fixes,
             baseline_budget=last_report.baseline_budget,
+            baseline_progress=last_report.baseline_progress,
             ci_baseline_before=before.ci_baseline,
             ci_baseline_after=after.ci_baseline,
             progress_delta=last_report.progress_delta,
@@ -933,13 +950,25 @@ class CathedralForge:
         session: ForgeSession,
         generated_at: str,
         forge_env: ForgeEnv,
-    ) -> tuple[ApplyResult, int | None, int | None, str | None, list[HarvestResult], list[FixResult], dict[str, int]]:
+    ) -> tuple[
+        ApplyResult,
+        int | None,
+        int | None,
+        str | None,
+        list[HarvestResult],
+        list[FixResult],
+        dict[str, int],
+        list[dict[str, object]],
+    ]:
         cwd = Path(session.root_path)
         budget = BudgetConfig.from_env()
         step_results: list[CommandResult] = []
         harvests: list[HarvestResult] = []
         fixes: list[FixResult] = []
-        no_progress = 0
+        prev_snapshot: ProgressSnapshot | None = None
+        consecutive_no_improvement = 0
+        no_improvement_limit = max(1, int(os.getenv("SENTIENTOS_FORGE_NO_IMPROVEMENT_LIMIT", "2")))
+        baseline_progress: list[dict[str, object]] = []
         test_failures_before: int | None = None
         test_failures_after: int | None = None
         docket_path: str | None = None
@@ -956,6 +985,7 @@ class CathedralForge:
             step_results.append(harvest_step)
             harvest = harvest_failures(harvest_step.stdout, harvest_step.stderr)
             harvests.append(harvest)
+            snapshot = snapshot_from_harvest(harvest)
 
             if test_failures_before is None:
                 test_failures_before = harvest.total_failed
@@ -973,6 +1003,7 @@ class CathedralForge:
                         harvests,
                         fixes,
                         _budget_payload(budget, iteration, len(touched_files_total)),
+                        baseline_progress,
                     )
                 return (
                     ApplyResult(status="success", step_results=step_results, summary="baseline engine converged"),
@@ -982,12 +1013,13 @@ class CathedralForge:
                     harvests,
                     fixes,
                     _budget_payload(budget, iteration, len(touched_files_total)),
+                    baseline_progress,
                 )
 
             candidates = _prioritize_root_cause_candidates(generate_fix_candidates(harvest.clusters, cwd), harvest.clusters)
             selected = candidates[: budget.max_fixes_per_iteration]
             iteration_changed: set[str] = set()
-            progress = False
+            applied_fix = False
 
             for candidate in selected:
                 result = apply_fix_candidate(candidate, cwd)
@@ -995,7 +1027,7 @@ class CathedralForge:
                 touched_files_total.update(result.files_changed)
                 iteration_changed.update(result.files_changed)
                 if result.applied:
-                    progress = True
+                    applied_fix = True
 
             if iteration_changed and goal_spec.gate_profile != "smoke_noop":
                 self._run_optional_formatters(cwd, sorted(iteration_changed), step_results, goal_spec)
@@ -1003,7 +1035,7 @@ class CathedralForge:
                     self._autocommit_iteration(cwd, goal_spec.goal_id, iteration)
 
             rerun_every = max(1, int(os.getenv("SENTIENTOS_FORGE_FULL_RERUN_EVERY", "2")))
-            if progress:
+            if applied_fix:
                 nodeids = [cluster.signature.nodeid for cluster in harvest.clusters if cluster.signature.nodeid and cluster.signature.nodeid != "unknown"]
                 if nodeids:
                     targeted_step = self._run_step(
@@ -1033,13 +1065,88 @@ class CathedralForge:
                     harvests,
                     fixes,
                     _budget_payload(budget, iteration, len(touched_files_total)),
+                    baseline_progress,
                 )
 
-            if not progress:
-                no_progress += 1
+            progress_notes: list[str] = []
+            if applied_fix:
+                progress_notes.append("fix_candidate_applied")
+            if prev_snapshot is None:
+                progress_notes.append("initial_snapshot")
+                baseline_progress.append(
+                    _compact_progress_record(
+                        iteration=iteration,
+                        snapshot=snapshot,
+                        delta=None,
+                        notes=progress_notes,
+                    )
+                )
+                prev_snapshot = snapshot
+                continue
+
+            change = progress_delta_from(prev_snapshot, snapshot)
+            progress_notes.extend(change.notes)
+            baseline_progress.append(
+                _compact_progress_record(
+                    iteration=iteration,
+                    snapshot=snapshot,
+                    delta=change,
+                    notes=progress_notes,
+                )
+            )
+            if change.improved:
+                consecutive_no_improvement = 0
             else:
-                no_progress = 0
-            if no_progress >= 2:
+                consecutive_no_improvement += 1
+
+            if consecutive_no_improvement >= no_improvement_limit:
+                confirm_step = self._run_step(
+                    CommandSpec(step=f"baseline_full_rerun_confirm_{iteration}", argv=self._baseline_harvest_argv(forge_env.python, goal_spec.goal_id)),
+                    cwd,
+                )
+                step_results.append(confirm_step)
+                confirm_harvest = harvest_failures(confirm_step.stdout, confirm_step.stderr)
+                harvests.append(confirm_harvest)
+                test_failures_after = confirm_harvest.total_failed
+                confirm_snapshot = snapshot_from_harvest(confirm_harvest)
+                confirm_delta = progress_delta_from(snapshot, confirm_snapshot)
+                confirm_notes = ["confirm_full_rerun"] + confirm_delta.notes
+                baseline_progress.append(
+                    _compact_progress_record(
+                        iteration=iteration,
+                        snapshot=confirm_snapshot,
+                        delta=confirm_delta,
+                        notes=confirm_notes,
+                    )
+                )
+                if confirm_delta.improved:
+                    consecutive_no_improvement = 0
+                    prev_snapshot = confirm_snapshot
+                    if confirm_harvest.total_failed == 0:
+                        end_drift = self._run_step(CommandSpec(step="contract_drift_end", argv=[forge_env.python, "-m", "scripts.contract_drift"]), cwd)
+                        step_results.append(end_drift)
+                        if end_drift.returncode != 0:
+                            return (
+                                ApplyResult(status="failed", step_results=step_results, summary="contract drift detected after remediation"),
+                                test_failures_before,
+                                test_failures_after,
+                                docket_path,
+                                harvests,
+                                fixes,
+                                _budget_payload(budget, iteration, len(touched_files_total)),
+                                baseline_progress,
+                            )
+                        return (
+                            ApplyResult(status="success", step_results=step_results, summary="baseline engine converged"),
+                            test_failures_before,
+                            test_failures_after,
+                            docket_path,
+                            harvests,
+                            fixes,
+                            _budget_payload(budget, iteration, len(touched_files_total)),
+                            baseline_progress,
+                        )
+                    continue
                 docket_path = self._emit_docket(goal, goal_spec.goal_id, generated_at, harvest.clusters, selected, "no progress in two consecutive iterations")
                 return (
                     ApplyResult(status="failed", step_results=step_results, summary="no progress"),
@@ -1049,7 +1156,9 @@ class CathedralForge:
                     harvests,
                     fixes,
                     _budget_payload(budget, iteration, len(touched_files_total)),
+                    baseline_progress,
                 )
+            prev_snapshot = snapshot
 
         latest = harvests[-1] if harvests else HarvestResult(total_failed=0, clusters=[], raw_excerpt_truncated="")
         docket_path = self._emit_docket(goal, goal_spec.goal_id, generated_at, latest.clusters, [], "iteration budget exhausted")
@@ -1061,6 +1170,7 @@ class CathedralForge:
             harvests,
             fixes,
             _budget_payload(budget, budget.max_iterations, len(touched_files_total)),
+            baseline_progress,
         )
 
     def _baseline_harvest_argv(self, python_bin: str, goal_id: str = "baseline_reclamation") -> list[str]:
@@ -1272,6 +1382,63 @@ def _truncate_output(value: str) -> str:
     if len(value) <= MAX_REPORT_OUTPUT_CHARS:
         return value
     return value[:MAX_REPORT_OUTPUT_CHARS] + "\n...[truncated]"
+
+
+def _truncate_list(values: list[str], *, limit: int) -> list[str]:
+    if len(values) <= limit:
+        return values
+    return values[:limit]
+
+
+def _compact_progress_record(
+    *,
+    iteration: int,
+    snapshot: ProgressSnapshot,
+    delta: Any,
+    notes: list[str],
+) -> dict[str, object]:
+    record: dict[str, object] = {
+        "iteration": iteration,
+        "snapshot": {
+            "failed_count": snapshot.failed_count,
+            "cluster_digest": snapshot.cluster_digest,
+            "nodeid_sample": _truncate_list(list(snapshot.nodeid_sample), limit=MAX_BASELINE_PROGRESS_NODEIDS),
+            "captured_at": snapshot.captured_at,
+        },
+        "notes": _truncate_list([_truncate_output(note) for note in notes], limit=8),
+    }
+    if delta is not None:
+        record["delta"] = {
+            "failed_count_delta": int(delta.failed_count_delta),
+            "cluster_digest_changed": bool(delta.cluster_digest_changed),
+            "improved": bool(delta.improved),
+            "notes": _truncate_list([_truncate_output(note) for note in delta.notes], limit=8),
+        }
+    return record
+
+
+def _summarize_baseline_progress(progress: list[dict[str, object]] | None) -> str | None:
+    if not progress:
+        return None
+    last = progress[-1]
+    snapshot = last.get("snapshot") if isinstance(last, dict) else None
+    delta = last.get("delta") if isinstance(last, dict) else None
+    notes = last.get("notes") if isinstance(last, dict) else []
+    if not isinstance(snapshot, dict):
+        return None
+    failed = snapshot.get("failed_count")
+    digest = snapshot.get("cluster_digest")
+    delta_notes = delta.get("notes") if isinstance(delta, dict) else []
+    note_summary = ",".join(str(item) for item in list(delta_notes)[:3]) if isinstance(delta_notes, list) else ""
+    iter_value = last.get("iteration") if isinstance(last, dict) else "?"
+    suffix = f" notes={note_summary}" if note_summary else ""
+    return f"iter={iter_value} failed={failed} digest={digest} extra={notes}{suffix}"
+
+
+def _cap_baseline_progress(progress: list[dict[str, object]]) -> list[dict[str, object]]:
+    if len(progress) <= MAX_BASELINE_PROGRESS_ENTRIES:
+        return progress
+    return progress[-MAX_BASELINE_PROGRESS_ENTRIES:]
 
 
 def _dataclass_to_dict(value: Any) -> dict[str, Any]:
