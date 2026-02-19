@@ -206,3 +206,34 @@ def test_sentinel_convergence_allows_enqueue(tmp_path: Path) -> None:
     assert len(queue.pending_requests()) >= 2
     state = sentinel.load_state()
     assert state.last_progress_by_domain["ci_baseline"]["last_progress_improved"] is True
+
+
+def test_sentinel_uses_progress_contract_stagnation_backoff(tmp_path: Path) -> None:
+    _seed_contracts(tmp_path, prev_failed=1, cur_failed=2)
+    _write_json(
+        tmp_path / "glow/contracts/forge_progress_baseline.json",
+        {
+            "schema_version": 1,
+            "generated_at": "2026-01-01T00:00:00Z",
+            "git_sha": "abc",
+            "window_size": 10,
+            "last_runs": [
+                {"run_id": "r1", "created_at": "2026-01-01T00:00:00Z", "goal_id": "repo_green_storm", "campaign_id": "ci_baseline_recovery", "before_failed": 5, "after_failed": 5, "progress_delta_percent": 0.0, "improved": False, "notes_truncated": ["still stuck"]}
+            ],
+            "stagnation_alert": True,
+            "stagnation_reason": "3 consecutive non-improving runs",
+            "last_improving_run_id": None,
+            "last_stagnant_run_id": "r1",
+        },
+    )
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    sentinel = ContractSentinel(repo_root=tmp_path, queue=queue)
+    policy = sentinel.load_policy()
+    policy.enabled = True
+    policy.cooldown_minutes = {"global": 0, "ci_baseline": 1}
+    sentinel.save_policy(policy)
+
+    result = sentinel.tick()
+
+    assert result["status"] == "ok"
+    assert len(queue.pending_requests()) == 0

@@ -65,6 +65,12 @@ except Exception:  # pragma: no cover - optional
 
 _RECORDER: Any | None = None
 
+_EXPERIMENT_TRACKER_AVAILABLE = True
+try:
+    import experiment_tracker as _experiment_tracker  # noqa: F401
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    _EXPERIMENT_TRACKER_AVAILABLE = False
+
 
 _API_PROC: Optional[subprocess.Popen[str]] = None
 _BRIDGE_PROC: Optional[subprocess.Popen[str]] = None
@@ -403,10 +409,22 @@ def _render_forge_panel() -> None:
     st.dataframe(index.get("latest_check_failures", []))
 
     st.subheader("Progress Trend")
-    trend_rows = index.get("progress_trend", [])
-    st.dataframe(trend_rows)
-    if bool(index.get("stagnation_alert", False)):
-        st.warning("Stagnation alert: last 3 repo_green_storm runs showed no improvement")
+    contract_progress = index.get("forge_progress_contract_latest") if isinstance(index.get("forge_progress_contract_latest"), dict) else {}
+    contract_runs = contract_progress.get("last_runs") if isinstance(contract_progress.get("last_runs"), list) else []
+    if contract_runs:
+        st.caption("Contract-native progress baseline")
+        st.dataframe(contract_runs)
+        if bool(contract_progress.get("stagnation_alert", False)):
+            reason = str(contract_progress.get("stagnation_reason") or "stagnation detected")
+            st.warning(f"Stagnation alert: {reason}")
+    else:
+        trend_rows = index.get("progress_trend", [])
+        st.dataframe(trend_rows)
+        if bool(index.get("stagnation_alert", False)):
+            st.warning("Stagnation alert: last 3 repo_green_storm runs showed no improvement")
+
+    if not _EXPERIMENT_TRACKER_AVAILABLE:
+        st.info("experiment_tracker not installed; feature disabled")
 
     st.subheader("Quarantines")
     quarantines = index.get("latest_quarantines", [])

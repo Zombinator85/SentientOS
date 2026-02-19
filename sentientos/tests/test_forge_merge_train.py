@@ -178,3 +178,41 @@ def test_select_candidate_prefers_improving_recovery_pr(tmp_path: Path, monkeypa
 
     assert candidate is not None
     assert candidate.run_id == "run-b"
+
+
+def test_select_candidate_prefers_contract_improving_run(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_PREFER_IMPROVEMENT", "1")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/forge_progress_baseline.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-01-01T00:00:00Z",
+                "git_sha": "abc",
+                "window_size": 10,
+                "last_runs": [
+                    {"run_id": "run-a", "created_at": "2026-01-01T00:00:00Z", "goal_id": "repo_green_storm", "campaign_id": "ci_baseline_recovery", "before_failed": 6, "after_failed": 6, "progress_delta_percent": 0.0, "improved": False, "notes_truncated": []},
+                    {"run_id": "run-b", "created_at": "2026-01-01T00:00:01Z", "goal_id": "repo_green_storm", "campaign_id": "ci_baseline_recovery", "before_failed": 6, "after_failed": 4, "progress_delta_percent": 33.0, "improved": True, "notes_truncated": []},
+                ],
+                "stagnation_alert": False,
+                "stagnation_reason": None,
+                "last_improving_run_id": "run-b",
+                "last_stagnant_run_id": "run-a",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    state = TrainState(
+        entries=[
+            TrainEntry(run_id="run-a", pr_url="https://github.com/o/r/pull/11", pr_number=11, head_sha="abc", branch="forge/1", goal_id="repo_green_storm", campaign_id="ci_baseline_recovery", status="ready", created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z", check_overall="success"),
+            TrainEntry(run_id="run-b", pr_url="https://github.com/o/r/pull/12", pr_number=12, head_sha="abd", branch="forge/2", goal_id="repo_green_storm", campaign_id="ci_baseline_recovery", status="ready", created_at="2026-01-01T00:00:01Z", updated_at="2026-01-01T00:00:01Z", check_overall="success"),
+        ]
+    )
+
+    candidate = train._select_candidate(state)
+
+    assert candidate is not None
+    assert candidate.run_id == "run-b"

@@ -8,7 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 
-import experiment_tracker
+try:
+    import experiment_tracker
+    _EXPERIMENT_TRACKER_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    experiment_tracker = None  # type: ignore[assignment]
+    _EXPERIMENT_TRACKER_AVAILABLE = False
+
 
 from sentientos.persona.state import PersonaState
 from sentientos.cathedral.federation_guard import should_accept_amendment
@@ -98,10 +104,13 @@ def _detect_model_status(shell: Optional[RuntimeShell], config: Mapping[str, Any
 
 
 def _collect_experiment_summary() -> _ExperimentSummary:
-    try:
-        experiments = experiment_tracker.list_experiments()
-    except Exception:
+    if not _EXPERIMENT_TRACKER_AVAILABLE or experiment_tracker is None:
         experiments = []
+    else:
+        try:
+            experiments = experiment_tracker.list_experiments()
+        except Exception:
+            experiments = []
 
     total_runs = 0
     successes = 0
@@ -129,10 +138,13 @@ def _collect_experiment_summary() -> _ExperimentSummary:
         if last_entry:
             exp_id = str(last_entry.get("experiment_id") or "")
             if exp_id:
-                try:
-                    experiment = experiment_tracker.get_experiment(exp_id)
-                except Exception:
+                if not _EXPERIMENT_TRACKER_AVAILABLE or experiment_tracker is None:
                     experiment = None
+                else:
+                    try:
+                        experiment = experiment_tracker.get_experiment(exp_id)
+                    except Exception:
+                        experiment = None
                 if isinstance(experiment, Mapping):
                     last_description = str(experiment.get("description") or exp_id)
                 else:

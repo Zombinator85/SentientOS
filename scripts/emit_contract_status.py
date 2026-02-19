@@ -8,6 +8,7 @@ from typing import Any
 
 from sentientos.ci_baseline import evaluate_ci_baseline_drift
 from sentientos.forge_index import rebuild_index
+from sentientos.forge_progress_contract import emit_forge_progress_contract
 
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
 
@@ -138,6 +139,7 @@ def _domain_status(
 
 def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
     git_sha = _git_sha()
+    previous_payload = _read_json(output_path) if output_path.exists() else None
     contracts = [
         _domain_status(
             domain_name="audits",
@@ -185,6 +187,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         _ci_baseline_status(git_sha=git_sha),
         _stability_doctrine_status(git_sha=git_sha),
         _forge_observatory_status(git_sha=git_sha),
+        _forge_progress_baseline_status(git_sha=git_sha, previous_payload=previous_payload),
     ]
 
     vow_manifest = next((entry for entry in contracts if entry.get("domain_name") == "vow_manifest"), None)
@@ -328,6 +331,66 @@ def _forge_observatory_status(*, git_sha: str) -> dict[str, Any]:
         "last_report_parseable": last_report_parseable,
         "corrupt_jsonl_lines": corrupt_count,
     }
+
+
+def _forge_progress_baseline_status(*, git_sha: str, previous_payload: dict[str, Any] | None) -> dict[str, Any]:
+    contract_path = Path("glow/contracts/forge_progress_baseline.json")
+    contract = emit_forge_progress_contract(Path.cwd())
+    contract_dict = contract.to_dict()
+    contract_path.parent.mkdir(parents=True, exist_ok=True)
+    contract_path.write_text(json.dumps(contract_dict, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    previous_domain = _find_domain(previous_payload, "forge_progress_baseline")
+    previous_alert = bool(previous_domain.get("stagnation_alert", False)) if isinstance(previous_domain, dict) else False
+    previous_window = previous_domain.get("window_size") if isinstance(previous_domain, dict) else None
+    current_window = int(contract.window_size)
+    alert_flip = (not previous_alert) and contract.stagnation_alert
+    window_changed = isinstance(previous_window, int) and previous_window != current_window
+    drifted = alert_flip or window_changed
+    if alert_flip:
+        drift_type = "stagnation_alert_raised"
+    elif window_changed:
+        drift_type = "window_size_changed"
+    else:
+        drift_type = "none"
+    reasons: list[str] = []
+    if alert_flip:
+        reasons.append("stagnation_alert flipped false->true")
+    if window_changed:
+        reasons.append(f"window_size changed {previous_window}->{current_window}")
+
+    return {
+        "domain_name": "forge_progress_baseline",
+        "baseline_present": contract_path.exists(),
+        "last_baseline_path": str(contract_path) if contract_path.exists() else None,
+        "drift_report_path": None,
+        "drifted": drifted,
+        "drift_type": drift_type,
+        "drift_explanation": "; ".join(reasons) if reasons else "progress updates do not drift by default",
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_FORGE_PROGRESS_BASELINE_DRIFT",
+        "captured_by": contract.git_sha,
+        "captured_at": contract.generated_at,
+        "tool_version": None,
+        "git_sha": git_sha,
+        "window_size": current_window,
+        "stagnation_alert": contract.stagnation_alert,
+        "last_improving_run_id": contract.last_improving_run_id,
+    }
+
+
+def _find_domain(payload: dict[str, Any] | None, domain_name: str) -> dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+    contracts = payload.get("contracts")
+    if not isinstance(contracts, list):
+        return None
+    for row in contracts:
+        if isinstance(row, dict) and row.get("domain_name") == domain_name:
+            return row
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
