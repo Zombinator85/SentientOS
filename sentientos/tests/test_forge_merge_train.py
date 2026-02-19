@@ -134,3 +134,47 @@ def test_ingest_from_receipts_and_max_active(tmp_path: Path, monkeypatch) -> Non
     result = train.tick()
 
     assert result["status"] == "max_active_exceeded"
+
+
+def test_select_candidate_prefers_improving_recovery_pr(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_PREFER_IMPROVEMENT", "1")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/report_a.json").write_text(
+        json.dumps(
+            {
+                "provenance_run_id": "run-a",
+                "goal_id": "repo_green_storm",
+                "ci_baseline_before": {"failed_count": 6},
+                "ci_baseline_after": {"failed_count": 6},
+                "baseline_progress": [{"delta": {"improved": False}}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/report_b.json").write_text(
+        json.dumps(
+            {
+                "provenance_run_id": "run-b",
+                "goal_id": "repo_green_storm",
+                "ci_baseline_before": {"failed_count": 6},
+                "ci_baseline_after": {"failed_count": 4},
+                "progress_delta": {"reduction_pct": 33.0},
+                "baseline_progress": [{"delta": {"improved": True}}],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    state = TrainState(
+        entries=[
+            TrainEntry(run_id="run-a", pr_url="https://github.com/o/r/pull/11", pr_number=11, head_sha="abc", branch="forge/1", goal_id="repo_green_storm", campaign_id="ci_baseline_recovery", status="ready", created_at="2026-01-01T00:00:00Z", updated_at="2026-01-01T00:00:00Z", check_overall="success"),
+            TrainEntry(run_id="run-b", pr_url="https://github.com/o/r/pull/12", pr_number=12, head_sha="abd", branch="forge/2", goal_id="repo_green_storm", campaign_id="ci_baseline_recovery", status="ready", created_at="2026-01-01T00:00:01Z", updated_at="2026-01-01T00:00:01Z", check_overall="success"),
+        ]
+    )
+
+    candidate = train._select_candidate(state)
+
+    assert candidate is not None
+    assert candidate.run_id == "run-b"

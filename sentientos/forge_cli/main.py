@@ -29,6 +29,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("env-cache-prune", help="Prune shared ForgeEnv cache entries")
     subparsers.add_parser("status", help="Show live forge daemon status")
     subparsers.add_parser("index", help="Rebuild and print forge observability index")
+    subparsers.add_parser("progress-trend", help="Print repo_green_storm progress trend")
 
     subparsers.add_parser("sentinel-status", help="Show Contract Sentinel state")
     subparsers.add_parser("sentinel-enable", help="Enable Contract Sentinel policy")
@@ -94,6 +95,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return commands_observatory.handle_status(context)
     if command == "index":
         return commands_observatory.handle_index(context)
+    if command == "progress-trend":
+        return commands_observatory.handle_progress_trend(context)
 
     if command == "sentinel-status":
         return commands_sentinel.handle_status(context)

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Protocol
 
 from sentientos.event_stream import record_forge_event
+from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_queue import ForgeQueue
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
@@ -270,12 +271,44 @@ class ForgeMergeTrain:
         active = [item for item in state.entries if item.status in {"queued", "ready", "held", "rebasing", "checking", "mergeable"}]
         if not active:
             return None
-        def _rank(entry: TrainEntry) -> tuple[int, str]:
+        prefer_improvement = os.getenv("SENTIENTOS_FORGE_TRAIN_PREFER_IMPROVEMENT", "1") == "1"
+
+        def _rank(entry: TrainEntry) -> tuple[int, int, str]:
             pri = 0 if entry.status in {"ready", "mergeable", "checking", "rebasing"} else 1
-            return (pri, entry.created_at)
+            improvement_rank = 0
+            if prefer_improvement and _is_recovery_entry(entry):
+                improvement_rank = self._improvement_rank(entry)
+            return (pri, improvement_rank, entry.created_at)
 
         active.sort(key=_rank)
         return active[0]
+
+
+    def _improvement_rank(self, entry: TrainEntry) -> int:
+        report = self._report_for_run_id(entry.run_id)
+        if not report:
+            return 1
+        summary = summarize_report(report)
+        improved = (
+            summary.last_progress_improved
+            or (
+                summary.ci_before_failed_count is not None
+                and summary.ci_after_failed_count is not None
+                and summary.ci_after_failed_count < summary.ci_before_failed_count
+            )
+            or (summary.progress_delta_percent is not None and summary.progress_delta_percent >= 30.0)
+        )
+        return 0 if improved else 1
+
+    def _report_for_run_id(self, run_id: str) -> dict[str, object]:
+        if not run_id:
+            return {}
+        reports = sorted((self.repo_root / "glow/forge").glob("report_*.json"), key=lambda item: item.name, reverse=True)
+        for path in reports[:300]:
+            payload = _load_json(path)
+            if str(payload.get("provenance_run_id") or payload.get("run_id") or "") == run_id:
+                return payload
+        return {}
 
     def _process_candidate(self, state: TrainState, entry: TrainEntry, policy: TrainPolicy) -> dict[str, object]:
         now = _iso_now()
@@ -462,3 +495,9 @@ def _parse_iso(value: str | None) -> datetime | None:
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _is_recovery_entry(entry: TrainEntry) -> bool:
+    campaign = entry.campaign_id or ""
+    goal = entry.goal_id or ""
+    return campaign == "ci_baseline_recovery" or goal == "repo_green_storm" or goal == "campaign:ci_baseline_recovery"

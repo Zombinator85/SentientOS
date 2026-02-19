@@ -36,3 +36,16 @@ def handle_quarantines(context: ForgeContext) -> int:
     payload = rebuild_index(context.forge.repo_root)
     print_json({"command": "quarantines", "rows": payload.get("latest_quarantines", [])}, indent=2)
     return 0
+
+
+def handle_progress_trend(context: ForgeContext) -> int:
+    payload = rebuild_index(context.forge.repo_root)
+    print_json(
+        {
+            "command": "progress-trend",
+            "stagnation_alert": payload.get("stagnation_alert", False),
+            "rows": payload.get("progress_trend", []),
+        },
+        indent=2,
+    )
+    return 0

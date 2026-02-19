@@ -10,6 +10,7 @@ from typing import Any
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
+from sentientos.forge_outcomes import summarize_report
 
 SCHEMA_VERSION = 1
 INDEX_PATH = Path("glow/forge/index.json")
@@ -48,6 +49,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     doctrine_toolchain: dict[str, Any] = raw_toolchain if isinstance(raw_toolchain, dict) else {}
     doctrine_vow: dict[str, Any] = raw_vow if isinstance(raw_vow, dict) else {}
 
+    progress_trend = _progress_trend(root, reports, limit=10)
+    stagnation_alert = len(progress_trend) >= 3 and all(not bool(item.get("improved", False)) for item in progress_trend[-3:])
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -81,6 +85,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "sentinel_last_enqueued": sentinel_summary.get("sentinel_last_enqueued"),
         "sentinel_state": sentinel_summary.get("sentinel_state"),
         "provenance_chain": validate_chain(root),
+        "progress_trend": progress_trend,
+        "stagnation_alert": stagnation_alert,
     }
 
     target = root / INDEX_PATH
@@ -176,6 +182,32 @@ def _latest_prs(receipt_rows: list[dict[str, object]]) -> list[dict[str, object]
         if len(rows) >= 50:
             break
     return rows
+
+
+def _progress_trend(root: Path, reports: list[Path], *, limit: int) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for path in reports:
+        payload = _load_json(path)
+        summary = summarize_report(payload)
+        if summary.goal_id != "repo_green_storm":
+            continue
+        rows.append(
+            {
+                "run_id": summary.run_id,
+                "created_at": summary.created_at,
+                "before_failed": summary.ci_before_failed_count,
+                "after_failed": summary.ci_after_failed_count,
+                "progress_delta_percent": summary.progress_delta_percent,
+                "improved": summary.last_progress_improved
+                or (
+                    summary.ci_before_failed_count is not None
+                    and summary.ci_after_failed_count is not None
+                    and summary.ci_after_failed_count < summary.ci_before_failed_count
+                )
+                or (summary.progress_delta_percent is not None and summary.progress_delta_percent > 0),
+            }
+        )
+    return rows[-limit:]
 
 
 def _load_json(path: Path) -> dict[str, object]:

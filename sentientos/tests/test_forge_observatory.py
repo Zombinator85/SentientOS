@@ -124,3 +124,26 @@ def test_index_includes_quarantines(tmp_path: Path) -> None:
 
     assert "latest_quarantines" in payload
     assert payload["latest_quarantines"]
+
+
+def test_index_computes_progress_trend_and_stagnation(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+
+    for idx in range(3):
+        payload = {
+            "provenance_run_id": f"run-{idx}",
+            "generated_at": f"2026-01-01T00:0{idx}:00Z",
+            "goal_id": "repo_green_storm",
+            "ci_baseline_before": {"failed_count": 5},
+            "ci_baseline_after": {"failed_count": 5},
+            "baseline_progress": [{"delta": {"improved": False}}],
+        }
+        (tmp_path / f"glow/forge/report_2026-01-01T00-0{idx}-00Z.json").write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    trend = payload.get("progress_trend", [])
+    assert len(trend) == 3
+    assert payload.get("stagnation_alert") is True

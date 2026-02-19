@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.event_stream import record_forge_event
+from sentientos.forge_outcomes import OutcomeSummary, summarize_report
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
 DEFAULT_WATCHED = ["ci_baseline", "forge_observatory", "stability_doctrine"]
@@ -59,6 +60,8 @@ class SentinelState:
     last_reset_date: str = ""
     last_quarantine_by_domain: dict[str, str] = field(default_factory=dict)
     last_quarantine_reasons: dict[str, list[str]] = field(default_factory=dict)
+    last_progress_by_domain: dict[str, dict[str, Any]] = field(default_factory=dict)
+    last_stagnation_at_by_domain: dict[str, str] = field(default_factory=dict)
 
 
 class ContractSentinel:
@@ -102,6 +105,8 @@ class ContractSentinel:
             last_reset_date=str(payload.get("last_reset_date", _today_utc())),
             last_quarantine_by_domain={str(k): str(v) for k, v in payload.get("last_quarantine_by_domain", {}).items()} if isinstance(payload.get("last_quarantine_by_domain"), dict) else {},
             last_quarantine_reasons={str(k): [str(item) for item in v if isinstance(item, str)] for k, v in payload.get("last_quarantine_reasons", {}).items() if isinstance(v, list)} if isinstance(payload.get("last_quarantine_reasons"), dict) else {},
+            last_progress_by_domain={str(k): dict(v) for k, v in payload.get("last_progress_by_domain", {}).items() if isinstance(k, str) and isinstance(v, dict)} if isinstance(payload.get("last_progress_by_domain"), dict) else {},
+            last_stagnation_at_by_domain={str(k): str(v) for k, v in payload.get("last_stagnation_at_by_domain", {}).items()} if isinstance(payload.get("last_stagnation_at_by_domain"), dict) else {},
         )
 
     def save_state(self, state: SentinelState) -> None:
@@ -191,6 +196,8 @@ class ContractSentinel:
                 "cooldown_remaining_seconds": cooldown_remaining,
                 "last_quarantine_by_domain": state.last_quarantine_by_domain,
                 "last_quarantine_reasons": state.last_quarantine_reasons,
+                "last_progress_by_domain": state.last_progress_by_domain,
+                "last_stagnation_at_by_domain": state.last_stagnation_at_by_domain,
             },
         }
 
@@ -279,6 +286,10 @@ class ContractSentinel:
     def _can_enqueue(self, *, domain: str, goal_or_campaign: str, policy: SentinelPolicy, state: SentinelState) -> tuple[bool, str]:
         if state.enqueues_today >= policy.max_enqueues_per_day:
             return (False, "max_enqueues_per_day")
+        if domain == "ci_baseline":
+            progress_decision = self._apply_progress_decision(domain=domain, state=state)
+            if progress_decision == "stagnation_backoff":
+                return (False, "stagnation_backoff")
         if self._is_within_cooldown(domain=domain, policy=policy, state=state):
             return (False, "cooldown")
         if self._is_recent_self_receipt(domain=domain, policy=policy):
@@ -300,8 +311,101 @@ class ContractSentinel:
         if last_global and now - last_global < timedelta(minutes=global_minutes):
             return True
         last_domain = _parse_iso(state.last_enqueued_at_by_domain.get(domain))
-        domain_minutes = policy.cooldown_minutes.get(domain, global_minutes)
+        base_domain_minutes = policy.cooldown_minutes.get(domain, global_minutes)
+        multiplier = self._cooldown_multiplier_for(domain=domain, state=state)
+        domain_minutes = max(1, int(round(base_domain_minutes * multiplier)))
         return bool(last_domain and now - last_domain < timedelta(minutes=domain_minutes))
+
+
+    def _apply_progress_decision(self, *, domain: str, state: SentinelState) -> str:
+        summary = self._latest_sentinel_outcome(domain=domain)
+        if summary is None:
+            return "unknown"
+        essentials = {
+            "run_id": summary.run_id,
+            "goal_id": summary.goal_id,
+            "campaign_id": summary.campaign_id,
+            "outcome": summary.outcome,
+            "ci_before_failed_count": summary.ci_before_failed_count,
+            "ci_after_failed_count": summary.ci_after_failed_count,
+            "progress_delta_percent": summary.progress_delta_percent,
+            "last_progress_improved": summary.last_progress_improved,
+            "last_progress_notes": summary.last_progress_notes,
+            "no_improvement_streak": summary.no_improvement_streak,
+            "audit_status": summary.audit_status,
+            "created_at": summary.created_at,
+        }
+        state.last_progress_by_domain[domain] = essentials
+
+        stagnant = (
+            summary.ci_before_failed_count is not None
+            and summary.ci_after_failed_count is not None
+            and summary.ci_after_failed_count >= summary.ci_before_failed_count
+            and not summary.last_progress_improved
+        )
+        improving = (
+            (summary.ci_before_failed_count is not None and summary.ci_after_failed_count is not None and summary.ci_after_failed_count < summary.ci_before_failed_count)
+            or (summary.progress_delta_percent is not None and summary.progress_delta_percent > 0)
+            or summary.last_progress_improved
+        )
+        if stagnant:
+            state.last_stagnation_at_by_domain[domain] = _iso_now()
+            self._emit(
+                "sentinel_stagnation_backoff",
+                domain=domain,
+                details={"run_id": summary.run_id, "goal_id": summary.goal_id, "campaign_id": summary.campaign_id},
+            )
+            return "stagnation_backoff"
+        if improving:
+            self._emit(
+                "sentinel_convergence",
+                domain=domain,
+                details={"run_id": summary.run_id, "goal_id": summary.goal_id, "campaign_id": summary.campaign_id},
+            )
+            return "convergence"
+        return "unknown"
+
+    def _cooldown_multiplier_for(self, *, domain: str, state: SentinelState) -> float:
+        payload = state.last_progress_by_domain.get(domain)
+        if not isinstance(payload, dict):
+            return 1.0
+        before = payload.get("ci_before_failed_count")
+        after = payload.get("ci_after_failed_count")
+        improved = bool(payload.get("last_progress_improved", False))
+        pct = payload.get("progress_delta_percent")
+        if isinstance(before, int) and isinstance(after, int) and after >= before and not improved:
+            return 5.0
+        if (isinstance(before, int) and isinstance(after, int) and after < before) or (isinstance(pct, (int, float)) and float(pct) > 0) or improved:
+            return 0.5
+        return 1.0
+
+    def _latest_sentinel_outcome(self, *, domain: str) -> OutcomeSummary | None:
+        queue_rows = _read_jsonl(self.repo_root / "pulse/forge_queue.jsonl")
+        candidate_ids: list[str] = []
+        for row in reversed(queue_rows):
+            metadata = row.get("metadata")
+            if row.get("requested_by") != "ContractSentinel" or not isinstance(metadata, dict):
+                continue
+            if metadata.get("trigger_domain") != domain:
+                continue
+            request_id = row.get("request_id")
+            if isinstance(request_id, str):
+                candidate_ids.append(request_id)
+            if len(candidate_ids) >= 20:
+                break
+        if not candidate_ids:
+            return None
+        receipts = self.queue.recent_receipts(limit=400)
+        for receipt in reversed(receipts):
+            if receipt.request_id not in candidate_ids or receipt.status not in {"success", "failed"}:
+                continue
+            if not receipt.report_path:
+                continue
+            report = _load_json(self.repo_root / receipt.report_path)
+            if not report:
+                continue
+            return summarize_report(report)
+        return None
 
     def _is_recent_self_receipt(self, *, domain: str, policy: SentinelPolicy) -> bool:
         requests = {req.request_id: req for req in self.queue.pending_requests()}
