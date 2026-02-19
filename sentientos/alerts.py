@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import argparse
 import json
 from dataclasses import dataclass
@@ -107,16 +108,29 @@ def _default_rules() -> list[AlertRule]:
 
 
 def load_rules(directory: Path | None = None) -> list[AlertRule]:
-    directory = directory or (Path.cwd() / "ops" / "alerts")
-    if directory.exists():
-        rules: list[AlertRule] = []
+    if directory is None:
+        env_dir = os.getenv("SENTIENTOS_ALERT_RULES_DIR")
+        if env_dir:
+            directory = Path(env_dir)
+        else:
+            candidate = Path.cwd() / "ops" / "alerts"
+            directory = candidate if candidate.exists() else None
+    defaults = _default_rules()
+    if directory is not None and directory.exists():
+        loaded_rules: list[AlertRule] = []
         for path in sorted(directory.glob("*.yml")) + sorted(directory.glob("*.yaml")):
             rule = _load_yaml_rule(path)
             if rule:
-                rules.append(rule)
-        if rules:
-            return rules
-    return _default_rules()
+                loaded_rules.append(rule)
+        if loaded_rules:
+            by_name = {rule.name: rule for rule in defaults}
+            for rule in loaded_rules:
+                by_name[rule.name] = rule
+            default_names = {rule.name for rule in defaults}
+            merged = [by_name[rule.name] for rule in defaults if rule.name in by_name]
+            merged.extend(rule for rule in loaded_rules if rule.name not in default_names)
+            return merged
+    return defaults
 
 
 def _parse_metrics(metrics_text: str) -> Mapping[str, float]:
