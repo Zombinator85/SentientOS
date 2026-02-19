@@ -402,6 +402,12 @@ def _render_forge_panel() -> None:
     st.subheader("Latest check failures")
     st.dataframe(index.get("latest_check_failures", []))
 
+    st.subheader("Progress Trend")
+    trend_rows = index.get("progress_trend", [])
+    st.dataframe(trend_rows)
+    if bool(index.get("stagnation_alert", False)):
+        st.warning("Stagnation alert: last 3 repo_green_storm runs showed no improvement")
+
     st.subheader("Quarantines")
     quarantines = index.get("latest_quarantines", [])
     st.dataframe(quarantines)

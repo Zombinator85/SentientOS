@@ -111,3 +111,98 @@ def test_note_quarantine_extends_cooldown_and_records_state(tmp_path: Path) -> N
     assert next_policy.cooldown_minutes["ci_baseline"] == 6
     assert state.last_quarantine_by_domain["ci_baseline"] == "quarantine/forge-123"
     assert state.last_quarantine_reasons["ci_baseline"] == ["contract_drift_appeared"]
+
+
+def _write_report_and_receipt(tmp_path: Path, *, request_id: str, report_name: str, report_payload: dict[str, object], status: str = "failed") -> None:
+    report_path = tmp_path / f"glow/forge/{report_name}"
+    _write_json(report_path, report_payload)
+    receipts_path = tmp_path / "pulse/forge_receipts.jsonl"
+    receipts_path.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "request_id": request_id,
+        "status": status,
+        "report_path": str(report_path.relative_to(tmp_path)),
+        "finished_at": "2026-01-01T00:10:00Z",
+    }
+    receipts_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+
+
+def test_sentinel_stagnation_backoff_blocks_enqueue(tmp_path: Path) -> None:
+    _seed_contracts(tmp_path, prev_failed=1, cur_failed=3)
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    sentinel = ContractSentinel(repo_root=tmp_path, queue=queue)
+    policy = sentinel.load_policy()
+    policy.enabled = True
+    policy.cooldown_minutes = {"global": 0, "ci_baseline": 1}
+    sentinel.save_policy(policy)
+
+    request_id = queue.enqueue(
+        ForgeRequest(
+            request_id="",
+            goal="campaign:ci_baseline_recovery",
+            goal_id="campaign:ci_baseline_recovery",
+            requested_by="ContractSentinel",
+            metadata={"trigger_domain": "ci_baseline", "sentinel_triggered": True},
+        )
+    )
+    _write_report_and_receipt(
+        tmp_path,
+        request_id=request_id,
+        report_name="report_stagnant.json",
+        report_payload={
+            "goal_id": "repo_green_storm",
+            "outcome": "failed",
+            "ci_baseline_before": {"failed_count": 6},
+            "ci_baseline_after": {"failed_count": 6},
+            "baseline_progress": [{"delta": {"improved": False, "notes": ["no_outcome_improvement"]}}],
+            "provenance_run_id": "run-stagnant",
+        },
+    )
+
+    result = sentinel.tick()
+
+    assert result["status"] == "ok"
+    assert len(queue.pending_requests()) == 1
+    state = sentinel.load_state()
+    assert "ci_baseline" in state.last_stagnation_at_by_domain
+
+
+def test_sentinel_convergence_allows_enqueue(tmp_path: Path) -> None:
+    _seed_contracts(tmp_path, prev_failed=1, cur_failed=2)
+    queue = ForgeQueue(pulse_root=tmp_path / "pulse")
+    sentinel = ContractSentinel(repo_root=tmp_path, queue=queue)
+    policy = sentinel.load_policy()
+    policy.enabled = True
+    policy.cooldown_minutes = {"global": 0, "ci_baseline": 0}
+    sentinel.save_policy(policy)
+
+    request_id = queue.enqueue(
+        ForgeRequest(
+            request_id="",
+            goal="campaign:ci_baseline_recovery",
+            goal_id="campaign:ci_baseline_recovery",
+            requested_by="ContractSentinel",
+            metadata={"trigger_domain": "ci_baseline", "sentinel_triggered": True},
+        )
+    )
+    _write_report_and_receipt(
+        tmp_path,
+        request_id=request_id,
+        report_name="report_improved.json",
+        report_payload={
+            "goal_id": "repo_green_storm",
+            "outcome": "failed",
+            "ci_baseline_before": {"failed_count": 7},
+            "ci_baseline_after": {"failed_count": 5},
+            "progress_delta": {"reduction_pct": 40.0},
+            "baseline_progress": [{"delta": {"improved": True, "notes": ["failed_count_decreased"]}}],
+            "provenance_run_id": "run-improved",
+        },
+    )
+
+    result = sentinel.tick()
+
+    assert result["status"] == "ok"
+    assert len(queue.pending_requests()) >= 2
+    state = sentinel.load_state()
+    assert state.last_progress_by_domain["ci_baseline"]["last_progress_improved"] is True
