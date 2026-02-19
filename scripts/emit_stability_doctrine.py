@@ -30,7 +30,10 @@ def _sha256(path: Path) -> str:
 
 
 def _run(command: list[str]) -> tuple[bool, str]:
-    completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    try:
+        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        return (False, str(exc))
     out = (completed.stdout or "").strip() or (completed.stderr or "").strip()
     return (completed.returncode == 0, out)
 
@@ -43,6 +46,8 @@ def _latest_audit_docket() -> str | None:
 
 
 def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
+    audit_module_ok, audit_module_info = _run(["python", "-m", "sentientos.verify_audits", "--help"])
+    audit_console_ok, audit_console_info = _run(["verify_audits", "--help"])
     audit_ok, audit_info = _run(["python", "scripts/reconcile_audits.py", "--check"])
     manifest_path = _resolve_manifest_path()
     manifest_present = manifest_path.exists()
@@ -55,7 +60,12 @@ def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
         "generated_at": _iso_now(),
         "git_sha": _git_sha(),
         "toolchain": {
-            "verify_audits_module": "python scripts/reconcile_audits.py --check",
+            "verify_audits_module": "python -m sentientos.verify_audits --help",
+            "verify_audits_console": "verify_audits --help",
+            "audit_tool_module_ok": audit_module_ok,
+            "audit_tool_module_info": audit_module_info,
+            "audit_tool_console_ok": audit_console_ok,
+            "audit_tool_console_info": audit_console_info,
             "verify_audits_available": audit_ok,
             "verify_audits_info": audit_info,
         },

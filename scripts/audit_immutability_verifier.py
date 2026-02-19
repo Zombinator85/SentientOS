@@ -156,6 +156,49 @@ def verify_once(
     return AuditCheckOutcome(outcome, reason=reason, recorded_events=recorded)
 
 
+
+
+def _forge_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _write_preflight_docket(*, status: str, reason: str, manifest_path: Path, ensure_output: dict[str, object] | None = None) -> Path:
+    docket = {
+        "kind": "audit_docket",
+        "tool": "audit_immutability_verifier",
+        "status": status,
+        "reason": reason,
+        "manifest_path": str(manifest_path),
+        "ensure_output": ensure_output,
+        "generated_at": _iso_now(),
+    }
+    docket_path = Path("glow/forge") / f"audit_docket_{_forge_timestamp()}.json"
+    docket_path.parent.mkdir(parents=True, exist_ok=True)
+    docket_path.write_text(json.dumps(docket, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return docket_path
+
+
+def _ensure_manifest_if_missing(manifest_path: Path) -> tuple[bool, dict[str, object] | None]:
+    if manifest_path.exists():
+        return True, None
+    try:
+        from sentientos import vow_artifacts
+
+        payload = vow_artifacts.ensure_vow_artifacts(manifest_path=manifest_path)
+    except Exception as exc:  # pragma: no cover - defensive
+        _write_preflight_docket(status="failed", reason=f"ensure_failed:{exc}", manifest_path=manifest_path)
+        return False, None
+
+    if not manifest_path.exists():
+        _write_preflight_docket(
+            status="failed",
+            reason="ensure_failed:manifest_missing_after_ensure",
+            manifest_path=manifest_path,
+            ensure_output=payload,
+        )
+        return False, payload
+
+    return True, payload
 def run_loop(
     stop: threading.Event,
     logger: Callable[[dict], None] = log_event,
@@ -193,6 +236,22 @@ def main(argv: list[str] | None = None) -> int:
 
     issues: list[str] = []
     try:
+        ensure_ok, _ = _ensure_manifest_if_missing(args.manifest)
+        if not ensure_ok:
+            issues.append("manifest_ensure_failed")
+            write_result(ok=False, issues=issues, error="manifest_ensure_failed")
+            print(
+                json.dumps(
+                    {
+                        "tool": "audit_immutability_verifier",
+                        "status": "error",
+                        "reason": "manifest_ensure_failed",
+                    },
+                    sort_keys=True,
+                )
+            )
+            return 1
+
         result = verify_once(
             manifest_path=args.manifest,
             allow_missing_manifest=args.allow_missing_manifest,
