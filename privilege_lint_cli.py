@@ -39,8 +39,8 @@ from privilege_lint._compat import RuleSkippedError
 from privilege_lint.comment_controls import parse_controls, is_disabled
 from privilege_lint.metrics import MetricsCollector
 from privilege_lint.plugins import load_plugins
-from logging_config import get_log_path
 from privilege_lint.reporting import LintExecution
+from sentientos.audit_sink import resolve_audit_paths, safe_write_event
 # ── privilege_lint_cli.py ─────────────────────────────────────────
 
 
@@ -166,9 +166,8 @@ def validate_banner_order(
 
 
 # ----------------------------- lint driver ---------------------------------- #
-# uses PRIVILEGED_AUDIT_FILE if set, otherwise logs/privileged_audit.jsonl
-AUDIT_FILE = get_log_path("privileged_audit.jsonl", "PRIVILEGED_AUDIT_FILE")
-AUDIT_FILE.parent.mkdir(parents=True, exist_ok=True)
+# writes privileged audit events to the runtime stream by default
+_AUDIT_REPO_ROOT = Path(__file__).resolve().parent
 
 
 def audit_use(tool: str, cmd: str) -> None:
@@ -177,8 +176,7 @@ def audit_use(tool: str, cmd: str) -> None:
         "tool": tool,
         "command": cmd,
     }
-    with open(AUDIT_FILE, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(record) + "\n")
+    safe_write_event(resolve_audit_paths(_AUDIT_REPO_ROOT), record)
 
 
 class PrivilegeLinter:

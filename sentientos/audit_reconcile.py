@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Literal
+
+from sentientos.audit_sink import resolve_audit_paths
 
 
 @dataclass(frozen=True)
@@ -30,18 +34,7 @@ def parse_audit_drift_output(text: str) -> AuditReconcileResult:
             continue
         if ":" in line and ".json" in line:
             head, summary = line.split(":", 1)
-            parts = head.split(":")
-            file_part = parts[0]
-            line_range = parts[1] if len(parts) > 1 and parts[1].isdigit() else None
-            findings.append(
-                AuditDriftFinding(
-                    category="verify_output",
-                    file=file_part,
-                    line_range=line_range,
-                    summary=summary.strip() or "audit drift reported",
-                    details=line,
-                )
-            )
+            findings.append(AuditDriftFinding(category="verify_output", file=head, summary=summary.strip() or "audit drift reported", details=line))
     if not findings and text.strip():
         findings.append(AuditDriftFinding(category="verify_output", file="logs/privileged_audit.jsonl", summary="audit drift reported", details=text.strip()[:500]))
     if not findings:
@@ -49,71 +42,89 @@ def parse_audit_drift_output(text: str) -> AuditReconcileResult:
     return AuditReconcileResult(status="drift", findings=findings, artifacts_written=[])
 
 
-def _load_jsonl(path: Path) -> list[dict[str, object]]:
-    rows: list[dict[str, object]] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        payload = json.loads(stripped)
-        if not isinstance(payload, dict):
-            raise ValueError(f"non-object entry in {path}")
-        rows.append(payload)
-    return rows
+def _sha256_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _canonical_entry(entry: dict[str, object]) -> str:
-    return json.dumps(entry, sort_keys=True, separators=(",", ":"))
+def _git_head_text(repo_root: Path, path: Path) -> str | None:
+    rel = path.relative_to(repo_root)
+    completed = subprocess.run(["git", "show", f"HEAD:{rel.as_posix()}"], check=False, capture_output=True, text=True)
+    if completed.returncode != 0:
+        return None
+    return completed.stdout
 
 
-def _canonical_sort_key(entry: dict[str, object]) -> tuple[str, str, str]:
-    timestamp = str(entry.get("timestamp", ""))
-    rolling_hash = str(entry.get("rolling_hash") or entry.get("hash") or "")
-    return (timestamp, rolling_hash, _canonical_entry(entry))
+def _append_runtime_events(runtime_path: Path, lines: list[str]) -> None:
+    runtime_path.parent.mkdir(parents=True, exist_ok=True)
+    with runtime_path.open("a", encoding="utf-8") as handle:
+        for line in lines:
+            handle.write(line.rstrip("\n") + "\n")
 
 
 def reconcile_privileged_audit(repo_root: Path, mode: Literal["check", "repair"]) -> AuditReconcileResult:
-    target = repo_root / "logs/privileged_audit.jsonl"
-    if not target.exists():
-        finding = AuditDriftFinding(category="missing_file", file="logs/privileged_audit.jsonl", summary="privileged audit log missing")
+    sink = resolve_audit_paths(repo_root)
+    baseline = sink.baseline_path
+    runtime = sink.runtime_path
+
+    if not baseline.exists():
+        finding = AuditDriftFinding(category="missing_file", file=str(baseline.relative_to(repo_root)), summary="privileged audit baseline missing")
         return AuditReconcileResult(status="needs_decision", findings=[finding], artifacts_written=[])
 
-    try:
-        rows = _load_jsonl(target)
-    except (OSError, json.JSONDecodeError, ValueError) as exc:
-        finding = AuditDriftFinding(category="parse_error", file="logs/privileged_audit.jsonl", summary="unable to parse privileged audit log", details=str(exc))
-        return AuditReconcileResult(status="needs_decision", findings=[finding], artifacts_written=[])
+    baseline_text = baseline.read_text(encoding="utf-8")
+    baseline_lines = [line for line in baseline_text.splitlines() if line.strip()]
+    head_text = _git_head_text(repo_root, baseline)
+    if head_text is None:
+        return AuditReconcileResult(status="needs_decision", findings=[AuditDriftFinding(category="baseline_untracked", file=str(baseline.relative_to(repo_root)), summary="unable to resolve canonical baseline from git HEAD")], artifacts_written=[])
 
-    canonical_text_in_order = "".join(f"{_canonical_entry(item)}\n" for item in rows)
-    current_text = target.read_text(encoding="utf-8")
+    head_lines = [line for line in head_text.splitlines() if line.strip()]
+    before_sha = _sha256_text(baseline_text)
+    head_sha = _sha256_text(head_text)
 
-    if current_text == canonical_text_in_order:
+    if baseline_text == head_text:
         return AuditReconcileResult(status="clean", findings=[], artifacts_written=[])
 
-    if [ _canonical_sort_key(item) for item in rows ] == sorted(_canonical_sort_key(item) for item in rows):
-        finding = AuditDriftFinding(
-            category="formatting_drift",
-            file="logs/privileged_audit.jsonl",
-            summary="non-canonical serialization detected",
-            details="deterministic canonicalization available without reordering",
-        )
+    appended_lines = 0
+    likely_writer = "unknown"
+    if len(baseline_lines) >= len(head_lines) and baseline_lines[: len(head_lines)] == head_lines:
+        appended = baseline_lines[len(head_lines) :]
+        appended_lines = len(appended)
+        if appended:
+            try:
+                sample = json.loads(appended[-1])
+                likely_writer = str(sample.get("tool") or sample.get("source") or sample.get("actor") or "unknown")
+            except Exception:
+                likely_writer = "unknown"
+
+        findings = [
+            AuditDriftFinding(
+                category="substantive_drift",
+                file=str(baseline.relative_to(repo_root)),
+                summary="baseline was appended with runtime-like events",
+                details=(
+                    f"baseline_sha_before={before_sha}; baseline_sha_after={head_sha}; "
+                    f"appended_lines={appended_lines}; likely_writer={likely_writer}; "
+                    f"proposed_action=move_appended_lines_to_runtime:{runtime}"
+                ),
+            )
+        ]
         if mode == "repair":
-            target.write_text(canonical_text_in_order, encoding="utf-8")
-            return AuditReconcileResult(status="repaired", findings=[finding], artifacts_written=[str(target.relative_to(repo_root))])
-        return AuditReconcileResult(status="drift", findings=[finding], artifacts_written=[])
+            _append_runtime_events(runtime, appended)
+            baseline.write_text(head_text, encoding="utf-8")
+            return AuditReconcileResult(
+                status="repaired",
+                findings=findings,
+                artifacts_written=[str(runtime.relative_to(repo_root)), str(baseline.relative_to(repo_root))],
+            )
+        return AuditReconcileResult(status="needs_decision", findings=findings, artifacts_written=[])
 
     finding = AuditDriftFinding(
         category="substantive_drift",
-        file="logs/privileged_audit.jsonl",
-        summary="substantive privileged audit drift requires explicit operator decision",
-        details="missing entries or altered hashes detected",
+        file=str(baseline.relative_to(repo_root)),
+        summary="baseline diverged from canonical audit artifact",
+        details=f"baseline_sha_before={before_sha}; baseline_sha_after={head_sha}; appended_lines={appended_lines}; proposed_action=docket_and_stop",
     )
     return AuditReconcileResult(status="needs_decision", findings=[finding], artifacts_written=[])
 
 
 def result_to_json(result: AuditReconcileResult) -> dict[str, object]:
-    return {
-        "status": result.status,
-        "findings": [asdict(item) for item in result.findings],
-        "artifacts_written": result.artifacts_written,
-    }
+    return {"status": result.status, "findings": [asdict(item) for item in result.findings], "artifacts_written": result.artifacts_written}

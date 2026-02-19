@@ -11,6 +11,8 @@ import subprocess
 import importlib.util
 import sys
 
+from sentientos.audit_sink import resolve_audit_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 _spec = importlib.util.spec_from_file_location("sentientos.audit_reconcile", REPO_ROOT / "sentientos/audit_reconcile.py")
@@ -65,7 +67,7 @@ def _accept_drift(reason: str) -> int:
     if os.getenv("SENTIENTOS_AUDIT_ACCEPT_DRIFT") != "1":
         print("SENTIENTOS_AUDIT_ACCEPT_DRIFT=1 is required for --accept-drift")
         return 2
-    log_path = REPO_ROOT / "logs/privileged_audit.jsonl"
+    log_path = resolve_audit_paths(REPO_ROOT).baseline_path
     before = _sha256(log_path) if log_path.exists() else ""
     repair_result = reconcile_privileged_audit(REPO_ROOT, mode="repair")
     after = _sha256(log_path) if log_path.exists() else ""

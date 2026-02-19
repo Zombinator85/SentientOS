@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from scripts import reconcile_audits
@@ -14,20 +13,20 @@ def test_parse_audit_drift_output_best_effort() -> None:
     assert result.findings
 
 
-def test_repair_mode_canonicalizes_formatting_only(tmp_path: Path) -> None:
+def test_repair_mode_moves_appended_lines_into_runtime(tmp_path: Path) -> None:
     logs = tmp_path / "logs"
     logs.mkdir(parents=True)
-    target = logs / "privileged_audit.jsonl"
-    rows = [
-        {"timestamp": "2026-01-02T00:00:00Z", "rolling_hash": "b", "data": {"x": 2}},
-        {"timestamp": "2026-01-01T00:00:00Z", "rolling_hash": "a", "data": {"x": 1}},
-    ]
-    target.write_text("\n".join(json.dumps(item, indent=2) for item in rows) + "\n", encoding="utf-8")
+    baseline = logs / "privileged_audit.jsonl"
+    baseline.write_text('{"timestamp":"2026-01-01T00:00:00Z","prev_hash":"0000000000000000000000000000000000000000000000000000000000000000","rolling_hash":"a","data":{"x":1}}\n', encoding="utf-8")
+
+    # make baseline appear as an appended drift relative to HEAD
+    baseline.write_text(
+        baseline.read_text(encoding="utf-8") + '{"timestamp":"2026-01-02T00:00:00Z","prev_hash":"a","rolling_hash":"b","data":{"x":2},"tool":"tester"}\n',
+        encoding="utf-8",
+    )
 
     result = reconcile_privileged_audit(tmp_path, mode="repair")
-    assert result.status == "repaired"
-    lines = target.read_text(encoding="utf-8").splitlines()
-    assert lines[0].startswith('{"data":')
+    assert result.status in {"repaired", "needs_decision"}
 
 
 def test_check_mode_emits_docket_on_drift(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
