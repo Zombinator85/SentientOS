@@ -11,6 +11,7 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
+from sentientos.forge_progress_contract import emit_forge_progress_contract
 
 SCHEMA_VERSION = 1
 INDEX_PATH = Path("glow/forge/index.json")
@@ -51,6 +52,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
 
     progress_trend = _progress_trend(root, reports, limit=10)
     stagnation_alert = len(progress_trend) >= 3 and all(not bool(item.get("improved", False)) for item in progress_trend[-3:])
+    contract_path = root / "glow/contracts/forge_progress_baseline.json"
+    progress_contract = _load_json(contract_path)
+    if not progress_contract:
+        progress_contract = emit_forge_progress_contract(root).to_dict()
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -87,6 +92,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "provenance_chain": validate_chain(root),
         "progress_trend": progress_trend,
         "stagnation_alert": stagnation_alert,
+        "forge_progress_contract_latest": progress_contract,
     }
 
     target = root / INDEX_PATH

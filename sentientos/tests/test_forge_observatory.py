@@ -147,3 +147,31 @@ def test_index_computes_progress_trend_and_stagnation(tmp_path: Path) -> None:
     trend = payload.get("progress_trend", [])
     assert len(trend) == 3
     assert payload.get("stagnation_alert") is True
+
+
+def test_index_includes_progress_contract_snapshot(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/contracts/forge_progress_baseline.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-01-01T00:00:00Z",
+                "git_sha": "abc",
+                "window_size": 10,
+                "last_runs": [],
+                "stagnation_alert": False,
+                "stagnation_reason": None,
+                "last_improving_run_id": None,
+                "last_stagnant_run_id": None,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = rebuild_index(tmp_path)
+
+    assert "forge_progress_contract_latest" in payload
+    assert isinstance(payload["forge_progress_contract_latest"], dict)

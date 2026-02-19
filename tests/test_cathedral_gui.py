@@ -50,3 +50,21 @@ def test_fetch_status(monkeypatch):
     status = cg.fetch_status("http://x/status")
     assert status["uptime"] == "0d 00:00:01"
     assert status["last_heartbeat"] == "Tick 1"
+
+
+def test_gui_import_survives_missing_experiment_tracker(monkeypatch):
+    monkeypatch.setitem(sys.modules, "streamlit", _StreamlitStub())
+    monkeypatch.delitem(sys.modules, "experiment_tracker", raising=False)
+    import builtins
+
+    real_import = builtins.__import__
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "experiment_tracker":
+            raise ModuleNotFoundError("missing experiment_tracker")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    import gui.cathedral_gui as cg
+    importlib.reload(cg)
+    assert cg.forge_panel_registered() is True

@@ -11,7 +11,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional
 
-import experiment_tracker
+try:
+    import experiment_tracker
+    _EXPERIMENT_TRACKER_AVAILABLE = True
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    experiment_tracker = None  # type: ignore[assignment]
+    _EXPERIMENT_TRACKER_AVAILABLE = False
+
 
 from sentientos.cathedral.digest import CathedralDigest
 from sentientos.federation.identity import NodeId
@@ -329,10 +335,13 @@ def build_experiment_index(
         return None
 
     if experiments is None:
-        try:
-            records: List[Mapping[str, Any]] = list(experiment_tracker.list_experiments())
-        except Exception:  # pragma: no cover - defensive
+        if not _EXPERIMENT_TRACKER_AVAILABLE or experiment_tracker is None:
             records = []
+        else:
+            try:
+                records: List[Mapping[str, Any]] = list(experiment_tracker.list_experiments())
+            except Exception:  # pragma: no cover - defensive
+                records = []
     else:
         records = [record for record in experiments if isinstance(record, Mapping)]
 
@@ -413,10 +422,13 @@ def build_local_summary(runtime) -> FederationSummary:
         last_digest, height = "", 0
     rollback_count = getattr(cathedral_digest, "rollbacks", 0)
 
-    try:
-        experiments = experiment_tracker.list_experiments()
-    except Exception:  # pragma: no cover - defensive
+    if not _EXPERIMENT_TRACKER_AVAILABLE or experiment_tracker is None:
         experiments = []
+    else:
+        try:
+            experiments = experiment_tracker.list_experiments()
+        except Exception:  # pragma: no cover - defensive
+            experiments = []
     total_experiments = len(experiments)
 
     chain_log_path = _get_chain_log_path()

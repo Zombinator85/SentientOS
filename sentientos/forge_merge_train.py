@@ -9,6 +9,7 @@ from typing import Protocol
 
 from sentientos.event_stream import record_forge_event
 from sentientos.forge_outcomes import summarize_report
+from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
@@ -285,6 +286,9 @@ class ForgeMergeTrain:
 
 
     def _improvement_rank(self, entry: TrainEntry) -> int:
+        from_contract = self._contract_improvement_rank(entry.run_id)
+        if from_contract is not None:
+            return from_contract
         report = self._report_for_run_id(entry.run_id)
         if not report:
             return 1
@@ -299,6 +303,22 @@ class ForgeMergeTrain:
             or (summary.progress_delta_percent is not None and summary.progress_delta_percent >= 30.0)
         )
         return 0 if improved else 1
+
+    def _contract_improvement_rank(self, run_id: str) -> int | None:
+        if not run_id:
+            return None
+        path = self.repo_root / "glow/contracts/forge_progress_baseline.json"
+        payload = _load_json(path)
+        if not payload:
+            payload = emit_forge_progress_contract(self.repo_root).to_dict()
+        rows = payload.get("last_runs") if isinstance(payload.get("last_runs"), list) else []
+        for row in reversed(rows):
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("run_id", "")) != run_id:
+                continue
+            return 0 if bool(row.get("improved", False)) else 1
+        return None
 
     def _report_for_run_id(self, run_id: str) -> dict[str, object]:
         if not run_id:

@@ -11,6 +11,7 @@ from typing import Any
 
 from sentientos.event_stream import record_forge_event
 from sentientos.forge_outcomes import OutcomeSummary, summarize_report
+from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
 DEFAULT_WATCHED = ["ci_baseline", "forge_observatory", "stability_doctrine"]
@@ -286,9 +287,10 @@ class ContractSentinel:
     def _can_enqueue(self, *, domain: str, goal_or_campaign: str, policy: SentinelPolicy, state: SentinelState) -> tuple[bool, str]:
         if state.enqueues_today >= policy.max_enqueues_per_day:
             return (False, "max_enqueues_per_day")
+        emergency_pass_to_fail = self._ci_pass_to_fail_emergency()
         if domain == "ci_baseline":
             progress_decision = self._apply_progress_decision(domain=domain, state=state)
-            if progress_decision == "stagnation_backoff":
+            if progress_decision == "stagnation_backoff" and not emergency_pass_to_fail:
                 return (False, "stagnation_backoff")
         if self._is_within_cooldown(domain=domain, policy=policy, state=state):
             return (False, "cooldown")
@@ -318,6 +320,12 @@ class ContractSentinel:
 
 
     def _apply_progress_decision(self, *, domain: str, state: SentinelState) -> str:
+        if domain == "ci_baseline":
+            contract = self._load_progress_contract()
+            if contract is not None:
+                decision = self._apply_progress_contract_decision(domain=domain, state=state, contract=contract)
+                if decision != "unknown":
+                    return decision
         summary = self._latest_sentinel_outcome(domain=domain)
         if summary is None:
             return "unknown"
@@ -406,6 +414,53 @@ class ContractSentinel:
                 continue
             return summarize_report(report)
         return None
+
+    def _ci_pass_to_fail_emergency(self) -> bool:
+        status = _load_json(self.contract_status_path)
+        previous_raw = status.get("previous")
+        current_raw = status.get("current")
+        previous: dict[str, Any] = previous_raw if isinstance(previous_raw, dict) else {}
+        current: dict[str, Any] = current_raw if isinstance(current_raw, dict) else {}
+        prev_ci_raw = previous.get("ci_baseline")
+        cur_ci_raw = current.get("ci_baseline")
+        prev_ci: dict[str, Any] = prev_ci_raw if isinstance(prev_ci_raw, dict) else {}
+        cur_ci: dict[str, Any] = cur_ci_raw if isinstance(cur_ci_raw, dict) else {}
+        return bool(prev_ci.get("passed", True)) and not bool(cur_ci.get("passed", False))
+
+    def _load_progress_contract(self) -> dict[str, Any] | None:
+        path = self.repo_root / "glow/contracts/forge_progress_baseline.json"
+        payload = _load_json(path)
+        if payload:
+            return payload
+        emitted = emit_forge_progress_contract(self.repo_root).to_dict()
+        return emitted if emitted else None
+
+    def _apply_progress_contract_decision(self, *, domain: str, state: SentinelState, contract: dict[str, Any]) -> str:
+        rows = contract.get("last_runs") if isinstance(contract.get("last_runs"), list) else []
+        if not rows:
+            return "unknown"
+        last = rows[-1] if isinstance(rows[-1], dict) else {}
+        essentials = {
+            "run_id": str(last.get("run_id", "")),
+            "goal_id": last.get("goal_id"),
+            "campaign_id": last.get("campaign_id"),
+            "ci_before_failed_count": last.get("before_failed"),
+            "ci_after_failed_count": last.get("after_failed"),
+            "progress_delta_percent": last.get("progress_delta_percent"),
+            "last_progress_improved": bool(last.get("improved", False)),
+            "last_progress_notes": last.get("notes_truncated") if isinstance(last.get("notes_truncated"), list) else [],
+            "created_at": last.get("created_at"),
+            "source": "forge_progress_baseline",
+        }
+        state.last_progress_by_domain[domain] = essentials
+        if bool(contract.get("stagnation_alert", False)):
+            state.last_stagnation_at_by_domain[domain] = _iso_now()
+            self._emit("sentinel_stagnation_backoff", domain=domain, details={"run_id": essentials["run_id"], "source": "forge_progress_baseline"})
+            return "stagnation_backoff"
+        if bool(last.get("improved", False)):
+            self._emit("sentinel_convergence", domain=domain, details={"run_id": essentials["run_id"], "source": "forge_progress_baseline"})
+            return "convergence"
+        return "unknown"
 
     def _is_recent_self_receipt(self, *, domain: str, policy: SentinelPolicy) -> bool:
         requests = {req.request_id: req for req in self.queue.pending_requests()}
