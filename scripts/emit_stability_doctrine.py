@@ -35,8 +35,15 @@ def _run(command: list[str]) -> tuple[bool, str]:
     return (completed.returncode == 0, out)
 
 
+def _latest_audit_docket() -> str | None:
+    dockets = sorted(Path("glow/forge").glob("audit_docket_*.json"), key=lambda item: item.name)
+    if not dockets:
+        return None
+    return str(dockets[-1])
+
+
 def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
-    verify_ok, verify_info = _run(["python", "-m", "sentientos.verify_audits", "--strict"])
+    audit_ok, audit_info = _run(["python", "scripts/reconcile_audits.py", "--check"])
     manifest_path = _resolve_manifest_path()
     manifest_present = manifest_path.exists()
     manifest_sha = _sha256(manifest_path) if manifest_present else None
@@ -48,10 +55,13 @@ def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
         "generated_at": _iso_now(),
         "git_sha": _git_sha(),
         "toolchain": {
-            "verify_audits_module": "python -m sentientos.verify_audits --strict",
-            "verify_audits_available": verify_ok,
-            "verify_audits_info": verify_info,
+            "verify_audits_module": "python scripts/reconcile_audits.py --check",
+            "verify_audits_available": audit_ok,
+            "verify_audits_info": audit_info,
         },
+        "audit_strict_status": "pass" if audit_ok else "fail",
+        "audit_drift_detected": not audit_ok,
+        "last_audit_docket": _latest_audit_docket(),
         "vow_artifacts": {
             "immutable_manifest_path": str(manifest_path),
             "immutable_manifest_present": manifest_present,

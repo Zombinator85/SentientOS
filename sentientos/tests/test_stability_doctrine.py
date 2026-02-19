@@ -61,7 +61,7 @@ def test_emit_stability_doctrine_and_contract_rollup(tmp_path: Path, monkeypatch
     def fake_run(command, check=False, capture_output=False, text=False):  # type: ignore[no-untyped-def]
         _ = check, capture_output, text
         cmd = tuple(command)
-        if cmd[:4] == ("python", "-m", "sentientos.verify_audits", "--strict"):
+        if cmd[:3] == ("python", "scripts/reconcile_audits.py", "--check"):
             return Done(0, stdout="ok")
         if cmd[:2] == ("make", "mypy-forge"):
             return Done(0, stdout="ok")

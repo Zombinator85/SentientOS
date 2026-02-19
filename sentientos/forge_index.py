@@ -26,6 +26,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     reports = sorted((root / "glow/forge").glob("report_*.json"), key=lambda item: item.name)
     dockets = sorted((root / "glow/forge").glob("docket_*.json"), key=lambda item: item.name)
     provenance = sorted((root / "glow/forge/provenance").glob("prov_*.json"), key=lambda item: item.name)
+    audit_dockets = sorted((root / "glow/forge").glob("audit_docket_*.json"), key=lambda item: item.name)
 
     queue_rows, queue_corrupt = _read_jsonl(root / QUEUE_PATH)
     receipt_rows, receipt_corrupt = _read_jsonl(root / RECEIPTS_PATH)
@@ -52,6 +53,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "generated_at": _iso_now(),
         "latest_reports": [_load_json(path) | {"path": str(path.relative_to(root))} for path in reports[-50:]],
         "latest_dockets": [_load_json(path) | {"path": str(path.relative_to(root))} for path in dockets[-50:]],
+        "latest_audit_dockets": [_load_json(path) | {"path": str(path.relative_to(root))} for path in audit_dockets[-10:]],
         "latest_provenance": [_load_json(path) | {"path": str(path.relative_to(root))} for path in provenance[-50:]],
         "latest_receipts": receipt_rows[-200:],
         "latest_queue": _pending_from_rows(queue_rows, receipt_rows),
@@ -67,6 +69,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
+        "audit_strict_status": stability_doctrine.get("audit_strict_status") if isinstance(stability_doctrine.get("audit_strict_status"), str) else "unknown",
         "vow_artifacts_sha256": doctrine_vow.get("immutable_manifest_sha256") if isinstance(doctrine_vow.get("immutable_manifest_sha256"), str) else None,
         "verify_audits_available": bool(doctrine_toolchain.get("verify_audits_available", False)),
         "corrupt_count": {
