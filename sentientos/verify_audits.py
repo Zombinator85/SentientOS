@@ -2,15 +2,21 @@ from __future__ import annotations
 
 """Portable verify_audits module entrypoint."""
 
+import subprocess
+import sys
+from pathlib import Path
 from typing import Sequence
 
-from scripts import verify_audits as verify_audits_script
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+VERIFY_AUDITS_SCRIPT = REPO_ROOT / "scripts" / "verify_audits.py"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    return verify_audits_script.main(list(argv) if argv is not None else None)
+    command = [sys.executable, str(VERIFY_AUDITS_SCRIPT), *(list(argv) if argv is not None else [])]
+    completed = subprocess.run(command, check=False)
+    return completed.returncode
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
