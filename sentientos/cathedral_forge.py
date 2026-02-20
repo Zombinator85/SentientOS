@@ -33,6 +33,7 @@ from sentientos.github_artifacts import download_contract_bundle, find_contract_
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.github_checks import PRChecks, PRRef, detect_capabilities, wait_for_pr_checks
 from sentientos.receipt_chain import maybe_verify_receipt_chain
+from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.forge_transaction import (
     ForgeGitOps,
     TransactionPolicy,
@@ -1055,6 +1056,29 @@ class CathedralForge:
                         elif chain_warned:
                             notes.append("receipt_chain_warning")
                             record_forge_event({"event": "canary_receipt_chain_warning", "level": "warning", "chain": chain_check.to_dict()})
+                    audit_check, audit_enforced, audit_warned, audit_report = maybe_verify_audit_chain(root, context="canary_publish")
+                    if audit_check is not None and not audit_check.ok:
+                        remote["audit_chain"] = audit_check.to_dict()
+                        remote["audit_chain_report_path"] = audit_report
+                        first_break_path = audit_check.first_break.path if audit_check.first_break is not None else None
+                        evidence_paths = [item for item in [audit_report, first_break_path] if isinstance(item, str)]
+                        if audit_enforced:
+                            auto_merge = False
+                            remote["automerge_result"] = "audit_chain_broken"
+                            notes.append("audit_chain_broken")
+                            record_forge_event({"event": "canary_audit_chain_blocked", "level": "warning", "audit_chain": audit_check.to_dict(), "report_path": audit_report})
+                            self._record_integrity_incident(
+                                root,
+                                triggers=["audit_chain_broken"],
+                                enforcement_mode="enforce",
+                                severity="enforced",
+                                context={"audit_chain": audit_check.to_dict()},
+                                evidence_paths=evidence_paths,
+                            )
+                        elif audit_warned:
+                            notes.append("audit_chain_warning")
+                            record_forge_event({"event": "canary_audit_chain_warning", "level": "warning", "audit_chain": audit_check.to_dict(), "report_path": audit_report})
+
                     federation_gate = federation_integrity_gate(root, context="canary_publish")
                     remote["federation_integrity"] = federation_gate
                     if bool(federation_gate.get("blocked")):

@@ -11,6 +11,7 @@ from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, l
 from sentientos.event_stream import record_forge_event
 from sentientos.receipt_anchors import maybe_create_anchor_on_merge, maybe_verify_receipt_anchors
 from sentientos.receipt_chain import append_receipt, maybe_verify_receipt_chain
+from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
@@ -475,6 +476,34 @@ class ForgeMergeTrain:
                     level="warning",
                 )
 
+        audit_check, audit_enforced, audit_warned, audit_report = maybe_verify_audit_chain(self.repo_root, context="merge_train")
+        if audit_check is not None and not audit_check.ok:
+            first_break_path = audit_check.first_break.path if audit_check.first_break is not None else None
+            evidence_paths = [item for item in [audit_report, first_break_path] if isinstance(item, str)]
+            if audit_enforced:
+                entry.status = "held"
+                entry.last_error = "audit_chain_broken"
+                state.last_failure_at = now
+                self._record_integrity_incident(
+                    triggers=["audit_chain_broken"],
+                    enforcement_mode="enforce",
+                    severity="enforced",
+                    context={"audit_chain": audit_check.to_dict(), "entry": self._entry_context(entry)},
+                    evidence_paths=evidence_paths,
+                )
+                self._emit_event(
+                    "train_audit_chain_blocked",
+                    {"pr_url": entry.pr_url, "reason": "audit_chain_broken", "audit_chain": audit_check.to_dict(), "report_path": audit_report},
+                    level="warning",
+                )
+                return {"status": "held", "reason": "audit_chain_broken", "pr": entry.pr_url}
+            if audit_warned:
+                self._emit_event(
+                    "train_audit_chain_warning",
+                    {"pr_url": entry.pr_url, "reason": "audit_chain_broken", "audit_chain": audit_check.to_dict(), "report_path": audit_report},
+                    level="warning",
+                )
+
         federation_gate = federation_integrity_gate(self.repo_root, context="merge_train")
         if bool(federation_gate.get("blocked")):
             entry.status = "held"
@@ -560,6 +589,8 @@ class ForgeMergeTrain:
                 result["reason"] = "receipt_chain_warning"
             elif anchor_warned:
                 result["reason"] = "receipt_anchor_warning"
+            elif audit_warned:
+                result["reason"] = "audit_chain_warning"
             return result
 
         entry.status = "held" if merge.conflict else "failed"

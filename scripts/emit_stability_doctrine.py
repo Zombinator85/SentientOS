@@ -71,7 +71,7 @@ def _strict_audit_status() -> dict[str, Any]:
 
 def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
     audit_module_ok, audit_module_info = _run(["python", "-m", "sentientos.verify_audits", "--help"])
-    audit_console_ok, audit_console_info = _run(["verify_audits", "--help"])
+    audit_console_ok, audit_console_info = _run(["python", "scripts/verify_audits_shim.py", "--help"])
     strict = _strict_audit_status()
 
     manifest_path = _resolve_manifest_path()
@@ -87,7 +87,7 @@ def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
         "git_sha": _git_sha(),
         "toolchain": {
             "verify_audits_module": "python -m sentientos.verify_audits --help",
-            "verify_audits_console": "verify_audits --help",
+            "verify_audits_console": "python scripts/verify_audits_shim.py --help",
             "audit_tool_module_ok": audit_module_ok,
             "audit_tool_module_info": audit_module_info,
             "audit_tool_console_ok": audit_console_ok,

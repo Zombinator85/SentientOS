@@ -10,11 +10,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Tuple, TypedDict, cast
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+CODE_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path.cwd().resolve()
+if str(CODE_ROOT) not in sys.path:
+    sys.path.insert(0, str(CODE_ROOT))
 
 from sentientos.audit_sink import AuditSinkConfig, resolve_audit_paths
+from sentientos.audit_chain_gate import verify_audit_chain, write_audit_chain_report
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
@@ -53,7 +55,7 @@ class AuditIssue(TypedDict):
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (os.getenv("CI") or os.getenv("GIT_HOOKS")):
     os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = REPO_ROOT
 CONFIG = Path("config/master_files.json")
 VALID_EXTS = {".jsonl", ".json", ".log"}
 
@@ -336,6 +338,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--runtime-dir", type=str, help="override runtime audit directory")
     args = ap.parse_args(argv)
 
+    global REPO_ROOT, ROOT
+    REPO_ROOT = Path.cwd().resolve()
+    ROOT = REPO_ROOT
     all_issues: List[str] = []
     structured_issues: List[AuditIssue] = []
     try:
@@ -356,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
 
         res, percent, stats = verify_audits(quarantine=True, directory=directory, repair=args.repair and not args.check_only)
         chain_ok = all(not e for e in res.values())
+        audit_chain = verify_audit_chain(REPO_ROOT)
+        audit_chain_report = write_audit_chain_report(REPO_ROOT, audit_chain)
 
         for file, errors in res.items():
             structured_issues.extend(path_errors.get(file, []))
@@ -369,6 +376,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{percent:.1f}% of logs valid")
         if (stats.get("fixed", 0), stats.get("quarantined", 0), stats.get("unrecoverable", 0)) == (0, 0, 0):
             print("✅ No mismatches.")
+        print(json.dumps({"audit_chain_status": audit_chain.status, "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT))}, sort_keys=True))
 
         strict_output = _strict_privileged_status(sink_config) if args.strict else None
         if strict_output is not None:
@@ -398,6 +406,10 @@ def main(argv: list[str] | None = None) -> int:
         ):
             status_label = "failed"
             reason = "strict_privileged_audit_failure"
+            exit_code = 1
+        if args.strict and not audit_chain.ok:
+            status_label = "failed"
+            reason = "audit_chain_broken"
             exit_code = 1
 
         summary = tooling_status.render_result("verify_audits", status=status_label, reason=reason)

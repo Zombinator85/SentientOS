@@ -15,9 +15,10 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.federation_integrity import federation_integrity_gate
+from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -67,6 +68,21 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     quarantine = load_quarantine_state(root)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
     latest_incident = _latest_incident(root)
+    last_audit_chain_report_path: str | None = None
+    audit_chain_status = "unknown"
+    audit_chain_checked_at: str | None = None
+    audit_chain_first_break: str | None = None
+    latest_chain_report = latest_audit_chain_report(root)
+    if latest_chain_report is not None:
+        last_audit_chain_report_path = str(latest_chain_report.relative_to(root))
+        report_payload = _load_json(latest_chain_report)
+        audit_chain_status = str(report_payload.get("status", "unknown"))
+        raw_checked_at = report_payload.get("created_at")
+        audit_chain_checked_at = raw_checked_at if isinstance(raw_checked_at, str) else None
+        first_break = report_payload.get("first_break")
+        if isinstance(first_break, dict):
+            summary = f"{first_break.get('path', '')}:{first_break.get('line_number', '')}:{first_break.get('found_prev_hash', '')}"
+            audit_chain_first_break = summary[:220]
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
 
@@ -98,6 +114,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "receipt_chain_status": receipt_chain.get("status", "unknown"),
         "receipt_chain_checked_at": receipt_chain.get("checked_at"),
         "receipt_chain_break": _receipt_chain_break(receipt_chain),
+        "audit_chain_status": audit_chain_status,
+        "audit_chain_checked_at": audit_chain_checked_at,
+        "audit_chain_first_break": audit_chain_first_break,
+        "last_audit_chain_report_path": last_audit_chain_report_path,
         "anchor_status": str(anchor_verification.get("status", "unknown")),
         "last_anchor_id": anchor_summary.get("anchor_id"),
         "last_anchor_created_at": anchor_summary.get("created_at"),

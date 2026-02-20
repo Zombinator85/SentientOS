@@ -169,7 +169,45 @@ def test_observability_includes_quarantine_fields(tmp_path: Path) -> None:
     (tmp_path / "pulse/integrity_incidents.jsonl").write_text('{"created_at":"2026-01-01T00:00:00Z"}\n', encoding="utf-8")
 
     payload = rebuild_index(tmp_path)
-    assert payload["schema_version"] == 5
+    assert payload["schema_version"] == 6
     assert payload["quarantine_active"] is True
     assert payload["quarantine_last_incident_id"] == "inc-1"
     assert isinstance(payload["last_incident_summary"], dict)
+
+
+def test_auto_quarantine_activation_on_enforce_audit_chain(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "1")
+    monkeypatch.setenv("SENTIENTOS_QUARANTINE_AUTO", "1")
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text('{"baseline_integrity_ok":true,"runtime_integrity_ok":true,"baseline_unexpected_change_detected":false}\n', encoding="utf-8")
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "logs/audit.jsonl").write_text('{"timestamp":"2026-01-01T00:00:00Z","data":{"a":1},"prev_hash":"deadbeef","rolling_hash":"deadbeef"}\n', encoding="utf-8")
+
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    train.save_state(TrainState(entries=[_entry()]))
+
+    result = train.tick()
+
+    assert result["reason"] == "audit_chain_broken"
+    quarantine = json.loads((tmp_path / "glow/forge/quarantine.json").read_text(encoding="utf-8"))
+    assert quarantine["active"] is True
+
+
+def test_quarantine_clear_blocks_on_audit_chain_enforce(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/quarantine.json").write_text('{"schema_version":1,"active":true,"freeze_forge":true,"allow_automerge":false,"allow_publish":false,"allow_federation_sync":true,"notes":[]}\n', encoding="utf-8")
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "logs/audit.jsonl").write_text('{"timestamp":"2026-01-01T00:00:00Z","data":{"a":1},"prev_hash":"deadbeef","rolling_hash":"deadbeef"}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "1")
+    monkeypatch.setattr("scripts.quarantine_clear.verify_receipt_chain", lambda root: type("R", (), {"ok": True, "to_dict": lambda self: {"status": "ok"}})())
+    monkeypatch.setattr("scripts.quarantine_clear.verify_receipt_anchors", lambda root: type("A", (), {"ok": True, "to_dict": lambda self: {"status": "ok"}})())
+    monkeypatch.setattr("scripts.quarantine_clear.verify_doctrine_identity", lambda root: (True, {"ok": True}))
+    monkeypatch.setattr("scripts.quarantine_clear.federation_integrity_gate", lambda root, context: {"blocked": False, "status": "ok"})
+
+    from scripts import quarantine_clear
+
+    assert quarantine_clear.main([]) == 1

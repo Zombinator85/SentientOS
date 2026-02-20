@@ -12,6 +12,7 @@ from sentientos.integrity_incident import build_base_context, build_incident
 from sentientos.integrity_quarantine import clear
 from sentientos.receipt_anchors import verify_receipt_anchors
 from sentientos.receipt_chain import verify_receipt_chain
+from sentientos.audit_chain_gate import maybe_verify_audit_chain
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,6 +40,13 @@ def main(argv: list[str] | None = None) -> int:
     checks["receipt_anchors"] = anchors.to_dict()
     if anchor_enforce and not anchors.ok:
         failures.append("receipt_anchor_invalid")
+
+    audit_check, audit_enforced, _audit_warned, audit_report = maybe_verify_audit_chain(root, context="quarantine_clear")
+    checks["audit_chain"] = audit_check.to_dict() if audit_check is not None else {"status": "not_enabled"}
+    if audit_check is not None:
+        checks["audit_chain_report"] = audit_report
+    if audit_enforced and audit_check is not None and not audit_check.ok:
+        failures.append("audit_chain_broken")
 
     federation = federation_integrity_gate(root, context="quarantine_clear")
     checks["federation"] = federation
