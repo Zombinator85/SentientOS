@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge
+.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge
 
 PYTHON ?= python3
 
@@ -113,10 +113,13 @@ federation-drift:
 
 
 verify-audits-strict:
-	$(PYTHON) scripts/reconcile_audits.py --check
+	$(PYTHON) scripts/verify_audits.py --strict
 
 audit-repair:
 	$(PYTHON) scripts/reconcile_audits.py --repair
+
+audit-chain-doctor:
+	$(PYTHON) scripts/audit_chain_doctor.py --diagnose-only
 
 audit-accept:
 	@if [ "$$SENTIENTOS_AUDIT_ACCEPT_DRIFT" != "1" ]; then echo "SENTIENTOS_AUDIT_ACCEPT_DRIFT=1 required"; exit 2; fi
@@ -160,7 +163,7 @@ forge-ci:
 	$(PYTHON) -m sentientos.forge run "forge_smoke_noop"
 
 mypy-forge:
-	$(PYTHON) -m mypy --strict --follow-imports=skip sentientos/cathedral_forge.py sentientos/forge_progress.py sentientos/forge.py sentientos/forge_cli/main.py sentientos/forge_cli/context.py sentientos/forge_cli/types.py sentientos/forge_cli/commands_queue.py sentientos/forge_cli/commands_sentinel.py sentientos/forge_cli/commands_train.py sentientos/forge_cli/commands_env_cache.py sentientos/forge_cli/commands_observatory.py sentientos/forge_cli/commands_provenance.py sentientos/forge_cli/commands_canary.py sentientos/forge_daemon.py sentientos/forge_queue.py sentientos/forge_index.py sentientos/forge_status.py sentientos/contract_sentinel.py sentientos/forge_progress_contract.py sentientos/forge_campaigns.py sentientos/forge_provenance.py sentientos/forge_replay.py sentientos/audit_reconcile.py sentientos/audit_doctor.py sentientos/github_artifacts.py
+	$(PYTHON) -m mypy --strict --follow-imports=skip sentientos/cathedral_forge.py sentientos/forge_progress.py sentientos/forge.py sentientos/forge_cli/main.py sentientos/forge_cli/context.py sentientos/forge_cli/types.py sentientos/forge_cli/commands_queue.py sentientos/forge_cli/commands_sentinel.py sentientos/forge_cli/commands_train.py sentientos/forge_cli/commands_env_cache.py sentientos/forge_cli/commands_observatory.py sentientos/forge_cli/commands_provenance.py sentientos/forge_cli/commands_canary.py sentientos/forge_daemon.py sentientos/forge_queue.py sentientos/forge_index.py sentientos/forge_status.py sentientos/contract_sentinel.py sentientos/forge_progress_contract.py sentientos/forge_campaigns.py sentientos/forge_provenance.py sentientos/forge_replay.py sentientos/audit_reconcile.py sentientos/audit_doctor.py sentientos/audit_chain_gate.py sentientos/github_artifacts.py
 
 speak:
 	$(PYTHON) sosctl.py say "$(if $(MSG),$(MSG),Hello from SentientOS)"

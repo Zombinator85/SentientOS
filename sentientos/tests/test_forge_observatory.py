@@ -324,3 +324,35 @@ def test_index_includes_anchor_status_fields(tmp_path: Path, monkeypatch) -> Non
     assert payload["anchor_checked_at"]
     assert payload["federation_integrity_status"] in {"unknown", "ok", "diverged"}
     assert payload["witness_status"] in {"ok", "failed", "disabled"}
+
+
+def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/forge/audit_reports").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "created_at": "2026-01-01T00:00:00Z",
+                "status": "broken",
+                "break_count": 1,
+                "first_break": {
+                    "path": "logs/audit.jsonl",
+                    "line_number": 1,
+                    "expected_prev_hash": "0" * 64,
+                    "found_prev_hash": "deadbeef",
+                },
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["schema_version"] == 6
+    assert payload["audit_chain_status"] == "broken"
+    assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
