@@ -235,3 +235,28 @@ def test_index_includes_remote_doctrine_fetch_extended_fields(tmp_path: Path) ->
     assert row["bundle_sha256"] == "1234abcd"
     assert row["failing_hash_paths"] == ["contract_status.json"]
     assert row["mirror_used"] is True
+
+
+def test_index_includes_merge_receipt_summary(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/receipts/merge_receipt_2026.json").write_text(
+        json.dumps(
+            {
+                "pr_url": "https://github.com/o/r/pull/9",
+                "head_sha": "abc",
+                "doctrine_source": "remote",
+                "doctrine_identity": {"bundle_sha256": "1234567890abcdef1234"},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["last_merge_receipt"]["pr"] == "https://github.com/o/r/pull/9"
+    assert payload["last_merged_doctrine_bundle_sha256"] == "1234567890abcdef"

@@ -14,6 +14,8 @@ import zipfile
 from typing import Any, Callable, Literal
 from urllib import error, request
 
+from sentientos.doctrine_identity import DoctrineIdentity
+
 
 @dataclass(slots=True)
 class ArtifactRef:
@@ -39,6 +41,22 @@ class ContractBundle:
     bundle_sha256: str = ""
     failing_hash_paths: list[str] = field(default_factory=list)
     mirror_used: bool = False
+
+    def doctrine_identity(self) -> DoctrineIdentity:
+        metadata_sha = self.metadata.get("sha") or self.metadata.get("git_sha")
+        artifact_name = self.metadata.get("artifact_name")
+        run_id = self.metadata.get("run_id")
+        selected_via = self.metadata.get("selected_via")
+        return DoctrineIdentity(
+            head_sha=self.sha,
+            bundle_sha256=self.bundle_sha256,
+            artifact_name=artifact_name if isinstance(artifact_name, str) else None,
+            run_id=run_id if isinstance(run_id, int) else None,
+            selected_via=selected_via if isinstance(selected_via, str) else None,
+            mirror_used=self.mirror_used,
+            metadata_ok=self.metadata_ok,
+            manifest_ok=self.manifest_ok,
+        )
 
 
 REQUIRED_BUNDLE_FILES: tuple[str, ...] = (

@@ -15,6 +15,7 @@ from typing import Any
 import uuid
 
 from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
+from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
@@ -48,7 +49,7 @@ from sentientos.forge_model import (
 )
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 FORGE_DIR = Path("glow/forge")
 CONTRACT_STATUS_PATH = Path("glow/contracts/contract_status.json")
 MAX_REPORT_OUTPUT_CHARS = 4000
@@ -104,6 +105,9 @@ class ForgeReport:
     provenance_run_id: str | None = None
     provenance_path: str | None = None
     publish_remote: dict[str, object] | None = None
+    doctrine_identity: dict[str, object] | None = None
+    doctrine_source: str | None = None
+    doctrine_gate_reason: str | None = None
 
 
 class CathedralForge:
@@ -402,6 +406,9 @@ class CathedralForge:
 
             publish_notes: list[str] = []
             publish_remote: dict[str, object] | None = None
+            doctrine_identity: dict[str, object] | None = None
+            doctrine_source: str | None = None
+            doctrine_gate_reason: str | None = None
             eligible_for_publish = not failure_reasons and transaction_status == "committed"
             if eligible_for_publish:
                 publish_notes, publish_remote = self._maybe_publish(
@@ -412,6 +419,10 @@ class CathedralForge:
                     ci_baseline_after=ci_baseline_after,
                     metadata=metadata,
                 )
+                doctrine_identity_raw = publish_remote.get("doctrine_identity") if isinstance(publish_remote, dict) else None
+                doctrine_identity = doctrine_identity_raw if isinstance(doctrine_identity_raw, dict) else None
+                doctrine_source = str(publish_remote.get("doctrine_source")) if isinstance(publish_remote, dict) and publish_remote.get("doctrine_source") is not None else None
+                doctrine_gate_reason = str(publish_remote.get("doctrine_gate_reason")) if isinstance(publish_remote, dict) and publish_remote.get("doctrine_gate_reason") is not None else None
             notes.extend(publish_notes)
             if baseline_budget:
                 notes.append(
@@ -458,6 +469,9 @@ class CathedralForge:
                 rollback_performed=rollback_performed,
                 transaction_improvement_summary=transaction_improvement_summary,
                 publish_remote=publish_remote,
+                doctrine_identity=doctrine_identity,
+                doctrine_source=doctrine_source,
+                doctrine_gate_reason=doctrine_gate_reason,
             )
             run_finished_at = _iso_now()
             header = provenance.build_header(
@@ -754,6 +768,9 @@ class CathedralForge:
             "automerge_attempted": False,
             "automerge_result": "not_attempted",
             "canary_timeout": False,
+            "doctrine_identity": {},
+            "doctrine_source": "local",
+            "doctrine_gate_reason": "not_checked",
         }
         root = Path(session.root_path)
         doctrine = self._load_json(root / "glow/contracts/stability_doctrine.json")
@@ -888,6 +905,19 @@ class CathedralForge:
                     artifact = find_contract_artifact_for_sha(checks.pr.number, checks.pr.head_sha)
                     if artifact is None:
                         notes.append("publish_contract_artifact_missing")
+                        remote["doctrine_source"] = "local"
+                        local_identity = local_doctrine_identity(root, fallback_head_sha=checks.pr.head_sha)
+                        expected_bundle = expected_bundle_sha256_from_receipts(root)
+                        enforce_identity = os.getenv("SENTIENTOS_DOCTRINE_IDENTITY_ENFORCE", "0") == "1"
+                        gate_reason = "remote_missing_fallback"
+                        if expected_bundle and local_identity.bundle_sha256 and expected_bundle != local_identity.bundle_sha256:
+                            gate_reason = "local_doctrine_identity_mismatch"
+                            notes.append("local_doctrine_identity_mismatch")
+                            if enforce_identity:
+                                remote_gate_ok = False
+                                notes.append("publish_remote_doctrine_gated")
+                        remote["doctrine_gate_reason"] = gate_reason
+                        remote["doctrine_identity"] = local_identity.to_dict()
                         if self._active_provenance is not None:
                             step = self._active_provenance.make_step(
                                 step_id="publish_contract_artifact_missing",
@@ -918,6 +948,7 @@ class CathedralForge:
                             "selected_via": artifact.selected_via,
                         }
                         remote["contract_artifact"] = artifact_details
+                        remote["doctrine_source"] = "remote"
                         doctrine = bundle.parsed.get("stability_doctrine.json", {})
                         remote_doctrine_failures = _audit_integrity_failures(doctrine)
                         bundle_corrupt = _bundle_corruption_errors(bundle)
@@ -933,30 +964,47 @@ class CathedralForge:
                         remote["metadata_sha"] = metadata_sha
                         remote["metadata_ok"] = bundle.metadata_ok
                         remote["manifest_ok"] = bool(getattr(bundle, "manifest_ok", False))
-                        remote["bundle_sha256"] = str(getattr(bundle, "bundle_sha256", ""))[:16]
+                        remote["bundle_sha256"] = str(getattr(bundle, "bundle_sha256", ""))
                         raw_failing_paths = getattr(bundle, "failing_hash_paths", [])
                         remote["failing_hash_paths"] = [str(item) for item in raw_failing_paths[:8]] if isinstance(raw_failing_paths, list) else []
                         remote["mirror_used"] = bool(getattr(bundle, "mirror_used", False))
+                        remote["doctrine_identity"] = {
+                            "head_sha": checks.pr.head_sha,
+                            "bundle_sha256": remote["bundle_sha256"],
+                            "artifact_name": artifact.name,
+                            "run_id": artifact.run_id,
+                            "selected_via": artifact.selected_via,
+                            "mirror_used": remote["mirror_used"],
+                            "metadata_ok": remote["metadata_ok"],
+                            "manifest_ok": remote["manifest_ok"],
+                        }
                         if bundle_corrupt:
                             remote_gate_ok = False
+                            remote["doctrine_gate_reason"] = "remote_doctrine_corrupt_bundle"
                             notes.append("publish_remote_doctrine_gated")
                             notes.append("remote_doctrine_corrupt_bundle")
                         elif manifest_missing:
                             remote_gate_ok = False
+                            remote["doctrine_gate_reason"] = "remote_doctrine_manifest_missing"
                             notes.append("publish_remote_doctrine_gated")
                             notes.append("remote_doctrine_manifest_missing")
                         elif manifest_mismatch:
                             remote_gate_ok = False
+                            remote["doctrine_gate_reason"] = "remote_doctrine_manifest_mismatch"
                             notes.append("publish_remote_doctrine_gated")
                             notes.append("remote_doctrine_manifest_mismatch")
                         elif metadata_mismatch:
                             remote_gate_ok = False
+                            remote["doctrine_gate_reason"] = "remote_doctrine_metadata_mismatch"
                             notes.append("publish_remote_doctrine_gated")
                             notes.append("remote_doctrine_metadata_mismatch")
                         elif remote_doctrine_failures:
                             remote_gate_ok = False
+                            remote["doctrine_gate_reason"] = "remote_doctrine_failed"
                             notes.append("publish_remote_doctrine_gated")
                             notes.append("remote_doctrine_failed")
+                        else:
+                            remote["doctrine_gate_reason"] = "remote_doctrine_passed"
                         if self._active_provenance is not None:
                             payload = json.dumps({"artifact": remote["contract_artifact"], "bundle_errors": bundle.errors, "doctrine_failures": remote_doctrine_failures}, sort_keys=True)
                             step = self._active_provenance.make_step(

@@ -486,3 +486,67 @@ def test_merge_train_mirror_fallback_passes(tmp_path: Path, monkeypatch) -> None
     result = train.tick()
 
     assert result["status"] == "mergeable"
+
+
+def test_merge_train_writes_merge_receipt_with_doctrine_identity(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z", selected_via="api:run-artifacts"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={
+                "stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False},
+                "contract_status.json": {"contracts": [{"domain_name": "stability_doctrine", "drifted": False}]},
+            },
+            source="remote",
+            errors=[],
+            metadata={"sha": artifact.sha},
+            metadata_ok=True,
+            manifest_ok=True,
+            bundle_sha256="bundle-abc123",
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "merged"
+    receipts = list((tmp_path / "glow/forge/receipts").glob("merge_receipt_*.json"))
+    assert receipts
+    payload = json.loads(receipts[0].read_text(encoding="utf-8"))
+    assert payload["doctrine_identity"]["bundle_sha256"] == "bundle-abc123"
+
+
+def test_merge_train_local_fallback_identity_mismatch_reason(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    monkeypatch.setattr("sentientos.forge_merge_train.find_contract_artifact_for_sha", lambda pr_number, sha: None)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"git_sha": "abc", "baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/contracts/contract_manifest.json").write_text(
+        json.dumps({"bundle_sha256": "local-bundle", "file_sha256": {}}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/receipts/merge_receipt_2026.json").write_text(
+        json.dumps({"doctrine_identity": {"bundle_sha256": "expected-bundle"}}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "mergeable"
+    state = train.load_state()
+    assert state.entries[0].doctrine_gate_reason == "local_doctrine_identity_mismatch"
