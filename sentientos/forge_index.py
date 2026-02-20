@@ -13,7 +13,7 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -79,6 +79,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             "entries": [_train_entry_row(item) for item in train_state.entries[-25:]],
         },
         "remote_doctrine_fetches": _latest_remote_doctrine_fetches(root),
+        "last_merge_receipt": _last_merge_receipt_summary(root),
+        "last_merged_doctrine_bundle_sha256": _last_merged_bundle_sha256(root),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
@@ -315,3 +317,28 @@ def _latest_remote_doctrine_fetches(root: Path) -> list[dict[str, object]]:
     path = root / "glow/forge/remote_doctrine_fetches.jsonl"
     rows, _ = _read_jsonl(path)
     return rows[-10:]
+
+
+def _last_merge_receipt_summary(root: Path) -> dict[str, object] | None:
+    receipts = sorted((root / "glow/forge/receipts").glob("merge_receipt_*.json"), key=lambda item: item.name)
+    if not receipts:
+        return None
+    payload = _load_json(receipts[-1])
+    doctrine_raw = payload.get("doctrine_identity")
+    doctrine: dict[str, object] = doctrine_raw if isinstance(doctrine_raw, dict) else {}
+    return {
+        "pr": payload.get("pr_url"),
+        "sha": payload.get("head_sha"),
+        "bundle_sha256": doctrine.get("bundle_sha256"),
+        "source": payload.get("doctrine_source"),
+    }
+
+
+def _last_merged_bundle_sha256(root: Path) -> str | None:
+    summary = _last_merge_receipt_summary(root)
+    if not isinstance(summary, dict):
+        return None
+    value = summary.get("bundle_sha256")
+    if not isinstance(value, str) or not value:
+        return None
+    return value[:16]

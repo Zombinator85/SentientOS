@@ -7,11 +7,12 @@ import os
 from pathlib import Path
 from typing import Protocol
 
+from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.event_stream import record_forge_event
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
-from sentientos.github_artifacts import ContractBundle, download_contract_bundle, find_contract_artifact_for_sha
+from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
 
@@ -52,6 +53,9 @@ class TrainEntry:
     last_error: str | None = None
     doctrine_source: str = "local"
     doctrine_gate_reason: str | None = None
+    doctrine_bundle_sha256: str = ""
+    doctrine_selected_via: str = ""
+    doctrine_mirror_used: bool = False
 
 
 @dataclass(slots=True)
@@ -111,6 +115,7 @@ class ForgeMergeTrain:
         self.policy_path = self.repo_root / POLICY_PATH
         self.lock_path = self.repo_root / ".forge/train.lock"
         self.remote_doctrine_log = self.repo_root / "glow/forge/remote_doctrine_fetches.jsonl"
+        self.merge_receipts_dir = self.repo_root / "glow/forge/receipts"
 
     def load_policy(self) -> TrainPolicy:
         policy = TrainPolicy()
@@ -169,6 +174,7 @@ class ForgeMergeTrain:
         report_path = _as_str(payload.get("report_path"))
         report_payload = _load_json(self.repo_root / report_path) if report_path else {}
         publish_remote = report_payload.get("publish_remote") if isinstance(report_payload.get("publish_remote"), dict) else {}
+        doctrine_identity = publish_remote.get("doctrine_identity") if isinstance(publish_remote.get("doctrine_identity"), dict) else {}
         pr_number = _as_int(publish_remote.get("pr_number"))
         if pr_number is None:
             pr_number = _parse_pr_number(pr_url)
@@ -188,6 +194,9 @@ class ForgeMergeTrain:
                 existing.head_sha = head_sha
             if branch:
                 existing.branch = branch
+            existing.doctrine_bundle_sha256 = _as_str(doctrine_identity.get("bundle_sha256")) or existing.doctrine_bundle_sha256
+            existing.doctrine_selected_via = _as_str(doctrine_identity.get("selected_via")) or existing.doctrine_selected_via
+            existing.doctrine_mirror_used = bool(doctrine_identity.get("mirror_used", existing.doctrine_mirror_used))
         else:
             current.entries.append(
                 TrainEntry(
@@ -202,6 +211,9 @@ class ForgeMergeTrain:
                     created_at=created_at,
                     updated_at=_iso_now(),
                     check_overall=checks_overall,
+                    doctrine_bundle_sha256=_as_str(doctrine_identity.get("bundle_sha256")) or "",
+                    doctrine_selected_via=_as_str(doctrine_identity.get("selected_via")) or "",
+                    doctrine_mirror_used=bool(doctrine_identity.get("mirror_used", False)),
                 )
             )
             self._emit_event("train_ingest", {"pr_url": pr_url, "status": next_status, "run_id": run_id})
@@ -423,6 +435,7 @@ class ForgeMergeTrain:
             entry.status = "merged"
             entry.last_error = None
             state.last_merged_pr = entry.pr_url
+            self._write_merge_receipt(entry=entry)
             self._emit_event("train_merge_outcome", {"pr_url": entry.pr_url, "outcome": "merged"})
             return {"status": "merged", "pr": entry.pr_url}
 
@@ -446,6 +459,10 @@ class ForgeMergeTrain:
             failures.append(reason)
         entry.doctrine_source = str(gate_context.get("source") or "local")
         entry.doctrine_gate_reason = reason
+        doctrine_identity = gate_context.get("doctrine_identity") if isinstance(gate_context.get("doctrine_identity"), dict) else {}
+        entry.doctrine_bundle_sha256 = _as_str(doctrine_identity.get("bundle_sha256")) or ""
+        entry.doctrine_selected_via = _as_str(doctrine_identity.get("selected_via")) or ""
+        entry.doctrine_mirror_used = bool(doctrine_identity.get("mirror_used", False))
         if not failures:
             return None
         return {
@@ -472,6 +489,16 @@ class ForgeMergeTrain:
         artifact = find_contract_artifact_for_sha(entry.pr_number, entry.head_sha)
         if artifact is not None:
             bundle = download_contract_bundle(artifact, self.repo_root / "glow/contracts/remote")
+            doctrine_identity = DoctrineIdentity(
+                head_sha=entry.head_sha,
+                bundle_sha256=bundle.bundle_sha256,
+                artifact_name=artifact.name,
+                run_id=artifact.run_id,
+                selected_via=artifact.selected_via,
+                mirror_used=bundle.mirror_used,
+                metadata_ok=bundle.metadata_ok,
+                manifest_ok=bundle.manifest_ok,
+            )
             doctrine = bundle.parsed.get("stability_doctrine.json", {})
             status = bundle.parsed.get("contract_status.json", {})
             corrupt = _bundle_corruption_errors(bundle)
@@ -515,7 +542,7 @@ class ForgeMergeTrain:
                 metadata_sha=_as_str(bundle.metadata.get("sha") or bundle.metadata.get("git_sha")) if bundle.metadata else None,
                 metadata_ok=bundle.metadata_ok,
                 manifest_ok=bundle.manifest_ok,
-                bundle_sha256=bundle.bundle_sha256[:16] if bundle.bundle_sha256 else None,
+                bundle_sha256=bundle.bundle_sha256 or None,
                 failing_hash_paths=bundle.failing_hash_paths,
                 mirror_used=bundle.mirror_used,
             )
@@ -525,21 +552,30 @@ class ForgeMergeTrain:
                 "source": "remote",
                 "reason": reason,
                 "last_error": last_error,
+                "doctrine_identity": doctrine_identity.to_dict(),
             }
+        local_identity = local_doctrine_identity(self.repo_root, fallback_head_sha=entry.head_sha)
+        expected_bundle = expected_bundle_sha256_from_receipts(self.repo_root)
+        enforce_identity = os.getenv("SENTIENTOS_DOCTRINE_IDENTITY_ENFORCE", "0") == "1"
+        fallback_reason = "remote_missing_fallback"
+        fallback_error: str | None = None
+        if expected_bundle and local_identity.bundle_sha256 and expected_bundle != local_identity.bundle_sha256:
+            fallback_reason = "local_doctrine_identity_mismatch"
+            fallback_error = "local_doctrine_identity_mismatch" if enforce_identity else None
         self._record_remote_doctrine(
             entry,
             artifact_name=None,
             run_id=None,
             source="local",
             result="fallback",
-            reason="remote_missing_fallback",
+            reason=fallback_reason,
             artifact_created_at=None,
             selected_via="none",
             errors=[],
             metadata_sha=None,
-            metadata_ok=False,
-            manifest_ok=False,
-            bundle_sha256=None,
+            metadata_ok=local_identity.metadata_ok,
+            manifest_ok=local_identity.manifest_ok,
+            bundle_sha256=local_identity.bundle_sha256 or None,
             failing_hash_paths=[],
             mirror_used=False,
         )
@@ -550,14 +586,36 @@ class ForgeMergeTrain:
                 "source": "local",
                 "reason": "remote_required_missing",
                 "last_error": "remote_doctrine_missing",
+                "doctrine_identity": local_identity.to_dict(),
             }
         return {
             "doctrine": self._load_doctrine_for_entry(entry),
             "contract_status": _load_json(self.repo_root / "glow/contracts/contract_status.json"),
             "source": "local",
-            "reason": "remote_missing_fallback",
-            "last_error": None,
+            "reason": fallback_reason,
+            "last_error": fallback_error,
+            "doctrine_identity": local_identity.to_dict(),
         }
+
+    def _write_merge_receipt(self, *, entry: TrainEntry) -> None:
+        payload = {
+            "schema_version": 1,
+            "pr_url": entry.pr_url,
+            "pr_number": entry.pr_number,
+            "merged_at": _iso_now(),
+            "head_sha": entry.head_sha,
+            "doctrine_identity": {
+                "bundle_sha256": entry.doctrine_bundle_sha256,
+            },
+            "doctrine_source": entry.doctrine_source,
+            "selected_via": entry.doctrine_selected_via or None,
+            "mirror_used": entry.doctrine_mirror_used,
+            "gating_result": "passed",
+            "gating_reason": entry.doctrine_gate_reason,
+        }
+        target = self.merge_receipts_dir / f"merge_receipt_{_safe_name(payload['merged_at'])}_{entry.pr_number or 'na'}.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
 
     def _record_remote_doctrine(
         self,
@@ -716,6 +774,10 @@ def _parse_iso(value: str | None) -> datetime | None:
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _safe_name(value: str) -> str:
+    return value.replace(":", "-").replace("/", "-")
 
 
 
