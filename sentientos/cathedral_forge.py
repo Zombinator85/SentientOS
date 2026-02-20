@@ -755,6 +755,36 @@ class CathedralForge:
             "canary_timeout": False,
         }
         root = Path(session.root_path)
+        doctrine = self._load_json(root / "glow/contracts/stability_doctrine.json")
+        audit_failures = _audit_integrity_failures(doctrine)
+        if audit_failures:
+            docket_path = self.forge_dir / f"publish_audit_block_{_safe_timestamp(_iso_now())}.json"
+            docket_payload = {
+                "kind": "publish_blocked_audit_integrity",
+                "goal_id": goal.goal_id,
+                "failing_fields": audit_failures,
+                "recommended_repair": "campaign:stability_recovery_full",
+            }
+            _write_json(docket_path, docket_payload)
+            notes.append("publish_blocked_audit_integrity")
+            notes.append(f"publish_audit_docket:{docket_path}")
+            if self._active_provenance is not None:
+                payload = json.dumps(docket_payload, sort_keys=True)
+                step = self._active_provenance.make_step(
+                    step_id="publish_blocked_audit_integrity",
+                    kind="publish",
+                    command={"action": "publish_blocked_audit_integrity"},
+                    cwd=str(root),
+                    env_fingerprint=_env_fingerprint(),
+                    started_at=_iso_now(),
+                    finished_at=_iso_now(),
+                    exit_code=1,
+                    stdout=payload,
+                    stderr="",
+                    artifacts_written=[str(docket_path)],
+                )
+                self._active_provenance.add_step(step, stdout=payload, stderr="")
+            return notes, remote
         if os.getenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "0") != "1":
             return notes, remote
         sentinel_triggered = os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1"
@@ -1483,6 +1513,20 @@ def _step_kind(step: str) -> str:
     if "test" in lowered:
         return "tests"
     return "apply"
+
+
+
+def _audit_integrity_failures(doctrine: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    if not doctrine:
+        return ["stability_doctrine_missing"]
+    if doctrine.get("baseline_integrity_ok") is False:
+        failures.append("baseline_integrity_ok")
+    if doctrine.get("runtime_integrity_ok") is False:
+        failures.append("runtime_integrity_ok")
+    if doctrine.get("baseline_unexpected_change_detected") is True:
+        failures.append("baseline_unexpected_change_detected")
+    return failures
 
 
 def _env_fingerprint(env: dict[str, str] | None = None) -> str:

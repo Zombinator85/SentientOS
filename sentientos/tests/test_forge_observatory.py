@@ -175,3 +175,21 @@ def test_index_includes_progress_contract_snapshot(tmp_path: Path) -> None:
 
     assert "forge_progress_contract_latest" in payload
     assert isinstance(payload["forge_progress_contract_latest"], dict)
+
+
+def test_index_includes_audit_integrity_summary_and_doctor_reports(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": False, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/audit_doctor_20260101T000000Z.json").write_text('{"status":"repaired"}\n', encoding="utf-8")
+    (tmp_path / "glow/forge/audit_docket_20260101T000000Z.json").write_text('{"kind":"audit_docket"}\n', encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["latest_audit_doctor_reports"]
+    assert isinstance(payload.get("audit_integrity_status"), dict)
+    assert payload["audit_integrity_status"]["runtime_ok"] is False

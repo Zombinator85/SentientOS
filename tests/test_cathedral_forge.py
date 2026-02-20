@@ -718,3 +718,23 @@ def test_canary_publish_records_ready_to_merge(tmp_path: Path, monkeypatch) -> N
     notes, remote = forge._maybe_publish(goal, session, improvement_summary="ok", ci_baseline_before=None, ci_baseline_after=None, metadata=None)
     assert "ready_to_merge" in notes
     assert remote["checks_overall"] == "success"
+
+
+def test_canary_publish_blocks_when_audit_integrity_red(tmp_path: Path, monkeypatch) -> None:
+    forge = CathedralForge(repo_root=tmp_path, forge_dir=tmp_path / "glow" / "forge")
+    goal = resolve_goal("forge_self_hosting")
+    session = forge._create_session("2025-01-01T00-00-00Z")
+    root = Path(session.root_path)
+    (root / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (root / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": False, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOPR", "1")
+
+    notes, remote = forge._maybe_publish(goal, session, improvement_summary="ok", ci_baseline_before=None, ci_baseline_after=None, metadata=None)
+
+    assert "publish_blocked_audit_integrity" in notes
+    assert remote["pr_url"] is None

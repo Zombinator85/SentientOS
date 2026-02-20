@@ -396,6 +396,14 @@ class ForgeMergeTrain:
             entry.last_error = "checks_unknown"
             return {"status": "held", "reason": "checks_unknown", "pr": entry.pr_url}
 
+        audit_gate = self._audit_integrity_gate(entry)
+        if audit_gate is not None:
+            entry.status = "held"
+            entry.last_error = "audit_integrity_failed"
+            docket = self._write_audit_hold_docket(entry=entry, gate=audit_gate)
+            self._emit_event("train_audit_integrity_hold", {"pr_url": entry.pr_url, "docket": docket, "failing_fields": audit_gate["failing_fields"]}, level="warning")
+            return {"status": "held", "reason": "audit_integrity_failed", "pr": entry.pr_url}
+
         entry.status = "mergeable"
         allow_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
         if os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1" and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
@@ -420,6 +428,47 @@ class ForgeMergeTrain:
             docket = self._write_conflict_docket(entry, RebaseResult(ok=False, conflict=True, message=merge.message, new_head_sha=None, suspect_files=[]))
             self._emit_event("train_conflict_docket", {"path": docket, "pr_url": entry.pr_url}, level="warning")
         return {"status": entry.status, "pr": entry.pr_url, "reason": entry.last_error}
+
+    def _audit_integrity_gate(self, entry: TrainEntry) -> dict[str, object] | None:
+        doctrine = self._load_doctrine_for_entry(entry)
+        failures = _audit_integrity_failures(doctrine)
+        if not failures:
+            return None
+        return {
+            "failing_fields": failures,
+            "doctor_report_path": _latest_path(self.repo_root / "glow/forge", "audit_doctor_*.json"),
+            "audit_docket_path": _latest_path(self.repo_root / "glow/forge", "audit_docket_*.json"),
+        }
+
+    def _load_doctrine_for_entry(self, entry: TrainEntry) -> dict[str, object]:
+        path = self.repo_root / "glow/contracts/stability_doctrine.json"
+        payload = _load_json(path)
+        if not payload:
+            return {}
+        sha = _as_str(payload.get("git_sha"))
+        if sha and sha != entry.head_sha:
+            return payload
+        return payload
+
+    def _write_audit_hold_docket(self, *, entry: TrainEntry, gate: dict[str, object]) -> str:
+        ts = _iso_now().replace(":", "-")
+        target = self.repo_root / "glow/forge" / f"{DOCKET_PREFIX}_{ts}.json"
+        payload = {
+            "kind": "merge_train_audit_hold",
+            "pr_url": entry.pr_url,
+            "pr_number": entry.pr_number,
+            "head_sha": entry.head_sha,
+            "status": "held",
+            "last_error": "audit_integrity_failed",
+            "failing_fields": gate.get("failing_fields", []),
+            "doctor_report_path": gate.get("doctor_report_path"),
+            "audit_docket_path": gate.get("audit_docket_path"),
+            "suggested_fix": "run audit_integrity_repair",
+            "generated_at": _iso_now(),
+        }
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        return str(target.relative_to(self.repo_root))
 
     def _within_budget(self) -> bool:
         max_runs_day = max(1, int(os.getenv("SENTIENTOS_FORGE_MAX_RUNS_PER_DAY", "2")))
@@ -517,7 +566,27 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
+
+def _audit_integrity_failures(doctrine: dict[str, object]) -> list[str]:
+    if not doctrine:
+        return ["stability_doctrine_missing"]
+    failures: list[str] = []
+    if doctrine.get("baseline_integrity_ok") is False:
+        failures.append("baseline_integrity_ok")
+    if doctrine.get("runtime_integrity_ok") is False:
+        failures.append("runtime_integrity_ok")
+    if doctrine.get("baseline_unexpected_change_detected") is True:
+        failures.append("baseline_unexpected_change_detected")
+    return failures
+
+
+def _latest_path(root: Path, pattern: str) -> str | None:
+    items = sorted(root.glob(pattern), key=lambda item: item.name)
+    if not items:
+        return None
+    return str(items[-1].relative_to(root.parent.parent))
+
 def _is_recovery_entry(entry: TrainEntry) -> bool:
     campaign = entry.campaign_id or ""
     goal = entry.goal_id or ""
-    return campaign == "ci_baseline_recovery" or goal == "repo_green_storm" or goal == "campaign:ci_baseline_recovery"
+    return campaign in {"ci_baseline_recovery", "stability_recovery_full"} or goal in {"repo_green_storm", "audit_integrity_repair", "campaign:ci_baseline_recovery", "campaign:stability_recovery_full"}
