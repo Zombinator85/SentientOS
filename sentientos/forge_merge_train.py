@@ -15,6 +15,8 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
+from sentientos.integrity_incident import build_base_context, build_incident
+from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
@@ -353,6 +355,13 @@ class ForgeMergeTrain:
         now = _iso_now()
         entry.updated_at = now
 
+        quarantine = load_quarantine_state(self.repo_root)
+        if quarantine.active:
+            entry.status = "held"
+            entry.last_error = "quarantine_active"
+            self._emit_event("train_quarantine_blocked", {"pr_url": entry.pr_url, "reason": "quarantine_active", "incident_id": quarantine.last_incident_id}, level="warning")
+            return {"status": "held", "reason": "quarantine_active", "pr": entry.pr_url}
+
         if entry.status == "held" and state.last_failure_at:
             fail_ts = _parse_iso(state.last_failure_at)
             if fail_ts is not None and datetime.now(timezone.utc) - fail_ts < timedelta(minutes=policy.cooldown_minutes_on_failure):
@@ -438,6 +447,13 @@ class ForgeMergeTrain:
                 entry.status = "held"
                 entry.last_error = "receipt_chain_broken"
                 state.last_failure_at = now
+                self._record_integrity_incident(
+                    triggers=["receipt_chain_broken"],
+                    enforcement_mode="enforce",
+                    severity="enforced",
+                    context={"receipt_chain": chain_check.to_dict(), "entry": self._entry_context(entry)},
+                    evidence_paths=["glow/forge/receipts/receipts_index.jsonl"],
+                )
                 self._emit_event(
                     "train_receipt_chain_blocked",
                     {
@@ -464,6 +480,13 @@ class ForgeMergeTrain:
             entry.status = "held"
             entry.last_error = "federation_integrity_diverged"
             state.last_failure_at = now
+            self._record_integrity_incident(
+                triggers=["federation_integrity_diverged"],
+                enforcement_mode="enforce",
+                severity="enforced",
+                context={"federation_integrity": federation_gate, "entry": self._entry_context(entry)},
+                evidence_paths=["glow/federation/integrity_snapshot.json", "glow/federation/peer_integrity"],
+            )
             self._emit_event(
                 "train_federation_integrity_blocked",
                 {"pr_url": entry.pr_url, "reason": "federation_integrity_diverged", "integrity": federation_gate},
@@ -478,6 +501,13 @@ class ForgeMergeTrain:
                 entry.status = "held"
                 entry.last_error = anchor_reason
                 state.last_failure_at = now
+                self._record_integrity_incident(
+                    triggers=[anchor_reason],
+                    enforcement_mode="enforce",
+                    severity="enforced",
+                    context={"receipt_anchors": anchor_check.to_dict(), "entry": self._entry_context(entry)},
+                    evidence_paths=["glow/forge/receipts/anchors/anchors_index.jsonl"],
+                )
                 self._emit_event(
                     "train_receipt_anchor_blocked",
                     {
@@ -511,6 +541,14 @@ class ForgeMergeTrain:
                 self._emit_event("train_merge_receipt_write_failed", {"pr_url": entry.pr_url, "error": receipt_error}, level="error")
             if anchor_error is not None:
                 entry.last_error = anchor_error
+                if "witness_publish_failed" in anchor_error:
+                    self._record_integrity_incident(
+                        triggers=["witness_publish_failed"],
+                        enforcement_mode="enforce",
+                        severity="critical",
+                        context={"witness_error": anchor_error, "entry": self._entry_context(entry)},
+                        evidence_paths=["glow/federation/anchor_witness_status.json"],
+                    )
                 self._emit_event("train_receipt_anchor_write_failed", {"pr_url": entry.pr_url, "error": anchor_error}, level="error")
             self._emit_event("train_merge_outcome", {"pr_url": entry.pr_url, "outcome": "merged"})
             result = {"status": "merged", "pr": entry.pr_url}
@@ -774,6 +812,32 @@ class ForgeMergeTrain:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return str(target.relative_to(self.repo_root))
+
+    def _record_integrity_incident(
+        self,
+        *,
+        triggers: list[str],
+        enforcement_mode: str,
+        severity: str,
+        context: dict[str, object],
+        evidence_paths: list[str],
+    ) -> None:
+        incident = build_incident(
+            triggers=triggers,
+            enforcement_mode=enforcement_mode,
+            severity=severity,
+            context={**build_base_context(self.repo_root), **context},
+            evidence_paths=evidence_paths,
+            suggested_actions=[
+                "python scripts/quarantine_status.py",
+                "python scripts/quarantine_ack.py --note acknowledged",
+                "python scripts/quarantine_clear.py --note recovered",
+            ],
+        )
+        maybe_activate_quarantine(self.repo_root, triggers, incident)
+
+    def _entry_context(self, entry: TrainEntry) -> dict[str, object]:
+        return {"pr_url": entry.pr_url, "pr_number": entry.pr_number, "head_sha": entry.head_sha, "branch": entry.branch}
 
     def _within_budget(self) -> bool:
         max_runs_day = max(1, int(os.getenv("SENTIENTOS_FORGE_MAX_RUNS_PER_DAY", "2")))

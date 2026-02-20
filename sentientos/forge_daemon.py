@@ -15,6 +15,7 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.event_stream import record as record_event, record_forge_event
 from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
+from sentientos.integrity_quarantine import load_state as load_quarantine_state
 
 LOGGER = logging.getLogger(__name__)
 POLICY_PATH = Path("glow/forge/policy.json")
@@ -61,6 +62,27 @@ class ForgeDaemon:
 
         request = self.queue.next_request()
         if request is None:
+            return
+
+        quarantine = load_quarantine_state(self.repo_root)
+        if quarantine.active and quarantine.freeze_forge:
+            self.queue.mark_finished(
+                request.request_id,
+                status="blocked",
+                report_path=None,
+                error="quarantine_active",
+            )
+            self._emit_forge_event(status="blocked", request=request, error="quarantine_active")
+            record_forge_event(
+                {
+                    "event": "forge_quarantine_block",
+                    "status": "blocked",
+                    "level": "warning",
+                    "reason": "quarantine_active",
+                    "request_id": request.request_id,
+                }
+            )
+            self._emit(f"ForgeDaemon blocked request {request.request_id}: quarantine_active", level="warning")
             return
 
         policy_error = self._validate_request_policy(request)
