@@ -910,15 +910,35 @@ class CathedralForge:
                         notes.append("publish_contract_artifact_found")
                         bundle = download_contract_bundle(artifact, root / "glow/contracts/remote")
                         notes.append("publish_contract_bundle_downloaded")
-                        remote["contract_artifact"] = {
+                        artifact_details: dict[str, object] = {
                             "name": artifact.name,
                             "run_id": artifact.run_id,
                             "created_at": artifact.created_at,
                             "sha": artifact.sha,
+                            "selected_via": artifact.selected_via,
                         }
+                        remote["contract_artifact"] = artifact_details
                         doctrine = bundle.parsed.get("stability_doctrine.json", {})
                         remote_doctrine_failures = _audit_integrity_failures(doctrine)
-                        if remote_doctrine_failures:
+                        bundle_corrupt = _bundle_corruption_errors(bundle)
+                        metadata_mismatch = _bundle_metadata_mismatch(bundle)
+                        remote["bundle_errors"] = bundle.errors[:8]
+                        metadata_sha = None
+                        if bundle.metadata:
+                            raw_metadata_sha = bundle.metadata.get("sha") or bundle.metadata.get("git_sha")
+                            if isinstance(raw_metadata_sha, str):
+                                metadata_sha = raw_metadata_sha
+                        remote["metadata_sha"] = metadata_sha
+                        remote["metadata_ok"] = bundle.metadata_ok
+                        if bundle_corrupt:
+                            remote_gate_ok = False
+                            notes.append("publish_remote_doctrine_gated")
+                            notes.append("remote_doctrine_corrupt_bundle")
+                        elif metadata_mismatch:
+                            remote_gate_ok = False
+                            notes.append("publish_remote_doctrine_gated")
+                            notes.append("remote_doctrine_metadata_mismatch")
+                        elif remote_doctrine_failures:
                             remote_gate_ok = False
                             notes.append("publish_remote_doctrine_gated")
                             notes.append("remote_doctrine_failed")
@@ -1586,6 +1606,24 @@ def _audit_integrity_failures(doctrine: dict[str, Any]) -> list[str]:
     if doctrine.get("baseline_unexpected_change_detected") is True:
         failures.append("baseline_unexpected_change_detected")
     return failures
+
+
+def _bundle_corruption_errors(bundle: Any) -> list[str]:
+    errors = bundle.errors if isinstance(getattr(bundle, "errors", None), list) else []
+    prefixes = (
+        "bundle_missing_required:",
+        "invalid_json:",
+        "invalid_shape:",
+        "zip_extract_failed:",
+        "gh_download_failed:",
+        "token_download_failed",
+    )
+    return [str(err) for err in errors if isinstance(err, str) and any(err.startswith(prefix) for prefix in prefixes)]
+
+
+def _bundle_metadata_mismatch(bundle: Any) -> bool:
+    errors = bundle.errors if isinstance(getattr(bundle, "errors", None), list) else []
+    return any(isinstance(err, str) and err.startswith("metadata_mismatch:") for err in errors)
 
 
 def _env_fingerprint(env: dict[str, str] | None = None) -> str:

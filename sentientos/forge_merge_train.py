@@ -11,7 +11,7 @@ from sentientos.event_stream import record_forge_event
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
-from sentientos.github_artifacts import download_contract_bundle, find_contract_artifact_for_sha
+from sentientos.github_artifacts import ContractBundle, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
 
@@ -441,8 +441,11 @@ class ForgeMergeTrain:
         contract_status = gate_context.get("contract_status") if isinstance(gate_context.get("contract_status"), dict) else {}
         failures = _audit_integrity_failures(doctrine)
         failures.extend(_contract_doctrine_failures(contract_status))
+        reason = _as_str(gate_context.get("reason"))
+        if reason in {"remote_doctrine_corrupt_bundle", "remote_doctrine_metadata_mismatch"}:
+            failures.append(reason)
         entry.doctrine_source = str(gate_context.get("source") or "local")
-        entry.doctrine_gate_reason = _as_str(gate_context.get("reason"))
+        entry.doctrine_gate_reason = reason
         if not failures:
             return None
         return {
@@ -471,17 +474,57 @@ class ForgeMergeTrain:
             bundle = download_contract_bundle(artifact, self.repo_root / "glow/contracts/remote")
             doctrine = bundle.parsed.get("stability_doctrine.json", {})
             status = bundle.parsed.get("contract_status.json", {})
+            corrupt = _bundle_corruption_errors(bundle)
+            metadata_mismatch = _bundle_metadata_mismatch(bundle)
             failing = _audit_integrity_failures(doctrine) + _contract_doctrine_failures(status)
-            reason = "remote_doctrine_failed" if failing else "remote_doctrine_passed"
-            self._record_remote_doctrine(entry, artifact_name=artifact.name, run_id=artifact.run_id, source="remote", result="failed" if failing else "passed", reason=reason)
+            reason = "remote_doctrine_passed"
+            last_error: str | None = None
+            gating_result = "passed"
+            if corrupt:
+                reason = "remote_doctrine_corrupt_bundle"
+                last_error = "remote_doctrine_corrupt_bundle"
+                gating_result = "failed"
+            elif metadata_mismatch:
+                reason = "remote_doctrine_metadata_mismatch"
+                last_error = "remote_doctrine_metadata_mismatch"
+                gating_result = "failed"
+            elif failing:
+                reason = "remote_doctrine_failed"
+                last_error = "remote_doctrine_failed"
+                gating_result = "failed"
+            self._record_remote_doctrine(
+                entry,
+                artifact_name=artifact.name,
+                run_id=artifact.run_id,
+                source="remote",
+                result=gating_result,
+                reason=reason,
+                artifact_created_at=artifact.created_at,
+                selected_via=artifact.selected_via,
+                errors=bundle.errors,
+                metadata_sha=_as_str(bundle.metadata.get("sha") or bundle.metadata.get("git_sha")) if bundle.metadata else None,
+                metadata_ok=bundle.metadata_ok,
+            )
             return {
                 "doctrine": doctrine,
                 "contract_status": status,
                 "source": "remote",
                 "reason": reason,
-                "last_error": "remote_doctrine_failed" if failing else None,
+                "last_error": last_error,
             }
-        self._record_remote_doctrine(entry, artifact_name=None, run_id=None, source="local", result="fallback", reason="remote_missing_fallback")
+        self._record_remote_doctrine(
+            entry,
+            artifact_name=None,
+            run_id=None,
+            source="local",
+            result="fallback",
+            reason="remote_missing_fallback",
+            artifact_created_at=None,
+            selected_via="none",
+            errors=[],
+            metadata_sha=None,
+            metadata_ok=False,
+        )
         if require_remote:
             return {
                 "doctrine": {},
@@ -498,7 +541,21 @@ class ForgeMergeTrain:
             "last_error": None,
         }
 
-    def _record_remote_doctrine(self, entry: TrainEntry, *, artifact_name: str | None, run_id: int | None, source: str, result: str, reason: str) -> None:
+    def _record_remote_doctrine(
+        self,
+        entry: TrainEntry,
+        *,
+        artifact_name: str | None,
+        run_id: int | None,
+        source: str,
+        result: str,
+        reason: str,
+        artifact_created_at: str | None,
+        selected_via: str,
+        errors: list[str],
+        metadata_sha: str | None,
+        metadata_ok: bool,
+    ) -> None:
         row = {
             "timestamp": _iso_now(),
             "pr_url": entry.pr_url,
@@ -506,9 +563,14 @@ class ForgeMergeTrain:
             "sha": entry.head_sha,
             "run_id": run_id,
             "artifact_name": artifact_name,
+            "artifact_created_at": artifact_created_at,
             "source": source,
+            "selected_via": selected_via,
             "gating_result": result,
             "reason": reason,
+            "errors": errors[:8],
+            "metadata_sha": metadata_sha,
+            "metadata_ok": metadata_ok,
         }
         self.remote_doctrine_log.parent.mkdir(parents=True, exist_ok=True)
         with self.remote_doctrine_log.open("a", encoding="utf-8") as handle:
@@ -655,6 +717,22 @@ def _contract_doctrine_failures(status: dict[str, object]) -> list[str]:
         if drifted is True:
             return ["contract_status.stability_doctrine_drifted"]
     return []
+
+
+def _bundle_corruption_errors(bundle: ContractBundle) -> list[str]:
+    prefixes = (
+        "bundle_missing_required:",
+        "invalid_json:",
+        "invalid_shape:",
+        "zip_extract_failed:",
+        "gh_download_failed:",
+        "token_download_failed",
+    )
+    return [err for err in bundle.errors if any(err.startswith(prefix) for prefix in prefixes)]
+
+
+def _bundle_metadata_mismatch(bundle: ContractBundle) -> bool:
+    return any(err.startswith("metadata_mismatch:") for err in bundle.errors)
 
 
 def _latest_path(root: Path, pattern: str) -> str | None:
