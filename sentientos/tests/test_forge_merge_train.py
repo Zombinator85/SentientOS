@@ -331,3 +331,62 @@ def test_merge_train_remote_required_blocks_when_missing(tmp_path: Path, monkeyp
 
     assert result["status"] == "held"
     assert result["reason"] == "remote_doctrine_missing"
+
+
+def test_merge_train_blocks_on_remote_metadata_mismatch(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z", selected_via="api:run-artifacts"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={
+                "stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False},
+                "contract_status.json": {"contracts": [{"domain_name": "stability_doctrine", "drifted": False}]},
+            },
+            source="remote",
+            errors=["metadata_mismatch:sha"],
+            metadata={"sha": "different"},
+            metadata_ok=False,
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "remote_doctrine_metadata_mismatch"
+
+
+def test_merge_train_blocks_on_remote_corrupt_bundle(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=12, sha=sha, created_at="2026-01-01T00:00:00Z", selected_via="api:run-artifacts"),
+    )
+    monkeypatch.setattr(
+        "sentientos.forge_merge_train.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={"stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}},
+            source="remote",
+            errors=["bundle_missing_required:contract_status.json"],
+            metadata={"sha": "abc"},
+            metadata_ok=True,
+        ),
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "remote_doctrine_corrupt_bundle"

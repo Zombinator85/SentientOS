@@ -193,3 +193,37 @@ def test_index_includes_audit_integrity_summary_and_doctor_reports(tmp_path: Pat
     assert payload["latest_audit_doctor_reports"]
     assert isinstance(payload.get("audit_integrity_status"), dict)
     assert payload["audit_integrity_status"]["runtime_ok"] is False
+
+
+def test_index_includes_remote_doctrine_fetch_extended_fields(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    _write_jsonl(
+        tmp_path / "glow/forge/remote_doctrine_fetches.jsonl",
+        [
+            json.dumps(
+                {
+                    "timestamp": "2026-01-01T00:00:00Z",
+                    "pr_number": 7,
+                    "sha": "abc",
+                    "source": "remote",
+                    "selected_via": "api:run-artifacts",
+                    "artifact_created_at": "2026-01-01T00:00:00Z",
+                    "errors": ["metadata_mismatch:sha"],
+                    "metadata_sha": "def",
+                    "metadata_ok": False,
+                },
+                sort_keys=True,
+            )
+        ],
+    )
+
+    payload = rebuild_index(tmp_path)
+
+    rows = payload.get("remote_doctrine_fetches", [])
+    assert rows
+    row = rows[-1]
+    assert row["selected_via"] == "api:run-artifacts"
+    assert row["artifact_created_at"] == "2026-01-01T00:00:00Z"
+    assert row["metadata_ok"] is False
