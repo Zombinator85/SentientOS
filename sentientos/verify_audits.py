@@ -13,7 +13,8 @@ VERIFY_AUDITS_SCRIPT = REPO_ROOT / "scripts" / "verify_audits.py"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    command = [sys.executable, str(VERIFY_AUDITS_SCRIPT), *(list(argv) if argv is not None else [])]
+    forwarded = list(argv) if argv is not None else sys.argv[1:]
+    command = [sys.executable, str(VERIFY_AUDITS_SCRIPT), *forwarded]
     completed = subprocess.run(command, check=False)
     return completed.returncode
 

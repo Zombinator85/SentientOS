@@ -47,3 +47,22 @@ def test_show_paths_and_runtime_override(capsys, tmp_path: Path) -> None:
     lines = [line for line in out.splitlines() if line.startswith("{")]
     payloads = [json.loads(line) for line in lines]
     assert any("runtime_path" in item for item in payloads)
+
+
+def test_strict_runtime_error_classification(tmp_path: Path, monkeypatch) -> None:
+    baseline = tmp_path / "logs" / "privileged_audit.jsonl"
+    runtime_dir = tmp_path / "pulse" / "audit"
+    runtime = runtime_dir / "privileged_audit.runtime.jsonl"
+    baseline.parent.mkdir(parents=True)
+    runtime_dir.mkdir(parents=True)
+    baseline.write_text("", encoding="utf-8")
+    runtime.write_text('{"timestamp":"2026-01-01T00:00:00Z","data":\n', encoding="utf-8")
+
+    monkeypatch.setenv("SENTIENTOS_AUDIT_BASELINE_PATH", str(baseline))
+    monkeypatch.setenv("SENTIENTOS_AUDIT_RUNTIME_DIR", str(runtime_dir))
+
+    cfg = resolve_audit_paths(Path.cwd())
+    status = verify_audits._strict_privileged_status(cfg)
+    assert status["runtime_status"] == "broken"
+    assert status["runtime_error_kind"] in {"malformed_json", "truncated_line"}
+    assert "make audit-repair" in str(status["suggested_fix"])

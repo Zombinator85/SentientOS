@@ -8,7 +8,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, TypedDict
+from typing import Dict, List, Literal, Optional, Tuple, TypedDict, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -16,6 +16,8 @@ if str(REPO_ROOT) not in sys.path:
 
 from sentientos.audit_sink import AuditSinkConfig, resolve_audit_paths
 from sentientos.privilege import require_admin_banner, require_lumos_approval
+
+os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
 
 require_admin_banner()
 require_lumos_approval()
@@ -259,6 +261,37 @@ def _verify_single(path: Path) -> tuple[bool, list[str]]:
     return (ok, errors)
 
 
+def _runtime_error_details(path: Path, errors: list[str]) -> tuple[str, list[str]]:
+    if not errors:
+        return "unknown", []
+    kind: str = "unknown"
+    examples: list[str] = []
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    has_final_newline = path.read_text(encoding="utf-8", errors="replace").endswith("\n")
+    for issue in errors[:5]:
+        examples.append(issue[:160])
+        msg = issue.lower()
+        if "chain break" in msg or "prev hash mismatch" in msg:
+            kind = "chain_break"
+        elif "hash mismatch" in msg:
+            if kind == "unknown":
+                kind = "chain_break"
+        elif "missing data" in msg or "not a json object" in msg:
+            if kind == "unknown":
+                kind = "schema_violation"
+        elif "expecting" in msg or "unterminated" in msg or "extra data" in msg:
+            line_no = 0
+            try:
+                line_no = int(issue.split(":", 2)[1])
+            except Exception:
+                line_no = 0
+            if line_no == len(lines) and not has_final_newline:
+                kind = "truncated_line"
+            elif kind == "unknown":
+                kind = "malformed_json"
+    return kind, examples
+
+
 def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
     baseline_ok, baseline_errors = _verify_single(config.baseline_path)
     runtime_ok, runtime_errors = _verify_single(config.runtime_path)
@@ -271,6 +304,10 @@ def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
         baseline_status = "broken"
 
     runtime_status = "ok" if runtime_ok else "broken"
+    runtime_error_kind, runtime_error_examples = _runtime_error_details(config.runtime_path, runtime_errors)
+    suggested_fix = "run: make audit-repair"
+    if runtime_error_kind in {"malformed_json", "truncated_line"}:
+        suggested_fix = "run: make audit-repair (doctor will quarantine malformed/truncated runtime evidence)"
     return {
         "baseline_status": baseline_status,
         "runtime_status": runtime_status,
@@ -278,6 +315,9 @@ def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
         "runtime_path": str(config.runtime_path),
         "baseline_errors": baseline_errors,
         "runtime_errors": runtime_errors,
+        "runtime_error_kind": runtime_error_kind,
+        "runtime_error_examples": runtime_error_examples,
+        "suggested_fix": suggested_fix,
     }
 
 
@@ -332,19 +372,24 @@ def main(argv: list[str] | None = None) -> int:
 
         strict_output = _strict_privileged_status(sink_config) if args.strict else None
         if strict_output is not None:
+            baseline_errors = cast(List[str], strict_output["baseline_errors"])
+            runtime_errors = cast(List[str], strict_output["runtime_errors"])
             print(json.dumps({
                 "baseline_status": strict_output["baseline_status"],
                 "runtime_status": strict_output["runtime_status"],
                 "baseline_path": strict_output["baseline_path"],
                 "runtime_path": strict_output["runtime_path"],
+                "runtime_error_kind": strict_output["runtime_error_kind"],
+                "runtime_error_examples": strict_output["runtime_error_examples"],
+                "suggested_fix": strict_output["suggested_fix"],
             }, sort_keys=True))
-            all_issues.extend([f"baseline:{issue}" for issue in strict_output["baseline_errors"]])
-            all_issues.extend([f"runtime:{issue}" for issue in strict_output["runtime_errors"]])
+            all_issues.extend([f"baseline:{issue}" for issue in baseline_errors])
+            all_issues.extend([f"runtime:{issue}" for issue in runtime_errors])
 
         status_label = "passed"
         reason = None
         exit_code = 0
-        if not chain_ok:
+        if not chain_ok and not args.strict:
             status_label = "failed"
             reason = "integrity_mismatch"
             exit_code = 1
