@@ -197,6 +197,43 @@ jobs:
         if: always()
         run: python -m scripts.emit_contract_status || true
 
+
+      - name: Emit doctrine contract bundle
+        if: always()
+        run: |
+          mkdir -p glow/contracts
+          make forge-ci || true
+          python scripts/emit_contract_status.py
+          python scripts/emit_stability_doctrine.py
+          python scripts/emit_ci_baseline.py
+          python scripts/emit_forge_progress_contract.py || true
+          python - <<'PYCODE'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          payload = {
+              "sha": os.getenv("GITHUB_SHA", ""),
+              "run_id": os.getenv("GITHUB_RUN_ID", ""),
+              "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+          }
+          Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PYCODE
+
+      - name: Upload doctrine contract bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentientos-contracts-${{ github.sha }}
+          path: |
+            glow/contracts/contract_status.json
+            glow/contracts/stability_doctrine.json
+            glow/contracts/ci_baseline.json
+            glow/contracts/forge_progress_baseline.json
+            glow/contracts/artifact_metadata.json
+          if-no-files-found: ignore
+
       - name: Optional CI baseline contract gate
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
         run: |
@@ -349,6 +386,43 @@ jobs:
       - name: Emit contract status rollup
         if: always()
         run: python -m scripts.emit_contract_status || true
+
+
+      - name: Emit doctrine contract bundle
+        if: always()
+        run: |
+          mkdir -p glow/contracts
+          make forge-ci || true
+          python scripts/emit_contract_status.py
+          python scripts/emit_stability_doctrine.py
+          python scripts/emit_ci_baseline.py
+          python scripts/emit_forge_progress_contract.py || true
+          python - <<'PYCODE'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          payload = {
+              "sha": os.getenv("GITHUB_SHA", ""),
+              "run_id": os.getenv("GITHUB_RUN_ID", ""),
+              "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+          }
+          Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PYCODE
+
+      - name: Upload doctrine contract bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentientos-contracts-${{ github.sha }}
+          path: |
+            glow/contracts/contract_status.json
+            glow/contracts/stability_doctrine.json
+            glow/contracts/ci_baseline.json
+            glow/contracts/forge_progress_baseline.json
+            glow/contracts/artifact_metadata.json
+          if-no-files-found: ignore
 
       - name: Optional CI baseline contract gate
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'

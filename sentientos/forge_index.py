@@ -76,7 +76,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             "last_merged_pr": train_state.last_merged_pr,
             "entries_by_status": _train_entries_by_status(train_state.entries),
             "head": _train_head(train_state.entries),
+            "entries": [_train_entry_row(item) for item in train_state.entries[-25:]],
         },
+        "remote_doctrine_fetches": _latest_remote_doctrine_fetches(root),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
@@ -291,4 +293,25 @@ def _train_head(entries: list[object]) -> dict[str, object] | None:
         "status": getattr(head, "status", None),
         "goal_id": getattr(head, "goal_id", None),
         "last_error": getattr(head, "last_error", None),
+        "doctrine_source": getattr(head, "doctrine_source", None),
+        "doctrine_gate_reason": getattr(head, "doctrine_gate_reason", None),
     }
+
+
+def _train_entry_row(entry: object) -> dict[str, object]:
+    return {
+        "pr_url": getattr(entry, "pr_url", None),
+        "pr_number": getattr(entry, "pr_number", None),
+        "head_sha": getattr(entry, "head_sha", None),
+        "status": getattr(entry, "status", None),
+        "check_overall": getattr(entry, "check_overall", None),
+        "last_error": getattr(entry, "last_error", None),
+        "doctrine_source": getattr(entry, "doctrine_source", None),
+        "doctrine_gate_reason": getattr(entry, "doctrine_gate_reason", None),
+    }
+
+
+def _latest_remote_doctrine_fetches(root: Path) -> list[dict[str, object]]:
+    path = root / "glow/forge/remote_doctrine_fetches.jsonl"
+    rows, _ = _read_jsonl(path)
+    return rows[-10:]

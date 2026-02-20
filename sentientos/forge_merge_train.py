@@ -11,6 +11,7 @@ from sentientos.event_stream import record_forge_event
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
+from sentientos.github_artifacts import download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
 
@@ -49,6 +50,8 @@ class TrainEntry:
     rebase_attempts: int = 0
     check_retries: int = 0
     last_error: str | None = None
+    doctrine_source: str = "local"
+    doctrine_gate_reason: str | None = None
 
 
 @dataclass(slots=True)
@@ -107,6 +110,7 @@ class ForgeMergeTrain:
         self.events_path = self.repo_root / EVENTS_PATH
         self.policy_path = self.repo_root / POLICY_PATH
         self.lock_path = self.repo_root / ".forge/train.lock"
+        self.remote_doctrine_log = self.repo_root / "glow/forge/remote_doctrine_fetches.jsonl"
 
     def load_policy(self) -> TrainPolicy:
         policy = TrainPolicy()
@@ -399,10 +403,12 @@ class ForgeMergeTrain:
         audit_gate = self._audit_integrity_gate(entry)
         if audit_gate is not None:
             entry.status = "held"
-            entry.last_error = "audit_integrity_failed"
+            entry.last_error = str(audit_gate.get("last_error") or "audit_integrity_failed")
+            entry.doctrine_source = str(audit_gate.get("source") or "local")
+            entry.doctrine_gate_reason = str(audit_gate.get("reason") or "audit_integrity_failed")
             docket = self._write_audit_hold_docket(entry=entry, gate=audit_gate)
             self._emit_event("train_audit_integrity_hold", {"pr_url": entry.pr_url, "docket": docket, "failing_fields": audit_gate["failing_fields"]}, level="warning")
-            return {"status": "held", "reason": "audit_integrity_failed", "pr": entry.pr_url}
+            return {"status": "held", "reason": entry.last_error, "pr": entry.pr_url}
 
         entry.status = "mergeable"
         allow_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
@@ -430,14 +436,22 @@ class ForgeMergeTrain:
         return {"status": entry.status, "pr": entry.pr_url, "reason": entry.last_error}
 
     def _audit_integrity_gate(self, entry: TrainEntry) -> dict[str, object] | None:
-        doctrine = self._load_doctrine_for_entry(entry)
+        gate_context = self._doctrine_context(entry)
+        doctrine = gate_context.get("doctrine") if isinstance(gate_context.get("doctrine"), dict) else {}
+        contract_status = gate_context.get("contract_status") if isinstance(gate_context.get("contract_status"), dict) else {}
         failures = _audit_integrity_failures(doctrine)
+        failures.extend(_contract_doctrine_failures(contract_status))
+        entry.doctrine_source = str(gate_context.get("source") or "local")
+        entry.doctrine_gate_reason = _as_str(gate_context.get("reason"))
         if not failures:
             return None
         return {
             "failing_fields": failures,
             "doctor_report_path": _latest_path(self.repo_root / "glow/forge", "audit_doctor_*.json"),
             "audit_docket_path": _latest_path(self.repo_root / "glow/forge", "audit_docket_*.json"),
+            "source": gate_context.get("source"),
+            "reason": gate_context.get("reason"),
+            "last_error": gate_context.get("last_error") or "audit_integrity_failed",
         }
 
     def _load_doctrine_for_entry(self, entry: TrainEntry) -> dict[str, object]:
@@ -449,6 +463,56 @@ class ForgeMergeTrain:
         if sha and sha != entry.head_sha:
             return payload
         return payload
+
+    def _doctrine_context(self, entry: TrainEntry) -> dict[str, object]:
+        require_remote = os.getenv("SENTIENTOS_FORGE_REQUIRE_REMOTE_DOCTRINE", "0") == "1"
+        artifact = find_contract_artifact_for_sha(entry.pr_number, entry.head_sha)
+        if artifact is not None:
+            bundle = download_contract_bundle(artifact, self.repo_root / "glow/contracts/remote")
+            doctrine = bundle.parsed.get("stability_doctrine.json", {})
+            status = bundle.parsed.get("contract_status.json", {})
+            failing = _audit_integrity_failures(doctrine) + _contract_doctrine_failures(status)
+            reason = "remote_doctrine_failed" if failing else "remote_doctrine_passed"
+            self._record_remote_doctrine(entry, artifact_name=artifact.name, run_id=artifact.run_id, source="remote", result="failed" if failing else "passed", reason=reason)
+            return {
+                "doctrine": doctrine,
+                "contract_status": status,
+                "source": "remote",
+                "reason": reason,
+                "last_error": "remote_doctrine_failed" if failing else None,
+            }
+        self._record_remote_doctrine(entry, artifact_name=None, run_id=None, source="local", result="fallback", reason="remote_missing_fallback")
+        if require_remote:
+            return {
+                "doctrine": {},
+                "contract_status": {},
+                "source": "local",
+                "reason": "remote_required_missing",
+                "last_error": "remote_doctrine_missing",
+            }
+        return {
+            "doctrine": self._load_doctrine_for_entry(entry),
+            "contract_status": _load_json(self.repo_root / "glow/contracts/contract_status.json"),
+            "source": "local",
+            "reason": "remote_missing_fallback",
+            "last_error": None,
+        }
+
+    def _record_remote_doctrine(self, entry: TrainEntry, *, artifact_name: str | None, run_id: int | None, source: str, result: str, reason: str) -> None:
+        row = {
+            "timestamp": _iso_now(),
+            "pr_url": entry.pr_url,
+            "pr_number": entry.pr_number,
+            "sha": entry.head_sha,
+            "run_id": run_id,
+            "artifact_name": artifact_name,
+            "source": source,
+            "gating_result": result,
+            "reason": reason,
+        }
+        self.remote_doctrine_log.parent.mkdir(parents=True, exist_ok=True)
+        with self.remote_doctrine_log.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(row, sort_keys=True) + "\n")
 
     def _write_audit_hold_docket(self, *, entry: TrainEntry, gate: dict[str, object]) -> str:
         ts = _iso_now().replace(":", "-")
@@ -578,6 +642,19 @@ def _audit_integrity_failures(doctrine: dict[str, object]) -> list[str]:
     if doctrine.get("baseline_unexpected_change_detected") is True:
         failures.append("baseline_unexpected_change_detected")
     return failures
+
+
+def _contract_doctrine_failures(status: dict[str, object]) -> list[str]:
+    rows = status.get("contracts") if isinstance(status.get("contracts"), list) else []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get("domain_name") != "stability_doctrine":
+            continue
+        drifted = row.get("drifted")
+        if drifted is True:
+            return ["contract_status.stability_doctrine_drifted"]
+    return []
 
 
 def _latest_path(root: Path, pattern: str) -> str | None:
