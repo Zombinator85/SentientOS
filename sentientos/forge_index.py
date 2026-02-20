@@ -11,6 +11,7 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
+from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
@@ -57,6 +58,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     contract_path = root / "glow/contracts/forge_progress_baseline.json"
     progress_contract = _load_json(contract_path)
     receipt_chain = _receipt_chain_verification(root)
+    anchor_verification = _receipt_anchor_verification(root)
+    anchor_summary = latest_anchor_summary(root) or {}
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
 
@@ -88,6 +91,13 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "receipt_chain_status": receipt_chain.get("status", "unknown"),
         "receipt_chain_checked_at": receipt_chain.get("checked_at"),
         "receipt_chain_break": _receipt_chain_break(receipt_chain),
+        "anchor_status": str(anchor_verification.get("status", "unknown")),
+        "last_anchor_id": anchor_summary.get("anchor_id"),
+        "last_anchor_created_at": anchor_summary.get("created_at"),
+        "last_anchor_tip_hash": _short_hash(anchor_summary.get("tip_hash")),
+        "last_anchor_public_key_id": anchor_summary.get("public_key_id"),
+        "anchor_checked_at": anchor_verification.get("checked_at"),
+        "anchor_failure": _anchor_failure(anchor_verification),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
@@ -388,3 +398,21 @@ def _receipt_chain_break(payload: dict[str, object]) -> dict[str, object] | None
         "expected": str(raw_break.get("expected") or "")[:16] or None,
         "found": str(raw_break.get("found") or "")[:16] or None,
     }
+
+
+def _receipt_anchor_verification(root: Path) -> dict[str, object]:
+    return cast(dict[str, object], verify_receipt_anchors(root, last=20).to_dict())
+
+
+def _anchor_failure(payload: dict[str, object]) -> dict[str, object] | None:
+    reason = payload.get("failure_reason")
+    if not isinstance(reason, str) or not reason:
+        return None
+    detail = payload.get("failure_detail") if isinstance(payload.get("failure_detail"), dict) else {}
+    return {"reason": reason, "detail": detail}
+
+
+def _short_hash(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value[:16]
+    return None

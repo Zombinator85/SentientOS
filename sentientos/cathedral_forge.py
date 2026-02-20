@@ -27,6 +27,7 @@ from sentientos.forge_progress import ProgressSnapshot, delta as progress_delta_
 from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_provenance import ForgeProvenance
 from sentientos.github_artifacts import download_contract_bundle, find_contract_artifact_for_sha
+from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.github_checks import PRChecks, PRRef, detect_capabilities, wait_for_pr_checks
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.forge_transaction import (
@@ -1037,6 +1038,18 @@ class CathedralForge:
                         elif chain_warned:
                             notes.append("receipt_chain_warning")
                             record_forge_event({"event": "canary_receipt_chain_warning", "level": "warning", "chain": chain_check.to_dict()})
+                    anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(root, context="canary_publish")
+                    if anchor_check is not None and not anchor_check.ok:
+                        remote["receipt_anchors"] = anchor_check.to_dict()
+                        anchor_reason = "receipt_anchor_missing" if anchor_check.status == "missing" else "receipt_anchor_invalid"
+                        if anchor_enforced:
+                            auto_merge = False
+                            remote["automerge_result"] = anchor_reason
+                            notes.append(anchor_reason)
+                            record_forge_event({"event": "canary_receipt_anchor_blocked", "level": "warning", "anchors": anchor_check.to_dict()})
+                        elif anchor_warned:
+                            notes.append("receipt_anchor_warning")
+                            record_forge_event({"event": "canary_receipt_anchor_warning", "level": "warning", "anchors": anchor_check.to_dict()})
                     if auto_merge:
                         remote["automerge_attempted"] = True
                         merged = self._merge_pr(checks.pr)
