@@ -442,7 +442,7 @@ class ForgeMergeTrain:
         failures = _audit_integrity_failures(doctrine)
         failures.extend(_contract_doctrine_failures(contract_status))
         reason = _as_str(gate_context.get("reason"))
-        if reason in {"remote_doctrine_corrupt_bundle", "remote_doctrine_metadata_mismatch"}:
+        if reason in {"remote_doctrine_corrupt_bundle", "remote_doctrine_metadata_mismatch", "remote_doctrine_manifest_missing", "remote_doctrine_manifest_mismatch"}:
             failures.append(reason)
         entry.doctrine_source = str(gate_context.get("source") or "local")
         entry.doctrine_gate_reason = reason
@@ -476,6 +476,8 @@ class ForgeMergeTrain:
             status = bundle.parsed.get("contract_status.json", {})
             corrupt = _bundle_corruption_errors(bundle)
             metadata_mismatch = _bundle_metadata_mismatch(bundle)
+            manifest_missing = _bundle_manifest_missing(bundle)
+            manifest_mismatch = _bundle_manifest_mismatch(bundle)
             failing = _audit_integrity_failures(doctrine) + _contract_doctrine_failures(status)
             reason = "remote_doctrine_passed"
             last_error: str | None = None
@@ -483,6 +485,14 @@ class ForgeMergeTrain:
             if corrupt:
                 reason = "remote_doctrine_corrupt_bundle"
                 last_error = "remote_doctrine_corrupt_bundle"
+                gating_result = "failed"
+            elif manifest_missing:
+                reason = "remote_doctrine_manifest_missing"
+                last_error = "remote_doctrine_manifest_missing"
+                gating_result = "failed"
+            elif manifest_mismatch:
+                reason = "remote_doctrine_manifest_mismatch"
+                last_error = "remote_doctrine_manifest_mismatch"
                 gating_result = "failed"
             elif metadata_mismatch:
                 reason = "remote_doctrine_metadata_mismatch"
@@ -504,6 +514,10 @@ class ForgeMergeTrain:
                 errors=bundle.errors,
                 metadata_sha=_as_str(bundle.metadata.get("sha") or bundle.metadata.get("git_sha")) if bundle.metadata else None,
                 metadata_ok=bundle.metadata_ok,
+                manifest_ok=bundle.manifest_ok,
+                bundle_sha256=bundle.bundle_sha256[:16] if bundle.bundle_sha256 else None,
+                failing_hash_paths=bundle.failing_hash_paths,
+                mirror_used=bundle.mirror_used,
             )
             return {
                 "doctrine": doctrine,
@@ -524,6 +538,10 @@ class ForgeMergeTrain:
             errors=[],
             metadata_sha=None,
             metadata_ok=False,
+            manifest_ok=False,
+            bundle_sha256=None,
+            failing_hash_paths=[],
+            mirror_used=False,
         )
         if require_remote:
             return {
@@ -555,6 +573,10 @@ class ForgeMergeTrain:
         errors: list[str],
         metadata_sha: str | None,
         metadata_ok: bool,
+        manifest_ok: bool,
+        bundle_sha256: str | None,
+        failing_hash_paths: list[str],
+        mirror_used: bool,
     ) -> None:
         row = {
             "timestamp": _iso_now(),
@@ -571,6 +593,10 @@ class ForgeMergeTrain:
             "errors": errors[:8],
             "metadata_sha": metadata_sha,
             "metadata_ok": metadata_ok,
+            "manifest_ok": manifest_ok,
+            "bundle_sha256": bundle_sha256,
+            "failing_hash_paths": failing_hash_paths[:8],
+            "mirror_used": mirror_used,
         }
         self.remote_doctrine_log.parent.mkdir(parents=True, exist_ok=True)
         with self.remote_doctrine_log.open("a", encoding="utf-8") as handle:
@@ -728,11 +754,23 @@ def _bundle_corruption_errors(bundle: ContractBundle) -> list[str]:
         "gh_download_failed:",
         "token_download_failed",
     )
-    return [err for err in bundle.errors if any(err.startswith(prefix) for prefix in prefixes)]
+    return [
+        err
+        for err in bundle.errors
+        if any(err.startswith(prefix) for prefix in prefixes) and err != "bundle_missing_required:contract_manifest.json"
+    ]
 
 
 def _bundle_metadata_mismatch(bundle: ContractBundle) -> bool:
     return any(err.startswith("metadata_mismatch:") for err in bundle.errors)
+
+
+def _bundle_manifest_missing(bundle: ContractBundle) -> bool:
+    return any(err == "bundle_missing_required:contract_manifest.json" for err in bundle.errors)
+
+
+def _bundle_manifest_mismatch(bundle: ContractBundle) -> bool:
+    return any(err == "manifest_mismatch" for err in bundle.errors)
 
 
 def _latest_path(root: Path, pattern: str) -> str | None:

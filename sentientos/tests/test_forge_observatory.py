@@ -213,6 +213,10 @@ def test_index_includes_remote_doctrine_fetch_extended_fields(tmp_path: Path) ->
                     "errors": ["metadata_mismatch:sha"],
                     "metadata_sha": "def",
                     "metadata_ok": False,
+                    "manifest_ok": False,
+                    "bundle_sha256": "1234abcd",
+                    "failing_hash_paths": ["contract_status.json"],
+                    "mirror_used": True,
                 },
                 sort_keys=True,
             )
@@ -227,3 +231,7 @@ def test_index_includes_remote_doctrine_fetch_extended_fields(tmp_path: Path) ->
     assert row["selected_via"] == "api:run-artifacts"
     assert row["artifact_created_at"] == "2026-01-01T00:00:00Z"
     assert row["metadata_ok"] is False
+    assert row["manifest_ok"] is False
+    assert row["bundle_sha256"] == "1234abcd"
+    assert row["failing_hash_paths"] == ["contract_status.json"]
+    assert row["mirror_used"] is True

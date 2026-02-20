@@ -215,11 +215,13 @@ jobs:
 
           payload = {
               "sha": os.getenv("GITHUB_SHA", ""),
-              "run_id": os.getenv("GITHUB_RUN_ID", ""),
+              "run_id": int(os.getenv("GITHUB_RUN_ID", "0") or "0"),
+              "repository": os.getenv("GITHUB_REPOSITORY", ""),
               "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
           }
           Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PYCODE
+          python scripts/emit_contract_manifest.py --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
 
       - name: Upload doctrine contract bundle
         if: always()
@@ -232,7 +234,25 @@ jobs:
             glow/contracts/ci_baseline.json
             glow/contracts/forge_progress_baseline.json
             glow/contracts/artifact_metadata.json
+            glow/contracts/contract_manifest.json
           if-no-files-found: ignore
+
+
+      - name: Optional mirror doctrine contract bundle to release asset
+        if: always() && env.SENTIENTOS_CONTRACT_MIRROR == '1'
+        run: |
+          set -euo pipefail
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh CLI missing; skipping mirror upload"
+            exit 0
+          fi
+          mkdir -p glow/contracts
+          zip -j "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip"             glow/contracts/contract_status.json             glow/contracts/stability_doctrine.json             glow/contracts/ci_baseline.json             glow/contracts/forge_progress_baseline.json             glow/contracts/artifact_metadata.json             glow/contracts/contract_manifest.json || true
+          if gh release view "contracts-${GITHUB_SHA}" >/dev/null 2>&1; then
+            gh release upload "contracts-${GITHUB_SHA}" "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip" --clobber
+          else
+            gh release create "contracts-${GITHUB_SHA}" "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip" --title "Contracts ${GITHUB_SHA}" --notes "Mirror doctrine bundle ${GITHUB_SHA}"
+          fi
 
       - name: Optional CI baseline contract gate
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
@@ -405,11 +425,13 @@ jobs:
 
           payload = {
               "sha": os.getenv("GITHUB_SHA", ""),
-              "run_id": os.getenv("GITHUB_RUN_ID", ""),
+              "run_id": int(os.getenv("GITHUB_RUN_ID", "0") or "0"),
+              "repository": os.getenv("GITHUB_REPOSITORY", ""),
               "created_at": datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
           }
           Path("glow/contracts/artifact_metadata.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
           PYCODE
+          python scripts/emit_contract_manifest.py --contract-dir glow/contracts --git-sha "${GITHUB_SHA}"
 
       - name: Upload doctrine contract bundle
         if: always()
@@ -422,7 +444,25 @@ jobs:
             glow/contracts/ci_baseline.json
             glow/contracts/forge_progress_baseline.json
             glow/contracts/artifact_metadata.json
+            glow/contracts/contract_manifest.json
           if-no-files-found: ignore
+
+
+      - name: Optional mirror doctrine contract bundle to release asset
+        if: always() && env.SENTIENTOS_CONTRACT_MIRROR == '1'
+        run: |
+          set -euo pipefail
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "gh CLI missing; skipping mirror upload"
+            exit 0
+          fi
+          mkdir -p glow/contracts
+          zip -j "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip"             glow/contracts/contract_status.json             glow/contracts/stability_doctrine.json             glow/contracts/ci_baseline.json             glow/contracts/forge_progress_baseline.json             glow/contracts/artifact_metadata.json             glow/contracts/contract_manifest.json || true
+          if gh release view "contracts-${GITHUB_SHA}" >/dev/null 2>&1; then
+            gh release upload "contracts-${GITHUB_SHA}" "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip" --clobber
+          else
+            gh release create "contracts-${GITHUB_SHA}" "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip" --title "Contracts ${GITHUB_SHA}" --notes "Mirror doctrine bundle ${GITHUB_SHA}"
+          fi
 
       - name: Optional CI baseline contract gate
         if: always() && env.SENTIENTOS_CI_CI_BASELINE == '1'
