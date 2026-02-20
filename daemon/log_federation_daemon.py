@@ -14,6 +14,8 @@ from pathlib import Path
 from queue import Queue
 from typing import Deque, Tuple
 
+from sentientos.integrity_snapshot import emit_integrity_snapshot
+
 Pending = Tuple[Path, Path, str, Path]
 
 
@@ -110,14 +112,21 @@ def run_loop(
     """Run the federation daemon."""
     peer_path = Path(peer)
     unsynced: Deque[Pending] = deque(maxlen=100)
+    emit_integrity_snapshot(Path.cwd(), path=Path("glow/federation/integrity_snapshot.json"))
     # Initial reconciliation
     for name, ldir in {"glow": base_glow, "ledger": base_ledger}.items():
         _reconcile_dir(ldir, peer_path / name, method, ledger_queue, unsynced)
     while not stop.wait(poll_interval):
+        emit_integrity_snapshot(Path.cwd(), path=Path("glow/federation/integrity_snapshot.json"))
         for item in list(unsynced):
             src, dest, direction, rel = item
             if _copy(src, dest, direction, ledger_queue, method):
                 unsynced.remove(item)
         _reconcile_dir(base_glow, peer_path / "glow", method, ledger_queue, unsynced)
         _reconcile_dir(base_ledger, peer_path / "ledger", method, ledger_queue, unsynced)
+        peer_snapshot = peer_path / "glow/federation/integrity_snapshot.json"
+        if peer_snapshot.exists():
+            safe_peer = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in peer)
+            local_peer_snapshot = base_glow / "federation/peers" / safe_peer / "integrity_snapshot.json"
+            _copy(peer_snapshot, local_peer_snapshot, "pull", ledger_queue, method)
 

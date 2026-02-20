@@ -12,6 +12,7 @@ import subprocess
 import tempfile
 from typing import Protocol
 
+from sentientos.anchor_witness import maybe_publish_anchor_witness
 from sentientos.receipt_chain import RECEIPTS_DIR, RECEIPTS_INDEX_PATH, verify_receipt_chain
 
 ANCHORS_DIR = RECEIPTS_DIR / "anchors"
@@ -314,6 +315,9 @@ def maybe_create_anchor_on_merge(repo_root: Path) -> tuple[Anchor | None, str | 
         anchor = create_anchor(repo_root)
     except RuntimeError as exc:
         return None, str(exc)
+    _status, witness_error = maybe_publish_anchor_witness(repo_root)
+    if witness_error:
+        return anchor, witness_error
     return anchor, None
 
 

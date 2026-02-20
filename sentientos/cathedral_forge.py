@@ -17,6 +17,7 @@ import uuid
 from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.event_stream import record_forge_event
+from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
@@ -1038,6 +1039,14 @@ class CathedralForge:
                         elif chain_warned:
                             notes.append("receipt_chain_warning")
                             record_forge_event({"event": "canary_receipt_chain_warning", "level": "warning", "chain": chain_check.to_dict()})
+                    federation_gate = federation_integrity_gate(root, context="canary_publish")
+                    remote["federation_integrity"] = federation_gate
+                    if bool(federation_gate.get("blocked")):
+                        auto_merge = False
+                        remote["automerge_result"] = "federation_integrity_diverged"
+                        notes.append("federation_integrity_diverged")
+                        record_forge_event({"event": "canary_federation_integrity_blocked", "level": "warning", "integrity": federation_gate})
+
                     anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(root, context="canary_publish")
                     if anchor_check is not None and not anchor_check.ok:
                         remote["receipt_anchors"] = anchor_check.to_dict()
