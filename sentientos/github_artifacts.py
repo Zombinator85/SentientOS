@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -22,6 +23,7 @@ class ArtifactRef:
     sha: str
     created_at: str
     selected_via: str = ""
+    source: Literal["actions", "mirror_release"] = "actions"
 
 
 @dataclass(slots=True)
@@ -33,12 +35,17 @@ class ContractBundle:
     errors: list[str] = field(default_factory=list)
     metadata: dict[str, object] = field(default_factory=dict)
     metadata_ok: bool = False
+    manifest_ok: bool = False
+    bundle_sha256: str = ""
+    failing_hash_paths: list[str] = field(default_factory=list)
+    mirror_used: bool = False
 
 
 REQUIRED_BUNDLE_FILES: tuple[str, ...] = (
     "stability_doctrine.json",
     "contract_status.json",
     "artifact_metadata.json",
+    "contract_manifest.json",
 )
 OPTIONAL_BUNDLE_FILES: tuple[str, ...] = (
     "ci_baseline.json",
@@ -59,7 +66,11 @@ def find_contract_artifact_for_sha(pr_number: int | None, sha: str) -> ArtifactR
         if by_gh is not None:
             return by_gh
     if caps["token"]:
-        return _find_with_api(repo=repo, token=os.getenv("GITHUB_TOKEN", ""), pr_number=pr_number, sha=sha, expected_name=expected)
+        by_api = _find_with_api(repo=repo, token=os.getenv("GITHUB_TOKEN", ""), pr_number=pr_number, sha=sha, expected_name=expected)
+        if by_api is not None:
+            return by_api
+    if os.getenv("SENTIENTOS_CONTRACT_MIRROR_FETCH", "0") == "1":
+        return _find_mirror_release(repo=repo, sha=sha)
     return None
 
 
@@ -68,7 +79,7 @@ def download_contract_bundle(artifact_ref: ArtifactRef, dest_dir: Path) -> Contr
     target.mkdir(parents=True, exist_ok=True)
     errors: list[str] = []
     downloaded = False
-    if shutil.which("gh") is not None:
+    if artifact_ref.source == "actions" and shutil.which("gh") is not None:
         run = subprocess.run(
             ["gh", "run", "download", str(artifact_ref.run_id), "-n", artifact_ref.name, "-D", str(target)],
             capture_output=True,
@@ -95,6 +106,7 @@ def download_contract_bundle(artifact_ref: ArtifactRef, dest_dir: Path) -> Contr
             errors.append("token_download_failed")
     bundle = parse_bundle(target)
     bundle.sha = artifact_ref.sha
+    bundle.mirror_used = artifact_ref.source == "mirror_release"
     bundle.errors.extend(errors)
     _validate_bundle_metadata(bundle, artifact_ref=artifact_ref)
     return bundle
@@ -127,7 +139,7 @@ def parse_bundle(bundle_dir: Path) -> ContractBundle:
         else:
             errors.append(f"invalid_shape:{name}")
     metadata = parsed.get("artifact_metadata.json", {})
-    return ContractBundle(
+    bundle = ContractBundle(
         sha=sha,
         paths=paths,
         parsed=parsed,
@@ -135,6 +147,58 @@ def parse_bundle(bundle_dir: Path) -> ContractBundle:
         errors=errors,
         metadata=metadata if isinstance(metadata, dict) else {},
     )
+    _validate_manifest(bundle, bundle_dir=bundle_dir)
+    return bundle
+
+
+def _validate_manifest(bundle: ContractBundle, *, bundle_dir: Path) -> None:
+    manifest_raw = bundle.parsed.get("contract_manifest.json")
+    if not isinstance(manifest_raw, dict):
+        bundle.manifest_ok = False
+        if "bundle_missing_required:contract_manifest.json" not in bundle.errors:
+            bundle.errors.append("manifest_missing")
+        return
+
+    required_files = _as_str_list(manifest_raw.get("required_files"))
+    optional_files = _as_str_list(manifest_raw.get("optional_files"))
+    if not required_files:
+        required_files = list(REQUIRED_BUNDLE_FILES)
+    if not optional_files:
+        optional_files = list(OPTIONAL_BUNDLE_FILES)
+    file_hashes_raw = manifest_raw.get("file_sha256")
+    file_hashes = file_hashes_raw if isinstance(file_hashes_raw, dict) else {}
+    failing: list[str] = []
+
+    for rel_path in [*required_files, *optional_files]:
+        candidate = bundle_dir / rel_path
+        if not candidate.exists():
+            continue
+        manifest_hash = file_hashes.get(rel_path)
+        if not isinstance(manifest_hash, str) or not manifest_hash:
+            failing.append(rel_path)
+            continue
+        file_hash = hashlib.sha256(candidate.read_bytes()).hexdigest()
+        if file_hash != manifest_hash:
+            failing.append(rel_path)
+
+    canonical = "".join(f"{path}\n{digest}\n" for path, digest in sorted((k, v) for k, v in file_hashes.items() if isinstance(k, str) and isinstance(v, str)))
+    recomputed = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    manifest_bundle = manifest_raw.get("bundle_sha256")
+    if not isinstance(manifest_bundle, str) or recomputed != manifest_bundle:
+        if "bundle_sha256" not in failing:
+            failing.append("bundle_sha256")
+
+    bundle.failing_hash_paths = failing
+    bundle.bundle_sha256 = manifest_bundle if isinstance(manifest_bundle, str) else ""
+    bundle.manifest_ok = not failing
+    if failing:
+        bundle.errors.append("manifest_mismatch")
+
+
+def _as_str_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
 
 
 def _capabilities() -> dict[str, bool]:
@@ -350,7 +414,7 @@ def _validate_bundle_metadata(bundle: ContractBundle, *, artifact_ref: ArtifactR
     if repo and isinstance(metadata_repo, str) and metadata_repo and metadata_repo != repo:
         mismatches.append("metadata_mismatch:repository")
     metadata_run_id = metadata.get("run_id")
-    if isinstance(metadata_run_id, int) and metadata_run_id != artifact_ref.run_id:
+    if artifact_ref.source == "actions" and isinstance(metadata_run_id, int) and metadata_run_id != artifact_ref.run_id:
         mismatches.append("metadata_mismatch:run_id")
     for key, value in metadata.items():
         if not isinstance(key, str) or not isinstance(value, str):
@@ -381,3 +445,29 @@ def _download_zip(url: str, token: str, target: Path) -> bool:
     except (error.URLError, TimeoutError, OSError):
         return False
     return True
+
+
+def _find_mirror_release(*, repo: str, sha: str) -> ArtifactRef | None:
+    asset_name = f"sentientos-contracts-{sha}.zip"
+    caps = _capabilities()
+    if caps["gh"]:
+        payload = _run_gh_json(["gh", "api", f"repos/{repo}/releases/tags/contracts-{sha}"])
+    elif caps["token"]:
+        payload = _http_json(f"https://api.github.com/repos/{repo}/releases/tags/contracts-{sha}", os.getenv("GITHUB_TOKEN", ""))
+    else:
+        return None
+    assets = payload.get("assets")
+    if not isinstance(assets, list):
+        return None
+    for item in assets:
+        if not isinstance(item, dict):
+            continue
+        if item.get("name") != asset_name:
+            continue
+        download_url = item.get("browser_download_url")
+        if not isinstance(download_url, str) or not download_url:
+            continue
+        raw_created_at = payload.get("published_at")
+        created_at = raw_created_at if isinstance(raw_created_at, str) else ""
+        return ArtifactRef(name=asset_name, url=download_url, run_id=0, sha=sha, created_at=created_at, selected_via="mirror:release", source="mirror_release")
+    return None
