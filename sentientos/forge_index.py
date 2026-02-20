@@ -13,9 +13,10 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
+from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -60,6 +61,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     receipt_chain = _receipt_chain_verification(root)
     anchor_verification = _receipt_anchor_verification(root)
     anchor_summary = latest_anchor_summary(root) or {}
+    federation_integrity = federation_integrity_gate(root, context="forge_index")
+    witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
 
@@ -98,6 +101,13 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_anchor_public_key_id": anchor_summary.get("public_key_id"),
         "anchor_checked_at": anchor_verification.get("checked_at"),
         "anchor_failure": _anchor_failure(anchor_verification),
+        "federation_integrity_status": federation_integrity.get("status", "unknown"),
+        "federation_divergence_reasons": federation_integrity.get("divergence_reasons", []),
+        "peer_integrity_summaries": _peer_integrity_summaries(federation_integrity.get("peer_summaries")),
+        "last_witness_published_at": witness_status.get("last_witness_published_at"),
+        "last_witness_anchor_id": witness_status.get("last_witness_anchor_id"),
+        "witness_status": witness_status.get("witness_status", "disabled"),
+        "witness_failure": _truncate_text(witness_status.get("witness_failure"), 240),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
@@ -416,3 +426,28 @@ def _short_hash(value: object) -> str | None:
     if isinstance(value, str) and value:
         return value[:16]
     return None
+
+
+def _peer_integrity_summaries(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "node_id": item.get("node_id"),
+                "status": item.get("status"),
+                "anchor_tip_hash": _short_hash(item.get("anchor_tip_hash")),
+            }
+        )
+        if len(rows) >= 5:
+            break
+    return rows
+
+
+def _truncate_text(value: object, limit: int) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    return value[:limit]

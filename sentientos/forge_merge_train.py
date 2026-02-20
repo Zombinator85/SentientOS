@@ -11,6 +11,7 @@ from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, l
 from sentientos.event_stream import record_forge_event
 from sentientos.receipt_anchors import maybe_create_anchor_on_merge, maybe_verify_receipt_anchors
 from sentientos.receipt_chain import append_receipt, maybe_verify_receipt_chain
+from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
@@ -457,6 +458,18 @@ class ForgeMergeTrain:
                     },
                     level="warning",
                 )
+
+        federation_gate = federation_integrity_gate(self.repo_root, context="merge_train")
+        if bool(federation_gate.get("blocked")):
+            entry.status = "held"
+            entry.last_error = "federation_integrity_diverged"
+            state.last_failure_at = now
+            self._emit_event(
+                "train_federation_integrity_blocked",
+                {"pr_url": entry.pr_url, "reason": "federation_integrity_diverged", "integrity": federation_gate},
+                level="warning",
+            )
+            return {"status": "held", "reason": "federation_integrity_diverged", "pr": entry.pr_url}
 
         anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(self.repo_root, context="merge_train")
         if anchor_check is not None and not anchor_check.ok:

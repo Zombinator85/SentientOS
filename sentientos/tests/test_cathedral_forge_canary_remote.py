@@ -378,3 +378,59 @@ def test_canary_receipt_anchor_warn_records_warning(tmp_path: Path, monkeypatch)
     )
 
     assert "receipt_anchor_warning" in notes
+
+
+def test_canary_federation_integrity_enforce_blocks_automerge(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_INTEGRITY_ENFORCE", "1")
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        '{"baseline_integrity_ok": true, "runtime_integrity_ok": true, "baseline_unexpected_change_detected": false}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/federation").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/federation/integrity_snapshot.json").write_text(
+        '{"doctrine_bundle_sha256":"a","last_receipt_chain_tip_hash":"r1","last_anchor_tip_hash":"t1"}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/federation/peers/p1").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/federation/peers/p1/integrity_snapshot.json").write_text(
+        '{"node_id":"p1","doctrine_bundle_sha256":"b","last_receipt_chain_tip_hash":"r1","last_anchor_tip_hash":"t1"}\n',
+        encoding="utf-8",
+    )
+
+    forge = CathedralForge(repo_root=tmp_path)
+    monkeypatch.setattr("sentientos.cathedral_forge.detect_capabilities", lambda: {"gh": True, "token": False})
+
+    pr = PRRef(number=7, url="https://github.com/o/r/pull/7", head_sha="abc", branch="b", created_at="2026-01-01T00:00:00Z")
+    checks = PRChecks(pr=pr, checks=[], overall="success")
+    monkeypatch.setattr("sentientos.cathedral_forge.wait_for_pr_checks", lambda pr_ref, timeout_seconds, poll_interval_seconds: (checks, {"timed_out": False}))
+    monkeypatch.setattr(
+        "sentientos.cathedral_forge.find_contract_artifact_for_sha",
+        lambda pr_number, sha: ArtifactRef(name=f"sentientos-contracts-{sha}", url="", run_id=11, sha=sha, created_at="2026-01-01T00:00:00Z"),
+    )
+    monkeypatch.setattr(
+        "sentientos.cathedral_forge.download_contract_bundle",
+        lambda artifact, dest: ContractBundle(
+            sha=artifact.sha,
+            paths={},
+            parsed={"stability_doctrine.json": {"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}},
+            source="remote",
+            errors=[],
+        ),
+    )
+
+    notes, remote = forge._maybe_publish(
+        resolve_goal("forge_smoke_noop"),
+        ForgeSession(session_id="1", root_path=str(tmp_path), strategy="x", branch_name="b"),
+        improvement_summary=None,
+        ci_baseline_before=None,
+        ci_baseline_after=None,
+        metadata=None,
+    )
+
+    assert "federation_integrity_diverged" in notes
+    assert remote["automerge_result"] == "federation_integrity_diverged"

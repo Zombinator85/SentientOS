@@ -322,3 +322,5 @@ def test_index_includes_anchor_status_fields(tmp_path: Path, monkeypatch) -> Non
     assert payload["last_anchor_tip_hash"]
     assert payload["last_anchor_public_key_id"]
     assert payload["anchor_checked_at"]
+    assert payload["federation_integrity_status"] in {"unknown", "ok", "diverged"}
+    assert payload["witness_status"] in {"ok", "failed", "disabled"}
