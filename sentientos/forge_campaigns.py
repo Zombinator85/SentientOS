@@ -18,6 +18,11 @@ REGISTRY: dict[str, CampaignSpec] = {
         goals=["repo_green_storm"],
         stop_on_failure=True,
     ),
+    "stability_recovery_full": CampaignSpec(
+        campaign_id="stability_recovery_full",
+        goals=["stability_repair", "audit_integrity_repair"],
+        stop_on_failure=True,
+    ),
 }
 
 

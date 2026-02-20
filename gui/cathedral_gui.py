@@ -386,6 +386,24 @@ def _render_forge_panel() -> None:
         st.json(latest_docket)
     st.json(doctrine)
 
+
+    st.subheader("Audit Integrity")
+    audit_integrity = index.get("audit_integrity_status") if isinstance(index.get("audit_integrity_status"), dict) else {}
+    baseline_ok = bool(audit_integrity.get("baseline_ok", False))
+    runtime_ok = bool(audit_integrity.get("runtime_ok", False))
+    unexpected = bool(audit_integrity.get("unexpected_change_detected", False))
+    if baseline_ok and runtime_ok and not unexpected:
+        st.success("GREEN: audit integrity healthy")
+    elif baseline_ok or runtime_ok:
+        st.warning("YELLOW: audit integrity degraded")
+    else:
+        st.error("RED: audit integrity failed")
+    st.write(f"doctor report: {audit_integrity.get('last_doctor_report_path', 'n/a')}")
+    st.write(f"audit docket: {audit_integrity.get('last_audit_docket_path', 'n/a')}")
+    if st.button("Enqueue audit_integrity_repair"):
+        request_id = queue.enqueue(ForgeRequest(request_id="", goal="audit_integrity_repair", goal_id="audit_integrity_repair", requested_by="cathedral_gui"))
+        st.success(f"Queued {request_id}")
+
     st.subheader("Queue (pending)")
     st.dataframe(index.get("latest_queue", []))
     st.subheader("Receipts (latest)")

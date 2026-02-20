@@ -4,7 +4,9 @@
     "forge_smoke_noop",
     "baseline_reclamation",
     "repo_green_storm",
-    "stability_repair"
+    "stability_repair",
+    "audit_integrity_repair",
+    "campaign:stability_recovery_full"
   ],
   "allowlisted_autopublish_flags": [],
   "max_budget": {

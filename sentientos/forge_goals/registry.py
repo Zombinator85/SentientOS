@@ -122,11 +122,29 @@ def _stability_repair() -> GoalSpec:
     )
 
 
+def _audit_integrity_repair() -> GoalSpec:
+    return GoalSpec(
+        goal_id="audit_integrity_repair",
+        description="Run audit doctor + strict verification + emit doctrine",
+        phases=_default_phases("audit_integrity_repair"),
+        apply_commands=_commands(
+            ("doctor_audits", "python -m scripts.reconcile_audits --doctor --repair"),
+            ("doctor_verify_strict_rerun", "python -m sentientos.verify_audits --strict"),
+            ("emit_stability_doctrine", "python -m scripts.emit_stability_doctrine"),
+        ),
+        gate_profile="default",
+        touched_paths_globs=["sentientos/**/*.py", "scripts/**/*.py", "glow/contracts/*.json"],
+        risk_notes=["Audit repair only targets deterministic runtime/baseline integrity recovery paths."],
+        rollback_notes=["Revert audit repair commit and inspect audit doctor report+docket before retry."],
+    )
+
+
 REGISTRY: dict[str, GoalSpec] = {
     "baseline_reclamation": _baseline_reclamation(),
     "forge_self_hosting": _forge_self_hosting(),
     "repo_green_storm": _repo_green_storm(),
     "stability_repair": _stability_repair(),
+    "audit_integrity_repair": _audit_integrity_repair(),
 }
 
 

@@ -101,3 +101,26 @@ def test_sentinel_stability_mapping_triggers_repair(tmp_path: Path, monkeypatch)
     trigger = sentinel._domain_trigger(domain="stability_doctrine", policy=policy, snapshot=snapshot)
     assert isinstance(trigger, dict)
     assert trigger.get("reason") == "toolchain_missing"
+
+
+def test_sentinel_audit_integrity_mapping_triggers_recovery_campaign(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/contract_status.json").write_text('{"previous":{}}\n', encoding="utf-8")
+    sentinel = ContractSentinel(repo_root=tmp_path)
+    policy = SentinelPolicy(enabled=True)
+    snapshot = {
+        "domains": {
+            "audit_integrity": {
+                "doctrine_present": True,
+                "baseline_integrity_ok": False,
+                "runtime_integrity_ok": True,
+                "baseline_unexpected_change_detected": False,
+            }
+        }
+    }
+    trigger = sentinel._domain_trigger(domain="audit_integrity", policy=policy, snapshot=snapshot)
+    assert isinstance(trigger, dict)
+    assert trigger.get("reason") == "baseline_integrity_failed"
+    assert policy.enqueue_map["audit_integrity"] == "campaign:stability_recovery_full"

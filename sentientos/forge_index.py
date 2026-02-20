@@ -29,6 +29,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     dockets = sorted((root / "glow/forge").glob("docket_*.json"), key=lambda item: item.name)
     provenance = sorted((root / "glow/forge/provenance").glob("prov_*.json"), key=lambda item: item.name)
     audit_dockets = sorted((root / "glow/forge").glob("audit_docket_*.json"), key=lambda item: item.name)
+    audit_doctor_reports = sorted((root / "glow/forge").glob("audit_doctor_*.json"), key=lambda item: item.name)
 
     queue_rows, queue_corrupt = _read_jsonl(root / QUEUE_PATH)
     receipt_rows, receipt_corrupt = _read_jsonl(root / RECEIPTS_PATH)
@@ -63,6 +64,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "latest_reports": [_load_json(path) | {"path": str(path.relative_to(root))} for path in reports[-50:]],
         "latest_dockets": [_load_json(path) | {"path": str(path.relative_to(root))} for path in dockets[-50:]],
         "latest_audit_dockets": [_load_json(path) | {"path": str(path.relative_to(root))} for path in audit_dockets[-10:]],
+        "latest_audit_doctor_reports": [_load_json(path) | {"path": str(path.relative_to(root))} for path in audit_doctor_reports[-10:]],
         "latest_provenance": [_load_json(path) | {"path": str(path.relative_to(root))} for path in provenance[-50:]],
         "latest_receipts": receipt_rows[-200:],
         "latest_queue": _pending_from_rows(queue_rows, receipt_rows),
@@ -93,6 +95,13 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "progress_trend": progress_trend,
         "stagnation_alert": stagnation_alert,
         "forge_progress_contract_latest": progress_contract,
+        "audit_integrity_status": {
+            "baseline_ok": bool(stability_doctrine.get("baseline_integrity_ok", False)),
+            "runtime_ok": bool(stability_doctrine.get("runtime_integrity_ok", False)),
+            "unexpected_change_detected": bool(stability_doctrine.get("baseline_unexpected_change_detected", False)),
+            "last_doctor_report_path": (str(audit_doctor_reports[-1].relative_to(root)) if audit_doctor_reports else None),
+            "last_audit_docket_path": (str(audit_dockets[-1].relative_to(root)) if audit_dockets else None),
+        },
     }
 
     target = root / INDEX_PATH

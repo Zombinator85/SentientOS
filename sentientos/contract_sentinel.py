@@ -14,7 +14,7 @@ from sentientos.forge_outcomes import OutcomeSummary, summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 
-DEFAULT_WATCHED = ["ci_baseline", "forge_observatory", "stability_doctrine"]
+DEFAULT_WATCHED = ["ci_baseline", "forge_observatory", "stability_doctrine", "audit_integrity"]
 STATE_PATH = Path("glow/forge/sentinel_state.json")
 POLICY_PATH = Path("glow/forge/sentinel_policy.json")
 
@@ -28,6 +28,7 @@ class SentinelPolicy:
             "ci_baseline": "campaign:ci_baseline_recovery",
             "forge_observatory": "forge_smoke_noop",
             "stability_doctrine": "stability_repair",
+            "audit_integrity": "campaign:stability_recovery_full",
         }
     )
     drift_thresholds: dict[str, dict[str, Any]] = field(
@@ -47,7 +48,7 @@ class SentinelPolicy:
             },
         }
     )
-    cooldown_minutes: dict[str, int] = field(default_factory=lambda: {"global": 30, "ci_baseline": 60, "forge_observatory": 60, "stability_doctrine": 60})
+    cooldown_minutes: dict[str, int] = field(default_factory=lambda: {"global": 30, "ci_baseline": 60, "forge_observatory": 60, "stability_doctrine": 60, "audit_integrity": 120})
     max_enqueues_per_day: int = 3
     allow_autopublish: bool = False
     allow_automerge: bool = False
@@ -165,7 +166,7 @@ class ContractSentinel:
             state.last_enqueued_at_by_domain[domain] = now
             state.enqueues_today += 1
             enqueued.append({"domain": domain, "request_id": request_id, "goal": goal})
-            self._emit("enqueued", domain=domain, details={"request_id": request_id, "goal": goal})
+            self._emit("sentinel_audit_trigger" if domain == "audit_integrity" else "enqueued", domain=domain, details={"request_id": request_id, "goal": goal})
 
         state.last_seen_contract_digest = digest
         self.save_state(state)
@@ -232,6 +233,14 @@ class ContractSentinel:
                 "verify_audits_available": bool(toolchain.get("verify_audits_available", False)),
                 "immutable_manifest_present": bool(vow.get("immutable_manifest_present", False)),
             }
+        if "audit_integrity" in policy.watched_domains:
+            doctrine = _load_json(self.stability_doctrine_path)
+            domains["audit_integrity"] = {
+                "doctrine_present": self.stability_doctrine_path.exists(),
+                "baseline_integrity_ok": bool(doctrine.get("baseline_integrity_ok", False)),
+                "runtime_integrity_ok": bool(doctrine.get("runtime_integrity_ok", False)),
+                "baseline_unexpected_change_detected": bool(doctrine.get("baseline_unexpected_change_detected", False)),
+            }
         return {"contract_status": status, "domains": domains}
 
     def _domain_trigger(self, *, domain: str, policy: SentinelPolicy, snapshot: dict[str, Any]) -> dict[str, Any] | None:
@@ -282,6 +291,16 @@ class ContractSentinel:
             if bool(thresholds.get("require_vow_artifacts", True)) and not bool(current.get("immutable_manifest_present", False)):
                 return {"reason": "vow_artifacts_missing"}
             return None
+        if domain == "audit_integrity":
+            if not bool(current.get("doctrine_present", False)):
+                return {"reason": "doctrine_missing"}
+            if not bool(current.get("baseline_integrity_ok", False)):
+                return {"reason": "baseline_integrity_failed"}
+            if not bool(current.get("runtime_integrity_ok", False)):
+                return {"reason": "runtime_integrity_failed"}
+            if bool(current.get("baseline_unexpected_change_detected", False)):
+                return {"reason": "baseline_unexpected_change_detected"}
+            return None
         return None
 
     def _can_enqueue(self, *, domain: str, goal_or_campaign: str, policy: SentinelPolicy, state: SentinelState) -> tuple[bool, str]:
@@ -291,6 +310,11 @@ class ContractSentinel:
         if domain == "ci_baseline":
             progress_decision = self._apply_progress_decision(domain=domain, state=state)
             if progress_decision == "stagnation_backoff" and not emergency_pass_to_fail:
+                return (False, "stagnation_backoff")
+        if domain == "audit_integrity":
+            progress_decision = self._apply_progress_decision(domain=domain, state=state)
+            if progress_decision == "stagnation_backoff":
+                self._emit("sentinel_audit_backoff", domain=domain, details={"reason": "stagnation_backoff"})
                 return (False, "stagnation_backoff")
         if self._is_within_cooldown(domain=domain, policy=policy, state=state):
             return (False, "cooldown")
@@ -326,6 +350,11 @@ class ContractSentinel:
                 decision = self._apply_progress_contract_decision(domain=domain, state=state, contract=contract)
                 if decision != "unknown":
                     return decision
+        if domain == "audit_integrity":
+            summary = self._latest_sentinel_outcome(domain=domain)
+            if summary is not None and (summary.transaction_status in {"quarantined", "rolled_back"} or summary.outcome != "success"):
+                state.last_stagnation_at_by_domain[domain] = _iso_now()
+                return "stagnation_backoff"
         summary = self._latest_sentinel_outcome(domain=domain)
         if summary is None:
             return "unknown"
@@ -342,6 +371,7 @@ class ContractSentinel:
             "no_improvement_streak": summary.no_improvement_streak,
             "audit_status": summary.audit_status,
             "created_at": summary.created_at,
+            "transaction_status": getattr(summary, "transaction_status", None),
         }
         state.last_progress_by_domain[domain] = essentials
 
@@ -376,6 +406,10 @@ class ContractSentinel:
     def _cooldown_multiplier_for(self, *, domain: str, state: SentinelState) -> float:
         payload = state.last_progress_by_domain.get(domain)
         if not isinstance(payload, dict):
+            return 1.0
+        if domain == "audit_integrity":
+            if payload.get("outcome") != "success" or str(payload.get("transaction_status", "")) in {"quarantined", "rolled_back"}:
+                return 8.0
             return 1.0
         before = payload.get("ci_before_failed_count")
         after = payload.get("ci_after_failed_count")
