@@ -260,3 +260,32 @@ def test_index_includes_merge_receipt_summary(tmp_path: Path) -> None:
 
     assert payload["last_merge_receipt"]["pr"] == "https://github.com/o/r/pull/9"
     assert payload["last_merged_doctrine_bundle_sha256"] == "1234567890abcdef"
+
+
+def test_index_includes_receipt_chain_status_fields(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    receipt = {
+        "schema_version": 2,
+        "receipt_id": "2026-01-01T00-00-00Z-pr9-abc",
+        "created_at": "2026-01-01T00:00:00Z",
+        "pr_url": "https://github.com/o/r/pull/9",
+        "pr_number": 9,
+        "head_sha": "abc",
+        "base_branch": "main",
+        "doctrine_identity": {"bundle_sha256": "1234567890abcdef1234", "selected_via": "api", "mirror_used": False, "metadata_ok": True, "manifest_ok": True},
+        "gating_result": "merged",
+        "gating_reason": "ok",
+        "prev_receipt_hash": None,
+    }
+    from sentientos.receipt_chain import compute_receipt_hash
+
+    receipt["receipt_hash"] = compute_receipt_hash({k: v for k, v in receipt.items() if k != "receipt_hash"})
+    (tmp_path / "glow/forge/receipts/merge_receipt_2026-01-01T00-00-00Z-pr9-abc.json").write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["receipt_chain_status"] == "ok"
+    assert payload["last_receipt_hash"]
+    assert "receipt_chain_checked_at" in payload

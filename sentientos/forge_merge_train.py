@@ -9,6 +9,7 @@ from typing import Protocol
 
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.event_stream import record_forge_event
+from sentientos.receipt_chain import append_receipt, maybe_verify_receipt_chain
 from sentientos.forge_outcomes import summarize_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
@@ -429,15 +430,50 @@ class ForgeMergeTrain:
         if not allow_merge:
             return {"status": "mergeable", "pr": entry.pr_url}
 
+        chain_check, chain_enforced, chain_warned = maybe_verify_receipt_chain(self.repo_root, context="merge_train")
+        if chain_check is not None and not chain_check.ok:
+            if chain_enforced:
+                entry.status = "held"
+                entry.last_error = "receipt_chain_broken"
+                state.last_failure_at = now
+                self._emit_event(
+                    "train_receipt_chain_blocked",
+                    {
+                        "pr_url": entry.pr_url,
+                        "reason": "receipt_chain_broken",
+                        "chain": chain_check.to_dict(),
+                    },
+                    level="warning",
+                )
+                return {"status": "held", "reason": "receipt_chain_broken", "pr": entry.pr_url}
+            if chain_warned:
+                self._emit_event(
+                    "train_receipt_chain_warning",
+                    {
+                        "pr_url": entry.pr_url,
+                        "reason": "receipt_chain_warning",
+                        "chain": chain_check.to_dict(),
+                    },
+                    level="warning",
+                )
+
         merge = self.github_ops.merge_pull_request(entry, policy.merge_strategy)
         self._emit_event("train_merge_attempted", {"pr_url": entry.pr_url, "ok": merge.ok, "message": merge.message})
         if merge.ok:
             entry.status = "merged"
             entry.last_error = None
             state.last_merged_pr = entry.pr_url
-            self._write_merge_receipt(entry=entry)
+            receipt_error = self._write_merge_receipt(entry=entry)
+            if receipt_error is not None:
+                entry.last_error = receipt_error
+                self._emit_event("train_merge_receipt_write_failed", {"pr_url": entry.pr_url, "error": receipt_error}, level="error")
             self._emit_event("train_merge_outcome", {"pr_url": entry.pr_url, "outcome": "merged"})
-            return {"status": "merged", "pr": entry.pr_url}
+            result = {"status": "merged", "pr": entry.pr_url}
+            if receipt_error is not None:
+                result["receipt_error"] = receipt_error
+            elif chain_warned:
+                result["reason"] = "receipt_chain_warning"
+            return result
 
         entry.status = "held" if merge.conflict else "failed"
         entry.last_error = "conflict" if merge.conflict else (merge.message or "merge_failed")
@@ -597,25 +633,34 @@ class ForgeMergeTrain:
             "doctrine_identity": local_identity.to_dict(),
         }
 
-    def _write_merge_receipt(self, *, entry: TrainEntry) -> None:
-        payload = {
-            "schema_version": 1,
+    def _write_merge_receipt(self, *, entry: TrainEntry) -> str | None:
+        created_at = _iso_now()
+        receipt_id = f"{_safe_name(created_at)}-pr{entry.pr_number or 'na'}-{entry.head_sha[:8] if entry.head_sha else 'nohead'}"
+        payload: dict[str, object] = {
+            "schema_version": 2,
+            "receipt_id": receipt_id,
+            "created_at": created_at,
             "pr_url": entry.pr_url,
             "pr_number": entry.pr_number,
-            "merged_at": _iso_now(),
             "head_sha": entry.head_sha,
+            "base_branch": self.load_policy().base_branch,
             "doctrine_identity": {
                 "bundle_sha256": entry.doctrine_bundle_sha256,
+                "selected_via": entry.doctrine_selected_via or None,
+                "mirror_used": entry.doctrine_mirror_used,
+                "metadata_ok": bool(entry.doctrine_bundle_sha256),
+                "manifest_ok": bool(entry.doctrine_bundle_sha256),
             },
-            "doctrine_source": entry.doctrine_source,
-            "selected_via": entry.doctrine_selected_via or None,
-            "mirror_used": entry.doctrine_mirror_used,
-            "gating_result": "passed",
+            "gating_result": "merged",
             "gating_reason": entry.doctrine_gate_reason,
+            "doctrine_source": entry.doctrine_source,
+            "merged_at": created_at,
         }
-        target = self.merge_receipts_dir / f"merge_receipt_{_safe_name(payload['merged_at'])}_{entry.pr_number or 'na'}.json"
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+        try:
+            append_receipt(self.repo_root, payload)
+        except OSError as exc:
+            return f"receipt_write_failed:{exc}"
+        return None
 
     def _record_remote_doctrine(
         self,

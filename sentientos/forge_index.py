@@ -5,15 +5,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
+from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -55,6 +56,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     stagnation_alert = len(progress_trend) >= 3 and all(not bool(item.get("improved", False)) for item in progress_trend[-3:])
     contract_path = root / "glow/contracts/forge_progress_baseline.json"
     progress_contract = _load_json(contract_path)
+    receipt_chain = _receipt_chain_verification(root)
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
 
@@ -81,6 +83,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "remote_doctrine_fetches": _latest_remote_doctrine_fetches(root),
         "last_merge_receipt": _last_merge_receipt_summary(root),
         "last_merged_doctrine_bundle_sha256": _last_merged_bundle_sha256(root),
+        "last_receipt_hash": _last_receipt_hash(root),
+        "prev_receipt_hash": _last_prev_receipt_hash(root),
+        "receipt_chain_status": receipt_chain.get("status", "unknown"),
+        "receipt_chain_checked_at": receipt_chain.get("checked_at"),
+        "receipt_chain_break": _receipt_chain_break(receipt_chain),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
@@ -331,6 +338,9 @@ def _last_merge_receipt_summary(root: Path) -> dict[str, object] | None:
         "sha": payload.get("head_sha"),
         "bundle_sha256": doctrine.get("bundle_sha256"),
         "source": payload.get("doctrine_source"),
+        "receipt_id": payload.get("receipt_id"),
+        "receipt_hash": payload.get("receipt_hash"),
+        "prev_receipt_hash": payload.get("prev_receipt_hash"),
     }
 
 
@@ -342,3 +352,39 @@ def _last_merged_bundle_sha256(root: Path) -> str | None:
     if not isinstance(value, str) or not value:
         return None
     return value[:16]
+
+
+def _receipt_chain_verification(root: Path) -> dict[str, object]:
+    return cast(dict[str, object], verify_receipt_chain(root, last=25).to_dict())
+
+
+def _last_receipt_hash(root: Path) -> str | None:
+    receipt = latest_receipt(root)
+    if not isinstance(receipt, dict):
+        return None
+    value = receipt.get("receipt_hash")
+    if not isinstance(value, str) or not value:
+        return None
+    return value[:16]
+
+
+def _last_prev_receipt_hash(root: Path) -> str | None:
+    receipt = latest_receipt(root)
+    if not isinstance(receipt, dict):
+        return None
+    value = receipt.get("prev_receipt_hash")
+    if not isinstance(value, str) or not value:
+        return None
+    return value[:16]
+
+
+def _receipt_chain_break(payload: dict[str, object]) -> dict[str, object] | None:
+    raw_break = payload.get("break")
+    if not isinstance(raw_break, dict):
+        return None
+    return {
+        "receipt_id": raw_break.get("receipt_id"),
+        "reason": raw_break.get("reason"),
+        "expected": str(raw_break.get("expected") or "")[:16] or None,
+        "found": str(raw_break.get("found") or "")[:16] or None,
+    }

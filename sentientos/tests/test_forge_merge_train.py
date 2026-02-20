@@ -550,3 +550,49 @@ def test_merge_train_local_fallback_identity_mismatch_reason(tmp_path: Path, mon
     assert result["status"] == "mergeable"
     state = train.load_state()
     assert state.entries[0].doctrine_gate_reason == "local_doctrine_identity_mismatch"
+
+
+def test_merge_train_enforce_blocks_on_broken_receipt_chain(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_RECEIPT_CHAIN_ENFORCE", "1")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/receipts/merge_receipt_bad.json").write_text(
+        json.dumps({"schema_version": 2, "receipt_id": "bad", "created_at": "2026-01-01T00:00:00Z", "receipt_hash": "deadbeef", "prev_receipt_hash": None}) + "\n",
+        encoding="utf-8",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "receipt_chain_broken"
+
+
+def test_merge_train_warn_allows_on_broken_receipt_chain(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_RECEIPT_CHAIN_WARN", "1")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/receipts/merge_receipt_bad.json").write_text(
+        json.dumps({"schema_version": 2, "receipt_id": "bad", "created_at": "2026-01-01T00:00:00Z", "receipt_hash": "deadbeef", "prev_receipt_hash": None}) + "\n",
+        encoding="utf-8",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "merged"
+    assert result.get("reason") == "receipt_chain_warning"

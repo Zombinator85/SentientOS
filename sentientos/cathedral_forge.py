@@ -16,6 +16,7 @@ import uuid
 
 from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
+from sentientos.event_stream import record_forge_event
 from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
@@ -27,6 +28,7 @@ from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_provenance import ForgeProvenance
 from sentientos.github_artifacts import download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRChecks, PRRef, detect_capabilities, wait_for_pr_checks
+from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.forge_transaction import (
     ForgeGitOps,
     TransactionPolicy,
@@ -1024,6 +1026,17 @@ class CathedralForge:
                     if not remote_gate_ok:
                         auto_merge = False
                         notes.append("held_remote_doctrine")
+                    chain_check, chain_enforced, chain_warned = maybe_verify_receipt_chain(root, context="canary_publish")
+                    if chain_check is not None and not chain_check.ok:
+                        remote["receipt_chain"] = chain_check.to_dict()
+                        if chain_enforced:
+                            auto_merge = False
+                            remote["automerge_result"] = "receipt_chain_broken"
+                            notes.append("receipt_chain_broken")
+                            record_forge_event({"event": "canary_receipt_chain_blocked", "level": "warning", "chain": chain_check.to_dict()})
+                        elif chain_warned:
+                            notes.append("receipt_chain_warning")
+                            record_forge_event({"event": "canary_receipt_chain_warning", "level": "warning", "chain": chain_check.to_dict()})
                     if auto_merge:
                         remote["automerge_attempted"] = True
                         merged = self._merge_pr(checks.pr)
