@@ -596,3 +596,41 @@ def test_merge_train_warn_allows_on_broken_receipt_chain(tmp_path: Path, monkeyp
 
     assert result["status"] == "merged"
     assert result.get("reason") == "receipt_chain_warning"
+
+
+def test_merge_train_anchor_enforce_blocks_when_missing(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_RECEIPT_ANCHOR_ENFORCE", "1")
+    monkeypatch.setenv("SENTIENTOS_ANCHOR_SIGNING", "hmac-test")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "receipt_anchor_missing"
+
+
+def test_merge_train_anchor_warn_allows_and_marks_warning(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_RECEIPT_ANCHOR_WARN", "1")
+    monkeypatch.setenv("SENTIENTOS_ANCHOR_SIGNING", "hmac-test")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n",
+        encoding="utf-8",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "merged"
+    assert result.get("reason") == "receipt_anchor_warning"

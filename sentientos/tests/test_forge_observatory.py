@@ -289,3 +289,36 @@ def test_index_includes_receipt_chain_status_fields(tmp_path: Path) -> None:
     assert payload["receipt_chain_status"] == "ok"
     assert payload["last_receipt_hash"]
     assert "receipt_chain_checked_at" in payload
+
+
+def test_index_includes_anchor_status_fields(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_ANCHOR_SIGNING", "hmac-test")
+    from sentientos.receipt_chain import append_receipt
+    from sentientos.receipt_anchors import create_anchor
+
+    append_receipt(
+        tmp_path,
+        {
+            "schema_version": 2,
+            "receipt_id": "2026-01-01T00-00-00Z-pr9-abc",
+            "created_at": "2026-01-01T00:00:00Z",
+            "pr_url": "https://github.com/o/r/pull/9",
+            "pr_number": 9,
+            "head_sha": "abc",
+            "base_branch": "main",
+            "doctrine_identity": {"bundle_sha256": "1234567890abcdef1234", "selected_via": "api", "mirror_used": False, "metadata_ok": True, "manifest_ok": True},
+            "gating_result": "merged",
+            "gating_reason": "ok",
+        },
+    )
+    create_anchor(tmp_path)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["anchor_status"] == "ok"
+    assert payload["last_anchor_id"]
+    assert payload["last_anchor_tip_hash"]
+    assert payload["last_anchor_public_key_id"]
+    assert payload["anchor_checked_at"]
