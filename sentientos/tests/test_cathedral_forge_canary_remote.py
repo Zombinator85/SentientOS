@@ -238,3 +238,78 @@ def test_canary_local_fallback_identity_mismatch_records_reason(tmp_path: Path, 
 
     assert "local_doctrine_identity_mismatch" in notes
     assert remote["doctrine_gate_reason"] == "local_doctrine_identity_mismatch"
+
+
+def test_canary_receipt_chain_enforce_blocks_automerge(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_RECEIPT_CHAIN_ENFORCE", "1")
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        '{"baseline_integrity_ok": true, "runtime_integrity_ok": true, "baseline_unexpected_change_detected": false}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/receipts/merge_receipt_bad.json").write_text(
+        '{"schema_version":2,"receipt_id":"bad","created_at":"2026-01-01T00:00:00Z","receipt_hash":"deadbeef","prev_receipt_hash":null}\n',
+        encoding="utf-8",
+    )
+
+    forge = CathedralForge(repo_root=tmp_path)
+    monkeypatch.setattr("sentientos.cathedral_forge.detect_capabilities", lambda: {"gh": True, "token": False})
+
+    pr = PRRef(number=7, url="https://github.com/o/r/pull/7", head_sha="abc", branch="b", created_at="2026-01-01T00:00:00Z")
+    checks = PRChecks(pr=pr, checks=[], overall="success")
+    monkeypatch.setattr("sentientos.cathedral_forge.wait_for_pr_checks", lambda pr_ref, timeout_seconds, poll_interval_seconds: (checks, {"timed_out": False}))
+    monkeypatch.setattr("sentientos.cathedral_forge.find_contract_artifact_for_sha", lambda pr_number, sha: None)
+
+    notes, remote = forge._maybe_publish(
+        resolve_goal("forge_smoke_noop"),
+        ForgeSession(session_id="1", root_path=str(tmp_path), strategy="x", branch_name="b"),
+        improvement_summary=None,
+        ci_baseline_before=None,
+        ci_baseline_after=None,
+        metadata=None,
+    )
+
+    assert "receipt_chain_broken" in notes
+    assert remote["automerge_result"] == "receipt_chain_broken"
+
+
+def test_canary_receipt_chain_warn_records_warning(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    monkeypatch.setenv("SENTIENTOS_RECEIPT_CHAIN_WARN", "1")
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        '{"baseline_integrity_ok": true, "runtime_integrity_ok": true, "baseline_unexpected_change_detected": false}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/receipts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/receipts/merge_receipt_bad.json").write_text(
+        '{"schema_version":2,"receipt_id":"bad","created_at":"2026-01-01T00:00:00Z","receipt_hash":"deadbeef","prev_receipt_hash":null}\n',
+        encoding="utf-8",
+    )
+
+    forge = CathedralForge(repo_root=tmp_path)
+    monkeypatch.setattr("sentientos.cathedral_forge.detect_capabilities", lambda: {"gh": True, "token": False})
+
+    pr = PRRef(number=7, url="https://github.com/o/r/pull/7", head_sha="abc", branch="b", created_at="2026-01-01T00:00:00Z")
+    checks = PRChecks(pr=pr, checks=[], overall="success")
+    monkeypatch.setattr("sentientos.cathedral_forge.wait_for_pr_checks", lambda pr_ref, timeout_seconds, poll_interval_seconds: (checks, {"timed_out": False}))
+    monkeypatch.setattr("sentientos.cathedral_forge.find_contract_artifact_for_sha", lambda pr_number, sha: None)
+
+    notes, _remote = forge._maybe_publish(
+        resolve_goal("forge_smoke_noop"),
+        ForgeSession(session_id="1", root_path=str(tmp_path), strategy="x", branch_name="b"),
+        improvement_summary=None,
+        ci_baseline_before=None,
+        ci_baseline_after=None,
+        metadata=None,
+    )
+
+    assert "receipt_chain_warning" in notes
