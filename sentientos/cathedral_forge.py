@@ -24,6 +24,7 @@ from sentientos.forge_goals import GoalSpec, resolve_goal
 from sentientos.forge_progress import ProgressSnapshot, delta as progress_delta_from, snapshot_from_harvest
 from sentientos.forge_pr_notes import build_pr_notes
 from sentientos.forge_provenance import ForgeProvenance
+from sentientos.github_artifacts import download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRChecks, PRRef, detect_capabilities, wait_for_pr_checks
 from sentientos.forge_transaction import (
     ForgeGitOps,
@@ -882,12 +883,70 @@ class CathedralForge:
                     if metadata and metadata.get("sentinel_triggered"):
                         notes.append("sentinel_cooldown_extension_requested")
                 elif checks.overall == "success":
+                    remote_gate_ok = True
+                    require_remote = os.getenv("SENTIENTOS_FORGE_REQUIRE_REMOTE_DOCTRINE", "0") == "1"
+                    artifact = find_contract_artifact_for_sha(checks.pr.number, checks.pr.head_sha)
+                    if artifact is None:
+                        notes.append("publish_contract_artifact_missing")
+                        if self._active_provenance is not None:
+                            step = self._active_provenance.make_step(
+                                step_id="publish_contract_artifact_missing",
+                                kind="publish",
+                                command={"action": "find_contract_artifact", "sha": checks.pr.head_sha},
+                                cwd=str(root),
+                                env_fingerprint=_env_fingerprint(),
+                                started_at=_iso_now(),
+                                finished_at=_iso_now(),
+                                exit_code=1,
+                                stdout="",
+                                stderr="artifact_not_found",
+                                artifacts_written=[],
+                            )
+                            self._active_provenance.add_step(step, stdout="", stderr="artifact_not_found")
+                        if require_remote:
+                            remote_gate_ok = False
+                            notes.append("remote_doctrine_required_missing")
+                    else:
+                        notes.append("publish_contract_artifact_found")
+                        bundle = download_contract_bundle(artifact, root / "glow/contracts/remote")
+                        notes.append("publish_contract_bundle_downloaded")
+                        remote["contract_artifact"] = {
+                            "name": artifact.name,
+                            "run_id": artifact.run_id,
+                            "created_at": artifact.created_at,
+                            "sha": artifact.sha,
+                        }
+                        doctrine = bundle.parsed.get("stability_doctrine.json", {})
+                        remote_doctrine_failures = _audit_integrity_failures(doctrine)
+                        if remote_doctrine_failures:
+                            remote_gate_ok = False
+                            notes.append("publish_remote_doctrine_gated")
+                            notes.append("remote_doctrine_failed")
+                        if self._active_provenance is not None:
+                            payload = json.dumps({"artifact": remote["contract_artifact"], "bundle_errors": bundle.errors, "doctrine_failures": remote_doctrine_failures}, sort_keys=True)
+                            step = self._active_provenance.make_step(
+                                step_id="publish_contract_bundle_downloaded",
+                                kind="publish",
+                                command={"action": "download_contract_bundle", "sha": checks.pr.head_sha},
+                                cwd=str(root),
+                                env_fingerprint=_env_fingerprint(),
+                                started_at=_iso_now(),
+                                finished_at=_iso_now(),
+                                exit_code=0 if not bundle.errors else 1,
+                                stdout=payload,
+                                stderr="",
+                                artifacts_written=list(bundle.paths.values()),
+                            )
+                            self._active_provenance.add_step(step, stdout=payload, stderr="")
+                    if not remote_gate_ok:
+                        auto_merge = False
+                        notes.append("held_remote_doctrine")
                     if auto_merge:
                         remote["automerge_attempted"] = True
                         merged = self._merge_pr(checks.pr)
                         remote["automerge_result"] = "merged" if merged else "merge_failed"
                         notes.append("automerge_merged" if merged else "automerge_failed")
-                    else:
+                    elif remote_gate_ok:
                         notes.append("ready_to_merge")
 
         if self._active_provenance is not None:
