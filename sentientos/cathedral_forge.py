@@ -20,6 +20,8 @@ from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
+from sentientos.integrity_incident import build_base_context, build_incident
+from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
@@ -777,6 +779,12 @@ class CathedralForge:
             "doctrine_gate_reason": "not_checked",
         }
         root = Path(session.root_path)
+        quarantine = load_quarantine_state(root)
+        if quarantine.active and not quarantine.allow_publish:
+            notes.append("quarantine_active")
+            remote["automerge_result"] = "quarantine_active"
+            remote["quarantine_active"] = True
+            return notes, remote
         doctrine = self._load_json(root / "glow/contracts/stability_doctrine.json")
         audit_failures = _audit_integrity_failures(doctrine)
         if audit_failures:
@@ -1036,6 +1044,14 @@ class CathedralForge:
                             remote["automerge_result"] = "receipt_chain_broken"
                             notes.append("receipt_chain_broken")
                             record_forge_event({"event": "canary_receipt_chain_blocked", "level": "warning", "chain": chain_check.to_dict()})
+                            self._record_integrity_incident(
+                                root,
+                                triggers=["receipt_chain_broken"],
+                                enforcement_mode="enforce",
+                                severity="enforced",
+                                context={"receipt_chain": chain_check.to_dict()},
+                                evidence_paths=["glow/forge/receipts/receipts_index.jsonl"],
+                            )
                         elif chain_warned:
                             notes.append("receipt_chain_warning")
                             record_forge_event({"event": "canary_receipt_chain_warning", "level": "warning", "chain": chain_check.to_dict()})
@@ -1046,6 +1062,14 @@ class CathedralForge:
                         remote["automerge_result"] = "federation_integrity_diverged"
                         notes.append("federation_integrity_diverged")
                         record_forge_event({"event": "canary_federation_integrity_blocked", "level": "warning", "integrity": federation_gate})
+                        self._record_integrity_incident(
+                            root,
+                            triggers=["federation_integrity_diverged"],
+                            enforcement_mode="enforce",
+                            severity="enforced",
+                            context={"federation_integrity": federation_gate},
+                            evidence_paths=["glow/federation/integrity_snapshot.json", "glow/federation/peer_integrity"],
+                        )
 
                     anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(root, context="canary_publish")
                     if anchor_check is not None and not anchor_check.ok:
@@ -1056,6 +1080,14 @@ class CathedralForge:
                             remote["automerge_result"] = anchor_reason
                             notes.append(anchor_reason)
                             record_forge_event({"event": "canary_receipt_anchor_blocked", "level": "warning", "anchors": anchor_check.to_dict()})
+                            self._record_integrity_incident(
+                                root,
+                                triggers=[anchor_reason],
+                                enforcement_mode="enforce",
+                                severity="enforced",
+                                context={"receipt_anchors": anchor_check.to_dict()},
+                                evidence_paths=["glow/forge/receipts/anchors/anchors_index.jsonl"],
+                            )
                         elif anchor_warned:
                             notes.append("receipt_anchor_warning")
                             record_forge_event({"event": "canary_receipt_anchor_warning", "level": "warning", "anchors": anchor_check.to_dict()})
@@ -1085,6 +1117,30 @@ class CathedralForge:
             self._active_provenance.add_step(step, stdout=outcome_payload, stderr="")
 
         return notes, remote
+
+    def _record_integrity_incident(
+        self,
+        repo_root: Path,
+        *,
+        triggers: list[str],
+        enforcement_mode: str,
+        severity: str,
+        context: dict[str, object],
+        evidence_paths: list[str],
+    ) -> None:
+        incident = build_incident(
+            triggers=triggers,
+            enforcement_mode=enforcement_mode,
+            severity=severity,
+            context={**build_base_context(repo_root), **context},
+            evidence_paths=evidence_paths,
+            suggested_actions=[
+                "python scripts/quarantine_status.py",
+                "python scripts/quarantine_ack.py --note acknowledged",
+                "python scripts/quarantine_clear.py --note recovered",
+            ],
+        )
+        maybe_activate_quarantine(repo_root, triggers, incident)
 
     def _build_pr_metadata(
         self,

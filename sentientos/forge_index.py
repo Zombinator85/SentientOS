@@ -11,12 +11,13 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
+from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -63,6 +64,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     anchor_summary = latest_anchor_summary(root) or {}
     federation_integrity = federation_integrity_gate(root, context="forge_index")
     witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
+    quarantine = load_quarantine_state(root)
+    incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
+    latest_incident = _latest_incident(root)
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
 
@@ -108,6 +112,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_witness_anchor_id": witness_status.get("last_witness_anchor_id"),
         "witness_status": witness_status.get("witness_status", "disabled"),
         "witness_failure": _truncate_text(witness_status.get("witness_failure"), 240),
+        "quarantine_active": quarantine.active,
+        "quarantine_activated_at": quarantine.activated_at,
+        "quarantine_last_incident_id": quarantine.last_incident_id,
+        "last_incident_summary": _incident_summary(latest_incident),
+        "incident_count_last_24h": _incident_count_last_24h(incident_rows),
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
@@ -272,6 +281,43 @@ def _latest_quarantines(root: Path) -> list[dict[str, object]]:
         payload["path"] = str(path.relative_to(root))
         rows.append(payload)
     return rows
+
+def _latest_incident(root: Path) -> dict[str, object]:
+    items = sorted((root / "glow/forge/incidents").glob("incident_*.json"), key=lambda item: item.name)
+    if not items:
+        return {}
+    return _load_json(items[-1])
+
+
+def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
+    raw_triggers = incident.get("triggers")
+    triggers: list[object] = raw_triggers if isinstance(raw_triggers, list) else []
+    compact = [str(item) for item in triggers[:3]]
+    return {
+        "created_at": incident.get("created_at"),
+        "severity": incident.get("severity"),
+        "triggers": compact,
+        "incident_id": incident.get("incident_id"),
+    }
+
+
+def _incident_count_last_24h(rows: list[dict[str, object]]) -> int:
+    now = datetime.now(timezone.utc)
+    count = 0
+    for row in rows[-400:]:
+        ts = row.get("created_at")
+        if not isinstance(ts, str):
+            continue
+        try:
+            parsed = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        if (now - parsed.astimezone(timezone.utc)).total_seconds() <= 86400:
+            count += 1
+    return count
+
 
 def _env_cache_summary(repo_root: Path) -> dict[str, object]:
     cache_path = repo_root / "glow/forge/env_cache.json"
