@@ -10,7 +10,8 @@ import subprocess
 import sys
 
 BASELINE_PATH = Path("glow/contracts/mypy_baseline.json")
-STATUS_PATH = Path("glow/contracts/mypy_ratchet_status.json")
+STATUS_PATH = Path("glow/forge/ratchets/mypy_ratchet_status.json")
+RATCHET_LOG_PATH = Path("pulse/ratchets.jsonl")
 DEFAULT_TARGETS = ["scripts", "sentientos"]
 STRICT_SUBSET_PREFIXES = ("sentientos/forge", "sentientos/cathedral_forge.py", "sentientos/forge_")
 ERROR_PATTERN = re.compile(
@@ -75,6 +76,13 @@ def build_baseline(errors: list[MypyError]) -> dict[str, object]:
 def _write_status(payload: dict[str, object]) -> None:
     STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
     STATUS_PATH.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _append_ratchet_event(payload: dict[str, object]) -> None:
+    RATCHET_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    row = {"ratchet": "mypy", **payload}
+    with RATCHET_LOG_PATH.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, sort_keys=True) + "\n")
 
 def _run_mypy(targets: list[str]) -> tuple[int, str]:
     command = [
@@ -142,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         baseline_path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         status_payload = {"status": "baseline_refreshed", "baseline_path": str(baseline_path), "error_count": len(errors)}
         _write_status(status_payload)
+        _append_ratchet_event(status_payload)
         print(json.dumps(status_payload, sort_keys=True))
         return 0
 
@@ -175,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
         if strict_code != 0:
             result["strict_subset_excerpt"] = strict_out.splitlines()[:10]
     _write_status(result)
+    _append_ratchet_event(result)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 1 if new_signatures else 0
 

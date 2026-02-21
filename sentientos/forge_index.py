@@ -79,7 +79,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     latest_incident = _latest_incident(root)
     mypy_status = "unknown"
     mypy_new_error_count = 0
-    mypy_ratchet_path = root / "glow/contracts/mypy_ratchet_status.json"
+    mypy_ratchet_path = root / "glow/forge/ratchets/mypy_ratchet_status.json"
     if mypy_ratchet_path.exists():
         payload = _load_json(mypy_ratchet_path)
         status = payload.get("status")

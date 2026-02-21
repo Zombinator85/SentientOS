@@ -386,3 +386,18 @@ def test_index_includes_integrity_pressure_fields(tmp_path: Path) -> None:
     assert payload["enforced_failures_last_24h"] == 1
     assert payload["quarantine_activations_last_24h"] == 1
     assert isinstance(payload.get("integrity_pressure_metrics"), dict)
+
+
+def test_index_reads_mypy_ratchet_status_from_forge_path(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge/ratchets").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/forge/ratchets/mypy_ratchet_status.json").write_text(
+        json.dumps({"status": "new_errors", "new_error_count": 3}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["mypy_status"] == "new_errors"
+    assert payload["mypy_new_error_count"] == 3
