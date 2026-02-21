@@ -60,3 +60,13 @@ def test_risk_budget_throttle_generates_non_repair_pack_without_queue(tmp_path: 
     assert pack["status"] == "proposed"
     assert all(str(step.get("kind")) == "suggestion" for step in pack["steps"])
     assert list_tasks(tmp_path) == []
+
+
+def test_pack_links_incident_from_quarantine_summary(tmp_path: Path) -> None:
+    trace = _trace("audit_chain_broken")
+    trace["quarantine_state_summary"] = {"active": True, "last_incident_id": "inc-77"}
+    emitted = emit_pack_from_trace(tmp_path, trace_payload=trace, trace_path="glow/forge/traces/t.json")
+    assert emitted is not None
+    pack = json.loads((tmp_path / str(emitted["pack_path"])).read_text(encoding="utf-8"))
+    assert pack["incident_id"] == "inc-77"
+

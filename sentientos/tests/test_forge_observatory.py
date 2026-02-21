@@ -353,7 +353,7 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 13
+    assert payload["schema_version"] == 14
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
 
@@ -412,7 +412,12 @@ def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "pulse/remediation_packs.jsonl").write_text(
-        json.dumps({"pack_id": "pack_1", "governance_trace_id": "trace_1", "status": "queued"}, sort_keys=True) + "\n",
+        json.dumps({"pack_id": "pack_1", "incident_id": "inc-1", "governance_trace_id": "trace_1", "status": "queued"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/quarantine.json").write_text(
+        json.dumps({"schema_version": 1, "active": True, "last_incident_id": "inc-1", "freeze_forge": True, "allow_automerge": False, "allow_publish": False, "allow_federation_sync": True, "notes": []}, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     (tmp_path / "pulse/recovery_tasks.jsonl").write_text(
@@ -431,4 +436,7 @@ def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
     assert payload["last_remediation_pack_status"] == "queued"
     assert payload["remediation_backlog_count"] == 1
     assert payload["last_trace_remediation_pack_id"] == "pack_1"
+    assert payload["last_quarantine_remediation_pack_id"] == "pack_1"
+    assert payload["last_quarantine_remediation_status"] == "completed"
+    assert payload.get("last_quarantine_remediation_run_id") in {None, "run_20260101_pack_1"}
     assert isinstance(payload.get("last_remediation_run_summary"), str)

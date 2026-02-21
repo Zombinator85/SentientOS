@@ -11,6 +11,7 @@ from sentientos.recovery_tasks import append_task_record, list_tasks
 SCHEMA_VERSION = 1
 PACKS_DIR = Path("glow/forge/remediation/packs")
 PACKS_PULSE_PATH = Path("pulse/remediation_packs.jsonl")
+RUNS_DIR = Path("glow/forge/remediation/runs")
 
 
 _REASON_STEP_LIBRARY: dict[str, list[dict[str, object]]] = {
@@ -216,6 +217,13 @@ def emit_pack_from_trace(repo_root: Path, *, trace_payload: dict[str, object], t
         "evidence_paths": sorted(set(evidence_paths)),
         "trace_path": trace_path,
     }
+    incident_id = _optional_str(trace_payload.get("incident_id"))
+    if incident_id is None:
+        quarantine_summary = trace_payload.get("quarantine_state_summary")
+        if isinstance(quarantine_summary, dict):
+            incident_id = _optional_str(quarantine_summary.get("last_incident_id"))
+    if incident_id is not None:
+        pack["incident_id"] = incident_id
 
     root = repo_root.resolve()
     pack_path = root / PACKS_DIR / f"pack_{pack_id}.json"
@@ -275,6 +283,7 @@ def _append_pack_pulse(repo_root: Path, pack: dict[str, object], pack_path: Path
         "created_at": pack.get("created_at"),
         "governance_trace_id": pack.get("governance_trace_id"),
         "primary_reason": pack.get("primary_reason"),
+        "incident_id": pack.get("incident_id"),
         "status": pack.get("status"),
         "steps_count": len(list(pack.get("steps") or [])),
         "pack_path": str(pack_path.relative_to(repo_root)),
@@ -287,3 +296,68 @@ def _append_pack_pulse(repo_root: Path, pack: dict[str, object], pack_path: Path
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def find_pack_for_incident_or_trace(
+    repo_root: Path,
+    *,
+    incident_id: str | None,
+    governance_trace_id: str | None,
+) -> dict[str, object] | None:
+    rows = _read_jsonl(repo_root.resolve() / PACKS_PULSE_PATH)
+    for row in reversed(rows):
+        row_incident = _optional_str(row.get("incident_id"))
+        row_trace = _optional_str(row.get("governance_trace_id"))
+        if incident_id and row_incident == incident_id:
+            return row
+        if governance_trace_id and row_trace == governance_trace_id:
+            return row
+    return None
+
+
+def latest_run_for_pack(repo_root: Path, *, pack_id: str) -> dict[str, object] | None:
+    candidates = sorted((repo_root.resolve() / RUNS_DIR).glob(f"run_*_{pack_id}.json"), key=lambda item: item.name)
+    if not candidates:
+        return None
+    payload = _load_json(candidates[-1])
+    if not payload:
+        return None
+    payload["report_path"] = str(candidates[-1].relative_to(repo_root.resolve()))
+    return payload
+
+
+def remediation_status_for_pack(repo_root: Path, *, pack_id: str) -> tuple[str, dict[str, object] | None]:
+    run_payload = latest_run_for_pack(repo_root, pack_id=pack_id)
+    if run_payload is None:
+        return ("missing", None)
+    return ("completed" if str(run_payload.get("status")) == "completed" else "failed", run_payload)
+
+
+def _read_jsonl(path: Path) -> list[dict[str, object]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, object]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                payload = json.loads(stripped)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                rows.append(payload)
+    return rows
+
+
+def _load_json(path: Path) -> dict[str, object]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _optional_str(value: object) -> str | None:
+    return value if isinstance(value, str) and value else None

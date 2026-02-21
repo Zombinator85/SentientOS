@@ -44,15 +44,18 @@ def main(argv: list[str] | None = None) -> int:
             overall_ok = False
             break
 
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    run_id = f"run_{stamp}_{pack_id}"
     report = {
         "schema_version": 1,
+        "run_id": run_id,
         "generated_at": _iso_now(),
         "pack_id": pack_id,
         "pack_path": str(pack_path.relative_to(root)),
+        "incident_id": payload.get("incident_id"),
         "status": "completed" if overall_ok else "failed",
         "steps": run_steps,
     }
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     report_path = root / "glow/forge/remediation/runs" / f"run_{stamp}_{pack_id}.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")

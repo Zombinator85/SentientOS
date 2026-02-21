@@ -23,6 +23,8 @@ class Incident:
     context: dict[str, object]
     evidence_paths: list[str]
     suggested_actions: list[str]
+    governance_trace_id: str | None = None
+    remediation_pack_id: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -42,6 +44,8 @@ def build_incident(
     evidence_paths: list[str] | None = None,
     suggested_actions: list[str] | None = None,
     created_at: str | None = None,
+    governance_trace_id: str | None = None,
+    remediation_pack_id: str | None = None,
 ) -> Incident:
     created = created_at or _iso_now()
     normalized_triggers = sorted({item for item in triggers if item})
@@ -74,6 +78,8 @@ def build_incident(
         context=normalized_context,
         evidence_paths=normalized_evidence,
         suggested_actions=normalized_actions,
+        governance_trace_id=governance_trace_id,
+        remediation_pack_id=remediation_pack_id,
     )
 
 
@@ -96,6 +102,8 @@ def append_incident_feed(repo_root: Path, incident: Incident, incident_path: Pat
         "quarantine_activated": quarantine_activated,
         "triggers": incident.triggers,
         "path": str(incident_path.relative_to(repo_root.resolve())),
+        "governance_trace_id": incident.governance_trace_id,
+        "remediation_pack_id": incident.remediation_pack_id,
     }
     target = repo_root.resolve() / INCIDENTS_FEED_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
