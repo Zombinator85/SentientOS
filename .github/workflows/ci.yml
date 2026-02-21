@@ -316,7 +316,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: contract_status_${{ github.run_id }}_${{ github.job }}
-          path: glow/contracts/*.json
+          path: |
+            glow/contracts/contract_status.json
+            glow/contracts/stability_doctrine.json
+            glow/contracts/ci_baseline.json
+            glow/contracts/forge_progress_baseline.json
+            glow/contracts/artifact_metadata.json
+            glow/contracts/contract_manifest.json
+            glow/contracts/mypy_baseline.json
           if-no-files-found: ignore
 
       - name: Run parliament demo
@@ -516,5 +523,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: contract_status_${{ github.run_id }}_${{ github.job }}
-          path: glow/contracts/*.json
+          path: |
+            glow/contracts/contract_status.json
+            glow/contracts/stability_doctrine.json
+            glow/contracts/ci_baseline.json
+            glow/contracts/forge_progress_baseline.json
+            glow/contracts/artifact_metadata.json
+            glow/contracts/contract_manifest.json
+            glow/contracts/mypy_baseline.json
           if-no-files-found: ignore
