@@ -77,22 +77,23 @@ def build_incident(
     )
 
 
-def write_incident(repo_root: Path, incident: Incident) -> Path:
+def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated: bool = False) -> Path:
     root = repo_root.resolve()
     incident_path = root / INCIDENTS_DIR / f"incident_{_safe_timestamp(incident.created_at)}_{_incident_short_hash(incident.incident_id)}.json"
     incident_path.parent.mkdir(parents=True, exist_ok=True)
     incident_path.write_text(json.dumps(incident.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    append_incident_feed(root, incident, incident_path)
+    append_incident_feed(root, incident, incident_path, quarantine_activated=quarantine_activated)
     return incident_path
 
 
-def append_incident_feed(repo_root: Path, incident: Incident, incident_path: Path) -> None:
+def append_incident_feed(repo_root: Path, incident: Incident, incident_path: Path, *, quarantine_activated: bool = False) -> None:
     row = {
         "schema_version": 1,
         "incident_id": incident.incident_id,
         "created_at": incident.created_at,
         "severity": incident.severity,
         "enforcement_mode": incident.enforcement_mode,
+        "quarantine_activated": quarantine_activated,
         "triggers": incident.triggers,
         "path": str(incident_path.relative_to(repo_root.resolve())),
     }

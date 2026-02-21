@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
-from typing import Protocol
+from typing import Iterator, Protocol
 
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.event_stream import record_forge_event
@@ -18,6 +19,7 @@ from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.forge_queue import ForgeQueue
 from sentientos.integrity_incident import build_base_context, build_incident
 from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
+from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
@@ -363,6 +365,15 @@ class ForgeMergeTrain:
             self._emit_event("train_quarantine_blocked", {"pr_url": entry.pr_url, "reason": "quarantine_active", "incident_id": quarantine.last_incident_id}, level="warning")
             return {"status": "held", "reason": "quarantine_active", "pr": entry.pr_url}
 
+        pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
+        if pressure_changed:
+            self._emit_event(
+                "integrity_pressure_level_changed",
+                {"pr_url": entry.pr_url, "level": pressure_snapshot.level, "last_pressure_change_at": pressure_state.last_pressure_change_at, "metrics": pressure_snapshot.metrics.to_dict()},
+                level="warning" if pressure_snapshot.level > 0 else "info",
+            )
+
         if entry.status == "held" and state.last_failure_at:
             fail_ts = _parse_iso(state.last_failure_at)
             if fail_ts is not None and datetime.now(timezone.utc) - fail_ts < timedelta(minutes=policy.cooldown_minutes_on_failure):
@@ -442,7 +453,7 @@ class ForgeMergeTrain:
         if not allow_merge:
             return {"status": "mergeable", "pr": entry.pr_url}
 
-        chain_check, chain_enforced, chain_warned = maybe_verify_receipt_chain(self.repo_root, context="merge_train")
+        chain_check, chain_enforced, chain_warned = self._run_receipt_chain_gate(pressure_snapshot.level)
         if chain_check is not None and not chain_check.ok:
             if chain_enforced:
                 entry.status = "held"
@@ -454,6 +465,7 @@ class ForgeMergeTrain:
                     severity="enforced",
                     context={"receipt_chain": chain_check.to_dict(), "entry": self._entry_context(entry)},
                     evidence_paths=["glow/forge/receipts/receipts_index.jsonl"],
+                    pressure_level=pressure_snapshot.level,
                 )
                 self._emit_event(
                     "train_receipt_chain_blocked",
@@ -476,7 +488,7 @@ class ForgeMergeTrain:
                     level="warning",
                 )
 
-        audit_check, audit_enforced, audit_warned, audit_report = maybe_verify_audit_chain(self.repo_root, context="merge_train")
+        audit_check, audit_enforced, audit_warned, audit_report = self._run_audit_chain_gate(pressure_snapshot.level)
         if audit_check is not None and not audit_check.ok:
             first_break_path = audit_check.first_break.path if audit_check.first_break is not None else None
             evidence_paths = [item for item in [audit_report, first_break_path] if isinstance(item, str)]
@@ -490,6 +502,7 @@ class ForgeMergeTrain:
                     severity="enforced",
                     context={"audit_chain": audit_check.to_dict(), "entry": self._entry_context(entry)},
                     evidence_paths=evidence_paths,
+                    pressure_level=pressure_snapshot.level,
                 )
                 self._emit_event(
                     "train_audit_chain_blocked",
@@ -504,7 +517,7 @@ class ForgeMergeTrain:
                     level="warning",
                 )
 
-        federation_gate = federation_integrity_gate(self.repo_root, context="merge_train")
+        federation_gate = self._run_federation_gate(pressure_snapshot.level)
         if bool(federation_gate.get("blocked")):
             entry.status = "held"
             entry.last_error = "federation_integrity_diverged"
@@ -515,6 +528,7 @@ class ForgeMergeTrain:
                 severity="enforced",
                 context={"federation_integrity": federation_gate, "entry": self._entry_context(entry)},
                 evidence_paths=["glow/federation/integrity_snapshot.json", "glow/federation/peer_integrity"],
+                pressure_level=pressure_snapshot.level,
             )
             self._emit_event(
                 "train_federation_integrity_blocked",
@@ -523,7 +537,7 @@ class ForgeMergeTrain:
             )
             return {"status": "held", "reason": "federation_integrity_diverged", "pr": entry.pr_url}
 
-        anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(self.repo_root, context="merge_train")
+        anchor_check, anchor_enforced, anchor_warned = self._run_receipt_anchor_gate(pressure_snapshot.level)
         if anchor_check is not None and not anchor_check.ok:
             anchor_reason = "receipt_anchor_missing" if anchor_check.status == "missing" else "receipt_anchor_invalid"
             if anchor_enforced:
@@ -536,6 +550,7 @@ class ForgeMergeTrain:
                     severity="enforced",
                     context={"receipt_anchors": anchor_check.to_dict(), "entry": self._entry_context(entry)},
                     evidence_paths=["glow/forge/receipts/anchors/anchors_index.jsonl"],
+                    pressure_level=pressure_snapshot.level,
                 )
                 self._emit_event(
                     "train_receipt_anchor_blocked",
@@ -577,6 +592,7 @@ class ForgeMergeTrain:
                         severity="critical",
                         context={"witness_error": anchor_error, "entry": self._entry_context(entry)},
                         evidence_paths=["glow/federation/anchor_witness_status.json"],
+                        pressure_level=pressure_snapshot.level,
                     )
                 self._emit_event("train_receipt_anchor_write_failed", {"pr_url": entry.pr_url, "error": anchor_error}, level="error")
             self._emit_event("train_merge_outcome", {"pr_url": entry.pr_url, "outcome": "merged"})
@@ -844,6 +860,22 @@ class ForgeMergeTrain:
         target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         return str(target.relative_to(self.repo_root))
 
+    def _run_receipt_chain_gate(self, pressure_level: int):
+        with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_CHAIN_ENFORCE", "SENTIENTOS_RECEIPT_CHAIN_WARN", pressure_level=pressure_level, gate_name="receipt_chain", high_severity=True)):
+            return maybe_verify_receipt_chain(self.repo_root, context="merge_train")
+
+    def _run_audit_chain_gate(self, pressure_level: int):
+        with _gate_env(*_gate_mode("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "SENTIENTOS_AUDIT_CHAIN_WARN", pressure_level=pressure_level, gate_name="audit_chain", high_severity=True)):
+            return maybe_verify_audit_chain(self.repo_root, context="merge_train")
+
+    def _run_receipt_anchor_gate(self, pressure_level: int):
+        with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_ANCHOR_ENFORCE", "SENTIENTOS_RECEIPT_ANCHOR_WARN", pressure_level=pressure_level, gate_name="receipt_anchor", high_severity=True)):
+            return maybe_verify_receipt_anchors(self.repo_root, context="merge_train")
+
+    def _run_federation_gate(self, pressure_level: int) -> dict[str, object]:
+        with _gate_env(*_gate_mode("SENTIENTOS_FEDERATION_INTEGRITY_ENFORCE", "SENTIENTOS_FEDERATION_INTEGRITY_WARN", pressure_level=pressure_level, gate_name="federation", high_severity=True)):
+            return federation_integrity_gate(self.repo_root, context="merge_train")
+
     def _record_integrity_incident(
         self,
         *,
@@ -852,6 +884,7 @@ class ForgeMergeTrain:
         severity: str,
         context: dict[str, object],
         evidence_paths: list[str],
+        pressure_level: int = 0,
     ) -> None:
         incident = build_incident(
             triggers=triggers,
@@ -865,7 +898,7 @@ class ForgeMergeTrain:
                 "python scripts/quarantine_clear.py --note recovered",
             ],
         )
-        maybe_activate_quarantine(self.repo_root, triggers, incident)
+        maybe_activate_quarantine(self.repo_root, triggers, incident, force_activate=should_force_quarantine(pressure_level))
 
     def _entry_context(self, entry: TrainEntry) -> dict[str, object]:
         return {"pr_url": entry.pr_url, "pr_number": entry.pr_number, "head_sha": entry.head_sha, "branch": entry.branch}
@@ -921,6 +954,30 @@ class ForgeMergeTrain:
             self.lock_path.unlink()
         except OSError:
             return
+
+
+
+@contextmanager
+def _gate_env(*pairs: tuple[str, str]) -> Iterator[None]:
+    previous: dict[str, str | None] = {}
+    for key, value in pairs:
+        previous[key] = os.environ.get(key)
+        os.environ[key] = value
+    try:
+        yield
+    finally:
+        for key, old in previous.items():
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
+
+
+def _gate_mode(enforce_env: str, warn_env: str, *, pressure_level: int, gate_name: str, high_severity: bool) -> tuple[tuple[str, str], tuple[str, str]]:
+    base_enforce = os.getenv(enforce_env, "0") == "1"
+    base_warn = os.getenv(warn_env, "0") == "1"
+    enforce, warn = apply_escalation(pressure_level, gate_name=gate_name, base_enforce=base_enforce, base_warn=base_warn, high_severity=high_severity)
+    return (enforce_env, "1" if enforce else "0"), (warn_env, "1" if warn else "0")
 
 
 def _load_json(path: Path) -> dict[str, object]:

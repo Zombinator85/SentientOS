@@ -353,6 +353,33 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 6
+    assert payload["schema_version"] == 7
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
+
+def test_index_includes_integrity_pressure_fields(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    _write_jsonl(
+        tmp_path / "pulse/integrity_incidents.jsonl",
+        [
+            json.dumps(
+                {
+                    "created_at": "2099-01-01T00:00:00Z",
+                    "enforcement_mode": "enforce",
+                    "triggers": ["receipt_chain_broken"],
+                    "quarantine_activated": True,
+                },
+                sort_keys=True,
+            )
+        ],
+    )
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["integrity_pressure_level"] >= 0
+    assert payload["incidents_last_24h"] == 1
+    assert payload["enforced_failures_last_24h"] == 1
+    assert payload["quarantine_activations_last_24h"] == 1
+    assert isinstance(payload.get("integrity_pressure_metrics"), dict)
