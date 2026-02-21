@@ -28,6 +28,7 @@ from sentientos.recovery_tasks import enqueue_audit_chain_repair_task, enqueue_m
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
+from sentientos.governance_trace import start_governance_trace
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
@@ -121,6 +122,8 @@ class ForgeReport:
     doctrine_identity: dict[str, object] | None = None
     doctrine_source: str | None = None
     doctrine_gate_reason: str | None = None
+    governance_trace_id: str | None = None
+    governance_trace_summary: dict[str, object] | None = None
 
 
 class CathedralForge:
@@ -188,6 +191,26 @@ class CathedralForge:
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
         quarantine_state = load_quarantine_state(self.repo_root)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine_state)
+        posture = resolve_posture()
+        run_budget = compute_risk_budget(
+            repo_root=self.repo_root,
+            posture=posture.posture,
+            pressure_level=pressure_snapshot.level,
+            operating_mode=throughput.mode,
+            quarantine_active=quarantine_state.active,
+        )
+        run_trace = start_governance_trace(
+            repo_root=self.repo_root,
+            context="forge_run",
+            strategic_posture=posture.posture,
+            integrity_pressure_level=pressure_snapshot.level,
+            integrity_metrics_summary=pressure_snapshot.metrics.to_dict(),
+            operating_mode=throughput.mode,
+            mode_toggles_summary={"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
+            quarantine_state_summary={"active": quarantine_state.active, "allow_publish": quarantine_state.allow_publish, "allow_automerge": quarantine_state.allow_automerge, "last_incident_id": quarantine_state.last_incident_id},
+            risk_budget_summary=risk_budget_summary(run_budget),
+            risk_budget_notes=list(run_budget.notes or []),
+        )
         diagnostics_forced = os.getenv("SENTIENTOS_FORGE_DIAGNOSTICS_ONLY", "0") == "1"
         if pressure_changed:
             record_forge_event({"event": "integrity_pressure_level_changed", "level": "warning" if pressure_snapshot.level > 0 else "info", "context": "forge_run", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at})
@@ -308,6 +331,15 @@ class CathedralForge:
                     docket_path=None,
                     transaction_status="aborted",
                 )
+                run_trace.record_gate(name="mode_mutation_gate", mode="enforce", result="diagnostics_only", reason="mode_throttle_mutation")
+                persisted = run_trace.finalize(
+                    final_decision="diagnostics_only",
+                    final_reason="mode_throttle_mutation",
+                    reason_stack=["mode_throttle_mutation", f"operating_mode:{throughput.mode}"],
+                    suggested_actions=["review risk budget and operating mode before re-running forge"],
+                )
+                report.governance_trace_id = str(persisted.get("trace_id"))
+                report.governance_trace_summary = persisted.get("trace_summary") if isinstance(persisted.get("trace_summary"), dict) else None
                 _write_json(self._report_path(generated_at), _dataclass_to_dict(report))
                 self._active_provenance = None
                 return report
@@ -457,6 +489,8 @@ class CathedralForge:
 
             publish_notes: list[str] = []
             publish_remote: dict[str, object] | None = None
+            governance_trace_id: str | None = None
+            governance_trace_summary: dict[str, object] | None = None
             doctrine_identity: dict[str, object] | None = None
             doctrine_source: str | None = None
             doctrine_gate_reason: str | None = None
@@ -474,6 +508,9 @@ class CathedralForge:
                 doctrine_identity = doctrine_identity_raw if isinstance(doctrine_identity_raw, dict) else None
                 doctrine_source = str(publish_remote.get("doctrine_source")) if isinstance(publish_remote, dict) and publish_remote.get("doctrine_source") is not None else None
                 doctrine_gate_reason = str(publish_remote.get("doctrine_gate_reason")) if isinstance(publish_remote, dict) and publish_remote.get("doctrine_gate_reason") is not None else None
+                governance_trace_id = str(publish_remote.get("trace_id")) if isinstance(publish_remote, dict) and publish_remote.get("trace_id") is not None else None
+                trace_summary_raw = publish_remote.get("trace_summary") if isinstance(publish_remote, dict) else None
+                governance_trace_summary = trace_summary_raw if isinstance(trace_summary_raw, dict) else None
             notes.extend(publish_notes)
             if baseline_budget:
                 notes.append(
@@ -523,7 +560,17 @@ class CathedralForge:
                 doctrine_identity=doctrine_identity,
                 doctrine_source=doctrine_source,
                 doctrine_gate_reason=doctrine_gate_reason,
+                governance_trace_id=governance_trace_id,
+                governance_trace_summary=governance_trace_summary,
             )
+            if report.governance_trace_id is None:
+                persisted = run_trace.finalize(
+                    final_decision="allow" if outcome == "success" else "hold",
+                    final_reason=(failure_reasons[0] if failure_reasons else "forge_run_completed"),
+                    reason_stack=(failure_reasons[:6] if failure_reasons else ["forge_run_completed"]),
+                )
+                report.governance_trace_id = str(persisted.get("trace_id"))
+                report.governance_trace_summary = persisted.get("trace_summary") if isinstance(persisted.get("trace_summary"), dict) else None
             run_finished_at = _iso_now()
             header = provenance.build_header(
                 started_at=run_started_at,
@@ -839,10 +886,30 @@ class CathedralForge:
         remote["mode_effective_toggles"] = {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation}
         remote["risk_budget_summary"] = risk_budget_summary(budget)
         remote["risk_budget_notes"] = list(budget.notes or [])[:8]
+        trace = start_governance_trace(
+            repo_root=root,
+            context="canary_publish",
+            strategic_posture=posture.posture,
+            integrity_pressure_level=pressure_snapshot.level,
+            integrity_metrics_summary=pressure_snapshot.metrics.to_dict(),
+            operating_mode=throughput.mode,
+            mode_toggles_summary={"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
+            quarantine_state_summary={"active": quarantine.active, "allow_publish": quarantine.allow_publish, "allow_automerge": quarantine.allow_automerge, "last_incident_id": quarantine.last_incident_id},
+            risk_budget_summary=risk_budget_summary(budget),
+            risk_budget_notes=list(budget.notes or []),
+        )
+
+        def _attach_trace(decision: str, reason: str, stack: list[str], *, actions: list[str] | None = None) -> None:
+            persisted = trace.finalize(final_decision=decision, final_reason=reason, reason_stack=stack, suggested_actions=actions)
+            remote["trace_id"] = persisted["trace_id"]
+            remote["trace_summary"] = persisted["trace_summary"]
+            remote["trace_path"] = persisted["trace_path"]
         if quarantine.active and not quarantine.allow_publish:
             notes.append("quarantine_active")
             remote["automerge_result"] = "quarantine_active"
             remote["quarantine_active"] = True
+            trace.record_gate(name="quarantine_publish", mode="enforce", result="block", reason="quarantine_active")
+            _attach_trace("block", "quarantine_active", ["quarantine_active"], actions=["python scripts/quarantine_status.py", "python scripts/quarantine_clear.py --note recovered"])
             return notes, remote
         doctrine = self._load_json(root / "glow/contracts/stability_doctrine.json")
         audit_failures = _audit_integrity_failures(doctrine)
@@ -857,6 +924,8 @@ class CathedralForge:
             _write_json(docket_path, docket_payload)
             notes.append("publish_blocked_audit_integrity")
             notes.append(f"publish_audit_docket:{docket_path}")
+            trace.record_gate(name="audit_integrity", mode="enforce", result="block", reason="publish_blocked_audit_integrity", evidence_paths=[str(docket_path)])
+            _attach_trace("block", "publish_blocked_audit_integrity", ["publish_blocked_audit_integrity"])
             if self._active_provenance is not None:
                 payload = json.dumps(docket_payload, sort_keys=True)
                 step = self._active_provenance.make_step(
@@ -875,14 +944,21 @@ class CathedralForge:
                 self._active_provenance.add_step(step, stdout=payload, stderr="")
             return notes, remote
         if os.getenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "0") != "1":
+            trace.record_gate(name="autopublish_toggle", mode="enforce", result="hold", reason="autopublish_disabled")
+            _attach_trace("hold", "autopublish_disabled", ["autopublish_disabled"])
             return notes, remote
         if not throughput.allow_publish and os.getenv("SENTIENTOS_MODE_ALLOW_PUBLISH") != "1":
             notes.append("mode_throttle_publish")
             remote["automerge_result"] = "mode_throttle_publish"
+            trace.record_gate(name="operating_mode_publish", mode="enforce", result="hold", reason="mode_throttle_publish")
+            _attach_trace("hold", "mode_throttle_publish", ["mode_throttle_publish"])
             return notes, remote
         if not budget.allow_publish:
             notes.append("risk_budget_throttle")
             remote["automerge_result"] = "risk_budget_throttle"
+            trace.record_gate(name="risk_budget_publish", mode="enforce", result="hold", reason="risk_budget_throttle")
+            trace.record_clamp(name="risk_budget_publish", before={"allow_publish": True}, after={"allow_publish": False}, notes="risk budget denied publish")
+            _attach_trace("hold", "risk_budget_throttle", ["risk_budget_throttle"])
             return notes, remote
         sentinel_triggered = os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1"
         if sentinel_triggered:
@@ -1233,6 +1309,8 @@ class CathedralForge:
                 artifacts_written=[],
             )
             self._active_provenance.add_step(step, stdout=outcome_payload, stderr="")
+
+        _attach_trace("allow" if remote.get("automerge_result") in {"merged", "not_attempted"} else "hold", str(remote.get("automerge_result") or "publish_completed"), [str(remote.get("automerge_result") or "publish_completed")])
 
         return notes, remote
 
