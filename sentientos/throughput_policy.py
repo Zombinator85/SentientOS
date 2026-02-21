@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 import os
 
 from sentientos.integrity_quarantine import QuarantineState
+from sentientos.strategic_posture import env_bool, resolve_posture
 
 
 @dataclass(slots=True)
@@ -22,16 +23,17 @@ class ThroughputPolicy:
 
 
 def derive_throughput_policy(*, integrity_pressure_level: int, quarantine: QuarantineState | None = None) -> ThroughputPolicy:
+    posture = resolve_posture()
     forced_mode = _env_mode("SENTIENTOS_MODE_FORCE")
     if forced_mode is not None:
         mode = forced_mode
     elif quarantine is not None and quarantine.active and quarantine.freeze_forge:
         mode = "lockdown"
-    elif integrity_pressure_level >= 3:
+    elif integrity_pressure_level >= posture.throughput_lockdown_level:
         mode = "lockdown"
-    elif integrity_pressure_level >= 2:
+    elif integrity_pressure_level >= posture.throughput_recovery_level:
         mode = "recovery"
-    elif integrity_pressure_level >= 1:
+    elif integrity_pressure_level >= posture.throughput_cautious_level:
         mode = "cautious"
     else:
         mode = "normal"
@@ -47,8 +49,9 @@ def derive_throughput_policy(*, integrity_pressure_level: int, quarantine: Quara
 
 
 def _defaults_for_mode(mode: str) -> ThroughputPolicy:
+    posture = resolve_posture()
     if mode == "normal":
-        return ThroughputPolicy(mode=mode, allow_automerge=True, allow_publish=True, allow_forge_mutation=True, allow_federation_adopt=True, run_integrity_sweeps=False, prefer_diagnostics_only=False, max_forge_scope=200)
+        return ThroughputPolicy(mode=mode, allow_automerge=posture.default_automerge_enabled, allow_publish=True, allow_forge_mutation=True, allow_federation_adopt=True, run_integrity_sweeps=False, prefer_diagnostics_only=False, max_forge_scope=200)
     if mode == "cautious":
         return ThroughputPolicy(mode=mode, allow_automerge=False, allow_publish=False, allow_forge_mutation=True, allow_federation_adopt=True, run_integrity_sweeps=True, prefer_diagnostics_only=False, max_forge_scope=80)
     if mode == "recovery":
@@ -67,7 +70,10 @@ def _env_mode(name: str) -> str | None:
 
 
 def _env_bool(name: str) -> bool | None:
-    value = os.getenv(name)
-    if value is None:
+    value = env_bool(name)
+    if value is not None:
+        return value
+    value_raw = os.getenv(name)
+    if value_raw is None:
         return None
-    return value.strip() == "1"
+    return value_raw.strip() == "1"

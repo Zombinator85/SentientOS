@@ -9,6 +9,7 @@ from typing import Any
 
 from sentientos.event_stream import record_forge_event
 from sentientos.integrity_incident import Incident, write_incident
+from sentientos.strategic_posture import env_bool, resolve_posture
 
 QUARANTINE_PATH = Path("glow/forge/quarantine.json")
 
@@ -43,12 +44,21 @@ class QuarantinePolicy:
 
 
 def load_policy() -> QuarantinePolicy:
+    posture = resolve_posture()
+    auto_default = "1" if posture.quarantine_auto_sensitivity == "strict" else "0"
+    freeze_default = "1" if posture.quarantine_auto_sensitivity == "strict" else "0"
+    block_federation_default = "1" if posture.quarantine_auto_sensitivity == "strict" else "0"
+    auto_override = env_bool("SENTIENTOS_QUARANTINE_AUTO")
+    freeze_override = env_bool("SENTIENTOS_QUARANTINE_FREEZE_FORGE")
+    block_automerge_override = env_bool("SENTIENTOS_QUARANTINE_BLOCK_AUTOMERGE")
+    block_publish_override = env_bool("SENTIENTOS_QUARANTINE_BLOCK_PUBLISH")
+    block_federation_override = env_bool("SENTIENTOS_QUARANTINE_BLOCK_FEDERATION")
     return QuarantinePolicy(
-        auto_activate=os.getenv("SENTIENTOS_QUARANTINE_AUTO", "0") == "1",
-        freeze_forge=os.getenv("SENTIENTOS_QUARANTINE_FREEZE_FORGE", "0") == "1",
-        block_automerge=os.getenv("SENTIENTOS_QUARANTINE_BLOCK_AUTOMERGE", "1") != "0",
-        block_publish=os.getenv("SENTIENTOS_QUARANTINE_BLOCK_PUBLISH", "1") != "0",
-        block_federation=os.getenv("SENTIENTOS_QUARANTINE_BLOCK_FEDERATION", "0") == "1",
+        auto_activate=(os.getenv("SENTIENTOS_QUARANTINE_AUTO", auto_default) == "1") if auto_override is None else auto_override,
+        freeze_forge=(os.getenv("SENTIENTOS_QUARANTINE_FREEZE_FORGE", freeze_default) == "1") if freeze_override is None else freeze_override,
+        block_automerge=(os.getenv("SENTIENTOS_QUARANTINE_BLOCK_AUTOMERGE", "1") != "0") if block_automerge_override is None else block_automerge_override,
+        block_publish=(os.getenv("SENTIENTOS_QUARANTINE_BLOCK_PUBLISH", "1") != "0") if block_publish_override is None else block_publish_override,
+        block_federation=(os.getenv("SENTIENTOS_QUARANTINE_BLOCK_FEDERATION", block_federation_default) == "1") if block_federation_override is None else block_federation_override,
     )
 
 
@@ -74,9 +84,11 @@ def save_state(repo_root: Path, state: QuarantineState) -> None:
 
 def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: Incident, *, force_activate: bool = False) -> tuple[bool, Path, QuarantineState]:
     policy = load_policy()
+    posture = resolve_posture()
     state = load_state(repo_root)
     activated = False
-    should_activate = force_activate or (policy.auto_activate and incident.enforcement_mode == "enforce" and failures)
+    mode_match = incident.enforcement_mode == "enforce" if posture.quarantine_auto_sensitivity != "lenient" else incident.enforcement_mode in {"enforce", "warn"}
+    should_activate = force_activate or (policy.auto_activate and mode_match and failures)
     if should_activate:
         state.active = True
         state.activated_at = incident.created_at
