@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -11,7 +12,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
-from typing import Any
+from typing import Any, Iterator
 import uuid
 
 from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
@@ -22,6 +23,7 @@ from sentientos.forge_budget import BudgetConfig
 from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.integrity_incident import build_base_context, build_incident
 from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
+from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
@@ -1037,7 +1039,13 @@ class CathedralForge:
                     if not remote_gate_ok:
                         auto_merge = False
                         notes.append("held_remote_doctrine")
-                    chain_check, chain_enforced, chain_warned = maybe_verify_receipt_chain(root, context="canary_publish")
+                    pressure_snapshot = compute_integrity_pressure(root)
+                    pressure_state, pressure_changed = update_pressure_state(root, pressure_snapshot)
+                    if pressure_changed:
+                        record_forge_event({"event": "integrity_pressure_level_changed", "level": "warning" if pressure_snapshot.level > 0 else "info", "context": "canary_publish", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at})
+
+                    with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_CHAIN_ENFORCE", "SENTIENTOS_RECEIPT_CHAIN_WARN", pressure_level=pressure_snapshot.level, gate_name="receipt_chain", high_severity=True)):
+                        chain_check, chain_enforced, chain_warned = maybe_verify_receipt_chain(root, context="canary_publish")
                     if chain_check is not None and not chain_check.ok:
                         remote["receipt_chain"] = chain_check.to_dict()
                         if chain_enforced:
@@ -1052,11 +1060,13 @@ class CathedralForge:
                                 severity="enforced",
                                 context={"receipt_chain": chain_check.to_dict()},
                                 evidence_paths=["glow/forge/receipts/receipts_index.jsonl"],
+                                pressure_level=pressure_snapshot.level,
                             )
                         elif chain_warned:
                             notes.append("receipt_chain_warning")
                             record_forge_event({"event": "canary_receipt_chain_warning", "level": "warning", "chain": chain_check.to_dict()})
-                    audit_check, audit_enforced, audit_warned, audit_report = maybe_verify_audit_chain(root, context="canary_publish")
+                    with _gate_env(*_gate_mode("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "SENTIENTOS_AUDIT_CHAIN_WARN", pressure_level=pressure_snapshot.level, gate_name="audit_chain", high_severity=True)):
+                        audit_check, audit_enforced, audit_warned, audit_report = maybe_verify_audit_chain(root, context="canary_publish")
                     if audit_check is not None and not audit_check.ok:
                         remote["audit_chain"] = audit_check.to_dict()
                         remote["audit_chain_report_path"] = audit_report
@@ -1074,12 +1084,14 @@ class CathedralForge:
                                 severity="enforced",
                                 context={"audit_chain": audit_check.to_dict()},
                                 evidence_paths=evidence_paths,
+                                pressure_level=pressure_snapshot.level,
                             )
                         elif audit_warned:
                             notes.append("audit_chain_warning")
                             record_forge_event({"event": "canary_audit_chain_warning", "level": "warning", "audit_chain": audit_check.to_dict(), "report_path": audit_report})
 
-                    federation_gate = federation_integrity_gate(root, context="canary_publish")
+                    with _gate_env(*_gate_mode("SENTIENTOS_FEDERATION_INTEGRITY_ENFORCE", "SENTIENTOS_FEDERATION_INTEGRITY_WARN", pressure_level=pressure_snapshot.level, gate_name="federation", high_severity=True)):
+                        federation_gate = federation_integrity_gate(root, context="canary_publish")
                     remote["federation_integrity"] = federation_gate
                     if bool(federation_gate.get("blocked")):
                         auto_merge = False
@@ -1093,9 +1105,11 @@ class CathedralForge:
                             severity="enforced",
                             context={"federation_integrity": federation_gate},
                             evidence_paths=["glow/federation/integrity_snapshot.json", "glow/federation/peer_integrity"],
+                            pressure_level=pressure_snapshot.level,
                         )
 
-                    anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(root, context="canary_publish")
+                    with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_ANCHOR_ENFORCE", "SENTIENTOS_RECEIPT_ANCHOR_WARN", pressure_level=pressure_snapshot.level, gate_name="receipt_anchor", high_severity=True)):
+                        anchor_check, anchor_enforced, anchor_warned = maybe_verify_receipt_anchors(root, context="canary_publish")
                     if anchor_check is not None and not anchor_check.ok:
                         remote["receipt_anchors"] = anchor_check.to_dict()
                         anchor_reason = "receipt_anchor_missing" if anchor_check.status == "missing" else "receipt_anchor_invalid"
@@ -1111,6 +1125,7 @@ class CathedralForge:
                                 severity="enforced",
                                 context={"receipt_anchors": anchor_check.to_dict()},
                                 evidence_paths=["glow/forge/receipts/anchors/anchors_index.jsonl"],
+                                pressure_level=pressure_snapshot.level,
                             )
                         elif anchor_warned:
                             notes.append("receipt_anchor_warning")
@@ -1151,6 +1166,7 @@ class CathedralForge:
         severity: str,
         context: dict[str, object],
         evidence_paths: list[str],
+        pressure_level: int = 0,
     ) -> None:
         incident = build_incident(
             triggers=triggers,
@@ -1164,7 +1180,7 @@ class CathedralForge:
                 "python scripts/quarantine_clear.py --note recovered",
             ],
         )
-        maybe_activate_quarantine(repo_root, triggers, incident)
+        maybe_activate_quarantine(repo_root, triggers, incident, force_activate=should_force_quarantine(pressure_level))
 
     def _build_pr_metadata(
         self,
@@ -1634,6 +1650,29 @@ def _parse_failure_count(output: str) -> int:
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
+
+
+@contextmanager
+def _gate_env(*pairs: tuple[str, str]) -> Iterator[None]:
+    previous: dict[str, str | None] = {}
+    for key, value in pairs:
+        previous[key] = os.environ.get(key)
+        os.environ[key] = value
+    try:
+        yield
+    finally:
+        for key, old in previous.items():
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
+
+
+def _gate_mode(enforce_env: str, warn_env: str, *, pressure_level: int, gate_name: str, high_severity: bool) -> tuple[tuple[str, str], tuple[str, str]]:
+    base_enforce = os.getenv(enforce_env, "0") == "1"
+    base_warn = os.getenv(warn_env, "0") == "1"
+    enforce, warn = apply_escalation(pressure_level, gate_name=gate_name, base_enforce=base_enforce, base_warn=base_warn, high_severity=high_severity)
+    return (enforce_env, "1" if enforce else "0"), (warn_env, "1" if warn else "0")
 
 def _safe_timestamp(iso_timestamp: str) -> str:
     return iso_timestamp.replace(":", "-")

@@ -72,12 +72,12 @@ def save_state(repo_root: Path, state: QuarantineState) -> None:
     target.write_text(json.dumps(state.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: Incident) -> tuple[bool, Path, QuarantineState]:
+def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: Incident, *, force_activate: bool = False) -> tuple[bool, Path, QuarantineState]:
     policy = load_policy()
-    incident_path = write_incident(repo_root, incident)
     state = load_state(repo_root)
     activated = False
-    if policy.auto_activate and incident.enforcement_mode == "enforce" and failures:
+    should_activate = force_activate or (policy.auto_activate and incident.enforcement_mode == "enforce" and failures)
+    if should_activate:
         state.active = True
         state.activated_at = incident.created_at
         state.activated_by = "auto"
@@ -98,7 +98,8 @@ def maybe_activate_quarantine(repo_root: Path, failures: list[str], incident: In
                 "freeze_forge": state.freeze_forge,
             }
         )
-    else:
+    incident_path = write_incident(repo_root, incident, quarantine_activated=activated)
+    if not activated:
         record_forge_event(
             {
                 "event": "integrity_incident_recorded",

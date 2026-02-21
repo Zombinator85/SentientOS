@@ -12,13 +12,14 @@ from sentientos.forge_provenance import validate_chain
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -66,6 +67,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     federation_integrity = federation_integrity_gate(root, context="forge_index")
     witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
     quarantine = load_quarantine_state(root)
+    pressure_snapshot = compute_integrity_pressure(root)
+    pressure_state = load_pressure_state(root)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
     latest_incident = _latest_incident(root)
     last_audit_chain_report_path: str | None = None
@@ -137,6 +140,12 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "quarantine_last_incident_id": quarantine.last_incident_id,
         "last_incident_summary": _incident_summary(latest_incident),
         "incident_count_last_24h": _incident_count_last_24h(incident_rows),
+        "integrity_pressure_level": pressure_snapshot.level,
+        "integrity_pressure_metrics": {k: v for k, v in pressure_snapshot.metrics.to_dict().items() if k in {"incidents_last_24h", "enforced_failures_last_24h", "quarantine_activations_last_24h", "incidents_last_1h", "unique_trigger_types_last_24h"}},
+        "last_pressure_change_at": pressure_state.last_pressure_change_at,
+        "incidents_last_24h": pressure_snapshot.metrics.incidents_last_24h,
+        "enforced_failures_last_24h": pressure_snapshot.metrics.enforced_failures_last_24h,
+        "quarantine_activations_last_24h": pressure_snapshot.metrics.quarantine_activations_last_24h,
         "env_cache": _env_cache_summary(root),
         "ci_baseline_latest": _load_json(root / "glow/contracts/ci_baseline.json") or None,
         "stability_doctrine_latest": stability_doctrine or None,
