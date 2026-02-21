@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
+from sentientos.remediation_pack import emit_pack_from_trace
+
 
 SCHEMA_VERSION = 1
 _CURRENT_TRACE: ContextVar[GovernanceTraceRecorder | None] = ContextVar("governance_trace", default=None)
@@ -104,7 +106,8 @@ class GovernanceTraceRecorder:
         }
         with pulse_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(line, sort_keys=True) + "\n")
-        return {
+        remediation = emit_pack_from_trace(self.repo_root, trace_payload=payload, trace_path=str(rel_path))
+        response: dict[str, object] = {
             "trace_id": trace_id,
             "trace_path": str(rel_path),
             "trace_summary": {
@@ -113,6 +116,9 @@ class GovernanceTraceRecorder:
                 "reason_stack": reason_stack[:6],
             },
         }
+        if remediation is not None:
+            response["remediation_pack"] = remediation
+        return response
 
 
 def start_governance_trace(

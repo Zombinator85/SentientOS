@@ -4,19 +4,10 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-import shlex
 import subprocess
 
+from sentientos.recovery_allowlist import ALLOWED_COMMANDS, normalize_command
 from sentientos.recovery_tasks import append_task_record, list_tasks
-
-ALLOWED_COMMANDS: set[tuple[str, ...]] = {
-    ("python", "scripts/audit_chain_doctor.py", "--repair-index-only"),
-    ("python", "scripts/verify_audits.py", "--strict"),
-    ("python", "scripts/verify_receipt_chain.py", "--last", "50"),
-    ("python", "scripts/verify_receipt_anchors.py", "--last", "10"),
-    ("python", "-m", "sentientos.anchor_witness"),
-    ("python", "-m", "sentientos.integrity_snapshot"),
-}
 
 
 def _iso_now() -> str:
@@ -36,12 +27,8 @@ def _open_task(rows: list[dict[str, object]], kind: str | None) -> dict[str, obj
     return None
 
 
-def _normalize(command: str) -> tuple[str, ...]:
-    return tuple(part.strip() for part in shlex.split(command) if part.strip())
-
-
 def _run_allowed(command: str, *, root: Path) -> tuple[bool, int, str]:
-    normalized = _normalize(command)
+    normalized = normalize_command(command)
     if normalized not in ALLOWED_COMMANDS:
         return False, 126, f"command_not_allowed:{' '.join(normalized)}"
     completed = subprocess.run(list(normalized), cwd=root, check=False, capture_output=True, text=True)

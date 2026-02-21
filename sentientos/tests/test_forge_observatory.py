@@ -353,7 +353,7 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 12
+    assert payload["schema_version"] == 13
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
 
@@ -401,3 +401,34 @@ def test_index_reads_mypy_ratchet_status_from_forge_path(tmp_path: Path) -> None
 
     assert payload["mypy_status"] == "new_errors"
     assert payload["mypy_new_error_count"] == 3
+
+
+def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pulse/governance_traces.jsonl").write_text(
+        json.dumps({"trace_id": "trace_1", "final_decision": "hold", "final_reason": "audit_chain_broken", "reason_stack": ["audit_chain_broken"], "trace_path": "glow/forge/traces/trace_1.json"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "pulse/remediation_packs.jsonl").write_text(
+        json.dumps({"pack_id": "pack_1", "governance_trace_id": "trace_1", "status": "queued"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "pulse/recovery_tasks.jsonl").write_text(
+        json.dumps({"kind": "remediation_pack:pack_1:00", "status": "open"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/remediation/runs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/remediation/runs/run_20260101_pack_1.json").write_text(
+        json.dumps({"pack_id": "pack_1", "status": "completed", "generated_at": "2026-01-01T00:00:00Z"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    payload = rebuild_index(tmp_path)
+
+    assert payload["last_remediation_pack_id"] == "pack_1"
+    assert payload["last_remediation_pack_status"] == "queued"
+    assert payload["remediation_backlog_count"] == 1
+    assert payload["last_trace_remediation_pack_id"] == "pack_1"
+    assert isinstance(payload.get("last_remediation_run_summary"), str)
