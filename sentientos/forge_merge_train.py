@@ -23,6 +23,7 @@ from sentientos.integrity_pressure import apply_escalation, compute_integrity_pr
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
+from sentientos.governance_trace import start_governance_trace
 from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
@@ -69,6 +70,9 @@ class TrainEntry:
     doctrine_selected_via: str = ""
     doctrine_mirror_used: bool = False
     risk_budget_summary: dict[str, object] = field(default_factory=dict)
+    governance_trace_id: str | None = None
+    governance_primary_reason: str | None = None
+    governance_reason_stack: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -385,6 +389,25 @@ class ForgeMergeTrain:
             quarantine_active=quarantine.active,
         )
         entry.risk_budget_summary = risk_budget_summary(budget)
+        trace = start_governance_trace(
+            repo_root=self.repo_root,
+            context="merge_train",
+            strategic_posture=posture.posture,
+            integrity_pressure_level=pressure_snapshot.level,
+            integrity_metrics_summary=pressure_snapshot.metrics.to_dict(),
+            operating_mode=throughput.mode,
+            mode_toggles_summary={"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
+            quarantine_state_summary={"active": quarantine.active, "allow_publish": quarantine.allow_publish, "allow_automerge": quarantine.allow_automerge, "last_incident_id": quarantine.last_incident_id},
+            risk_budget_summary=risk_budget_summary(budget),
+            risk_budget_notes=list(budget.notes or []),
+        )
+
+        def _finalize_trace(decision: str, primary_reason: str, stack: list[str], *, actions: list[str] | None = None) -> dict[str, object]:
+            persisted = trace.finalize(final_decision=decision, final_reason=primary_reason, reason_stack=stack, suggested_actions=actions)
+            entry.governance_trace_id = str(persisted.get("trace_id"))
+            entry.governance_primary_reason = primary_reason
+            entry.governance_reason_stack = stack
+            return persisted
         if pressure_changed:
             self._emit_event(
                 "integrity_pressure_level_changed",
@@ -477,12 +500,17 @@ class ForgeMergeTrain:
         if os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1" and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
             allow_merge = False
         if not allow_merge:
-            return {"status": "mergeable", "pr": entry.pr_url}
+            trace.record_gate(name="automerge_toggle", mode="enforce", result="hold", reason="automerge_disabled")
+            persisted = _finalize_trace("hold", "automerge_disabled", ["automerge_disabled"])
+            return {"status": "mergeable", "pr": entry.pr_url, **persisted}
         if not budget.allow_automerge:
             entry.status = "held"
             entry.last_error = "risk_budget_throttle"
+            trace.record_gate(name="risk_budget_automerge", mode="enforce", result="hold", reason="risk_budget_throttle")
+            trace.record_clamp(name="risk_budget_automerge", before={"allow_automerge": True}, after={"allow_automerge": False}, notes="risk budget denied automerge")
             self._emit_event("train_risk_budget_throttle", {"pr_url": entry.pr_url, "reason": "risk_budget_throttle", "risk_budget": risk_budget_summary(budget)}, level="warning")
-            return {"status": "held", "reason": "risk_budget_throttle", "pr": entry.pr_url}
+            persisted = _finalize_trace("hold", "risk_budget_throttle", ["risk_budget_throttle", "automerge_denied"])
+            return {"status": "held", "reason": "risk_budget_throttle", "pr": entry.pr_url, **persisted}
 
         chain_check, chain_enforced, chain_warned = self._run_receipt_chain_gate(pressure_snapshot.level)
         if chain_check is not None and not chain_check.ok:
@@ -650,7 +678,8 @@ class ForgeMergeTrain:
                 result["reason"] = "receipt_anchor_warning"
             elif audit_warned:
                 result["reason"] = "audit_chain_warning"
-            return result
+            persisted = _finalize_trace("allow", "merged", ["merged"])
+            return {**result, **persisted}
 
         entry.status = "held" if merge.conflict else "failed"
         entry.last_error = "conflict" if merge.conflict else (merge.message or "merge_failed")
@@ -659,7 +688,8 @@ class ForgeMergeTrain:
         if merge.conflict:
             docket = self._write_conflict_docket(entry, RebaseResult(ok=False, conflict=True, message=merge.message, new_head_sha=None, suspect_files=[]))
             self._emit_event("train_conflict_docket", {"path": docket, "pr_url": entry.pr_url}, level="warning")
-        return {"status": entry.status, "pr": entry.pr_url, "reason": entry.last_error}
+        persisted = _finalize_trace("hold" if entry.status == "held" else "block", entry.last_error or "merge_failed", [entry.last_error or "merge_failed"])
+        return {"status": entry.status, "pr": entry.pr_url, "reason": entry.last_error, **persisted}
 
     def _audit_integrity_gate(self, entry: TrainEntry) -> dict[str, object] | None:
         gate_context = self._doctrine_context(entry)

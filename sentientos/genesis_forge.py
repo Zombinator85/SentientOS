@@ -47,6 +47,7 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.risk_budget import compute_risk_budget
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.governance_trace import record_clamp_for_current
 
 
 # ---------------------------------------------------------------------------
@@ -638,6 +639,12 @@ class GenesisForge:
             router_m = min(governor_decision.m_effective, risk_budget.router_m_max)
             allow_escalation = governor_decision.allow_escalation and risk_budget.router_allow_escalation
             if (router_k, router_m, allow_escalation) != (before_k, before_m, before_escalation):
+                record_clamp_for_current(
+                    name="router_proof_budget",
+                    before={"k": before_k, "m": before_m, "allow_escalation": before_escalation},
+                    after={"k": router_k, "m": router_m, "allow_escalation": allow_escalation},
+                    notes="risk_budget_clamp_applied",
+                )
                 self._ledger.log(
                     "risk_budget_clamp_applied",
                     anomaly=anomaly,

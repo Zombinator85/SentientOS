@@ -353,7 +353,7 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 11
+    assert payload["schema_version"] == 12
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
 

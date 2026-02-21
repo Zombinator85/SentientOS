@@ -23,7 +23,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -126,6 +126,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             audit_chain_first_break = first_break_summary[:220]
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
+    governance_rows, _governance_corrupt = _read_jsonl(root / "pulse/governance_traces.jsonl")
+    last_trace = governance_rows[-1] if governance_rows else {}
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -223,6 +225,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             "last_doctor_report_path": (str(audit_doctor_reports[-1].relative_to(root)) if audit_doctor_reports else None),
             "last_audit_docket_path": (str(audit_dockets[-1].relative_to(root)) if audit_dockets else None),
         },
+        "last_governance_trace_id": _optional_str(last_trace.get("trace_id")),
+        "last_governance_decision": _optional_str(last_trace.get("final_decision")),
+        "last_governance_reason": _optional_str(last_trace.get("final_reason")),
+        "last_governance_reason_stack": _reason_stack(last_trace.get("reason_stack")),
+        "last_trace_path": _optional_str(last_trace.get("trace_path")),
     }
 
     target = root / INDEX_PATH
@@ -487,6 +494,9 @@ def _train_entry_row(entry: object) -> dict[str, object]:
         "last_error": getattr(entry, "last_error", None),
         "doctrine_source": getattr(entry, "doctrine_source", None),
         "doctrine_gate_reason": getattr(entry, "doctrine_gate_reason", None),
+        "governance_trace_id": getattr(entry, "governance_trace_id", None),
+        "governance_primary_reason": getattr(entry, "governance_primary_reason", None),
+        "governance_reason_stack": [str(item) for item in list(getattr(entry, "governance_reason_stack", []) or [])[:6] if isinstance(item, str)],
     }
 
 
@@ -601,6 +611,18 @@ def _truncate_text(value: object, limit: int) -> str | None:
     if not isinstance(value, str) or not value:
         return None
     return value[:limit]
+
+
+def _optional_str(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _reason_stack(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value[:6] if isinstance(item, str)]
 
 
 def _task_kind_backlog_count(repo_root: Path, *, kind: str) -> int:
