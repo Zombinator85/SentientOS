@@ -1354,6 +1354,8 @@ class CathedralForge:
         context: dict[str, object],
         evidence_paths: list[str],
         pressure_level: int = 0,
+        governance_trace_id: str | None = None,
+        remediation_pack_id: str | None = None,
     ) -> None:
         incident = build_incident(
             triggers=triggers,
@@ -1366,6 +1368,8 @@ class CathedralForge:
                 "python scripts/quarantine_ack.py --note acknowledged",
                 "python scripts/quarantine_clear.py --note recovered",
             ],
+            governance_trace_id=governance_trace_id,
+            remediation_pack_id=remediation_pack_id,
         )
         maybe_activate_quarantine(repo_root, triggers, incident, force_activate=should_force_quarantine(pressure_level))
 

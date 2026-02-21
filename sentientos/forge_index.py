@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -23,7 +24,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -141,6 +142,21 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         }
         last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
 
+    quarantine_requires_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
+    quarantine_incident_id = quarantine.last_incident_id
+    related_pack = _latest_pack_for_incident_or_trace(
+        remediation_rows,
+        incident_id=quarantine_incident_id,
+        governance_trace_id=_optional_str(last_trace.get("trace_id")),
+    )
+    related_pack_id = _optional_str(related_pack.get("pack_id")) if related_pack else None
+    related_run = _latest_run_for_pack(remediation_runs, pack_id=related_pack_id) if related_pack_id else None
+    related_status = "missing"
+    related_run_id: str | None = None
+    if related_run is not None:
+        related_run_id = _optional_str(related_run.get("run_id"))
+        related_status = "completed" if _optional_str(related_run.get("status")) == "completed" else "failed"
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -247,6 +263,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_remediation_pack_status": _optional_str(last_remediation.get("status")),
         "remediation_backlog_count": _task_kind_prefix_backlog_count(root, prefix="remediation_pack:"),
         "last_remediation_run_summary": last_remediation_run_summary,
+        "quarantine_requires_remediation": quarantine_requires_remediation,
+        "last_quarantine_remediation_pack_id": related_pack_id,
+        "last_quarantine_remediation_status": related_status,
+        "last_quarantine_remediation_run_id": related_run_id,
     }
 
     target = root / INDEX_PATH
@@ -628,6 +648,31 @@ def _truncate_text(value: object, limit: int) -> str | None:
     if not isinstance(value, str) or not value:
         return None
     return value[:limit]
+
+
+def _latest_pack_for_incident_or_trace(
+    rows: Sequence[dict[str, object]],
+    *,
+    incident_id: str | None,
+    governance_trace_id: str | None,
+) -> dict[str, object] | None:
+    for row in reversed(list(rows)):
+        row_incident = _optional_str(row.get("incident_id"))
+        row_trace = _optional_str(row.get("governance_trace_id"))
+        if incident_id and row_incident == incident_id:
+            return row
+        if governance_trace_id and row_trace == governance_trace_id:
+            return row
+    return None
+
+
+def _latest_run_for_pack(runs: Sequence[Path], *, pack_id: str) -> dict[str, object] | None:
+    for path in reversed(list(runs)):
+        payload = _load_json(path)
+        if _optional_str(payload.get("pack_id")) != pack_id:
+            continue
+        return payload
+    return None
 
 
 def _optional_str(value: object) -> str | None:
