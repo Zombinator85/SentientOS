@@ -204,3 +204,22 @@ def test_router_clamp_records_clamp_in_current_trace(tmp_path: Path, monkeypatch
     persisted = trace.finalize(final_decision="allow", final_reason="ok", reason_stack=["ok"])
     payload = json.loads((tmp_path / persisted["trace_path"]).read_text(encoding="utf-8"))
     assert any(item.get("name") == "router_proof_budget" for item in payload["clamps_applied"])
+
+
+def test_governance_trace_finalize_emits_remediation_pack(tmp_path: Path) -> None:
+    trace = start_governance_trace(
+        repo_root=tmp_path,
+        context="merge_train",
+        strategic_posture="balanced",
+        integrity_pressure_level=1,
+        integrity_metrics_summary={},
+        operating_mode="recovery",
+        mode_toggles_summary={},
+        quarantine_state_summary={"active": False},
+        risk_budget_summary={},
+    )
+    persisted = trace.finalize(final_decision="hold", final_reason="audit_chain_broken", reason_stack=["audit_chain_broken"])
+    remediation = persisted.get("remediation_pack")
+    assert isinstance(remediation, dict)
+    pack_path = tmp_path / str(remediation["pack_path"])
+    assert pack_path.exists()

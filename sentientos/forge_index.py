@@ -23,7 +23,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -128,6 +128,18 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         progress_contract = emit_forge_progress_contract(root).to_dict()
     governance_rows, _governance_corrupt = _read_jsonl(root / "pulse/governance_traces.jsonl")
     last_trace = governance_rows[-1] if governance_rows else {}
+    remediation_rows, _remediation_corrupt = _read_jsonl(root / "pulse/remediation_packs.jsonl")
+    last_remediation = remediation_rows[-1] if remediation_rows else {}
+    remediation_runs = sorted((root / "glow/forge/remediation/runs").glob("run_*.json"), key=lambda item: item.name)
+    last_remediation_run_summary = None
+    if remediation_runs:
+        run_payload = _load_json(remediation_runs[-1])
+        run_summary = {
+            "pack_id": run_payload.get("pack_id"),
+            "status": run_payload.get("status"),
+            "generated_at": run_payload.get("generated_at"),
+        }
+        last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -230,6 +242,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_governance_reason": _optional_str(last_trace.get("final_reason")),
         "last_governance_reason_stack": _reason_stack(last_trace.get("reason_stack")),
         "last_trace_path": _optional_str(last_trace.get("trace_path")),
+        "last_trace_remediation_pack_id": _optional_str(last_remediation.get("pack_id")) if _optional_str(last_remediation.get("governance_trace_id")) == _optional_str(last_trace.get("trace_id")) else None,
+        "last_remediation_pack_id": _optional_str(last_remediation.get("pack_id")),
+        "last_remediation_pack_status": _optional_str(last_remediation.get("status")),
+        "remediation_backlog_count": _task_kind_prefix_backlog_count(root, prefix="remediation_pack:"),
+        "last_remediation_run_summary": last_remediation_run_summary,
     }
 
     target = root / INDEX_PATH
@@ -638,3 +655,18 @@ def _task_kind_backlog_count(repo_root: Path, *, kind: str) -> int:
         else:
             open_kinds.add(row_kind)
     return 1 if kind in open_kinds else 0
+
+
+def _task_kind_prefix_backlog_count(repo_root: Path, *, prefix: str) -> int:
+    rows, _ = _read_jsonl(repo_root / "pulse/recovery_tasks.jsonl")
+    open_kinds: set[str] = set()
+    for row in rows:
+        row_kind = str(row.get("kind", "")).strip()
+        if not row_kind or not row_kind.startswith(prefix):
+            continue
+        status = str(row.get("status", "open"))
+        if status == "done":
+            open_kinds.discard(row_kind)
+        else:
+            open_kinds.add(row_kind)
+    return len(open_kinds)
