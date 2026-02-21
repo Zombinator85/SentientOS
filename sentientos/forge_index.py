@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Sequence
 
 from sentientos.contract_sentinel import ContractSentinel
 from sentientos.forge_provenance import validate_chain
@@ -22,7 +22,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -77,6 +77,30 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     posture_thresholds = derived_thresholds(posture, warn_base=3, enforce_base=7, critical_base=12)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
     latest_incident = _latest_incident(root)
+    mypy_status = "unknown"
+    mypy_new_error_count = 0
+    mypy_ratchet_path = root / "glow/contracts/mypy_ratchet_status.json"
+    if mypy_ratchet_path.exists():
+        payload = _load_json(mypy_ratchet_path)
+        status = payload.get("status")
+        if isinstance(status, str):
+            mypy_status = "ok" if status == "ok" else ("new_errors" if status == "new_errors" else "unknown")
+        count = payload.get("new_error_count")
+        if isinstance(count, int):
+            mypy_new_error_count = max(count, 0)
+
+    recovery_runs = sorted((root / "glow/forge/recovery_runs").glob("recovery_*.json"), key=lambda item: item.name)
+    last_recovery_summary = None
+    if recovery_runs:
+        run_payload = _load_json(recovery_runs[-1])
+        run_result = run_payload.get("result")
+        run_result_dict = run_result if isinstance(run_result, dict) else {}
+        recovery_summary = {
+            "generated_at": run_payload.get("generated_at"),
+            "kind": run_result_dict.get("kind"),
+            "result": run_result_dict.get("result"),
+        }
+        last_recovery_summary = json.dumps(recovery_summary, sort_keys=True)[:240]
     last_audit_chain_report_path: str | None = None
     audit_chain_status = "unknown"
     audit_chain_checked_at: str | None = None
@@ -90,8 +114,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         audit_chain_checked_at = raw_checked_at if isinstance(raw_checked_at, str) else None
         first_break = report_payload.get("first_break")
         if isinstance(first_break, dict):
-            summary = f"{first_break.get('path', '')}:{first_break.get('line_number', '')}:{first_break.get('found_prev_hash', '')}"
-            audit_chain_first_break = summary[:220]
+            first_break_summary = f"{first_break.get('path', '')}:{first_break.get('line_number', '')}:{first_break.get('found_prev_hash', '')}"
+            audit_chain_first_break = first_break_summary[:220]
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
 
@@ -156,6 +180,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "mode_effective_toggles": {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
         "last_sweep_summary": _last_sweep_summary(root),
         "recovery_task_backlog_count": backlog_count(root),
+        "audit_chain_repair_backlog_count": _task_kind_backlog_count(root, kind="audit_chain_repair"),
+        "last_recovery_run_summary": last_recovery_summary,
+        "mypy_status": mypy_status,
+        "mypy_new_error_count": mypy_new_error_count,
         "incidents_last_24h": pressure_snapshot.metrics.incidents_last_24h,
         "enforced_failures_last_24h": pressure_snapshot.metrics.enforced_failures_last_24h,
         "quarantine_activations_last_24h": pressure_snapshot.metrics.quarantine_activations_last_24h,
@@ -416,7 +444,7 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _train_entries_by_status(entries: list[object]) -> dict[str, int]:
+def _train_entries_by_status(entries: Sequence[object]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for entry in entries:
         status = str(getattr(entry, "status", "unknown"))
@@ -424,7 +452,7 @@ def _train_entries_by_status(entries: list[object]) -> dict[str, int]:
     return counts
 
 
-def _train_head(entries: list[object]) -> dict[str, object] | None:
+def _train_head(entries: Sequence[object]) -> dict[str, object] | None:
     if not entries:
         return None
     head = sorted(entries, key=lambda item: str(getattr(item, "created_at", "")))[0]
@@ -486,7 +514,7 @@ def _last_merged_bundle_sha256(root: Path) -> str | None:
 
 
 def _receipt_chain_verification(root: Path) -> dict[str, object]:
-    return cast(dict[str, object], verify_receipt_chain(root, last=25).to_dict())
+    return verify_receipt_chain(root, last=25).to_dict()  # type: ignore[no-any-return]
 
 
 def _last_receipt_hash(root: Path) -> str | None:
@@ -522,7 +550,7 @@ def _receipt_chain_break(payload: dict[str, object]) -> dict[str, object] | None
 
 
 def _receipt_anchor_verification(root: Path) -> dict[str, object]:
-    return cast(dict[str, object], verify_receipt_anchors(root, last=20).to_dict())
+    return verify_receipt_anchors(root, last=20).to_dict()  # type: ignore[no-any-return]
 
 
 def _anchor_failure(payload: dict[str, object]) -> dict[str, object] | None:
@@ -562,3 +590,18 @@ def _truncate_text(value: object, limit: int) -> str | None:
     if not isinstance(value, str) or not value:
         return None
     return value[:limit]
+
+
+def _task_kind_backlog_count(repo_root: Path, *, kind: str) -> int:
+    rows, _ = _read_jsonl(repo_root / "pulse/recovery_tasks.jsonl")
+    open_kinds: set[str] = set()
+    for row in rows:
+        row_kind = str(row.get("kind", "")).strip()
+        if not row_kind:
+            continue
+        status = str(row.get("status", "open"))
+        if status == "done":
+            open_kinds.discard(row_kind)
+        else:
+            open_kinds.add(row_kind)
+    return 1 if kind in open_kinds else 0

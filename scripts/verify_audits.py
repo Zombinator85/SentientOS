@@ -26,6 +26,7 @@ require_lumos_approval()
 
 import audit_immutability as ai
 from scripts import tooling_status
+from sentientos.recovery_tasks import enqueue_audit_chain_repair_task
 
 RESULT_PATH = Path("glow/audits/verify_audits_result.json")
 SCHEMA_VERSION = "1.0"
@@ -411,6 +412,12 @@ def main(argv: list[str] | None = None) -> int:
             status_label = "failed"
             reason = "audit_chain_broken"
             exit_code = 1
+            if os.getenv("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "0") == "1":
+                enqueue_audit_chain_repair_task(
+                    REPO_ROOT,
+                    reason="verify_audits_strict_failed",
+                    incident_id=None,
+                )
 
         summary = tooling_status.render_result("verify_audits", status=status_label, reason=reason)
         print(json.dumps(summary, sort_keys=True))
