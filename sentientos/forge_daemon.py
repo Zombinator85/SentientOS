@@ -15,7 +15,10 @@ from sentientos.contract_sentinel import ContractSentinel
 from sentientos.event_stream import record as record_event, record_forge_event
 from sentientos.forge_index import update_index_incremental
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
+from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
+from sentientos.throughput_policy import derive_throughput_policy
 
 LOGGER = logging.getLogger(__name__)
 POLICY_PATH = Path("glow/forge/policy.json")
@@ -65,6 +68,12 @@ class ForgeDaemon:
             return
 
         quarantine = load_quarantine_state(self.repo_root)
+        pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
+        throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        if pressure_changed:
+            enqueue_mode_escalation_tasks(self.repo_root, mode=throughput.mode, reason="pressure_level_changed", incident_id=quarantine.last_incident_id)
+            record_forge_event({"event": "integrity_pressure_level_changed", "context": "forge_daemon", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at, "operating_mode": throughput.mode, "level": "warning" if pressure_snapshot.level > 0 else "info"})
         if quarantine.active and quarantine.freeze_forge:
             self.queue.mark_finished(
                 request.request_id,
@@ -124,7 +133,14 @@ class ForgeDaemon:
             os.environ["SENTIENTOS_FORGE_SENTINEL_TRIGGERED"] = "1" if sentinel_triggered else "0"
             os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH"] = "1" if bool(request.autopublish_flags.get("sentinel_allow_autopublish")) else "0"
             os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE"] = "1" if bool(request.autopublish_flags.get("sentinel_allow_automerge")) else "0"
+            prev_mode = os.environ.get("SENTIENTOS_FORGE_DIAGNOSTICS_ONLY")
+            if throughput.prefer_diagnostics_only:
+                os.environ["SENTIENTOS_FORGE_DIAGNOSTICS_ONLY"] = "1"
             report = self.forge.run(request.goal, initiator="daemon", request_id=request.request_id, metadata=request.metadata)
+            if prev_mode is None:
+                os.environ.pop("SENTIENTOS_FORGE_DIAGNOSTICS_ONLY", None)
+            else:
+                os.environ["SENTIENTOS_FORGE_DIAGNOSTICS_ONLY"] = prev_mode
             if prev_allow is None:
                 os.environ.pop("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", None)
             else:
@@ -335,6 +351,7 @@ class ForgeDaemon:
             "provenance_run_id": provenance_run_id,
             "provenance_path": provenance_path,
             "level": "warning" if status in {"rejected_policy", "skipped_budget", "lock_skip"} else "info",
+            "operating_mode": os.getenv("SENTIENTOS_MODE_FORCE") or None,
         }
         record_forge_event(payload)
         update_index_incremental(self.repo_root, event=payload)

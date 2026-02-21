@@ -13,13 +13,15 @@ from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.forge_outcomes import summarize_report
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
+from sentientos.recovery_tasks import backlog_count
+from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -69,6 +71,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     quarantine = load_quarantine_state(root)
     pressure_snapshot = compute_integrity_pressure(root)
     pressure_state = load_pressure_state(root)
+    throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
     latest_incident = _latest_incident(root)
     last_audit_chain_report_path: str | None = None
@@ -143,6 +146,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "integrity_pressure_level": pressure_snapshot.level,
         "integrity_pressure_metrics": {k: v for k, v in pressure_snapshot.metrics.to_dict().items() if k in {"incidents_last_24h", "enforced_failures_last_24h", "quarantine_activations_last_24h", "incidents_last_1h", "unique_trigger_types_last_24h"}},
         "last_pressure_change_at": pressure_state.last_pressure_change_at,
+        "operating_mode": throughput.mode,
+        "mode_effective_toggles": {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
+        "last_sweep_summary": _last_sweep_summary(root),
+        "recovery_task_backlog_count": backlog_count(root),
         "incidents_last_24h": pressure_snapshot.metrics.incidents_last_24h,
         "enforced_failures_last_24h": pressure_snapshot.metrics.enforced_failures_last_24h,
         "quarantine_activations_last_24h": pressure_snapshot.metrics.quarantine_activations_last_24h,
@@ -363,6 +370,29 @@ def _env_cache_summary(repo_root: Path) -> dict[str, object]:
         "oldest": min(last_used) if last_used else None,
         "total_size_bytes": sum(sizes),
     }
+
+
+def _last_sweep_summary(root: Path) -> dict[str, int]:
+    path = root / "pulse/sweeps.jsonl"
+    if not path.exists():
+        return {"passed": 0, "failed": 0}
+    last: dict[str, object] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            last = payload
+    raw_summary = last.get("summary")
+    summary = raw_summary if isinstance(raw_summary, dict) else {}
+    passed_raw = summary.get("passed")
+    failed_raw = summary.get("failed")
+    passed = passed_raw if isinstance(passed_raw, int) else 0
+    failed = failed_raw if isinstance(failed_raw, int) else 0
+    return {"passed": passed, "failed": failed}
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

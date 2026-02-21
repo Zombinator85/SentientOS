@@ -16,7 +16,7 @@ from typing import Any, Iterator
 import uuid
 
 from sentientos.ci_baseline import CI_BASELINE_PATH, emit_ci_baseline
-from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
+from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity, verify_doctrine_identity
 from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.forge_budget import BudgetConfig
@@ -24,6 +24,8 @@ from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.integrity_incident import build_base_context, build_incident
 from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
 from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
+from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
+from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
@@ -180,6 +182,14 @@ class CathedralForge:
         rollback_performed = False
         transaction_improvement_summary: str | None = None
         transaction_policy = TransactionPolicy()
+        pressure_snapshot = compute_integrity_pressure(self.repo_root)
+        pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
+        quarantine_state = load_quarantine_state(self.repo_root)
+        throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine_state)
+        diagnostics_forced = os.getenv("SENTIENTOS_FORGE_DIAGNOSTICS_ONLY", "0") == "1"
+        if pressure_changed:
+            record_forge_event({"event": "integrity_pressure_level_changed", "level": "warning" if pressure_snapshot.level > 0 else "info", "context": "forge_run", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at})
+            enqueue_mode_escalation_tasks(self.repo_root, mode=throughput.mode, reason="pressure_level_changed", incident_id=quarantine_state.last_incident_id)
         before_snapshot = None
         after_snapshot = None
         run_started_at = generated_at
@@ -269,6 +279,36 @@ class CathedralForge:
                 artifacts_written.append(str(CI_BASELINE_PATH))
 
             apply_result = ApplyResult(status="skipped", step_results=[], summary="skipped: preflight failed")
+            if throughput.prefer_diagnostics_only or diagnostics_forced:
+                notes.append(f"diagnostics_only_mode:{throughput.mode}")
+                sweep = self._run_integrity_sweep(root=self.repo_root, pressure_level=pressure_snapshot.level, mode=throughput.mode)
+                artifacts_written.append(str(sweep.get("artifact_path", "")))
+                tests_result = ForgeTestResult(status="pass", command=goal_profile.test_command_display, summary="skipped: diagnostics only")
+                report = ForgeReport(
+                    schema_version=SCHEMA_VERSION,
+                    generated_at=generated_at,
+                    goal=goal,
+                    goal_id=goal_spec.goal_id,
+                    goal_profile=goal_profile.name,
+                    git_sha=self._git_sha(Path(session.root_path)),
+                    plan_path=str(plan_path),
+                    preflight=preflight,
+                    tests=tests_result,
+                    ci_commands_run=ci_commands_run,
+                    session=session,
+                    step_results=step_results,
+                    artifacts_written=artifacts_written,
+                    outcome="diagnostics_only",
+                    failure_reasons=[],
+                    notes=notes + ["mode_throttle_mutation"],
+                    test_failures_before=None,
+                    test_failures_after=None,
+                    docket_path=None,
+                    transaction_status="aborted",
+                )
+                _write_json(self._report_path(generated_at), _dataclass_to_dict(report))
+                self._active_provenance = None
+                return report
             if not failure_reasons:
                 if goal_spec.goal_id in {"baseline_reclamation", "repo_green_storm"}:
                     (
@@ -783,6 +823,10 @@ class CathedralForge:
         }
         root = Path(session.root_path)
         quarantine = load_quarantine_state(root)
+        pressure_snapshot = compute_integrity_pressure(root)
+        throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        remote["operating_mode"] = throughput.mode
+        remote["mode_effective_toggles"] = {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation}
         if quarantine.active and not quarantine.allow_publish:
             notes.append("quarantine_active")
             remote["automerge_result"] = "quarantine_active"
@@ -819,6 +863,10 @@ class CathedralForge:
                 self._active_provenance.add_step(step, stdout=payload, stderr="")
             return notes, remote
         if os.getenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "0") != "1":
+            return notes, remote
+        if not throughput.allow_publish and os.getenv("SENTIENTOS_MODE_ALLOW_PUBLISH") != "1":
+            notes.append("mode_throttle_publish")
+            remote["automerge_result"] = "mode_throttle_publish"
             return notes, remote
         sentinel_triggered = os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1"
         if sentinel_triggered:
@@ -869,6 +917,10 @@ class CathedralForge:
         timeout_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_TIMEOUT_SECONDS", "1800")))
         poll_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_POLL_SECONDS", "20")))
         auto_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
+        if throughput.mode in {"cautious", "recovery"} and os.getenv("SENTIENTOS_MODE_ALLOW_AUTOMERGE") != "1":
+            auto_merge = False
+            notes.append("mode_throttle_publish")
+            remote["automerge_result"] = "mode_throttle_publish"
         if sentinel_triggered and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
             auto_merge = False
 
@@ -1039,10 +1091,10 @@ class CathedralForge:
                     if not remote_gate_ok:
                         auto_merge = False
                         notes.append("held_remote_doctrine")
-                    pressure_snapshot = compute_integrity_pressure(root)
                     pressure_state, pressure_changed = update_pressure_state(root, pressure_snapshot)
                     if pressure_changed:
                         record_forge_event({"event": "integrity_pressure_level_changed", "level": "warning" if pressure_snapshot.level > 0 else "info", "context": "canary_publish", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at})
+                        enqueue_mode_escalation_tasks(root, mode=throughput.mode, reason="pressure_level_changed", incident_id=quarantine.last_incident_id)
 
                     with _gate_env(*_gate_mode("SENTIENTOS_RECEIPT_CHAIN_ENFORCE", "SENTIENTOS_RECEIPT_CHAIN_WARN", pressure_level=pressure_snapshot.level, gate_name="receipt_chain", high_severity=True)):
                         chain_check, chain_enforced, chain_warned = maybe_verify_receipt_chain(root, context="canary_publish")
@@ -1156,6 +1208,36 @@ class CathedralForge:
             self._active_provenance.add_step(step, stdout=outcome_payload, stderr="")
 
         return notes, remote
+
+
+    def _run_integrity_sweep(self, *, root: Path, pressure_level: int, mode: str) -> dict[str, object]:
+        checks: list[dict[str, object]] = []
+        doctrine_ok, doctrine_payload = verify_doctrine_identity(root)
+        checks.append({"name": "verify_doctrine_identity", "ok": doctrine_ok, "detail": doctrine_payload})
+
+        chain_check, _enforce, _warn = maybe_verify_receipt_chain(root, context="forge_sweep", last=50)
+        checks.append({"name": "verify_receipt_chain", "ok": bool(chain_check.ok) if chain_check is not None else True, "detail": chain_check.to_dict() if chain_check is not None else {}})
+
+        anchor_check, _a_enforce, _a_warn = maybe_verify_receipt_anchors(root, context="forge_sweep", last=10)
+        checks.append({"name": "verify_receipt_anchors", "ok": bool(anchor_check.ok) if anchor_check is not None else True, "detail": anchor_check.to_dict() if anchor_check is not None else {}})
+
+        audit_check, _audit_enforce, _audit_warn, audit_report = maybe_verify_audit_chain(root, context="forge_sweep")
+        checks.append({"name": "verify_audits_strict", "ok": bool(audit_check.ok) if audit_check is not None else True, "detail": audit_check.to_dict() if audit_check is not None else {}, "report_path": audit_report})
+
+        federation = federation_integrity_gate(root, context="forge_sweep")
+        checks.append({"name": "federation_integrity_snapshot_compare", "ok": not bool(federation.get("blocked")), "detail": federation})
+
+        passed = sum(1 for row in checks if bool(row.get("ok")))
+        failed = len(checks) - passed
+        payload = {"mode": mode, "pressure_level": pressure_level, "generated_at": _iso_now(), "checks": checks, "summary": {"passed": passed, "failed": failed}}
+        stamp = _safe_timestamp(_iso_now())
+        sweep_path = root / f"glow/forge/sweeps/sweep_{stamp}.json"
+        _write_json(sweep_path, payload)
+        sweeps_log = root / "pulse/sweeps.jsonl"
+        sweeps_log.parent.mkdir(parents=True, exist_ok=True)
+        with sweeps_log.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"generated_at": payload["generated_at"], "mode": mode, "summary": payload["summary"], "path": str(sweep_path.relative_to(root))}, sort_keys=True) + "\n")
+        return {"artifact_path": str(sweep_path.relative_to(root)), "summary": payload["summary"]}
 
     def _record_integrity_incident(
         self,

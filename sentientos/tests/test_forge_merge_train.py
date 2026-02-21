@@ -640,6 +640,7 @@ def test_merge_train_audit_chain_enforce_blocks(tmp_path: Path, monkeypatch) -> 
     monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
     monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
     monkeypatch.setenv("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "1")
+    monkeypatch.setenv("SENTIENTOS_MODE_ALLOW_AUTOMERGE", "1")
     train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
     (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
@@ -680,3 +681,35 @@ def test_merge_train_audit_chain_warn_allows(tmp_path: Path, monkeypatch) -> Non
 
     assert result["status"] == "merged"
     assert result.get("reason") == "audit_chain_warning"
+
+
+def test_train_cautious_mode_disables_automerge(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_MODE_FORCE", "cautious")
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n", encoding="utf-8")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "mergeable"
+
+
+def test_train_recovery_mode_holds_with_mode_reason(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+    monkeypatch.setenv("SENTIENTOS_MODE_FORCE", "recovery")
+    monkeypatch.setenv("SENTIENTOS_AUDIT_CHAIN_ENFORCE", "1")
+    monkeypatch.setenv("SENTIENTOS_MODE_ALLOW_AUTOMERGE", "1")
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(json.dumps({"baseline_integrity_ok": True, "runtime_integrity_ok": True, "baseline_unexpected_change_detected": False}) + "\n", encoding="utf-8")
+    (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "logs/audit.jsonl").write_text('{"timestamp":"2026-01-01T00:00:00Z","data":{"a":1},"prev_hash":"deadbeef","rolling_hash":"deadbeef"}\n', encoding="utf-8")
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=_Ops())
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["reason"] == "mode_recovery_hold"

@@ -507,3 +507,30 @@ def test_canary_audit_chain_warn_records_warning(tmp_path: Path, monkeypatch) ->
     )
 
     assert "audit_chain_warning" in notes
+
+
+def test_canary_cautious_mode_throttles_publish(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_MODE_FORCE", "cautious")
+    monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "1")
+
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
+        '{"baseline_integrity_ok": true, "runtime_integrity_ok": true, "baseline_unexpected_change_detected": false}\n',
+        encoding="utf-8",
+    )
+
+    forge = CathedralForge(repo_root=tmp_path)
+    notes, remote = forge._maybe_publish(
+        resolve_goal("forge_smoke_noop"),
+        ForgeSession(session_id="1", root_path=str(tmp_path), strategy="x", branch_name="b"),
+        improvement_summary=None,
+        ci_baseline_before=None,
+        ci_baseline_after=None,
+        metadata=None,
+    )
+
+    assert "mode_throttle_publish" in notes
+    assert remote["automerge_result"] == "mode_throttle_publish"
+    assert remote["operating_mode"] == "cautious"
