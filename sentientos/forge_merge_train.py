@@ -20,6 +20,8 @@ from sentientos.forge_queue import ForgeQueue
 from sentientos.integrity_incident import build_base_context, build_incident
 from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
 from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
+from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
+from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
@@ -367,11 +369,18 @@ class ForgeMergeTrain:
 
         pressure_snapshot = compute_integrity_pressure(self.repo_root)
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
+        throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
         if pressure_changed:
             self._emit_event(
                 "integrity_pressure_level_changed",
                 {"pr_url": entry.pr_url, "level": pressure_snapshot.level, "last_pressure_change_at": pressure_state.last_pressure_change_at, "metrics": pressure_snapshot.metrics.to_dict()},
                 level="warning" if pressure_snapshot.level > 0 else "info",
+            )
+            enqueue_mode_escalation_tasks(
+                self.repo_root,
+                mode=throughput.mode,
+                reason="pressure_level_changed",
+                incident_id=quarantine.last_incident_id,
             )
 
         if entry.status == "held" and state.last_failure_at:
@@ -448,6 +457,8 @@ class ForgeMergeTrain:
 
         entry.status = "mergeable"
         allow_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
+        if not throughput.allow_automerge:
+            allow_merge = False
         if os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1" and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
             allow_merge = False
         if not allow_merge:
@@ -455,6 +466,10 @@ class ForgeMergeTrain:
 
         chain_check, chain_enforced, chain_warned = self._run_receipt_chain_gate(pressure_snapshot.level)
         if chain_check is not None and not chain_check.ok:
+            if throughput.mode == "recovery":
+                entry.status = "held"
+                entry.last_error = "mode_recovery_hold"
+                return {"status": "held", "reason": "mode_recovery_hold", "hold_reason": "receipt_chain", "pr": entry.pr_url}
             if chain_enforced:
                 entry.status = "held"
                 entry.last_error = "receipt_chain_broken"
@@ -490,6 +505,10 @@ class ForgeMergeTrain:
 
         audit_check, audit_enforced, audit_warned, audit_report = self._run_audit_chain_gate(pressure_snapshot.level)
         if audit_check is not None and not audit_check.ok:
+            if throughput.mode == "recovery":
+                entry.status = "held"
+                entry.last_error = "mode_recovery_hold"
+                return {"status": "held", "reason": "mode_recovery_hold", "hold_reason": "audit_chain", "pr": entry.pr_url}
             first_break_path = audit_check.first_break.path if audit_check.first_break is not None else None
             evidence_paths = [item for item in [audit_report, first_break_path] if isinstance(item, str)]
             if audit_enforced:
@@ -519,6 +538,10 @@ class ForgeMergeTrain:
 
         federation_gate = self._run_federation_gate(pressure_snapshot.level)
         if bool(federation_gate.get("blocked")):
+            if throughput.mode == "recovery":
+                entry.status = "held"
+                entry.last_error = "mode_recovery_hold"
+                return {"status": "held", "reason": "mode_recovery_hold", "hold_reason": "federation_integrity", "pr": entry.pr_url}
             entry.status = "held"
             entry.last_error = "federation_integrity_diverged"
             state.last_failure_at = now
