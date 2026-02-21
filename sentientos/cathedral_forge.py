@@ -24,7 +24,7 @@ from sentientos.forge_env import ForgeEnv, bootstrap_env
 from sentientos.integrity_incident import build_base_context, build_incident
 from sentientos.integrity_quarantine import load_state as load_quarantine_state, maybe_activate_quarantine
 from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
-from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
+from sentientos.recovery_tasks import enqueue_audit_chain_repair_task, enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
@@ -1124,6 +1124,12 @@ class CathedralForge:
                     if audit_check is not None and not audit_check.ok:
                         remote["audit_chain"] = audit_check.to_dict()
                         remote["audit_chain_report_path"] = audit_report
+                        if throughput.mode in {"cautious", "recovery"}:
+                            enqueue_audit_chain_repair_task(
+                                root,
+                                reason="audit_chain_mismatch_detected",
+                                incident_id=quarantine.last_incident_id,
+                            )
                         first_break_path = audit_check.first_break.path if audit_check.first_break is not None else None
                         evidence_paths = [item for item in [audit_report, first_break_path] if isinstance(item, str)]
                         if audit_enforced:

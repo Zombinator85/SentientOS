@@ -122,6 +122,7 @@ def test_canary_remote_missing_allows_when_not_required(tmp_path: Path, monkeypa
     monkeypatch.setenv("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH", "1")
     monkeypatch.setenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1")
     monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    monkeypatch.setenv("SENTIENTOS_MODE_ALLOW_PUBLISH", "1")
     (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/contracts/stability_doctrine.json").write_text(
         "{\"baseline_integrity_ok\": true, \"runtime_integrity_ok\": true, \"baseline_unexpected_change_detected\": false}\n",
@@ -534,3 +535,5 @@ def test_canary_cautious_mode_throttles_publish(tmp_path: Path, monkeypatch) -> 
     assert "mode_throttle_publish" in notes
     assert remote["automerge_result"] == "mode_throttle_publish"
     assert remote["operating_mode"] == "cautious"
+
+

@@ -29,6 +29,24 @@ def enqueue_mode_escalation_tasks(repo_root: Path, *, mode: str, reason: str, in
     return created
 
 
+def enqueue_audit_chain_repair_task(repo_root: Path, *, reason: str, incident_id: str | None = None) -> dict[str, object] | None:
+    rows = list_tasks(repo_root)
+    open_kinds = {str(row.get("kind")) for row in rows if str(row.get("status", "open")) != "done"}
+    if "audit_chain_repair" in open_kinds:
+        return None
+    row = {
+        "kind": "audit_chain_repair",
+        "created_at": _iso_now(),
+        "reason": reason,
+        "status": "open",
+        "suggested_command": "python scripts/audit_chain_doctor.py --repair-index-only",
+        "suggested_followup_command": "python scripts/verify_audits.py --strict",
+        "related_incident_id": incident_id,
+    }
+    append_task_record(repo_root, row)
+    return row
+
+
 def append_task_record(repo_root: Path, row: dict[str, object]) -> None:
     path = repo_root.resolve() / TASKS_PATH
     path.parent.mkdir(parents=True, exist_ok=True)

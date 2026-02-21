@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge
+.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched
 
 PYTHON ?= python3
 
@@ -193,3 +193,14 @@ embodied-status:
 	$(MAKE) contract-drift
 	$(MAKE) contract-status
 	$(PYTHON) -c "import json;from pathlib import Path;f=Path('glow/contracts/contract_status.json');p=json.loads(f.read_text(encoding='utf-8'));print('[embodied-status] contract_status='+str(f));print('[embodied-status] domains='+str(len(p.get('contracts', []))))"
+
+
+mypy-ratchet:
+	$(PYTHON) scripts/mypy_ratchet.py
+
+mypy-refresh-baseline:
+	@if [ "$$SENTIENTOS_ALLOW_BASELINE_REFRESH" != "1" ]; then echo "SENTIENTOS_ALLOW_BASELINE_REFRESH=1 required"; exit 2; fi
+	$(PYTHON) scripts/mypy_ratchet.py --refresh
+
+mypy-touched:
+	$(PYTHON) scripts/mypy_ratchet.py --touched-surface

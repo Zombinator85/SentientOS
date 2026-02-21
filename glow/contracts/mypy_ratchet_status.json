@@ -1,0 +1,10 @@
+{
+  "checked_targets": [
+    "scripts",
+    "sentientos"
+  ],
+  "new_error_count": 0,
+  "new_errors": [],
+  "status": "ok",
+  "target_scope": "repo_wide"
+}
