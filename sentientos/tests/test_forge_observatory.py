@@ -353,7 +353,7 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 8
+    assert payload["schema_version"] == 9
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
 
@@ -379,6 +379,9 @@ def test_index_includes_integrity_pressure_fields(tmp_path: Path) -> None:
     payload = rebuild_index(tmp_path)
 
     assert payload["integrity_pressure_level"] >= 0
+    assert payload["strategic_posture"] in {"stability", "balanced", "velocity"}
+    assert isinstance(payload.get("derived_thresholds"), dict)
+    assert "posture_last_changed_at" in payload
     assert payload["incidents_last_24h"] == 1
     assert payload["enforced_failures_last_24h"] == 1
     assert payload["quarantine_activations_last_24h"] == 1

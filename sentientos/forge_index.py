@@ -15,13 +15,14 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
 from sentientos.recovery_tasks import backlog_count
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.strategic_posture import derived_thresholds, resolve_posture
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -72,6 +73,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     pressure_snapshot = compute_integrity_pressure(root)
     pressure_state = load_pressure_state(root)
     throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+    posture = resolve_posture()
+    posture_thresholds = derived_thresholds(posture, warn_base=3, enforce_base=7, critical_base=12)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
     latest_incident = _latest_incident(root)
     last_audit_chain_report_path: str | None = None
@@ -146,6 +149,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "integrity_pressure_level": pressure_snapshot.level,
         "integrity_pressure_metrics": {k: v for k, v in pressure_snapshot.metrics.to_dict().items() if k in {"incidents_last_24h", "enforced_failures_last_24h", "quarantine_activations_last_24h", "incidents_last_1h", "unique_trigger_types_last_24h"}},
         "last_pressure_change_at": pressure_state.last_pressure_change_at,
+        "strategic_posture": posture.posture,
+        "derived_thresholds": posture_thresholds,
+        "posture_last_changed_at": pressure_state.posture_last_changed_at,
         "operating_mode": throughput.mode,
         "mode_effective_toggles": {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
         "last_sweep_summary": _last_sweep_summary(root),

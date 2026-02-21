@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from sentientos.strategic_posture import derived_thresholds, env_int, resolve_posture
+
 PRESSURE_STATE_PATH = Path("glow/forge/integrity_pressure_state.json")
 INCIDENT_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
 
@@ -30,6 +32,7 @@ class IntegrityPressureSnapshot:
     warn_threshold: int
     enforce_threshold: int
     critical_threshold: int
+    strategic_posture: str
     checked_at: str
 
 
@@ -37,7 +40,9 @@ class IntegrityPressureSnapshot:
 class IntegrityPressureState:
     schema_version: int = 1
     level: int = 0
+    strategic_posture: str = "balanced"
     last_pressure_change_at: str | None = None
+    posture_last_changed_at: str | None = None
 
 
 def compute_integrity_pressure(repo_root: Path, *, now: datetime | None = None) -> IntegrityPressureSnapshot:
@@ -77,9 +82,11 @@ def compute_integrity_pressure(repo_root: Path, *, now: datetime | None = None) 
         unique_trigger_types_last_24h=len(unique_triggers),
         quarantine_activations_last_24h=quarantine_activations_last_24h,
     )
-    warn_threshold = _env_int("SENTIENTOS_PRESSURE_WARN_THRESHOLD", 3)
-    enforce_threshold = _env_int("SENTIENTOS_PRESSURE_ENFORCE_THRESHOLD", 7)
-    critical_threshold = _env_int("SENTIENTOS_PRESSURE_CRITICAL_THRESHOLD", 12)
+    posture = resolve_posture()
+    defaults = derived_thresholds(posture, warn_base=3, enforce_base=7, critical_base=12)
+    warn_threshold = _env_int("SENTIENTOS_PRESSURE_WARN_THRESHOLD", defaults["warn"])
+    enforce_threshold = _env_int("SENTIENTOS_PRESSURE_ENFORCE_THRESHOLD", defaults["enforce"])
+    critical_threshold = _env_int("SENTIENTOS_PRESSURE_CRITICAL_THRESHOLD", defaults["critical"])
 
     level = 0
     score = metrics.incidents_last_24h + metrics.enforced_failures_last_24h + metrics.quarantine_activations_last_24h + metrics.unique_trigger_types_last_24h
@@ -96,6 +103,7 @@ def compute_integrity_pressure(repo_root: Path, *, now: datetime | None = None) 
         warn_threshold=warn_threshold,
         enforce_threshold=enforce_threshold,
         critical_threshold=critical_threshold,
+        strategic_posture=posture.posture,
         checked_at=at.isoformat().replace("+00:00", "Z"),
     )
 
@@ -111,7 +119,8 @@ def apply_escalation(level: int, *, gate_name: str, base_enforce: bool, base_war
     warn = base_warn
     if level >= 1:
         warn = True
-    if level >= 2 and high_severity:
+    posture = resolve_posture()
+    if level >= posture.high_severity_enforce_level and high_severity:
         enforce = True
     _ = gate_name
     return enforce, warn
@@ -120,7 +129,8 @@ def apply_escalation(level: int, *, gate_name: str, base_enforce: bool, base_war
 def should_force_quarantine(level: int) -> bool:
     if escalation_disabled():
         return False
-    return level >= 3
+    posture = resolve_posture()
+    return level >= posture.quarantine_force_level
 
 
 def load_pressure_state(repo_root: Path) -> IntegrityPressureState:
@@ -141,11 +151,16 @@ def save_pressure_state(repo_root: Path, state: IntegrityPressureState) -> None:
 def update_pressure_state(repo_root: Path, snapshot: IntegrityPressureSnapshot) -> tuple[IntegrityPressureState, bool]:
     state = load_pressure_state(repo_root)
     changed = snapshot.level != state.level
+    posture_changed = snapshot.strategic_posture != state.strategic_posture
     if changed:
         state.level = snapshot.level
         state.last_pressure_change_at = snapshot.checked_at
+    if posture_changed:
+        state.strategic_posture = snapshot.strategic_posture
+        state.posture_last_changed_at = snapshot.checked_at
+    if changed or posture_changed:
         save_pressure_state(repo_root, state)
-    return state, changed
+    return state, changed or posture_changed
 
 
 def _read_incidents(path: Path) -> list[dict[str, object]]:
@@ -187,6 +202,9 @@ def _parse_iso(value: Any) -> datetime | None:
 
 
 def _env_int(name: str, default: int) -> int:
+    override = env_int(name)
+    if override is not None:
+        return max(0, override)
     try:
         return max(0, int(os.getenv(name, str(default))))
     except ValueError:

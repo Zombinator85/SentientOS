@@ -22,6 +22,7 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state,
 from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
@@ -135,9 +136,12 @@ class ForgeMergeTrain:
                 policy = TrainPolicy(**{k: v for k, v in payload.items() if k in TrainPolicy.__dataclass_fields__})
             except TypeError:
                 policy = TrainPolicy()
+        posture = resolve_posture()
         env_enabled = os.getenv("SENTIENTOS_FORGE_TRAIN_ENABLED")
         if env_enabled is not None:
             policy.enabled = env_enabled == "1"
+        else:
+            policy.enabled = posture.default_merge_train_enabled
         default_branch = os.getenv("SENTIENTOS_FORGE_BASE_BRANCH")
         if default_branch:
             policy.base_branch = default_branch
@@ -456,7 +460,8 @@ class ForgeMergeTrain:
             return {"status": "held", "reason": entry.last_error, "pr": entry.pr_url}
 
         entry.status = "mergeable"
-        allow_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
+        posture = resolve_posture()
+        allow_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "1" if posture.default_automerge_enabled else "0") == "1"
         if not throughput.allow_automerge:
             allow_merge = False
         if os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1" and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
@@ -997,7 +1002,10 @@ def _gate_env(*pairs: tuple[str, str]) -> Iterator[None]:
 
 
 def _gate_mode(enforce_env: str, warn_env: str, *, pressure_level: int, gate_name: str, high_severity: bool) -> tuple[tuple[str, str], tuple[str, str]]:
-    base_enforce = os.getenv(enforce_env, "0") == "1"
+    posture = resolve_posture()
+    gate_name_l = gate_name.strip().lower()
+    default_enforce = gate_enforce_default(gate_name_l, posture)
+    base_enforce = os.getenv(enforce_env, "1" if default_enforce else "0") == "1"
     base_warn = os.getenv(warn_env, "0") == "1"
     enforce, warn = apply_escalation(pressure_level, gate_name=gate_name, base_enforce=base_enforce, base_warn=base_warn, high_severity=high_severity)
     return (enforce_env, "1" if enforce else "0"), (warn_env, "1" if warn else "0")

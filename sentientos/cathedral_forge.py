@@ -26,6 +26,7 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state,
 from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
@@ -913,10 +914,11 @@ class CathedralForge:
                 )
                 self._active_provenance.add_step(step, stdout=payload, stderr="")
 
-        canary_enabled = os.getenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "0") == "1"
+        posture = resolve_posture()
+        canary_enabled = os.getenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1" if posture.default_canary_publish_enabled else "0") == "1"
         timeout_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_TIMEOUT_SECONDS", "1800")))
         poll_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_POLL_SECONDS", "20")))
-        auto_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "0") == "1"
+        auto_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "1" if posture.default_automerge_enabled else "0") == "1"
         if throughput.mode in {"cautious", "recovery"} and os.getenv("SENTIENTOS_MODE_ALLOW_AUTOMERGE") != "1":
             auto_merge = False
             notes.append("mode_throttle_publish")
@@ -1751,7 +1753,10 @@ def _gate_env(*pairs: tuple[str, str]) -> Iterator[None]:
 
 
 def _gate_mode(enforce_env: str, warn_env: str, *, pressure_level: int, gate_name: str, high_severity: bool) -> tuple[tuple[str, str], tuple[str, str]]:
-    base_enforce = os.getenv(enforce_env, "0") == "1"
+    posture = resolve_posture()
+    gate_name_l = gate_name.strip().lower()
+    default_enforce = gate_enforce_default(gate_name_l, posture)
+    base_enforce = os.getenv(enforce_env, "1" if default_enforce else "0") == "1"
     base_warn = os.getenv(warn_env, "0") == "1"
     enforce, warn = apply_escalation(pressure_level, gate_name=gate_name, base_enforce=base_enforce, base_warn=base_warn, high_severity=high_severity)
     return (enforce_env, "1" if enforce else "0"), (warn_env, "1" if warn else "0")
