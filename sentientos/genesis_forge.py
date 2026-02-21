@@ -42,6 +42,11 @@ from codex.proposal_router import (
 )
 from sentientos.codex_healer import Anomaly, RecoveryLedger, RepairAction
 from sentientos.codex_startup_guard import enforce_codex_startup
+from sentientos.integrity_pressure import compute_integrity_pressure
+from sentientos.integrity_quarantine import load_state as load_quarantine_state
+from sentientos.risk_budget import compute_risk_budget
+from sentientos.strategic_posture import resolve_posture
+from sentientos.throughput_policy import derive_throughput_policy
 
 
 # ---------------------------------------------------------------------------
@@ -591,8 +596,21 @@ class GenesisForge:
     ) -> list[GenesisOutcome]:
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
-        configured_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
-        configured_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 1)
+        env_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
+        env_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 0)
+        quarantine = load_quarantine_state(Path.cwd())
+        pressure_snapshot = compute_integrity_pressure(Path.cwd())
+        throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        posture = resolve_posture()
+        risk_budget = compute_risk_budget(
+            repo_root=Path.cwd(),
+            posture=posture.posture,
+            pressure_level=pressure_snapshot.level,
+            operating_mode=throughput.mode,
+            quarantine_active=quarantine.active,
+        )
+        configured_k = min(env_k, risk_budget.router_k_max)
+        configured_m = min(max(1, env_m), max(1, risk_budget.router_m_max)) if risk_budget.router_m_max > 0 else 1
         governor_config = governor_config_from_env(configured_k=configured_k, configured_m=configured_m)
         pressure_state = load_pressure_state()
         pressure_state_write = PressureStateWriteResult(
@@ -613,8 +631,29 @@ class GenesisForge:
                 pressure_state=pressure_state,
                 run_context=run_context,
             )
-            router_k = governor_decision.k_effective
-            router_m = governor_decision.m_effective
+            before_k = governor_decision.k_effective
+            before_m = governor_decision.m_effective
+            before_escalation = governor_decision.allow_escalation
+            router_k = min(governor_decision.k_effective, risk_budget.router_k_max)
+            router_m = min(governor_decision.m_effective, risk_budget.router_m_max)
+            allow_escalation = governor_decision.allow_escalation and risk_budget.router_allow_escalation
+            if (router_k, router_m, allow_escalation) != (before_k, before_m, before_escalation):
+                self._ledger.log(
+                    "risk_budget_clamp_applied",
+                    anomaly=anomaly,
+                    details={
+                        "event_type": "risk_budget_clamp_applied",
+                        "router": {
+                            "k_before": before_k,
+                            "m_before": before_m,
+                            "allow_escalation_before": before_escalation,
+                            "k_after": router_k,
+                            "m_after": router_m,
+                            "allow_escalation_after": allow_escalation,
+                        },
+                        "reasons": list(risk_budget.notes or []),
+                    },
+                )
             router_seed = f"{need.capability}:{need.source}:{router_k}"
             try:
                 k_final = router_k
@@ -625,7 +664,7 @@ class GenesisForge:
                     stage_a = self._integrity_daemon.evaluate_report_stage_a(proposal)
                     stage_a_results.append((proposal, stage_a))
 
-                if governor_decision.allow_escalation:
+                if allow_escalation:
                     next_k, escalated = maybe_escalate_k(
                         k=router_k,
                         stage_a_results=[
@@ -717,9 +756,9 @@ class GenesisForge:
                     },
                     "governor": {
                         "mode": governor_decision.mode,
-                        "k_effective": governor_decision.k_effective,
-                        "m_effective": governor_decision.m_effective,
-                        "allow_escalation": governor_decision.allow_escalation,
+                        "k_effective": router_k,
+                        "m_effective": router_m,
+                        "allow_escalation": allow_escalation,
                         "reasons": list(governor_decision.decision_reasons),
                         "governor_version": governor_decision.governor_version,
                     },
