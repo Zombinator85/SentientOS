@@ -15,6 +15,7 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_pressure import compute_integrity_pressure, load_pressure_state
 from sentientos.recovery_tasks import backlog_count
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import derived_thresholds, resolve_posture
 from sentientos.receipt_anchors import latest_anchor_summary, verify_receipt_anchors
 from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
@@ -22,7 +23,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -74,6 +75,13 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     pressure_state = load_pressure_state(root)
     throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
     posture = resolve_posture()
+    risk_budget = compute_risk_budget(
+        repo_root=root,
+        posture=posture.posture,
+        pressure_level=pressure_snapshot.level,
+        operating_mode=throughput.mode,
+        quarantine_active=quarantine.active,
+    )
     posture_thresholds = derived_thresholds(posture, warn_base=3, enforce_base=7, critical_base=12)
     incident_rows, _incident_corrupt = _read_jsonl(root / "pulse/integrity_incidents.jsonl")
     latest_incident = _latest_incident(root)
@@ -178,6 +186,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "posture_last_changed_at": pressure_state.posture_last_changed_at,
         "operating_mode": throughput.mode,
         "mode_effective_toggles": {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation},
+        "risk_budget_summary": risk_budget_summary(risk_budget),
+        "last_risk_budget_at": risk_budget.created_at,
+        "risk_budget_notes": [str(item) for item in list(risk_budget.notes or [])[:8]],
         "last_sweep_summary": _last_sweep_summary(root),
         "recovery_task_backlog_count": backlog_count(root),
         "audit_chain_repair_backlog_count": _task_kind_backlog_count(root, kind="audit_chain_repair"),

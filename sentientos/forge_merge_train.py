@@ -22,6 +22,7 @@ from sentientos.integrity_quarantine import load_state as load_quarantine_state,
 from sentientos.integrity_pressure import apply_escalation, compute_integrity_pressure, should_force_quarantine, update_pressure_state
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
@@ -67,6 +68,7 @@ class TrainEntry:
     doctrine_bundle_sha256: str = ""
     doctrine_selected_via: str = ""
     doctrine_mirror_used: bool = False
+    risk_budget_summary: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -374,6 +376,15 @@ class ForgeMergeTrain:
         pressure_snapshot = compute_integrity_pressure(self.repo_root)
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        posture = resolve_posture()
+        budget = compute_risk_budget(
+            repo_root=self.repo_root,
+            posture=posture.posture,
+            pressure_level=pressure_snapshot.level,
+            operating_mode=throughput.mode,
+            quarantine_active=quarantine.active,
+        )
+        entry.risk_budget_summary = risk_budget_summary(budget)
         if pressure_changed:
             self._emit_event(
                 "integrity_pressure_level_changed",
@@ -460,7 +471,6 @@ class ForgeMergeTrain:
             return {"status": "held", "reason": entry.last_error, "pr": entry.pr_url}
 
         entry.status = "mergeable"
-        posture = resolve_posture()
         allow_merge = os.getenv("SENTIENTOS_FORGE_AUTOMERGE", "1" if posture.default_automerge_enabled else "0") == "1"
         if not throughput.allow_automerge:
             allow_merge = False
@@ -468,6 +478,11 @@ class ForgeMergeTrain:
             allow_merge = False
         if not allow_merge:
             return {"status": "mergeable", "pr": entry.pr_url}
+        if not budget.allow_automerge:
+            entry.status = "held"
+            entry.last_error = "risk_budget_throttle"
+            self._emit_event("train_risk_budget_throttle", {"pr_url": entry.pr_url, "reason": "risk_budget_throttle", "risk_budget": risk_budget_summary(budget)}, level="warning")
+            return {"status": "held", "reason": "risk_budget_throttle", "pr": entry.pr_url}
 
         chain_check, chain_enforced, chain_warned = self._run_receipt_chain_gate(pressure_snapshot.level)
         if chain_check is not None and not chain_check.ok:

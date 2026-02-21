@@ -27,6 +27,7 @@ from sentientos.integrity_pressure import apply_escalation, compute_integrity_pr
 from sentientos.recovery_tasks import enqueue_audit_chain_repair_task, enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.strategic_posture import gate_enforce_default, resolve_posture
+from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.forge_failures import FailureCluster, HarvestResult, harvest_failures
 from sentientos.forge_fixers import FixResult, apply_fix_candidate, generate_fix_candidates
 from sentientos.forge_campaigns import resolve_campaign
@@ -826,8 +827,18 @@ class CathedralForge:
         quarantine = load_quarantine_state(root)
         pressure_snapshot = compute_integrity_pressure(root)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        posture = resolve_posture()
+        budget = compute_risk_budget(
+            repo_root=root,
+            posture=posture.posture,
+            pressure_level=pressure_snapshot.level,
+            operating_mode=throughput.mode,
+            quarantine_active=quarantine.active,
+        )
         remote["operating_mode"] = throughput.mode
         remote["mode_effective_toggles"] = {"allow_automerge": throughput.allow_automerge, "allow_publish": throughput.allow_publish, "allow_forge_mutation": throughput.allow_forge_mutation}
+        remote["risk_budget_summary"] = risk_budget_summary(budget)
+        remote["risk_budget_notes"] = list(budget.notes or [])[:8]
         if quarantine.active and not quarantine.allow_publish:
             notes.append("quarantine_active")
             remote["automerge_result"] = "quarantine_active"
@@ -868,6 +879,10 @@ class CathedralForge:
         if not throughput.allow_publish and os.getenv("SENTIENTOS_MODE_ALLOW_PUBLISH") != "1":
             notes.append("mode_throttle_publish")
             remote["automerge_result"] = "mode_throttle_publish"
+            return notes, remote
+        if not budget.allow_publish:
+            notes.append("risk_budget_throttle")
+            remote["automerge_result"] = "risk_budget_throttle"
             return notes, remote
         sentinel_triggered = os.getenv("SENTIENTOS_FORGE_SENTINEL_TRIGGERED", "0") == "1"
         if sentinel_triggered:
@@ -914,7 +929,6 @@ class CathedralForge:
                 )
                 self._active_provenance.add_step(step, stdout=payload, stderr="")
 
-        posture = resolve_posture()
         canary_enabled = os.getenv("SENTIENTOS_FORGE_CANARY_PUBLISH", "1" if posture.default_canary_publish_enabled else "0") == "1"
         timeout_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_TIMEOUT_SECONDS", "1800")))
         poll_seconds = max(1, int(os.getenv("SENTIENTOS_FORGE_GH_POLL_SECONDS", "20")))
@@ -923,6 +937,11 @@ class CathedralForge:
             auto_merge = False
             notes.append("mode_throttle_publish")
             remote["automerge_result"] = "mode_throttle_publish"
+        if not budget.allow_automerge:
+            auto_merge = False
+            if remote.get("automerge_result") == "not_attempted":
+                notes.append("risk_budget_throttle")
+                remote["automerge_result"] = "risk_budget_throttle"
         if sentinel_triggered and os.getenv("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", "0") != "1":
             auto_merge = False
 

@@ -19,6 +19,8 @@ from sentientos.integrity_pressure import compute_integrity_pressure, update_pre
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.recovery_tasks import enqueue_mode_escalation_tasks
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.risk_budget import compute_risk_budget
+from sentientos.strategic_posture import resolve_posture
 
 LOGGER = logging.getLogger(__name__)
 POLICY_PATH = Path("glow/forge/policy.json")
@@ -53,6 +55,7 @@ class ForgeDaemon:
         self.lock_path = self.repo_root / ".forge" / "forge.lock"
         self.lock_ttl_seconds = max(60, int(os.getenv("SENTIENTOS_FORGE_LOCK_TTL_SECONDS", "7200")))
         self.governor = ForgeGovernor.from_env()
+        self.max_retries = max(0, int(os.getenv("SENTIENTOS_FORGE_MAX_RETRIES", "1")))
         self.policy = _load_policy(self.repo_root / POLICY_PATH)
 
     def run_tick(self) -> None:
@@ -71,28 +74,26 @@ class ForgeDaemon:
         pressure_snapshot = compute_integrity_pressure(self.repo_root)
         pressure_state, pressure_changed = update_pressure_state(self.repo_root, pressure_snapshot)
         throughput = derive_throughput_policy(integrity_pressure_level=pressure_snapshot.level, quarantine=quarantine)
+        posture = resolve_posture()
+        risk_budget = compute_risk_budget(
+            repo_root=self.repo_root,
+            posture=posture.posture,
+            pressure_level=pressure_snapshot.level,
+            operating_mode=throughput.mode,
+            quarantine_active=quarantine.active,
+        )
+        self.governor.max_runs_per_day = min(self.governor.max_runs_per_day, risk_budget.forge_max_runs_per_day)
+        self.governor.max_runs_per_hour = min(self.governor.max_runs_per_hour, risk_budget.forge_max_runs_per_hour)
+        self.governor.max_files_changed_per_day = min(self.governor.max_files_changed_per_day, risk_budget.forge_max_files_changed)
+        self.max_retries = min(self.max_retries, risk_budget.forge_max_retries)
         if pressure_changed:
             enqueue_mode_escalation_tasks(self.repo_root, mode=throughput.mode, reason="pressure_level_changed", incident_id=quarantine.last_incident_id)
             record_forge_event({"event": "integrity_pressure_level_changed", "context": "forge_daemon", "integrity_pressure_level": pressure_snapshot.level, "integrity_pressure_metrics": pressure_snapshot.metrics.to_dict(), "last_pressure_change_at": pressure_state.last_pressure_change_at, "operating_mode": throughput.mode, "level": "warning" if pressure_snapshot.level > 0 else "info"})
-        if quarantine.active and quarantine.freeze_forge:
-            self.queue.mark_finished(
-                request.request_id,
-                status="blocked",
-                report_path=None,
-                error="quarantine_active",
-            )
-            self._emit_forge_event(status="blocked", request=request, error="quarantine_active")
-            record_forge_event(
-                {
-                    "event": "forge_quarantine_block",
-                    "status": "blocked",
-                    "level": "warning",
-                    "reason": "quarantine_active",
-                    "request_id": request.request_id,
-                }
-            )
-            self._emit(f"ForgeDaemon blocked request {request.request_id}: quarantine_active", level="warning")
-            return
+        diagnostics_only = quarantine.active and quarantine.freeze_forge
+        diagnostics_only = diagnostics_only or (not throughput.allow_forge_mutation) or risk_budget.forge_max_files_changed <= 0
+        if diagnostics_only:
+            request.autopublish_flags = {**request.autopublish_flags, "risk_budget_diagnostics_only": True}
+            record_forge_event({"event": "risk_budget_diagnostics_only", "level": "warning", "request_id": request.request_id, "reason": "mutation_disallowed"})
 
         policy_error = self._validate_request_policy(request)
         if policy_error:
@@ -106,7 +107,7 @@ class ForgeDaemon:
             self._emit(f"ForgeDaemon policy rejected request {request.request_id}: {policy_error}", level="warning")
             return
 
-        if not self._within_budget(request):
+        if not self._within_budget(request) and not bool(request.autopublish_flags.get("risk_budget_diagnostics_only")):
             self.queue.mark_finished(
                 request.request_id,
                 status="skipped_budget",
@@ -125,6 +126,9 @@ class ForgeDaemon:
 
         try:
             sentinel_triggered = bool(request.metadata.get("sentinel_triggered"))
+            prev_diag = os.environ.get("SENTIENTOS_FORGE_DIAGNOSTICS_ONLY")
+            if bool(request.autopublish_flags.get("risk_budget_diagnostics_only")):
+                os.environ["SENTIENTOS_FORGE_DIAGNOSTICS_ONLY"] = "1"
             prev_allow = os.environ.get("SENTIENTOS_FORGE_ALLOW_AUTOPUBLISH")
             prev_sent = os.environ.get("SENTIENTOS_FORGE_SENTINEL_TRIGGERED")
             prev_sent_allow = os.environ.get("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOPUBLISH")
@@ -157,6 +161,10 @@ class ForgeDaemon:
                 os.environ.pop("SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE", None)
             else:
                 os.environ["SENTIENTOS_FORGE_SENTINEL_ALLOW_AUTOMERGE"] = prev_sent_merge
+            if prev_diag is None:
+                os.environ.pop("SENTIENTOS_FORGE_DIAGNOSTICS_ONLY", None)
+            else:
+                os.environ["SENTIENTOS_FORGE_DIAGNOSTICS_ONLY"] = prev_diag
             pr_metadata_path = _extract_pr_metadata_path(report.notes)
             report_path = str(self.forge._report_path(report.generated_at))
             status = "success" if report.outcome == "success" else "failed"
@@ -277,6 +285,8 @@ class ForgeDaemon:
         if not isinstance(lineage, list):
             lineage = []
         if request.request_id in lineage:
+            return
+        if len(lineage) >= self.max_retries:
             return
         if report.goal_id.startswith("forge_"):
             return
