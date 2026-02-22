@@ -12,13 +12,7 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Execute a remediation pack with strict allowlist checks.")
-    parser.add_argument("pack_path", help="Path to pack JSON")
-    args = parser.parse_args(argv)
-
-    root = Path.cwd().resolve()
-    pack_path = (root / args.pack_path).resolve() if not Path(args.pack_path).is_absolute() else Path(args.pack_path)
+def execute_pack_file(pack_path: Path, *, root: Path) -> dict[str, object]:
     payload = json.loads(pack_path.read_text(encoding="utf-8"))
 
     pack_id = str(payload.get("pack_id") or "unknown")
@@ -59,8 +53,20 @@ def main(argv: list[str] | None = None) -> int:
     report_path = root / "glow/forge/remediation/runs" / f"run_{stamp}_{pack_id}.json"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    print(json.dumps({"status": report["status"], "report_path": str(report_path.relative_to(root))}, sort_keys=True))
-    return 0 if overall_ok else 1
+    report["report_path"] = str(report_path.relative_to(root))
+    return report
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Execute a remediation pack with strict allowlist checks.")
+    parser.add_argument("pack_path", help="Path to pack JSON")
+    args = parser.parse_args(argv)
+
+    root = Path.cwd().resolve()
+    pack_path = (root / args.pack_path).resolve() if not Path(args.pack_path).is_absolute() else Path(args.pack_path)
+    report = execute_pack_file(pack_path, root=root)
+    print(json.dumps({"status": report["status"], "report_path": report.get("report_path")}, sort_keys=True))
+    return 0 if str(report.get("status")) == "completed" else 1
 
 
 if __name__ == "__main__":

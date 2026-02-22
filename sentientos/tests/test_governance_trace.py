@@ -223,3 +223,35 @@ def test_governance_trace_finalize_emits_remediation_pack(tmp_path: Path) -> Non
     assert isinstance(remediation, dict)
     pack_path = tmp_path / str(remediation["pack_path"])
     assert pack_path.exists()
+
+
+def test_governance_trace_records_auto_remediation_outcomes(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    def _fake_auto(*args: object, **kwargs: object):
+        _ = args, kwargs
+        class _R:
+            status = "succeeded"
+            reason = "run_completed"
+            attempted = True
+            run_id = "run-123"
+            pack_id = "pack-123"
+            gate_results = [{"name": "audit_chain", "result": "pass", "reason": "auto_remediation_recheck"}]
+        return _R()
+
+    monkeypatch.setattr("sentientos.governance_trace.maybe_auto_run_pack", _fake_auto)
+
+    trace = start_governance_trace(
+        repo_root=tmp_path,
+        context="merge_train",
+        strategic_posture="balanced",
+        integrity_pressure_level=1,
+        integrity_metrics_summary={},
+        operating_mode="recovery",
+        mode_toggles_summary={},
+        quarantine_state_summary={"active": False},
+        risk_budget_summary={},
+    )
+    persisted = trace.finalize(final_decision="hold", final_reason="audit_chain_broken", reason_stack=["audit_chain_broken"])
+    payload = json.loads((tmp_path / str(persisted["trace_path"])).read_text(encoding="utf-8"))
+    assert "auto_remediation_attempted" in payload["reason_stack"]
+    assert "auto_remediation_succeeded" in payload["reason_stack"]
+    assert any(item.get("reason") == "auto_remediation_recheck" for item in payload["gates_evaluated"])

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -24,7 +24,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -130,6 +130,20 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     governance_rows, _governance_corrupt = _read_jsonl(root / "pulse/governance_traces.jsonl")
     last_trace = governance_rows[-1] if governance_rows else {}
     remediation_rows, _remediation_corrupt = _read_jsonl(root / "pulse/remediation_packs.jsonl")
+    auto_attempt_rows, _auto_attempt_corrupt = _read_jsonl(root / "pulse/auto_remediation_attempts.jsonl")
+    last_auto_attempt = auto_attempt_rows[-1] if auto_attempt_rows else {}
+    auto_attempts_last_24h = _rows_last_24h(auto_attempt_rows, key="attempted_at")
+    auto_status = "idle"
+    if auto_attempt_rows:
+        latest_status = _optional_str(last_auto_attempt.get("status"))
+        latest_at = _parse_iso(_optional_str(last_auto_attempt.get("attempted_at")) or "")
+        cooldown_minutes = max(1, int(os.getenv("SENTIENTOS_AUTO_REMEDIATION_COOLDOWN_MINUTES", "60")))
+        if latest_status == "completed":
+            auto_status = "succeeded"
+        elif latest_status == "failed":
+            auto_status = "failed"
+        if latest_at is not None and datetime.now(timezone.utc) - latest_at < timedelta(minutes=cooldown_minutes):
+            auto_status = "cooldown" if auto_status not in {"succeeded", "failed"} else auto_status
     last_remediation = remediation_rows[-1] if remediation_rows else {}
     remediation_runs = sorted((root / "glow/forge/remediation/runs").glob("run_*.json"), key=lambda item: item.name)
     last_remediation_run_summary = None
@@ -267,6 +281,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_quarantine_remediation_pack_id": related_pack_id,
         "last_quarantine_remediation_status": related_status,
         "last_quarantine_remediation_run_id": related_run_id,
+        "auto_remediation_status": auto_status,
+        "last_auto_remediation_pack_id": _optional_str(last_auto_attempt.get("pack_id")),
+        "last_auto_remediation_run_id": _optional_str(last_auto_attempt.get("run_id")),
+        "auto_remediation_attempts_last_24h": auto_attempts_last_24h,
     }
 
     target = root / INDEX_PATH
@@ -426,6 +444,16 @@ def _incident_summary(incident: dict[str, object]) -> dict[str, object]:
     }
 
 
+
+
+def _parse_iso(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 def _incident_count_last_24h(rows: list[dict[str, object]]) -> int:
     now = datetime.now(timezone.utc)
     count = 0
@@ -715,3 +743,16 @@ def _task_kind_prefix_backlog_count(repo_root: Path, *, prefix: str) -> int:
         else:
             open_kinds.add(row_kind)
     return len(open_kinds)
+
+def _rows_last_24h(rows: list[dict[str, object]], *, key: str) -> int:
+    floor = datetime.now(timezone.utc) - timedelta(days=1)
+    count = 0
+    for row in rows:
+        stamp = _optional_str(row.get(key))
+        if stamp is None:
+            continue
+        parsed = _parse_iso(stamp)
+        if parsed is not None and parsed >= floor:
+            count += 1
+    return count
+
