@@ -21,6 +21,7 @@ from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
 from sentientos.artifact_catalog import append_catalog_entry, latest
+from sentientos.artifact_retention import RetentionPolicy, run_retention, should_run_retention
 from sentientos.recovery_tasks import backlog_count
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
@@ -36,6 +37,7 @@ class OrchestratorConfig:
     auto_remediation_enabled: bool
     federation_snapshot_enabled: bool
     witness_publish_enabled: bool
+    retention_enabled: bool
 
     @classmethod
     def from_env(cls) -> "OrchestratorConfig":
@@ -46,6 +48,7 @@ class OrchestratorConfig:
             auto_remediation_enabled=os.getenv("SENTIENTOS_ORCHESTRATOR_AUTO_REMEDIATION", "1") == "1",
             federation_snapshot_enabled=os.getenv("SENTIENTOS_ORCHESTRATOR_FEDERATION_SNAPSHOT", "1") == "1",
             witness_publish_enabled=os.getenv("SENTIENTOS_ORCHESTRATOR_WITNESS_PUBLISH", "0") == "1",
+            retention_enabled=os.getenv("SENTIENTOS_ORCHESTRATOR_RETENTION", "0") == "1",
         )
 
 
@@ -111,6 +114,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     remediation_status = "idle"
     remediation_detail: dict[str, object] | None = None
     reason_stack: list[str] = []
+    retention_summary: dict[str, object] | None = None
 
     if cfg.sweeps_enabled and throughput.mode in {"cautious", "recovery", "lockdown"}:
         if _should_run_sweep(root, interval_minutes=posture.diagnostics_sweep_interval_minutes):
@@ -184,6 +188,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             witness_status = "skipped"
             witness_failure = "mutation_disallowed"
 
+    if cfg.retention_enabled and should_run_retention(root):
+        retention_result = run_retention(root, policy=RetentionPolicy.from_env())
+        retention_summary = retention_result.to_dict()
+
     rebuild_index(root)
 
     backlog = {
@@ -236,6 +244,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "orchestrator_backlog_summary": backlog,
         "index_path": str(INDEX_PATH),
         "schema_versions_snapshot": dict(sorted(LATEST_VERSIONS.items())),
+        "retention": retention_summary,
     }
     tick_path = root / "glow/forge/orchestrator/ticks" / f"tick_{_safe_ts(now)}.json"
     tick_path.parent.mkdir(parents=True, exist_ok=True)
@@ -259,6 +268,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "integrity_pressure_level": pressure.level,
         "remediation_status": remediation_status,
         "tick_report_path": str(tick_path.relative_to(root)),
+        "retention_archived_items": int((retention_summary or {}).get("archived_items", 0)),
+        "retention_rollup_files": int(len((retention_summary or {}).get("rollup_files", []))) if isinstance((retention_summary or {}).get("rollup_files"), list) else 0,
     }
     _append_jsonl(root / "pulse/orchestrator_ticks.jsonl", pulse_row)
 

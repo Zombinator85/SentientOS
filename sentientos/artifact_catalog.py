@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
+from sentientos.artifact_retention import resolve_redirect
 
 CATALOG_PATH = Path("pulse/artifact_catalog.jsonl")
 REBUILD_REPORTS_DIR = Path("glow/forge/reports")
@@ -104,12 +105,12 @@ def latest_witness_status(repo_root: Path) -> dict[str, object] | None:
     return load_catalog_artifact(repo_root, entry) if entry is not None else None
 
 
-def rebuild_catalog_from_disk(repo_root: Path, *, root_dirs: list[Path] | None = None) -> dict[str, object]:
+def rebuild_catalog_from_disk(repo_root: Path, *, root_dirs: list[Path] | None = None, include_archives: bool = False) -> dict[str, object]:
     root = repo_root.resolve()
     directories = [Path("glow/forge"), Path("glow/federation"), Path("pulse")] if root_dirs is None else list(root_dirs)
     existing = _entries(root)
     seen = {_entry_key(row) for row in existing}
-    discovered = _discover_entries(root)
+    discovered = _discover_entries(root, include_archives=include_archives)
     appended = 0
     for row in discovered:
         key = _entry_key(row)
@@ -133,6 +134,7 @@ def rebuild_catalog_from_disk(repo_root: Path, *, root_dirs: list[Path] | None =
         "generated_at": _iso_now(),
         "catalog_path": str(CATALOG_PATH),
         "root_dirs": [str(item) for item in directories],
+        "include_archives": include_archives,
         "existing_entries": len(existing),
         "discovered_entries": len(discovered),
         "appended_entries": appended,
@@ -161,7 +163,19 @@ def load_catalog_artifact(repo_root: Path, entry: dict[str, object]) -> dict[str
     return payload
 
 
-def _discover_entries(repo_root: Path) -> list[dict[str, object]]:
+def resolve_entry_path(repo_root: Path, entry: dict[str, object]) -> str | None:
+    path = _entry_path(repo_root, entry)
+    if path is None:
+        return None
+    if path.exists():
+        return str(path.relative_to(repo_root.resolve()))
+    rel = _optional_str(entry.get("path"))
+    if not rel:
+        return None
+    return resolve_redirect(repo_root, rel)
+
+
+def _discover_entries(repo_root: Path, *, include_archives: bool = False) -> list[dict[str, object]]:
     root = repo_root.resolve()
     entries: list[dict[str, object]] = []
     entries.extend(_discover_json_entries(root, root / "glow/forge/incidents", "incident", "incident_id"))
@@ -173,6 +187,11 @@ def _discover_entries(repo_root: Path) -> list[dict[str, object]]:
     entries.extend(_discover_json_entries(root, root / "glow/forge/receipts", "receipt", "receipt_id"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/receipts/anchors", "anchor", "anchor_id"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/audit_reports", "audit_report", "created_at"))
+
+    if include_archives:
+        entries.extend(_discover_json_entries(root, root / "glow/forge/archive/tick", "archive_tick", "generated_at"))
+        entries.extend(_discover_json_entries(root, root / "glow/forge/archive/sweep", "archive_sweep", "generated_at"))
+        entries.extend(_discover_json_entries(root, root / "glow/forge/archive/run", "archive_run", "generated_at"))
     for fixed in (root / "glow/federation/integrity_snapshot.json", root / "glow/federation/anchor_witness_status.json"):
         payload = _load_json(fixed)
         if not payload:
@@ -277,7 +296,11 @@ def _entry_path(repo_root: Path, entry: dict[str, object]) -> Path | None:
     rel = _optional_str(entry.get("path"))
     if not rel:
         return None
-    return repo_root.resolve() / rel
+    raw_path = repo_root.resolve() / rel
+    if raw_path.exists():
+        return raw_path
+    redirected = resolve_redirect(repo_root, rel)
+    return (repo_root.resolve() / redirected) if redirected else raw_path
 
 
 def _sort_key(row: dict[str, object]) -> tuple[str, str, str]:

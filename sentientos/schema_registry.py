@@ -23,7 +23,7 @@ class SchemaName:
 AdapterFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 LATEST_VERSIONS: dict[str, int] = {
-    SchemaName.FORGE_INDEX: 17,
+    SchemaName.FORGE_INDEX: 18,
     SchemaName.FORGE_REPORT: 1,
     SchemaName.GOVERNANCE_TRACE: 1,
     SchemaName.INCIDENT: 1,
@@ -84,6 +84,18 @@ def _forge_index_v16_to_v17(payload: dict[str, Any]) -> dict[str, Any]:
     return upgraded
 
 
+
+
+def _forge_index_v17_to_v18(payload: dict[str, Any]) -> dict[str, Any]:
+    upgraded = deepcopy(payload)
+    upgraded["schema_version"] = 18
+    upgraded.setdefault("retention_enabled", False)
+    upgraded.setdefault("last_retention_run_at", None)
+    upgraded.setdefault("retention_last_summary", {})
+    upgraded.setdefault("rollup_status", "missing")
+    upgraded.setdefault("catalog_redirects_count", 0)
+    return upgraded
+
 def _receipt_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded = deepcopy(payload)
     upgraded["schema_version"] = 2
@@ -95,6 +107,7 @@ ADAPTERS: dict[tuple[str, int], AdapterFn] = {
     (SchemaName.FORGE_INDEX, 14): _forge_index_v14_to_v15,
     (SchemaName.FORGE_INDEX, 15): _forge_index_v15_to_v16,
     (SchemaName.FORGE_INDEX, 16): _forge_index_v16_to_v17,
+    (SchemaName.FORGE_INDEX, 17): _forge_index_v17_to_v18,
     (SchemaName.RECEIPT, 1): _receipt_v1_to_v2,
 }
 

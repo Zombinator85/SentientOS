@@ -118,3 +118,21 @@ def test_quarantine_clear_prefers_catalog(tmp_path: Path, monkeypatch) -> None: 
     monkeypatch.setattr("scripts.quarantine_clear.maybe_verify_audit_chain", lambda root, context: (None, False, False, None))
 
     assert quarantine_clear.main([]) == 0
+
+
+def test_resolve_entry_path_uses_redirect_mapping(tmp_path: Path) -> None:
+    (tmp_path / "glow/forge/archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/archive/redirects.jsonl").write_text(
+        json.dumps(
+            {
+                "ts": "2026-01-01T00:00:00Z",
+                "old_path": "glow/forge/orchestrator/ticks/tick_old.json",
+                "new_path": "glow/forge/archive/tick/2026/01/tick_old.json",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    entry = {"path": "glow/forge/orchestrator/ticks/tick_old.json"}
+    assert artifact_catalog.resolve_entry_path(tmp_path, entry) == "glow/forge/archive/tick/2026/01/tick_old.json"

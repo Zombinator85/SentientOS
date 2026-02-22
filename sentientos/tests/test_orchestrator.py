@@ -16,7 +16,7 @@ def _seed_repo(root: Path) -> None:
 def test_tick_writes_report_and_pulse(tmp_path: Path) -> None:
     _seed_repo(tmp_path)
 
-    result = tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, False, False))
+    result = tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, False, False, False))
 
     report_path = tmp_path / result.tick_report_path
     assert report_path.exists()
@@ -28,7 +28,7 @@ def test_tick_writes_report_and_pulse(tmp_path: Path) -> None:
 def test_tick_updates_index_fields(tmp_path: Path) -> None:
     _seed_repo(tmp_path)
 
-    tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, False, False))
+    tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, False, False, False))
 
     payload = json.loads((tmp_path / "glow/forge/index.json").read_text(encoding="utf-8"))
     assert payload["schema_version"] == latest_version(SchemaName.FORGE_INDEX)
@@ -51,7 +51,7 @@ def test_tick_respects_quarantine_for_mutation(tmp_path: Path, monkeypatch) -> N
 
     monkeypatch.setattr("sentientos.orchestrator.maybe_auto_run_pack", _fake_auto)
 
-    tick(tmp_path, config=OrchestratorConfig(True, 300, False, True, False, True))
+    tick(tmp_path, config=OrchestratorConfig(True, 300, False, True, False, True, False))
 
     assert called["auto"] == 0
 
@@ -89,7 +89,7 @@ def test_tick_auto_remediation_respects_cooldown_and_attempts(tmp_path: Path, mo
     )
     monkeypatch.setattr("sentientos.orchestrator.compute_integrity_pressure", lambda _root: snapshot)
 
-    result = tick(tmp_path, config=OrchestratorConfig(True, 300, False, True, False, False))
+    result = tick(tmp_path, config=OrchestratorConfig(True, 300, False, True, False, False, False))
 
     assert result.remediation_status in {"cooldown", "failed"}
 
@@ -97,6 +97,22 @@ def test_tick_auto_remediation_respects_cooldown_and_attempts(tmp_path: Path, mo
 def test_tick_emits_federation_snapshot(tmp_path: Path) -> None:
     _seed_repo(tmp_path)
 
-    tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, True, False))
+    tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, True, False, False))
 
     assert (tmp_path / "glow/federation/integrity_snapshot.json").exists()
+
+
+def test_orchestrator_retention_runs_once_per_day(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _seed_repo(tmp_path)
+    monkeypatch.setenv("SENTIENTOS_RETENTION_ENABLE", "1")
+    monkeypatch.setenv("SENTIENTOS_ORCHESTRATOR_RETENTION", "1")
+
+    cfg = OrchestratorConfig(True, 300, False, False, False, False, True)
+    tick(tmp_path, config=cfg)
+    state_path = tmp_path / "glow/forge/retention/state.json"
+    assert state_path.exists()
+    first = json.loads(state_path.read_text(encoding="utf-8"))
+
+    tick(tmp_path, config=cfg)
+    second = json.loads(state_path.read_text(encoding="utf-8"))
+    assert first["last_retention_run_at"] == second["last_retention_run_at"]
