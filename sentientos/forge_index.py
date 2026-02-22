@@ -24,7 +24,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
@@ -171,6 +171,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         related_run_id = _optional_str(related_run.get("run_id"))
         related_status = "completed" if _optional_str(related_run.get("status")) == "completed" else "failed"
 
+
+    orchestrator_rows, _orchestrator_corrupt = _read_jsonl(root / "pulse/orchestrator_ticks.jsonl")
+    _ = _orchestrator_corrupt
+    last_orchestrator = orchestrator_rows[-1] if orchestrator_rows else {}
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -284,7 +289,16 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "auto_remediation_status": auto_status,
         "last_auto_remediation_pack_id": _optional_str(last_auto_attempt.get("pack_id")),
         "last_auto_remediation_run_id": _optional_str(last_auto_attempt.get("run_id")),
+
         "auto_remediation_attempts_last_24h": auto_attempts_last_24h,
+        "orchestrator_enabled": os.getenv("SENTIENTOS_ORCHESTRATOR_ENABLE", "0") == "1",
+        "last_orchestrator_tick_at": _optional_str(last_orchestrator.get("generated_at")),
+        "last_orchestrator_tick_status": _optional_str(last_orchestrator.get("status")) or "unknown",
+        "orchestrator_backlog_summary": {
+            "recovery_task_backlog_count": backlog_count(root),
+            "remediation_backlog_count": _task_kind_prefix_backlog_count(root, prefix="remediation_pack:"),
+        },
+        "last_tick_report_path": _optional_str(last_orchestrator.get("tick_report_path")),
     }
 
     target = root / INDEX_PATH
