@@ -116,3 +116,22 @@ def test_orchestrator_retention_runs_once_per_day(tmp_path: Path, monkeypatch) -
     tick(tmp_path, config=cfg)
     second = json.loads(state_path.read_text(encoding="utf-8"))
     assert first["last_retention_run_at"] == second["last_retention_run_at"]
+
+
+def test_orchestrator_signs_new_rollups(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    _seed_repo(tmp_path)
+    monkeypatch.setenv("SENTIENTOS_RETENTION_ENABLE", "1")
+    monkeypatch.setenv("SENTIENTOS_ORCHESTRATOR_RETENTION", "1")
+    monkeypatch.setenv("SENTIENTOS_ROLLUP_SIGNING", "hmac-test")
+
+    pulse = tmp_path / "pulse"
+    pulse.mkdir(parents=True, exist_ok=True)
+    (pulse / "orchestrator_ticks.jsonl").write_text(
+        json.dumps({"generated_at": "2025-12-20T00:00:00Z", "status": "ok"}, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    cfg = OrchestratorConfig(True, 300, False, False, False, False, True)
+    tick(tmp_path, config=cfg)
+
+    sigs = sorted((tmp_path / "glow/forge/rollups/orchestrator_ticks/signatures").glob("sig_*.json"))
+    assert sigs

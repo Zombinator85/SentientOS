@@ -23,6 +23,7 @@ from sentientos.remediation_pack import PACKS_PULSE_PATH
 from sentientos.artifact_catalog import append_catalog_entry, latest
 from sentientos.artifact_retention import RetentionPolicy, run_retention, should_run_retention
 from sentientos.recovery_tasks import backlog_count
+from sentientos.signed_rollups import maybe_publish_rollup_witness, maybe_sign_catalog_checkpoint, sign_rollups
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
@@ -115,6 +116,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     remediation_detail: dict[str, object] | None = None
     reason_stack: list[str] = []
     retention_summary: dict[str, object] | None = None
+    rollup_sign_status = "skipped"
+    signed_rollups_count = 0
+    last_signed_rollup_id: str | None = None
+    catalog_checkpoint_status = "disabled"
 
     if cfg.sweeps_enabled and throughput.mode in {"cautious", "recovery", "lockdown"}:
         if _should_run_sweep(root, interval_minutes=posture.diagnostics_sweep_interval_minutes):
@@ -191,6 +196,22 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     if cfg.retention_enabled and should_run_retention(root):
         retention_result = run_retention(root, policy=RetentionPolicy.from_env())
         retention_summary = retention_result.to_dict()
+        try:
+            signed = sign_rollups(root, retention_result.rollup_files)
+            signed_rollups_count = len(signed)
+            last_signed_rollup_id = str(signed[-1].rollup_id) if signed else None
+            rollup_sign_status = "ok" if signed else "skipped"
+        except RuntimeError:
+            rollup_sign_status = "failed"
+
+        checkpoint = maybe_sign_catalog_checkpoint(root)
+        catalog_checkpoint_status = "ok" if checkpoint is not None else "disabled"
+
+    if cfg.witness_publish_enabled:
+        rollup_witness_status, rollup_witness_failure = maybe_publish_rollup_witness(root)
+        if rollup_witness_failure:
+            witness_failure = rollup_witness_failure
+            witness_status = str(rollup_witness_status.get("status") or "failed")
 
     rebuild_index(root)
 
@@ -245,6 +266,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "index_path": str(INDEX_PATH),
         "schema_versions_snapshot": dict(sorted(LATEST_VERSIONS.items())),
         "retention": retention_summary,
+        "rollup_sign_status": rollup_sign_status,
+        "signed_rollups_count": signed_rollups_count,
+        "last_signed_rollup_id": last_signed_rollup_id,
+        "catalog_checkpoint_status": catalog_checkpoint_status,
     }
     tick_path = root / "glow/forge/orchestrator/ticks" / f"tick_{_safe_ts(now)}.json"
     tick_path.parent.mkdir(parents=True, exist_ok=True)
@@ -270,6 +295,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "tick_report_path": str(tick_path.relative_to(root)),
         "retention_archived_items": int((retention_summary or {}).get("archived_items", 0)),
         "retention_rollup_files": int(len((retention_summary or {}).get("rollup_files", []))) if isinstance((retention_summary or {}).get("rollup_files"), list) else 0,
+        "rollup_sign_status": rollup_sign_status,
+        "signed_rollups_count": signed_rollups_count,
+        "catalog_checkpoint_status": catalog_checkpoint_status,
     }
     _append_jsonl(root / "pulse/orchestrator_ticks.jsonl", pulse_row)
 

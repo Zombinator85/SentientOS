@@ -13,6 +13,7 @@ from sentientos.receipt_anchors import ANCHORS_DIR
 from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.receipt_chain import latest_receipt
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, latest_version, normalize
+from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
 
 SNAPSHOT_PATH = Path("glow/federation/integrity_snapshot.json")
 PEER_SNAPSHOTS_DIR = Path("glow/federation/peers")
@@ -34,6 +35,8 @@ class IntegritySnapshot:
     last_anchor_payload_sha256: str | None
     anchor_public_key_id: str | None
     anchor_algorithm: str | None
+    latest_rollup_sig_hashes: dict[str, str]
+    latest_catalog_checkpoint_hash: str | None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -50,6 +53,8 @@ class IntegritySnapshot:
             "last_anchor_payload_sha256": self.last_anchor_payload_sha256,
             "anchor_public_key_id": self.anchor_public_key_id,
             "anchor_algorithm": self.anchor_algorithm,
+            "latest_rollup_sig_hashes": dict(sorted(self.latest_rollup_sig_hashes.items())),
+            "latest_catalog_checkpoint_hash": self.latest_catalog_checkpoint_hash,
         }
 
 
@@ -89,6 +94,8 @@ def emit_integrity_snapshot(repo_root: Path, path: Path = SNAPSHOT_PATH) -> Inte
         last_anchor_payload_sha256=_as_str(latest_anchor.get("anchor_payload_sha256")),
         anchor_public_key_id=_as_str(latest_anchor.get("public_key_id")),
         anchor_algorithm=_as_str(latest_anchor.get("algorithm")),
+        latest_rollup_sig_hashes=latest_rollup_signature_hashes(root),
+        latest_catalog_checkpoint_hash=latest_catalog_checkpoint_hash(root),
     )
     target = root / path
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +119,7 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
     doctrine_match = _match_key(local, peer, "doctrine_bundle_sha256")
     receipt_match = _match_key(local, peer, "last_receipt_chain_tip_hash")
     anchor_match = _match_key(local, peer, "last_anchor_tip_hash")
+    rollup_sig_match = _match_key(local, peer, "latest_rollup_sig_hashes")
 
     if not doctrine_match:
         reasons.append("doctrine_bundle_sha_mismatch")
@@ -119,10 +127,12 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
         reasons.append("receipt_tip_mismatch")
     if not anchor_match:
         reasons.append("anchor_tip_mismatch")
+    if not rollup_sig_match:
+        reasons.append("rollup_signature_tip_mismatch")
 
     comparable = any(
         _present(local.get(key)) and _present(peer.get(key))
-        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash")
+        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash", "latest_rollup_sig_hashes")
     )
     if reasons:
         status = "diverged"
@@ -214,8 +224,14 @@ def _git_head_sha(repo_root: Path) -> str | None:
 
 
 def _match_key(local: Mapping[str, object], peer: Mapping[str, object], key: str) -> bool:
-    left = _as_str(local.get(key))
-    right = _as_str(peer.get(key))
+    left_raw = local.get(key)
+    right_raw = peer.get(key)
+    if isinstance(left_raw, dict) and isinstance(right_raw, dict):
+        left = json.dumps(left_raw, sort_keys=True, separators=(",", ":"))
+        right = json.dumps(right_raw, sort_keys=True, separators=(",", ":"))
+    else:
+        left = _as_str(left_raw)
+        right = _as_str(right_raw)
     if not left or not right:
         return True
     return left == right
