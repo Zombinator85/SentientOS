@@ -26,6 +26,7 @@ from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.schema_registry import latest_version, SchemaName
 from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, recent as catalog_recent
 from sentientos.artifact_retention import load_retention_state, redirect_count, rollup_status
+from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -199,6 +200,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     last_orchestrator = {"generated_at": (last_orchestrator_entry.get("ts") if last_orchestrator_entry else None), "status": ((last_orchestrator_entry.get("summary") if isinstance(last_orchestrator_entry.get("summary"), dict) else {}).get("status") if last_orchestrator_entry else None), "tick_report_path": (last_orchestrator_entry.get("path") if last_orchestrator_entry else None)} if last_orchestrator_entry else (orchestrator_rows[-1] if orchestrator_rows else {})
 
     retention_state = load_retention_state(root)
+    rollup_sig_hashes = latest_rollup_signature_hashes(root)
+    latest_catalog_sig_hash = latest_catalog_checkpoint_hash(root)
+    latest_rollup_sig = _latest_rollup_signature(root)
+    latest_catalog_checkpoint = _latest_catalog_checkpoint(root)
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -331,6 +336,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "retention_last_summary": retention_state.get("retention_last_summary") if isinstance(retention_state.get("retention_last_summary"), dict) else {},
         "rollup_status": rollup_status(root),
         "catalog_redirects_count": redirect_count(root),
+        "rollup_signature_status": "ok" if rollup_sig_hashes else ("missing" if rollup_status(root) == "ok" else "unknown"),
+        "last_rollup_signature_id": _optional_str(latest_rollup_sig.get("rollup_id")) if latest_rollup_sig else None,
+        "last_rollup_signature_at": _optional_str(latest_rollup_sig.get("created_at")) if latest_rollup_sig else None,
+        "catalog_checkpoint_status": "ok" if latest_catalog_sig_hash else "disabled",
+        "last_catalog_checkpoint_at": _optional_str(latest_catalog_checkpoint.get("created_at")) if latest_catalog_checkpoint else None,
     }
 
     target = root / INDEX_PATH
@@ -836,3 +846,18 @@ def _rows_last_24h(rows: list[dict[str, object]], *, key: str) -> int:
             count += 1
     return count
 
+
+def _latest_rollup_signature(repo_root: Path) -> dict[str, Any] | None:
+    signatures = sorted((repo_root / "glow/forge/rollups").glob("*/signatures/sig_*.json"), key=lambda item: item.as_posix())
+    if not signatures:
+        return None
+    payload = _load_json(signatures[-1])
+    return payload if isinstance(payload, dict) else None
+
+
+def _latest_catalog_checkpoint(repo_root: Path) -> dict[str, Any] | None:
+    checkpoints = sorted((repo_root / "glow/forge/catalog_checkpoints").glob("checkpoint_*.json"), key=lambda item: item.name)
+    if not checkpoints:
+        return None
+    payload = _load_json(checkpoints[-1])
+    return payload if isinstance(payload, dict) else None
