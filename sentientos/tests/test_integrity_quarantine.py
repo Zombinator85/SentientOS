@@ -9,6 +9,7 @@ from sentientos.forge_merge_train import ForgeMergeTrain, TrainState
 from sentientos.forge_model import ForgeSession
 from sentientos.forge_merge_train import TrainEntry
 from sentientos.forge_index import rebuild_index
+from sentientos.schema_registry import SchemaName, latest_version
 
 
 class _Ops:
@@ -169,7 +170,7 @@ def test_observability_includes_quarantine_fields(tmp_path: Path) -> None:
     (tmp_path / "pulse/integrity_incidents.jsonl").write_text('{"created_at":"2026-01-01T00:00:00Z"}\n', encoding="utf-8")
 
     payload = rebuild_index(tmp_path)
-    assert payload["schema_version"] == 15
+    assert payload["schema_version"] == latest_version(SchemaName.FORGE_INDEX)
     assert payload["quarantine_active"] is True
     assert payload["quarantine_last_incident_id"] == "inc-1"
     assert isinstance(payload["last_incident_summary"], dict)

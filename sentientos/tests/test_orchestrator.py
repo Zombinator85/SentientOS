@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sentientos.integrity_pressure import IntegrityPressureMetrics, IntegrityPressureSnapshot
 from sentientos.orchestrator import OrchestratorConfig, tick
+from sentientos.schema_registry import SchemaName, latest_version
 
 
 def _seed_repo(root: Path) -> None:
@@ -30,7 +31,7 @@ def test_tick_updates_index_fields(tmp_path: Path) -> None:
     tick(tmp_path, config=OrchestratorConfig(True, 300, False, False, False, False))
 
     payload = json.loads((tmp_path / "glow/forge/index.json").read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 16
+    assert payload["schema_version"] == latest_version(SchemaName.FORGE_INDEX)
     assert payload["orchestrator_enabled"] is True
     assert payload["last_orchestrator_tick_status"] in {"ok", "warning", "failed", "unknown"}
     assert isinstance(payload["orchestrator_backlog_summary"], dict)

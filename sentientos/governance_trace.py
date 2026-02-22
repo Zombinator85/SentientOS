@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from sentientos.auto_remediation import maybe_auto_run_pack
 from sentientos.remediation_pack import emit_pack_from_trace
+from sentientos.schema_registry import LATEST_VERSIONS
 
 
 SCHEMA_VERSION = 1
@@ -91,6 +92,7 @@ class GovernanceTraceRecorder:
             "final_reason": final_reason,
             "reason_stack": reason_stack,
             "suggested_actions": list(suggested_actions or []),
+            "schema_versions_snapshot": dict(sorted(LATEST_VERSIONS.items())),
         }
         abs_path.parent.mkdir(parents=True, exist_ok=True)
         abs_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

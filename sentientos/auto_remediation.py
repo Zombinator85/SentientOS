@@ -14,6 +14,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import latest_run_for_pack
+from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
 from scripts import run_remediation_pack
 
 ATTEMPTS_PATH = Path("pulse/auto_remediation_attempts.jsonl")
@@ -90,6 +91,10 @@ def should_auto_run_pack(repo_root: Path, *, operating_mode: str, pack: dict[str
     if pack_id is None or pack_path is None:
         return AutoRemediationDecision(status="failed", reason="pack_missing")
     pack_payload = _load_json(repo_root / pack_path)
+    try:
+        pack_payload, _warnings = normalize(pack_payload, SchemaName.REMEDIATION_PACK)
+    except SchemaCompatibilityError:
+        return AutoRemediationDecision(status="failed", reason="schema_too_old:remediation_pack")
     steps = list(pack_payload.get("steps") or [])
     if not steps:
         return AutoRemediationDecision(status="idle", reason="no_steps")
