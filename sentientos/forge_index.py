@@ -25,6 +25,7 @@ from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.schema_registry import latest_version, SchemaName
 from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, recent as catalog_recent
+from sentientos.artifact_retention import load_retention_state, redirect_count, rollup_status
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -197,6 +198,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     last_orchestrator_entry = catalog_latest(root, "orchestrator_tick")
     last_orchestrator = {"generated_at": (last_orchestrator_entry.get("ts") if last_orchestrator_entry else None), "status": ((last_orchestrator_entry.get("summary") if isinstance(last_orchestrator_entry.get("summary"), dict) else {}).get("status") if last_orchestrator_entry else None), "tick_report_path": (last_orchestrator_entry.get("path") if last_orchestrator_entry else None)} if last_orchestrator_entry else (orchestrator_rows[-1] if orchestrator_rows else {})
 
+    retention_state = load_retention_state(root)
+
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso_now(),
@@ -323,6 +326,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             "remediation_backlog_count": _task_kind_prefix_backlog_count(root, prefix="remediation_pack:"),
         },
         "last_tick_report_path": _optional_str(last_orchestrator.get("tick_report_path")),
+        "retention_enabled": os.getenv("SENTIENTOS_RETENTION_ENABLE", "0") == "1",
+        "last_retention_run_at": _optional_str(retention_state.get("last_retention_run_at")),
+        "retention_last_summary": retention_state.get("retention_last_summary") if isinstance(retention_state.get("retention_last_summary"), dict) else {},
+        "rollup_status": rollup_status(root),
+        "catalog_redirects_count": redirect_count(root),
     }
 
     target = root / INDEX_PATH

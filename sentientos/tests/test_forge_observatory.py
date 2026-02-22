@@ -450,3 +450,37 @@ def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
     assert payload["last_auto_remediation_pack_id"] == "pack_1"
     assert payload["last_auto_remediation_run_id"] == "run_20260101_pack_1"
     assert payload["auto_remediation_attempts_last_24h"] == 1
+
+
+def test_index_includes_retention_observability(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    (tmp_path / "glow/forge/retention").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/ci_baseline.json").write_text("{}\n", encoding="utf-8")
+    (tmp_path / "glow/forge/retention/state.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "last_retention_run_at": "2026-01-01T00:00:00Z",
+                "retention_last_summary": {"rollup_files": 2, "archived_items": 3},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/forge/archive").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/forge/archive/redirects.jsonl").write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00Z", "old_path": "a", "new_path": "b"}) + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pulse/orchestrator_ticks.jsonl").write_text(json.dumps({"generated_at": "2026-01-01T00:00:00Z"}) + "\n", encoding="utf-8")
+
+    monkeypatch.setenv("SENTIENTOS_RETENTION_ENABLE", "1")
+    payload = rebuild_index(tmp_path)
+
+    assert payload["retention_enabled"] is True
+    assert payload["last_retention_run_at"] == "2026-01-01T00:00:00Z"
+    assert payload["retention_last_summary"]["archived_items"] == 3
+    assert payload["catalog_redirects_count"] == 1
+    assert payload["rollup_status"] in {"ok", "missing"}
