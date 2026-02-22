@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 from sentientos.receipt_anchors import ANCHORS_DIR
 from sentientos.receipt_chain import latest_receipt
+from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, latest_version, normalize
 
 SNAPSHOT_PATH = Path("glow/federation/integrity_snapshot.json")
 PEER_SNAPSHOTS_DIR = Path("glow/federation/peers")
@@ -74,7 +75,7 @@ def emit_integrity_snapshot(repo_root: Path, path: Path = SNAPSHOT_PATH) -> Inte
     local_receipt = latest_receipt(root) or {}
     latest_anchor = _latest_anchor_record(root)
     snapshot = IntegritySnapshot(
-        schema_version=1,
+        schema_version=latest_version(SchemaName.INTEGRITY_SNAPSHOT),
         created_at=_iso_now(),
         node_id=_node_id(root),
         repo_head_sha=_git_head_sha(root),
@@ -137,6 +138,10 @@ def evaluate_peer_integrity(repo_root: Path) -> dict[str, object]:
     for path in sorted(peers_dir.glob("*/integrity_snapshot.json"), key=lambda item: item.as_posix()):
         peer_payload = _read_json(path)
         if not peer_payload:
+            continue
+        try:
+            peer_payload, _warnings = normalize(peer_payload, SchemaName.INTEGRITY_SNAPSHOT)
+        except SchemaCompatibilityError:
             continue
         comparison = compare_integrity_snapshots(local, peer_payload)
         summaries.append(
@@ -213,7 +218,13 @@ def _read_json(path: Path) -> dict[str, Any]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    return payload if isinstance(payload, dict) else {}
+    if not isinstance(payload, dict):
+        return {}
+    try:
+        normalized, _warnings = normalize(payload, SchemaName.INTEGRITY_SNAPSHOT)
+    except SchemaCompatibilityError:
+        return payload
+    return normalized
 
 
 def _as_str(value: object) -> str | None:

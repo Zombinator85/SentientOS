@@ -10,6 +10,7 @@ from sentientos import forge
 from sentientos.event_stream import FORGE_EVENTS_PATH, record_forge_event
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_status import compute_status
+from sentientos.schema_registry import SchemaName, latest_version
 
 
 def _write_jsonl(path: Path, rows: list[str]) -> None:
@@ -353,7 +354,7 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 16
+    assert payload["schema_version"] == latest_version(SchemaName.FORGE_INDEX)
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
 

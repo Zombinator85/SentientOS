@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.recovery_allowlist import is_allowlisted
+from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
 from sentientos.recovery_tasks import append_task_record, list_tasks
 
 SCHEMA_VERSION = 1
@@ -321,6 +322,10 @@ def latest_run_for_pack(repo_root: Path, *, pack_id: str) -> dict[str, object] |
         return None
     payload = _load_json(candidates[-1])
     if not payload:
+        return None
+    try:
+        payload, _warnings = normalize(payload, SchemaName.REMEDIATION_RUN)
+    except SchemaCompatibilityError:
         return None
     payload["report_path"] = str(candidates[-1].relative_to(repo_root.resolve()))
     return payload

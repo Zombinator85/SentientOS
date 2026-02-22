@@ -24,6 +24,7 @@ from sentientos.recovery_tasks import backlog_count
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
+from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
 
 
 @dataclass(frozen=True)
@@ -207,7 +208,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     linked_pack = trace_response.get("remediation_pack") if isinstance(trace_response.get("remediation_pack"), dict) else None
 
     report = {
-        "schema_version": 1,
+        "schema_version": latest_version(SchemaName.ORCHESTRATOR_TICK),
         "generated_at": now,
         "status": status,
         "orchestrator_enabled": cfg.enabled,
@@ -233,6 +234,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         },
         "orchestrator_backlog_summary": backlog,
         "index_path": str(INDEX_PATH),
+        "schema_versions_snapshot": dict(sorted(LATEST_VERSIONS.items())),
     }
     tick_path = root / "glow/forge/orchestrator/ticks" / f"tick_{_safe_ts(now)}.json"
     tick_path.parent.mkdir(parents=True, exist_ok=True)
@@ -327,7 +329,7 @@ def _write_orchestrator_index_overlay(
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
-    payload["schema_version"] = 16
+    payload["schema_version"] = latest_version(SchemaName.FORGE_INDEX)
     payload["orchestrator_enabled"] = orchestrator_enabled
     payload["last_orchestrator_tick_at"] = generated_at
     payload["last_orchestrator_tick_status"] = status

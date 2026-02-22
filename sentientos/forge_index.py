@@ -23,8 +23,9 @@ from sentientos.receipt_chain import latest_receipt, verify_receipt_chain
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
+from sentientos.schema_registry import latest_version, SchemaName
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
 QUEUE_PATH = Path("pulse/forge_queue.jsonl")
 RECEIPTS_PATH = Path("pulse/forge_receipts.jsonl")
