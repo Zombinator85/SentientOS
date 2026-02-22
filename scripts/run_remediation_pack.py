@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from scripts.run_recovery_task import _run_allowed
+from sentientos.artifact_catalog import append_catalog_entry
 
 
 def _iso_now() -> str:
@@ -54,6 +55,17 @@ def execute_pack_file(pack_path: Path, *, root: Path) -> dict[str, object]:
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     report["report_path"] = str(report_path.relative_to(root))
+    append_catalog_entry(
+        root,
+        kind="remediation_run",
+        artifact_id=run_id,
+        relative_path=report["report_path"],
+        schema_name="remediation_run",
+        schema_version=1,
+        links={"run_id": run_id, "pack_id": pack_id, "incident_id": payload.get("incident_id")},
+        summary={"status": report["status"]},
+        ts=str(report.get("generated_at") or _iso_now()),
+    )
     return report
 
 

@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from sentientos.auto_remediation import maybe_auto_run_pack
 from sentientos.remediation_pack import emit_pack_from_trace
+from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.schema_registry import LATEST_VERSIONS
 
 
@@ -109,6 +110,20 @@ class GovernanceTraceRecorder:
         }
         with pulse_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(line, sort_keys=True) + "\n")
+        append_catalog_entry(
+            self.repo_root,
+            kind="trace",
+            artifact_id=trace_id,
+            relative_path=str(rel_path),
+            schema_name="governance_trace",
+            schema_version=SCHEMA_VERSION,
+            links={
+                "trace_id": trace_id,
+                "incident_id": _optional_str(self.quarantine_state_summary.get("last_incident_id")),
+            },
+            summary={"final_decision": final_decision, "final_reason": final_reason},
+            ts=self.created_at,
+        )
         remediation = emit_pack_from_trace(self.repo_root, trace_payload=payload, trace_path=str(rel_path))
         auto_remediation: dict[str, object] | None = None
         if remediation is not None:

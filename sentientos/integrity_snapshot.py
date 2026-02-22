@@ -10,6 +10,7 @@ import subprocess
 from typing import Any, Mapping
 
 from sentientos.receipt_anchors import ANCHORS_DIR
+from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.receipt_chain import latest_receipt
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, latest_version, normalize
 
@@ -92,6 +93,17 @@ def emit_integrity_snapshot(repo_root: Path, path: Path = SNAPSHOT_PATH) -> Inte
     target = root / path
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(snapshot.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    append_catalog_entry(
+        root,
+        kind="federation_snapshot",
+        artifact_id=snapshot.node_id,
+        relative_path=str(target.relative_to(root)),
+        schema_name="integrity_snapshot",
+        schema_version=snapshot.schema_version,
+        links={"peer_id": snapshot.node_id, "head_sha": snapshot.repo_head_sha, "anchor_id": snapshot.last_anchor_id},
+        summary={"status": "emitted"},
+        ts=snapshot.created_at,
+    )
     return snapshot
 
 

@@ -8,6 +8,8 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from sentientos.artifact_catalog import append_catalog_entry
+
 INCIDENTS_DIR = Path("glow/forge/incidents")
 INCIDENTS_FEED_PATH = Path("pulse/integrity_incidents.jsonl")
 
@@ -89,6 +91,22 @@ def write_incident(repo_root: Path, incident: Incident, *, quarantine_activated:
     incident_path.parent.mkdir(parents=True, exist_ok=True)
     incident_path.write_text(json.dumps(incident.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
     append_incident_feed(root, incident, incident_path, quarantine_activated=quarantine_activated)
+    append_catalog_entry(
+        root,
+        kind="incident",
+        artifact_id=incident.incident_id,
+        relative_path=str(incident_path.relative_to(root)),
+        schema_name="incident",
+        schema_version=incident.schema_version,
+        links={
+            "incident_id": incident.incident_id,
+            "trace_id": incident.governance_trace_id,
+            "pack_id": incident.remediation_pack_id,
+            "quarantine_activated": quarantine_activated,
+        },
+        summary={"severity": incident.severity, "enforcement_mode": incident.enforcement_mode},
+        ts=incident.created_at,
+    )
     return incident_path
 
 

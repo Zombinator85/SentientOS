@@ -7,6 +7,8 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from sentientos.artifact_catalog import append_catalog_entry
+
 STATUS_PATH = Path("glow/federation/anchor_witness_status.json")
 
 
@@ -128,6 +130,18 @@ def _write_status(repo_root: Path, status: dict[str, object]) -> None:
     target = repo_root / STATUS_PATH
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(status, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    ts = _as_str(status.get("last_witness_published_at")) or _iso_now()
+    append_catalog_entry(
+        repo_root,
+        kind="witness_publish",
+        artifact_id=_as_str(status.get("last_witness_anchor_id")) or f"witness:{ts}",
+        relative_path=str(STATUS_PATH),
+        schema_name="witness_publish",
+        schema_version=1,
+        links={"anchor_id": status.get("last_witness_anchor_id")},
+        summary={"witness_status": status.get("witness_status"), "witness_failure": status.get("witness_failure")},
+        ts=ts,
+    )
 
 
 def _read_json(path: Path) -> dict[str, Any]:

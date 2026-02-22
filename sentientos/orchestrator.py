@@ -20,6 +20,7 @@ from sentientos.integrity_snapshot import PEER_SNAPSHOTS_DIR, SNAPSHOT_PATH, emi
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
+from sentientos.artifact_catalog import append_catalog_entry, latest
 from sentientos.recovery_tasks import backlog_count
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
@@ -239,6 +240,17 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     tick_path = root / "glow/forge/orchestrator/ticks" / f"tick_{_safe_ts(now)}.json"
     tick_path.parent.mkdir(parents=True, exist_ok=True)
     tick_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    append_catalog_entry(
+        root,
+        kind="orchestrator_tick",
+        artifact_id=now,
+        relative_path=str(tick_path.relative_to(root)),
+        schema_name="orchestrator_tick",
+        schema_version=latest_version(SchemaName.ORCHESTRATOR_TICK),
+        links={"trace_id": trace_id, "pack_id": _optional_str((linked_pack or {}).get("pack_id") if isinstance(linked_pack, dict) else None)},
+        summary={"status": status, "operating_mode": throughput.mode},
+        ts=now,
+    )
 
     pulse_row = {
         "generated_at": now,
@@ -272,6 +284,11 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
 
 
 def _latest_eligible_pack(repo_root: Path) -> dict[str, object] | None:
+    entry = latest(repo_root, "remediation_pack")
+    if entry is not None:
+        summary = entry.get("summary") if isinstance(entry.get("summary"), dict) else {}
+        if str(summary.get("status") or "") in {"proposed", "queued"}:
+            return {"pack_id": entry.get("id"), "pack_path": entry.get("path"), "incident_id": (entry.get("links") if isinstance(entry.get("links"), dict) else {}).get("incident_id"), "status": summary.get("status")}
     rows = _read_jsonl(repo_root / PACKS_PULSE_PATH)
     for row in reversed(rows):
         if str(row.get("status", "")) in {"proposed", "queued"}:
@@ -315,6 +332,17 @@ def _run_integrity_sweep(*, root: Path, pressure_level: int, mode: str) -> dict[
     sweep_path.parent.mkdir(parents=True, exist_ok=True)
     sweep_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     _append_jsonl(root / "pulse/sweeps.jsonl", {"generated_at": generated_at, "mode": mode, "summary": payload["summary"], "path": str(sweep_path.relative_to(root))})
+    append_catalog_entry(
+        root,
+        kind="sweep",
+        artifact_id=generated_at,
+        relative_path=str(sweep_path.relative_to(root)),
+        schema_name="sweep",
+        schema_version=1,
+        links={},
+        summary={"passed": passed, "failed": failed},
+        ts=generated_at,
+    )
     return {"artifact_path": str(sweep_path.relative_to(root)), "summary": payload["summary"]}
 
 
