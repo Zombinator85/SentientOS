@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 
+from sentientos.artifact_catalog import append_catalog_entry
+
 REPORTS_DIR = Path("glow/forge/audit_reports")
 SCHEMA_VERSION = 1
 
@@ -181,6 +183,17 @@ def write_audit_chain_report(repo_root: Path, result: AuditChainVerification) ->
     report_dir.mkdir(parents=True, exist_ok=True)
     report_path = report_dir / f"audit_chain_report_{_report_tag()}.json"
     report_path.write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    append_catalog_entry(
+        repo_root,
+        kind="audit_report",
+        artifact_id=f"audit:{result.created_at}",
+        relative_path=str(report_path.relative_to(repo_root)),
+        schema_name="audit_chain_report",
+        schema_version=SCHEMA_VERSION,
+        links={},
+        summary={"status": result.status, "break_count": result.break_count},
+        ts=result.created_at,
+    )
     return report_path
 
 

@@ -13,6 +13,7 @@ import tempfile
 from typing import Protocol
 
 from sentientos.anchor_witness import maybe_publish_anchor_witness
+from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.receipt_chain import RECEIPTS_DIR, RECEIPTS_INDEX_PATH, verify_receipt_chain
 
 ANCHORS_DIR = RECEIPTS_DIR / "anchors"
@@ -216,6 +217,17 @@ def create_anchor(repo_root: Path) -> Anchor:
             "public_key_id": anchor.public_key_id,
             "algorithm": anchor.algorithm,
         },
+    )
+    append_catalog_entry(
+        repo_root,
+        kind="anchor",
+        artifact_id=anchor.anchor_id,
+        relative_path=str(path.relative_to(repo_root)),
+        schema_name="anchor",
+        schema_version=anchor.schema_version,
+        links={"anchor_id": anchor.anchor_id, "receipt_hash": anchor.receipt_chain_tip_hash},
+        summary={"status": "created"},
+        ts=anchor.created_at,
     )
     return anchor
 

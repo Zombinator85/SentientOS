@@ -24,6 +24,7 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.schema_registry import latest_version, SchemaName
+from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, recent as catalog_recent
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -129,7 +130,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     if not progress_contract:
         progress_contract = emit_forge_progress_contract(root).to_dict()
     governance_rows, _governance_corrupt = _read_jsonl(root / "pulse/governance_traces.jsonl")
-    last_trace = governance_rows[-1] if governance_rows else {}
+    last_trace_entry = catalog_latest(root, "trace")
+    last_trace = {"trace_id": (last_trace_entry.get("id") if last_trace_entry else None), "trace_path": (last_trace_entry.get("path") if last_trace_entry else None), "final_decision": ((last_trace_entry.get("summary") if isinstance(last_trace_entry.get("summary"), dict) else {}).get("final_decision") if last_trace_entry else None), "final_reason": ((last_trace_entry.get("summary") if isinstance(last_trace_entry.get("summary"), dict) else {}).get("final_reason") if last_trace_entry else None)} if last_trace_entry else (governance_rows[-1] if governance_rows else {})
     remediation_rows, _remediation_corrupt = _read_jsonl(root / "pulse/remediation_packs.jsonl")
     auto_attempt_rows, _auto_attempt_corrupt = _read_jsonl(root / "pulse/auto_remediation_attempts.jsonl")
     last_auto_attempt = auto_attempt_rows[-1] if auto_attempt_rows else {}
@@ -145,10 +147,15 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             auto_status = "failed"
         if latest_at is not None and datetime.now(timezone.utc) - latest_at < timedelta(minutes=cooldown_minutes):
             auto_status = "cooldown" if auto_status not in {"succeeded", "failed"} else auto_status
-    last_remediation = remediation_rows[-1] if remediation_rows else {}
+    last_remediation_entry = catalog_latest(root, "remediation_pack")
+    last_remediation = {"pack_id": (last_remediation_entry.get("id") if last_remediation_entry else None), "status": ((last_remediation_entry.get("summary") if isinstance(last_remediation_entry.get("summary"), dict) else {}).get("status") if last_remediation_entry else None), "governance_trace_id": ((last_remediation_entry.get("links") if isinstance(last_remediation_entry.get("links"), dict) else {}).get("trace_id") if last_remediation_entry else None)} if last_remediation_entry else (remediation_rows[-1] if remediation_rows else {})
     remediation_runs = sorted((root / "glow/forge/remediation/runs").glob("run_*.json"), key=lambda item: item.name)
+    last_run_entry = catalog_latest(root, "remediation_run")
     last_remediation_run_summary = None
-    if remediation_runs:
+    if last_run_entry is not None:
+        run_summary = {"pack_id": ((last_run_entry.get("links") if isinstance(last_run_entry.get("links"), dict) else {}).get("pack_id")), "status": ((last_run_entry.get("summary") if isinstance(last_run_entry.get("summary"), dict) else {}).get("status")), "generated_at": last_run_entry.get("ts")}
+        last_remediation_run_summary = json.dumps(run_summary, sort_keys=True)[:240]
+    elif remediation_runs:
         run_payload = _load_json(remediation_runs[-1])
         run_summary = {
             "pack_id": run_payload.get("pack_id"),
@@ -159,13 +166,25 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
 
     quarantine_requires_remediation = os.getenv("SENTIENTOS_QUARANTINE_REQUIRE_REMEDIATION", "0") == "1"
     quarantine_incident_id = quarantine.last_incident_id
-    related_pack = _latest_pack_for_incident_or_trace(
-        remediation_rows,
-        incident_id=quarantine_incident_id,
-        governance_trace_id=_optional_str(last_trace.get("trace_id")),
-    )
-    related_pack_id = _optional_str(related_pack.get("pack_id")) if related_pack else None
-    related_run = _latest_run_for_pack(remediation_runs, pack_id=related_pack_id) if related_pack_id else None
+    related_pack = None
+    if quarantine_incident_id:
+        related_pack = catalog_latest_for_incident(root, quarantine_incident_id, kind="remediation_pack")
+    if related_pack is None and _optional_str(last_trace.get("trace_id")):
+        related_pack = catalog_latest_for_trace(root, _optional_str(last_trace.get("trace_id")) or "", kind="remediation_pack")
+    if related_pack is None:
+        related_pack = _latest_pack_for_incident_or_trace(
+            remediation_rows,
+            incident_id=quarantine_incident_id,
+            governance_trace_id=_optional_str(last_trace.get("trace_id")),
+        )
+    related_pack_id = _optional_str((related_pack.get("id") if "id" in related_pack else related_pack.get("pack_id"))) if related_pack else None
+    related_run = None
+    if related_pack_id:
+        run_entry = catalog_latest(root, "remediation_run")
+        if run_entry is not None and str((run_entry.get("links") if isinstance(run_entry.get("links"), dict) else {}).get("pack_id") or "") == related_pack_id:
+            related_run = {"run_id": run_entry.get("id"), "status": ((run_entry.get("summary") if isinstance(run_entry.get("summary"), dict) else {}).get("status"))}
+        if related_run is None:
+            related_run = _latest_run_for_pack(remediation_runs, pack_id=related_pack_id)
     related_status = "missing"
     related_run_id: str | None = None
     if related_run is not None:
@@ -175,7 +194,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
 
     orchestrator_rows, _orchestrator_corrupt = _read_jsonl(root / "pulse/orchestrator_ticks.jsonl")
     _ = _orchestrator_corrupt
-    last_orchestrator = orchestrator_rows[-1] if orchestrator_rows else {}
+    last_orchestrator_entry = catalog_latest(root, "orchestrator_tick")
+    last_orchestrator = {"generated_at": (last_orchestrator_entry.get("ts") if last_orchestrator_entry else None), "status": ((last_orchestrator_entry.get("summary") if isinstance(last_orchestrator_entry.get("summary"), dict) else {}).get("status") if last_orchestrator_entry else None), "tick_report_path": (last_orchestrator_entry.get("path") if last_orchestrator_entry else None)} if last_orchestrator_entry else (orchestrator_rows[-1] if orchestrator_rows else {})
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -223,6 +243,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_witness_anchor_id": witness_status.get("last_witness_anchor_id"),
         "witness_status": witness_status.get("witness_status", "disabled"),
         "witness_failure": _truncate_text(witness_status.get("witness_failure"), 240),
+        "artifact_catalog_status": _artifact_catalog_status(root),
+        "artifact_catalog_last_entry_at": _artifact_catalog_last_entry_at(root),
+        "artifact_catalog_size_estimate": _artifact_catalog_size_estimate(root),
         "quarantine_active": quarantine.active,
         "quarantine_activated_at": quarantine.activated_at,
         "quarantine_last_incident_id": quarantine.last_incident_id,
@@ -717,6 +740,40 @@ def _latest_run_for_pack(runs: Sequence[Path], *, pack_id: str) -> dict[str, obj
         return payload
     return None
 
+
+
+def _artifact_catalog_status(root: Path) -> str:
+    rows = catalog_recent(root, "incident", limit=1)
+    if (root / "pulse/artifact_catalog.jsonl").exists():
+        return "ok" if rows or (root / "pulse/artifact_catalog.jsonl").stat().st_size >= 0 else "stale"
+    return "missing"
+
+
+def _artifact_catalog_last_entry_at(root: Path) -> str | None:
+    path = root / "pulse/artifact_catalog.jsonl"
+    if not path.exists():
+        return None
+    try:
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    except OSError:
+        return None
+    if not lines:
+        return None
+    try:
+        payload = json.loads(lines[-1])
+    except json.JSONDecodeError:
+        return None
+    return _optional_str(payload.get("ts"))
+
+
+def _artifact_catalog_size_estimate(root: Path) -> int:
+    path = root / "pulse/artifact_catalog.jsonl"
+    if not path.exists():
+        return 0
+    try:
+        return sum(1 for _ in path.open("r", encoding="utf-8"))
+    except OSError:
+        return 0
 
 def _optional_str(value: object) -> str | None:
     if isinstance(value, str) and value:

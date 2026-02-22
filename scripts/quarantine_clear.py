@@ -14,6 +14,7 @@ from sentientos.integrity_quarantine import clear, load_state
 from sentientos.receipt_anchors import verify_receipt_anchors
 from sentientos.receipt_chain import verify_receipt_chain
 from sentientos.remediation_pack import find_pack_for_incident_or_trace, remediation_status_for_pack
+from sentientos.artifact_catalog import latest_for_incident, latest_for_trace
 
 
 def _latest_quarantine_trace_id(repo_root: Path) -> str | None:
@@ -83,6 +84,14 @@ def main(argv: list[str] | None = None) -> int:
         incident_id=quarantine.last_incident_id,
         governance_trace_id=quarantine_trace_id,
     )
+    if linked_pack is None and quarantine.last_incident_id:
+        entry = latest_for_incident(root, quarantine.last_incident_id, kind="remediation_pack")
+        if entry is not None:
+            linked_pack = {"pack_id": entry.get("id"), "pack_path": entry.get("path")}
+    if linked_pack is None and quarantine_trace_id:
+        entry = latest_for_trace(root, quarantine_trace_id, kind="remediation_pack")
+        if entry is not None:
+            linked_pack = {"pack_id": entry.get("id"), "pack_path": entry.get("path")}
     remediation_status = "missing"
     remediation_run: dict[str, object] | None = None
     if linked_pack is not None:

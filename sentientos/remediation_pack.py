@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.recovery_allowlist import is_allowlisted
+from sentientos.artifact_catalog import append_catalog_entry, latest_for_incident, latest_for_trace, latest_successful_remediation_run, load_catalog_artifact
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, normalize
 from sentientos.recovery_tasks import append_task_record, list_tasks
 
@@ -231,6 +232,17 @@ def emit_pack_from_trace(repo_root: Path, *, trace_payload: dict[str, object], t
     pack_path.parent.mkdir(parents=True, exist_ok=True)
     pack_path.write_text(json.dumps(pack, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     _append_pack_pulse(root, pack, pack_path)
+    append_catalog_entry(
+        root,
+        kind="remediation_pack",
+        artifact_id=pack_id,
+        relative_path=str(pack_path.relative_to(root)),
+        schema_name="remediation_pack",
+        schema_version=SCHEMA_VERSION,
+        links={"pack_id": pack_id, "trace_id": trace_id, "incident_id": incident_id},
+        summary={"status": str(pack.get("status") or "proposed"), "primary_reason": primary_reason},
+        ts=created_at,
+    )
 
     should_auto_queue = str(trace_payload.get("operating_mode") or "") in {"recovery", "lockdown"}
     quarantine_summary = trace_payload.get("quarantine_state_summary")
@@ -305,7 +317,25 @@ def find_pack_for_incident_or_trace(
     incident_id: str | None,
     governance_trace_id: str | None,
 ) -> dict[str, object] | None:
-    rows = _read_jsonl(repo_root.resolve() / PACKS_PULSE_PATH)
+    root = repo_root.resolve()
+    entry: dict[str, object] | None = None
+    if incident_id:
+        entry = latest_for_incident(root, incident_id, kind="remediation_pack")
+    if entry is None and governance_trace_id:
+        entry = latest_for_trace(root, governance_trace_id, kind="remediation_pack")
+    if entry is not None:
+        payload = load_catalog_artifact(root, entry) or {}
+        return {
+            "pack_id": payload.get("pack_id") or entry.get("id"),
+            "created_at": payload.get("created_at") or entry.get("ts"),
+            "governance_trace_id": payload.get("governance_trace_id") or (entry.get("links") if isinstance(entry.get("links"), dict) else {}).get("trace_id"),
+            "primary_reason": payload.get("primary_reason"),
+            "incident_id": payload.get("incident_id") or (entry.get("links") if isinstance(entry.get("links"), dict) else {}).get("incident_id"),
+            "status": payload.get("status") or (entry.get("summary") if isinstance(entry.get("summary"), dict) else {}).get("status"),
+            "steps_count": len(list(payload.get("steps") or [])) if isinstance(payload, dict) else None,
+            "pack_path": entry.get("path"),
+        }
+    rows = _read_jsonl(root / PACKS_PULSE_PATH)
     for row in reversed(rows):
         row_incident = _optional_str(row.get("incident_id"))
         row_trace = _optional_str(row.get("governance_trace_id"))
@@ -317,7 +347,13 @@ def find_pack_for_incident_or_trace(
 
 
 def latest_run_for_pack(repo_root: Path, *, pack_id: str) -> dict[str, object] | None:
-    candidates = sorted((repo_root.resolve() / RUNS_DIR).glob(f"run_*_{pack_id}.json"), key=lambda item: item.name)
+    root = repo_root.resolve()
+    entry = latest_successful_remediation_run(root, pack_id)
+    if entry is not None:
+        payload = load_catalog_artifact(root, entry)
+        if payload is not None:
+            return payload
+    candidates = sorted((root / RUNS_DIR).glob(f"run_*_{pack_id}.json"), key=lambda item: item.name)
     if not candidates:
         return None
     payload = _load_json(candidates[-1])

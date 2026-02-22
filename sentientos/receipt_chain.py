@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 
+from sentientos.artifact_catalog import append_catalog_entry
+
 RECEIPTS_DIR = Path("glow/forge/receipts")
 RECEIPTS_INDEX_PATH = RECEIPTS_DIR / "receipts_index.jsonl"
 
@@ -134,6 +136,17 @@ def append_receipt(repo_root: Path, payload: dict[str, object]) -> dict[str, obj
         "bundle_sha256": _extract_bundle_sha(payload_with_prev),
     }
     _append_jsonl_atomic(repo_root / RECEIPTS_INDEX_PATH, index_row)
+    append_catalog_entry(
+        repo_root,
+        kind="receipt",
+        artifact_id=_as_str(payload_with_prev.get("receipt_id")) or safe_id,
+        relative_path=str(receipt_path.relative_to(repo_root)),
+        schema_name="receipt",
+        schema_version=int(payload_with_prev.get("schema_version") or 1),
+        links={"pr_number": payload_with_prev.get("pr_number"), "head_sha": payload_with_prev.get("head_sha"), "receipt_hash": payload_with_prev.get("receipt_hash")},
+        summary={"status": "recorded"},
+        ts=_as_str(payload_with_prev.get("created_at")) or _iso_now(),
+    )
     return payload_with_prev
 
 
