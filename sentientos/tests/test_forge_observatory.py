@@ -353,7 +353,7 @@ def test_index_includes_audit_chain_summary_fields(tmp_path: Path) -> None:
 
     payload = rebuild_index(tmp_path)
 
-    assert payload["schema_version"] == 14
+    assert payload["schema_version"] == 15
     assert payload["audit_chain_status"] == "broken"
     assert payload["last_audit_chain_report_path"] == "glow/forge/audit_reports/audit_chain_report_20260101T000000Z.json"
 
@@ -429,6 +429,10 @@ def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
         json.dumps({"pack_id": "pack_1", "status": "completed", "generated_at": "2026-01-01T00:00:00Z"}, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    (tmp_path / "pulse/auto_remediation_attempts.jsonl").write_text(
+        json.dumps({"attempted_at": "2099-01-01T00:00:00Z", "pack_id": "pack_1", "run_id": "run_20260101_pack_1", "status": "completed"}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
     payload = rebuild_index(tmp_path)
 
@@ -440,3 +444,8 @@ def test_index_includes_remediation_pack_fields(tmp_path: Path) -> None:
     assert payload["last_quarantine_remediation_status"] == "completed"
     assert payload.get("last_quarantine_remediation_run_id") in {None, "run_20260101_pack_1"}
     assert isinstance(payload.get("last_remediation_run_summary"), str)
+
+    assert payload["auto_remediation_status"] == "succeeded"
+    assert payload["last_auto_remediation_pack_id"] == "pack_1"
+    assert payload["last_auto_remediation_run_id"] == "run_20260101_pack_1"
+    assert payload["auto_remediation_attempts_last_24h"] == 1
