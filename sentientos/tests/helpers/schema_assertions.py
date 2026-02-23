@@ -22,3 +22,7 @@ def forge_index_v15_fixture() -> dict[str, Any]:
 
 def forge_index_v16_fixture() -> dict[str, Any]:
     return {"schema_version": 16, "generated_at": "2026-01-01T00:00:00Z"}
+
+
+def forge_index_v23_fixture() -> dict[str, Any]:
+    return {"schema_version": 23, "generated_at": "2026-01-01T00:00:00Z"}

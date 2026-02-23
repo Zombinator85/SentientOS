@@ -4,6 +4,7 @@ from sentientos.schema_registry import SchemaName, normalize
 from sentientos.tests.helpers.schema_assertions import (
     assert_normalizes,
     forge_index_v14_fixture,
+    forge_index_v23_fixture,
 )
 
 
@@ -29,3 +30,9 @@ def test_normalize_governance_trace_from_latest() -> None:
     payload = {"schema_version": 1, "trace_id": "trace_1", "created_at": "2026-01-01T00:00:00Z", "final_decision": "hold", "foo": "bar"}
     normalized, _warnings = normalize(payload, SchemaName.GOVERNANCE_TRACE)
     assert normalized["foo"] == "bar"
+
+
+def test_normalize_forge_index_from_v23() -> None:
+    normalized = assert_normalizes(SchemaName.FORGE_INDEX, forge_index_v23_fixture())
+    assert "strategic_last_proposal_added_goals" in normalized
+    assert "strategic_last_proposal_budget_delta" in normalized
