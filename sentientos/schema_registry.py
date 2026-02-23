@@ -23,7 +23,7 @@ class SchemaName:
 AdapterFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 LATEST_VERSIONS: dict[str, int] = {
-    SchemaName.FORGE_INDEX: 19,
+    SchemaName.FORGE_INDEX: 20,
     SchemaName.FORGE_REPORT: 1,
     SchemaName.GOVERNANCE_TRACE: 1,
     SchemaName.INCIDENT: 1,
@@ -108,6 +108,18 @@ def _forge_index_v18_to_v19(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded.setdefault("last_catalog_checkpoint_at", None)
     return upgraded
 
+
+def _forge_index_v19_to_v20(payload: dict[str, Any]) -> dict[str, Any]:
+    upgraded = deepcopy(payload)
+    upgraded["schema_version"] = 20
+    upgraded.setdefault("goal_allocation_status", "unknown")
+    upgraded.setdefault("last_goal_allocation_id", None)
+    upgraded.setdefault("last_selected_goals", [])
+    upgraded.setdefault("last_deferred_goal_count", 0)
+    upgraded.setdefault("goal_graph_hash", None)
+    return upgraded
+
+
 def _receipt_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded = deepcopy(payload)
     upgraded["schema_version"] = 2
@@ -121,6 +133,7 @@ ADAPTERS: dict[tuple[str, int], AdapterFn] = {
     (SchemaName.FORGE_INDEX, 16): _forge_index_v16_to_v17,
     (SchemaName.FORGE_INDEX, 17): _forge_index_v17_to_v18,
     (SchemaName.FORGE_INDEX, 18): _forge_index_v18_to_v19,
+    (SchemaName.FORGE_INDEX, 19): _forge_index_v19_to_v20,
     (SchemaName.RECEIPT, 1): _receipt_v1_to_v2,
 }
 
