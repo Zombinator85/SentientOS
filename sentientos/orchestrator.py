@@ -33,6 +33,15 @@ from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
 from sentientos.work_allocator import AllocationDecision, allocate_goals
 from sentientos.work_plan import persist_work_plan, persist_work_run
+from sentientos.strategic_adaptation import (
+    apply_requires_stable,
+    auto_propose_enabled,
+    can_auto_apply,
+    approve_proposal,
+    create_adjustment_proposal,
+    should_generate_proposal,
+    strategic_apply_preconditions,
+)
 
 
 @dataclass(frozen=True)
@@ -132,6 +141,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     work_run_id: str | None = None
     work_run_status: str | None = None
     goal_state_summary: dict[str, int] | None = None
+    strategic_last_proposal_id: str | None = None
+    strategic_last_proposal_status: str | None = None
+    strategic_last_applied_change_id: str | None = None
+    strategic_cooldown: str | None = None
 
     goal_graph = load_goal_graph(root)
     goal_graph_digest = goal_graph_hash(goal_graph)
@@ -350,6 +363,30 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             witness_failure = rollup_witness_failure
             witness_status = str(rollup_witness_status.get("status") or "failed")
 
+    if auto_propose_enabled() and should_generate_proposal(root):
+        proposal, proposal_path = create_adjustment_proposal(root, window_name="last_24h")
+        strategic_last_proposal_id = proposal.proposal_id
+        strategic_last_proposal_status = proposal.approval.status
+        strategic_cooldown = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        trace.record_clamp(
+            name="strategic_adaptation_proposal",
+            before={"goal_graph_hash": goal_graph_digest or ""},
+            after={"proposal_id": proposal.proposal_id, "status": proposal.approval.status},
+            notes="deterministic_strategic_proposal",
+        )
+        if can_auto_apply() and (not apply_requires_stable() or strategic_apply_preconditions(root)):
+            approved, change_id = approve_proposal(
+                root,
+                proposal_path=root / proposal_path,
+                approve=True,
+                approved_by="policy",
+                decision_notes="auto_apply_policy_gate_passed",
+                apply=True,
+                enforce_stable=apply_requires_stable(),
+            )
+            strategic_last_proposal_status = approved.approval.status
+            strategic_last_applied_change_id = change_id
+
     rebuild_index(root)
 
     backlog = {
@@ -484,6 +521,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         work_run_id=work_run_id,
         work_run_status=work_run_status,
         goal_state_summary=goal_state_summary or {"active": 0, "blocked": 0, "completed": 0},
+        strategic_last_proposal_id=strategic_last_proposal_id,
+        strategic_last_proposal_status=strategic_last_proposal_status,
+        strategic_last_applied_change_id=strategic_last_applied_change_id,
+        strategic_cooldown_until=strategic_cooldown,
     )
 
     return TickResult(
@@ -602,6 +643,10 @@ def _write_orchestrator_index_overlay(
     work_run_id: str | None,
     work_run_status: str | None,
     goal_state_summary: dict[str, int],
+    strategic_last_proposal_id: str | None,
+    strategic_last_proposal_status: str | None,
+    strategic_last_applied_change_id: str | None,
+    strategic_cooldown_until: str | None,
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
@@ -621,6 +666,10 @@ def _write_orchestrator_index_overlay(
     payload["last_work_run_status"] = work_run_status or "skipped"
     payload["last_executed_goal_ids"] = list((allocation.selected if allocation is not None else ())[:10])
     payload["goal_state_summary"] = goal_state_summary
+    payload["strategic_last_proposal_id"] = strategic_last_proposal_id
+    payload["strategic_last_proposal_status"] = strategic_last_proposal_status or "none"
+    payload["strategic_last_applied_change_id"] = strategic_last_applied_change_id
+    payload["strategic_cooldown_until"] = strategic_cooldown_until
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

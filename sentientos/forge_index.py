@@ -28,6 +28,7 @@ from sentientos.artifact_catalog import latest as catalog_latest, latest_for_inc
 from sentientos.artifact_retention import load_retention_state, redirect_count, rollup_status
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
 from sentientos.goal_graph import load_goal_state
+from sentientos.strategic_adaptation import strategic_cooldown_until
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -362,6 +363,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_completion_check_status": _optional_str(last_completion_summary.get("status")) if isinstance(last_completion_summary, dict) else "unknown",
         "goal_completion_summary": goal_state_summary,
         "last_completed_goal_ids": completed_goal_ids[:10],
+        "strategic_last_proposal_id": _strategic_last_proposal_id(root),
+        "strategic_last_proposal_status": _strategic_last_proposal_status(root),
+        "strategic_last_applied_change_id": _strategic_last_applied_change_id(root),
+        "strategic_cooldown_until": strategic_cooldown_until(root),
     }
 
     target = root / INDEX_PATH
@@ -914,3 +919,27 @@ def _latest_executed_goal_ids(repo_root: Path) -> list[str]:
     if not isinstance(goals, list):
         return []
     return [str(item) for item in goals[:10] if isinstance(item, str)]
+
+
+def _strategic_last_proposal_id(repo_root: Path) -> str | None:
+    rows, _ = _read_jsonl(repo_root / "pulse/strategic_proposals.jsonl")
+    if not rows:
+        return None
+    value = rows[-1].get("proposal_id")
+    return value if isinstance(value, str) and value else None
+
+
+def _strategic_last_proposal_status(repo_root: Path) -> str:
+    rows, _ = _read_jsonl(repo_root / "pulse/strategic_proposals.jsonl")
+    if not rows:
+        return "none"
+    value = rows[-1].get("status")
+    return value if isinstance(value, str) and value else "none"
+
+
+def _strategic_last_applied_change_id(repo_root: Path) -> str | None:
+    rows, _ = _read_jsonl(repo_root / "pulse/strategic_changes.jsonl")
+    if not rows:
+        return None
+    value = rows[-1].get("change_id")
+    return value if isinstance(value, str) and value else None
