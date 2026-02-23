@@ -62,6 +62,7 @@ def test_integrity_snapshot_deterministic_fields(tmp_path: Path, monkeypatch) ->
     assert payload["node_id"] == "node-a"
     assert payload["doctrine_bundle_sha256"] == "bundle-1"
     assert snap.last_receipt_chain_tip_hash is None
+    assert "latest_strategic_sig_hash" in payload
 
 
 def test_peer_divergence_detection() -> None:

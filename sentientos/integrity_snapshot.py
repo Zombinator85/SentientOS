@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from datetime import datetime, timezone
 import json
 import os
@@ -14,6 +15,7 @@ from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.receipt_chain import latest_receipt
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, latest_version, normalize
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
+from sentientos.signed_strategic import latest_sig_hash_short
 
 SNAPSHOT_PATH = Path("glow/federation/integrity_snapshot.json")
 PEER_SNAPSHOTS_DIR = Path("glow/federation/peers")
@@ -37,6 +39,8 @@ class IntegritySnapshot:
     anchor_algorithm: str | None
     latest_rollup_sig_hashes: dict[str, str]
     latest_catalog_checkpoint_hash: str | None
+    latest_strategic_sig_hash: str | None
+    latest_goal_graph_hash: str | None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -55,6 +59,8 @@ class IntegritySnapshot:
             "anchor_algorithm": self.anchor_algorithm,
             "latest_rollup_sig_hashes": dict(sorted(self.latest_rollup_sig_hashes.items())),
             "latest_catalog_checkpoint_hash": self.latest_catalog_checkpoint_hash,
+            "latest_strategic_sig_hash": self.latest_strategic_sig_hash,
+            "latest_goal_graph_hash": self.latest_goal_graph_hash,
         }
 
 
@@ -96,6 +102,8 @@ def emit_integrity_snapshot(repo_root: Path, path: Path = SNAPSHOT_PATH) -> Inte
         anchor_algorithm=_as_str(latest_anchor.get("algorithm")),
         latest_rollup_sig_hashes=latest_rollup_signature_hashes(root),
         latest_catalog_checkpoint_hash=latest_catalog_checkpoint_hash(root),
+        latest_strategic_sig_hash=latest_sig_hash_short(root),
+        latest_goal_graph_hash=_latest_goal_graph_hash(root),
     )
     target = root / path
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -120,6 +128,7 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
     receipt_match = _match_key(local, peer, "last_receipt_chain_tip_hash")
     anchor_match = _match_key(local, peer, "last_anchor_tip_hash")
     rollup_sig_match = _match_key(local, peer, "latest_rollup_sig_hashes")
+    strategic_sig_match = _match_key(local, peer, "latest_strategic_sig_hash")
 
     if not doctrine_match:
         reasons.append("doctrine_bundle_sha_mismatch")
@@ -129,10 +138,12 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
         reasons.append("anchor_tip_mismatch")
     if not rollup_sig_match:
         reasons.append("rollup_signature_tip_mismatch")
+    if not strategic_sig_match:
+        reasons.append("strategic_signature_tip_mismatch")
 
     comparable = any(
         _present(local.get(key)) and _present(peer.get(key))
-        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash", "latest_rollup_sig_hashes")
+        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash", "latest_rollup_sig_hashes", "latest_strategic_sig_hash")
     )
     if reasons:
         status = "diverged"
@@ -261,3 +272,11 @@ def _as_str(value: object) -> str | None:
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _latest_goal_graph_hash(repo_root: Path) -> str | None:
+    payload = _read_json(repo_root / "glow/forge/goals/goal_graph.json")
+    if not payload:
+        return None
+    encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:16]

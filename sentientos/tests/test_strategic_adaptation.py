@@ -135,3 +135,29 @@ def test_auto_apply_prevented_when_unstable(tmp_path: Path) -> None:
 
     assert approved.approval.status == "approved"
     assert change_id is None
+
+
+def test_apply_change_records_signature_when_enabled(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_STRATEGIC_SIGNING", "hmac-test")
+    monkeypatch.setenv("SENTIENTOS_STRATEGIC_HMAC_SECRET", "test-secret")
+    _seed_goal_graph(tmp_path)
+    _seed_pulse(tmp_path)
+
+    proposal, rel = create_adjustment_proposal(tmp_path)
+    _approved, change_id = approve_proposal(
+        tmp_path,
+        proposal_path=tmp_path / rel,
+        approve=True,
+        approved_by="manual",
+        decision_notes="ok",
+        apply=True,
+        enforce_stable=False,
+    )
+
+    assert change_id is not None
+    sig_index = tmp_path / "glow/forge/strategic/signatures/signatures_index.jsonl"
+    assert sig_index.exists()
+    rows = sig_index.read_text(encoding="utf-8").splitlines()
+    assert len(rows) >= 2
+    change_payload = json.loads((tmp_path / "glow/forge/strategic/changes" / f"{change_id}.json").read_text(encoding="utf-8"))
+    assert "goal_graph_checkpoint_sha256" in change_payload
