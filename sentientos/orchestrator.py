@@ -18,6 +18,8 @@ from sentientos.integrity_pressure import compute_integrity_pressure, update_pre
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_snapshot import PEER_SNAPSHOTS_DIR, SNAPSHOT_PATH, emit_integrity_snapshot
 from sentientos.goal_graph import GOAL_GRAPH_PATH, goal_graph_hash, load_goal_graph
+from sentientos.goal_graph import load_goal_state, persist_goal_state
+from sentientos.goal_executor import ExecutorState, GoalExecutor, update_goal_state_from_run
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
@@ -30,6 +32,7 @@ from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
 from sentientos.work_allocator import AllocationDecision, allocate_goals
+from sentientos.work_plan import persist_work_plan, persist_work_run
 
 
 @dataclass(frozen=True)
@@ -125,6 +128,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     allocation: AllocationDecision | None = None
     allocation_artifact_path: str | None = None
     goal_graph_digest: str | None = None
+    work_plan_id: str | None = None
+    work_run_id: str | None = None
+    work_run_status: str | None = None
+    goal_state_summary: dict[str, int] | None = None
 
     goal_graph = load_goal_graph(root)
     goal_graph_digest = goal_graph_hash(goal_graph)
@@ -155,6 +162,49 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         },
         notes="deterministic_goal_allocation",
     )
+
+    if allocation is not None and allocation.selected:
+        executor_state = ExecutorState(
+            repo_root=root,
+            created_at=now,
+            context="orchestrator_tick",
+            operating_mode=throughput.mode,
+            quarantine_active=quarantine.active,
+            allow_mutation=mutation_allowed,
+            goal_graph_hash=goal_graph_digest or "",
+            allocation_id=allocation_artifact_path or "allocation_missing",
+            risk_budget=budget,
+        )
+        executor = GoalExecutor(repo_root=root)
+        plan = executor.build_plan(allocation=allocation, state=executor_state, graph=goal_graph)
+        work_plan_id = plan.plan_id
+        plan_path = persist_work_plan(root, plan)
+        run = executor.execute_plan(plan, executor_state)
+        work_run_id = run.run_id
+        work_run_status = run.status
+        run_path = persist_work_run(root, run)
+        goal_state = load_goal_state(root)
+        updated_state = update_goal_state_from_run(goal_graph, goal_state, run)
+        persist_goal_state(root, updated_state)
+        goal_state_summary = _goal_state_summary(updated_state)
+        trace.record_clamp(
+            name="goal_execution",
+            before={"allocation_id": allocation_artifact_path or "", "selected_goals": list(allocation.selected)},
+            after={
+                "plan_id": work_plan_id,
+                "plan_path": plan_path,
+                "run_id": work_run_id,
+                "run_path": run_path,
+                "run_status": work_run_status,
+                "task_outcomes": [
+                    {"task_id": item.task_id, "status": item.status, "reason": item.reason}
+                    for item in run.task_runs
+                ],
+            },
+            notes="deterministic_goal_execution",
+        )
+        if run.status in {"failed", "partial"}:
+            reason_stack.append("goal_execution_incomplete")
 
     if cfg.sweeps_enabled and throughput.mode in {"cautious", "recovery", "lockdown"}:
         if _should_run_sweep(root, interval_minutes=posture.diagnostics_sweep_interval_minutes):
@@ -312,6 +362,12 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             "budget_summary": allocation.budget_summary if allocation is not None else {},
             "goal_graph_hash": goal_graph_digest,
         },
+        "goal_execution": {
+            "work_plan_id": work_plan_id,
+            "work_run_id": work_run_id,
+            "work_run_status": work_run_status,
+            "goal_state_summary": goal_state_summary or {"active": 0, "blocked": 0, "completed": 0},
+        },
     }
     tick_path = root / "glow/forge/orchestrator/ticks" / f"tick_{_safe_ts(now)}.json"
     tick_path.parent.mkdir(parents=True, exist_ok=True)
@@ -343,6 +399,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "goal_allocation_id": allocation_artifact_path,
         "selected_goals": list(allocation.selected) if allocation is not None else [],
         "deferred_goal_count": len(allocation.deferred) if allocation is not None else 0,
+        "last_work_plan_id": work_plan_id,
+        "last_work_run_id": work_run_id,
+        "last_work_run_status": work_run_status,
     }
     _append_jsonl(
         root / "pulse/goal_allocations.jsonl",
@@ -369,6 +428,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         allocation=allocation,
         allocation_artifact_path=allocation_artifact_path,
         goal_graph_hash_value=goal_graph_digest,
+        work_plan_id=work_plan_id,
+        work_run_id=work_run_id,
+        work_run_status=work_run_status,
+        goal_state_summary=goal_state_summary or {"active": 0, "blocked": 0, "completed": 0},
     )
 
     return TickResult(
@@ -457,6 +520,10 @@ def _write_orchestrator_index_overlay(
     allocation: AllocationDecision | None,
     allocation_artifact_path: str | None,
     goal_graph_hash_value: str | None,
+    work_plan_id: str | None,
+    work_run_id: str | None,
+    work_run_status: str | None,
+    goal_state_summary: dict[str, int],
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
@@ -471,8 +538,22 @@ def _write_orchestrator_index_overlay(
     payload["last_selected_goals"] = list((allocation.selected if allocation is not None else ())[:10])
     payload["last_deferred_goal_count"] = len(allocation.deferred) if allocation is not None else 0
     payload["goal_graph_hash"] = goal_graph_hash_value
+    payload["last_work_plan_id"] = work_plan_id
+    payload["last_work_run_id"] = work_run_id
+    payload["last_work_run_status"] = work_run_status or "skipped"
+    payload["last_executed_goal_ids"] = list((allocation.selected if allocation is not None else ())[:10])
+    payload["goal_state_summary"] = goal_state_summary
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _goal_state_summary(state: dict[str, object]) -> dict[str, int]:
+    counts = {"active": 0, "blocked": 0, "completed": 0}
+    for item in state.values():
+        status = getattr(item, "status", "active")
+        if status in counts:
+            counts[status] += 1
+    return counts
 
 
 def _emit_goal_allocation_artifact(
