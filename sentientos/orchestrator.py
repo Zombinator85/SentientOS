@@ -17,6 +17,7 @@ from sentientos.governance_trace import start_governance_trace
 from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_snapshot import PEER_SNAPSHOTS_DIR, SNAPSHOT_PATH, emit_integrity_snapshot
+from sentientos.goal_graph import GOAL_GRAPH_PATH, goal_graph_hash, load_goal_graph
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.remediation_pack import PACKS_PULSE_PATH
@@ -28,6 +29,7 @@ from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.schema_registry import LATEST_VERSIONS, latest_version, SchemaName
+from sentientos.work_allocator import AllocationDecision, allocate_goals
 
 
 @dataclass(frozen=True)
@@ -120,6 +122,39 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     signed_rollups_count = 0
     last_signed_rollup_id: str | None = None
     catalog_checkpoint_status = "disabled"
+    allocation: AllocationDecision | None = None
+    allocation_artifact_path: str | None = None
+    goal_graph_digest: str | None = None
+
+    goal_graph = load_goal_graph(root)
+    goal_graph_digest = goal_graph_hash(goal_graph)
+    allocation = allocate_goals(
+        graph=goal_graph,
+        budget=budget,
+        operating_mode=throughput.mode,
+        integrity_pressure_level=pressure.level,
+        quarantine_active=quarantine.active,
+        posture=posture.posture,
+    )
+    allocation_artifact_path = _emit_goal_allocation_artifact(
+        root=root,
+        generated_at=now,
+        operating_mode=throughput.mode,
+        pressure_level=pressure.level,
+        posture=posture.posture,
+        goal_graph_hash_value=goal_graph_digest,
+        allocation=allocation,
+    )
+    trace.record_clamp(
+        name="goal_allocation",
+        before={"goal_graph_path": str(GOAL_GRAPH_PATH), "goal_graph_hash": goal_graph_digest},
+        after={
+            "selected_goals": list(allocation.selected),
+            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
+            "budget_summary": allocation.budget_summary,
+        },
+        notes="deterministic_goal_allocation",
+    )
 
     if cfg.sweeps_enabled and throughput.mode in {"cautious", "recovery", "lockdown"}:
         if _should_run_sweep(root, interval_minutes=posture.diagnostics_sweep_interval_minutes):
@@ -270,6 +305,13 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "signed_rollups_count": signed_rollups_count,
         "last_signed_rollup_id": last_signed_rollup_id,
         "catalog_checkpoint_status": catalog_checkpoint_status,
+        "goal_allocation": {
+            "artifact_path": allocation_artifact_path,
+            "selected_goals": list(allocation.selected) if allocation is not None else [],
+            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred] if allocation is not None else [],
+            "budget_summary": allocation.budget_summary if allocation is not None else {},
+            "goal_graph_hash": goal_graph_digest,
+        },
     }
     tick_path = root / "glow/forge/orchestrator/ticks" / f"tick_{_safe_ts(now)}.json"
     tick_path.parent.mkdir(parents=True, exist_ok=True)
@@ -298,7 +340,23 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "rollup_sign_status": rollup_sign_status,
         "signed_rollups_count": signed_rollups_count,
         "catalog_checkpoint_status": catalog_checkpoint_status,
+        "goal_allocation_id": allocation_artifact_path,
+        "selected_goals": list(allocation.selected) if allocation is not None else [],
+        "deferred_goal_count": len(allocation.deferred) if allocation is not None else 0,
     }
+    _append_jsonl(
+        root / "pulse/goal_allocations.jsonl",
+        {
+            "generated_at": now,
+            "operating_mode": throughput.mode,
+            "integrity_pressure_level": pressure.level,
+            "goal_graph_hash": goal_graph_digest,
+            "allocation_path": allocation_artifact_path,
+            "selected_goals": list(allocation.selected) if allocation is not None else [],
+            "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred] if allocation is not None else [],
+            "budget_summary": allocation.budget_summary if allocation is not None else {},
+        },
+    )
     _append_jsonl(root / "pulse/orchestrator_ticks.jsonl", pulse_row)
 
     _write_orchestrator_index_overlay(
@@ -308,6 +366,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         status=status,
         backlog=backlog,
         tick_report_path=str(tick_path.relative_to(root)),
+        allocation=allocation,
+        allocation_artifact_path=allocation_artifact_path,
+        goal_graph_hash_value=goal_graph_digest,
     )
 
     return TickResult(
@@ -393,6 +454,9 @@ def _write_orchestrator_index_overlay(
     status: str,
     backlog: dict[str, int],
     tick_report_path: str,
+    allocation: AllocationDecision | None,
+    allocation_artifact_path: str | None,
+    goal_graph_hash_value: str | None,
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
@@ -402,8 +466,41 @@ def _write_orchestrator_index_overlay(
     payload["last_orchestrator_tick_status"] = status
     payload["orchestrator_backlog_summary"] = backlog
     payload["last_tick_report_path"] = tick_report_path
+    payload["goal_allocation_status"] = "ok" if allocation is not None else "missing"
+    payload["last_goal_allocation_id"] = allocation_artifact_path
+    payload["last_selected_goals"] = list((allocation.selected if allocation is not None else ())[:10])
+    payload["last_deferred_goal_count"] = len(allocation.deferred) if allocation is not None else 0
+    payload["goal_graph_hash"] = goal_graph_hash_value
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _emit_goal_allocation_artifact(
+    *,
+    root: Path,
+    generated_at: str,
+    operating_mode: str,
+    pressure_level: int,
+    posture: str,
+    goal_graph_hash_value: str,
+    allocation: AllocationDecision,
+) -> str:
+    path = root / "glow/forge/goal_allocations" / f"allocation_{_safe_ts(generated_at)}.json"
+    payload = {
+        "schema_version": 1,
+        "generated_at": generated_at,
+        "operating_mode": operating_mode,
+        "integrity_pressure_level": pressure_level,
+        "strategic_posture": posture,
+        "goal_graph_hash": goal_graph_hash_value,
+        "selected_goals": list(allocation.selected),
+        "deferred_goals": [{"goal_id": item.goal_id, "reason": item.reason} for item in allocation.deferred],
+        "selection_reasons": list(allocation.selected_reasons),
+        "budget_summary": allocation.budget_summary,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return str(path.relative_to(root))
 
 
 def _peer_snapshot_count(repo_root: Path) -> int:
