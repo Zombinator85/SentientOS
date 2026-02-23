@@ -27,6 +27,7 @@ from sentientos.schema_registry import latest_version, SchemaName
 from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, recent as catalog_recent
 from sentientos.artifact_retention import load_retention_state, redirect_count, rollup_status
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
+from sentientos.goal_graph import load_goal_state
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -204,6 +205,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     latest_catalog_sig_hash = latest_catalog_checkpoint_hash(root)
     latest_rollup_sig = _latest_rollup_signature(root)
     latest_catalog_checkpoint = _latest_catalog_checkpoint(root)
+    goal_state = load_goal_state(root)
+    goal_state_summary = {"active": 0, "blocked": 0, "completed": 0}
+    for row in goal_state.values():
+        if row.status in goal_state_summary:
+            goal_state_summary[row.status] += 1
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -341,6 +347,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_rollup_signature_at": _optional_str(latest_rollup_sig.get("created_at")) if latest_rollup_sig else None,
         "catalog_checkpoint_status": "ok" if latest_catalog_sig_hash else "disabled",
         "last_catalog_checkpoint_at": _optional_str(latest_catalog_checkpoint.get("created_at")) if latest_catalog_checkpoint else None,
+        "last_work_plan_id": _latest_work_plan_id(root),
+        "last_work_run_id": _latest_work_run_id(root),
+        "last_work_run_status": _latest_work_run_status(root),
+        "last_executed_goal_ids": _latest_executed_goal_ids(root),
+        "goal_state_summary": goal_state_summary,
     }
 
     target = root / INDEX_PATH
@@ -861,3 +872,35 @@ def _latest_catalog_checkpoint(repo_root: Path) -> dict[str, Any] | None:
         return None
     payload = _load_json(checkpoints[-1])
     return payload if isinstance(payload, dict) else None
+
+
+def _latest_work_plan_id(repo_root: Path) -> str | None:
+    rows, _ = _read_jsonl(repo_root / "pulse/work_plans.jsonl")
+    if not rows:
+        return None
+    return _optional_str(rows[-1].get("plan_id"))
+
+
+def _latest_work_run_id(repo_root: Path) -> str | None:
+    rows, _ = _read_jsonl(repo_root / "pulse/work_runs.jsonl")
+    if not rows:
+        return None
+    return _optional_str(rows[-1].get("run_id"))
+
+
+def _latest_work_run_status(repo_root: Path) -> str:
+    rows, _ = _read_jsonl(repo_root / "pulse/work_runs.jsonl")
+    if not rows:
+        return "unknown"
+    status = _optional_str(rows[-1].get("status"))
+    return status or "unknown"
+
+
+def _latest_executed_goal_ids(repo_root: Path) -> list[str]:
+    rows, _ = _read_jsonl(repo_root / "pulse/work_plans.jsonl")
+    if not rows:
+        return []
+    goals = rows[-1].get("selected_goals")
+    if not isinstance(goals, list):
+        return []
+    return [str(item) for item in goals[:10] if isinstance(item, str)]
