@@ -23,11 +23,21 @@ class Goal:
     throughput_cost_estimate: int
     tags: tuple[str, ...]
     enabled: bool = True
+    milestone_checks: tuple[str, ...] = ()
+
+    @property
+    def completion_check_name(self) -> str:
+        return self.completion_check
+
+
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
         payload["dependencies"] = list(self.dependencies)
         payload["tags"] = list(self.tags)
+        payload["completion_check"] = self.completion_check
+        payload["completion_check_name"] = self.completion_check
+        payload["milestone_checks"] = list(self.milestone_checks)
         return payload
 
 
@@ -53,6 +63,7 @@ class GoalStateRecord:
     last_evidence_paths: tuple[str, ...]
     blocked_reason: str | None
     failure_count: int
+
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -104,6 +115,12 @@ def load_goal_graph(repo_root: Path) -> GoalGraph:
             continue
         dependencies = tuple(str(item) for item in row.get("dependencies", []) if isinstance(item, str) and item)
         tags = tuple(sorted({str(item).strip().lower() for item in row.get("tags", []) if isinstance(item, str) and item.strip()}))
+        completion_check_name = str(row.get("completion_check_name", row.get("completion_check", ""))).strip()
+        if not completion_check_name:
+            completion_check_name = default_completion_check_for_tags(tags)
+        milestone_checks = tuple(
+            sorted({str(item).strip() for item in row.get("milestone_checks", []) if isinstance(item, str) and item.strip()})
+        )
         goals.append(
             Goal(
                 goal_id=goal_id,
@@ -111,11 +128,12 @@ def load_goal_graph(repo_root: Path) -> GoalGraph:
                 weight=float(row.get("weight", 0.0)),
                 priority=int(row.get("priority", 0)),
                 dependencies=dependencies,
-                completion_check=str(row.get("completion_check", "")),
+                completion_check=completion_check_name,
                 risk_cost_estimate=max(0, int(row.get("risk_cost_estimate", 0))),
                 throughput_cost_estimate=max(0, int(row.get("throughput_cost_estimate", 0))),
                 tags=tags,
                 enabled=bool(row.get("enabled", True)),
+                milestone_checks=milestone_checks,
             )
         )
     graph = GoalGraph(schema_version=int(payload.get("schema_version", 1)), goals=tuple(goals))
@@ -235,6 +253,19 @@ def completion_registry_default() -> dict[str, Callable[[Goal], bool]]:
     return {}
 
 
+def default_completion_check_for_tags(tags: tuple[str, ...]) -> str:
+    lowered = {item.strip().lower() for item in tags}
+    if lowered & {"integrity", "stability"}:
+        return "check_integrity_baseline_ok"
+    if lowered & {"federation", "peer"}:
+        return "check_federation_ok"
+    if lowered & {"witness", "anchors"}:
+        return "check_witnesses_ok"
+    if lowered & {"tooling", "mypy", "typecheck"}:
+        return "check_mypy_forge_ok"
+    return "check_forge_last_run_ok"
+
+
 __all__ = [
     "GOAL_GRAPH_PATH",
     "GOAL_STATE_PATH",
@@ -242,6 +273,7 @@ __all__ = [
     "GoalGraph",
     "GoalStateRecord",
     "completion_registry_default",
+    "default_completion_check_for_tags",
     "default_goal_state_record",
     "dependency_unmet",
     "detect_dependency_cycles",

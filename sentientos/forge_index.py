@@ -207,9 +207,14 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     latest_catalog_checkpoint = _latest_catalog_checkpoint(root)
     goal_state = load_goal_state(root)
     goal_state_summary = {"active": 0, "blocked": 0, "completed": 0}
-    for row in goal_state.values():
+    completed_goal_ids: list[str] = []
+    for goal_id, row in sorted(goal_state.items(), key=lambda item: item[0]):
         if row.status in goal_state_summary:
             goal_state_summary[row.status] += 1
+        if row.status == "completed":
+            completed_goal_ids.append(goal_id)
+    last_completion_entry = catalog_latest(root, "completion_check")
+    last_completion_summary = last_completion_entry.get("summary") if isinstance((last_completion_entry or {}).get("summary"), dict) else {}
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -352,6 +357,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_work_run_status": _latest_work_run_status(root),
         "last_executed_goal_ids": _latest_executed_goal_ids(root),
         "goal_state_summary": goal_state_summary,
+        "last_completion_check_at": _optional_str((last_completion_entry or {}).get("ts")) if last_completion_entry else None,
+        "last_completion_check_goal_id": _optional_str((last_completion_entry.get("links") if isinstance(last_completion_entry.get("links"), dict) else {}).get("goal_id")) if last_completion_entry else None,
+        "last_completion_check_status": _optional_str(last_completion_summary.get("status")) if isinstance(last_completion_summary, dict) else "unknown",
+        "goal_completion_summary": goal_state_summary,
+        "last_completed_goal_ids": completed_goal_ids[:10],
     }
 
     target = root / INDEX_PATH
