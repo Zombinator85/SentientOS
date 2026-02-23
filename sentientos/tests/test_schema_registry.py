@@ -36,3 +36,5 @@ def test_normalize_forge_index_from_v23() -> None:
     normalized = assert_normalizes(SchemaName.FORGE_INDEX, forge_index_v23_fixture())
     assert "strategic_last_proposal_added_goals" in normalized
     assert "strategic_last_proposal_budget_delta" in normalized
+    assert "strategic_signature_status" in normalized
+    assert "strategic_witness_status" in normalized

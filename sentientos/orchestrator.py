@@ -27,6 +27,7 @@ from sentientos.artifact_catalog import append_catalog_entry, latest
 from sentientos.artifact_retention import RetentionPolicy, run_retention, should_run_retention
 from sentientos.recovery_tasks import backlog_count
 from sentientos.signed_rollups import maybe_publish_rollup_witness, maybe_sign_catalog_checkpoint, sign_rollups
+from sentientos.signed_strategic import latest_sig_hash_short, maybe_publish_strategic_witness, strategic_signing_enabled
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
@@ -148,6 +149,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     strategic_last_proposal_added_goals: list[str] = []
     strategic_last_proposal_removed_goals: list[str] = []
     strategic_last_proposal_budget_delta: dict[str, object] = {}
+    strategic_sign_status = "skipped"
+    last_strategic_sig_hash: str | None = latest_sig_hash_short(root)
+    strategic_witness_status = "disabled"
+    strategic_witness_published_at: str | None = None
 
     goal_graph = load_goal_graph(root)
     goal_graph_digest = goal_graph_hash(goal_graph)
@@ -374,6 +379,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         strategic_last_proposal_removed_goals = [str(item) for item in list(proposal.allocation_diff.get("removed_selected") or [])[:6] if isinstance(item, str)]
         strategic_last_proposal_budget_delta = proposal.allocation_diff.get("budget_delta") if isinstance(proposal.allocation_diff.get("budget_delta"), dict) else {}
         strategic_cooldown = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        if strategic_signing_enabled():
+            last_strategic_sig_hash = latest_sig_hash_short(root)
+            strategic_sign_status = "ok" if last_strategic_sig_hash else "failed"
         trace.record_clamp(
             name="strategic_adaptation_proposal",
             before={"goal_graph_hash": goal_graph_digest or ""},
@@ -401,6 +409,13 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             strategic_last_proposal_status = approved.approval.status
             strategic_last_applied_change_id = change_id
 
+    if strategic_signing_enabled() and strategic_sign_status == "skipped":
+        strategic_sign_status = "ok" if latest_sig_hash_short(root) else "failed"
+    witness_payload, witness_failure2 = maybe_publish_strategic_witness(root)
+    strategic_witness_status = str(witness_payload.get("status") or "unknown")
+    strategic_witness_published_at = _optional_str(witness_payload.get("published_at"))
+    if witness_failure2 and witness_failure is None:
+        witness_failure = witness_failure2
     rebuild_index(root)
 
     backlog = {
@@ -465,6 +480,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
             "budget_summary": allocation.budget_summary if allocation is not None else {},
             "goal_graph_hash": goal_graph_digest,
         },
+        "strategic_sign_status": strategic_sign_status,
+        "last_strategic_sig_hash": last_strategic_sig_hash,
+        "strategic_witness": {"status": strategic_witness_status, "published_at": strategic_witness_published_at},
         "goal_execution": {
             "work_plan_id": work_plan_id,
             "work_run_id": work_run_id,
@@ -505,6 +523,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "last_work_plan_id": work_plan_id,
         "last_work_run_id": work_run_id,
         "last_work_run_status": work_run_status,
+        "strategic_sign_status": strategic_sign_status,
+        "last_strategic_sig_hash": last_strategic_sig_hash,
     }
     _append_jsonl(
         root / "pulse/goal_allocations.jsonl",
@@ -542,6 +562,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         strategic_last_proposal_added_goals=strategic_last_proposal_added_goals,
         strategic_last_proposal_removed_goals=strategic_last_proposal_removed_goals,
         strategic_last_proposal_budget_delta=strategic_last_proposal_budget_delta,
+        strategic_signature_status=strategic_sign_status if strategic_sign_status in {"ok", "failed"} else "unknown",
+        last_strategic_sig_hash=last_strategic_sig_hash,
+        strategic_witness_status=strategic_witness_status,
+        last_strategic_witness_at=strategic_witness_published_at,
     )
 
     return TickResult(
@@ -667,6 +691,10 @@ def _write_orchestrator_index_overlay(
     strategic_last_proposal_added_goals: list[str],
     strategic_last_proposal_removed_goals: list[str],
     strategic_last_proposal_budget_delta: dict[str, object],
+    strategic_signature_status: str,
+    last_strategic_sig_hash: str | None,
+    strategic_witness_status: str,
+    last_strategic_witness_at: str | None,
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
@@ -693,6 +721,11 @@ def _write_orchestrator_index_overlay(
     payload["strategic_last_proposal_added_goals"] = list(strategic_last_proposal_added_goals[:6])
     payload["strategic_last_proposal_removed_goals"] = list(strategic_last_proposal_removed_goals[:6])
     payload["strategic_last_proposal_budget_delta"] = {str(k): v for k, v in list(strategic_last_proposal_budget_delta.items())[:6]}
+    payload["strategic_signature_status"] = strategic_signature_status
+    payload["last_strategic_sig_hash"] = last_strategic_sig_hash
+    payload["last_strategic_sig_at"] = generated_at if last_strategic_sig_hash else payload.get("last_strategic_sig_at")
+    payload["strategic_witness_status"] = strategic_witness_status
+    payload["last_strategic_witness_at"] = last_strategic_witness_at
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

@@ -27,6 +27,7 @@ from sentientos.schema_registry import latest_version, SchemaName
 from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, recent as catalog_recent
 from sentientos.artifact_retention import load_retention_state, redirect_count, rollup_status
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
+from sentientos.signed_strategic import latest_signature, latest_sig_hash_short
 from sentientos.goal_graph import load_goal_state
 from sentientos.strategic_adaptation import strategic_cooldown_until
 
@@ -77,6 +78,7 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     anchor_summary = latest_anchor_summary(root) or {}
     federation_integrity = federation_integrity_gate(root, context="forge_index")
     witness_status = _load_json(root / "glow/federation/anchor_witness_status.json")
+    strategic_witness_status = _load_json(root / "glow/federation/strategic_witness_status.json")
     quarantine = load_quarantine_state(root)
     pressure_snapshot = compute_integrity_pressure(root)
     pressure_state = load_pressure_state(root)
@@ -206,6 +208,8 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
     latest_catalog_sig_hash = latest_catalog_checkpoint_hash(root)
     latest_rollup_sig = _latest_rollup_signature(root)
     latest_catalog_checkpoint = _latest_catalog_checkpoint(root)
+    latest_strategic_sig = latest_signature(root)
+    latest_strategic_sig_short = latest_sig_hash_short(root)
     goal_state = load_goal_state(root)
     goal_state_summary = {"active": 0, "blocked": 0, "completed": 0}
     completed_goal_ids: list[str] = []
@@ -370,6 +374,11 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "strategic_last_proposal_added_goals": _strategic_last_proposal_added_goals(root),
         "strategic_last_proposal_removed_goals": _strategic_last_proposal_removed_goals(root),
         "strategic_last_proposal_budget_delta": _strategic_last_proposal_budget_delta(root),
+        "strategic_signature_status": "ok" if latest_strategic_sig_short else "missing",
+        "last_strategic_sig_hash": latest_strategic_sig_short,
+        "last_strategic_sig_at": _optional_str(latest_strategic_sig.created_at) if latest_strategic_sig is not None else None,
+        "strategic_witness_status": _optional_str(strategic_witness_status.get("status")) or "disabled",
+        "last_strategic_witness_at": _optional_str(strategic_witness_status.get("published_at")),
     }
 
     target = root / INDEX_PATH

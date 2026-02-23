@@ -17,6 +17,7 @@ from sentientos.risk_budget import derive_risk_budget, risk_budget_summary
 from sentientos.receipt_anchors import maybe_verify_receipt_anchors
 from sentientos.receipt_chain import maybe_verify_receipt_chain
 from sentientos.strategic_posture import resolve_posture
+from sentientos.signed_strategic import sign_object, strategic_signing_enabled
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.work_allocator import AllocationDecision, allocate_goals
 
@@ -158,6 +159,7 @@ def create_adjustment_proposal(
         approval=Approval(status="proposed", approved_by=None, decision_notes=""),
     )
     proposal_path = _persist_proposal(root, proposal)
+    _maybe_sign_proposal(root, proposal, proposal_path)
     return proposal, proposal_path
 
 
@@ -217,9 +219,12 @@ def apply_approved_proposal(repo_root: Path, proposal: GoalGraphAdjustmentPropos
         "approved_by": approved_by,
         "old_goal_graph_hash": old_hash,
         "new_goal_graph_hash": new_hash,
+        "goal_graph_checkpoint_sha256": _goal_graph_file_sha256(root),
         "diff_summary": [adj.to_dict() for adj in proposal.adjustments],
     }
     _write_json(root / rel_path, payload)
+    _attach_signature_hint(root, rel_path, kind="change", object_id=change_id)
+    _maybe_sign_change(root, payload, rel_path)
     _append_jsonl(
         root / CHANGES_PULSE_PATH,
         {
@@ -244,6 +249,111 @@ def apply_approved_proposal(repo_root: Path, proposal: GoalGraphAdjustmentPropos
         ts=payload["applied_at"],
     )
     return change_id
+
+
+def _maybe_sign_proposal(root: Path, proposal: GoalGraphAdjustmentProposal, proposal_path: str) -> None:
+    if not strategic_signing_enabled():
+        return
+    _attach_signature_hint(root, Path(proposal_path), kind="proposal", object_id=proposal.proposal_id)
+    payload = _load_json(root / proposal_path)
+    _sign_or_warn(
+        root,
+        kind="proposal",
+        object_id=proposal.proposal_id,
+        created_at=proposal.created_at,
+        path=proposal_path,
+        payload=payload,
+        goal_graph_hash=proposal.base_goal_graph_hash,
+    )
+
+
+def _maybe_sign_change(root: Path, payload: dict[str, object], rel_path: Path) -> None:
+    if not strategic_signing_enabled():
+        return
+    _sign_or_warn(
+        root,
+        kind="change",
+        object_id=str(payload.get("change_id") or "change"),
+        created_at=str(payload.get("applied_at") or _iso_now()),
+        path=str(rel_path),
+        payload=payload,
+        goal_graph_hash=_as_str(payload.get("new_goal_graph_hash")),
+    )
+
+
+def _sign_or_warn(
+    root: Path,
+    *,
+    kind: str,
+    object_id: str,
+    created_at: str,
+    path: str,
+    payload: dict[str, object],
+    goal_graph_hash: str | None,
+) -> None:
+    try:
+        signed = sign_object(
+            root,
+            kind=kind,
+            object_id=object_id,
+            object_rel_path=path,
+            object_payload=payload,
+            created_at=created_at,
+            goal_graph_hash=goal_graph_hash,
+        )
+    except RuntimeError as exc:
+        if os.getenv("SENTIENTOS_STRATEGIC_SIG_ENFORCE", "0") == "1":
+            raise
+        if os.getenv("SENTIENTOS_STRATEGIC_SIG_WARN", "0") == "1":
+            pulse_path = PROPOSALS_PULSE_PATH if kind == "proposal" else CHANGES_PULSE_PATH
+            _append_jsonl(
+                root / pulse_path,
+                {
+                    "event": "strategic_signing_warning",
+                    "kind": kind,
+                    "object_id": object_id,
+                    "warning": str(exc),
+                    "created_at": created_at,
+                },
+            )
+        return
+
+    append_catalog_entry(
+        root,
+        kind="strategic_signature_link",
+        artifact_id=object_id,
+        relative_path=path,
+        schema_name="strategic_signature_link",
+        schema_version=1,
+        links={
+            "sig_hash": signed.sig_hash,
+            "proposal_id": object_id if kind == "proposal" else None,
+            "change_id": object_id if kind == "change" else None,
+            "goal_graph_hash": goal_graph_hash,
+        },
+        summary={"status": "ok", "kind": kind},
+        ts=created_at,
+    )
+
+
+def _attach_signature_hint(root: Path, rel_path: Path, *, kind: str, object_id: str) -> None:
+    payload = _load_json(root / rel_path)
+    created_at = _as_str(payload.get("created_at")) or _as_str(payload.get("applied_at")) or _iso_now()
+    sig_path = Path("glow/forge/strategic/signatures") / f"sig_{_safe_ts(created_at)}_{kind}_{''.join(ch if ch.isalnum() or ch in {'-', '_'} else '-' for ch in object_id)[:80]}.json"
+    payload.setdefault("strategic_signature", {})
+    marker = payload.get("strategic_signature") if isinstance(payload.get("strategic_signature"), dict) else {}
+    marker["path"] = str(sig_path)
+    marker.setdefault("sig_hash", None)
+    payload["strategic_signature"] = marker
+    _write_json(root / rel_path, payload)
+
+
+def _goal_graph_file_sha256(root: Path) -> str:
+    try:
+        data = (root / "glow/forge/goals/goal_graph.json").read_bytes()
+    except OSError:
+        return ""
+    return hashlib.sha256(data).hexdigest()
 
 
 def strategic_apply_preconditions(repo_root: Path) -> bool:
