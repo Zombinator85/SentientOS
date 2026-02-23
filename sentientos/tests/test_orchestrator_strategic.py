@@ -36,8 +36,13 @@ def test_orchestrator_links_strategic_in_index_and_trace(monkeypatch, tmp_path: 
     index_payload = json.loads((tmp_path / "glow/forge/index.json").read_text(encoding="utf-8"))
     assert index_payload["strategic_last_proposal_id"]
     assert index_payload["strategic_last_proposal_status"] in {"proposed", "approved", "applied", "none"}
+    assert isinstance(index_payload.get("strategic_last_proposal_added_goals"), list)
+    assert isinstance(index_payload.get("strategic_last_proposal_removed_goals"), list)
 
     trace_path = tmp_path / "glow/forge/traces" / f"{result.trace_id}.json"
     trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
     clamps = trace_payload.get("clamps_applied", [])
-    assert any(isinstance(item, dict) and item.get("name") == "strategic_adaptation_proposal" for item in clamps)
+    strategic = next((item for item in clamps if isinstance(item, dict) and item.get("name") == "strategic_adaptation_proposal"), None)
+    assert strategic is not None
+    after = strategic.get("after") if isinstance(strategic, dict) else {}
+    assert isinstance(after, dict) and isinstance(after.get("strategic_counterfactual_summary"), dict)

@@ -17,9 +17,30 @@ def main() -> int:
     print(f"proposal_id={proposal.proposal_id}")
     if not proposal.adjustments:
         print("adjustments=none")
-        return 0
-    for item in proposal.adjustments:
-        print(f"{item.goal_id}: {item.field} {item.old} -> {item.new} ({item.reason})")
+    else:
+        for item in proposal.adjustments:
+            print(f"{item.goal_id}: {item.field} {item.old} -> {item.new} ({item.reason})")
+
+    diff = proposal.allocation_diff
+    added = [f"+{item}" for item in list(diff.get("added_selected") or []) if isinstance(item, str)]
+    removed = [f"-{item}" for item in list(diff.get("removed_selected") or []) if isinstance(item, str)]
+    print("allocation_diff:")
+    print(f"  Would select: {' '.join(added) if added else 'none'} / drop: {' '.join(removed) if removed else 'none'}")
+
+    reordered = diff.get("reordered") if isinstance(diff.get("reordered"), list) else []
+    if not reordered:
+        print("  Reorder: none")
+    else:
+        for entry in reordered[:5]:
+            if not isinstance(entry, dict):
+                continue
+            goal_id = str(entry.get("goal_id", ""))
+            old_index = int(entry.get("old_index", 0))
+            new_index = int(entry.get("new_index", 0))
+            print(f"  Reorder: {goal_id} {old_index}→{new_index}")
+
+    budget_delta = diff.get("budget_delta") if isinstance(diff.get("budget_delta"), dict) else {}
+    print(f"  Budget delta: {budget_delta}")
     return 0
 
 

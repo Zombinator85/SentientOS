@@ -367,6 +367,9 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "strategic_last_proposal_status": _strategic_last_proposal_status(root),
         "strategic_last_applied_change_id": _strategic_last_applied_change_id(root),
         "strategic_cooldown_until": strategic_cooldown_until(root),
+        "strategic_last_proposal_added_goals": _strategic_last_proposal_added_goals(root),
+        "strategic_last_proposal_removed_goals": _strategic_last_proposal_removed_goals(root),
+        "strategic_last_proposal_budget_delta": _strategic_last_proposal_budget_delta(root),
     }
 
     target = root / INDEX_PATH
@@ -943,3 +946,49 @@ def _strategic_last_applied_change_id(repo_root: Path) -> str | None:
         return None
     value = rows[-1].get("change_id")
     return value if isinstance(value, str) and value else None
+
+
+def _latest_strategic_proposal_payload(repo_root: Path) -> dict[str, object]:
+    catalog = catalog_recent(repo_root, kind="strategic_proposal", limit=1)
+    if catalog:
+        rel = catalog[0].get("path")
+        if isinstance(rel, str) and rel:
+            payload = _load_json(repo_root / rel)
+            if isinstance(payload, dict):
+                return payload
+    rows, _ = _read_jsonl(repo_root / "pulse/strategic_proposals.jsonl")
+    if not rows:
+        return {}
+    rel = rows[-1].get("path")
+    if isinstance(rel, str) and rel:
+        payload = _load_json(repo_root / rel)
+        if isinstance(payload, dict):
+            return payload
+    return {}
+
+
+def _strategic_last_proposal_added_goals(repo_root: Path) -> list[str]:
+    payload = _latest_strategic_proposal_payload(repo_root)
+    raw_diff = payload.get("allocation_diff")
+    diff: dict[str, object] = raw_diff if isinstance(raw_diff, dict) else {}
+    added = diff.get("added_selected")
+    added_list = added if isinstance(added, list) else []
+    return [str(item) for item in added_list[:6] if isinstance(item, str)]
+
+
+def _strategic_last_proposal_removed_goals(repo_root: Path) -> list[str]:
+    payload = _latest_strategic_proposal_payload(repo_root)
+    raw_diff = payload.get("allocation_diff")
+    diff: dict[str, object] = raw_diff if isinstance(raw_diff, dict) else {}
+    removed = diff.get("removed_selected")
+    removed_list = removed if isinstance(removed, list) else []
+    return [str(item) for item in removed_list[:6] if isinstance(item, str)]
+
+
+def _strategic_last_proposal_budget_delta(repo_root: Path) -> dict[str, object]:
+    payload = _latest_strategic_proposal_payload(repo_root)
+    raw_diff = payload.get("allocation_diff")
+    diff: dict[str, object] = raw_diff if isinstance(raw_diff, dict) else {}
+    raw_budget_delta = diff.get("budget_delta")
+    budget_delta: dict[str, object] = raw_budget_delta if isinstance(raw_budget_delta, dict) else {}
+    return {str(k): v for k, v in list(budget_delta.items())[:6]}

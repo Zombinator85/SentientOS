@@ -78,7 +78,12 @@ def test_proposal_generation_is_deterministic_and_bounded(tmp_path: Path) -> Non
 
     assert proposal.proposal_id == again.proposal_id
     assert path == path2
+    assert proposal.schema_version == 2
     assert len(proposal.adjustments) <= proposal.guardrails.max_goals_changed
+    assert "allocation_diff" in proposal.predicted_effects[-1]
+    assert "added_selected" in proposal.allocation_diff
+    assert "selected_goals" in proposal.current_allocation_summary
+    assert "selected_goals" in proposal.proposed_allocation_summary
     for item in proposal.adjustments:
         if item.field == "weight":
             assert abs(float(item.new) - float(item.old)) <= proposal.guardrails.max_weight_delta_per_proposal

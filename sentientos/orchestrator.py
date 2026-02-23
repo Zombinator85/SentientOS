@@ -145,6 +145,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     strategic_last_proposal_status: str | None = None
     strategic_last_applied_change_id: str | None = None
     strategic_cooldown: str | None = None
+    strategic_last_proposal_added_goals: list[str] = []
+    strategic_last_proposal_removed_goals: list[str] = []
+    strategic_last_proposal_budget_delta: dict[str, object] = {}
 
     goal_graph = load_goal_graph(root)
     goal_graph_digest = goal_graph_hash(goal_graph)
@@ -367,11 +370,22 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         proposal, proposal_path = create_adjustment_proposal(root, window_name="last_24h")
         strategic_last_proposal_id = proposal.proposal_id
         strategic_last_proposal_status = proposal.approval.status
+        strategic_last_proposal_added_goals = [str(item) for item in list(proposal.allocation_diff.get("added_selected") or [])[:6] if isinstance(item, str)]
+        strategic_last_proposal_removed_goals = [str(item) for item in list(proposal.allocation_diff.get("removed_selected") or [])[:6] if isinstance(item, str)]
+        strategic_last_proposal_budget_delta = proposal.allocation_diff.get("budget_delta") if isinstance(proposal.allocation_diff.get("budget_delta"), dict) else {}
         strategic_cooldown = (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
         trace.record_clamp(
             name="strategic_adaptation_proposal",
             before={"goal_graph_hash": goal_graph_digest or ""},
-            after={"proposal_id": proposal.proposal_id, "status": proposal.approval.status},
+            after={
+                "proposal_id": proposal.proposal_id,
+                "status": proposal.approval.status,
+                "strategic_counterfactual_summary": {
+                    "added_selected": strategic_last_proposal_added_goals,
+                    "removed_selected": strategic_last_proposal_removed_goals,
+                    "top_reorder": ((proposal.allocation_diff.get("reordered") or [None])[0] if isinstance(proposal.allocation_diff.get("reordered"), list) else None),
+                },
+            },
             notes="deterministic_strategic_proposal",
         )
         if can_auto_apply() and (not apply_requires_stable() or strategic_apply_preconditions(root)):
@@ -525,6 +539,9 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         strategic_last_proposal_status=strategic_last_proposal_status,
         strategic_last_applied_change_id=strategic_last_applied_change_id,
         strategic_cooldown_until=strategic_cooldown,
+        strategic_last_proposal_added_goals=strategic_last_proposal_added_goals,
+        strategic_last_proposal_removed_goals=strategic_last_proposal_removed_goals,
+        strategic_last_proposal_budget_delta=strategic_last_proposal_budget_delta,
     )
 
     return TickResult(
@@ -647,6 +664,9 @@ def _write_orchestrator_index_overlay(
     strategic_last_proposal_status: str | None,
     strategic_last_applied_change_id: str | None,
     strategic_cooldown_until: str | None,
+    strategic_last_proposal_added_goals: list[str],
+    strategic_last_proposal_removed_goals: list[str],
+    strategic_last_proposal_budget_delta: dict[str, object],
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
@@ -670,6 +690,9 @@ def _write_orchestrator_index_overlay(
     payload["strategic_last_proposal_status"] = strategic_last_proposal_status or "none"
     payload["strategic_last_applied_change_id"] = strategic_last_applied_change_id
     payload["strategic_cooldown_until"] = strategic_cooldown_until
+    payload["strategic_last_proposal_added_goals"] = list(strategic_last_proposal_added_goals[:6])
+    payload["strategic_last_proposal_removed_goals"] = list(strategic_last_proposal_removed_goals[:6])
+    payload["strategic_last_proposal_budget_delta"] = {str(k): v for k, v in list(strategic_last_proposal_budget_delta.items())[:6]}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
