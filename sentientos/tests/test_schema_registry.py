@@ -38,3 +38,5 @@ def test_normalize_forge_index_from_v23() -> None:
     assert "strategic_last_proposal_budget_delta" in normalized
     assert "strategic_signature_status" in normalized
     assert "strategic_witness_status" in normalized
+    assert "strategic_sig_verify_status" in normalized
+    assert "strategic_sig_verify_checked_n" in normalized

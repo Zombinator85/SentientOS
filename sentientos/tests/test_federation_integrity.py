@@ -81,6 +81,20 @@ def test_peer_divergence_detection() -> None:
     assert set(result.divergence_reasons) == {"doctrine_bundle_sha_mismatch", "receipt_tip_mismatch", "anchor_tip_mismatch"}
 
 
+def test_goal_graph_hash_divergence_reason_is_emitted() -> None:
+    local = {
+        "latest_strategic_sig_hash": "abc123",
+        "latest_goal_graph_hash": "goal-a",
+    }
+    peer = {
+        "latest_strategic_sig_hash": "abc123",
+        "latest_goal_graph_hash": "goal-b",
+    }
+    result = compare_integrity_snapshots(local, peer)
+    assert result.overall_status == "diverged"
+    assert "goal_graph_hash_mismatch" in result.divergence_reasons
+
+
 def test_warn_records_without_blocking(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("SENTIENTOS_FEDERATION_INTEGRITY_WARN", "1")
     (tmp_path / "glow/federation").mkdir(parents=True, exist_ok=True)

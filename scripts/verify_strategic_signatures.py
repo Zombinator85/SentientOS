@@ -11,7 +11,7 @@ from sentientos.signed_strategic import verify_latest
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify strategic signatures")
     parser.add_argument("--repo-root", default=".")
-    parser.add_argument("--last", type=int, default=20)
+    parser.add_argument("--last", "--last-n", dest="last", type=int, default=20)
     args = parser.parse_args()
 
     ok, reason = verify_latest(repo_root=Path(args.repo_root).resolve(), last=args.last)
