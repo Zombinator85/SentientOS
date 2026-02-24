@@ -27,7 +27,7 @@ from sentientos.artifact_catalog import append_catalog_entry, latest
 from sentientos.artifact_retention import RetentionPolicy, run_retention, should_run_retention
 from sentientos.recovery_tasks import backlog_count
 from sentientos.signed_rollups import maybe_publish_rollup_witness, maybe_sign_catalog_checkpoint, sign_rollups
-from sentientos.signed_strategic import latest_sig_hash_short, maybe_publish_strategic_witness, strategic_signing_enabled
+from sentientos.signed_strategic import latest_sig_hash_short, maybe_publish_strategic_witness, strategic_signing_enabled, verify_recent
 from sentientos.risk_budget import compute_risk_budget, risk_budget_summary
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
@@ -153,6 +153,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     last_strategic_sig_hash: str | None = latest_sig_hash_short(root)
     strategic_witness_status = "disabled"
     strategic_witness_published_at: str | None = None
+    strategic_sig_verify_status = "skipped"
+    strategic_sig_verify_reason: str | None = "verify_disabled"
+    strategic_sig_verify_checked_n = 0
+    strategic_sig_verify_last_ok_sig_hash: str | None = None
 
     goal_graph = load_goal_graph(root)
     goal_graph_digest = goal_graph_hash(goal_graph)
@@ -411,7 +415,34 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
 
     if strategic_signing_enabled() and strategic_sign_status == "skipped":
         strategic_sign_status = "ok" if latest_sig_hash_short(root) else "failed"
-    witness_payload, witness_failure2 = maybe_publish_strategic_witness(root)
+    verify_outcome = _maybe_verify_strategic_signatures(root)
+    strategic_sig_verify_status = verify_outcome["status"]
+    strategic_sig_verify_reason = verify_outcome["reason"]
+    strategic_sig_verify_checked_n = int(verify_outcome["checked_n"])
+    strategic_sig_verify_last_ok_sig_hash = _optional_str(verify_outcome["last_ok_sig_hash"])
+    if bool(verify_outcome["hard_fail"]):
+        mutation_allowed = False
+        reason_stack.append("strategic_signature_verify_failed")
+        trace.record_gate(
+            name="strategic_signature_verify",
+            mode="enforce",
+            result="hold",
+            reason=_optional_str(verify_outcome["reason"]) or "strategic_signature_verify_failed",
+        )
+    elif strategic_sig_verify_status == "warn":
+        trace.record_gate(
+            name="strategic_signature_verify",
+            mode="warn",
+            result="hold",
+            reason=_optional_str(verify_outcome["reason"]) or "strategic_signature_verify_warn",
+        )
+    elif strategic_sig_verify_status == "ok":
+        trace.record_gate(name="strategic_signature_verify", mode="warn", result="pass", reason="ok")
+
+    witness_payload, witness_failure2 = maybe_publish_strategic_witness(
+        root,
+        allow_git_tag_publish=mutation_allowed and throughput.allow_publish,
+    )
     strategic_witness_status = str(witness_payload.get("status") or "unknown")
     strategic_witness_published_at = _optional_str(witness_payload.get("published_at"))
     if witness_failure2 and witness_failure is None:
@@ -423,7 +454,7 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "remediation_backlog_count": _remediation_backlog_count(root),
     }
     status = "ok"
-    if witness_failure or remediation_status in {"failed", "cooldown"}:
+    if witness_failure or remediation_status in {"failed", "cooldown"} or strategic_sig_verify_status in {"warn", "fail"}:
         status = "warning"
     if pressure_changed and pressure.level >= 3:
         status = "warning"
@@ -482,6 +513,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         },
         "strategic_sign_status": strategic_sign_status,
         "last_strategic_sig_hash": last_strategic_sig_hash,
+        "strategic_sig_verify_status": strategic_sig_verify_status,
+        "strategic_sig_verify_reason": strategic_sig_verify_reason,
+        "strategic_sig_verify_checked_n": strategic_sig_verify_checked_n,
+        "strategic_sig_verify_last_ok_sig_hash": strategic_sig_verify_last_ok_sig_hash,
         "strategic_witness": {"status": strategic_witness_status, "published_at": strategic_witness_published_at},
         "goal_execution": {
             "work_plan_id": work_plan_id,
@@ -525,6 +560,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "last_work_run_status": work_run_status,
         "strategic_sign_status": strategic_sign_status,
         "last_strategic_sig_hash": last_strategic_sig_hash,
+        "strategic_sig_verify_status": strategic_sig_verify_status,
+        "strategic_sig_verify_reason": strategic_sig_verify_reason,
+        "strategic_sig_verify_checked_n": strategic_sig_verify_checked_n,
+        "strategic_sig_verify_last_ok_sig_hash": strategic_sig_verify_last_ok_sig_hash,
     }
     _append_jsonl(
         root / "pulse/goal_allocations.jsonl",
@@ -564,6 +603,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         strategic_last_proposal_budget_delta=strategic_last_proposal_budget_delta,
         strategic_signature_status=strategic_sign_status if strategic_sign_status in {"ok", "failed"} else "unknown",
         last_strategic_sig_hash=last_strategic_sig_hash,
+        strategic_sig_verify_status=strategic_sig_verify_status,
+        strategic_sig_verify_reason=strategic_sig_verify_reason,
+        strategic_sig_verify_checked_n=strategic_sig_verify_checked_n,
+        strategic_sig_verify_last_ok_sig_hash=strategic_sig_verify_last_ok_sig_hash,
         strategic_witness_status=strategic_witness_status,
         last_strategic_witness_at=strategic_witness_published_at,
     )
@@ -693,6 +736,10 @@ def _write_orchestrator_index_overlay(
     strategic_last_proposal_budget_delta: dict[str, object],
     strategic_signature_status: str,
     last_strategic_sig_hash: str | None,
+    strategic_sig_verify_status: str,
+    strategic_sig_verify_reason: str | None,
+    strategic_sig_verify_checked_n: int,
+    strategic_sig_verify_last_ok_sig_hash: str | None,
     strategic_witness_status: str,
     last_strategic_witness_at: str | None,
 ) -> None:
@@ -724,6 +771,10 @@ def _write_orchestrator_index_overlay(
     payload["strategic_signature_status"] = strategic_signature_status
     payload["last_strategic_sig_hash"] = last_strategic_sig_hash
     payload["last_strategic_sig_at"] = generated_at if last_strategic_sig_hash else payload.get("last_strategic_sig_at")
+    payload["strategic_sig_verify_status"] = strategic_sig_verify_status
+    payload["strategic_sig_verify_reason"] = strategic_sig_verify_reason
+    payload["strategic_sig_verify_checked_n"] = strategic_sig_verify_checked_n
+    payload["strategic_sig_verify_last_ok_sig_hash"] = strategic_sig_verify_last_ok_sig_hash
     payload["strategic_witness_status"] = strategic_witness_status
     payload["last_strategic_witness_at"] = last_strategic_witness_at
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -737,6 +788,34 @@ def _goal_state_summary(state: dict[str, object]) -> dict[str, int]:
         if status in counts:
             counts[status] += 1
     return counts
+
+
+def _maybe_verify_strategic_signatures(repo_root: Path) -> dict[str, object]:
+    if os.getenv("SENTIENTOS_STRATEGIC_SIG_VERIFY", "0") != "1":
+        return {"status": "skipped", "reason": "verify_disabled", "checked_n": 0, "last_ok_sig_hash": None, "hard_fail": False}
+    last_n = max(1, _env_int("SENTIENTOS_STRATEGIC_SIG_VERIFY_LAST_N", 25))
+    enforce = os.getenv("SENTIENTOS_STRATEGIC_SIG_ENFORCE", "0") == "1"
+    warn = os.getenv("SENTIENTOS_STRATEGIC_SIG_WARN", "0") == "1"
+    if not enforce and not warn:
+        warn = True
+    verification = verify_recent(repo_root, last=last_n)
+    if verification.ok:
+        return {
+            "status": "ok",
+            "reason": None,
+            "checked_n": verification.checked_n,
+            "last_ok_sig_hash": verification.last_ok_sig_hash[:16] if verification.last_ok_sig_hash else None,
+            "hard_fail": False,
+        }
+    status = "fail" if enforce else "warn"
+    reason = f"{status}:{verification.reason or 'verification_failed'}"
+    return {
+        "status": status,
+        "reason": reason,
+        "checked_n": verification.checked_n,
+        "last_ok_sig_hash": verification.last_ok_sig_hash[:16] if verification.last_ok_sig_hash else None,
+        "hard_fail": enforce,
+    }
 
 
 def _emit_goal_allocation_artifact(

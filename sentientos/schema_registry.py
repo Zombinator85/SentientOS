@@ -23,7 +23,7 @@ class SchemaName:
 AdapterFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 LATEST_VERSIONS: dict[str, int] = {
-    SchemaName.FORGE_INDEX: 25,
+    SchemaName.FORGE_INDEX: 26,
     SchemaName.FORGE_REPORT: 1,
     SchemaName.GOVERNANCE_TRACE: 1,
     SchemaName.INCIDENT: 1,
@@ -175,6 +175,16 @@ def _forge_index_v24_to_v25(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded.setdefault("last_strategic_witness_at", None)
     return upgraded
 
+
+def _forge_index_v25_to_v26(payload: dict[str, Any]) -> dict[str, Any]:
+    upgraded = deepcopy(payload)
+    upgraded["schema_version"] = 26
+    upgraded.setdefault("strategic_sig_verify_status", "skipped")
+    upgraded.setdefault("strategic_sig_verify_reason", "verify_disabled")
+    upgraded.setdefault("strategic_sig_verify_checked_n", 0)
+    upgraded.setdefault("strategic_sig_verify_last_ok_sig_hash", None)
+    return upgraded
+
 def _receipt_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded = deepcopy(payload)
     upgraded["schema_version"] = 2
@@ -194,6 +204,7 @@ ADAPTERS: dict[tuple[str, int], AdapterFn] = {
     (SchemaName.FORGE_INDEX, 22): _forge_index_v22_to_v23,
     (SchemaName.FORGE_INDEX, 23): _forge_index_v23_to_v24,
     (SchemaName.FORGE_INDEX, 24): _forge_index_v24_to_v25,
+    (SchemaName.FORGE_INDEX, 25): _forge_index_v25_to_v26,
     (SchemaName.RECEIPT, 1): _receipt_v1_to_v2,
 }
 

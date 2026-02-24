@@ -377,6 +377,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "strategic_signature_status": "ok" if latest_strategic_sig_short else "missing",
         "last_strategic_sig_hash": latest_strategic_sig_short,
         "last_strategic_sig_at": _optional_str(latest_strategic_sig.created_at) if latest_strategic_sig is not None else None,
+        "strategic_sig_verify_status": "skipped",
+        "strategic_sig_verify_reason": "verify_disabled",
+        "strategic_sig_verify_checked_n": 0,
+        "strategic_sig_verify_last_ok_sig_hash": None,
         "strategic_witness_status": _optional_str(strategic_witness_status.get("status")) or "disabled",
         "last_strategic_witness_at": _optional_str(strategic_witness_status.get("published_at")),
     }

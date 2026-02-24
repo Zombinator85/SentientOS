@@ -129,6 +129,7 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
     anchor_match = _match_key(local, peer, "last_anchor_tip_hash")
     rollup_sig_match = _match_key(local, peer, "latest_rollup_sig_hashes")
     strategic_sig_match = _match_key(local, peer, "latest_strategic_sig_hash")
+    goal_graph_match = _match_key(local, peer, "latest_goal_graph_hash")
 
     if not doctrine_match:
         reasons.append("doctrine_bundle_sha_mismatch")
@@ -140,10 +141,12 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
         reasons.append("rollup_signature_tip_mismatch")
     if not strategic_sig_match:
         reasons.append("strategic_signature_tip_mismatch")
+    if strategic_sig_match and not goal_graph_match:
+        reasons.append("goal_graph_hash_mismatch")
 
     comparable = any(
         _present(local.get(key)) and _present(peer.get(key))
-        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash", "latest_rollup_sig_hashes", "latest_strategic_sig_hash")
+        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash", "latest_rollup_sig_hashes", "latest_strategic_sig_hash", "latest_goal_graph_hash")
     )
     if reasons:
         status = "diverged"

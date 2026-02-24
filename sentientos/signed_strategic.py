@@ -126,6 +126,14 @@ class StrategicSig:
         }
 
 
+@dataclass(frozen=True)
+class StrategicVerifyResult:
+    ok: bool
+    reason: str | None
+    checked_n: int
+    last_ok_sig_hash: str | None
+
+
 def canonical_json_bytes(payload: dict[str, object]) -> bytes:
     return (json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
 
@@ -200,42 +208,51 @@ def sign_object(
     return row
 
 
-def verify_latest(repo_root: Path, *, last: int = 20) -> tuple[bool, str | None]:
+def verify_recent(repo_root: Path, *, last: int = 20) -> StrategicVerifyResult:
     root = repo_root.resolve()
     rows = _read_jsonl(root / SIGNATURES_INDEX_PATH)
     if not rows:
-        return True, None
+        return StrategicVerifyResult(ok=True, reason=None, checked_n=0, last_ok_sig_hash=None)
     signer = _resolve_signer(require_configured=False)
     if signer is None:
-        return True, None
+        return StrategicVerifyResult(ok=True, reason=None, checked_n=0, last_ok_sig_hash=None)
     recent = rows[-last:] if last > 0 else rows
     prev_hash: str | None = None
+    checked_n = 0
+    last_ok_sig_hash: str | None = None
     for row in recent:
         sig_hash = _as_str(row.get("sig_hash"))
         payload = _signature_payload_from_record(row)
         expected_payload_sha = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
         if _as_str(row.get("sig_payload_sha256")) != expected_payload_sha:
-            return False, f"sig_payload_sha256_mismatch:{_as_str(row.get('object_id')) or 'unknown'}"
+            return StrategicVerifyResult(ok=False, reason=f"sig_payload_sha256_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
         sig = _as_str(row.get("signature")) or ""
         if not signer.verify(expected_payload_sha, sig):
-            return False, f"signature_invalid:{_as_str(row.get('object_id')) or 'unknown'}"
+            return StrategicVerifyResult(ok=False, reason=f"signature_invalid:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
         hash_payload = dict(row)
         hash_payload.pop("sig_hash", None)
         computed_sig_hash = hashlib.sha256(canonical_json_bytes(hash_payload)).hexdigest()
         if sig_hash != computed_sig_hash:
-            return False, f"sig_hash_mismatch:{_as_str(row.get('object_id')) or 'unknown'}"
+            return StrategicVerifyResult(ok=False, reason=f"sig_hash_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
         if prev_hash and _as_str(row.get("prev_sig_hash")) != prev_hash:
-            return False, f"prev_sig_hash_mismatch:{_as_str(row.get('object_id')) or 'unknown'}"
+            return StrategicVerifyResult(ok=False, reason=f"prev_sig_hash_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
         obj_path = root / (_as_str(row.get("path")) or "")
         obj_payload = _read_json(obj_path)
         obj_sha = hashlib.sha256(canonical_json_bytes(obj_payload)).hexdigest()
         if _as_str(row.get("object_sha256")) != obj_sha:
-            return False, f"object_sha256_mismatch:{_as_str(row.get('object_id')) or 'unknown'}"
+            return StrategicVerifyResult(ok=False, reason=f"object_sha256_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
         prev_hash = sig_hash
-    return True, None
+        checked_n += 1
+        last_ok_sig_hash = sig_hash
+    return StrategicVerifyResult(ok=True, reason=None, checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
 
 
-def maybe_publish_strategic_witness(repo_root: Path) -> tuple[dict[str, object], str | None]:
+def verify_latest(repo_root: Path, *, last: int = 20) -> tuple[bool, str | None]:
+    result = verify_recent(repo_root, last=last)
+    return result.ok, result.reason
+
+
+def maybe_publish_strategic_witness(repo_root: Path, *, allow_git_tag_publish: bool = True) -> tuple[dict[str, object], str | None]:
     if os.getenv("SENTIENTOS_STRATEGIC_WITNESS_PUBLISH", "0") != "1":
         status = {"status": "disabled", "published_at": None, "failure": None, "tag": None}
         _write_json(repo_root.resolve() / "glow/federation/strategic_witness_status.json", status)
@@ -260,6 +277,14 @@ def maybe_publish_strategic_witness(repo_root: Path) -> tuple[dict[str, object],
             _append_jsonl(out, {"tag": tag, "sig_hash": latest.sig_hash, "published_at": _iso_now()})
             published_at = _iso_now()
     else:
+        if not allow_git_tag_publish:
+            status = {"status": "skipped_mutation_disallowed", "published_at": None, "failure": "mutation_disallowed", "tag": tag, "sig_hash": short}
+            _write_json(root / "glow/federation/strategic_witness_status.json", status)
+            return status, None
+        if not _git_repo_clean(root):
+            status = {"status": "skipped_repo_dirty", "published_at": None, "failure": "repo_dirty", "tag": tag, "sig_hash": short}
+            _write_json(root / "glow/federation/strategic_witness_status.json", status)
+            return status, None
         if not _git_tag_exists(root, tag):
             message = f"strategic_sig_hash: {latest.sig_hash}\nobject_id: {latest.object_id}\nkind: {latest.kind}"
             completed = subprocess.run(["git", "tag", "-a", tag, "-m", message], cwd=root, capture_output=True, text=True, check=False)
@@ -411,6 +436,13 @@ def _as_str(value: object) -> str | None:
 def _git_tag_exists(repo_root: Path, tag: str) -> bool:
     completed = subprocess.run(["git", "rev-parse", "--verify", f"refs/tags/{tag}"], cwd=repo_root, capture_output=True, text=True, check=False)
     return completed.returncode == 0
+
+
+def _git_repo_clean(repo_root: Path) -> bool:
+    completed = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        return False
+    return completed.stdout.strip() == ""
 
 
 def _iso_now() -> str:

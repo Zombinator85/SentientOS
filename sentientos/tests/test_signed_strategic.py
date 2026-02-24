@@ -71,6 +71,22 @@ def test_witness_publish_file_backend(tmp_path: Path, monkeypatch) -> None:  # t
     assert len(rows) == 1
 
 
+def test_witness_publish_git_skips_when_mutation_disallowed(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_STRATEGIC_SIGNING", "hmac-test")
+    monkeypatch.setenv("SENTIENTOS_STRATEGIC_HMAC_SECRET", "test-secret")
+    monkeypatch.setenv("SENTIENTOS_STRATEGIC_WITNESS_PUBLISH", "1")
+    monkeypatch.setenv("SENTIENTOS_STRATEGIC_WITNESS_BACKEND", "git")
+    proposal = {"schema_version": 2, "proposal_id": "p1", "created_at": "2099-01-01T00:00:00Z"}
+    proposal_path = tmp_path / "glow/forge/strategic/proposals/proposal_1.json"
+    _write_json(proposal_path, proposal)
+    _ = sign_object(tmp_path, kind="proposal", object_id="p1", object_rel_path=str(proposal_path.relative_to(tmp_path)), object_payload=proposal, created_at="2099-01-01T00:00:00Z")
+
+    status, err = maybe_publish_strategic_witness(tmp_path, allow_git_tag_publish=False)
+    assert err is None
+    assert status["status"] == "skipped_mutation_disallowed"
+    assert status["failure"] == "mutation_disallowed"
+
+
 def test_snapshot_includes_strategic_tip(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("SENTIENTOS_STRATEGIC_SIGNING", "hmac-test")
     monkeypatch.setenv("SENTIENTOS_STRATEGIC_HMAC_SECRET", "test-secret")

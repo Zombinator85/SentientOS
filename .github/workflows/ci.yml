@@ -156,6 +156,40 @@ jobs:
         env:
           SENTIENTOS_ALLOW_NONEXECUTION_TEST_RUN: "1"
 
+      - name: Strategic signature verify fixture (hmac-test)
+        run: |
+          rm -rf /tmp/strategic-sign-ci
+          mkdir -p /tmp/strategic-sign-ci
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+
+          from sentientos.signed_strategic import sign_object
+
+          root = Path('/tmp/strategic-sign-ci')
+          payload = {
+              'schema_version': 2,
+              'proposal_id': 'ci-proposal-1',
+              'created_at': '2099-01-01T00:00:00Z',
+              'approval': {'status': 'proposed'},
+          }
+          proposal_path = root / 'glow/forge/strategic/proposals/proposal_ci_1.json'
+          proposal_path.parent.mkdir(parents=True, exist_ok=True)
+          proposal_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          sign_object(
+              root,
+              kind='proposal',
+              object_id='ci-proposal-1',
+              object_rel_path=str(proposal_path.relative_to(root)),
+              object_payload=payload,
+              created_at='2099-01-01T00:00:00Z',
+          )
+          PYCODE
+          python scripts/verify_strategic_signatures.py --repo-root /tmp/strategic-sign-ci --last 10
+        env:
+          SENTIENTOS_STRATEGIC_SIGNING: "hmac-test"
+          SENTIENTOS_STRATEGIC_HMAC_SECRET: "ci-secret"
+
       - name: Pytest with coverage
         run: python -m scripts.run_tests
         env:
