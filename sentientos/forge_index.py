@@ -383,6 +383,14 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "strategic_sig_verify_last_ok_sig_hash": None,
         "strategic_witness_status": _optional_str(strategic_witness_status.get("status")) or "disabled",
         "last_strategic_witness_at": _optional_str(strategic_witness_status.get("published_at")),
+        "integrity_status": "unknown",
+        "integrity_primary_reason": "unknown",
+        "integrity_gate_summary": {},
+        "integrity_mutation_allowed": False,
+        "integrity_publish_allowed": False,
+        "integrity_automerge_allowed": False,
+        "last_integrity_status_at": None,
+        "last_integrity_status_path": None,
     }
 
     target = root / INDEX_PATH

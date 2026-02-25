@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,10 @@ from sentientos.governance_trace import start_governance_trace
 from sentientos.integrity_pressure import compute_integrity_pressure, update_pressure_state
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_snapshot import PEER_SNAPSHOTS_DIR, SNAPSHOT_PATH, emit_integrity_snapshot
+from sentientos.attestation import canonical_json_bytes, write_json
+from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, maybe_publish_snapshot_witness, maybe_sign_snapshot, verify_recent_snapshots
+from sentientos.integrity_controller import IntegrityStatus, evaluate_integrity
+from sentientos.policy_fingerprint import emit_policy_fingerprint
 from sentientos.goal_graph import GOAL_GRAPH_PATH, goal_graph_hash, load_goal_graph
 from sentientos.goal_graph import load_goal_state, persist_goal_state
 from sentientos.goal_executor import ExecutorState, GoalExecutor, update_goal_state_from_run
@@ -97,8 +102,10 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         operating_mode=throughput.mode,
         quarantine_active=quarantine.active,
     )
+    policy_fingerprint = emit_policy_fingerprint(root, ts=now)
+    integrity_status = evaluate_integrity(root, policy_hash=policy_fingerprint.policy_hash)
 
-    mutation_allowed = (not quarantine.active) and budget.forge_max_files_changed > 0
+    mutation_allowed = integrity_status.mutation_allowed
 
     trace = start_governance_trace(
         repo_root=root,
@@ -130,6 +137,21 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
     remediation_status = "idle"
     remediation_detail: dict[str, object] | None = None
     reason_stack: list[str] = []
+    reason_stack.extend(integrity_status.reason_stack[:6])
+    integrity_status_path = _persist_integrity_status(root, integrity_status)
+    _append_jsonl(
+        root / "pulse/integrity_status.jsonl",
+        {
+            "ts": integrity_status.ts,
+            "status": integrity_status.status,
+            "primary_reason": integrity_status.primary_reason,
+            "path": integrity_status_path,
+            "mutation_allowed": integrity_status.mutation_allowed,
+            "publish_allowed": integrity_status.publish_allowed,
+            "automerge_allowed": integrity_status.automerge_allowed,
+            "policy_hash": integrity_status.policy_hash,
+        },
+    )
     retention_summary: dict[str, object] | None = None
     rollup_sign_status = "skipped"
     signed_rollups_count = 0
@@ -441,12 +463,18 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
 
     witness_payload, witness_failure2 = maybe_publish_strategic_witness(
         root,
-        allow_git_tag_publish=mutation_allowed and throughput.allow_publish,
+        allow_git_tag_publish=mutation_allowed and integrity_status.publish_allowed,
     )
     strategic_witness_status = str(witness_payload.get("status") or "unknown")
     strategic_witness_published_at = _optional_str(witness_payload.get("published_at"))
     if witness_failure2 and witness_failure is None:
         witness_failure = witness_failure2
+    attestation_snapshot_path, attestation_sig_hash, attestation_snapshot_hash = _emit_attestation_snapshot(
+        root,
+        integrity_status=integrity_status,
+        goal_graph_hash_value=goal_graph_digest,
+        mutation_allowed=mutation_allowed and integrity_status.publish_allowed,
+    )
     rebuild_index(root)
 
     backlog = {
@@ -454,6 +482,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "remediation_backlog_count": _remediation_backlog_count(root),
     }
     status = "ok"
+    if integrity_status.status in {"warn", "fail"}:
+        status = "warning"
     if witness_failure or remediation_status in {"failed", "cooldown"} or strategic_sig_verify_status in {"warn", "fail"}:
         status = "warning"
     if pressure_changed and pressure.level >= 3:
@@ -480,7 +510,11 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "integrity_pressure_level": pressure.level,
         "quarantine_active": quarantine.active,
         "mutation_allowed": mutation_allowed,
+        "publish_allowed": integrity_status.publish_allowed,
+        "automerge_allowed": integrity_status.automerge_allowed,
         "risk_budget_summary": risk_budget_summary(budget),
+        "integrity_status": integrity_status.to_dict(),
+        "integrity_status_path": integrity_status_path,
         "last_sweep": sweep_summary,
         "auto_remediation": remediation_detail,
         "federation_snapshot": {
@@ -518,6 +552,11 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "strategic_sig_verify_checked_n": strategic_sig_verify_checked_n,
         "strategic_sig_verify_last_ok_sig_hash": strategic_sig_verify_last_ok_sig_hash,
         "strategic_witness": {"status": strategic_witness_status, "published_at": strategic_witness_published_at},
+        "attestation_snapshot": {
+            "path": attestation_snapshot_path,
+            "snapshot_hash": attestation_snapshot_hash,
+            "signature_hash": attestation_sig_hash,
+        },
         "goal_execution": {
             "work_plan_id": work_plan_id,
             "work_run_id": work_run_id,
@@ -564,6 +603,15 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         "strategic_sig_verify_reason": strategic_sig_verify_reason,
         "strategic_sig_verify_checked_n": strategic_sig_verify_checked_n,
         "strategic_sig_verify_last_ok_sig_hash": strategic_sig_verify_last_ok_sig_hash,
+        "integrity_status": integrity_status.status,
+        "integrity_primary_reason": integrity_status.primary_reason,
+        "integrity_status_path": integrity_status_path,
+        "integrity_mutation_allowed": integrity_status.mutation_allowed,
+        "integrity_publish_allowed": integrity_status.publish_allowed,
+        "integrity_automerge_allowed": integrity_status.automerge_allowed,
+        "attestation_snapshot_path": attestation_snapshot_path,
+        "attestation_snapshot_hash": attestation_snapshot_hash,
+        "attestation_snapshot_sig_hash": attestation_sig_hash,
     }
     _append_jsonl(
         root / "pulse/goal_allocations.jsonl",
@@ -609,6 +657,8 @@ def tick(repo_root: Path, *, config: OrchestratorConfig | None = None, daemon_ac
         strategic_sig_verify_last_ok_sig_hash=strategic_sig_verify_last_ok_sig_hash,
         strategic_witness_status=strategic_witness_status,
         last_strategic_witness_at=strategic_witness_published_at,
+        integrity_status=integrity_status,
+        integrity_status_path=integrity_status_path,
     )
 
     return TickResult(
@@ -742,6 +792,8 @@ def _write_orchestrator_index_overlay(
     strategic_sig_verify_last_ok_sig_hash: str | None,
     strategic_witness_status: str,
     last_strategic_witness_at: str | None,
+    integrity_status: IntegrityStatus,
+    integrity_status_path: str,
 ) -> None:
     path = repo_root / INDEX_PATH
     payload = _load_json(path)
@@ -777,8 +829,63 @@ def _write_orchestrator_index_overlay(
     payload["strategic_sig_verify_last_ok_sig_hash"] = strategic_sig_verify_last_ok_sig_hash
     payload["strategic_witness_status"] = strategic_witness_status
     payload["last_strategic_witness_at"] = last_strategic_witness_at
+    payload["integrity_status"] = integrity_status.status
+    payload["integrity_primary_reason"] = integrity_status.primary_reason
+    payload["integrity_gate_summary"] = {
+        "ok": sum(1 for gate in integrity_status.gate_results if gate.status == "ok"),
+        "warn": sum(1 for gate in integrity_status.gate_results if gate.status == "warn"),
+        "fail": sum(1 for gate in integrity_status.gate_results if gate.status == "fail"),
+        "skipped": sum(1 for gate in integrity_status.gate_results if gate.status == "skipped"),
+    }
+    payload["integrity_mutation_allowed"] = integrity_status.mutation_allowed
+    payload["integrity_publish_allowed"] = integrity_status.publish_allowed
+    payload["integrity_automerge_allowed"] = integrity_status.automerge_allowed
+    payload["last_integrity_status_at"] = integrity_status.ts
+    payload["last_integrity_status_path"] = integrity_status_path
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _persist_integrity_status(repo_root: Path, integrity_status: IntegrityStatus) -> str:
+    rel = Path("glow/forge/integrity") / f"status_{_safe_ts(integrity_status.ts)}.json"
+    write_json(repo_root / rel, integrity_status.to_dict())
+    return str(rel)
+
+
+def _emit_attestation_snapshot(
+    repo_root: Path,
+    *,
+    integrity_status: IntegrityStatus,
+    goal_graph_hash_value: str | None,
+    mutation_allowed: bool,
+) -> tuple[str | None, str | None, str | None]:
+    doctrine = _load_json(repo_root / "glow/contracts/contract_manifest.json")
+    strategic_witness = _load_json(repo_root / "glow/federation/strategic_witness_status.json")
+    anchor_witness = _load_json(repo_root / "glow/federation/anchor_witness_status.json")
+    snapshot = AttestationSnapshot(
+        schema_version=1,
+        ts=integrity_status.ts,
+        policy_hash=integrity_status.policy_hash,
+        integrity_status_hash=integrity_status.canonical_hash(),
+        latest_rollup_sig_hash=_optional_str(_load_json(repo_root / "glow/forge/index.json").get("last_rollup_signature_id")),
+        latest_strategic_sig_hash=_optional_str(_load_json(repo_root / "glow/forge/index.json").get("last_strategic_sig_hash")),
+        latest_goal_graph_hash=goal_graph_hash_value,
+        latest_catalog_checkpoint_hash=_optional_str(_load_json(repo_root / "glow/forge/index.json").get("last_catalog_checkpoint_at")),
+        doctrine_bundle_sha256=_optional_str(doctrine.get("bundle_sha256")),
+        witness_summary={
+            "strategic": {"status": strategic_witness.get("status"), "published_at": strategic_witness.get("published_at")},
+            "rollup": {"status": anchor_witness.get("witness_status"), "published_at": anchor_witness.get("last_witness_published_at")},
+        },
+    )
+    rel = emit_snapshot(repo_root, snapshot)
+    envelope = maybe_sign_snapshot(repo_root, snapshot_rel_path=rel, snapshot_payload=snapshot.to_dict())
+    verify_result = verify_recent_snapshots(repo_root, last=max(1, _env_int("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY_LAST_N", 10)))
+    if verify_result.status in {"warn", "fail"}:
+        _append_jsonl(repo_root / "pulse/integrity_status.jsonl", {"ts": integrity_status.ts, "snapshot_verify_status": verify_result.status, "snapshot_verify_reason": verify_result.reason})
+    _witness_status, _witness_failure = maybe_publish_snapshot_witness(repo_root, allow_git_tag_publish=mutation_allowed)
+    snapshot_hash = hashlib.sha256(canonical_json_bytes(snapshot.to_dict())).hexdigest()[:16]
+    sig_hash = _optional_str((envelope or {}).get("sig_hash"))
+    return rel, (sig_hash[:16] if sig_hash else None), snapshot_hash
 
 
 def _goal_state_summary(state: dict[str, object]) -> dict[str, int]:
