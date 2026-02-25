@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 from sentientos.attestation import canonical_json_bytes, iso_now
+from sentientos.attestation_snapshot import verify_recent_snapshots
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.federation_integrity import federation_integrity_gate
@@ -56,6 +57,8 @@ class IntegrityStatus:
     reason_stack: list[str]
     recommended_actions: list[dict[str, object]]
     policy_hash: str
+    budget_exhausted: bool
+    budget_remaining: dict[str, int]
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -74,6 +77,8 @@ class IntegrityStatus:
             "reason_stack": list(self.reason_stack),
             "recommended_actions": self.recommended_actions,
             "policy_hash": self.policy_hash,
+            "budget_exhausted": self.budget_exhausted,
+            "budget_remaining": dict(self.budget_remaining),
         }
 
     @property
@@ -87,6 +92,26 @@ class IntegrityStatus:
 
     def canonical_hash(self) -> str:
         return hashlib.sha256(canonical_json_bytes(self.to_dict())).hexdigest()
+
+
+@dataclass(frozen=True)
+class IntegrityBudget:
+    max_verify_streams_per_tick: int
+    max_verify_items_per_stream: int
+    max_snapshot_emits_per_window: int
+    max_witness_attempts_per_window: int
+    verification_cost_estimate: int
+
+    @classmethod
+    def from_env(cls) -> "IntegrityBudget":
+        max_items = max(1, _env_int("SENTIENTOS_INTEGRITY_MAX_VERIFY_LAST_N", 25))
+        return cls(
+            max_verify_streams_per_tick=max(1, _env_int("SENTIENTOS_INTEGRITY_MAX_VERIFY_STREAMS", 3)),
+            max_verify_items_per_stream=max_items,
+            max_snapshot_emits_per_window=max(1, _env_int("SENTIENTOS_INTEGRITY_MAX_SNAPSHOT_PER_HOUR", 6)),
+            max_witness_attempts_per_window=max(1, _env_int("SENTIENTOS_INTEGRITY_MAX_WITNESS_PER_HOUR", 6)),
+            verification_cost_estimate=max_items,
+        )
 
 
 def evaluate_integrity(repo_root: Path, *, policy_hash: str) -> IntegrityStatus:
@@ -103,14 +128,15 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str) -> IntegrityStatus:
         operating_mode=throughput.mode,
         quarantine_active=quarantine.active,
     )
+    integrity_budget = IntegrityBudget.from_env()
 
     gates: list[IntegrityGateResult] = []
     gates.append(_gate_doctrine(root, checked_at))
     gates.append(_gate_receipt_chain(root, checked_at))
     gates.append(_gate_receipt_anchor(root, checked_at))
     gates.append(_gate_audit_chain(root, checked_at))
-    gates.append(_gate_rollup_signatures(root, checked_at))
-    gates.append(_gate_strategic_signatures(root, checked_at))
+    verification_gates = _verification_budgeted_gates(root, checked_at, integrity_budget)
+    gates.extend(verification_gates)
     gates.append(_gate_catalog_checkpoint(root, checked_at))
     gates.append(_gate_mypy_ratchet(root, checked_at))
     gates.append(_gate_federation_snapshot(root, checked_at))
@@ -123,6 +149,14 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str) -> IntegrityStatus:
     publish_allowed = mutation_allowed and throughput.allow_publish and not quarantine.active
     automerge_allowed = publish_allowed and throughput.allow_automerge
     recommended_actions = _recommended_actions(gates)
+    budget_exhausted = any(gate.reason == "skipped_budget_exhausted" for gate in verification_gates)
+    used_verify_streams = sum(1 for gate in verification_gates if gate.reason != "skipped_budget_exhausted")
+    budget_remaining = {
+        "verify_streams": max(0, integrity_budget.max_verify_streams_per_tick - used_verify_streams),
+        "verify_items_per_stream": integrity_budget.max_verify_items_per_stream,
+        "snapshot_emits_per_window": integrity_budget.max_snapshot_emits_per_window,
+        "witness_attempts_per_window": integrity_budget.max_witness_attempts_per_window,
+    }
     return IntegrityStatus(
         schema_version=1,
         ts=checked_at,
@@ -139,7 +173,31 @@ def evaluate_integrity(repo_root: Path, *, policy_hash: str) -> IntegrityStatus:
         reason_stack=reason_stack,
         recommended_actions=recommended_actions,
         policy_hash=policy_hash,
+        budget_exhausted=budget_exhausted,
+        budget_remaining=budget_remaining,
     )
+
+
+def _verification_budgeted_gates(root: Path, checked_at: str, budget: IntegrityBudget) -> list[IntegrityGateResult]:
+    plans = [
+        ("attestation_snapshot_signatures", _gate_snapshot_signatures),
+        ("rollup_signatures", _gate_rollup_signatures),
+        ("strategic_signatures", _gate_strategic_signatures),
+    ]
+    active = [name for name, fn in plans if fn(root, checked_at, budget, dry_run=True) is not None]
+    priority = {"attestation_snapshot_signatures": 1, "rollup_signatures": 2, "strategic_signatures": 3}
+    allowed = set(sorted(active, key=lambda name: priority[name], reverse=True)[: budget.max_verify_streams_per_tick])
+
+    results: list[IntegrityGateResult] = []
+    for name, fn in plans:
+        gate = fn(root, checked_at, budget, dry_run=False)
+        if gate is None:
+            continue
+        if name not in allowed:
+            results.append(IntegrityGateResult(name=name, status="skipped", reason="skipped_budget_exhausted", evidence_paths=[], checked_at=checked_at))
+            continue
+        results.append(gate)
+    return results
 
 
 def _gate_doctrine(root: Path, checked_at: str) -> IntegrityGateResult:
@@ -182,20 +240,35 @@ def _gate_audit_chain(root: Path, checked_at: str) -> IntegrityGateResult:
     return IntegrityGateResult("audit_chain", "fail" if enforce else "warn", check.reason or "audit_chain_failed", [report] if report else [], checked_at)
 
 
-def _gate_rollup_signatures(root: Path, checked_at: str) -> IntegrityGateResult:
+def _gate_snapshot_signatures(root: Path, checked_at: str, budget: IntegrityBudget, *, dry_run: bool = False) -> IntegrityGateResult | None:
+    if os.getenv("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY", "0") != "1":
+        return None
+    if dry_run:
+        return IntegrityGateResult("attestation_snapshot_signatures", "ok", "planned", [], checked_at)
+    result = verify_recent_snapshots(root, last=budget.max_verify_items_per_stream)
+    if result.status == "ok":
+        return IntegrityGateResult("attestation_snapshot_signatures", "ok", "ok", [], checked_at)
+    return IntegrityGateResult("attestation_snapshot_signatures", result.status, result.reason or "snapshot_signature_verify_failed", [], checked_at)
+
+
+def _gate_rollup_signatures(root: Path, checked_at: str, budget: IntegrityBudget, *, dry_run: bool = False) -> IntegrityGateResult | None:
     if os.getenv("SENTIENTOS_ROLLUP_SIG_VERIFY", "0") != "1":
-        return IntegrityGateResult("rollup_signatures", "skipped", "verify_disabled", [], checked_at)
-    ok, reason = verify_signed_rollups(root, last_weeks=max(1, _env_int("SENTIENTOS_ROLLUP_SIG_VERIFY_LAST_N", 6)))
+        return None
+    if dry_run:
+        return IntegrityGateResult("rollup_signatures", "ok", "planned", [], checked_at)
+    ok, reason = verify_signed_rollups(root, last_weeks=max(1, min(_env_int("SENTIENTOS_ROLLUP_SIG_VERIFY_LAST_N", 6), budget.max_verify_items_per_stream)))
     if ok:
         return IntegrityGateResult("rollup_signatures", "ok", "ok", [], checked_at)
     enforce = os.getenv("SENTIENTOS_ROLLUP_SIG_ENFORCE", "0") == "1"
     return IntegrityGateResult("rollup_signatures", "fail" if enforce else "warn", reason or "rollup_signature_verify_failed", [], checked_at)
 
 
-def _gate_strategic_signatures(root: Path, checked_at: str) -> IntegrityGateResult:
+def _gate_strategic_signatures(root: Path, checked_at: str, budget: IntegrityBudget, *, dry_run: bool = False) -> IntegrityGateResult | None:
     if os.getenv("SENTIENTOS_STRATEGIC_SIG_VERIFY", "0") != "1":
-        return IntegrityGateResult("strategic_signatures", "skipped", "verify_disabled", [], checked_at)
-    verification = verify_recent(root, last=max(1, _env_int("SENTIENTOS_STRATEGIC_SIG_VERIFY_LAST_N", 25)))
+        return None
+    if dry_run:
+        return IntegrityGateResult("strategic_signatures", "ok", "planned", [], checked_at)
+    verification = verify_recent(root, last=max(1, min(_env_int("SENTIENTOS_STRATEGIC_SIG_VERIFY_LAST_N", 25), budget.max_verify_items_per_stream)))
     if verification.ok:
         return IntegrityGateResult("strategic_signatures", "ok", "ok", [], checked_at)
     enforce = os.getenv("SENTIENTOS_STRATEGIC_SIG_ENFORCE", "0") == "1"
@@ -264,4 +337,3 @@ def _env_int(name: str, default: int) -> int:
         return int(value)
     except ValueError:
         return default
-

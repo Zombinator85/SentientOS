@@ -137,3 +137,24 @@ def test_enforce_blocks_merge_train(tmp_path: Path, monkeypatch) -> None:  # typ
     result = train.tick()
     assert result["status"] == "held"
     assert result["reason"] == "federation_integrity_diverged"
+
+
+def test_federation_precedence_order_is_deterministic() -> None:
+    local = {
+        "latest_attestation_snapshot_sig_hash": "tip-a",
+        "integrity_status_hash": "integrity-a",
+        "policy_hash": "policy-a",
+        "latest_strategic_sig_hash": "strategic-a",
+        "latest_rollup_sig_hashes": {"latest": "rollup-a"},
+        "latest_goal_graph_hash": "goal-a",
+    }
+    peer = {
+        "latest_attestation_snapshot_sig_hash": "tip-b",
+        "integrity_status_hash": "integrity-b",
+        "policy_hash": "policy-b",
+        "latest_strategic_sig_hash": "strategic-b",
+        "latest_rollup_sig_hashes": {"latest": "rollup-b"},
+        "latest_goal_graph_hash": "goal-b",
+    }
+    result = compare_integrity_snapshots(local, peer)
+    assert result.divergence_reasons == ["attestation_snapshot_tip_mismatch"]

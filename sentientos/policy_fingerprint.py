@@ -70,6 +70,13 @@ def build_policy_dict() -> dict[str, object]:
             "auto_apply": os.getenv("SENTIENTOS_STRATEGIC_AUTO_APPLY", "0") == "1",
             "apply_requires_stable": os.getenv("SENTIENTOS_STRATEGIC_APPLY_REQUIRES_STABLE", "1") == "1",
         },
+        "integrity_budget": {
+            "max_verify_streams_per_tick": _env_int("SENTIENTOS_INTEGRITY_MAX_VERIFY_STREAMS", 3),
+            "max_verify_items_per_stream": _env_int("SENTIENTOS_INTEGRITY_MAX_VERIFY_LAST_N", 25),
+            "max_snapshot_emits_per_window": _env_int("SENTIENTOS_INTEGRITY_MAX_SNAPSHOT_PER_HOUR", 6),
+            "max_witness_attempts_per_window": _env_int("SENTIENTOS_INTEGRITY_MAX_WITNESS_PER_HOUR", 6),
+            "snapshot_min_interval_seconds": _env_int("SENTIENTOS_ATTESTATION_SNAPSHOT_MIN_INTERVAL_SECONDS", 600),
+        },
     }
     return policy
 

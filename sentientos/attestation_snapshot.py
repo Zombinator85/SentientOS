@@ -66,6 +66,38 @@ def emit_snapshot(repo_root: Path, snapshot: AttestationSnapshot) -> str:
     return str(rel)
 
 
+def should_emit_snapshot(
+    repo_root: Path,
+    *,
+    ts: str,
+    integrity_status_hash: str,
+    policy_hash: str,
+    goal_graph_hash: str | None,
+    min_interval_seconds: int,
+) -> bool:
+    latest = latest_snapshot_payload(repo_root)
+    if not latest:
+        return True
+    if as_str(latest.get("integrity_status_hash")) != integrity_status_hash:
+        return True
+    if as_str(latest.get("policy_hash")) != policy_hash:
+        return True
+    if as_str(latest.get("latest_goal_graph_hash")) != as_str(goal_graph_hash):
+        return True
+    latest_ts = as_str(latest.get("ts")) or ""
+    if _seconds_since(latest_ts, ts) >= max(1, min_interval_seconds):
+        return True
+    return False
+
+
+def latest_snapshot_payload(repo_root: Path) -> dict[str, object]:
+    rows = read_jsonl(repo_root.resolve() / SNAPSHOT_PULSE_PATH)
+    for row in reversed(rows):
+        if isinstance(row, dict):
+            return row
+    return {}
+
+
 def maybe_sign_snapshot(repo_root: Path, *, snapshot_rel_path: str, snapshot_payload: dict[str, object]) -> dict[str, object] | None:
     signer = _resolve_signer(require_configured=False)
     if signer is None:
@@ -250,6 +282,28 @@ def _verify_signature(signer: dict[str, str], payload_sha: str, signature: str) 
             check=False,
         )
         return completed.returncode == 0
+
+
+def _seconds_since(previous_ts: str, current_ts: str) -> int:
+    from datetime import datetime, timezone
+
+    def _parse(value: str) -> datetime | None:
+        if not value:
+            return None
+        text = value.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    previous = _parse(previous_ts)
+    current = _parse(current_ts)
+    if previous is None or current is None:
+        return 10**9
+    return max(0, int((current - previous).total_seconds()))
 
 
 def _latest_sig_hash(repo_root: Path) -> str | None:
