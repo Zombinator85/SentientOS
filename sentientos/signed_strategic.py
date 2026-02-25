@@ -2,16 +2,28 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import hmac
-import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
-from typing import Any, Protocol
+from typing import Protocol
 
+from sentientos.attestation import (
+    append_jsonl,
+    as_str,
+    canonical_json_bytes as attestation_canonical_json_bytes,
+    compute_envelope_hash,
+    iso_now,
+    publish_witness,
+    read_json,
+    read_jsonl,
+    resolve_recent_rows,
+    safe_ts,
+    witness_enabled,
+    write_json,
+)
 from sentientos.artifact_catalog import append_catalog_entry
 
 STRATEGIC_SIGN_NAMESPACE = "sentientos-strategic"
@@ -135,7 +147,7 @@ class StrategicVerifyResult:
 
 
 def canonical_json_bytes(payload: dict[str, object]) -> bytes:
-    return (json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
+    return attestation_canonical_json_bytes(payload)
 
 
 def strategic_signing_enabled() -> bool:
@@ -154,10 +166,10 @@ def sign_object(
 ) -> StrategicSig:
     signer = _resolve_signer(require_configured=True)
     root = repo_root.resolve()
-    ts = created_at or _iso_now()
+    ts = created_at or iso_now()
     prev_hash = latest_sig_hash(root)
     object_sha = hashlib.sha256(canonical_json_bytes(object_payload)).hexdigest()
-    signature_path = SIGNATURES_DIR / f"sig_{_safe_ts(ts)}_{kind}_{_safe_id(object_id)}.json"
+    signature_path = SIGNATURES_DIR / f"sig_{safe_ts(ts)}_{kind}_{_safe_id(object_id)}.json"
     payload = {
         "schema_version": 1,
         "kind": kind,
@@ -174,7 +186,7 @@ def sign_object(
     envelope = dict(payload)
     envelope["sig_payload_sha256"] = payload_sha
     envelope["signature"] = signature
-    envelope["sig_hash"] = hashlib.sha256(canonical_json_bytes(envelope)).hexdigest()
+    envelope["sig_hash"] = compute_envelope_hash(envelope, hash_field="sig_hash")
     row = StrategicSig(
         schema_version=1,
         kind=kind,
@@ -189,8 +201,8 @@ def sign_object(
         algorithm=signer.algorithm,
         sig_hash=str(envelope["sig_hash"]),
     )
-    _write_json(root / signature_path, row.to_dict())
-    _append_jsonl(root / SIGNATURES_INDEX_PATH, row.to_dict())
+    write_json(root / signature_path, row.to_dict())
+    append_jsonl(root / SIGNATURES_INDEX_PATH, row.to_dict())
     links = {"object_id": object_id, "object_kind": kind, "sig_hash": row.sig_hash}
     if goal_graph_hash:
         links["goal_graph_hash"] = goal_graph_hash
@@ -210,37 +222,35 @@ def sign_object(
 
 def verify_recent(repo_root: Path, *, last: int = 20) -> StrategicVerifyResult:
     root = repo_root.resolve()
-    rows = _read_jsonl(root / SIGNATURES_INDEX_PATH)
+    rows = resolve_recent_rows(index_path=root / SIGNATURES_INDEX_PATH, sig_dir=root / SIGNATURES_DIR, sig_glob="sig_*.json", last_n=last)
     if not rows:
         return StrategicVerifyResult(ok=True, reason=None, checked_n=0, last_ok_sig_hash=None)
     signer = _resolve_signer(require_configured=False)
     if signer is None:
         return StrategicVerifyResult(ok=True, reason=None, checked_n=0, last_ok_sig_hash=None)
-    recent = rows[-last:] if last > 0 else rows
+    recent = rows
     prev_hash: str | None = None
     checked_n = 0
     last_ok_sig_hash: str | None = None
     for row in recent:
-        sig_hash = _as_str(row.get("sig_hash"))
+        sig_hash = as_str(row.get("sig_hash"))
         payload = _signature_payload_from_record(row)
         expected_payload_sha = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
-        if _as_str(row.get("sig_payload_sha256")) != expected_payload_sha:
-            return StrategicVerifyResult(ok=False, reason=f"sig_payload_sha256_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
-        sig = _as_str(row.get("signature")) or ""
+        if as_str(row.get("sig_payload_sha256")) != expected_payload_sha:
+            return StrategicVerifyResult(ok=False, reason=f"sig_payload_sha256_mismatch:{as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
+        sig = as_str(row.get("signature")) or ""
         if not signer.verify(expected_payload_sha, sig):
-            return StrategicVerifyResult(ok=False, reason=f"signature_invalid:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
-        hash_payload = dict(row)
-        hash_payload.pop("sig_hash", None)
-        computed_sig_hash = hashlib.sha256(canonical_json_bytes(hash_payload)).hexdigest()
+            return StrategicVerifyResult(ok=False, reason=f"signature_invalid:{as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
+        computed_sig_hash = compute_envelope_hash(row, hash_field="sig_hash")
         if sig_hash != computed_sig_hash:
-            return StrategicVerifyResult(ok=False, reason=f"sig_hash_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
-        if prev_hash and _as_str(row.get("prev_sig_hash")) != prev_hash:
-            return StrategicVerifyResult(ok=False, reason=f"prev_sig_hash_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
-        obj_path = root / (_as_str(row.get("path")) or "")
-        obj_payload = _read_json(obj_path)
+            return StrategicVerifyResult(ok=False, reason=f"sig_hash_mismatch:{as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
+        if prev_hash and as_str(row.get("prev_sig_hash")) != prev_hash:
+            return StrategicVerifyResult(ok=False, reason=f"prev_sig_hash_mismatch:{as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
+        obj_path = root / (as_str(row.get("path")) or "")
+        obj_payload = read_json(obj_path)
         obj_sha = hashlib.sha256(canonical_json_bytes(obj_payload)).hexdigest()
-        if _as_str(row.get("object_sha256")) != obj_sha:
-            return StrategicVerifyResult(ok=False, reason=f"object_sha256_mismatch:{_as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
+        if as_str(row.get("object_sha256")) != obj_sha:
+            return StrategicVerifyResult(ok=False, reason=f"object_sha256_mismatch:{as_str(row.get('object_id')) or 'unknown'}", checked_n=checked_n, last_ok_sig_hash=last_ok_sig_hash)
         prev_hash = sig_hash
         checked_n += 1
         last_ok_sig_hash = sig_hash
@@ -253,46 +263,30 @@ def verify_latest(repo_root: Path, *, last: int = 20) -> tuple[bool, str | None]
 
 
 def maybe_publish_strategic_witness(repo_root: Path, *, allow_git_tag_publish: bool = True) -> tuple[dict[str, object], str | None]:
-    if os.getenv("SENTIENTOS_STRATEGIC_WITNESS_PUBLISH", "0") != "1":
+    if not witness_enabled("SENTIENTOS_STRATEGIC_WITNESS_PUBLISH"):
         status = {"status": "disabled", "published_at": None, "failure": None, "tag": None}
-        _write_json(repo_root.resolve() / "glow/federation/strategic_witness_status.json", status)
+        write_json(repo_root.resolve() / "glow/federation/strategic_witness_status.json", status)
         return status, None
     root = repo_root.resolve()
     latest = latest_signature(root)
     if latest is None:
         status = {"status": "failed", "published_at": None, "failure": "strategic_signature_missing", "tag": None}
-        _write_json(root / "glow/federation/strategic_witness_status.json", status)
+        write_json(root / "glow/federation/strategic_witness_status.json", status)
         return _enforce_witness(status)
     short = latest.sig_hash[:16]
     day = latest.created_at[:10]
     tag = f"sentientos-strategy/{day}/{short}"
     backend = os.getenv("SENTIENTOS_STRATEGIC_WITNESS_BACKEND", "git")
-    published_at: str | None = None
-    failure: str | None = None
-    if backend == "file":
-        out = root / "glow/federation/strategic_witness_tags.jsonl"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        existing = {str(item.get("tag")) for item in _read_jsonl(out) if isinstance(item.get("tag"), str)}
-        if tag not in existing:
-            _append_jsonl(out, {"tag": tag, "sig_hash": latest.sig_hash, "published_at": _iso_now()})
-            published_at = _iso_now()
-    else:
-        if not allow_git_tag_publish:
-            status = {"status": "skipped_mutation_disallowed", "published_at": None, "failure": "mutation_disallowed", "tag": tag, "sig_hash": short}
-            _write_json(root / "glow/federation/strategic_witness_status.json", status)
-            return status, None
-        if not _git_repo_clean(root):
-            status = {"status": "skipped_repo_dirty", "published_at": None, "failure": "repo_dirty", "tag": tag, "sig_hash": short}
-            _write_json(root / "glow/federation/strategic_witness_status.json", status)
-            return status, None
-        if not _git_tag_exists(root, tag):
-            message = f"strategic_sig_hash: {latest.sig_hash}\nobject_id: {latest.object_id}\nkind: {latest.kind}"
-            completed = subprocess.run(["git", "tag", "-a", tag, "-m", message], cwd=root, capture_output=True, text=True, check=False)
-            if completed.returncode != 0:
-                failure = (completed.stderr.strip() or completed.stdout.strip() or "tag_create_failed")[:240]
-            else:
-                published_at = _iso_now()
-    status = {"status": "ok" if failure is None else "failed", "published_at": published_at, "failure": failure, "tag": tag, "sig_hash": short}
+    witness = publish_witness(
+        repo_root=root,
+        backend=backend,
+        tag=tag,
+        message=f"strategic_sig_hash: {latest.sig_hash}\nobject_id: {latest.object_id}\nkind: {latest.kind}",
+        file_path=root / "glow/federation/strategic_witness_tags.jsonl",
+        file_row={"tag": tag, "sig_hash": latest.sig_hash, "published_at": iso_now()},
+        allow_git_tag_publish=allow_git_tag_publish,
+    )
+    status = {"status": witness.status, "published_at": witness.published_at, "failure": witness.failure, "tag": tag, "sig_hash": short}
     if status["status"] == "ok":
         append_catalog_entry(
             root,
@@ -303,30 +297,30 @@ def maybe_publish_strategic_witness(repo_root: Path, *, allow_git_tag_publish: b
             schema_version=1,
             links={"sig_hash": latest.sig_hash, "object_id": latest.object_id},
             summary={"status": "ok", "tag": tag},
-            ts=_iso_now(),
+            ts=iso_now(),
         )
-    _write_json(root / "glow/federation/strategic_witness_status.json", status)
+    write_json(root / "glow/federation/strategic_witness_status.json", status)
     return _enforce_witness(status)
 
 
 def latest_signature(repo_root: Path) -> StrategicSig | None:
-    rows = _read_jsonl(repo_root.resolve() / SIGNATURES_INDEX_PATH)
+    rows = read_jsonl(repo_root.resolve() / SIGNATURES_INDEX_PATH)
     if not rows:
         return None
     payload = rows[-1]
-    sig_hash = _as_str(payload.get("sig_hash")) or ""
+    sig_hash = as_str(payload.get("sig_hash")) or ""
     return StrategicSig(
         schema_version=int(payload.get("schema_version") or 1),
-        kind=_as_str(payload.get("kind")) or "",
-        object_id=_as_str(payload.get("object_id")) or "",
-        created_at=_as_str(payload.get("created_at")) or "",
-        path=_as_str(payload.get("path")) or "",
-        object_sha256=_as_str(payload.get("object_sha256")) or "",
-        prev_sig_hash=_as_str(payload.get("prev_sig_hash")),
-        sig_payload_sha256=_as_str(payload.get("sig_payload_sha256")) or "",
-        signature=_as_str(payload.get("signature")) or "",
-        public_key_id=_as_str(payload.get("public_key_id")) or "",
-        algorithm=_as_str(payload.get("algorithm")) or "",
+        kind=as_str(payload.get("kind")) or "",
+        object_id=as_str(payload.get("object_id")) or "",
+        created_at=as_str(payload.get("created_at")) or "",
+        path=as_str(payload.get("path")) or "",
+        object_sha256=as_str(payload.get("object_sha256")) or "",
+        prev_sig_hash=as_str(payload.get("prev_sig_hash")),
+        sig_payload_sha256=as_str(payload.get("sig_payload_sha256")) or "",
+        signature=as_str(payload.get("signature")) or "",
+        public_key_id=as_str(payload.get("public_key_id")) or "",
+        algorithm=as_str(payload.get("algorithm")) or "",
         sig_hash=sig_hash,
     )
 
@@ -344,14 +338,14 @@ def latest_sig_hash_short(repo_root: Path) -> str | None:
 def _signature_payload_from_record(payload: dict[str, object]) -> dict[str, object]:
     return {
         "schema_version": int(payload.get("schema_version") or 1),
-        "kind": _as_str(payload.get("kind")) or "",
-        "object_id": _as_str(payload.get("object_id")) or "",
-        "created_at": _as_str(payload.get("created_at")) or "",
-        "path": _as_str(payload.get("path")) or "",
-        "object_sha256": _as_str(payload.get("object_sha256")) or "",
-        "prev_sig_hash": _as_str(payload.get("prev_sig_hash")),
-        "public_key_id": _as_str(payload.get("public_key_id")) or "",
-        "algorithm": _as_str(payload.get("algorithm")) or "",
+        "kind": as_str(payload.get("kind")) or "",
+        "object_id": as_str(payload.get("object_id")) or "",
+        "created_at": as_str(payload.get("created_at")) or "",
+        "path": as_str(payload.get("path")) or "",
+        "object_sha256": as_str(payload.get("object_sha256")) or "",
+        "prev_sig_hash": as_str(payload.get("prev_sig_hash")),
+        "public_key_id": as_str(payload.get("public_key_id")) or "",
+        "algorithm": as_str(payload.get("algorithm")) or "",
     }
 
 
@@ -383,67 +377,10 @@ def _enforce_witness(status: dict[str, object]) -> tuple[dict[str, object], str 
     return status, None
 
 
-def _write_json(path: Path, payload: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
-def _append_jsonl(path: Path, payload: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(payload, sort_keys=True) + "\n")
-
-
-def _read_json(path: Path) -> dict[str, object]:
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _read_jsonl(path: Path) -> list[dict[str, object]]:
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
-    out: list[dict[str, object]] = []
-    for line in lines:
-        text = line.strip()
-        if not text:
-            continue
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            out.append(payload)
-    return out
-
-
-def _safe_ts(value: str) -> str:
-    return value.replace(":", "-").replace(".", "-")
-
-
 def _safe_id(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "-" for ch in value)[:80]
 
 
 def _as_str(value: object) -> str | None:
-    return value if isinstance(value, str) and value else None
+    return as_str(value)
 
-
-def _git_tag_exists(repo_root: Path, tag: str) -> bool:
-    completed = subprocess.run(["git", "rev-parse", "--verify", f"refs/tags/{tag}"], cwd=repo_root, capture_output=True, text=True, check=False)
-    return completed.returncode == 0
-
-
-def _git_repo_clean(repo_root: Path) -> bool:
-    completed = subprocess.run(["git", "status", "--porcelain"], cwd=repo_root, capture_output=True, text=True, check=False)
-    if completed.returncode != 0:
-        return False
-    return completed.stdout.strip() == ""
-
-
-def _iso_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
