@@ -19,8 +19,8 @@ from sentientos.integrity_pressure import compute_integrity_pressure, update_pre
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.integrity_snapshot import PEER_SNAPSHOTS_DIR, SNAPSHOT_PATH, emit_integrity_snapshot
 from sentientos.attestation import canonical_json_bytes, write_json
-from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, maybe_publish_snapshot_witness, maybe_sign_snapshot, verify_recent_snapshots
-from sentientos.integrity_controller import IntegrityStatus, evaluate_integrity
+from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, maybe_publish_snapshot_witness, maybe_sign_snapshot, should_emit_snapshot, verify_recent_snapshots
+from sentientos.integrity_controller import IntegrityBudget, IntegrityStatus, evaluate_integrity
 from sentientos.policy_fingerprint import emit_policy_fingerprint
 from sentientos.goal_graph import GOAL_GRAPH_PATH, goal_graph_hash, load_goal_graph
 from sentientos.goal_graph import load_goal_state, persist_goal_state
@@ -862,6 +862,7 @@ def _emit_attestation_snapshot(
     doctrine = _load_json(repo_root / "glow/contracts/contract_manifest.json")
     strategic_witness = _load_json(repo_root / "glow/federation/strategic_witness_status.json")
     anchor_witness = _load_json(repo_root / "glow/federation/anchor_witness_status.json")
+    integrity_budget = IntegrityBudget.from_env()
     snapshot = AttestationSnapshot(
         schema_version=1,
         ts=integrity_status.ts,
@@ -877,15 +878,35 @@ def _emit_attestation_snapshot(
             "rollup": {"status": anchor_witness.get("witness_status"), "published_at": anchor_witness.get("last_witness_published_at")},
         },
     )
-    rel = emit_snapshot(repo_root, snapshot)
-    envelope = maybe_sign_snapshot(repo_root, snapshot_rel_path=rel, snapshot_payload=snapshot.to_dict())
-    verify_result = verify_recent_snapshots(repo_root, last=max(1, _env_int("SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY_LAST_N", 10)))
+
+    snapshot_rel: str | None = None
+    envelope = None
+    snapshot_hash: str | None = None
+    min_interval_seconds = max(1, _env_int("SENTIENTOS_ATTESTATION_SNAPSHOT_MIN_INTERVAL_SECONDS", 600))
+    emit_allowed = should_emit_snapshot(
+        repo_root,
+        ts=snapshot.ts,
+        integrity_status_hash=snapshot.integrity_status_hash,
+        policy_hash=snapshot.policy_hash,
+        goal_graph_hash=snapshot.latest_goal_graph_hash,
+        min_interval_seconds=min_interval_seconds,
+    )
+    emit_budget_ok = _count_recent_rows(repo_root / "pulse/attestation_snapshots.jsonl", window_seconds=3600) < integrity_budget.max_snapshot_emits_per_window
+    if emit_allowed and emit_budget_ok:
+        snapshot_rel = emit_snapshot(repo_root, snapshot)
+        envelope = maybe_sign_snapshot(repo_root, snapshot_rel_path=snapshot_rel, snapshot_payload=snapshot.to_dict())
+        snapshot_hash = hashlib.sha256(canonical_json_bytes(snapshot.to_dict())).hexdigest()[:16]
+
+    verify_result = verify_recent_snapshots(repo_root, last=integrity_budget.max_verify_items_per_stream)
     if verify_result.status in {"warn", "fail"}:
         _append_jsonl(repo_root / "pulse/integrity_status.jsonl", {"ts": integrity_status.ts, "snapshot_verify_status": verify_result.status, "snapshot_verify_reason": verify_result.reason})
-    _witness_status, _witness_failure = maybe_publish_snapshot_witness(repo_root, allow_git_tag_publish=mutation_allowed)
-    snapshot_hash = hashlib.sha256(canonical_json_bytes(snapshot.to_dict())).hexdigest()[:16]
+
+    if snapshot_rel is not None and _count_recent_rows(repo_root / "glow/federation/attestation_snapshot_witness_tags.jsonl", window_seconds=3600) < integrity_budget.max_witness_attempts_per_window:
+        _witness_status, _witness_failure = maybe_publish_snapshot_witness(repo_root, allow_git_tag_publish=mutation_allowed)
+        _ = (_witness_status, _witness_failure)
+
     sig_hash = _optional_str((envelope or {}).get("sig_hash"))
-    return rel, (sig_hash[:16] if sig_hash else None), snapshot_hash
+    return snapshot_rel, (sig_hash[:16] if sig_hash else None), snapshot_hash
 
 
 def _goal_state_summary(state: dict[str, object]) -> dict[str, int]:
@@ -1023,6 +1044,25 @@ def _optional_str(value: object) -> str | None:
 def _iso_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
+
+
+def _count_recent_rows(path: Path, *, window_seconds: int) -> int:
+    rows = _read_jsonl(path)
+    if not rows:
+        return 0
+    now = datetime.now(timezone.utc)
+    count = 0
+    for row in reversed(rows):
+        if not isinstance(row, dict):
+            continue
+        ts = _optional_str(row.get("ts")) or _optional_str(row.get("published_at")) or _optional_str(row.get("created_at"))
+        parsed = _parse_iso(ts)
+        if parsed is None:
+            continue
+        if (now - parsed).total_seconds() > max(1, window_seconds):
+            break
+        count += 1
+    return count
 
 def _env_int(name: str, default: int) -> int:
     try:

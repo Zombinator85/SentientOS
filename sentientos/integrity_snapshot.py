@@ -158,18 +158,20 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
         reasons.append("anchor_tip_mismatch")
     if not attestation_tip_match:
         reasons.append("attestation_snapshot_tip_mismatch")
-    if attestation_tip_match and not attestation_hash_match:
+    elif not attestation_hash_match:
         reasons.append("attestation_snapshot_hash_mismatch")
-    if not integrity_hash_match:
-        reasons.append("integrity_status_hash_mismatch")
-    if not policy_hash_match:
-        reasons.append("policy_hash_mismatch")
-    if not rollup_sig_match:
-        reasons.append("rollup_signature_tip_mismatch")
-    if not strategic_sig_match:
-        reasons.append("strategic_signature_tip_mismatch")
-    if strategic_sig_match and not goal_graph_match:
-        reasons.append("goal_graph_hash_mismatch")
+
+    if attestation_tip_match:
+        precedence_pairs = [
+            ("integrity_status_hash_mismatch", not integrity_hash_match),
+            ("policy_hash_mismatch", not policy_hash_match),
+            ("strategic_signature_tip_mismatch", not strategic_sig_match),
+            ("rollup_signature_tip_mismatch", not rollup_sig_match),
+            ("goal_graph_hash_mismatch", strategic_sig_match and not goal_graph_match),
+        ]
+        for reason, mismatch in precedence_pairs:
+            if mismatch:
+                reasons.append(reason)
 
     comparable = any(
         _present(local.get(key)) and _present(peer.get(key))
@@ -228,7 +230,18 @@ def evaluate_peer_integrity(repo_root: Path) -> dict[str, object]:
         )
 
     diverged = [row for row in summaries if row.get("status") == "diverged"]
-    reasons = sorted({reason for row in diverged for reason in row.get("divergence_reasons", []) if isinstance(reason, str)})
+    order = {
+        "attestation_snapshot_tip_mismatch": 0,
+        "integrity_status_hash_mismatch": 1,
+        "policy_hash_mismatch": 2,
+        "strategic_signature_tip_mismatch": 3,
+        "rollup_signature_tip_mismatch": 4,
+        "goal_graph_hash_mismatch": 5,
+    }
+    reasons = sorted(
+        {reason for row in diverged for reason in row.get("divergence_reasons", []) if isinstance(reason, str)},
+        key=lambda item: (order.get(item, 100), item),
+    )
     overall = "diverged" if diverged else ("ok" if summaries else "unknown")
     return {
         "status": overall,
