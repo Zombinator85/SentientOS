@@ -159,3 +159,39 @@ Logging now flows through a redaction middleware that hides e-mail addresses, be
 ### Performance Smoke Tests
 
 `make perf` runs `scripts/perf_smoke.sh`, generates synthetic critic/reflexion/council decisions across `low|std|high` load profiles, and writes p50/p95 latency reports to `glow/perf/latest/summary.json`. Use the results as the baseline before kicking off a longer soak.
+
+## Forge Integrity Incident Controls
+
+### Quick triage
+
+Run Forge status to get a deterministic integrity/attestation summary with direct artifact pointers:
+
+```bash
+python scripts/forge_status.py --latest
+python scripts/forge_status.py --json
+```
+
+### Cold start verification
+
+Run replay verification to reconstruct integrity gates and bounded signature checks without running orchestrator ticks:
+
+```bash
+python scripts/forge_replay.py --verify --last-n 25 --emit-snapshot 0
+```
+
+Replay mode is non-mutating by default and safe for forensics. It writes replay artifacts to `glow/forge/replay/` and appends pulse rows to `pulse/replay_runs.jsonl`. Snapshot emission is optional and only occurs when `--emit-snapshot 1` is provided.
+
+### Exit codes (`forge_status`)
+
+- `0`: Integrity healthy (no enforce/fail posture).
+- `1`: Warning-only posture present.
+- `2`: Fail/enforce posture active (mutation disallowed by integrity).
+- `3`: Critical artifacts missing (no integrity status and no attestation snapshot).
+
+### Incident report attachments
+
+Attach these generated files to incident reports:
+
+- `forge_status --json` output.
+- Latest `glow/forge/replay/replay_*.json` from `forge_replay --verify`.
+- Any referenced integrity status/snapshot/signature/witness artifact paths listed in the status payload.
