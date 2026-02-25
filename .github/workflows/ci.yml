@@ -190,6 +190,39 @@ jobs:
           SENTIENTOS_STRATEGIC_SIGNING: "hmac-test"
           SENTIENTOS_STRATEGIC_HMAC_SECRET: "ci-secret"
 
+      - name: Attestation snapshot verify fixture (hmac-test)
+        run: |
+          rm -rf /tmp/attestation-snapshot-ci
+          mkdir -p /tmp/attestation-snapshot-ci
+          python - <<'PYCODE'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, maybe_sign_snapshot
+
+          root = Path('/tmp/attestation-snapshot-ci')
+          payload = AttestationSnapshot(
+              schema_version=1,
+              ts='2099-01-01T00:00:00Z',
+              policy_hash='policy-ci',
+              integrity_status_hash='integrity-ci',
+              latest_rollup_sig_hash=None,
+              latest_strategic_sig_hash=None,
+              latest_goal_graph_hash='goal-ci',
+              latest_catalog_checkpoint_hash=None,
+              doctrine_bundle_sha256='bundle-ci',
+              witness_summary={'rollup': {'status': 'disabled'}, 'strategic': {'status': 'disabled'}},
+          )
+          rel = emit_snapshot(root, payload)
+          maybe_sign_snapshot(root, snapshot_rel_path=rel, snapshot_payload=payload.to_dict())
+          PYCODE
+          python scripts/verify_attestation_snapshots.py --repo-root /tmp/attestation-snapshot-ci --last 10
+        env:
+          SENTIENTOS_ATTESTATION_SNAPSHOT_SIGNING: "hmac-test"
+          SENTIENTOS_ATTESTATION_SNAPSHOT_HMAC_SECRET: "ci-secret"
+          SENTIENTOS_ATTESTATION_SNAPSHOT_VERIFY: "1"
+
       - name: Pytest with coverage
         run: python -m scripts.run_tests
         env:

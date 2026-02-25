@@ -14,6 +14,7 @@ from sentientos.receipt_anchors import ANCHORS_DIR
 from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.receipt_chain import latest_receipt
 from sentientos.schema_registry import SchemaCompatibilityError, SchemaName, latest_version, normalize
+from sentientos.attestation_snapshot import latest_snapshot_hashes
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
 from sentientos.signed_strategic import latest_sig_hash_short
 
@@ -41,6 +42,10 @@ class IntegritySnapshot:
     latest_catalog_checkpoint_hash: str | None
     latest_strategic_sig_hash: str | None
     latest_goal_graph_hash: str | None
+    integrity_status_hash: str | None
+    policy_hash: str | None
+    latest_attestation_snapshot_hash: str | None
+    latest_attestation_snapshot_sig_hash: str | None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -61,6 +66,10 @@ class IntegritySnapshot:
             "latest_catalog_checkpoint_hash": self.latest_catalog_checkpoint_hash,
             "latest_strategic_sig_hash": self.latest_strategic_sig_hash,
             "latest_goal_graph_hash": self.latest_goal_graph_hash,
+            "integrity_status_hash": self.integrity_status_hash,
+            "policy_hash": self.policy_hash,
+            "latest_attestation_snapshot_hash": self.latest_attestation_snapshot_hash,
+            "latest_attestation_snapshot_sig_hash": self.latest_attestation_snapshot_sig_hash,
         }
 
 
@@ -86,6 +95,8 @@ def emit_integrity_snapshot(repo_root: Path, path: Path = SNAPSHOT_PATH) -> Inte
     root = repo_root.resolve()
     local_receipt = latest_receipt(root) or {}
     latest_anchor = _latest_anchor_record(root)
+    attestation_snapshot_hash, attestation_snapshot_sig_hash = latest_snapshot_hashes(root)
+    latest_snapshot = _latest_attestation_snapshot(root)
     snapshot = IntegritySnapshot(
         schema_version=latest_version(SchemaName.INTEGRITY_SNAPSHOT),
         created_at=_iso_now(),
@@ -104,6 +115,10 @@ def emit_integrity_snapshot(repo_root: Path, path: Path = SNAPSHOT_PATH) -> Inte
         latest_catalog_checkpoint_hash=latest_catalog_checkpoint_hash(root),
         latest_strategic_sig_hash=latest_sig_hash_short(root),
         latest_goal_graph_hash=_latest_goal_graph_hash(root),
+        integrity_status_hash=_as_str(latest_snapshot.get("integrity_status_hash")),
+        policy_hash=_as_str(latest_snapshot.get("policy_hash")),
+        latest_attestation_snapshot_hash=attestation_snapshot_hash,
+        latest_attestation_snapshot_sig_hash=attestation_snapshot_sig_hash,
     )
     target = root / path
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -130,6 +145,10 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
     rollup_sig_match = _match_key(local, peer, "latest_rollup_sig_hashes")
     strategic_sig_match = _match_key(local, peer, "latest_strategic_sig_hash")
     goal_graph_match = _match_key(local, peer, "latest_goal_graph_hash")
+    attestation_tip_match = _match_key(local, peer, "latest_attestation_snapshot_sig_hash")
+    attestation_hash_match = _match_key(local, peer, "latest_attestation_snapshot_hash")
+    integrity_hash_match = _match_key(local, peer, "integrity_status_hash")
+    policy_hash_match = _match_key(local, peer, "policy_hash")
 
     if not doctrine_match:
         reasons.append("doctrine_bundle_sha_mismatch")
@@ -137,6 +156,14 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
         reasons.append("receipt_tip_mismatch")
     if not anchor_match:
         reasons.append("anchor_tip_mismatch")
+    if not attestation_tip_match:
+        reasons.append("attestation_snapshot_tip_mismatch")
+    if attestation_tip_match and not attestation_hash_match:
+        reasons.append("attestation_snapshot_hash_mismatch")
+    if not integrity_hash_match:
+        reasons.append("integrity_status_hash_mismatch")
+    if not policy_hash_match:
+        reasons.append("policy_hash_mismatch")
     if not rollup_sig_match:
         reasons.append("rollup_signature_tip_mismatch")
     if not strategic_sig_match:
@@ -146,7 +173,18 @@ def compare_integrity_snapshots(local: Mapping[str, object], peer: Mapping[str, 
 
     comparable = any(
         _present(local.get(key)) and _present(peer.get(key))
-        for key in ("doctrine_bundle_sha256", "last_receipt_chain_tip_hash", "last_anchor_tip_hash", "latest_rollup_sig_hashes", "latest_strategic_sig_hash", "latest_goal_graph_hash")
+        for key in (
+            "latest_attestation_snapshot_sig_hash",
+            "latest_attestation_snapshot_hash",
+            "integrity_status_hash",
+            "policy_hash",
+            "doctrine_bundle_sha256",
+            "last_receipt_chain_tip_hash",
+            "last_anchor_tip_hash",
+            "latest_rollup_sig_hashes",
+            "latest_strategic_sig_hash",
+            "latest_goal_graph_hash",
+        )
     )
     if reasons:
         status = "diverged"
@@ -283,3 +321,22 @@ def _latest_goal_graph_hash(repo_root: Path) -> str | None:
         return None
     encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()[:16]
+
+
+def _latest_attestation_snapshot(repo_root: Path) -> dict[str, object]:
+    rows = []
+    try:
+        rows = (repo_root / "pulse/attestation_snapshots.jsonl").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    for line in reversed(rows):
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return {}
