@@ -114,7 +114,8 @@ class IntegrityBudget:
         )
 
 
-def evaluate_integrity(repo_root: Path, *, policy_hash: str) -> IntegrityStatus:
+def evaluate_integrity(repo_root: Path, *, policy_hash: str, replay_mode: bool = False) -> IntegrityStatus:
+    _ = replay_mode
     root = repo_root.resolve()
     checked_at = iso_now()
     quarantine = load_quarantine_state(root)
