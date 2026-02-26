@@ -22,6 +22,8 @@ _KIND_TO_SCHEMA: dict[str, str] = {
     "anchor": SchemaName.ANCHOR,
     "audit_report": SchemaName.AUDIT_CHAIN_REPORT,
     "federation_snapshot": SchemaName.INTEGRITY_SNAPSHOT,
+    "operator_status": SchemaName.FORGE_STATUS_REPORT,
+    "operator_replay": SchemaName.FORGE_REPLAY_REPORT,
 }
 
 
@@ -187,6 +189,8 @@ def _discover_entries(repo_root: Path, *, include_archives: bool = False) -> lis
     entries.extend(_discover_json_entries(root, root / "glow/forge/receipts", "receipt", "receipt_id"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/receipts/anchors", "anchor", "anchor_id"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/audit_reports", "audit_report", "created_at"))
+    entries.extend(_discover_json_entries(root, root / "glow/forge/operator/status", "operator_status", "ts"))
+    entries.extend(_discover_json_entries(root, root / "glow/forge/replay", "operator_replay", "ts"))
 
     if include_archives:
         entries.extend(_discover_json_entries(root, root / "glow/forge/archive/tick", "archive_tick", "generated_at"))
@@ -234,6 +238,10 @@ def _build_entry_from_payload(repo_root: Path, kind: str, payload: dict[str, obj
         "receipt_hash": payload.get("receipt_hash"),
         "anchor_id": payload.get("anchor_id"),
         "peer_id": payload.get("node_id") or payload.get("peer_id"),
+        "policy_hash": payload.get("policy_hash"),
+        "integrity_status_hash": payload.get("integrity_status_hash"),
+        "attestation_snapshot_tip": payload.get("attestation_snapshot_tip"),
+        "attestation_snapshot_hash": payload.get("attestation_snapshot_hash"),
     }
     schema_name = _KIND_TO_SCHEMA.get(kind, kind)
     schema_version = payload.get("schema_version") if isinstance(payload.get("schema_version"), int) else 1
@@ -334,7 +342,22 @@ def _load_json(path: Path) -> dict[str, object]:
 
 
 def _normalize_links(links: dict[str, object]) -> dict[str, object]:
-    keep = {"incident_id", "trace_id", "pack_id", "run_id", "pr_number", "head_sha", "receipt_hash", "anchor_id", "peer_id", "quarantine_activated"}
+    keep = {
+        "incident_id",
+        "trace_id",
+        "pack_id",
+        "run_id",
+        "pr_number",
+        "head_sha",
+        "receipt_hash",
+        "anchor_id",
+        "peer_id",
+        "quarantine_activated",
+        "policy_hash",
+        "integrity_status_hash",
+        "attestation_snapshot_tip",
+        "attestation_snapshot_hash",
+    }
     out: dict[str, object] = {}
     for key in sorted(keep):
         if key not in links:

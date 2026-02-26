@@ -18,12 +18,14 @@ class SchemaName:
     RECEIPT = "receipt"
     ANCHOR = "anchor"
     AUDIT_CHAIN_REPORT = "audit_chain_report"
+    FORGE_STATUS_REPORT = "forge_status_report"
+    FORGE_REPLAY_REPORT = "forge_replay_report"
 
 
 AdapterFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 LATEST_VERSIONS: dict[str, int] = {
-    SchemaName.FORGE_INDEX: 27,
+    SchemaName.FORGE_INDEX: 28,
     SchemaName.FORGE_REPORT: 1,
     SchemaName.GOVERNANCE_TRACE: 1,
     SchemaName.INCIDENT: 1,
@@ -35,6 +37,8 @@ LATEST_VERSIONS: dict[str, int] = {
     SchemaName.RECEIPT: 2,
     SchemaName.ANCHOR: 1,
     SchemaName.AUDIT_CHAIN_REPORT: 1,
+    SchemaName.FORGE_STATUS_REPORT: 1,
+    SchemaName.FORGE_REPLAY_REPORT: 1,
 }
 
 MIN_SUPPORTED_VERSIONS: dict[str, int] = {
@@ -50,6 +54,8 @@ MIN_SUPPORTED_VERSIONS: dict[str, int] = {
     SchemaName.RECEIPT: 1,
     SchemaName.ANCHOR: 1,
     SchemaName.AUDIT_CHAIN_REPORT: 1,
+    SchemaName.FORGE_STATUS_REPORT: 1,
+    SchemaName.FORGE_REPLAY_REPORT: 1,
 }
 
 
@@ -199,6 +205,16 @@ def _forge_index_v26_to_v27(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded.setdefault("last_integrity_status_path", None)
     return upgraded
 
+
+def _forge_index_v27_to_v28(payload: dict[str, Any]) -> dict[str, Any]:
+    upgraded = deepcopy(payload)
+    upgraded["schema_version"] = 28
+    upgraded.setdefault("last_replay_at", None)
+    upgraded.setdefault("last_replay_exit_code", None)
+    upgraded.setdefault("tick_replay_consistency", "unknown")
+    upgraded.setdefault("tick_replay_consistency_reason", "unknown")
+    return upgraded
+
 def _receipt_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded = deepcopy(payload)
     upgraded["schema_version"] = 2
@@ -220,6 +236,7 @@ ADAPTERS: dict[tuple[str, int], AdapterFn] = {
     (SchemaName.FORGE_INDEX, 24): _forge_index_v24_to_v25,
     (SchemaName.FORGE_INDEX, 25): _forge_index_v25_to_v26,
     (SchemaName.FORGE_INDEX, 26): _forge_index_v26_to_v27,
+    (SchemaName.FORGE_INDEX, 27): _forge_index_v27_to_v28,
     (SchemaName.RECEIPT, 1): _receipt_v1_to_v2,
 }
 
@@ -233,6 +250,8 @@ _REQUIRED_KEYS: dict[str, set[str]] = {
     SchemaName.ORCHESTRATOR_TICK: {"schema_version", "generated_at", "status"},
     SchemaName.RISK_BUDGET: {"schema_version", "created_at", "operating_mode"},
     SchemaName.INTEGRITY_SNAPSHOT: {"schema_version", "created_at", "node_id"},
+    SchemaName.FORGE_STATUS_REPORT: {"schema_version", "ts", "policy_hash", "integrity_overall", "exit_code"},
+    SchemaName.FORGE_REPLAY_REPORT: {"schema_version", "ts", "replay_mode", "policy_hash", "integrity_overall", "exit_code"},
 }
 
 

@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+from hashlib import sha256
 import os
 from pathlib import Path
 from typing import Any
 
 from sentientos import artifact_catalog
-from sentientos.attestation import canonical_json_bytes, read_json, read_jsonl
+from sentientos.attestation import canonical_json_bytes, read_json, read_jsonl, write_json
 from sentientos.attestation_snapshot import SIGNATURE_INDEX_PATH, SNAPSHOT_DIR, SNAPSHOT_PULSE_PATH, should_emit_snapshot
+from sentientos.consistency_checks import compare_tick_vs_replay, replay_is_recent
+from sentientos.operator_report_attestation import maybe_sign_operator_report, operator_signing_status, verify_recent_operator_reports
+from sentientos.schema_registry import SchemaName, normalize
 
 
 @dataclass(frozen=True)
@@ -64,6 +68,10 @@ def _resolve_witness_status(root: Path) -> ResolvedArtifact:
     return ResolvedArtifact(payload=read_json(root / "glow/federation/anchor_witness_status.json"), path="glow/federation/anchor_witness_status.json", resolution="disk")
 
 
+def _resolve_replay(root: Path) -> ResolvedArtifact:
+    return _resolve_catalog_then_disk(root, kind="operator_replay", disk_glob="glow/forge/replay/replay_*.json")
+
+
 def _signature_tip(root: Path) -> dict[str, object]:
     rows = read_jsonl(root / SIGNATURE_INDEX_PATH)
     if not rows:
@@ -73,8 +81,8 @@ def _signature_tip(root: Path) -> dict[str, object]:
     return {"sig_hash": sig_hash, "path": str(SIGNATURE_INDEX_PATH), "status": "present"}
 
 
-def _map_signature_streams(integrity: dict[str, object]) -> dict[str, dict[str, str]]:
-    out: dict[str, dict[str, str]] = {}
+def _map_signature_streams(integrity: dict[str, object]) -> dict[str, dict[str, object]]:
+    out: dict[str, dict[str, object]] = {}
     gates = integrity.get("gate_results")
     gate_map: dict[str, dict[str, object]] = {}
     if isinstance(gates, list):
@@ -89,7 +97,7 @@ def _map_signature_streams(integrity: dict[str, object]) -> dict[str, dict[str, 
         gate = gate_map.get(gate_name, {})
         status = str(gate.get("status") or "skipped")
         reason = str(gate.get("reason") or "not_evaluated")
-        out[key] = {"status": status, "reason": reason}
+        out[key] = {"status": status, "reason": reason, "checked_n": 0}
     return out
 
 
@@ -114,66 +122,83 @@ def _snapshot_cadence(root: Path, integrity: dict[str, object], snapshot: dict[s
     }
 
 
+def _overall(status_value: object) -> str:
+    return str(status_value) if str(status_value) in {"ok", "warn", "fail"} else "missing"
+
+
 def build_status_payload(root: Path) -> dict[str, object]:
     integrity = _resolve_integrity(root)
     snapshot = _resolve_snapshot(root)
     witness = _resolve_witness_status(root)
+    replay = _resolve_replay(root)
     sig_tip = _signature_tip(root)
-    status_hash = ""
-    if integrity.payload:
-        from hashlib import sha256
-
-        status_hash = sha256(canonical_json_bytes(integrity.payload)).hexdigest()
+    status_hash = sha256(canonical_json_bytes(integrity.payload)).hexdigest() if integrity.payload else ""
 
     reason_stack = integrity.payload.get("reason_stack") if isinstance(integrity.payload.get("reason_stack"), list) else []
-    top_reasons = [str(item) for item in reason_stack[:5]]
+    verify = _map_signature_streams(integrity.payload)
+
+    replay_consistency_status = "unknown"
+    replay_consistency_reason = "replay_missing_or_stale"
+    if replay.payload and replay_is_recent(replay.payload):
+        check = compare_tick_vs_replay(
+            {
+                "policy_hash": integrity.payload.get("policy_hash") or snapshot.payload.get("policy_hash"),
+                "integrity_status_hash": status_hash or snapshot.payload.get("integrity_status_hash"),
+                "integrity_overall": _overall(integrity.payload.get("status") or integrity.payload.get("integrity_overall") or "ok"),
+                "path": integrity.path,
+            },
+            replay.payload,
+        )
+        replay_consistency_status = check.status
+        replay_consistency_reason = check.reason
+
     payload: dict[str, Any] = {
-        "posture": integrity.payload.get("strategic_posture"),
-        "mode": integrity.payload.get("operating_mode"),
-        "quarantine": integrity.payload.get("quarantine_active"),
-        "pressure": integrity.payload.get("pressure_summary"),
-        "integrity_primary_reason": integrity.payload.get("primary_reason"),
-        "integrity_reason_stack_top5": top_reasons,
-        "allow": {
-            "mutation": bool(integrity.payload.get("mutation_allowed")),
-            "publish": bool(integrity.payload.get("publish_allowed")),
-            "automerge": bool(integrity.payload.get("automerge_allowed")),
-        },
-        "budget": {
-            "remaining": integrity.payload.get("budget_remaining") if isinstance(integrity.payload.get("budget_remaining"), dict) else {},
-            "exhausted": bool(integrity.payload.get("budget_exhausted")),
+        "schema_version": 1,
+        "ts": str(integrity.payload.get("ts") or snapshot.payload.get("ts") or ""),
+        "policy_hash": integrity.payload.get("policy_hash") or snapshot.payload.get("policy_hash"),
+        "integrity_status_hash": status_hash or snapshot.payload.get("integrity_status_hash"),
+        "integrity_overall": _overall(integrity.payload.get("status") or "ok"),
+        "primary_reason": integrity.payload.get("primary_reason") or "unknown",
+        "reason_stack": [str(item) for item in reason_stack[:10]],
+        "mutation_allowed": bool(integrity.payload.get("mutation_allowed")),
+        "publish_allowed": bool(integrity.payload.get("publish_allowed")),
+        "automerge_allowed": bool(integrity.payload.get("automerge_allowed")),
+        "budget_exhausted": bool(integrity.payload.get("budget_exhausted")),
+        "budget_remaining": integrity.payload.get("budget_remaining") if isinstance(integrity.payload.get("budget_remaining"), dict) else {},
+        "attestation_snapshot_tip": snapshot.payload.get("ts"),
+        "attestation_snapshot_hash": snapshot.payload.get("integrity_status_hash"),
+        "attestation_snapshot_present": bool(snapshot.payload),
+        "verify_summaries": verify,
+        "provenance": {
+            "integrity_status": {"path": integrity.path, "resolution_source": integrity.resolution},
+            "attestation_snapshot": {"path": snapshot.path, "resolution_source": snapshot.resolution},
+            "witness_status": {"path": witness.path, "resolution_source": witness.resolution},
         },
         "snapshot": {
             "present": bool(snapshot.payload),
             "cadence": _snapshot_cadence(root, integrity.payload, snapshot.payload, status_hash),
             "signature_tip": sig_tip,
             "witness_status": witness.payload,
-            "policy_hash": snapshot.payload.get("policy_hash"),
-            "integrity_status_hash": snapshot.payload.get("integrity_status_hash"),
         },
-        "signature_verification": _map_signature_streams(integrity.payload),
-        "policy_hash": integrity.payload.get("policy_hash") or snapshot.payload.get("policy_hash"),
-        "integrity_status_hash": status_hash or snapshot.payload.get("integrity_status_hash"),
-        "artifacts": {
-            "integrity_status": {"path": integrity.path, "resolution": integrity.resolution},
-            "attestation_snapshot": {"path": snapshot.path, "resolution": snapshot.resolution},
-            "witness_status": {"path": witness.path, "resolution": witness.resolution},
-            "snapshot_signature_tip": {"path": sig_tip.get("path"), "resolution": "disk"},
-        },
+        "operator_report_signing": operator_signing_status(root),
+        "tick_replay_consistency": replay_consistency_status,
+        "tick_replay_consistency_reason": replay_consistency_reason,
+        "exit_code": 0,
     }
-    return payload
+    normalized, _warnings = normalize(payload, SchemaName.FORGE_STATUS_REPORT)
+    return normalized
 
 
 def _exit_code(payload: dict[str, object]) -> int:
-    has_integrity = bool(payload.get("artifacts", {}).get("integrity_status", {}).get("path"))
-    has_snapshot = bool(payload.get("artifacts", {}).get("attestation_snapshot", {}).get("path"))
+    has_integrity = bool(payload.get("provenance", {}).get("integrity_status", {}).get("path"))
+    has_snapshot = bool(payload.get("provenance", {}).get("attestation_snapshot", {}).get("path"))
     if not has_integrity and not has_snapshot:
         return 3
-    sigs = payload.get("signature_verification")
+    sigs = payload.get("verify_summaries")
     any_warn = False
     if isinstance(sigs, dict):
         any_warn = any(isinstance(item, dict) and item.get("status") == "warn" for item in sigs.values())
-    if payload.get("allow", {}).get("mutation") is False and payload.get("integrity_primary_reason") not in {None, "integrity_ok"}:
+    if payload.get("mutation_allowed") is False and payload.get("primary_reason") not in {None, "integrity_ok"}:
         return 2
     if any_warn:
         return 1
@@ -192,23 +217,51 @@ def main(argv: list[str] | None = None) -> int:
 
     root = Path.cwd().resolve()
     payload = build_status_payload(root)
+    payload["exit_code"] = _exit_code(payload)
 
     if args.json:
+        ts = str(payload.get("ts") or "unknown")
+        out_rel = Path("glow/forge/operator/status") / f"status_{ts.replace(':', '-').replace('.', '-')}.json"
+        write_json(root / out_rel, payload)
+        signature = maybe_sign_operator_report(root, kind="operator_status", report_rel_path=str(out_rel), report_payload=payload)
+        if signature:
+            payload["operator_signature_hash"] = signature.get("sig_hash")
+            verify_result = verify_recent_operator_reports(root, last=1)
+            payload["operator_report_signing"]["verify_status"] = verify_result.status
+            write_json(root / out_rel, payload)
+        artifact_catalog.append_catalog_entry(
+            root,
+            kind="operator_status",
+            artifact_id=str(payload.get("ts") or out_rel.name),
+            relative_path=str(out_rel),
+            schema_name=SchemaName.FORGE_STATUS_REPORT,
+            schema_version=int(payload.get("schema_version") or 1),
+            links={
+                "policy_hash": payload.get("policy_hash"),
+                "integrity_status_hash": payload.get("integrity_status_hash"),
+                "attestation_snapshot_tip": payload.get("attestation_snapshot_tip"),
+                "attestation_snapshot_hash": payload.get("attestation_snapshot_hash"),
+            },
+            summary={
+                "status": payload.get("integrity_overall"),
+                "primary_reason": payload.get("primary_reason"),
+            },
+            ts=str(payload.get("ts") or ""),
+        )
         print(canonical_json_bytes(payload).decode("utf-8"), end="")
     else:
-        print(f"posture={payload.get('posture')} mode={payload.get('mode')} quarantine={payload.get('quarantine')} pressure={payload.get('pressure')}")
-        print(f"integrity_primary_reason={payload.get('integrity_primary_reason')}")
-        print("reason_stack_top5=" + ", ".join(payload.get("integrity_reason_stack_top5", [])))
-        allow = payload.get("allow", {})
-        print(f"allow mutation={allow.get('mutation')} publish={allow.get('publish')} automerge={allow.get('automerge')}")
-        budget = payload.get("budget", {})
-        print(f"budget exhausted={budget.get('exhausted')} remaining={budget.get('remaining')}")
-        cadence = payload.get("snapshot", {}).get("cadence", {})
-        print(f"snapshot present={payload.get('snapshot', {}).get('present')} cadence={cadence}")
-        print(f"signature_verification={payload.get('signature_verification')}")
+        print(
+            f"integrity={payload.get('integrity_overall')} reason={payload.get('primary_reason')} "
+            f"mutation={payload.get('mutation_allowed')} publish={payload.get('publish_allowed')} automerge={payload.get('automerge_allowed')}"
+        )
+        print(f"budget exhausted={payload.get('budget_exhausted')} remaining={payload.get('budget_remaining')}")
         print(f"policy_hash={payload.get('policy_hash')} integrity_status_hash={payload.get('integrity_status_hash')}")
-        print(f"artifacts={payload.get('artifacts')}")
-    return _exit_code(payload)
+        print(f"signing={payload.get('operator_report_signing')}")
+        print(
+            "tick_replay_consistency="
+            f"{payload.get('tick_replay_consistency')} reason={payload.get('tick_replay_consistency_reason')}"
+        )
+    return int(payload["exit_code"])
 
 
 if __name__ == "__main__":
