@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -24,12 +25,13 @@ from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.audit_chain_gate import latest_audit_chain_report
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.schema_registry import latest_version, SchemaName
-from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, recent as catalog_recent
+from sentientos.artifact_catalog import latest as catalog_latest, latest_for_incident as catalog_latest_for_incident, latest_for_trace as catalog_latest_for_trace, load_catalog_artifact, recent as catalog_recent
 from sentientos.artifact_retention import load_retention_state, redirect_count, rollup_status
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, latest_rollup_signature_hashes
 from sentientos.signed_strategic import latest_signature, latest_sig_hash_short
 from sentientos.goal_graph import load_goal_state
 from sentientos.strategic_adaptation import strategic_cooldown_until
+from sentientos.consistency_checks import compare_tick_vs_replay
 
 SCHEMA_VERSION = latest_version(SchemaName.FORGE_INDEX)
 INDEX_PATH = Path("glow/forge/index.json")
@@ -220,6 +222,20 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
             completed_goal_ids.append(goal_id)
     last_completion_entry = catalog_latest(root, "completion_check")
     last_completion_summary = last_completion_entry.get("summary") if isinstance((last_completion_entry or {}).get("summary"), dict) else {}
+    latest_replay_entry = catalog_latest(root, "operator_replay")
+    latest_replay_report = load_catalog_artifact(root, latest_replay_entry) if latest_replay_entry else {}
+    latest_integrity_entry = catalog_latest(root, "integrity_status")
+    latest_integrity = load_catalog_artifact(root, latest_integrity_entry) if latest_integrity_entry else {}
+    consistency_status = "unknown"
+    consistency_reason = "replay_missing"
+    if latest_replay_report and latest_integrity:
+        latest_integrity["integrity_status_hash"] = latest_integrity.get("integrity_status_hash") or _status_hash(latest_integrity)
+        latest_integrity["integrity_overall"] = latest_integrity.get("status")
+        latest_integrity["path"] = latest_integrity_entry.get("path") if latest_integrity_entry else None
+        latest_replay_report["path"] = latest_replay_entry.get("path") if latest_replay_entry else None
+        consistency = compare_tick_vs_replay(latest_integrity, latest_replay_report)
+        consistency_status = consistency.status
+        consistency_reason = consistency.reason
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -391,6 +407,10 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "integrity_automerge_allowed": False,
         "last_integrity_status_at": None,
         "last_integrity_status_path": None,
+        "last_replay_at": _optional_str((latest_replay_entry or {}).get("ts")) if latest_replay_entry else None,
+        "last_replay_exit_code": latest_replay_report.get("exit_code") if isinstance(latest_replay_report.get("exit_code"), int) else None,
+        "tick_replay_consistency": consistency_status,
+        "tick_replay_consistency_reason": consistency_reason,
     }
 
     target = root / INDEX_PATH
@@ -842,6 +862,10 @@ def _artifact_catalog_size_estimate(root: Path) -> int:
         return sum(1 for _ in path.open("r", encoding="utf-8"))
     except OSError:
         return 0
+
+
+def _status_hash(payload: dict[str, object]) -> str:
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n").hexdigest()
 
 def _optional_str(value: object) -> str | None:
     if isinstance(value, str) and value:
