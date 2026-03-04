@@ -1,0 +1,9 @@
+{
+  "exit_code": 0,
+  "integrity_overall": "ok",
+  "integrity_status_hash": "int-aaa",
+  "policy_hash": "policy-aaa",
+  "replay_mode": "strict",
+  "schema_version": 1,
+  "ts": "2099-01-01T00:00:00Z"
+}

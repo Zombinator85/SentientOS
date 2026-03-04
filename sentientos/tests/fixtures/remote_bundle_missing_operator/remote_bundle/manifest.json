@@ -1,0 +1,24 @@
+{
+  "artifacts": {
+    "attestation_snapshot.json": {
+      "path": "artifacts/attestation_snapshot.json",
+      "sha256": "fc3fa7721bbe4a581edc7e7f23d06479f38a14a684e41402bd0be963072413ae"
+    },
+    "integrity_status.json": {
+      "path": "artifacts/integrity_status.json",
+      "sha256": "030bbe8e070ee7a0b859def4b1b8ba1472ab786bee320fd05a2f51567cda9442"
+    },
+    "operator_replay_report.json": {
+      "path": "artifacts/operator_replay_report.json",
+      "sha256": "ca90a1045886e638b27a5bc3f608877e483e0b60d4c3a257c025bb8e81c4a863"
+    }
+  },
+  "exported_at": "2099-01-01T00:00:00Z",
+  "node_id": "remote-node-1",
+  "schema_version": 1,
+  "signature_stream_tips": {
+    "attestation_snapshots": "4a2f00034a1d9ff4acde013b9e39b1680a73afb35f71d5232e47a21ad3c1e57e",
+    "operator_reports": null
+  },
+  "witness_summaries": {}
+}

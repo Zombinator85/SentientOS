@@ -236,6 +236,14 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         consistency = compare_tick_vs_replay(latest_integrity, latest_replay_report)
         consistency_status = consistency.status
         consistency_reason = consistency.reason
+    latest_remote_probe_entry = catalog_latest(root, "remote_probe_report")
+    latest_remote_probe_raw = load_catalog_artifact(root, latest_remote_probe_entry) if latest_remote_probe_entry else {}
+    latest_remote_probe: dict[str, object] = latest_remote_probe_raw if isinstance(latest_remote_probe_raw, dict) else {}
+    remote_compare_raw = latest_remote_probe.get("compare_remote_to_local")
+    remote_compare: dict[str, object] = remote_compare_raw if isinstance(remote_compare_raw, dict) else {}
+    remote_reasons_raw = remote_compare.get("divergence_reasons")
+    remote_reasons = [item for item in remote_reasons_raw if isinstance(item, str)] if isinstance(remote_reasons_raw, list) else []
+    remote_primary = remote_reasons[0] if remote_reasons else (remote_compare.get("status") if isinstance(remote_compare.get("status"), str) else None)
 
     index: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -411,6 +419,12 @@ def rebuild_index(repo_root: Path) -> dict[str, Any]:
         "last_replay_exit_code": latest_replay_report.get("exit_code") if isinstance(latest_replay_report.get("exit_code"), int) else None,
         "tick_replay_consistency": consistency_status,
         "tick_replay_consistency_reason": consistency_reason,
+        "last_remote_probe_at": _optional_str((latest_remote_probe_entry or {}).get("ts")) if latest_remote_probe_entry else None,
+        "last_remote_probe_remote_node_id": _optional_str(latest_remote_probe.get("remote_node_id")),
+        "last_remote_probe_status": _optional_str(remote_compare.get("status")) or "unknown",
+        "last_remote_probe_primary_reason": _optional_str(remote_primary),
+        "last_remote_probe_remote_policy_hash": _short_hash(latest_remote_probe.get("remote_policy_hash")),
+        "last_remote_probe_remote_snapshot_tip": _short_hash(latest_remote_probe.get("remote_attestation_snapshot_tip")),
     }
 
     target = root / INDEX_PATH

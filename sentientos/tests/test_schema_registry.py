@@ -40,3 +40,18 @@ def test_normalize_forge_index_from_v23() -> None:
     assert "strategic_witness_status" in normalized
     assert "strategic_sig_verify_status" in normalized
     assert "strategic_sig_verify_checked_n" in normalized
+
+
+def test_normalize_remote_probe_report_from_latest() -> None:
+    payload = {
+        "schema_version": 1,
+        "ts": "2099-01-01T00:00:00Z",
+        "remote_node_id": "peer",
+        "remote_manifest_hash": "abc",
+        "remote_verification": {},
+        "local_state": {},
+        "compare_remote_to_local": {"status": "ok", "divergence_reasons": []},
+        "provenance": {"probe_input_resolution": "dir", "paths_used": [], "exit_code": 0},
+    }
+    normalized, _warnings = normalize(payload, SchemaName.REMOTE_PROBE_REPORT)
+    assert normalized["schema_version"] == 1
