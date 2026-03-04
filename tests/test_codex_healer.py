@@ -18,11 +18,14 @@ from sentientos.codex_healer import (
     RepairSynthesizer,
     ReviewBoard,
 )
+from sentientos.runtime_governor import reset_runtime_governor
 
 
 @pytest.fixture(autouse=True)
 def _codex_startup(codex_startup: None) -> None:
+    reset_runtime_governor()
     yield
+    reset_runtime_governor()
 
 
 def _build_healer(tmp_path: Path) -> tuple[CodexHealer, HealingEnvironment, PulseWatcher, RecoveryLedger]:
@@ -142,3 +145,30 @@ def test_hostile_repair_is_quarantined(tmp_path: Path) -> None:
     assert result["quarantined"] is True
     assert result["details"]["review_reason"] == "integrity_blocked"
     assert environment.regenesis_restores, "ReGenesis should have been invoked"
+
+
+def test_runtime_governor_blocks_repair_in_enforce_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_REPAIR_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    reset_runtime_governor()
+
+    healer, environment, _, ledger = _build_healer(tmp_path)
+    now = datetime.now(timezone.utc)
+    stalled = [
+        DaemonHeartbeat("NetworkDaemon", now - timedelta(minutes=10)),
+        DaemonHeartbeat("IntegrityDaemon", now),
+    ]
+
+    first = healer.run(stalled, now=now)
+    second = healer.run(stalled, now=now + timedelta(seconds=1))
+
+    assert first
+    assert second
+    assert ledger.entries[-1]["status"] in {"auto-repair denied_by_governor", "auto-repair escalated"}
+    if ledger.entries[-1]["status"] == "auto-repair denied_by_governor":
+        assert "governor_reason" in ledger.entries[-1]["details"]
+    assert environment.regenesis_restores

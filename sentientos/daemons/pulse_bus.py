@@ -241,6 +241,12 @@ class _PulseBus:
         for subscriber in subscribers:
             if self._should_deliver(normalized, subscriber):
                 subscriber.handler(copy.deepcopy(normalized))
+        try:
+            from sentientos.runtime_governor import get_runtime_governor
+
+            get_runtime_governor().observe_pulse_event(normalized)
+        except Exception:
+            pass
         return copy.deepcopy(normalized)
 
     def ingest(
@@ -265,6 +271,12 @@ class _PulseBus:
         for subscriber in subscribers:
             if self._should_deliver(normalized, subscriber):
                 subscriber.handler(copy.deepcopy(normalized))
+        try:
+            from sentientos.runtime_governor import get_runtime_governor
+
+            get_runtime_governor().observe_pulse_event(normalized)
+        except Exception:
+            pass
         return copy.deepcopy(normalized)
 
     def replay(self, since: datetime | None = None) -> Iterator[PulseEvent]:

@@ -18,6 +18,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from . import pulse_bus
+from sentientos.runtime_governor import get_runtime_governor
 
 logger = logging.getLogger(__name__)
 
@@ -154,8 +155,28 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     if not verify_remote_signature(event, peer_name):
         raise ValueError(f"Invalid signature from federation peer: {peer_name}")
     payload = copy.deepcopy(event)
+    event_payload = payload.get("payload")
+    if isinstance(event_payload, dict):
+        action = str(event_payload.get("action", "")).lower()
+        if action == "restart_daemon":
+            decision = get_runtime_governor().admit_federated_control(
+                subject=str(
+                    event_payload.get("daemon")
+                    or event_payload.get("daemon_name")
+                    or event_payload.get("target")
+                    or "unknown"
+                ),
+                origin=peer_name,
+                metadata={"event_type": str(payload.get("event_type", ""))},
+            )
+            if not decision.allowed:
+                raise ValueError(
+                    f"Runtime governor denied federated control event from {peer_name}: {decision.reason}"
+                )
     payload["source_peer"] = peer_name
-    return pulse_bus.ingest(payload, source_peer=peer_name)
+    ingested = pulse_bus.ingest(payload, source_peer=peer_name)
+    get_runtime_governor().observe_pulse_event(ingested)
+    return ingested
 
 
 def request_recent_events(minutes: int) -> List[pulse_bus.PulseEvent]:
