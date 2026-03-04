@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Callable, Iterable, List, Mapping, Sequence
 
 from sentientos.codex_startup_guard import enforce_codex_startup
+from sentientos.runtime_governor import get_runtime_governor
 
 
 def _ensure_utc(moment: datetime | None = None) -> datetime:
@@ -493,6 +494,26 @@ class CodexHealer:
                 action=action,
                 details={"review_reason": decision.reason, "regenesis": regen_info},
                 quarantined=decision.quarantined,
+            )
+        governor = get_runtime_governor()
+        governor_decision = governor.admit_repair(
+            anomaly_kind=anomaly.kind,
+            subject=anomaly.subject,
+            metadata={"action_kind": action.kind, "auto_adopt": action.auto_adopt},
+        )
+        if not governor_decision.allowed:
+            regen_info = self._regenesis.rebuild(anomaly, action)
+            return self._ledger.log(
+                "auto-repair denied_by_governor",
+                anomaly=anomaly,
+                action=action,
+                details={
+                    "governor_reason": governor_decision.reason,
+                    "governor_mode": governor_decision.mode,
+                    "governor_reason_hash": governor_decision.reason_hash,
+                    "regenesis": regen_info,
+                },
+                quarantined=True,
             )
         success = self._synth.apply(action)
         if success:

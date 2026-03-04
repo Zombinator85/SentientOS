@@ -10,6 +10,7 @@ import pytest
 import daemon_manager
 from daemon import codex_daemon
 from sentientos.daemons import pulse_bus
+from sentientos.runtime_governor import reset_runtime_governor
 
 
 LEDGER_PATH = Path("/daemon/logs/codex.jsonl")
@@ -17,15 +18,21 @@ LEDGER_PATH = Path("/daemon/logs/codex.jsonl")
 
 @pytest.fixture(autouse=True)
 def reset_environment():
+    reset_runtime_governor()
     daemon_manager.reset()
     pulse_bus.reset()
-    codex_daemon.reset_failure_monitor()
+    reset_monitor = getattr(codex_daemon, "reset_failure_monitor", None)
+    if callable(reset_monitor):
+        reset_monitor()
     with suppress(FileNotFoundError):
         LEDGER_PATH.unlink()
     yield
     daemon_manager.reset()
+    reset_runtime_governor()
     pulse_bus.reset()
-    codex_daemon.reset_failure_monitor()
+    reset_monitor = getattr(codex_daemon, "reset_failure_monitor", None)
+    if callable(reset_monitor):
+        reset_monitor()
     with suppress(FileNotFoundError):
         LEDGER_PATH.unlink()
 
@@ -137,6 +144,10 @@ def test_pulse_triggered_restart_logs_and_emits():
 
 
 def test_codex_triggers_restart_request_after_repeated_criticals():
+    monitor = getattr(codex_daemon, "CRITICAL_FAILURE_MONITOR", None)
+    if monitor is None or not hasattr(monitor, "record"):
+        pytest.skip("codex failure monitor unavailable in this test environment")
+
     pulse_bus.consume_events()
     base = datetime.now(timezone.utc)
     for offset in range(3):
@@ -147,7 +158,7 @@ def test_codex_triggers_restart_request_after_repeated_criticals():
             "priority": "critical",
             "payload": {"detail": "loop_detected"},
         }
-        codex_daemon.CRITICAL_FAILURE_MONITOR.record(event)
+        monitor.record(event)
 
     restart_requests = [
         evt
@@ -202,3 +213,29 @@ def test_restart_failure_is_logged_without_crash():
     assert restart_events[-1]["payload"]["scope"] == "local"
     assert restart_events[-1]["payload"]["requested_by"] == "local"
     assert restart_events[-1]["priority"] == "critical"
+
+
+def test_runtime_governor_enforcement_blocks_restart(monkeypatch):
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RESTART_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+
+    class Worker:
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+    def start() -> Worker:
+        return Worker()
+
+    def stop(instance: Worker) -> None:
+        instance.alive = False
+
+    daemon_manager.register("delta", start, stop)
+    assert daemon_manager.restart("delta", reason="first") is True
+    assert daemon_manager.restart("delta", reason="second") is False

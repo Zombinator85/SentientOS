@@ -12,6 +12,7 @@ from threading import Lock
 from typing import Any, Callable, Dict
 
 from sentientos.daemons import pulse_bus
+from sentientos.runtime_governor import get_runtime_governor
 
 try:  # pragma: no cover - optional federation support during import
     from sentientos.daemons import pulse_federation
@@ -84,6 +85,22 @@ class _DaemonManager:
         scope_value = self._normalize_scope(scope)
         initiator = self._normalize_peer(requested_by)
         self._ensure_subscription()
+
+        governor = get_runtime_governor()
+        decision = governor.admit_restart(
+            daemon_name=name,
+            scope=scope_value,
+            origin=initiator,
+            metadata={"reason": reason_text},
+        )
+        if not decision.allowed:
+            logger.warning(
+                "Runtime governor denied restart for '%s' (reason=%s, mode=%s)",
+                name,
+                decision.reason,
+                decision.mode,
+            )
+            return False
 
         with self._lock:
             record = self._registry.get(name)
@@ -197,6 +214,7 @@ class _DaemonManager:
             self._subscription = new_subscription
 
     def _handle_pulse_event(self, event: Dict[str, Any]) -> None:
+        get_runtime_governor().observe_pulse_event(event)
         payload = event.get("payload")
         if not isinstance(payload, dict):
             return
@@ -417,4 +435,3 @@ __all__ = [
     "status",
     "reset",
 ]
-
