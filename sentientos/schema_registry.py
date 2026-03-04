@@ -20,12 +20,13 @@ class SchemaName:
     AUDIT_CHAIN_REPORT = "audit_chain_report"
     FORGE_STATUS_REPORT = "forge_status_report"
     FORGE_REPLAY_REPORT = "forge_replay_report"
+    REMOTE_PROBE_REPORT = "remote_probe_report"
 
 
 AdapterFn = Callable[[dict[str, Any]], dict[str, Any]]
 
 LATEST_VERSIONS: dict[str, int] = {
-    SchemaName.FORGE_INDEX: 28,
+    SchemaName.FORGE_INDEX: 29,
     SchemaName.FORGE_REPORT: 1,
     SchemaName.GOVERNANCE_TRACE: 1,
     SchemaName.INCIDENT: 1,
@@ -39,6 +40,7 @@ LATEST_VERSIONS: dict[str, int] = {
     SchemaName.AUDIT_CHAIN_REPORT: 1,
     SchemaName.FORGE_STATUS_REPORT: 1,
     SchemaName.FORGE_REPLAY_REPORT: 1,
+    SchemaName.REMOTE_PROBE_REPORT: 1,
 }
 
 MIN_SUPPORTED_VERSIONS: dict[str, int] = {
@@ -56,6 +58,7 @@ MIN_SUPPORTED_VERSIONS: dict[str, int] = {
     SchemaName.AUDIT_CHAIN_REPORT: 1,
     SchemaName.FORGE_STATUS_REPORT: 1,
     SchemaName.FORGE_REPLAY_REPORT: 1,
+    SchemaName.REMOTE_PROBE_REPORT: 1,
 }
 
 
@@ -215,6 +218,18 @@ def _forge_index_v27_to_v28(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded.setdefault("tick_replay_consistency_reason", "unknown")
     return upgraded
 
+
+def _forge_index_v28_to_v29(payload: dict[str, Any]) -> dict[str, Any]:
+    upgraded = deepcopy(payload)
+    upgraded["schema_version"] = 29
+    upgraded.setdefault("last_remote_probe_at", None)
+    upgraded.setdefault("last_remote_probe_remote_node_id", None)
+    upgraded.setdefault("last_remote_probe_status", "unknown")
+    upgraded.setdefault("last_remote_probe_primary_reason", None)
+    upgraded.setdefault("last_remote_probe_remote_policy_hash", None)
+    upgraded.setdefault("last_remote_probe_remote_snapshot_tip", None)
+    return upgraded
+
 def _receipt_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
     upgraded = deepcopy(payload)
     upgraded["schema_version"] = 2
@@ -237,6 +252,7 @@ ADAPTERS: dict[tuple[str, int], AdapterFn] = {
     (SchemaName.FORGE_INDEX, 25): _forge_index_v25_to_v26,
     (SchemaName.FORGE_INDEX, 26): _forge_index_v26_to_v27,
     (SchemaName.FORGE_INDEX, 27): _forge_index_v27_to_v28,
+    (SchemaName.FORGE_INDEX, 28): _forge_index_v28_to_v29,
     (SchemaName.RECEIPT, 1): _receipt_v1_to_v2,
 }
 
@@ -252,6 +268,7 @@ _REQUIRED_KEYS: dict[str, set[str]] = {
     SchemaName.INTEGRITY_SNAPSHOT: {"schema_version", "created_at", "node_id"},
     SchemaName.FORGE_STATUS_REPORT: {"schema_version", "ts", "policy_hash", "integrity_overall", "exit_code"},
     SchemaName.FORGE_REPLAY_REPORT: {"schema_version", "ts", "replay_mode", "policy_hash", "integrity_overall", "exit_code"},
+    SchemaName.REMOTE_PROBE_REPORT: {"schema_version", "ts", "remote_node_id", "remote_manifest_hash", "remote_verification", "local_state", "compare_remote_to_local", "provenance"},
 }
 
 

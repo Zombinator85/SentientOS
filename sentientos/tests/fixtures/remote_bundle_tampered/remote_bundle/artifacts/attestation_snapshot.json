@@ -1,0 +1,12 @@
+{
+  "doctrine_bundle_sha256": null,
+  "integrity_status_hash": "int-aaa",
+  "latest_catalog_checkpoint_hash": null,
+  "latest_goal_graph_hash": "goal-a",
+  "latest_rollup_sig_hash": "roll-a",
+  "latest_strategic_sig_hash": "strat-a",
+  "policy_hash": "policy-aaa",
+  "schema_version": 1,
+  "ts": "2099-01-01T00:00:00Z",
+  "witness_summary": {}
+}

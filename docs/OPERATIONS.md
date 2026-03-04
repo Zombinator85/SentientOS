@@ -195,3 +195,8 @@ Attach these generated files to incident reports:
 - `forge_status --json` output.
 - Latest `glow/forge/replay/replay_*.json` from `forge_replay --verify`.
 - Any referenced integrity status/snapshot/signature/witness artifact paths listed in the status payload.
+
+## Remote probe
+
+Use `python scripts/remote_probe.py --bundle <path> --json --write` to perform a read-only remote attestation probe over an exported bundle.
+Probe reports are written to `glow/forge/remote_probes/` and indexed in the artifact catalog.

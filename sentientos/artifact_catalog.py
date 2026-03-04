@@ -24,6 +24,7 @@ _KIND_TO_SCHEMA: dict[str, str] = {
     "federation_snapshot": SchemaName.INTEGRITY_SNAPSHOT,
     "operator_status": SchemaName.FORGE_STATUS_REPORT,
     "operator_replay": SchemaName.FORGE_REPLAY_REPORT,
+    "remote_probe_report": SchemaName.REMOTE_PROBE_REPORT,
 }
 
 
@@ -191,6 +192,7 @@ def _discover_entries(repo_root: Path, *, include_archives: bool = False) -> lis
     entries.extend(_discover_json_entries(root, root / "glow/forge/audit_reports", "audit_report", "created_at"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/operator/status", "operator_status", "ts"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/replay", "operator_replay", "ts"))
+    entries.extend(_discover_json_entries(root, root / "glow/forge/remote_probes", "remote_probe_report", "ts"))
 
     if include_archives:
         entries.extend(_discover_json_entries(root, root / "glow/forge/archive/tick", "archive_tick", "generated_at"))
@@ -242,6 +244,12 @@ def _build_entry_from_payload(repo_root: Path, kind: str, payload: dict[str, obj
         "integrity_status_hash": payload.get("integrity_status_hash"),
         "attestation_snapshot_tip": payload.get("attestation_snapshot_tip"),
         "attestation_snapshot_hash": payload.get("attestation_snapshot_hash"),
+        "remote_node_id": payload.get("remote_node_id"),
+        "remote_policy_hash": payload.get("remote_policy_hash"),
+        "remote_integrity_status_hash": payload.get("remote_integrity_status_hash"),
+        "remote_attestation_tip": payload.get("remote_attestation_snapshot_tip"),
+        "remote_operator_tip": payload.get("remote_operator_reports_tip"),
+        "local_attestation_tip": (payload.get("local_state") if isinstance(payload.get("local_state"), dict) else {}).get("attestation_snapshot_tip"),
     }
     schema_name = _KIND_TO_SCHEMA.get(kind, kind)
     schema_version = payload.get("schema_version") if isinstance(payload.get("schema_version"), int) else 1
@@ -357,6 +365,12 @@ def _normalize_links(links: dict[str, object]) -> dict[str, object]:
         "integrity_status_hash",
         "attestation_snapshot_tip",
         "attestation_snapshot_hash",
+        "remote_node_id",
+        "remote_policy_hash",
+        "remote_integrity_status_hash",
+        "remote_attestation_tip",
+        "remote_operator_tip",
+        "local_attestation_tip",
     }
     out: dict[str, object] = {}
     for key in sorted(keep):
