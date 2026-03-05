@@ -146,3 +146,32 @@ def test_remote_events_do_not_echo(monkeypatch):
     pending = pulse_bus.pending_events()
     assert pending and pending[0]["event_type"] == "alert"
     assert pending[0]["source_peer"] == "peer-alpha"
+
+
+def test_duplicate_remote_events_suppressed(monkeypatch):
+    key_dir = Path(os.environ["PULSE_FEDERATION_KEYS_DIR"])
+    signing_key = SigningKey.generate()
+    (key_dir / "peer-alpha.pub").write_bytes(signing_key.verify_key.encode())
+
+    pulse_federation.configure(enabled=True, peers=["peer-alpha"])
+
+    replay_event = _sign_event(
+        signing_key,
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_daemon": "remote",
+            "event_type": "heartbeat",
+            "payload": {"note": "dup"},
+        },
+    )
+
+    def fake_get(url: str, *, params: dict, timeout: int):  # noqa: ANN001
+        return [copy.deepcopy(replay_event), copy.deepcopy(replay_event)]
+
+    monkeypatch.setattr(pulse_federation, "_http_get", fake_get)
+
+    ingested = pulse_federation.request_recent_events(15)
+    assert len(ingested) == 2
+    pending = pulse_bus.pending_events()
+    assert len(pending) == 1
+    assert pending[0]["payload"]["note"] == "dup"

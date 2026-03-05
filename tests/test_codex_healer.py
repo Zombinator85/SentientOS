@@ -75,6 +75,7 @@ def test_daemon_crash_triggers_restart(tmp_path: Path) -> None:
     entry = ledger.entries[-1]
     assert entry["status"] == "auto-repair applied"
     assert entry["anomaly"]["kind"] == "daemon_unresponsive"
+    assert isinstance(entry["correlation_id"], str) and len(entry["correlation_id"]) == 64
     assert "CodexHealer event: auto-repair applied" == entry["narrative"]
 
     # Updated heartbeat should clear anomalies and mounts remain intact
@@ -172,3 +173,32 @@ def test_runtime_governor_blocks_repair_in_enforce_mode(tmp_path: Path, monkeypa
     if ledger.entries[-1]["status"] == "auto-repair denied_by_governor":
         assert "governor_reason" in ledger.entries[-1]["details"]
     assert environment.regenesis_restores
+
+
+def test_repair_loop_backoff_and_ceiling(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SENTIENTOS_REPAIR_ATTEMPT_CEILING", "2")
+    monkeypatch.setenv("SENTIENTOS_REPAIR_BACKOFF_SECONDS", "60")
+    healer, _, _, ledger = _build_healer(tmp_path)
+
+    anomaly = Anomaly("daemon_unresponsive", "NetworkDaemon", {"heartbeat_age_seconds": 120})
+    hostile_action = RepairAction(
+        kind="config_patch",
+        subject="NetworkDaemon",
+        description="Attempted unauthorized patch",
+        execute=lambda: True,
+        auto_adopt=True,
+        metadata={"trust": 0.1, "origin": "external"},
+    )
+
+    first = healer.review_external(anomaly, hostile_action)
+    key = healer._anomaly_key(anomaly)  # type: ignore[attr-defined]
+    healer._next_allowed[key] = datetime.now(timezone.utc) - timedelta(seconds=1)  # type: ignore[attr-defined]
+    second = healer.review_external(anomaly, hostile_action)
+    healer._next_allowed[key] = datetime.now(timezone.utc) - timedelta(seconds=1)  # type: ignore[attr-defined]
+    third = healer.review_external(anomaly, hostile_action)
+
+    assert first["status"] == "auto-repair rejected"
+    assert second["status"] == "auto-repair rejected"
+    assert third["status"] == "auto-repair escalated_ceiling"
+    assert isinstance(first["correlation_id"], str)
+    assert first["correlation_id"] == second["correlation_id"] == third["correlation_id"]

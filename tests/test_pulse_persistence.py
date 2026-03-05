@@ -41,6 +41,8 @@ def test_event_persisted_with_signature() -> None:
     published = pulse_bus.publish(_build_event(ts, event_type="persist", value=1))
 
     assert "signature" in published and published["signature"]
+    assert "event_hash" in published and len(str(published["event_hash"])) == 64
+    assert published["correlation_id"] == published["event_hash"]
     assert published["priority"] == "info"
 
     entries = _history_entries()
@@ -50,6 +52,20 @@ def test_event_persisted_with_signature() -> None:
     assert stored["priority"] == "info"
     assert stored["source_peer"] == "local"
     assert pulse_bus.verify(stored) is True
+
+
+def test_ingest_rejects_invalid_federated_signature() -> None:
+    ts = datetime(2025, 1, 1, 12, 30, tzinfo=timezone.utc)
+    event = {
+        "timestamp": ts.isoformat(),
+        "source_daemon": "peer",
+        "event_type": "remote",
+        "payload": {"value": 1},
+        "signature": "invalid",
+        "source_peer": "peer-alpha",
+    }
+    with pytest.raises(ValueError):
+        pulse_bus.ingest(event, source_peer="peer-alpha")
 
 
 def test_signature_verification_detects_tampering() -> None:

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -91,6 +93,7 @@ class RecoveryLedger:
         action: RepairAction | None = None,
         details: dict[str, object] | None = None,
         quarantined: bool = False,
+        correlation_id: str | None = None,
     ) -> dict[str, object]:
         entry: dict[str, object] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -98,6 +101,7 @@ class RecoveryLedger:
             "narrative": f"CodexHealer event: {status}",
             "anomaly": anomaly.to_dict(),
             "quarantined": quarantined,
+            "correlation_id": correlation_id,
         }
         proof_summary: dict[str, object] | None = None
         if action is not None:
@@ -465,6 +469,10 @@ class CodexHealer:
         self._board = review_board
         self._regenesis = regenesis
         self._ledger = ledger
+        self._attempt_ceiling = max(1, int(os.getenv("SENTIENTOS_REPAIR_ATTEMPT_CEILING", "3")))
+        self._backoff_seconds = max(1, int(os.getenv("SENTIENTOS_REPAIR_BACKOFF_SECONDS", "30")))
+        self._attempts: dict[str, int] = {}
+        self._next_allowed: dict[str, datetime] = {}
 
     def run(self, heartbeats: Iterable[DaemonHeartbeat], *, now: datetime | None = None) -> list[dict[str, object]]:
         anomalies = self._watcher.scan(heartbeats, now=now)
@@ -477,6 +485,30 @@ class CodexHealer:
         return self._handle_anomaly(anomaly, action)
 
     def _handle_anomaly(self, anomaly: Anomaly, forced_action: RepairAction | None) -> dict[str, object]:
+        correlation_id = self._correlation_id_for(anomaly)
+        key = self._anomaly_key(anomaly)
+        now = datetime.now(timezone.utc)
+        attempts = self._attempts.get(key, 0)
+        next_allowed = self._next_allowed.get(key)
+        if next_allowed is not None and now < next_allowed:
+            remaining = int((next_allowed - now).total_seconds())
+            return self._ledger.log(
+                "auto-repair deferred_backoff",
+                anomaly=anomaly,
+                details={"remaining_seconds": remaining, "attempts": attempts, "attempt_ceiling": self._attempt_ceiling},
+                quarantined=False,
+                correlation_id=correlation_id,
+            )
+        if attempts >= self._attempt_ceiling:
+            regen_info = self._regenesis.rebuild(anomaly, None)
+            return self._ledger.log(
+                "auto-repair escalated_ceiling",
+                anomaly=anomaly,
+                details={"attempts": attempts, "attempt_ceiling": self._attempt_ceiling, "regenesis": regen_info},
+                quarantined=True,
+                correlation_id=correlation_id,
+            )
+
         action = forced_action or self._synth.draft(anomaly)
         if action is None:
             regen_info = self._regenesis.rebuild(anomaly, None)
@@ -484,9 +516,11 @@ class CodexHealer:
                 "auto-repair escalated",
                 anomaly=anomaly,
                 details={"reason": "no_repair_available", "regenesis": regen_info},
+                correlation_id=correlation_id,
             )
         decision = self._board.evaluate(action, anomaly)
         if not decision.approved:
+            self._note_failure(key, now)
             regen_info = self._regenesis.rebuild(anomaly, action)
             return self._ledger.log(
                 "auto-repair rejected",
@@ -494,14 +528,17 @@ class CodexHealer:
                 action=action,
                 details={"review_reason": decision.reason, "regenesis": regen_info},
                 quarantined=decision.quarantined,
+                correlation_id=correlation_id,
             )
         governor = get_runtime_governor()
         governor_decision = governor.admit_repair(
             anomaly_kind=anomaly.kind,
             subject=anomaly.subject,
-            metadata={"action_kind": action.kind, "auto_adopt": action.auto_adopt},
+            metadata={"action_kind": action.kind, "auto_adopt": action.auto_adopt, "correlation_id": correlation_id},
+            correlation_id=correlation_id,
         )
         if not governor_decision.allowed:
+            self._note_failure(key, now)
             regen_info = self._regenesis.rebuild(anomaly, action)
             return self._ledger.log(
                 "auto-repair denied_by_governor",
@@ -511,17 +548,41 @@ class CodexHealer:
                     "governor_reason": governor_decision.reason,
                     "governor_mode": governor_decision.mode,
                     "governor_reason_hash": governor_decision.reason_hash,
+                    "governor_correlation_id": governor_decision.correlation_id,
                     "regenesis": regen_info,
                 },
                 quarantined=True,
+                correlation_id=correlation_id,
             )
         success = self._synth.apply(action)
         if success:
-            return self._ledger.log("auto-repair applied", anomaly=anomaly, action=action)
+            self._note_success(key)
+            return self._ledger.log("auto-repair applied", anomaly=anomaly, action=action, correlation_id=correlation_id)
+        self._note_failure(key, now)
         regen_info = self._regenesis.rebuild(anomaly, action)
         return self._ledger.log(
             "auto-repair escalated",
             anomaly=anomaly,
             action=action,
             details={"regenesis": regen_info},
+            correlation_id=correlation_id,
         )
+
+    @staticmethod
+    def _anomaly_key(anomaly: Anomaly) -> str:
+        return f"{anomaly.kind}:{anomaly.subject}"
+
+    @staticmethod
+    def _correlation_id_for(anomaly: Anomaly) -> str:
+        canonical = json.dumps(anomaly.to_dict(), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    def _note_failure(self, key: str, now: datetime) -> None:
+        attempts = self._attempts.get(key, 0) + 1
+        self._attempts[key] = attempts
+        backoff = self._backoff_seconds * (2 ** (attempts - 1))
+        self._next_allowed[key] = now + timedelta(seconds=backoff)
+
+    def _note_success(self, key: str) -> None:
+        self._attempts.pop(key, None)
+        self._next_allowed.pop(key, None)

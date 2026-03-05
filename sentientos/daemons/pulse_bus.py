@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import copy
+import hashlib
 import json
 import logging
 import os
@@ -99,7 +100,18 @@ def _serialize_for_signature(event: PulseEvent) -> bytes:
     payload = copy.deepcopy(event)
     payload.pop("signature", None)
     payload.pop("source_peer", None)
+    payload.pop("event_hash", None)
+    payload.pop("correlation_id", None)
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def compute_event_hash(event: PulseEvent) -> str:
+    """Return a deterministic digest for canonical pulse event content."""
+
+    payload = copy.deepcopy(event)
+    payload.pop("signature", None)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def apply_pulse_defaults(event: PulseEvent) -> PulseEvent:
@@ -231,6 +243,10 @@ class _PulseBus:
 
         normalized = self._normalize_event(event)
         normalized["source_peer"] = str(normalized.get("source_peer", "local"))
+        normalized["event_hash"] = str(normalized.get("event_hash") or compute_event_hash(normalized))
+        normalized["correlation_id"] = str(
+            normalized.get("correlation_id") or normalized["event_hash"]
+        )
         signature = _SIGNATURE_MANAGER.sign(normalized)
         normalized["signature"] = signature
         self._persist_event(normalized)
@@ -254,15 +270,25 @@ class _PulseBus:
     ) -> PulseEvent:
         if not isinstance(event, dict):
             raise TypeError("Pulse events must be dictionaries")
-        normalized = self._normalize_event(event)
         signature = event.get("signature")
         if not isinstance(signature, str) or not signature:
             raise ValueError("Federated pulse events require a signature")
-        normalized["signature"] = signature
+
+        verification_event = copy.deepcopy(event)
         if source_peer is not None:
-            normalized["source_peer"] = str(source_peer)
+            verification_event["source_peer"] = str(source_peer)
         else:
-            normalized["source_peer"] = str(normalized.get("source_peer", "remote"))
+            verification_event["source_peer"] = str(verification_event.get("source_peer", "remote"))
+        if not verify(verification_event):
+            raise ValueError("Federated pulse event signature verification failed")
+
+        normalized = self._normalize_event(event, apply_defaults=False)
+        normalized["signature"] = signature
+        normalized["source_peer"] = str(verification_event["source_peer"])
+        normalized["event_hash"] = str(normalized.get("event_hash") or compute_event_hash(normalized))
+        normalized["correlation_id"] = str(
+            normalized.get("correlation_id") or normalized["event_hash"]
+        )
         self._persist_event(normalized)
         with self._lock:
             stored = copy.deepcopy(normalized)
@@ -389,7 +415,7 @@ class _PulseBus:
                         event_ts = _parse_timestamp(str(event.get("timestamp", "")))
                         if event_ts < cutoff:
                             continue
-                    if not _SIGNATURE_MANAGER.verify(event):
+                    if not verify(event):
                         logger.warning(
                             "Pulse history signature mismatch for entry in %s", path
                         )
@@ -398,10 +424,10 @@ class _PulseBus:
         except FileNotFoundError:  # pragma: no cover - file removed concurrently
             return
 
-    def _normalize_event(self, event: PulseEvent) -> PulseEvent:
+    def _normalize_event(self, event: PulseEvent, *, apply_defaults: bool = True) -> PulseEvent:
         if not isinstance(event, dict):
             raise TypeError("Pulse events must be dictionaries")
-        normalized = apply_pulse_defaults(event)
+        normalized = apply_pulse_defaults(event) if apply_defaults else copy.deepcopy(event)
         normalized.pop("signature", None)
         missing = _REQUIRED_FIELDS - normalized.keys()
         if missing:
@@ -479,6 +505,12 @@ def ingest(event: PulseEvent, *, source_peer: str | None = None) -> PulseEvent:
     return _BUS.ingest(event, source_peer=source_peer)
 
 
+def ingest_verified(event: PulseEvent, *, source_peer: str | None = None) -> PulseEvent:
+    """Ingest and cryptographically verify a pre-signed pulse event."""
+
+    return _BUS.ingest(event, source_peer=source_peer)
+
+
 def replay(since: datetime | None = None) -> Iterator[PulseEvent]:
     """Replay verified events from persistent history."""
 
@@ -545,7 +577,9 @@ __all__ = [
     "pending_events",
     "consume_events",
     "ingest",
+    "ingest_verified",
     "verify",
     "apply_pulse_defaults",
+    "compute_event_hash",
     "reset",
 ]

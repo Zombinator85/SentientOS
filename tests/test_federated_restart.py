@@ -25,7 +25,9 @@ def reset_state(tmp_path, monkeypatch):
     daemon_manager.reset()
     pulse_bus.reset()
     pulse_federation.reset()
-    codex_daemon.reset_failure_monitor()
+    reset_monitor = getattr(codex_daemon, "reset_failure_monitor", None)
+    if callable(reset_monitor):
+        reset_monitor()
     key_dir = tmp_path / "federation_keys"
     key_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PULSE_FEDERATION_KEYS_DIR", str(key_dir))
@@ -33,7 +35,9 @@ def reset_state(tmp_path, monkeypatch):
     daemon_manager.reset()
     pulse_bus.reset()
     pulse_federation.reset()
-    codex_daemon.reset_failure_monitor()
+    reset_monitor = getattr(codex_daemon, "reset_failure_monitor", None)
+    if callable(reset_monitor):
+        reset_monitor()
     with suppress(FileNotFoundError):
         ledger_path.unlink()
     monkeypatch.setattr(daemon_manager, "LEDGER_PATH", original_ledger)
@@ -118,7 +122,8 @@ def test_federated_restart_requires_valid_signature():
         "signature": "invalid",
         "source_peer": "peer-alpha",
     }
-    pulse_bus.ingest(invalid_event, source_peer="peer-alpha")
+    with pytest.raises(ValueError):
+        pulse_bus.ingest(invalid_event, source_peer="peer-alpha")
     assert counter["count"] == 0
     ledger_path = daemon_manager.LEDGER_PATH
     assert not ledger_path.exists() or not ledger_path.read_text().strip()
@@ -195,7 +200,8 @@ def test_federated_restart_rejected_for_untrusted_peer():
         "signature": "untrusted",
         "source_peer": "peer-omega",
     }
-    pulse_bus.ingest(event, source_peer="peer-omega")
+    with pytest.raises(ValueError):
+        pulse_bus.ingest(event, source_peer="peer-omega")
     assert counter["count"] == 0
     ledger_path = daemon_manager.LEDGER_PATH
     assert not ledger_path.exists() or not ledger_path.read_text().strip()

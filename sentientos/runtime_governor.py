@@ -41,6 +41,7 @@ class GovernorDecision:
     origin: str
     sampled_pressure: PressureSnapshot
     reason_hash: str
+    correlation_id: str
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -53,6 +54,7 @@ class GovernorDecision:
             "origin": self.origin,
             "sampled_pressure": self.sampled_pressure.to_dict(),
             "reason_hash": self.reason_hash,
+            "correlation_id": self.correlation_id,
         }
 
 
@@ -123,6 +125,7 @@ class RuntimeGovernor:
         scope: str,
         origin: str,
         metadata: dict[str, object] | None = None,
+        correlation_id: str | None = None,
     ) -> GovernorDecision:
         pressure = self.sample_pressure()
         now = datetime.now(timezone.utc)
@@ -165,6 +168,7 @@ class RuntimeGovernor:
             origin=origin,
             pressure=pressure,
             metadata=metadata,
+            correlation_id=correlation_id,
         )
         return decision
 
@@ -174,6 +178,7 @@ class RuntimeGovernor:
         anomaly_kind: str,
         subject: str,
         metadata: dict[str, object] | None = None,
+        correlation_id: str | None = None,
     ) -> GovernorDecision:
         pressure = self.sample_pressure()
         now = datetime.now(timezone.utc)
@@ -205,9 +210,17 @@ class RuntimeGovernor:
             origin="codex_healer",
             pressure=pressure,
             metadata={"anomaly_kind": anomaly_kind, **(metadata or {})},
+            correlation_id=correlation_id,
         )
 
-    def admit_federated_control(self, *, subject: str, origin: str, metadata: dict[str, object] | None = None) -> GovernorDecision:
+    def admit_federated_control(
+        self,
+        *,
+        subject: str,
+        origin: str,
+        metadata: dict[str, object] | None = None,
+        correlation_id: str | None = None,
+    ) -> GovernorDecision:
         pressure = self.sample_pressure()
         now = datetime.now(timezone.utc)
         self._federated_controls.append(now)
@@ -221,6 +234,11 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_block:
             reason = "pressure_block"
             enforce_block = True
+        elif len(self._critical_events) > self._critical_limit:
+            reason = "critical_event_storm_detected"
+            enforce_block = True
+        elif pressure.composite >= self._pressure_warn:
+            reason = "pressure_warn"
         allowed = not enforce_block or self._mode != "enforce"
         return self._decision(
             action_class="federated_control",
@@ -231,6 +249,7 @@ class RuntimeGovernor:
             origin=origin,
             pressure=pressure,
             metadata=metadata,
+            correlation_id=correlation_id,
         )
 
     def _decision(
@@ -244,7 +263,22 @@ class RuntimeGovernor:
         origin: str,
         pressure: PressureSnapshot,
         metadata: dict[str, object] | None,
+        correlation_id: str | None,
     ) -> GovernorDecision:
+        correlation = correlation_id or hashlib.sha256(
+            json.dumps(
+                {
+                    "action_class": action_class,
+                    "subject": subject,
+                    "scope": scope,
+                    "origin": origin,
+                    "reason": reason,
+                    "metadata": metadata or {},
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
         reasoning_payload = {
             "action_class": action_class,
             "allowed": allowed,
@@ -255,6 +289,7 @@ class RuntimeGovernor:
             "origin": origin,
             "pressure": pressure.to_dict(),
             "metadata": metadata or {},
+            "correlation_id": correlation,
         }
         reason_hash = hashlib.sha256(json.dumps(reasoning_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         decision = GovernorDecision(
@@ -267,6 +302,7 @@ class RuntimeGovernor:
             origin=origin,
             sampled_pressure=pressure,
             reason_hash=reason_hash,
+            correlation_id=correlation,
         )
         payload = decision.to_dict()
         payload["metadata"] = metadata or {}
@@ -311,6 +347,7 @@ class RuntimeGovernor:
         self._publish_event("governor_decision", priority, payload)
 
     def _publish_event(self, event_type: str, priority: str, payload: dict[str, object]) -> None:
+        correlation_id = str(payload.get("correlation_id") or "")
         try:
             from sentientos.daemons import pulse_bus
 
@@ -320,6 +357,7 @@ class RuntimeGovernor:
                     "source_daemon": "runtime_governor",
                     "event_type": event_type,
                     "priority": priority,
+                    "correlation_id": correlation_id,
                     "payload": payload,
                 }
             )

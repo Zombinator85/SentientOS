@@ -81,3 +81,28 @@ def test_decision_reason_hash_is_stable(monkeypatch, tmp_path) -> None:
     )
     decision = governor.admit_federated_control(subject="network", origin="peer-a", metadata={"event_type": "restart_request"})
     assert len(decision.reason_hash) == 64
+
+
+def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CRITICAL_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.2")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    event = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source_daemon": "network",
+        "event_type": "critical_alarm",
+        "priority": "critical",
+        "payload": {},
+    }
+    governor.observe_pulse_event(event)
+    governor.observe_pulse_event(event)
+
+    decision = governor.admit_federated_control(subject="network", origin="peer-a")
+    assert decision.allowed is False
+    assert decision.reason == "critical_event_storm_detected"
