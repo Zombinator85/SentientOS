@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import hashlib
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -80,10 +81,12 @@ class _DaemonManager:
         reason: str | None = None,
         requested_by: str | None = None,
         scope: str | None = None,
+        correlation_id: str | None = None,
     ) -> bool:
         reason_text = self._normalize_reason(reason)
         scope_value = self._normalize_scope(scope)
         initiator = self._normalize_peer(requested_by)
+        correlation = self._normalize_correlation(correlation_id, name, reason_text, initiator, scope_value)
         self._ensure_subscription()
 
         governor = get_runtime_governor()
@@ -91,7 +94,8 @@ class _DaemonManager:
             daemon_name=name,
             scope=scope_value,
             origin=initiator,
-            metadata={"reason": reason_text},
+            metadata={"reason": reason_text, "correlation_id": correlation},
+            correlation_id=correlation,
         )
         if not decision.allowed:
             logger.warning(
@@ -167,6 +171,7 @@ class _DaemonManager:
             timestamp,
             initiator,
             scope_value,
+            correlation,
         )
         self._publish_restart_event(
             name,
@@ -176,6 +181,7 @@ class _DaemonManager:
             timestamp,
             initiator,
             scope_value,
+            correlation,
         )
 
         return success
@@ -255,12 +261,14 @@ class _DaemonManager:
 
         reason_value = payload.get("reason") or event.get("event_type")
         reason_text = self._normalize_reason(reason_value)
+        correlation = str(event.get("correlation_id") or event.get("event_hash") or "")
         try:
             self.restart(
                 str(target),
                 reason=reason_text,
                 requested_by=requester,
                 scope=scope,
+                correlation_id=correlation,
             )
         except KeyError:
             logger.warning(
@@ -276,6 +284,7 @@ class _DaemonManager:
         timestamp: datetime,
         initiator: str,
         scope: str,
+        correlation_id: str,
     ) -> None:
         entry = {
             "timestamp": timestamp.isoformat(),
@@ -284,6 +293,7 @@ class _DaemonManager:
             "outcome": outcome,
             "scope": scope,
             "source_peer": initiator,
+            "correlation_id": correlation_id,
         }
         if error:
             entry["error"] = error
@@ -303,6 +313,7 @@ class _DaemonManager:
         timestamp: datetime,
         initiator: str,
         scope: str,
+        correlation_id: str,
     ) -> None:
         payload: Dict[str, Any] = {
             "daemon_name": name,
@@ -311,6 +322,7 @@ class _DaemonManager:
             "outcome": outcome,
             "scope": scope,
             "requested_by": initiator,
+            "correlation_id": correlation_id,
         }
         if error:
             payload["error"] = error
@@ -320,6 +332,7 @@ class _DaemonManager:
             "source_daemon": "daemon_manager",
             "event_type": "daemon_restart",
             "priority": priority,
+            "correlation_id": correlation_id,
             "payload": payload,
         }
         try:
@@ -375,6 +388,26 @@ class _DaemonManager:
             return "local"
         return str(peer)
 
+    def _normalize_correlation(
+        self,
+        correlation_id: str | None,
+        daemon_name: str,
+        reason: str,
+        initiator: str,
+        scope: str,
+    ) -> str:
+        if isinstance(correlation_id, str) and correlation_id.strip():
+            return correlation_id.strip()
+        payload = {
+            "daemon": daemon_name,
+            "reason": reason,
+            "initiator": initiator,
+            "scope": scope,
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
     def _is_trusted_peer(self, peer: str) -> bool:
         if not peer or peer == "local":
             return False
@@ -405,6 +438,7 @@ def restart(
     reason: str | None = None,
     requested_by: str | None = None,
     scope: str | None = None,
+    correlation_id: str | None = None,
 ) -> bool:
     """Restart a registered daemon and return whether it succeeded."""
 
@@ -413,6 +447,7 @@ def restart(
         reason=reason,
         requested_by=requested_by,
         scope=scope,
+        correlation_id=correlation_id,
     )
 
 

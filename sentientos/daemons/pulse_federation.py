@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Sequence, cast
@@ -46,6 +47,9 @@ _ENABLED = False
 _PEER_MAP: dict[str, _Peer] = {}
 _PEER_KEYS: dict[str, VerifyKey] = {}
 _SUBSCRIPTION: pulse_bus.PulseSubscription | None = None
+_REPLAY_CACHE_LIMIT = int(os.getenv("PULSE_FEDERATION_REPLAY_CACHE_SIZE", "2048"))
+_SEEN_EVENT_HASHES: set[str] = set()
+_SEEN_EVENT_ORDER: deque[str] = deque()
 
 
 def _keys_dir() -> Path:
@@ -110,6 +114,8 @@ def reset() -> None:
     _ENABLED = False
     _PEER_MAP = {}
     _PEER_KEYS = {}
+    _SEEN_EVENT_HASHES.clear()
+    _SEEN_EVENT_ORDER.clear()
     if _SUBSCRIPTION is not None and _SUBSCRIPTION.active:
         _SUBSCRIPTION.unsubscribe()
     _SUBSCRIPTION = None
@@ -155,6 +161,11 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     if not verify_remote_signature(event, peer_name):
         raise ValueError(f"Invalid signature from federation peer: {peer_name}")
     payload = copy.deepcopy(event)
+    candidate_hash = str(payload.get("event_hash") or pulse_bus.compute_event_hash(payload))
+    correlation_id = str(payload.get("correlation_id") or candidate_hash)
+    if _is_duplicate_event_hash(candidate_hash):
+        logger.info("Suppressed duplicate federated pulse event hash=%s peer=%s", candidate_hash, peer_name)
+        return payload
     event_payload = payload.get("payload")
     if isinstance(event_payload, dict):
         action = str(event_payload.get("action", "")).lower()
@@ -167,16 +178,34 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     or "unknown"
                 ),
                 origin=peer_name,
-                metadata={"event_type": str(payload.get("event_type", ""))},
+                metadata={
+                    "event_type": str(payload.get("event_type", "")),
+                    "correlation_id": correlation_id,
+                },
+                correlation_id=correlation_id,
             )
             if not decision.allowed:
                 raise ValueError(
                     f"Runtime governor denied federated control event from {peer_name}: {decision.reason}"
                 )
-    payload["source_peer"] = peer_name
-    ingested = pulse_bus.ingest(payload, source_peer=peer_name)
+    ingested = pulse_bus.ingest_verified(payload, source_peer=peer_name)
     get_runtime_governor().observe_pulse_event(ingested)
+    _remember_event_hash(candidate_hash)
     return ingested
+
+
+def _is_duplicate_event_hash(event_hash: str) -> bool:
+    return bool(event_hash) and event_hash in _SEEN_EVENT_HASHES
+
+
+def _remember_event_hash(event_hash: str) -> None:
+    if not event_hash or event_hash in _SEEN_EVENT_HASHES:
+        return
+    _SEEN_EVENT_HASHES.add(event_hash)
+    _SEEN_EVENT_ORDER.append(event_hash)
+    while len(_SEEN_EVENT_ORDER) > max(_REPLAY_CACHE_LIMIT, 128):
+        old = _SEEN_EVENT_ORDER.popleft()
+        _SEEN_EVENT_HASHES.discard(old)
 
 
 def request_recent_events(minutes: int) -> List[pulse_bus.PulseEvent]:
