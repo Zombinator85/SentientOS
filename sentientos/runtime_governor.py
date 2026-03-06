@@ -109,6 +109,9 @@ class RuntimeGovernor:
         self._warn_low_priority_limit = self._env_int("SENTIENTOS_GOVERNOR_WARN_LOW_PRIORITY_LIMIT", 8)
         self._storm_federated_limit = self._env_int("SENTIENTOS_GOVERNOR_STORM_FEDERATED_LIMIT", 2)
         self._starvation_streak_threshold = self._env_int("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", 5)
+        self._subject_summary_limit = self._env_int("SENTIENTOS_GOVERNOR_SUBJECT_SUMMARY_LIMIT", 16)
+        self._noisy_subject_share_threshold = self._env_float("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_SHARE", 0.7)
+        self._noisy_subject_min_admits = self._env_int("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_MIN_ADMITS", 3)
 
         self._pressure_block = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", 0.85)
         self._pressure_warn = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_WARN", 0.70)
@@ -142,6 +145,32 @@ class RuntimeGovernor:
         self._class_allowed: dict[str, int] = defaultdict(int)
         self._class_denied: dict[str, int] = defaultdict(int)
         self._class_denied_streak: dict[str, int] = defaultdict(int)
+        self._subject_attempts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._subject_decisions: dict[str, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        self._subject_denied_streak: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._subject_events: Deque[tuple[datetime, str, str, str]] = deque()
+
+    @staticmethod
+    def _safe_subject(value: str) -> str:
+        normalized = value.strip()
+        return normalized if normalized else "unknown"
+
+    def _subject_for_action(self, action_class: str, actor: str, payload: dict[str, object]) -> str:
+        keys_by_class = {
+            "restart_daemon": ("daemon_name", "target", "subject"),
+            "repair_action": ("subject", "anomaly_subject", "target"),
+            "federated_control": ("peer_subject", "federated_source", "peer_name", "subject", "target"),
+            "control_plane_task": ("task_key", "task_origin", "request_type", "subject", "target"),
+            "amendment_apply": ("amendment_target", "subject", "target"),
+        }
+        for key in keys_by_class.get(action_class, ("subject", "target", "daemon_name")):
+            value = payload.get(key)
+            if value is None:
+                continue
+            normalized = self._safe_subject(str(value))
+            if normalized != "unknown":
+                return normalized
+        return self._safe_subject(actor)
 
     @staticmethod
     def _outcome_label(allowed: bool, reason: str) -> str:
@@ -181,12 +210,144 @@ class RuntimeGovernor:
             "at_risk_classes": at_risk,
         }
 
+    def _subject_fairness_summary(self) -> dict[str, object]:
+        per_class: dict[str, dict[str, object]] = {}
+        starved_subjects: list[dict[str, object]] = []
+        noisy_subjects: list[dict[str, object]] = []
+        denied_while_peers_admitted: list[dict[str, object]] = []
+
+        for action_class in sorted(self._profiles):
+            attempts_by_subject = self._subject_attempts.get(action_class, {})
+            subjects = sorted(attempts_by_subject)
+            if not subjects:
+                continue
+            class_admits = self._class_decisions.get(action_class, {}).get("admit", 0)
+            class_rows: list[dict[str, object]] = []
+            for subject in subjects:
+                subject_decisions = self._subject_decisions[action_class][subject]
+                row = {
+                    "subject": subject,
+                    "attempts": attempts_by_subject.get(subject, 0),
+                    "admit": subject_decisions.get("admit", 0),
+                    "defer": subject_decisions.get("defer", 0),
+                    "deny": subject_decisions.get("deny", 0),
+                    "denied_streak": self._subject_denied_streak[action_class].get(subject, 0),
+                }
+                class_rows.append(row)
+
+                if row["denied_streak"] >= self._starvation_streak_threshold:
+                    starved_subjects.append({"action_class": action_class, **row})
+
+                if (
+                    class_admits >= self._noisy_subject_min_admits
+                    and len(subjects) > 1
+                    and isinstance(row["admit"], int)
+                    and class_admits > 0
+                ):
+                    share = round(row["admit"] / class_admits, 4)
+                    if share >= self._noisy_subject_share_threshold:
+                        noisy_subjects.append({"action_class": action_class, **row, "admit_share": share})
+
+                peers_admit = class_admits - int(row["admit"])
+                if peers_admit > 0 and int(row["deny"]) > 0 and int(row["admit"]) == 0:
+                    denied_while_peers_admitted.append({"action_class": action_class, **row, "peer_admit": peers_admit})
+
+            class_rows.sort(key=lambda item: (-int(item["deny"]), -int(item["defer"]), str(item["subject"])))
+            per_class[action_class] = {
+                "subject_count": len(class_rows),
+                "subjects": class_rows[: self._subject_summary_limit],
+            }
+
+        def _sort_rows(rows: list[dict[str, object]], key_name: str) -> list[dict[str, object]]:
+            return sorted(rows, key=lambda item: (-int(item[key_name]), str(item["action_class"]), str(item["subject"])))
+
+        return {
+            "streak_threshold": self._starvation_streak_threshold,
+            "summary_limit": self._subject_summary_limit,
+            "per_class": per_class,
+            "starved_subjects": _sort_rows(starved_subjects, "denied_streak")[: self._subject_summary_limit],
+            "noisy_subjects": sorted(
+                noisy_subjects,
+                key=lambda item: (-float(item["admit_share"]), str(item["action_class"]), str(item["subject"])),
+            )[: self._subject_summary_limit],
+            "denied_while_peers_admitted": _sort_rows(denied_while_peers_admitted, "deny")[: self._subject_summary_limit],
+        }
+
+    def _trim_subject_events(self, now: datetime) -> None:
+        cutoff = now - self._contention_window
+        while self._subject_events and self._subject_events[0][0] < cutoff:
+            self._subject_events.popleft()
+
+    def _queue_pressure_summary(self, now: datetime) -> dict[str, object]:
+        self._trim_subject_events(now)
+        class_totals: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        family_totals: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        subject_totals: dict[str, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+
+        for _, action_class, subject, outcome in self._subject_events:
+            class_totals[action_class][outcome] += 1
+            family = self._profile_for(action_class).family
+            family_totals[family][outcome] += 1
+            subject_totals[action_class][subject][outcome] += 1
+
+        class_summary: dict[str, dict[str, int]] = {}
+        top_subjects: list[dict[str, object]] = []
+        for action_class in sorted(class_totals):
+            counts = class_totals[action_class]
+            occupancy = counts.get("admit", 0)
+            blocked = counts.get("defer", 0) + counts.get("deny", 0)
+            retries = max(0, occupancy + blocked - len(subject_totals[action_class]))
+            class_summary[action_class] = {
+                "admitted_occupancy": occupancy,
+                "blocked_pressure": blocked,
+                "defer": counts.get("defer", 0),
+                "deny": counts.get("deny", 0),
+                "retries": retries,
+            }
+            for subject in sorted(subject_totals[action_class]):
+                subject_counts = subject_totals[action_class][subject]
+                subj_occupancy = subject_counts.get("admit", 0)
+                subj_blocked = subject_counts.get("defer", 0) + subject_counts.get("deny", 0)
+                subj_retries = max(0, subj_occupancy + subj_blocked - 1)
+                top_subjects.append(
+                    {
+                        "action_class": action_class,
+                        "subject": subject,
+                        "admitted_occupancy": subj_occupancy,
+                        "blocked_pressure": subj_blocked,
+                        "defer": subject_counts.get("defer", 0),
+                        "deny": subject_counts.get("deny", 0),
+                        "retries": subj_retries,
+                    }
+                )
+
+        family_summary = {
+            family: {
+                "admitted_occupancy": counts.get("admit", 0),
+                "blocked_pressure": counts.get("defer", 0) + counts.get("deny", 0),
+                "defer": counts.get("defer", 0),
+                "deny": counts.get("deny", 0),
+            }
+            for family, counts in sorted(family_totals.items())
+        }
+        top_subjects.sort(key=lambda item: (-int(item["blocked_pressure"]), -int(item["retries"]), str(item["action_class"]), str(item["subject"])))
+
+        return {
+            "window_seconds": int(self._contention_window.total_seconds()),
+            "summary_limit": self._subject_summary_limit,
+            "class_summary": class_summary,
+            "family_summary": family_summary,
+            "top_subjects": top_subjects[: self._subject_summary_limit],
+        }
+
     @staticmethod
     def _bounded_counts(values: dict[str, int], *, limit: int = 64) -> dict[str, int]:
         return {key: values[key] for key in sorted(values)[:limit]}
 
     def _build_rollup(self) -> dict[str, object]:
         starvation = self._starvation_signals()
+        fairness = self._subject_fairness_summary()
+        queue_pressure = self._queue_pressure_summary(datetime.now(timezone.utc))
         class_summary = {
             action_class: {
                 "attempts": self._class_attempts.get(action_class, 0),
@@ -226,6 +387,8 @@ class RuntimeGovernor:
             },
             "reason_counts": self._bounded_counts(self._reason_counts),
             "starvation_signals": starvation,
+            "subject_fairness": fairness,
+            "queue_pressure": queue_pressure,
         }
 
     def _write_rollup(self) -> None:
@@ -242,7 +405,7 @@ class RuntimeGovernor:
         normalized = action_type.strip().lower()
         profile = self._profile_for(normalized)
         payload = dict(metadata or {})
-        subject = str(payload.get("subject") or payload.get("daemon_name") or payload.get("target") or actor or "unknown")
+        subject = self._subject_for_action(normalized, actor, payload)
         scope = str(payload.get("scope") or "local")
         payload.setdefault("action_class", normalized)
         payload.setdefault("action_priority", profile.priority)
@@ -699,17 +862,24 @@ class RuntimeGovernor:
         outcome = self._outcome_label(allowed, reason)
 
         self._class_attempts[action_class] += 1
+        subject_key = self._safe_subject(subject)
+        self._subject_attempts[action_class][subject_key] += 1
         if allowed:
             self._class_allowed[action_class] += 1
             self._class_denied_streak[action_class] = 0
+            self._subject_denied_streak[action_class][subject_key] = 0
         else:
             self._class_denied[action_class] += 1
             self._class_denied_streak[action_class] += 1
+            self._subject_denied_streak[action_class][subject_key] += 1
         self._decision_totals[outcome] += 1
         self._family_decisions[profile.family][outcome] += 1
         self._class_decisions[action_class][outcome] += 1
+        self._subject_decisions[action_class][subject_key][outcome] += 1
         self._reason_counts[reason] += 1
         self._pressure_bands[pressure_band] += 1
+        self._subject_events.append((now, action_class, subject_key, outcome))
+        self._trim_subject_events(now)
         if "storm" in reason:
             self._storm_trigger_counts[reason] += 1
         reserved_for_recovery = profile.family != "recovery" and remaining_slots <= self._recovery_reserved_slots
@@ -720,6 +890,8 @@ class RuntimeGovernor:
             self._reserved_usage += 1
 
         starvation_signals = self._starvation_signals()
+        subject_fairness = self._subject_fairness_summary()
+        queue_pressure = self._queue_pressure_summary(now)
         contention_snapshot = {
             "window_seconds": int(self._contention_window.total_seconds()),
             "contention_limit": self._contention_limit,
@@ -766,6 +938,8 @@ class RuntimeGovernor:
         payload["contention_snapshot"] = contention_snapshot
         payload["reserved_capacity"] = reserved_capacity
         payload["starvation_signals"] = starvation_signals
+        payload["subject_fairness"] = subject_fairness
+        payload["queue_pressure"] = queue_pressure
         payload["family_decision_summary"] = {
             "family": profile.family,
             "admit": self._family_decisions[profile.family].get("admit", 0),
@@ -796,6 +970,12 @@ class RuntimeGovernor:
             "contention_snapshot": contention_snapshot,
             "reserved_capacity": reserved_capacity,
             "starvation_signals": starvation_signals,
+            "subject_fairness": {
+                "starved_subjects": subject_fairness["starved_subjects"],
+                "noisy_subjects": subject_fairness["noisy_subjects"],
+                "denied_while_peers_admitted": subject_fairness["denied_while_peers_admitted"],
+            },
+            "queue_pressure": queue_pressure,
             "class_decision_summary": payload["class_decision_summary"],
             "family_decision_summary": payload["family_decision_summary"],
         }
@@ -840,6 +1020,12 @@ class RuntimeGovernor:
                     "block": self._pressure_bands.get("block", 0),
                 },
                 "reserved_recovery_slots_used": self._reserved_usage,
+                "subject_fairness": {
+                    "starved_subjects": self._subject_fairness_summary()["starved_subjects"],
+                    "noisy_subjects": self._subject_fairness_summary()["noisy_subjects"],
+                    "denied_while_peers_admitted": self._subject_fairness_summary()["denied_while_peers_admitted"],
+                },
+                "queue_pressure": self._queue_pressure_summary(datetime.now(timezone.utc)),
             },
         }
         self._budget_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")

@@ -77,16 +77,27 @@ def admit_request(
     reason = ReasonCode.OK
 
     governor = get_runtime_governor()
+    metadata_payload: dict[str, object] = {
+        "request_type": request_type.value,
+        "subject": request_type.value,
+        "context_hash": context_hash,
+        **(dict(metadata) if metadata else {}),
+    }
+    task_key = str(
+        metadata_payload.get("task_key")
+        or metadata_payload.get("task_origin")
+        or metadata_payload.get("origin")
+        or metadata_payload.get("subject")
+        or request_type.value
+    )
+    metadata_payload["task_key"] = task_key
+    metadata_payload["task_origin"] = str(metadata_payload.get("task_origin") or requester_id)
+
     governor_decision = governor.admit_action(
         "control_plane_task",
         requester_id,
         correlation_id=f"{request_type.value}:{intent_hash}",
-        metadata={
-            "request_type": request_type.value,
-            "subject": request_type.value,
-            "context_hash": context_hash,
-            **(dict(metadata) if metadata else {}),
-        },
+        metadata=metadata_payload,
     )
 
     if policy_obj.version != policy_version:
