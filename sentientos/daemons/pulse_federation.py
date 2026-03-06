@@ -170,17 +170,21 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     if isinstance(event_payload, dict):
         action = str(event_payload.get("action", "")).lower()
         if action == "restart_daemon":
+            daemon_subject = str(
+                event_payload.get("daemon")
+                or event_payload.get("daemon_name")
+                or event_payload.get("target")
+                or "unknown"
+            )
             decision = get_runtime_governor().admit_action(
                 "federated_control",
                 peer_name,
                 correlation_id,
                 metadata={
-                    "subject": str(
-                        event_payload.get("daemon")
-                        or event_payload.get("daemon_name")
-                        or event_payload.get("target")
-                        or "unknown"
-                    ),
+                    "subject": daemon_subject,
+                    "peer_name": peer_name,
+                    "federated_source": f"{peer_name}:{daemon_subject}",
+                    "peer_subject": f"{peer_name}:{daemon_subject}",
                     "event_type": str(payload.get("event_type", "")),
                     "scope": "federated",
                 },

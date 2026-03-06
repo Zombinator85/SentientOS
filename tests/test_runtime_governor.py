@@ -399,3 +399,135 @@ def test_contention_snapshot_generation_is_deterministic(monkeypatch, tmp_path) 
     projection_a = [{k: row[k] for k in keys} for row in obs_a]
     projection_b = [{k: row[k] for k in keys} for row in obs_b]
     assert projection_a == projection_b
+
+
+def test_subject_starvation_detection_with_peer_admissions(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RESTART_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("restart_daemon", "operator", "corr-a-1", metadata={"daemon_name": "alpha", "scope": "local"})
+    denied_alpha_1 = governor.admit_action("restart_daemon", "operator", "corr-a-2", metadata={"daemon_name": "alpha", "scope": "local"})
+    governor.admit_action("restart_daemon", "operator", "corr-b-1", metadata={"daemon_name": "beta", "scope": "local"})
+    denied_alpha_2 = governor.admit_action("restart_daemon", "operator", "corr-a-3", metadata={"daemon_name": "alpha", "scope": "local"})
+
+    assert denied_alpha_1.allowed is False
+    assert denied_alpha_2.allowed is False
+
+    import json
+
+    rollup = json.loads((tmp_path / "governor" / "rollup.json").read_text(encoding="utf-8"))
+    starved = rollup["subject_fairness"]["starved_subjects"]
+    assert any(row["action_class"] == "restart_daemon" and row["subject"] == "alpha" for row in starved)
+    denied_with_peers = rollup["subject_fairness"]["denied_while_peers_admitted"]
+    assert any(row["action_class"] == "restart_daemon" and row["subject"] == "alpha" for row in denied_with_peers)
+
+
+def test_noisy_subject_share_is_reported(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_MIN_ADMITS", "3")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_SHARE", "0.7")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("control_plane_task", "operator", "corr-a-1", metadata={"task_key": "task:alpha"})
+    governor.admit_action("control_plane_task", "operator", "corr-a-2", metadata={"task_key": "task:alpha"})
+    governor.admit_action("control_plane_task", "operator", "corr-a-3", metadata={"task_key": "task:alpha"})
+    governor.admit_action("control_plane_task", "operator", "corr-b-1", metadata={"task_key": "task:beta"})
+
+    import json
+
+    rollup = json.loads((tmp_path / "governor" / "rollup.json").read_text(encoding="utf-8"))
+    noisy_subjects = rollup["subject_fairness"]["noisy_subjects"]
+    assert any(row["action_class"] == "control_plane_task" and row["subject"] == "task:alpha" for row in noisy_subjects)
+
+
+def test_queue_pressure_accounting_and_bounded_subject_artifacts(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RESTART_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_SUBJECT_SUMMARY_LIMIT", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("control_plane_task", "operator", "corr-c-1", metadata={"task_key": "task:1"})
+    governor.admit_action("amendment_apply", "operator", "corr-am-1", metadata={"amendment_target": "law:1"})
+    governor.admit_action("amendment_apply", "operator", "corr-am-2", metadata={"amendment_target": "law:1"})
+
+    governor.admit_action("restart_daemon", "operator", "corr-r-1", metadata={"daemon_name": "daemon:1", "scope": "local"})
+    governor.admit_action("restart_daemon", "operator", "corr-r-2", metadata={"daemon_name": "daemon:1", "scope": "local"})
+
+    governor.admit_action("control_plane_task", "operator", "corr-c-2", metadata={"task_key": "task:2"})
+    governor.admit_action("control_plane_task", "operator", "corr-c-3", metadata={"task_key": "task:3"})
+    governor.admit_action("control_plane_task", "operator", "corr-c-4", metadata={"task_key": "task:4"})
+
+    import json
+
+    rollup = json.loads((tmp_path / "governor" / "rollup.json").read_text(encoding="utf-8"))
+    queue = rollup["queue_pressure"]
+    restart_queue = queue["class_summary"]["restart_daemon"]
+    assert restart_queue["admitted_occupancy"] == 1
+    assert restart_queue["blocked_pressure"] == 1
+    assert restart_queue["deny"] == 1
+
+    control_queue = queue["class_summary"]["control_plane_task"]
+    assert control_queue["admitted_occupancy"] >= 1
+    assert control_queue["retries"] >= 1
+
+    per_class = rollup["subject_fairness"]["per_class"]
+    if "control_plane_task" in per_class:
+        assert len(per_class["control_plane_task"]["subjects"]) <= 2
+    assert len(rollup["queue_pressure"]["top_subjects"]) <= 2
+
+
+def test_subject_fairness_projection_is_deterministic(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_MIN_ADMITS", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_SHARE", "0.5")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor-a"))
+    reset_runtime_governor()
+    gov_a = get_runtime_governor()
+    gov_a.admit_action("control_plane_task", "operator", "a-1", metadata={"task_key": "task:alpha"})
+    gov_a.admit_action("control_plane_task", "operator", "a-2", metadata={"task_key": "task:alpha"})
+    gov_a.admit_action("control_plane_task", "operator", "a-3", metadata={"task_key": "task:beta"})
+    gov_a.admit_action("amendment_apply", "operator", "a-4", metadata={"amendment_target": "law:1"})
+    gov_a.admit_action("amendment_apply", "operator", "a-5", metadata={"amendment_target": "law:1"})
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor-b"))
+    reset_runtime_governor()
+    gov_b = get_runtime_governor()
+    gov_b.admit_action("control_plane_task", "operator", "b-1", metadata={"task_key": "task:alpha"})
+    gov_b.admit_action("control_plane_task", "operator", "b-2", metadata={"task_key": "task:alpha"})
+    gov_b.admit_action("control_plane_task", "operator", "b-3", metadata={"task_key": "task:beta"})
+    gov_b.admit_action("amendment_apply", "operator", "b-4", metadata={"amendment_target": "law:1"})
+    gov_b.admit_action("amendment_apply", "operator", "b-5", metadata={"amendment_target": "law:1"})
+
+    import json
+
+    rollup_a = json.loads((tmp_path / "governor-a" / "rollup.json").read_text(encoding="utf-8"))
+    rollup_b = json.loads((tmp_path / "governor-b" / "rollup.json").read_text(encoding="utf-8"))
+
+    assert rollup_a["subject_fairness"] == rollup_b["subject_fairness"]
+    assert rollup_a["queue_pressure"] == rollup_b["queue_pressure"]
