@@ -106,6 +106,16 @@ def test_execution_requires_authorization_record() -> None:
             )
 
 
+
+
+def test_task_admission_attaches_governor_artifacts() -> None:
+    response = _authorize(RequestType.TASK_EXECUTION, requester_id="operator")
+    metadata = response.record.metadata or {}
+    assert "governor_mode" in metadata
+    assert "governor_reason" in metadata
+    assert "governor_correlation_id" in metadata
+    assert isinstance(metadata.get("pressure_snapshot"), dict)
+
 def test_execution_rejects_wrong_authorization_type() -> None:
     task = task_executor.Task(
         task_id="wrong-auth",

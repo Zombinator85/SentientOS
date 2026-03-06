@@ -90,12 +90,11 @@ class _DaemonManager:
         self._ensure_subscription()
 
         governor = get_runtime_governor()
-        decision = governor.admit_restart(
-            daemon_name=name,
-            scope=scope_value,
-            origin=initiator,
-            metadata={"reason": reason_text, "correlation_id": correlation},
-            correlation_id=correlation,
+        decision = governor.admit_action(
+            "restart_daemon",
+            initiator,
+            correlation,
+            metadata={"daemon_name": name, "scope": scope_value, "reason": reason_text},
         )
         if not decision.allowed:
             logger.warning(

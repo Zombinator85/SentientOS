@@ -106,3 +106,31 @@ def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> N
     decision = governor.admit_federated_control(subject="network", origin="peer-a")
     assert decision.allowed is False
     assert decision.reason == "critical_event_storm_detected"
+
+
+def test_admit_action_routes_control_plane_task(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_TASK_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    first = governor.admit_action(
+        "control_plane_task",
+        "operator",
+        "corr-1",
+        metadata={"subject": "TASK_EXECUTION"},
+    )
+    second = governor.admit_action(
+        "control_plane_task",
+        "operator",
+        "corr-2",
+        metadata={"subject": "TASK_EXECUTION"},
+    )
+
+    assert first.allowed is True
+    assert second.allowed is False
+    assert second.reason == "control_plane_task_rate_exceeded"
