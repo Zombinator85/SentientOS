@@ -8,9 +8,10 @@ import os
 from pathlib import Path
 
 from sentientos.artifact_catalog import append_catalog_entry
+from sentientos.audit_recovery import break_fingerprint, first_continuation_entry, load_checkpoints
 
 REPORTS_DIR = Path("glow/forge/audit_reports")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(slots=True)
@@ -30,10 +31,12 @@ class AuditChainVerification:
     first_break: AuditFirstBreak | None = None
     affected_ranges: list[dict[str, object]] | None = None
     suggested_actions: list[str] | None = None
+    trusted_history_head_hash: str | None = None
+    recovery_state: dict[str, object] | None = None
 
     @property
     def ok(self) -> bool:
-        return self.status == "ok"
+        return self.status in {"ok", "reanchored"}
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -54,6 +57,14 @@ class AuditChainVerification:
             }
         else:
             payload["first_break"] = None
+        payload["trusted_history_head_hash"] = self.trusted_history_head_hash
+        payload["recovery_state"] = self.recovery_state or {
+            "history_state": "unknown",
+            "degraded_audit_trust": True,
+            "checkpoint_id": None,
+            "continuation_descends_from_anchor": None,
+            "trust_boundary_explicit": False,
+        }
         return payload
 
 
@@ -116,6 +127,7 @@ def verify_audit_chain(repo_root: Path, *, paths: list[Path] | None = None) -> A
     first_break: AuditFirstBreak | None = None
     affected_ranges: list[dict[str, object]] = []
     prev_hash = "0" * 64
+    trusted_history_head_hash = prev_hash
 
     for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -159,14 +171,56 @@ def verify_audit_chain(repo_root: Path, *, paths: list[Path] | None = None) -> A
                 affected_ranges.append({"path": str(path.relative_to(root)), "start_line": idx, "end_line": len(lines)})
                 break
             prev_hash = str(current)
+            trusted_history_head_hash = prev_hash
 
     status = "ok" if break_count == 0 else "broken"
+    recovery_state: dict[str, object] = {
+        "history_state": "intact_trusted" if break_count == 0 else "broken_preserved",
+        "degraded_audit_trust": break_count > 0,
+        "checkpoint_id": None,
+        "continuation_descends_from_anchor": None,
+        "trust_boundary_explicit": break_count == 0,
+    }
+    if first_break is not None:
+        fingerprint = break_fingerprint(
+            path=first_break.path,
+            line_number=first_break.line_number,
+            expected_prev_hash=first_break.expected_prev_hash,
+            found_prev_hash=first_break.found_prev_hash,
+        )
+        checkpoints = [
+            row
+            for row in load_checkpoints(root)
+            if row.break_fingerprint == fingerprint and row.status == "active"
+        ]
+        checkpoints.sort(key=lambda item: item.created_at)
+        if checkpoints:
+            checkpoint = checkpoints[-1]
+            continuation_entry = first_continuation_entry(root, checkpoint.continuation_log_path)
+            continuation_descends = bool(
+                continuation_entry
+                and str(continuation_entry.get("prev_hash", "")) == checkpoint.continuation_anchor_prev_hash
+            )
+            recovery_state = {
+                "history_state": "reanchored_continuation" if continuation_descends else "broken_preserved",
+                "degraded_audit_trust": not continuation_descends,
+                "checkpoint_id": checkpoint.checkpoint_id,
+                "checkpoint_created_at": checkpoint.created_at,
+                "checkpoint_ledger_path": "glow/forge/audit_reports/audit_recovery_checkpoints.jsonl",
+                "break_fingerprint": fingerprint,
+                "continuation_log_path": checkpoint.continuation_log_path,
+                "continuation_descends_from_anchor": continuation_descends,
+                "trust_boundary_explicit": True,
+            }
+            if continuation_descends:
+                status = "reanchored"
     suggestions = [
         "python scripts/verify_audits.py --strict",
         "python scripts/audit_chain_doctor.py --repair-index-only",
     ]
     if break_count:
         suggestions.append("python scripts/audit_chain_doctor.py --diagnose-only")
+        suggestions.append("python scripts/audit_chain_reanchor.py --reason '<reason>'")
     return AuditChainVerification(
         status=status,
         created_at=_iso_now(),
@@ -175,6 +229,8 @@ def verify_audit_chain(repo_root: Path, *, paths: list[Path] | None = None) -> A
         first_break=first_break,
         affected_ranges=affected_ranges[:20],
         suggested_actions=suggestions,
+        trusted_history_head_hash=trusted_history_head_hash,
+        recovery_state=recovery_state,
     )
 
 
