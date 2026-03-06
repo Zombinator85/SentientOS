@@ -42,6 +42,8 @@ class GovernorDecision:
     sampled_pressure: PressureSnapshot
     reason_hash: str
     correlation_id: str
+    action_priority: int
+    action_family: str
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -55,7 +57,18 @@ class GovernorDecision:
             "sampled_pressure": self.sampled_pressure.to_dict(),
             "reason_hash": self.reason_hash,
             "correlation_id": self.correlation_id,
+            "action_priority": self.action_priority,
+            "action_family": self.action_family,
         }
+
+
+@dataclass(frozen=True)
+class ActionProfile:
+    action_class: str
+    priority: int
+    family: str
+    local_safety: bool
+    deferrable: bool
 
 
 class RuntimeGovernor:
@@ -86,6 +99,14 @@ class RuntimeGovernor:
         self._task_limit = self._env_int("SENTIENTOS_GOVERNOR_TASK_LIMIT", 128)
         self._amendment_limit = self._env_int("SENTIENTOS_GOVERNOR_AMENDMENT_LIMIT", 16)
 
+        self._contention_window = timedelta(
+            seconds=self._env_int("SENTIENTOS_GOVERNOR_CONTENTION_WINDOW_SECONDS", 90)
+        )
+        self._contention_limit = self._env_int("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", 24)
+        self._recovery_reserved_slots = self._env_int("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", 4)
+        self._warn_low_priority_limit = self._env_int("SENTIENTOS_GOVERNOR_WARN_LOW_PRIORITY_LIMIT", 8)
+        self._storm_federated_limit = self._env_int("SENTIENTOS_GOVERNOR_STORM_FEDERATED_LIMIT", 2)
+
         self._pressure_block = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", 0.85)
         self._pressure_warn = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_WARN", 0.70)
         self._schedule_threshold = self._env_float("SENTIENTOS_GOVERNOR_SCHEDULING_THRESHOLD", 0.45)
@@ -97,6 +118,16 @@ class RuntimeGovernor:
         self._control_plane_tasks: dict[str, Deque[datetime]] = defaultdict(deque)
         self._amendments: dict[str, Deque[datetime]] = defaultdict(deque)
         self._quarantine: dict[str, bool] = defaultdict(bool)
+        self._contention_allowed: Deque[tuple[datetime, str]] = deque()
+
+        self._profiles: dict[str, ActionProfile] = {
+            "restart_daemon": ActionProfile("restart_daemon", priority=0, family="recovery", local_safety=True, deferrable=False),
+            "repair_action": ActionProfile("repair_action", priority=1, family="recovery", local_safety=True, deferrable=False),
+            "federated_control": ActionProfile("federated_control", priority=2, family="federated", local_safety=False, deferrable=True),
+            "control_plane_task": ActionProfile("control_plane_task", priority=3, family="control_plane", local_safety=False, deferrable=True),
+            "amendment_apply": ActionProfile("amendment_apply", priority=4, family="amendment", local_safety=False, deferrable=True),
+            "unknown": ActionProfile("unknown", priority=5, family="unknown", local_safety=False, deferrable=True),
+        }
 
     def admit_action(
         self,
@@ -106,9 +137,13 @@ class RuntimeGovernor:
         metadata: dict[str, object] | None = None,
     ) -> GovernorDecision:
         normalized = action_type.strip().lower()
+        profile = self._profile_for(normalized)
         payload = dict(metadata or {})
         subject = str(payload.get("subject") or payload.get("daemon_name") or payload.get("target") or actor or "unknown")
         scope = str(payload.get("scope") or "local")
+        payload.setdefault("action_class", normalized)
+        payload.setdefault("action_priority", profile.priority)
+        payload.setdefault("action_family", profile.family)
 
         if normalized == "restart_daemon":
             return self.admit_restart(
@@ -225,9 +260,19 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+            action_class="restart_daemon",
+            scope=scope,
+            pressure=pressure,
+            now=now,
+        )
+        if arbitration_reason is not None:
+            reason = arbitration_reason
+            enforce_block = enforce_block or arbitration_block
+
         allowed = not enforce_block or self._mode != "enforce"
         decision = self._decision(
-            action_class="daemon_restart",
+            action_class="restart_daemon",
             allowed=allowed,
             reason=reason,
             subject=daemon_name,
@@ -237,6 +282,7 @@ class RuntimeGovernor:
             metadata=metadata,
             correlation_id=correlation_id,
         )
+        self._record_contention(action_class="restart_daemon", allowed=allowed, now=now)
         return decision
 
     def admit_repair(
@@ -267,8 +313,18 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+            action_class="repair_action",
+            scope="local",
+            pressure=pressure,
+            now=now,
+        )
+        if arbitration_reason is not None:
+            reason = arbitration_reason
+            enforce_block = enforce_block or arbitration_block
+
         allowed = not enforce_block or self._mode != "enforce"
-        return self._decision(
+        decision = self._decision(
             action_class="repair_action",
             allowed=allowed,
             reason=reason,
@@ -279,6 +335,8 @@ class RuntimeGovernor:
             metadata={"anomaly_kind": anomaly_kind, **(metadata or {})},
             correlation_id=correlation_id,
         )
+        self._record_contention(action_class="repair_action", allowed=allowed, now=now)
+        return decision
 
     def admit_federated_control(
         self,
@@ -306,8 +364,18 @@ class RuntimeGovernor:
             enforce_block = True
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
+
+        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+            action_class="federated_control",
+            scope="federated",
+            pressure=pressure,
+            now=now,
+        )
+        if arbitration_reason is not None:
+            reason = arbitration_reason
+            enforce_block = enforce_block or arbitration_block
         allowed = not enforce_block or self._mode != "enforce"
-        return self._decision(
+        decision = self._decision(
             action_class="federated_control",
             allowed=allowed,
             reason=reason,
@@ -318,6 +386,8 @@ class RuntimeGovernor:
             metadata=metadata,
             correlation_id=correlation_id,
         )
+        self._record_contention(action_class="federated_control", allowed=allowed, now=now)
+        return decision
 
     def _admit_control_plane_task(
         self,
@@ -347,8 +417,18 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+            action_class="control_plane_task",
+            scope="local",
+            pressure=pressure,
+            now=now,
+        )
+        if arbitration_reason is not None:
+            reason = arbitration_reason
+            enforce_block = enforce_block or arbitration_block
+
         allowed = not enforce_block or self._mode != "enforce"
-        return self._decision(
+        decision = self._decision(
             action_class="control_plane_task",
             allowed=allowed,
             reason=reason,
@@ -359,6 +439,8 @@ class RuntimeGovernor:
             metadata=metadata,
             correlation_id=correlation_id,
         )
+        self._record_contention(action_class="control_plane_task", allowed=allowed, now=now)
+        return decision
 
     def _admit_amendment_apply(
         self,
@@ -385,8 +467,18 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+            action_class="amendment_apply",
+            scope="local",
+            pressure=pressure,
+            now=now,
+        )
+        if arbitration_reason is not None:
+            reason = arbitration_reason
+            enforce_block = enforce_block or arbitration_block
+
         allowed = not enforce_block or self._mode != "enforce"
-        return self._decision(
+        decision = self._decision(
             action_class="amendment_apply",
             allowed=allowed,
             reason=reason,
@@ -397,6 +489,64 @@ class RuntimeGovernor:
             metadata=metadata,
             correlation_id=correlation_id,
         )
+        self._record_contention(action_class="amendment_apply", allowed=allowed, now=now)
+        return decision
+
+    def _profile_for(self, action_class: str) -> ActionProfile:
+        return self._profiles.get(action_class, self._profiles["unknown"])
+
+    def _contention_counts(self, now: datetime) -> tuple[int, dict[str, int]]:
+        cutoff = now - self._contention_window
+        while self._contention_allowed and self._contention_allowed[0][0] < cutoff:
+            self._contention_allowed.popleft()
+        counts: dict[str, int] = defaultdict(int)
+        for _, action_class in self._contention_allowed:
+            counts[action_class] += 1
+        return len(self._contention_allowed), counts
+
+    def _evaluate_arbitration(
+        self,
+        *,
+        action_class: str,
+        scope: str,
+        pressure: PressureSnapshot,
+        now: datetime,
+    ) -> tuple[str | None, bool]:
+        profile = self._profile_for(action_class)
+        total, counts = self._contention_counts(now)
+        low_priority_count = counts.get("control_plane_task", 0) + counts.get("amendment_apply", 0)
+        federated_count = counts.get("federated_control", 0)
+
+        if pressure.composite >= self._pressure_block and scope == "federated" and profile.deferrable:
+            return "deferred_for_local_safety_under_pressure", True
+
+        if pressure.composite >= self._pressure_warn and profile.priority >= 3 and low_priority_count >= self._warn_low_priority_limit:
+            return "deferred_low_priority_under_pressure", True
+
+        if (pressure.composite >= self._pressure_warn or len(self._critical_events) > self._critical_limit) and profile.family == "federated" and federated_count >= self._storm_federated_limit:
+            return "deferred_federated_under_storm", True
+
+        if profile.family != "recovery":
+            remaining = max(0, self._contention_limit - total)
+            if remaining <= self._recovery_reserved_slots:
+                return "deferred_reserved_for_recovery", True
+
+        if profile.family == "recovery" and (pressure.composite >= self._pressure_warn or len(self._critical_events) > self._critical_limit):
+            return "allowed_recovery_precedence", False
+
+        if total >= self._contention_limit and profile.deferrable:
+            return "deferred_contention_limit", True
+
+        if total >= self._contention_limit and not profile.deferrable:
+            return "allowed_recovery_contention_override", False
+
+        return None, False
+
+    def _record_contention(self, *, action_class: str, allowed: bool, now: datetime) -> None:
+        if not allowed:
+            return
+        self._contention_allowed.append((now, action_class))
+        self._contention_counts(now)
 
     def _decision(
         self,
@@ -438,6 +588,7 @@ class RuntimeGovernor:
             "correlation_id": correlation,
         }
         reason_hash = hashlib.sha256(json.dumps(reasoning_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+        profile = self._profile_for(action_class)
         decision = GovernorDecision(
             action_class=action_class,
             allowed=allowed,
@@ -449,9 +600,16 @@ class RuntimeGovernor:
             sampled_pressure=pressure,
             reason_hash=reason_hash,
             correlation_id=correlation,
+            action_priority=profile.priority,
+            action_family=profile.family,
         )
         payload = decision.to_dict()
-        payload["metadata"] = metadata or {}
+        payload["metadata"] = {
+            **(metadata or {}),
+            "action_class": action_class,
+            "action_priority": profile.priority,
+            "action_family": profile.family,
+        }
         payload["timestamp"] = datetime.now(timezone.utc).isoformat()
         payload["decision"] = "allow" if allowed else "deny"
         payload["governor_mode"] = self._mode
@@ -472,6 +630,7 @@ class RuntimeGovernor:
             "control_plane_task_counts": {name: len(entries) for name, entries in self._control_plane_tasks.items()},
             "amendment_counts": {name: len(entries) for name, entries in self._amendments.items()},
             "critical_events": len(self._critical_events),
+            "contention_allowed": len(self._contention_allowed),
             "quarantine": dict(self._quarantine),
             "limits": {
                 "restart_limit": self._restart_limit,
@@ -480,6 +639,10 @@ class RuntimeGovernor:
                 "critical_limit": self._critical_limit,
                 "task_limit": self._task_limit,
                 "amendment_limit": self._amendment_limit,
+                "contention_limit": self._contention_limit,
+                "recovery_reserved_slots": self._recovery_reserved_slots,
+                "warn_low_priority_limit": self._warn_low_priority_limit,
+                "storm_federated_limit": self._storm_federated_limit,
             },
         }
         self._budget_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
