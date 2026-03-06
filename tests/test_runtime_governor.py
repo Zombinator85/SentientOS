@@ -268,3 +268,134 @@ def test_arbitration_is_deterministic_for_same_sequence(monkeypatch, tmp_path) -
     ]
 
     assert reasons_a == reasons_b
+
+
+def test_observability_snapshot_contains_contention_reserved_and_starvation(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "3")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("control_plane_task", "operator", "corr-1", metadata={"subject": "t1"})
+    denied = governor.admit_action("amendment_apply", "operator", "corr-2", metadata={"subject": "law"})
+
+    assert denied.allowed is False
+
+    decision_lines = (tmp_path / "governor" / "decisions.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    latest = decision_lines[-1]
+    assert '"contention_snapshot"' in latest
+    assert '"reserved_capacity"' in latest
+    assert '"starvation_signals"' in latest
+    assert '"decision_outcome": "defer"' in latest
+
+    obs_lines = (tmp_path / "governor" / "observability.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    obs_latest = obs_lines[-1]
+    assert '"contention_snapshot"' in obs_latest
+    assert '"reserved_capacity"' in obs_latest
+    assert '"class_decision_summary"' in obs_latest
+
+
+def test_rollup_counts_actions_storm_and_reserved_usage(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "4")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_WARN_LOW_PRIORITY_LIMIT", "8")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_STORM_FEDERATED_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", "0.95")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_WARN", "0.7")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("federated_control", "peer-a", "corr-fed-1", metadata={"subject": "n1"})
+    denied_federated = governor.admit_action("federated_control", "peer-a", "corr-fed-2", metadata={"subject": "n2"})
+    governor.admit_action("control_plane_task", "operator", "corr-task", metadata={"subject": "t"})
+    denied_amendment = governor.admit_action("amendment_apply", "operator", "corr-amend", metadata={"subject": "law"})
+    recovery = governor.admit_action(
+        "repair_action", "codex_healer", "corr-repair", metadata={"subject": "alpha", "anomaly_kind": "hang"}
+    )
+
+    assert denied_federated.reason == "deferred_federated_under_storm"
+    assert denied_amendment.reason == "deferred_reserved_for_recovery"
+    assert recovery.allowed is True
+
+    import json
+
+    rollup = json.loads((tmp_path / "governor" / "rollup.json").read_text(encoding="utf-8"))
+    assert rollup["totals"]["actions"] == 5
+    assert rollup["totals"]["admit"] == 3
+    assert rollup["totals"]["defer"] == 2
+    assert rollup["totals"]["deny"] == 0
+    assert rollup["storm_trigger_counts"]["deferred_federated_under_storm"] == 1
+    assert rollup["reserved_recovery_slots_used"] >= 1
+    assert rollup["pressure_band_distribution"]["warn"] == 5
+
+
+def test_starvation_indicator_tracks_denied_streak(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("control_plane_task", "operator", "corr-1", metadata={"subject": "seed"})
+    first_denied = governor.admit_action("amendment_apply", "operator", "corr-2", metadata={"subject": "law1"})
+    second_denied = governor.admit_action("amendment_apply", "operator", "corr-3", metadata={"subject": "law2"})
+
+    assert first_denied.allowed is False
+    assert second_denied.allowed is False
+
+    import json
+
+    rollup = json.loads((tmp_path / "governor" / "rollup.json").read_text(encoding="utf-8"))
+    starvation = rollup["starvation_signals"]
+    assert starvation["denied_streaks"]["amendment_apply"] == 2
+    assert "amendment_apply" in starvation["at_risk_classes"]
+
+
+def test_contention_snapshot_generation_is_deterministic(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "3")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.1")
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor-a"))
+    reset_runtime_governor()
+    gov_a = get_runtime_governor()
+    d1a = gov_a.admit_action("control_plane_task", "operator", "a-1", metadata={"subject": "t1"})
+    d2a = gov_a.admit_action("amendment_apply", "operator", "a-2", metadata={"subject": "law"})
+
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor-b"))
+    reset_runtime_governor()
+    gov_b = get_runtime_governor()
+    d1b = gov_b.admit_action("control_plane_task", "operator", "b-1", metadata={"subject": "t1"})
+    d2b = gov_b.admit_action("amendment_apply", "operator", "b-2", metadata={"subject": "law"})
+
+    assert d1a.reason == d1b.reason
+    assert d2a.reason == d2b.reason
+
+    import json
+
+    obs_a = [json.loads(line) for line in (tmp_path / "governor-a" / "observability.jsonl").read_text(encoding="utf-8").splitlines()]
+    obs_b = [json.loads(line) for line in (tmp_path / "governor-b" / "observability.jsonl").read_text(encoding="utf-8").splitlines()]
+
+    keys = ["action_class", "decision_outcome", "reason", "pressure_band", "contention_snapshot", "reserved_capacity"]
+    projection_a = [{k: row[k] for k in keys} for row in obs_a]
+    projection_b = [{k: row[k] for k in keys} for row in obs_b]
+    assert projection_a == projection_b
