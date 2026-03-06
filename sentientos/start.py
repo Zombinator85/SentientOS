@@ -20,6 +20,7 @@ from .runtime.bootstrap import (
     validate_model_paths,
 )
 from .runtime.shell import RuntimeShell, load_or_init_config
+from .audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 
 
 LOGGER = logging.getLogger("sentientos.start")
@@ -82,6 +83,10 @@ def _bootstrap_runtime() -> Tuple[Dict[str, object], Path, Dict[str, Path], list
     config_path = ensure_default_config(runtime_dirs["config"])
     config = load_or_init_config(config_path)
     warnings = validate_model_paths(config, runtime_dirs["base"])
+    trust_state = evaluate_audit_trust(Path.cwd(), context="runtime_startup")
+    write_audit_trust_artifacts(Path.cwd(), trust_state, actor="runtime_start")
+    if trust_state.degraded_audit_trust:
+        warnings.append("Audit trust degraded; runtime governor may restrict high-impact actions.")
     return config, config_path, runtime_dirs, warnings
 
 

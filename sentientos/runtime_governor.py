@@ -9,6 +9,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Deque
 
+from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
+
 
 @dataclass(frozen=True)
 class PressureSnapshot:
@@ -80,6 +82,7 @@ class RuntimeGovernor:
             self._mode = "shadow"
         self._root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "/glow/governor"))
         self._root.mkdir(parents=True, exist_ok=True)
+        self._repo_root = Path(os.getenv("SENTIENTOS_REPO_ROOT", Path.cwd())).resolve()
         self._decisions_path = self._root / "decisions.jsonl"
         self._pressure_path = self._root / "pressure.jsonl"
         self._observability_path = self._root / "observability.jsonl"
@@ -149,6 +152,33 @@ class RuntimeGovernor:
         self._subject_decisions: dict[str, dict[str, dict[str, int]]] = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         self._subject_denied_streak: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self._subject_events: Deque[tuple[datetime, str, str, str]] = deque()
+
+    def _audit_trust_rule(
+        self,
+        *,
+        action_class: str,
+        metadata: dict[str, object] | None,
+    ) -> tuple[str | None, bool, dict[str, object]]:
+        trust_state = evaluate_audit_trust(self._repo_root, context=f"governor:{action_class}")
+        artifact_paths = write_audit_trust_artifacts(self._repo_root, trust_state, actor="runtime_governor")
+        trust_payload = {
+            "audit_trust": trust_state.to_dict(),
+            "audit_trust_artifacts": artifact_paths,
+        }
+        if not trust_state.degraded_audit_trust:
+            return None, False, trust_payload
+
+        if action_class == "federated_control":
+            return "degraded_audit_trust_federation_blocked", True, trust_payload
+        if action_class == "amendment_apply":
+            return "degraded_audit_trust_amendment_deferred", True, trust_payload
+        if action_class == "control_plane_task":
+            return "degraded_audit_trust_control_plane_escalation_required", True, trust_payload
+        if action_class == "repair_action":
+            action_kind = str((metadata or {}).get("action_kind") or "")
+            if action_kind and action_kind != "restart_daemon":
+                return "degraded_audit_trust_repair_escalation_required", True, trust_payload
+        return "degraded_audit_trust_tightened", False, trust_payload
 
     @staticmethod
     def _safe_subject(value: str) -> str:
@@ -526,6 +556,14 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+            action_class="restart_daemon",
+            metadata=metadata,
+        )
+        if trust_reason is not None:
+            reason = trust_reason
+            enforce_block = enforce_block or trust_block
+
         arbitration_reason, arbitration_block = self._evaluate_arbitration(
             action_class="restart_daemon",
             scope=scope,
@@ -545,7 +583,7 @@ class RuntimeGovernor:
             scope=scope,
             origin=origin,
             pressure=pressure,
-            metadata=metadata,
+            metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
         )
         self._record_contention(action_class="restart_daemon", allowed=allowed, now=now)
@@ -579,6 +617,14 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+            action_class="repair_action",
+            metadata=metadata,
+        )
+        if trust_reason is not None:
+            reason = trust_reason
+            enforce_block = enforce_block or trust_block
+
         arbitration_reason, arbitration_block = self._evaluate_arbitration(
             action_class="repair_action",
             scope="local",
@@ -598,7 +644,7 @@ class RuntimeGovernor:
             scope="local",
             origin="codex_healer",
             pressure=pressure,
-            metadata={"anomaly_kind": anomaly_kind, **(metadata or {})},
+            metadata={"anomaly_kind": anomaly_kind, **(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
         )
         self._record_contention(action_class="repair_action", allowed=allowed, now=now)
@@ -631,6 +677,14 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+            action_class="federated_control",
+            metadata=metadata,
+        )
+        if trust_reason is not None:
+            reason = trust_reason
+            enforce_block = enforce_block or trust_block
+
         arbitration_reason, arbitration_block = self._evaluate_arbitration(
             action_class="federated_control",
             scope="federated",
@@ -649,7 +703,7 @@ class RuntimeGovernor:
             scope="federated",
             origin=origin,
             pressure=pressure,
-            metadata=metadata,
+            metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
         )
         self._record_contention(action_class="federated_control", allowed=allowed, now=now)
@@ -683,6 +737,14 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+            action_class="control_plane_task",
+            metadata=metadata,
+        )
+        if trust_reason is not None:
+            reason = trust_reason
+            enforce_block = enforce_block or trust_block
+
         arbitration_reason, arbitration_block = self._evaluate_arbitration(
             action_class="control_plane_task",
             scope="local",
@@ -702,7 +764,7 @@ class RuntimeGovernor:
             scope="local",
             origin=requester,
             pressure=pressure,
-            metadata=metadata,
+            metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
         )
         self._record_contention(action_class="control_plane_task", allowed=allowed, now=now)
@@ -733,6 +795,14 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
+        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+            action_class="amendment_apply",
+            metadata=metadata,
+        )
+        if trust_reason is not None:
+            reason = trust_reason
+            enforce_block = enforce_block or trust_block
+
         arbitration_reason, arbitration_block = self._evaluate_arbitration(
             action_class="amendment_apply",
             scope="local",
@@ -752,7 +822,7 @@ class RuntimeGovernor:
             scope="local",
             origin=actor,
             pressure=pressure,
-            metadata=metadata,
+            metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
         )
         self._record_contention(action_class="amendment_apply", allowed=allowed, now=now)

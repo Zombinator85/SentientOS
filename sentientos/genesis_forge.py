@@ -48,6 +48,7 @@ from sentientos.risk_budget import compute_risk_budget
 from sentientos.strategic_posture import resolve_posture
 from sentientos.throughput_policy import derive_throughput_policy
 from sentientos.governance_trace import record_clamp_for_current
+from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +598,8 @@ class GenesisForge:
     ) -> list[GenesisOutcome]:
         outcomes: list[GenesisOutcome] = []
         needs = self._need_seer.scan(telemetry_streams, vows)
+        trust_state = evaluate_audit_trust(Path.cwd(), context="genesis_forge")
+        trust_artifacts = write_audit_trust_artifacts(Path.cwd(), trust_state, actor="genesis_forge")
         env_k = max(int(os.getenv("SENTIENTOS_ROUTER_K", "3")), 1)
         env_m = max(int(os.getenv("SENTIENTOS_ROUTER_M", "2")), 0)
         quarantine = load_quarantine_state(Path.cwd())
@@ -621,6 +624,24 @@ class GenesisForge:
             pressure_state_snapshot_path=None,
         )
         for need in needs:
+            if trust_state.degraded_audit_trust:
+                deferred = GenesisOutcome(
+                    need=need,
+                    status="deferred_degraded_audit_trust",
+                    details={
+                        "reason": "degraded_audit_trust",
+                        "history_state": trust_state.history_state,
+                        "checkpoint_id": trust_state.checkpoint_id,
+                        "audit_trust_artifacts": trust_artifacts,
+                    },
+                )
+                outcomes.append(deferred)
+                self._ledger.log(
+                    "genesis_deferred_degraded_audit_trust",
+                    anomaly=Anomaly(kind="genesis_need", subject=need.capability),
+                    details=deferred.details,
+                )
+                continue
             anomaly = Anomaly(kind="genesis_need", subject=need.capability)
             run_context = {
                 "pipeline": "genesis",
