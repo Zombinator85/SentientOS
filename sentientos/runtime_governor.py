@@ -82,7 +82,9 @@ class RuntimeGovernor:
         self._root.mkdir(parents=True, exist_ok=True)
         self._decisions_path = self._root / "decisions.jsonl"
         self._pressure_path = self._root / "pressure.jsonl"
+        self._observability_path = self._root / "observability.jsonl"
         self._budget_path = self._root / "storm_budget.json"
+        self._rollup_path = self._root / "rollup.json"
 
         # budgets
         self._restart_window = timedelta(seconds=self._env_int("SENTIENTOS_GOVERNOR_RESTART_WINDOW_SECONDS", 300))
@@ -106,6 +108,7 @@ class RuntimeGovernor:
         self._recovery_reserved_slots = self._env_int("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", 4)
         self._warn_low_priority_limit = self._env_int("SENTIENTOS_GOVERNOR_WARN_LOW_PRIORITY_LIMIT", 8)
         self._storm_federated_limit = self._env_int("SENTIENTOS_GOVERNOR_STORM_FEDERATED_LIMIT", 2)
+        self._starvation_streak_threshold = self._env_int("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", 5)
 
         self._pressure_block = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", 0.85)
         self._pressure_warn = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_WARN", 0.70)
@@ -128,6 +131,106 @@ class RuntimeGovernor:
             "amendment_apply": ActionProfile("amendment_apply", priority=4, family="amendment", local_safety=False, deferrable=True),
             "unknown": ActionProfile("unknown", priority=5, family="unknown", local_safety=False, deferrable=True),
         }
+        self._decision_totals: dict[str, int] = defaultdict(int)
+        self._family_decisions: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._class_decisions: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._reason_counts: dict[str, int] = defaultdict(int)
+        self._pressure_bands: dict[str, int] = defaultdict(int)
+        self._storm_trigger_counts: dict[str, int] = defaultdict(int)
+        self._reserved_usage = 0
+        self._class_attempts: dict[str, int] = defaultdict(int)
+        self._class_allowed: dict[str, int] = defaultdict(int)
+        self._class_denied: dict[str, int] = defaultdict(int)
+        self._class_denied_streak: dict[str, int] = defaultdict(int)
+
+    @staticmethod
+    def _outcome_label(allowed: bool, reason: str) -> str:
+        if allowed:
+            return "admit"
+        if reason.startswith("deferred"):
+            return "defer"
+        return "deny"
+
+    def _pressure_band(self, pressure: PressureSnapshot) -> str:
+        if pressure.composite >= self._pressure_block:
+            return "block"
+        if pressure.composite >= self._pressure_warn:
+            return "warn"
+        return "normal"
+
+    def _contending_actions(self, counts: dict[str, int]) -> list[dict[str, object]]:
+        rows: list[tuple[int, str, int]] = []
+        for action_class, count in counts.items():
+            if count <= 0:
+                continue
+            rows.append((self._profile_for(action_class).priority, action_class, count))
+        rows.sort()
+        return [{"action_class": action_class, "count": count, "priority": priority} for priority, action_class, count in rows]
+
+    def _starvation_signals(self) -> dict[str, object]:
+        classes = sorted(self._profiles)
+        denied_streaks = {name: self._class_denied_streak.get(name, 0) for name in classes}
+        at_risk = sorted(
+            name
+            for name in classes
+            if self._profile_for(name).deferrable and denied_streaks.get(name, 0) >= self._starvation_streak_threshold
+        )
+        return {
+            "streak_threshold": self._starvation_streak_threshold,
+            "denied_streaks": denied_streaks,
+            "at_risk_classes": at_risk,
+        }
+
+    @staticmethod
+    def _bounded_counts(values: dict[str, int], *, limit: int = 64) -> dict[str, int]:
+        return {key: values[key] for key in sorted(values)[:limit]}
+
+    def _build_rollup(self) -> dict[str, object]:
+        starvation = self._starvation_signals()
+        class_summary = {
+            action_class: {
+                "attempts": self._class_attempts.get(action_class, 0),
+                "admit": self._class_decisions.get(action_class, {}).get("admit", 0),
+                "defer": self._class_decisions.get(action_class, {}).get("defer", 0),
+                "deny": self._class_decisions.get(action_class, {}).get("deny", 0),
+                "denied_streak": starvation["denied_streaks"].get(action_class, 0),
+            }
+            for action_class in sorted(self._profiles)
+        }
+        family_summary = {
+            family: {
+                "admit": counts.get("admit", 0),
+                "defer": counts.get("defer", 0),
+                "deny": counts.get("deny", 0),
+            }
+            for family, counts in sorted(self._family_decisions.items())
+        }
+        return {
+            "schema_version": 1,
+            "mode": self._mode,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "totals": {
+                "actions": sum(self._decision_totals.values()),
+                "admit": self._decision_totals.get("admit", 0),
+                "defer": self._decision_totals.get("defer", 0),
+                "deny": self._decision_totals.get("deny", 0),
+            },
+            "class_summary": class_summary,
+            "family_summary": family_summary,
+            "storm_trigger_counts": self._bounded_counts(self._storm_trigger_counts),
+            "reserved_recovery_slots_used": self._reserved_usage,
+            "pressure_band_distribution": {
+                "normal": self._pressure_bands.get("normal", 0),
+                "warn": self._pressure_bands.get("warn", 0),
+                "block": self._pressure_bands.get("block", 0),
+            },
+            "reason_counts": self._bounded_counts(self._reason_counts),
+            "starvation_signals": starvation,
+        }
+
+    def _write_rollup(self) -> None:
+        rollup = self._build_rollup()
+        self._rollup_path.write_text(json.dumps(rollup, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     def admit_action(
         self,
@@ -589,6 +692,50 @@ class RuntimeGovernor:
         }
         reason_hash = hashlib.sha256(json.dumps(reasoning_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
         profile = self._profile_for(action_class)
+        now = datetime.now(timezone.utc)
+        contention_total, contention_counts = self._contention_counts(now)
+        remaining_slots = max(0, self._contention_limit - contention_total)
+        pressure_band = self._pressure_band(pressure)
+        outcome = self._outcome_label(allowed, reason)
+
+        self._class_attempts[action_class] += 1
+        if allowed:
+            self._class_allowed[action_class] += 1
+            self._class_denied_streak[action_class] = 0
+        else:
+            self._class_denied[action_class] += 1
+            self._class_denied_streak[action_class] += 1
+        self._decision_totals[outcome] += 1
+        self._family_decisions[profile.family][outcome] += 1
+        self._class_decisions[action_class][outcome] += 1
+        self._reason_counts[reason] += 1
+        self._pressure_bands[pressure_band] += 1
+        if "storm" in reason:
+            self._storm_trigger_counts[reason] += 1
+        reserved_for_recovery = profile.family != "recovery" and remaining_slots <= self._recovery_reserved_slots
+        reserved_slot_consumed = (
+            allowed and profile.family == "recovery" and remaining_slots <= self._recovery_reserved_slots
+        )
+        if reserved_slot_consumed:
+            self._reserved_usage += 1
+
+        starvation_signals = self._starvation_signals()
+        contention_snapshot = {
+            "window_seconds": int(self._contention_window.total_seconds()),
+            "contention_limit": self._contention_limit,
+            "total_active": contention_total,
+            "remaining_slots": remaining_slots,
+            "active_class_counts": {name: contention_counts.get(name, 0) for name in sorted(self._profiles)},
+            "competing_actions": self._contending_actions(contention_counts),
+        }
+        reserved_capacity = {
+            "reserved_recovery_slots": self._recovery_reserved_slots,
+            "reserved_floor_reached": remaining_slots <= self._recovery_reserved_slots,
+            "reserved_for_recovery": reserved_for_recovery,
+            "used_reserved_recovery_slot": reserved_slot_consumed,
+            "total_reserved_recovery_slot_usage": self._reserved_usage,
+        }
+
         decision = GovernorDecision(
             action_class=action_class,
             allowed=allowed,
@@ -610,12 +757,51 @@ class RuntimeGovernor:
             "action_priority": profile.priority,
             "action_family": profile.family,
         }
-        payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+        payload["timestamp"] = now.isoformat()
         payload["decision"] = "allow" if allowed else "deny"
+        payload["decision_outcome"] = outcome
         payload["governor_mode"] = self._mode
         payload["pressure_snapshot"] = pressure.to_dict()
+        payload["pressure_band"] = pressure_band
+        payload["contention_snapshot"] = contention_snapshot
+        payload["reserved_capacity"] = reserved_capacity
+        payload["starvation_signals"] = starvation_signals
+        payload["family_decision_summary"] = {
+            "family": profile.family,
+            "admit": self._family_decisions[profile.family].get("admit", 0),
+            "defer": self._family_decisions[profile.family].get("defer", 0),
+            "deny": self._family_decisions[profile.family].get("deny", 0),
+        }
+        payload["class_decision_summary"] = {
+            "action_class": action_class,
+            "attempts": self._class_attempts.get(action_class, 0),
+            "admit": self._class_decisions[action_class].get("admit", 0),
+            "defer": self._class_decisions[action_class].get("defer", 0),
+            "deny": self._class_decisions[action_class].get("deny", 0),
+            "denied_streak": self._class_denied_streak.get(action_class, 0),
+        }
         self._append_jsonl(self._decisions_path, payload)
+        observability_payload = {
+            "timestamp": now.isoformat(),
+            "correlation_id": correlation,
+            "action_class": action_class,
+            "action_family": profile.family,
+            "action_priority": profile.priority,
+            "decision": payload["decision"],
+            "decision_outcome": outcome,
+            "reason": reason,
+            "mode": self._mode,
+            "pressure_band": pressure_band,
+            "pressure_composite": pressure.composite,
+            "contention_snapshot": contention_snapshot,
+            "reserved_capacity": reserved_capacity,
+            "starvation_signals": starvation_signals,
+            "class_decision_summary": payload["class_decision_summary"],
+            "family_decision_summary": payload["family_decision_summary"],
+        }
+        self._append_jsonl(self._observability_path, observability_payload)
         self._write_budget_snapshot()
+        self._write_rollup()
         self._publish_governor_decision(payload)
         return decision
 
@@ -643,6 +829,17 @@ class RuntimeGovernor:
                 "recovery_reserved_slots": self._recovery_reserved_slots,
                 "warn_low_priority_limit": self._warn_low_priority_limit,
                 "storm_federated_limit": self._storm_federated_limit,
+                "starvation_streak_threshold": self._starvation_streak_threshold,
+            },
+            "counters": {
+                "decision_totals": self._bounded_counts(self._decision_totals),
+                "reason_counts": self._bounded_counts(self._reason_counts),
+                "pressure_bands": {
+                    "normal": self._pressure_bands.get("normal", 0),
+                    "warn": self._pressure_bands.get("warn", 0),
+                    "block": self._pressure_bands.get("block", 0),
+                },
+                "reserved_recovery_slots_used": self._reserved_usage,
             },
         }
         self._budget_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
