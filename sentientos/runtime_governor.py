@@ -76,11 +76,15 @@ class RuntimeGovernor:
         self._repair_window = timedelta(seconds=self._env_int("SENTIENTOS_GOVERNOR_REPAIR_WINDOW_SECONDS", 600))
         self._federated_window = timedelta(seconds=self._env_int("SENTIENTOS_GOVERNOR_FEDERATED_WINDOW_SECONDS", 120))
         self._critical_window = timedelta(seconds=self._env_int("SENTIENTOS_GOVERNOR_CRITICAL_WINDOW_SECONDS", 120))
+        self._task_window = timedelta(seconds=self._env_int("SENTIENTOS_GOVERNOR_TASK_WINDOW_SECONDS", 120))
+        self._amendment_window = timedelta(seconds=self._env_int("SENTIENTOS_GOVERNOR_AMENDMENT_WINDOW_SECONDS", 300))
 
         self._restart_limit = self._env_int("SENTIENTOS_GOVERNOR_RESTART_LIMIT", 3)
         self._repair_limit = self._env_int("SENTIENTOS_GOVERNOR_REPAIR_LIMIT", 5)
         self._federated_limit = self._env_int("SENTIENTOS_GOVERNOR_FEDERATED_LIMIT", 20)
         self._critical_limit = self._env_int("SENTIENTOS_GOVERNOR_CRITICAL_LIMIT", 50)
+        self._task_limit = self._env_int("SENTIENTOS_GOVERNOR_TASK_LIMIT", 128)
+        self._amendment_limit = self._env_int("SENTIENTOS_GOVERNOR_AMENDMENT_LIMIT", 16)
 
         self._pressure_block = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", 0.85)
         self._pressure_warn = self._env_float("SENTIENTOS_GOVERNOR_PRESSURE_WARN", 0.70)
@@ -90,7 +94,70 @@ class RuntimeGovernor:
         self._repairs: dict[str, Deque[datetime]] = defaultdict(deque)
         self._federated_controls: Deque[datetime] = deque()
         self._critical_events: Deque[datetime] = deque()
+        self._control_plane_tasks: dict[str, Deque[datetime]] = defaultdict(deque)
+        self._amendments: dict[str, Deque[datetime]] = defaultdict(deque)
         self._quarantine: dict[str, bool] = defaultdict(bool)
+
+    def admit_action(
+        self,
+        action_type: str,
+        actor: str,
+        correlation_id: str,
+        metadata: dict[str, object] | None = None,
+    ) -> GovernorDecision:
+        normalized = action_type.strip().lower()
+        payload = dict(metadata or {})
+        subject = str(payload.get("subject") or payload.get("daemon_name") or payload.get("target") or actor or "unknown")
+        scope = str(payload.get("scope") or "local")
+
+        if normalized == "restart_daemon":
+            return self.admit_restart(
+                daemon_name=subject,
+                scope=scope,
+                origin=actor,
+                metadata=payload,
+                correlation_id=correlation_id,
+            )
+        if normalized == "repair_action":
+            anomaly_kind = str(payload.get("anomaly_kind") or payload.get("kind") or "unknown")
+            return self.admit_repair(
+                anomaly_kind=anomaly_kind,
+                subject=subject,
+                metadata=payload,
+                correlation_id=correlation_id,
+            )
+        if normalized == "federated_control":
+            return self.admit_federated_control(
+                subject=subject,
+                origin=actor,
+                metadata=payload,
+                correlation_id=correlation_id,
+            )
+        if normalized == "control_plane_task":
+            return self._admit_control_plane_task(
+                requester=actor,
+                subject=subject,
+                metadata=payload,
+                correlation_id=correlation_id,
+            )
+        if normalized == "amendment_apply":
+            return self._admit_amendment_apply(
+                actor=actor,
+                subject=subject,
+                metadata=payload,
+                correlation_id=correlation_id,
+            )
+        return self._decision(
+            action_class=normalized,
+            allowed=self._mode != "enforce",
+            reason="unknown_action_type",
+            subject=subject,
+            scope=scope,
+            origin=actor,
+            pressure=self.sample_pressure(),
+            metadata=payload,
+            correlation_id=correlation_id,
+        )
 
     def sample_pressure(self) -> PressureSnapshot:
         now = datetime.now(timezone.utc)
@@ -252,6 +319,85 @@ class RuntimeGovernor:
             correlation_id=correlation_id,
         )
 
+    def _admit_control_plane_task(
+        self,
+        *,
+        requester: str,
+        subject: str,
+        metadata: dict[str, object] | None,
+        correlation_id: str | None,
+    ) -> GovernorDecision:
+        pressure = self.sample_pressure()
+        now = datetime.now(timezone.utc)
+        dq = self._control_plane_tasks[requester]
+        dq.append(now)
+        self._trim(dq, now, self._task_window)
+
+        reason = "allowed"
+        enforce_block = False
+        if len(dq) > self._task_limit:
+            reason = "control_plane_task_rate_exceeded"
+            enforce_block = True
+        elif pressure.composite >= self._pressure_block:
+            reason = "pressure_block"
+            enforce_block = True
+        elif len(self._critical_events) > self._critical_limit:
+            reason = "critical_event_storm_detected"
+            enforce_block = True
+        elif pressure.composite >= self._pressure_warn:
+            reason = "pressure_warn"
+
+        allowed = not enforce_block or self._mode != "enforce"
+        return self._decision(
+            action_class="control_plane_task",
+            allowed=allowed,
+            reason=reason,
+            subject=subject,
+            scope="local",
+            origin=requester,
+            pressure=pressure,
+            metadata=metadata,
+            correlation_id=correlation_id,
+        )
+
+    def _admit_amendment_apply(
+        self,
+        *,
+        actor: str,
+        subject: str,
+        metadata: dict[str, object] | None,
+        correlation_id: str | None,
+    ) -> GovernorDecision:
+        pressure = self.sample_pressure()
+        now = datetime.now(timezone.utc)
+        dq = self._amendments[actor]
+        dq.append(now)
+        self._trim(dq, now, self._amendment_window)
+
+        reason = "allowed"
+        enforce_block = False
+        if len(dq) > self._amendment_limit:
+            reason = "amendment_rate_exceeded"
+            enforce_block = True
+        elif pressure.composite >= self._pressure_block:
+            reason = "pressure_block"
+            enforce_block = True
+        elif pressure.composite >= self._pressure_warn:
+            reason = "pressure_warn"
+
+        allowed = not enforce_block or self._mode != "enforce"
+        return self._decision(
+            action_class="amendment_apply",
+            allowed=allowed,
+            reason=reason,
+            subject=subject,
+            scope="local",
+            origin=actor,
+            pressure=pressure,
+            metadata=metadata,
+            correlation_id=correlation_id,
+        )
+
     def _decision(
         self,
         *,
@@ -307,6 +453,9 @@ class RuntimeGovernor:
         payload = decision.to_dict()
         payload["metadata"] = metadata or {}
         payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+        payload["decision"] = "allow" if allowed else "deny"
+        payload["governor_mode"] = self._mode
+        payload["pressure_snapshot"] = pressure.to_dict()
         self._append_jsonl(self._decisions_path, payload)
         self._write_budget_snapshot()
         self._publish_governor_decision(payload)
@@ -320,6 +469,8 @@ class RuntimeGovernor:
             "restart_counts": {name: len(entries) for name, entries in self._restarts.items()},
             "repair_counts": {name: len(entries) for name, entries in self._repairs.items()},
             "federated_controls": len(self._federated_controls),
+            "control_plane_task_counts": {name: len(entries) for name, entries in self._control_plane_tasks.items()},
+            "amendment_counts": {name: len(entries) for name, entries in self._amendments.items()},
             "critical_events": len(self._critical_events),
             "quarantine": dict(self._quarantine),
             "limits": {
@@ -327,6 +478,8 @@ class RuntimeGovernor:
                 "repair_limit": self._repair_limit,
                 "federated_limit": self._federated_limit,
                 "critical_limit": self._critical_limit,
+                "task_limit": self._task_limit,
+                "amendment_limit": self._amendment_limit,
             },
         }
         self._budget_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")

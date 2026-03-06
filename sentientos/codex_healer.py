@@ -531,11 +531,16 @@ class CodexHealer:
                 correlation_id=correlation_id,
             )
         governor = get_runtime_governor()
-        governor_decision = governor.admit_repair(
-            anomaly_kind=anomaly.kind,
-            subject=anomaly.subject,
-            metadata={"action_kind": action.kind, "auto_adopt": action.auto_adopt, "correlation_id": correlation_id},
-            correlation_id=correlation_id,
+        governor_decision = governor.admit_action(
+            "repair_action",
+            "codex_healer",
+            correlation_id,
+            metadata={
+                "anomaly_kind": anomaly.kind,
+                "subject": anomaly.subject,
+                "action_kind": action.kind,
+                "auto_adopt": action.auto_adopt,
+            },
         )
         if not governor_decision.allowed:
             self._note_failure(key, now)

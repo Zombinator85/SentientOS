@@ -9,6 +9,7 @@ from log_utils import append_json
 from .enums import Decision, ReasonCode, RequestType
 from .policy import ControlPlanePolicy, evaluate_rate, load_policy, requires_human
 from .records import AuthorizationRecord
+from sentientos.runtime_governor import get_runtime_governor
 
 
 CONTROL_PLANE_LOG_PATH = get_log_path("control_plane_admission.jsonl", "CONTROL_PLANE_LOG")
@@ -75,6 +76,19 @@ def admit_request(
     decision = Decision.ALLOW
     reason = ReasonCode.OK
 
+    governor = get_runtime_governor()
+    governor_decision = governor.admit_action(
+        "control_plane_task",
+        requester_id,
+        correlation_id=f"{request_type.value}:{intent_hash}",
+        metadata={
+            "request_type": request_type.value,
+            "subject": request_type.value,
+            "context_hash": context_hash,
+            **(dict(metadata) if metadata else {}),
+        },
+    )
+
     if policy_obj.version != policy_version:
         decision, reason = Decision.DENY, ReasonCode.POLICY_VERSION_MISMATCH
     elif rule is None:
@@ -89,6 +103,19 @@ def admit_request(
         decision, reason = Decision.DENY, ReasonCode.RATE_LIMIT_EXCEEDED
     elif requires_human(rule, metadata):
         decision, reason = Decision.DENY, ReasonCode.HUMAN_APPROVAL_REQUIRED
+    elif not governor_decision.allowed:
+        decision, reason = Decision.DENY, ReasonCode.POLICY_DENY
+
+    merged_metadata: dict[str, object] = dict(metadata) if metadata else {}
+    merged_metadata.update(
+        {
+            "governor_mode": governor_decision.mode,
+            "governor_reason": governor_decision.reason,
+            "governor_decision": "allow" if governor_decision.allowed else "deny",
+            "governor_correlation_id": governor_decision.correlation_id,
+            "pressure_snapshot": governor_decision.sampled_pressure.to_dict(),
+        }
+    )
 
     record = _build_record(
         request_type=request_type,
@@ -98,9 +125,9 @@ def admit_request(
         policy_version=policy_obj.version,
         decision=decision,
         reason=reason,
-        metadata=metadata,
+        metadata=merged_metadata,
     )
-    _log_decision(record, metadata)
+    _log_decision(record, merged_metadata)
     return AdmissionResponse(decision=decision, reason=reason, record=record)
 
 
