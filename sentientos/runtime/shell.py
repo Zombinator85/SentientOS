@@ -47,6 +47,7 @@ from sentientos.world.sources import (
     ScriptedTimelineSource,
     WorldSource,
 )
+from sentientos.runtime_governor import get_runtime_governor
 from sentientos.memory import (
     DreamLoop,
     MemoryMounts,
@@ -511,6 +512,26 @@ class RuntimeShell:
                     "summary": amendment.summary,
                 },
             )
+            governor = get_runtime_governor()
+            governor_decision = governor.admit_action(
+                "amendment_apply",
+                "runtime_shell",
+                f"amendment:{amendment.id}",
+                metadata={
+                    "amendment_target": amendment.id,
+                    "risk_level": getattr(amendment, "risk_level", "medium"),
+                },
+            )
+            if not governor_decision.allowed:
+                self._log(
+                    "Amendment deferred by runtime governor",
+                    extra={
+                        "amendment_id": amendment.id,
+                        "governor_reason": governor_decision.reason,
+                        "governor_mode": governor_decision.mode,
+                    },
+                )
+                return result
             window = self.federation_window()
             decision = should_accept_amendment(window, getattr(amendment, "risk_level", "medium"))
             if decision == "hold":

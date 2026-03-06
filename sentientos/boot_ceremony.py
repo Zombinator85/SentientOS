@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Iterable, Protocol
 
 from sentientos.integrity import covenant_autoalign
+from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 
 from .codex import CodexHealer, GenesisForge, IntegrityDaemon
 from privilege_lint.reporting import NarratorLink, create_default_router
@@ -68,6 +70,12 @@ class CeremonialScript:
 
     def perform(self) -> None:
         covenant_autoalign.autoalign_on_boot()
+        trust_state = evaluate_audit_trust(Path.cwd(), context="boot_ceremony")
+        write_audit_trust_artifacts(Path.cwd(), trust_state, actor="boot_ceremony")
+        if trust_state.degraded_audit_trust:
+            self._announcer.caution(
+                "Audit trust degraded at boot; entering bounded degraded-trust runtime mode."
+            )
         steps: Iterable[CeremonialStep] = (
             CeremonialStep(
                 announcement="Mounting /vow…",
