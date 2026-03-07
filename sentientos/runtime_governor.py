@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Deque
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
+from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 
 
@@ -202,6 +203,8 @@ class RuntimeGovernor:
     def _restriction_class_for_reason(reason: str) -> str:
         if reason.startswith("degraded_audit_trust"):
             return "audit_trust"
+        if reason.startswith("federated_"):
+            return "federation"
         if reason.startswith("pulse_epoch"):
             return "pulse_epoch"
         if "local_safety" in reason:
@@ -258,6 +261,52 @@ class RuntimeGovernor:
             details={"degraded_audit_trust": trust_state.degraded_audit_trust, "history_state": trust_state.history_state},
         )
         return evaluation, trust_payload
+
+    def _evaluate_federated_governance_posture(
+        self,
+        *,
+        action_class: str,
+        origin: str,
+        metadata: dict[str, object] | None,
+    ) -> tuple[PostureRuleEvaluation, dict[str, object]]:
+        payload = dict(metadata or {})
+        governance = payload.get("federated_governance")
+        if not isinstance(governance, dict):
+            governance = {
+                "peer_name": origin,
+                "digest_status": "unavailable",
+                "digest_reasons": ["governance_not_provided"],
+                "epoch_status": "unknown",
+                "denial_cause": "none",
+                "quorum_required": 1,
+                "quorum_present": 1,
+                "quorum_satisfied": True,
+            }
+
+        reason = "federation_governance_nominal"
+        blocks = False
+        denial_cause = str(governance.get("denial_cause") or "none")
+        digest_status = str(governance.get("digest_status") or "missing")
+        epoch_status = str(governance.get("epoch_status") or "unknown")
+        quorum_satisfied = bool(governance.get("quorum_satisfied", False))
+
+        if action_class == "federated_control":
+            if epoch_status == "unexpected" or denial_cause == "trust_epoch":
+                reason, blocks = "federated_unexpected_epoch_blocked", True
+            elif digest_status in {"missing", "incompatible"} or denial_cause == "digest_mismatch":
+                reason, blocks = "federated_digest_mismatch_blocked", True
+            elif not quorum_satisfied or denial_cause == "quorum_failure":
+                reason, blocks = "federated_quorum_not_satisfied", True
+
+        evaluation = PostureRuleEvaluation(
+            dimension="federated_governance",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=blocks,
+            precedence=110,
+            details=dict(governance),
+        )
+        return evaluation, {"federated_governance": governance}
 
     def _evaluate_pulse_epoch_posture(
         self,
@@ -921,6 +970,11 @@ class RuntimeGovernor:
             action_class="federated_control",
             metadata=metadata,
         )
+        federation_eval, federation_payload = self._evaluate_federated_governance_posture(
+            action_class="federated_control",
+            origin=origin,
+            metadata=metadata,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="federated_control",
@@ -941,7 +995,7 @@ class RuntimeGovernor:
             scope="federated",
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, epoch_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, federation_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -954,7 +1008,7 @@ class RuntimeGovernor:
             scope="federated",
             origin=origin,
             pressure=pressure,
-            metadata={**(metadata or {}), **trust_payload, **epoch_payload},
+            metadata={**(metadata or {}), **trust_payload, **epoch_payload, **federation_payload},
             correlation_id=correlation_id,
             posture=posture,
         )
@@ -1375,10 +1429,13 @@ class RuntimeGovernor:
         return decision
 
     def _write_budget_snapshot(self) -> None:
+        federation = get_federated_governance_controller()
+        local_digest = federation.local_governance_digest().to_dict()
         snapshot = {
             "schema_version": 1,
             "mode": self._mode,
             "updated_at": datetime.now(timezone.utc).isoformat(),
+            "federation_governance_digest": local_digest,
             "restart_counts": {name: len(entries) for name, entries in self._restarts.items()},
             "repair_counts": {name: len(entries) for name, entries in self._repairs.items()},
             "federated_controls": len(self._federated_controls),
@@ -1420,6 +1477,8 @@ class RuntimeGovernor:
         self._budget_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     def _publish_governor_state(self, pressure: PressureSnapshot) -> None:
+        federation = get_federated_governance_controller()
+        digest = federation.local_governance_digest().to_dict()
         self._publish_event(
             "governor_state",
             "info",
@@ -1427,6 +1486,7 @@ class RuntimeGovernor:
                 "mode": self._mode,
                 "pressure": pressure.to_dict(),
                 "scheduling_window_open": pressure.composite <= self._schedule_threshold,
+                "federation_governance_digest": digest,
             },
         )
 

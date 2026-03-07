@@ -19,6 +19,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from . import pulse_bus
+from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.runtime_governor import get_runtime_governor
 
@@ -104,6 +105,7 @@ def configure(*, enabled: bool, peers: Iterable[object] | None = None) -> None:
             normalized[peer.name] = peer
     _PEER_MAP = normalized
     _load_peer_keys()
+    get_federated_governance_controller().set_trusted_peers(set(_PEER_MAP.keys()))
     _update_subscription()
 
 
@@ -115,6 +117,7 @@ def reset() -> None:
     _ENABLED = False
     _PEER_MAP = {}
     _PEER_KEYS = {}
+    get_federated_governance_controller().set_trusted_peers(set())
     _SEEN_EVENT_HASHES.clear()
     _SEEN_EVENT_ORDER.clear()
     if _SUBSCRIPTION is not None and _SUBSCRIPTION.active:
@@ -192,12 +195,33 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         if not decision.allowed:
             raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     payload = copy.deepcopy(event)
+    governance = get_federated_governance_controller()
+    evaluation = governance.evaluate_peer_event(peer_name, payload)
+    event_payload = payload.get("payload")
+
+    if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
+        decision = get_runtime_governor().admit_action(
+            "federated_control",
+            peer_name,
+            str(payload.get("correlation_id") or pulse_bus.compute_event_hash(payload)),
+            metadata={
+                "subject": f"{peer_name}:federation",
+                "scope": "federated",
+                "event_type": str(payload.get("event_type", "")),
+                "federated_governance": evaluation.to_dict(),
+                "federated_denial_cause": evaluation.denial_cause,
+            },
+        )
+        if not decision.allowed:
+            raise ValueError(
+                f"Federated action denied for {peer_name}: "
+                f"{evaluation.denial_cause}/{decision.reason}"
+            )
     candidate_hash = str(payload.get("event_hash") or pulse_bus.compute_event_hash(payload))
     correlation_id = str(payload.get("correlation_id") or candidate_hash)
     if _is_duplicate_event_hash(candidate_hash):
         logger.info("Suppressed duplicate federated pulse event hash=%s peer=%s", candidate_hash, peer_name)
         return payload
-    event_payload = payload.get("payload")
     if isinstance(event_payload, dict):
         action = str(event_payload.get("action", "")).lower()
         if action == "restart_daemon":
@@ -218,6 +242,8 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     "peer_subject": f"{peer_name}:{daemon_subject}",
                     "event_type": str(payload.get("event_type", "")),
                     "scope": "federated",
+                    "federated_governance": evaluation.to_dict(),
+                    "federated_denial_cause": evaluation.denial_cause,
                 },
             )
             if not decision.allowed:
@@ -316,6 +342,8 @@ def _handle_local_publish(event: pulse_bus.PulseEvent) -> None:
     if not _payload_is_safe(event):
         logger.warning("Skipping privileged pulse event; payload not federated")
         return
+    outbound = event
+
     for peer in _PEER_MAP.values():
         endpoint = peer.api_base()
         if not endpoint:
@@ -323,7 +351,7 @@ def _handle_local_publish(event: pulse_bus.PulseEvent) -> None:
         try:
             _http_post(
                 f"{endpoint}{_FEDERATION_ENDPOINT}",
-                json=event,
+                json=outbound,
                 timeout=_REQUEST_TIMEOUT_SECONDS,
             )
         except Exception:  # pragma: no cover - network failures best-effort

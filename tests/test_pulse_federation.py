@@ -11,12 +11,26 @@ import pytest
 from nacl.signing import SigningKey
 
 from sentientos.daemons import pulse_bus, pulse_federation
+from sentientos.pulse_trust_epoch import reset_manager
 
 
 @pytest.fixture(autouse=True)
 def reset_state(tmp_path, monkeypatch):
     pulse_bus.reset()
     pulse_federation.reset()
+    reset_manager()
+    trust_root = tmp_path / "pulse_trust"
+    trust_root.mkdir(parents=True, exist_ok=True)
+    pulse_key_dir = tmp_path / "pulse_keys"
+    pulse_key_dir.mkdir(parents=True, exist_ok=True)
+    pulse_signing = SigningKey.generate()
+    (pulse_key_dir / "ed25519_private.key").write_bytes(pulse_signing.encode())
+    (pulse_key_dir / "ed25519_public.key").write_bytes(pulse_signing.verify_key.encode())
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_ROOT", str(trust_root))
+    monkeypatch.setenv("PULSE_TRUST_EPOCH_STATE", str(trust_root / "epoch_state.json"))
+    monkeypatch.setenv("PULSE_SIGNING_KEY", str(pulse_key_dir / "ed25519_private.key"))
+    monkeypatch.setenv("PULSE_VERIFY_KEY", str(pulse_key_dir / "ed25519_public.key"))
+    reset_manager()
     key_dir = tmp_path / "federation_keys"
     key_dir.mkdir(parents=True, exist_ok=True)
     monkeypatch.setenv("PULSE_FEDERATION_KEYS_DIR", str(key_dir))
