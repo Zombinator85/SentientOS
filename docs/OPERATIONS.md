@@ -179,7 +179,9 @@ Run replay verification to reconstruct integrity gates and bounded signature che
 python scripts/forge_replay.py --verify --last-n 25 --emit-snapshot 0
 ```
 
-Replay mode is non-mutating by default and safe for forensics. It writes replay artifacts to `glow/forge/replay/` and appends pulse rows to `pulse/replay_runs.jsonl`. Snapshot emission is optional and only occurs when `--emit-snapshot 1` is provided.
+Replay mode is non-mutating by default and safe for forensics. It writes replay artifacts to `glow/forge/replay/` and appends pulse rows to `pulse/replay_runs.jsonl`. Snapshot emission is optional and only occurs when `--emit-snapshot 1` **and** `SENTIENTOS_REPLAY_ALLOW_MUTATION=1` are both set, with cadence checks still enforced.
+
+Both `forge_status` and `forge_replay` resolve integrity/snapshot/witness artifacts through the artifact catalog first (`resolution_source=catalog`) and only fall back to deterministic disk scans when catalog entries are missing (`resolution_source=disk`).
 
 ### Exit codes (`forge_status`)
 
@@ -193,8 +195,9 @@ Replay mode is non-mutating by default and safe for forensics. It writes replay 
 Attach these generated files to incident reports:
 
 - `forge_status --json` output.
-- Latest `glow/forge/replay/replay_*.json` from `forge_replay --verify`.
-- Any referenced integrity status/snapshot/signature/witness artifact paths listed in the status payload.
+- Latest `glow/forge/replay/replay_*.json` from `forge_replay --verify --last-n <N> --emit-snapshot 0`.
+- `pulse/replay_runs.jsonl` tail row corresponding to the replay artifact path.
+- Any referenced integrity status/snapshot/signature/witness/governor/audit-trust artifact paths listed in `forge_status --json` provenance.
 
 ## Remote probe
 

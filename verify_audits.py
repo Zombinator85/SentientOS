@@ -1,9 +1,8 @@
-"""Compatibility wrapper for the blessed scripts.verify_audits entrypoint."""
+"""Compatibility wrapper for sentientos.verify_audits stable module path."""
 
 from __future__ import annotations
 
-from scripts.verify_audits import *  # noqa: F401,F403
-from scripts.verify_audits import main
+from sentientos.audit_tools import verify_audits_main as main
 
 
 if __name__ == "__main__":  # pragma: no cover

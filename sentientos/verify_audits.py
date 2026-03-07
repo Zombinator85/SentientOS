@@ -2,15 +2,13 @@ from __future__ import annotations
 
 """Portable verify_audits module entrypoint."""
 
-import sys
-from typing import Sequence
+from collections.abc import Sequence
 
-from scripts.verify_audits import main as scripts_main
+from sentientos.audit_tools import verify_audits_main
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    forwarded = list(argv) if argv is not None else sys.argv[1:]
-    return int(scripts_main(forwarded))
+    return int(verify_audits_main(argv))
 
 
 if __name__ == "__main__":

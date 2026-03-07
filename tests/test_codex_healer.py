@@ -76,6 +76,8 @@ def test_daemon_crash_triggers_restart(tmp_path: Path) -> None:
     assert entry["status"] == "auto-repair applied"
     assert entry["anomaly"]["kind"] == "daemon_unresponsive"
     assert isinstance(entry["correlation_id"], str) and len(entry["correlation_id"]) == 64
+    verification = entry["details"]["repair_verification"]
+    assert verification["status"] in {"verified", "unverified", "skipped verification", "verification blocked/degraded"}
     assert "CodexHealer event: auto-repair applied" == entry["narrative"]
 
     # Updated heartbeat should clear anomalies and mounts remain intact
@@ -202,3 +204,16 @@ def test_repair_loop_backoff_and_ceiling(tmp_path: Path, monkeypatch: pytest.Mon
     assert third["status"] == "auto-repair escalated_ceiling"
     assert isinstance(first["correlation_id"], str)
     assert first["correlation_id"] == second["correlation_id"] == third["correlation_id"]
+
+
+def test_repair_verification_can_be_skipped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SENTIENTOS_REPAIR_VERIFY", "0")
+    healer, _, _, ledger = _build_healer(tmp_path)
+    now = datetime.now(timezone.utc)
+    stalled = [
+        DaemonHeartbeat("NetworkDaemon", now - timedelta(minutes=10)),
+        DaemonHeartbeat("IntegrityDaemon", now),
+    ]
+    healer.run(stalled, now=now)
+    verification = ledger.entries[-1]["details"]["repair_verification"]
+    assert verification["status"] == "skipped verification"

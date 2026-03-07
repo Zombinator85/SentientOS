@@ -11,7 +11,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterable, List, Mapping, Sequence
 
+from sentientos.audit_chain_gate import verify_audit_chain
 from sentientos.codex_startup_guard import enforce_codex_startup
+from sentientos.immutability import read_manifest
 from sentientos.runtime_governor import get_runtime_governor
 
 
@@ -562,7 +564,14 @@ class CodexHealer:
         success = self._synth.apply(action)
         if success:
             self._note_success(key)
-            return self._ledger.log("auto-repair applied", anomaly=anomaly, action=action, correlation_id=correlation_id)
+            verification = self._repair_verification(action=action, correlation_id=correlation_id)
+            return self._ledger.log(
+                "auto-repair applied",
+                anomaly=anomaly,
+                action=action,
+                correlation_id=correlation_id,
+                details={"repair_verification": verification},
+            )
         self._note_failure(key, now)
         regen_info = self._regenesis.rebuild(anomaly, action)
         return self._ledger.log(
@@ -572,6 +581,34 @@ class CodexHealer:
             details={"regenesis": regen_info},
             correlation_id=correlation_id,
         )
+
+    def _repair_verification(self, *, action: RepairAction, correlation_id: str) -> dict[str, object]:
+        if os.getenv("SENTIENTOS_REPAIR_VERIFY", "1") != "1":
+            return {"status": "skipped verification", "reason": "verification_disabled", "checks": []}
+        checks: list[dict[str, object]] = []
+        try:
+            audit = verify_audit_chain(Path.cwd())
+            checks.append({"name": "audit_chain", "status": audit.status, "ok": audit.ok})
+            manifest_ok = True
+            try:
+                read_manifest()
+            except Exception:
+                manifest_ok = False
+            checks.append({"name": "immutable_manifest", "status": "ok" if manifest_ok else "invalid", "ok": manifest_ok})
+            all_ok = all(bool(item.get("ok")) for item in checks)
+            return {
+                "status": "verified" if all_ok else "unverified",
+                "reason": "ok" if all_ok else "post_repair_verification_failed",
+                "checks": checks,
+                "correlation_id": correlation_id,
+            }
+        except Exception as exc:
+            return {
+                "status": "verification blocked/degraded",
+                "reason": f"verification_error:{exc}",
+                "checks": checks,
+                "correlation_id": correlation_id,
+            }
 
     @staticmethod
     def _anomaly_key(anomaly: Anomaly) -> str:
