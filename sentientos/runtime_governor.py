@@ -73,6 +73,50 @@ class ActionProfile:
     deferrable: bool
 
 
+@dataclass(frozen=True)
+class PostureRuleEvaluation:
+    dimension: str
+    reason: str
+    restriction_class: str
+    blocks: bool
+    precedence: int
+    details: dict[str, object]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "dimension": self.dimension,
+            "reason": self.reason,
+            "restriction_class": self.restriction_class,
+            "blocks": self.blocks,
+            "precedence": self.precedence,
+            "details": dict(self.details),
+        }
+
+
+@dataclass(frozen=True)
+class RuntimePosture:
+    effective_posture: str
+    dominant_dimension: str
+    dominant_reason: str
+    dominant_restriction_class: str
+    enforce_block: bool
+    escalation_ladder: list[str]
+    active_dimensions: dict[str, object]
+    reason_chain: list[PostureRuleEvaluation]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "effective_posture": self.effective_posture,
+            "dominant_dimension": self.dominant_dimension,
+            "dominant_reason": self.dominant_reason,
+            "dominant_restriction_class": self.dominant_restriction_class,
+            "enforce_block": self.enforce_block,
+            "escalation_ladder": list(self.escalation_ladder),
+            "active_dimensions": dict(self.active_dimensions),
+            "reason_chain": [item.to_dict() for item in self.reason_chain],
+        }
+
+
 class RuntimeGovernor:
     """Deterministic admissibility layer for runtime control-plane actions."""
 
@@ -153,32 +197,135 @@ class RuntimeGovernor:
         self._subject_denied_streak: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
         self._subject_events: Deque[tuple[datetime, str, str, str]] = deque()
 
-    def _audit_trust_rule(
+    @staticmethod
+    def _restriction_class_for_reason(reason: str) -> str:
+        if reason.startswith("degraded_audit_trust"):
+            return "audit_trust"
+        if "local_safety" in reason:
+            return "local_safety"
+        if "storm" in reason:
+            return "storm"
+        if "starvation" in reason or "fairness" in reason:
+            return "fairness"
+        if "pressure" in reason:
+            return "pressure"
+        if "contention" in reason or "reserved" in reason:
+            return "contention"
+        if "rate_exceeded" in reason or "budget_exceeded" in reason or "quarantined" in reason:
+            return "budget"
+        if reason == "allowed":
+            return "none"
+        return "policy"
+
+    def _evaluate_audit_trust_posture(
         self,
         *,
         action_class: str,
         metadata: dict[str, object] | None,
-    ) -> tuple[str | None, bool, dict[str, object]]:
+    ) -> tuple[PostureRuleEvaluation, dict[str, object]]:
         trust_state = evaluate_audit_trust(self._repo_root, context=f"governor:{action_class}")
         artifact_paths = write_audit_trust_artifacts(self._repo_root, trust_state, actor="runtime_governor")
         trust_payload = {
             "audit_trust": trust_state.to_dict(),
             "audit_trust_artifacts": artifact_paths,
         }
-        if not trust_state.degraded_audit_trust:
-            return None, False, trust_payload
+        reason = "audit_trust_nominal"
+        blocks = False
+        if trust_state.degraded_audit_trust:
+            if action_class == "federated_control":
+                reason, blocks = "degraded_audit_trust_federation_blocked", True
+            elif action_class == "amendment_apply":
+                reason, blocks = "degraded_audit_trust_amendment_deferred", True
+            elif action_class == "control_plane_task":
+                reason, blocks = "degraded_audit_trust_control_plane_escalation_required", True
+            elif action_class == "repair_action":
+                action_kind = str((metadata or {}).get("action_kind") or "")
+                if action_kind and action_kind != "restart_daemon":
+                    reason, blocks = "degraded_audit_trust_repair_escalation_required", True
+                else:
+                    reason = "degraded_audit_trust_tightened"
+            else:
+                reason = "degraded_audit_trust_tightened"
+        evaluation = PostureRuleEvaluation(
+            dimension="audit_trust",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=blocks,
+            precedence=100,
+            details={"degraded_audit_trust": trust_state.degraded_audit_trust, "history_state": trust_state.history_state},
+        )
+        return evaluation, trust_payload
 
-        if action_class == "federated_control":
-            return "degraded_audit_trust_federation_blocked", True, trust_payload
-        if action_class == "amendment_apply":
-            return "degraded_audit_trust_amendment_deferred", True, trust_payload
-        if action_class == "control_plane_task":
-            return "degraded_audit_trust_control_plane_escalation_required", True, trust_payload
-        if action_class == "repair_action":
-            action_kind = str((metadata or {}).get("action_kind") or "")
-            if action_kind and action_kind != "restart_daemon":
-                return "degraded_audit_trust_repair_escalation_required", True, trust_payload
-        return "degraded_audit_trust_tightened", False, trust_payload
+    def _compose_runtime_posture(
+        self,
+        *,
+        action_class: str,
+        scope: str,
+        pressure: PressureSnapshot,
+        now: datetime,
+        evaluations: list[PostureRuleEvaluation],
+    ) -> RuntimePosture:
+        profile = self._profile_for(action_class)
+        contention_total, _ = self._contention_counts(now)
+        denied_streak = self._class_denied_streak.get(action_class, 0)
+        storm_active = len(self._critical_events) > self._critical_limit
+        fairness_eval = PostureRuleEvaluation(
+            dimension="fairness_starvation",
+            reason="fairness_nominal",
+            restriction_class="none",
+            blocks=False,
+            precedence=55,
+            details={"denied_streak": denied_streak, "threshold": self._starvation_streak_threshold},
+        )
+        if (
+            profile.deferrable
+            and denied_streak >= self._starvation_streak_threshold
+            and pressure.composite >= self._pressure_warn
+            and contention_total >= max(1, self._contention_limit - 1)
+        ):
+            fairness_eval = PostureRuleEvaluation(
+                dimension="fairness_starvation",
+                reason="deferred_starvation_under_pressure",
+                restriction_class="fairness",
+                blocks=True,
+                precedence=55,
+                details={"denied_streak": denied_streak, "threshold": self._starvation_streak_threshold},
+            )
+        reason_chain = [*evaluations, fairness_eval]
+        active_dimensions = {
+            "pressure_band": self._pressure_band(pressure),
+            "pressure_composite": pressure.composite,
+            "storm_active": storm_active,
+            "scope": scope,
+            "is_federated": scope == "federated" or profile.family == "federated",
+            "action_class": action_class,
+            "action_family": profile.family,
+            "action_priority": profile.priority,
+            "deferrable": profile.deferrable,
+            "local_safety": profile.local_safety,
+            "fairness_denied_streak": denied_streak,
+            "fairness_threshold": self._starvation_streak_threshold,
+        }
+        ranked = sorted(reason_chain, key=lambda item: (-item.precedence, item.reason, item.dimension))
+        dominant = ranked[0]
+        enforce_block = any(item.blocks for item in reason_chain)
+        if enforce_block:
+            effective_posture = "restricted"
+        elif active_dimensions["pressure_band"] == "warn" or storm_active:
+            effective_posture = "constrained"
+        else:
+            effective_posture = "nominal"
+        ladder = sorted({item.restriction_class for item in reason_chain if item.restriction_class != "none"})
+        return RuntimePosture(
+            effective_posture=effective_posture,
+            dominant_dimension=dominant.dimension,
+            dominant_reason=dominant.reason,
+            dominant_restriction_class=dominant.restriction_class,
+            enforce_block=enforce_block,
+            escalation_ladder=ladder,
+            active_dimensions=active_dimensions,
+            reason_chain=ranked,
+        )
 
     @staticmethod
     def _safe_subject(value: str) -> str:
@@ -419,6 +566,20 @@ class RuntimeGovernor:
             "starvation_signals": starvation,
             "subject_fairness": fairness,
             "queue_pressure": queue_pressure,
+            "runtime_posture_summary": self._bounded_counts(
+                {
+                    "restricted": self._reason_counts.get("deferred_contention_limit", 0)
+                    + self._reason_counts.get("deferred_reserved_for_recovery", 0)
+                    + self._reason_counts.get("deferred_federated_under_storm", 0)
+                    + self._reason_counts.get("deferred_for_local_safety_under_pressure", 0)
+                    + self._reason_counts.get("degraded_audit_trust_federation_blocked", 0)
+                    + self._reason_counts.get("degraded_audit_trust_amendment_deferred", 0)
+                    + self._reason_counts.get("degraded_audit_trust_control_plane_escalation_required", 0)
+                    + self._reason_counts.get("degraded_audit_trust_repair_escalation_required", 0),
+                    "constrained": self._pressure_bands.get("warn", 0),
+                    "nominal": self._pressure_bands.get("normal", 0),
+                }
+            ),
         }
 
     def _write_rollup(self) -> None:
@@ -556,24 +717,34 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
-        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+        trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="restart_daemon",
             metadata=metadata,
         )
-        if trust_reason is not None:
-            reason = trust_reason
-            enforce_block = enforce_block or trust_block
 
-        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+        arbitration_eval = self._evaluate_arbitration(
             action_class="restart_daemon",
             scope=scope,
             pressure=pressure,
             now=now,
         )
-        if arbitration_reason is not None:
-            reason = arbitration_reason
-            enforce_block = enforce_block or arbitration_block
-
+        budget_eval = PostureRuleEvaluation(
+            dimension="budget_pressure",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=enforce_block,
+            precedence=70,
+            details={"scope": scope, "restart_attempts": len(dq)},
+        )
+        posture = self._compose_runtime_posture(
+            action_class="restart_daemon",
+            scope=scope,
+            pressure=pressure,
+            now=now,
+            evaluations=[budget_eval, trust_eval, arbitration_eval],
+        )
+        reason = posture.dominant_reason
+        enforce_block = posture.enforce_block
         allowed = not enforce_block or self._mode != "enforce"
         decision = self._decision(
             action_class="restart_daemon",
@@ -585,6 +756,7 @@ class RuntimeGovernor:
             pressure=pressure,
             metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
+            posture=posture,
         )
         self._record_contention(action_class="restart_daemon", allowed=allowed, now=now)
         return decision
@@ -617,24 +789,34 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
-        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+        trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="repair_action",
             metadata=metadata,
         )
-        if trust_reason is not None:
-            reason = trust_reason
-            enforce_block = enforce_block or trust_block
 
-        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+        arbitration_eval = self._evaluate_arbitration(
             action_class="repair_action",
             scope="local",
             pressure=pressure,
             now=now,
         )
-        if arbitration_reason is not None:
-            reason = arbitration_reason
-            enforce_block = enforce_block or arbitration_block
-
+        budget_eval = PostureRuleEvaluation(
+            dimension="budget_pressure",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=enforce_block,
+            precedence=70,
+            details={"repair_attempts": len(dq), "anomaly_kind": anomaly_kind},
+        )
+        posture = self._compose_runtime_posture(
+            action_class="repair_action",
+            scope="local",
+            pressure=pressure,
+            now=now,
+            evaluations=[budget_eval, trust_eval, arbitration_eval],
+        )
+        reason = posture.dominant_reason
+        enforce_block = posture.enforce_block
         allowed = not enforce_block or self._mode != "enforce"
         decision = self._decision(
             action_class="repair_action",
@@ -646,6 +828,7 @@ class RuntimeGovernor:
             pressure=pressure,
             metadata={"anomaly_kind": anomaly_kind, **(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
+            posture=posture,
         )
         self._record_contention(action_class="repair_action", allowed=allowed, now=now)
         return decision
@@ -677,23 +860,34 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
-        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+        trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="federated_control",
             metadata=metadata,
         )
-        if trust_reason is not None:
-            reason = trust_reason
-            enforce_block = enforce_block or trust_block
 
-        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+        arbitration_eval = self._evaluate_arbitration(
             action_class="federated_control",
             scope="federated",
             pressure=pressure,
             now=now,
         )
-        if arbitration_reason is not None:
-            reason = arbitration_reason
-            enforce_block = enforce_block or arbitration_block
+        budget_eval = PostureRuleEvaluation(
+            dimension="budget_pressure",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=enforce_block,
+            precedence=70,
+            details={"federated_controls": len(self._federated_controls)},
+        )
+        posture = self._compose_runtime_posture(
+            action_class="federated_control",
+            scope="federated",
+            pressure=pressure,
+            now=now,
+            evaluations=[budget_eval, trust_eval, arbitration_eval],
+        )
+        reason = posture.dominant_reason
+        enforce_block = posture.enforce_block
         allowed = not enforce_block or self._mode != "enforce"
         decision = self._decision(
             action_class="federated_control",
@@ -705,6 +899,7 @@ class RuntimeGovernor:
             pressure=pressure,
             metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
+            posture=posture,
         )
         self._record_contention(action_class="federated_control", allowed=allowed, now=now)
         return decision
@@ -716,6 +911,7 @@ class RuntimeGovernor:
         subject: str,
         metadata: dict[str, object] | None,
         correlation_id: str | None,
+        posture: RuntimePosture | None = None,
     ) -> GovernorDecision:
         pressure = self.sample_pressure()
         now = datetime.now(timezone.utc)
@@ -737,24 +933,34 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
-        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+        trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="control_plane_task",
             metadata=metadata,
         )
-        if trust_reason is not None:
-            reason = trust_reason
-            enforce_block = enforce_block or trust_block
 
-        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+        arbitration_eval = self._evaluate_arbitration(
             action_class="control_plane_task",
             scope="local",
             pressure=pressure,
             now=now,
         )
-        if arbitration_reason is not None:
-            reason = arbitration_reason
-            enforce_block = enforce_block or arbitration_block
-
+        budget_eval = PostureRuleEvaluation(
+            dimension="budget_pressure",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=enforce_block,
+            precedence=70,
+            details={"requester": requester, "task_attempts": len(dq)},
+        )
+        posture = self._compose_runtime_posture(
+            action_class="control_plane_task",
+            scope="local",
+            pressure=pressure,
+            now=now,
+            evaluations=[budget_eval, trust_eval, arbitration_eval],
+        )
+        reason = posture.dominant_reason
+        enforce_block = posture.enforce_block
         allowed = not enforce_block or self._mode != "enforce"
         decision = self._decision(
             action_class="control_plane_task",
@@ -766,6 +972,7 @@ class RuntimeGovernor:
             pressure=pressure,
             metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
+            posture=posture,
         )
         self._record_contention(action_class="control_plane_task", allowed=allowed, now=now)
         return decision
@@ -777,6 +984,7 @@ class RuntimeGovernor:
         subject: str,
         metadata: dict[str, object] | None,
         correlation_id: str | None,
+        posture: RuntimePosture | None = None,
     ) -> GovernorDecision:
         pressure = self.sample_pressure()
         now = datetime.now(timezone.utc)
@@ -795,24 +1003,34 @@ class RuntimeGovernor:
         elif pressure.composite >= self._pressure_warn:
             reason = "pressure_warn"
 
-        trust_reason, trust_block, trust_payload = self._audit_trust_rule(
+        trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="amendment_apply",
             metadata=metadata,
         )
-        if trust_reason is not None:
-            reason = trust_reason
-            enforce_block = enforce_block or trust_block
 
-        arbitration_reason, arbitration_block = self._evaluate_arbitration(
+        arbitration_eval = self._evaluate_arbitration(
             action_class="amendment_apply",
             scope="local",
             pressure=pressure,
             now=now,
         )
-        if arbitration_reason is not None:
-            reason = arbitration_reason
-            enforce_block = enforce_block or arbitration_block
-
+        budget_eval = PostureRuleEvaluation(
+            dimension="budget_pressure",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=enforce_block,
+            precedence=70,
+            details={"actor": actor, "amendment_attempts": len(dq)},
+        )
+        posture = self._compose_runtime_posture(
+            action_class="amendment_apply",
+            scope="local",
+            pressure=pressure,
+            now=now,
+            evaluations=[budget_eval, trust_eval, arbitration_eval],
+        )
+        reason = posture.dominant_reason
+        enforce_block = posture.enforce_block
         allowed = not enforce_block or self._mode != "enforce"
         decision = self._decision(
             action_class="amendment_apply",
@@ -824,6 +1042,7 @@ class RuntimeGovernor:
             pressure=pressure,
             metadata={**(metadata or {}), **trust_payload},
             correlation_id=correlation_id,
+            posture=posture,
         )
         self._record_contention(action_class="amendment_apply", allowed=allowed, now=now)
         return decision
@@ -847,36 +1066,49 @@ class RuntimeGovernor:
         scope: str,
         pressure: PressureSnapshot,
         now: datetime,
-    ) -> tuple[str | None, bool]:
+    ) -> PostureRuleEvaluation:
         profile = self._profile_for(action_class)
         total, counts = self._contention_counts(now)
         low_priority_count = counts.get("control_plane_task", 0) + counts.get("amendment_apply", 0)
         federated_count = counts.get("federated_control", 0)
 
+        reason = "arbitration_nominal"
+        blocks = False
+        precedence = 40
         if pressure.composite >= self._pressure_block and scope == "federated" and profile.deferrable:
-            return "deferred_for_local_safety_under_pressure", True
-
-        if pressure.composite >= self._pressure_warn and profile.priority >= 3 and low_priority_count >= self._warn_low_priority_limit:
-            return "deferred_low_priority_under_pressure", True
-
-        if (pressure.composite >= self._pressure_warn or len(self._critical_events) > self._critical_limit) and profile.family == "federated" and federated_count >= self._storm_federated_limit:
-            return "deferred_federated_under_storm", True
-
-        if profile.family != "recovery":
+            reason, blocks, precedence = "deferred_for_local_safety_under_pressure", True, 90
+        elif pressure.composite >= self._pressure_warn and profile.priority >= 3 and low_priority_count >= self._warn_low_priority_limit:
+            reason, blocks, precedence = "deferred_low_priority_under_pressure", True, 50
+        elif (
+            (pressure.composite >= self._pressure_warn or len(self._critical_events) > self._critical_limit)
+            and profile.family == "federated"
+            and federated_count >= self._storm_federated_limit
+        ):
+            reason, blocks, precedence = "deferred_federated_under_storm", True, 80
+        elif profile.family != "recovery":
             remaining = max(0, self._contention_limit - total)
             if remaining <= self._recovery_reserved_slots:
-                return "deferred_reserved_for_recovery", True
+                reason, blocks, precedence = "deferred_reserved_for_recovery", True, 60
+        if reason == "arbitration_nominal":
+            if profile.family == "recovery" and (pressure.composite >= self._pressure_warn or len(self._critical_events) > self._critical_limit):
+                reason, blocks, precedence = "allowed_recovery_precedence", False, 65
+            elif total >= self._contention_limit and profile.deferrable:
+                reason, blocks, precedence = "deferred_contention_limit", True, 45
+            elif total >= self._contention_limit and not profile.deferrable:
+                reason, blocks, precedence = "allowed_recovery_contention_override", False, 65
 
-        if profile.family == "recovery" and (pressure.composite >= self._pressure_warn or len(self._critical_events) > self._critical_limit):
-            return "allowed_recovery_precedence", False
-
-        if total >= self._contention_limit and profile.deferrable:
-            return "deferred_contention_limit", True
-
-        if total >= self._contention_limit and not profile.deferrable:
-            return "allowed_recovery_contention_override", False
-
-        return None, False
+        return PostureRuleEvaluation(
+            dimension="arbitration",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=blocks,
+            precedence=precedence,
+            details={
+                "contention_total": total,
+                "low_priority_count": low_priority_count,
+                "federated_count": federated_count,
+            },
+        )
 
     def _record_contention(self, *, action_class: str, allowed: bool, now: datetime) -> None:
         if not allowed:
@@ -896,6 +1128,7 @@ class RuntimeGovernor:
         pressure: PressureSnapshot,
         metadata: dict[str, object] | None,
         correlation_id: str | None,
+        posture: RuntimePosture | None = None,
     ) -> GovernorDecision:
         correlation = correlation_id or hashlib.sha256(
             json.dumps(
@@ -1010,6 +1243,23 @@ class RuntimeGovernor:
         payload["starvation_signals"] = starvation_signals
         payload["subject_fairness"] = subject_fairness
         payload["queue_pressure"] = queue_pressure
+        payload["runtime_posture"] = (posture or self._compose_runtime_posture(
+            action_class=action_class,
+            scope=scope,
+            pressure=pressure,
+            now=now,
+            evaluations=[
+                PostureRuleEvaluation(
+                    dimension="legacy",
+                    reason=reason,
+                    restriction_class=self._restriction_class_for_reason(reason),
+                    blocks=not allowed,
+                    precedence=10,
+                    details={},
+                )
+            ],
+        )).to_dict()
+        payload["dominant_restriction_cause"] = payload["runtime_posture"]["dominant_reason"]
         payload["family_decision_summary"] = {
             "family": profile.family,
             "admit": self._family_decisions[profile.family].get("admit", 0),
@@ -1046,6 +1296,10 @@ class RuntimeGovernor:
                 "denied_while_peers_admitted": subject_fairness["denied_while_peers_admitted"],
             },
             "queue_pressure": queue_pressure,
+            "runtime_posture": payload["runtime_posture"],
+            "effective_posture": payload["runtime_posture"]["effective_posture"],
+            "active_posture_dimensions": payload["runtime_posture"]["active_dimensions"],
+            "dominant_restriction_cause": payload["runtime_posture"]["dominant_reason"],
             "class_decision_summary": payload["class_decision_summary"],
             "family_decision_summary": payload["family_decision_summary"],
         }

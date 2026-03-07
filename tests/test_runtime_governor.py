@@ -531,3 +531,73 @@ def test_subject_fairness_projection_is_deterministic(monkeypatch, tmp_path) -> 
 
     assert rollup_a["subject_fairness"] == rollup_b["subject_fairness"]
     assert rollup_a["queue_pressure"] == rollup_b["queue_pressure"]
+
+
+def test_runtime_posture_includes_reason_chain_and_dominant_cause(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", "0.95")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_WARN", "0.7")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("federated_control", "peer-a", "corr-fed-1", metadata={"subject": "node-1"})
+    denied = governor.admit_action("federated_control", "peer-a", "corr-fed-2", metadata={"subject": "node-2"})
+    assert denied.reason in {"deferred_federated_under_storm", "deferred_for_local_safety_under_pressure"}
+
+    import json
+
+    decisions = [
+        json.loads(line)
+        for line in (tmp_path / "governor" / "decisions.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    payload = decisions[-1]
+    posture = payload["runtime_posture"]
+    assert isinstance(posture["reason_chain"], list)
+    assert posture["dominant_reason"] == payload["reason"]
+    assert payload["dominant_restriction_cause"] == posture["dominant_reason"]
+
+
+def test_local_safety_precedence_under_mixed_posture(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "1.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "1.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "1.0")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", "0.8")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_WARN", "0.6")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    decision = governor.admit_action(
+        "federated_control", "peer-a", "corr-fed", metadata={"subject": "node", "scope": "federated"}
+    )
+    assert decision.allowed is False
+    assert decision.reason == "deferred_for_local_safety_under_pressure"
+
+
+def test_pressure_and_fairness_deterministic_outcome(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CONTENTION_LIMIT", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_RECOVERY_RESERVED_SLOTS", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", "2")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.9")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_BLOCK", "0.95")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_PRESSURE_WARN", "0.7")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    governor.admit_action("control_plane_task", "operator", "corr-1", metadata={"task_key": "task:1"})
+    first = governor.admit_action("amendment_apply", "operator", "corr-2", metadata={"amendment_target": "law:1"})
+    second = governor.admit_action("amendment_apply", "operator", "corr-3", metadata={"amendment_target": "law:1"})
+
+    assert first.allowed is False
+    assert second.allowed is False
+    assert first.reason == second.reason
