@@ -22,6 +22,7 @@ from . import pulse_bus
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.runtime_governor import get_runtime_governor
+from sentientos.trust_ledger import get_trust_ledger
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,11 @@ def verify_remote_signature(event: pulse_bus.PulseEvent, peer_name: str) -> bool
         peer_name=peer_name,
     )
     if not result.trusted:
+        get_trust_ledger().record_epoch_classification(
+            peer_name,
+            classification=result.classification,
+            actor="pulse_federation_signature",
+        )
         return False
     peer_epoch = event.get("pulse_epoch_id")
     if isinstance(peer_epoch, str) and peer_epoch and peer_epoch not in {"legacy", result.active_epoch_id}:
@@ -180,6 +186,11 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         peer_name=peer_name,
     )
     if not trust.trusted:
+        get_trust_ledger().record_epoch_classification(
+            peer_name,
+            classification=trust.classification,
+            actor="pulse_federation_ingest",
+        )
         decision = get_runtime_governor().admit_action(
             "federated_control",
             peer_name,
@@ -197,6 +208,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     payload = copy.deepcopy(event)
     governance = get_federated_governance_controller()
     evaluation = governance.evaluate_peer_event(peer_name, payload)
+    trust_ledger = get_trust_ledger()
     event_payload = payload.get("payload")
 
     if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
@@ -213,6 +225,12 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             },
         )
         if not decision.allowed:
+            trust_ledger.record_control_attempt(
+                peer_name,
+                allowed=False,
+                reason=decision.reason,
+                actor="pulse_federation_ingest",
+            )
             raise ValueError(
                 f"Federated action denied for {peer_name}: "
                 f"{evaluation.denial_cause}/{decision.reason}"
@@ -221,6 +239,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     correlation_id = str(payload.get("correlation_id") or candidate_hash)
     if _is_duplicate_event_hash(candidate_hash):
         logger.info("Suppressed duplicate federated pulse event hash=%s peer=%s", candidate_hash, peer_name)
+        trust_ledger.record_replay_signal(peer_name, actor="pulse_federation_ingest", event_hash=candidate_hash)
         return payload
     if isinstance(event_payload, dict):
         action = str(event_payload.get("action", "")).lower()
@@ -247,11 +266,23 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 },
             )
             if not decision.allowed:
+                trust_ledger.record_control_attempt(
+                    peer_name,
+                    allowed=False,
+                    reason=decision.reason,
+                    actor="pulse_federation_ingest",
+                )
                 raise ValueError(
                     f"Runtime governor denied federated control event from {peer_name}: {decision.reason}"
                 )
     ingested = pulse_bus.ingest_verified(payload, source_peer=peer_name)
     get_runtime_governor().observe_pulse_event(ingested)
+    trust_ledger.record_control_attempt(
+        peer_name,
+        allowed=True,
+        reason="ingested",
+        actor="pulse_federation_ingest",
+    )
     _remember_event_hash(candidate_hash)
     return ingested
 

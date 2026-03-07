@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
+from sentientos.trust_ledger import get_trust_ledger
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,9 @@ class PeerDigestEvaluation:
     quorum_satisfied: bool
     missing_peers: list[str]
     compatible_peers: list[str]
+    peer_trust_state: str
+    peer_trust_reasons: list[str]
+    peer_quorum_eligible: bool
     denial_cause: str
 
     def to_dict(self) -> dict[str, object]:
@@ -54,6 +58,9 @@ class PeerDigestEvaluation:
             "quorum_satisfied": self.quorum_satisfied,
             "missing_peers": list(self.missing_peers),
             "compatible_peers": list(self.compatible_peers),
+            "peer_trust_state": self.peer_trust_state,
+            "peer_trust_reasons": list(self.peer_trust_reasons),
+            "peer_quorum_eligible": self.peer_quorum_eligible,
             "denial_cause": self.denial_cause,
         }
 
@@ -164,9 +171,17 @@ class FederatedGovernanceController:
             self._trusted_peers = {item for item in peers if item}
         self._write_quorum_policy()
 
+    def trusted_peers(self) -> list[str]:
+        with self._lock:
+            return sorted(self._trusted_peers)
+
     def evaluate_peer_event(self, peer_name: str, event: Mapping[str, object]) -> PeerDigestEvaluation:
         local = self.local_governance_digest()
         trusted = peer_name in self._trusted_peers
+        peer_trust = get_trust_ledger().get_peer_trust(peer_name)
+        trust_state = peer_trust.trust_state
+        trust_reasons = list(peer_trust.trust_reasons)
+        quorum_eligible = trust_state in {"trusted", "watched", "degraded"}
         action_impact = self._action_impact_for_event(event)
         quorum_required = self._quorum_requirements[action_impact]
 
@@ -211,7 +226,7 @@ class FederatedGovernanceController:
         quorum_present = 0
         compatible_peers: list[str] = []
         with self._lock:
-            if trusted and digest_status == "compatible" and epoch_status == "expected":
+            if trusted and quorum_eligible and digest_status == "compatible" and epoch_status == "expected":
                 votes = self._quorum_votes.setdefault(action_key, set())
                 votes.add(peer_name)
             votes = self._quorum_votes.get(action_key, set())
@@ -225,6 +240,8 @@ class FederatedGovernanceController:
         denial_cause = "none"
         if not trusted:
             denial_cause = "untrusted_peer"
+        elif not quorum_eligible:
+            denial_cause = "peer_trust_restricted"
         elif epoch_status == "unexpected":
             denial_cause = "trust_epoch"
         elif digest_status in {"missing", "incompatible"} and action_impact == "high":
@@ -245,10 +262,14 @@ class FederatedGovernanceController:
             quorum_satisfied=quorum_satisfied,
             missing_peers=missing_peers,
             compatible_peers=compatible_peers,
+            peer_trust_state=trust_state,
+            peer_trust_reasons=trust_reasons,
+            peer_quorum_eligible=quorum_eligible,
             denial_cause=denial_cause,
         )
         self._record_peer_digest(peer_name, peer_digest_value, peer_components, evaluation)
         self._append_quorum_decision(evaluation, action_key=action_key)
+        get_trust_ledger().record_governance_evaluation(peer_name, evaluation.to_dict(), actor="federated_governance")
         return evaluation
 
     def _action_key(self, event: Mapping[str, object], impact: str) -> str:
@@ -315,6 +336,9 @@ class FederatedGovernanceController:
             "digest_status": evaluation.digest_status,
             "digest_reasons": list(evaluation.digest_reasons),
             "epoch_status": evaluation.epoch_status,
+            "peer_trust_state": evaluation.peer_trust_state,
+            "peer_trust_reasons": list(evaluation.peer_trust_reasons),
+            "peer_quorum_eligible": evaluation.peer_quorum_eligible,
             "denial_cause": evaluation.denial_cause,
         }
         payload = {

@@ -18,6 +18,7 @@ from .replay import PassiveReplay, ReplayResult
 from .summary import FederationSummary, build_local_summary, read_peer_summary, summary_digest, write_local_summary
 from .sync_view import PeerSyncView, build_peer_sync_view
 from .window import FederationWindow, build_window
+from sentientos.trust_ledger import get_trust_ledger
 
 
 @dataclass
@@ -214,6 +215,14 @@ class FederationPoller:
                 self.log_cb(f"Federation: peer {peer.node_name} drift detected (reasons: {reason_text})")
             elif report.level == "warn":
                 self.log_cb(f"Federation: peer {peer.node_name} warning (reasons: {reason_text})")
+        ledger = get_trust_ledger()
+        probe_status = "ok" if report.level == "ok" else "warn" if report.level == "warn" else "fail"
+        ledger.record_probe(
+            peer.node_name,
+            status=probe_status,
+            actor="federation_poller",
+            reason=",".join(report.reasons) if report.reasons else report.level,
+        )
         if report.level in {"drift", "incompatible"}:
             publish_event(
                 {
@@ -366,7 +375,10 @@ class FederationPoller:
             self.log_cb(f"Failed to quarantine invalid federation summary {path}")
 
     def _emit_replay_events(self, updated: Mapping[str, PeerReplaySnapshot]) -> None:
+        ledger = get_trust_ledger()
         for snapshot in updated.values():
+            if snapshot.severity in {"medium", "high"}:
+                ledger.record_replay_signal(snapshot.peer, actor="federation_poller", event_hash=snapshot.summary_digest or "unknown")
             publish_event(
                 {
                     "kind": "federation",
