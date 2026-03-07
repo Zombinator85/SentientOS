@@ -19,6 +19,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from . import pulse_bus
+from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.runtime_governor import get_runtime_governor
 
 logger = logging.getLogger(__name__)
@@ -142,8 +143,18 @@ def verify_remote_signature(event: pulse_bus.PulseEvent, peer_name: str) -> bool
     signature = event.get("signature")
     if not isinstance(signature, str) or not signature:
         return False
+    payload = pulse_bus._serialize_for_signature(event)
+    result = get_trust_epoch_manager().classify_epoch(
+        event,
+        actor="pulse_federation",
+        peer_name=peer_name,
+    )
+    if not result.trusted:
+        return False
+    peer_epoch = event.get("pulse_epoch_id")
+    if isinstance(peer_epoch, str) and peer_epoch and peer_epoch not in {"legacy", result.active_epoch_id}:
+        return False
     try:
-        payload = pulse_bus._serialize_for_signature(event)
         key.verify(payload, base64.b64decode(signature))
         return True
     except (BadSignatureError, binascii.Error, ValueError):
@@ -160,6 +171,26 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         raise ValueError(f"Unknown federation peer: {peer_name}")
     if not verify_remote_signature(event, peer_name):
         raise ValueError(f"Invalid signature from federation peer: {peer_name}")
+    trust = get_trust_epoch_manager().classify_epoch(
+        event,
+        actor="pulse_federation_ingest",
+        peer_name=peer_name,
+    )
+    if not trust.trusted:
+        decision = get_runtime_governor().admit_action(
+            "federated_control",
+            peer_name,
+            str(event.get("correlation_id") or pulse_bus.compute_event_hash(event)),
+            metadata={
+                "subject": f"{peer_name}:epoch",
+                "scope": "federated",
+                "event_type": str(event.get("event_type", "")),
+                "trust_epoch_classification": trust.classification,
+                "trust_epoch_id": trust.epoch_id,
+            },
+        )
+        if not decision.allowed:
+            raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     payload = copy.deepcopy(event)
     candidate_hash = str(payload.get("event_hash") or pulse_bus.compute_event_hash(payload))
     correlation_id = str(payload.get("correlation_id") or candidate_hash)

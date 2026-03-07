@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Deque
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
+from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 
 
 @dataclass(frozen=True)
@@ -201,6 +202,8 @@ class RuntimeGovernor:
     def _restriction_class_for_reason(reason: str) -> str:
         if reason.startswith("degraded_audit_trust"):
             return "audit_trust"
+        if reason.startswith("pulse_epoch"):
+            return "pulse_epoch"
         if "local_safety" in reason:
             return "local_safety"
         if "storm" in reason:
@@ -255,6 +258,45 @@ class RuntimeGovernor:
             details={"degraded_audit_trust": trust_state.degraded_audit_trust, "history_state": trust_state.history_state},
         )
         return evaluation, trust_payload
+
+    def _evaluate_pulse_epoch_posture(
+        self,
+        *,
+        action_class: str,
+        metadata: dict[str, object] | None,
+    ) -> tuple[PostureRuleEvaluation, dict[str, object]]:
+        manager = get_trust_epoch_manager()
+        state = manager.load_state()
+        compromise_mode = bool(state.get("compromise_response_mode", False))
+        trust_class = str((metadata or {}).get("trust_epoch_classification") or "")
+        reason = "pulse_epoch_nominal"
+        blocks = False
+        if trust_class in {"revoked_epoch", "invalid_signature"}:
+            reason, blocks = "pulse_epoch_untrusted_federation_blocked", True
+        elif trust_class and trust_class not in {"current_trusted_epoch", "historical_closed_epoch"}:
+            reason, blocks = "pulse_epoch_mismatch_escalation_required", True
+        elif compromise_mode:
+            if action_class in {"federated_control", "amendment_apply", "control_plane_task"}:
+                reason, blocks = "pulse_epoch_compromise_restricted", True
+            else:
+                reason = "pulse_epoch_compromise_tightened"
+        evaluation = PostureRuleEvaluation(
+            dimension="pulse_trust_epoch",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=blocks,
+            precedence=105,
+            details={
+                "active_epoch_id": state.get("active_epoch_id"),
+                "revoked_epochs": state.get("revoked_epochs", []),
+                "compromise_response_mode": compromise_mode,
+            },
+        )
+        payload = {
+            "pulse_trust_epoch": state,
+            "trust_epoch_classification": trust_class,
+        }
+        return evaluation, payload
 
     def _compose_runtime_posture(
         self,
@@ -575,7 +617,10 @@ class RuntimeGovernor:
                     + self._reason_counts.get("degraded_audit_trust_federation_blocked", 0)
                     + self._reason_counts.get("degraded_audit_trust_amendment_deferred", 0)
                     + self._reason_counts.get("degraded_audit_trust_control_plane_escalation_required", 0)
-                    + self._reason_counts.get("degraded_audit_trust_repair_escalation_required", 0),
+                    + self._reason_counts.get("degraded_audit_trust_repair_escalation_required", 0)
+                    + self._reason_counts.get("pulse_epoch_untrusted_federation_blocked", 0)
+                    + self._reason_counts.get("pulse_epoch_mismatch_escalation_required", 0)
+                    + self._reason_counts.get("pulse_epoch_compromise_restricted", 0),
                     "constrained": self._pressure_bands.get("warn", 0),
                     "nominal": self._pressure_bands.get("normal", 0),
                 }
@@ -721,6 +766,10 @@ class RuntimeGovernor:
             action_class="restart_daemon",
             metadata=metadata,
         )
+        epoch_eval, epoch_payload = self._evaluate_pulse_epoch_posture(
+            action_class="restart_daemon",
+            metadata=metadata,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="restart_daemon",
@@ -741,7 +790,7 @@ class RuntimeGovernor:
             scope=scope,
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -754,7 +803,7 @@ class RuntimeGovernor:
             scope=scope,
             origin=origin,
             pressure=pressure,
-            metadata={**(metadata or {}), **trust_payload},
+            metadata={**(metadata or {}), **trust_payload, **epoch_payload},
             correlation_id=correlation_id,
             posture=posture,
         )
@@ -793,6 +842,10 @@ class RuntimeGovernor:
             action_class="repair_action",
             metadata=metadata,
         )
+        epoch_eval, epoch_payload = self._evaluate_pulse_epoch_posture(
+            action_class="repair_action",
+            metadata=metadata,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="repair_action",
@@ -813,7 +866,7 @@ class RuntimeGovernor:
             scope="local",
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -826,7 +879,7 @@ class RuntimeGovernor:
             scope="local",
             origin="codex_healer",
             pressure=pressure,
-            metadata={"anomaly_kind": anomaly_kind, **(metadata or {}), **trust_payload},
+            metadata={"anomaly_kind": anomaly_kind, **(metadata or {}), **trust_payload, **epoch_payload},
             correlation_id=correlation_id,
             posture=posture,
         )
@@ -864,6 +917,10 @@ class RuntimeGovernor:
             action_class="federated_control",
             metadata=metadata,
         )
+        epoch_eval, epoch_payload = self._evaluate_pulse_epoch_posture(
+            action_class="federated_control",
+            metadata=metadata,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="federated_control",
@@ -884,7 +941,7 @@ class RuntimeGovernor:
             scope="federated",
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -897,7 +954,7 @@ class RuntimeGovernor:
             scope="federated",
             origin=origin,
             pressure=pressure,
-            metadata={**(metadata or {}), **trust_payload},
+            metadata={**(metadata or {}), **trust_payload, **epoch_payload},
             correlation_id=correlation_id,
             posture=posture,
         )
@@ -937,6 +994,10 @@ class RuntimeGovernor:
             action_class="control_plane_task",
             metadata=metadata,
         )
+        epoch_eval, epoch_payload = self._evaluate_pulse_epoch_posture(
+            action_class="control_plane_task",
+            metadata=metadata,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="control_plane_task",
@@ -957,7 +1018,7 @@ class RuntimeGovernor:
             scope="local",
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -970,7 +1031,7 @@ class RuntimeGovernor:
             scope="local",
             origin=requester,
             pressure=pressure,
-            metadata={**(metadata or {}), **trust_payload},
+            metadata={**(metadata or {}), **trust_payload, **epoch_payload},
             correlation_id=correlation_id,
             posture=posture,
         )
@@ -1007,6 +1068,10 @@ class RuntimeGovernor:
             action_class="amendment_apply",
             metadata=metadata,
         )
+        epoch_eval, epoch_payload = self._evaluate_pulse_epoch_posture(
+            action_class="amendment_apply",
+            metadata=metadata,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="amendment_apply",
@@ -1027,7 +1092,7 @@ class RuntimeGovernor:
             scope="local",
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -1040,7 +1105,7 @@ class RuntimeGovernor:
             scope="local",
             origin=actor,
             pressure=pressure,
-            metadata={**(metadata or {}), **trust_payload},
+            metadata={**(metadata or {}), **trust_payload, **epoch_payload},
             correlation_id=correlation_id,
             posture=posture,
         )

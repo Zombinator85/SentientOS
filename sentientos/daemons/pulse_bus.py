@@ -17,6 +17,7 @@ from typing import Callable, Deque, Dict, Iterable, Iterator, List
 
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
+from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 
 PulseEvent = Dict[str, object]
 EventHandler = Callable[[PulseEvent], None]
@@ -243,6 +244,8 @@ class _PulseBus:
 
         normalized = self._normalize_event(event)
         normalized["source_peer"] = str(normalized.get("source_peer", "local"))
+        if normalized["source_peer"] == "local":
+            normalized = get_trust_epoch_manager().annotate_local_event(normalized)
         normalized["event_hash"] = str(normalized.get("event_hash") or compute_event_hash(normalized))
         normalized["correlation_id"] = str(
             normalized.get("correlation_id") or normalized["event_hash"]
@@ -557,7 +560,16 @@ def verify(event: PulseEvent) -> bool:
             return False
         return pulse_federation.verify_remote_signature(event, str(source_peer))
 
-    return _SIGNATURE_MANAGER.verify(event)
+    signature = event.get("signature")
+    if not isinstance(signature, str) or not signature:
+        return False
+    result = get_trust_epoch_manager().verify_event_signature(
+        event,
+        serialized_payload=_serialize_for_signature(event),
+        signature=signature,
+        actor="pulse_bus",
+    )
+    return result.signature_valid and result.trusted
 
 
 def reset() -> None:
@@ -565,6 +577,7 @@ def reset() -> None:
 
     _BUS.reset()
     _SIGNATURE_MANAGER.reset()
+    get_trust_epoch_manager().reset()
 
 
 __all__ = [
