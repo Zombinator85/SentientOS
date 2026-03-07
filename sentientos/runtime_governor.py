@@ -12,6 +12,7 @@ from typing import Any, Deque
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
+from sentientos.trust_ledger import get_trust_ledger
 
 
 @dataclass(frozen=True)
@@ -207,6 +208,8 @@ class RuntimeGovernor:
             return "federation"
         if reason.startswith("pulse_epoch"):
             return "pulse_epoch"
+        if reason.startswith("peer_trust"):
+            return "federation"
         if "local_safety" in reason:
             return "local_safety"
         if "storm" in reason:
@@ -295,6 +298,8 @@ class RuntimeGovernor:
                 reason, blocks = "federated_unexpected_epoch_blocked", True
             elif digest_status in {"missing", "incompatible"} or denial_cause == "digest_mismatch":
                 reason, blocks = "federated_digest_mismatch_blocked", True
+            elif denial_cause == "peer_trust_restricted":
+                reason, blocks = "federated_peer_trust_restricted", True
             elif not quorum_satisfied or denial_cause == "quorum_failure":
                 reason, blocks = "federated_quorum_not_satisfied", True
 
@@ -307,6 +312,34 @@ class RuntimeGovernor:
             details=dict(governance),
         )
         return evaluation, {"federated_governance": governance}
+
+    def _evaluate_peer_trust_posture(
+        self,
+        *,
+        action_class: str,
+        origin: str,
+    ) -> tuple[PostureRuleEvaluation, dict[str, object]]:
+        trust = get_trust_ledger().get_peer_trust(origin)
+        reason = "peer_trust_nominal"
+        blocks = False
+        if action_class == "federated_control":
+            if trust.trust_state == "incompatible":
+                reason, blocks = "peer_trust_incompatible_blocked", True
+            elif trust.trust_state == "quarantined":
+                reason, blocks = "peer_trust_quarantined_blocked", True
+            elif trust.trust_state == "degraded":
+                reason = "peer_trust_degraded_tightened"
+            elif trust.trust_state == "watched":
+                reason = "peer_trust_watched"
+        evaluation = PostureRuleEvaluation(
+            dimension="peer_trust",
+            reason=reason,
+            restriction_class=self._restriction_class_for_reason(reason),
+            blocks=blocks,
+            precedence=108,
+            details=trust.to_dict(),
+        )
+        return evaluation, {"peer_trust": trust.to_dict()}
 
     def _evaluate_pulse_epoch_posture(
         self,
@@ -975,6 +1008,10 @@ class RuntimeGovernor:
             origin=origin,
             metadata=metadata,
         )
+        peer_trust_eval, peer_trust_payload = self._evaluate_peer_trust_posture(
+            action_class="federated_control",
+            origin=origin,
+        )
 
         arbitration_eval = self._evaluate_arbitration(
             action_class="federated_control",
@@ -995,7 +1032,7 @@ class RuntimeGovernor:
             scope="federated",
             pressure=pressure,
             now=now,
-            evaluations=[budget_eval, trust_eval, epoch_eval, federation_eval, arbitration_eval],
+            evaluations=[budget_eval, trust_eval, epoch_eval, peer_trust_eval, federation_eval, arbitration_eval],
         )
         reason = posture.dominant_reason
         enforce_block = posture.enforce_block
@@ -1008,7 +1045,7 @@ class RuntimeGovernor:
             scope="federated",
             origin=origin,
             pressure=pressure,
-            metadata={**(metadata or {}), **trust_payload, **epoch_payload, **federation_payload},
+            metadata={**(metadata or {}), **trust_payload, **epoch_payload, **peer_trust_payload, **federation_payload},
             correlation_id=correlation_id,
             posture=posture,
         )
@@ -1431,6 +1468,14 @@ class RuntimeGovernor:
     def _write_budget_snapshot(self) -> None:
         federation = get_federated_governance_controller()
         local_digest = federation.local_governance_digest().to_dict()
+        pressure = self.sample_pressure()
+        trust_ledger = get_trust_ledger()
+        schedule = trust_ledger.build_probe_schedule(
+            peer_ids=federation.trusted_peers(),
+            pressure_composite=pressure.composite,
+            scheduling_window_open=pressure.composite <= self._schedule_threshold,
+            storm_active=len(self._critical_events) > self._critical_limit,
+        )
         snapshot = {
             "schema_version": 1,
             "mode": self._mode,
@@ -1439,6 +1484,7 @@ class RuntimeGovernor:
             "restart_counts": {name: len(entries) for name, entries in self._restarts.items()},
             "repair_counts": {name: len(entries) for name, entries in self._repairs.items()},
             "federated_controls": len(self._federated_controls),
+            "federation_probe_schedule": schedule,
             "control_plane_task_counts": {name: len(entries) for name, entries in self._control_plane_tasks.items()},
             "amendment_counts": {name: len(entries) for name, entries in self._amendments.items()},
             "critical_events": len(self._critical_events),
