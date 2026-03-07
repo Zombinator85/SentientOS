@@ -563,13 +563,15 @@ def verify(event: PulseEvent) -> bool:
     signature = event.get("signature")
     if not isinstance(signature, str) or not signature:
         return False
-    result = get_trust_epoch_manager().verify_event_signature(
-        event,
-        serialized_payload=_serialize_for_signature(event),
-        signature=signature,
-        actor="pulse_bus",
-    )
-    return result.signature_valid and result.trusted
+
+    # Local publish currently signs with the active pulse signing key from
+    # ``PULSE_SIGNING_KEY``. Verify cryptography against that source first,
+    # then apply trust-epoch policy classification (revoked/unknown/current).
+    if not _SIGNATURE_MANAGER.verify(event):
+        return False
+
+    result = get_trust_epoch_manager().classify_epoch(event, actor="pulse_bus")
+    return result.trusted
 
 
 def reset() -> None:

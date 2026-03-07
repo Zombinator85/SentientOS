@@ -235,10 +235,18 @@ def verify_audits(quarantine: bool = False, directory: Path | None = None, *, re
             if _is_log_file(p):
                 logs.append(p)
 
-    prev = "0" * 64
     valid = 0
+    prev = "0" * 64
+    seed_from_first_prev = directory is None
     for path in logs:
-        _, errs, prev = check_file(path, prev, quarantine=quarantine, repair=repair, stats=stats)
+        seed = prev
+        if seed_from_first_prev:
+            seed = _first_prev_hash(path) or ("0" * 64)
+        else:
+            first_prev = _first_prev_hash(path)
+            if first_prev == "0" * 64:
+                seed = "0" * 64
+        _, errs, prev = check_file(path, seed, quarantine=quarantine, repair=repair, stats=stats)
         results[str(path)] = errs
         if not errs:
             valid += 1
@@ -262,6 +270,21 @@ def _verify_single(path: Path) -> tuple[bool, list[str]]:
         return (True, [])
     ok, errors, _ = check_file(path, "0" * 64, quarantine=False, repair=False, stats={})
     return (ok, errors)
+
+
+def _first_prev_hash(path: Path) -> str | None:
+    try:
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            if not isinstance(entry, dict):
+                return None
+            prev = entry.get("prev_hash")
+            return prev if isinstance(prev, str) else None
+    except Exception:
+        return None
+    return None
 
 
 def _runtime_error_details(path: Path, errors: list[str]) -> tuple[str, list[str]]:
