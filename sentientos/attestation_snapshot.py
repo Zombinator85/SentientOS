@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from sentientos.artifact_catalog import append_catalog_entry
 from sentientos.attestation import (
     VerifyResult,
     append_jsonl,
@@ -61,8 +62,25 @@ class AttestationSnapshot:
 def emit_snapshot(repo_root: Path, snapshot: AttestationSnapshot) -> str:
     root = repo_root.resolve()
     rel = SNAPSHOT_DIR / f"snapshot_{safe_ts(snapshot.ts)}.json"
-    write_json(root / rel, snapshot.to_dict())
-    append_jsonl(root / SNAPSHOT_PULSE_PATH, snapshot.to_dict() | {"path": str(rel)})
+    payload = snapshot.to_dict()
+    write_json(root / rel, payload)
+    append_jsonl(root / SNAPSHOT_PULSE_PATH, payload | {"path": str(rel)})
+    append_catalog_entry(
+        root,
+        kind="attestation_snapshot",
+        artifact_id=str(snapshot.ts),
+        relative_path=str(rel),
+        schema_name="attestation_snapshot",
+        schema_version=int(payload.get("schema_version") or 1),
+        links={
+            "policy_hash": payload.get("policy_hash"),
+            "integrity_status_hash": payload.get("integrity_status_hash"),
+            "attestation_snapshot_tip": payload.get("ts"),
+            "attestation_snapshot_hash": payload.get("integrity_status_hash"),
+        },
+        summary={"status": "present"},
+        ts=str(snapshot.ts),
+    )
     return str(rel)
 
 

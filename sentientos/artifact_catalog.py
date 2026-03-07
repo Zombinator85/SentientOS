@@ -24,6 +24,9 @@ _KIND_TO_SCHEMA: dict[str, str] = {
     "federation_snapshot": SchemaName.INTEGRITY_SNAPSHOT,
     "operator_status": SchemaName.FORGE_STATUS_REPORT,
     "operator_replay": SchemaName.FORGE_REPLAY_REPORT,
+    "integrity_status": "integrity_status",
+    "attestation_snapshot": "attestation_snapshot",
+    "witness_publish": "witness_publish",
     "remote_probe_report": SchemaName.REMOTE_PROBE_REPORT,
 }
 
@@ -190,6 +193,8 @@ def _discover_entries(repo_root: Path, *, include_archives: bool = False) -> lis
     entries.extend(_discover_json_entries(root, root / "glow/forge/receipts", "receipt", "receipt_id"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/receipts/anchors", "anchor", "anchor_id"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/audit_reports", "audit_report", "created_at"))
+    entries.extend(_discover_json_entries(root, root / "glow/forge/integrity", "integrity_status", "ts"))
+    entries.extend(_discover_json_entries(root, root / "glow/forge/attestation/snapshots", "attestation_snapshot", "ts"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/operator/status", "operator_status", "ts"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/replay", "operator_replay", "ts"))
     entries.extend(_discover_json_entries(root, root / "glow/forge/remote_probes", "remote_probe_report", "ts"))

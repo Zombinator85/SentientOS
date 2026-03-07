@@ -37,3 +37,12 @@ def test_cli_flag_auto(tmp_path: Path) -> None:
     env["PYTHONPATH"] = "."
     cp = subprocess.run([sys.executable, "-m", "scripts.verify_audits", str(tmp_path), "--auto-approve"], env=env)
     assert cp.returncode == 0
+
+
+def test_stable_module_entrypoint(tmp_path: Path) -> None:
+    _make_log(tmp_path)
+    env = os.environ.copy()
+    env["LUMOS_AUTO_APPROVE"] = "1"
+    env["PYTHONPATH"] = "."
+    cp = subprocess.run([sys.executable, "-m", "sentientos.audit_tools", str(tmp_path)], env=env)
+    assert cp.returncode == 0

@@ -10,7 +10,7 @@ from typing import Any
 from sentientos import artifact_catalog
 from sentientos.attestation import canonical_json_bytes, read_json, read_jsonl, write_json
 from sentientos.attestation_snapshot import SIGNATURE_INDEX_PATH, SNAPSHOT_DIR, SNAPSHOT_PULSE_PATH, should_emit_snapshot
-from sentientos.consistency_checks import compare_tick_vs_replay, replay_is_recent
+from sentientos.consistency_checks import compare_tick_vs_replay
 from sentientos.operator_report_attestation import maybe_sign_operator_report, operator_signing_status, verify_recent_operator_reports
 from sentientos.schema_registry import SchemaName, normalize
 
@@ -60,16 +60,25 @@ def _resolve_snapshot(root: Path) -> ResolvedArtifact:
 
 
 def _resolve_witness_status(root: Path) -> ResolvedArtifact:
-    entry = artifact_catalog.latest(root, "witness_publish")
-    if entry is not None:
-        payload = artifact_catalog.load_catalog_artifact(root, entry)
-        if payload:
-            return ResolvedArtifact(payload=payload, path=artifact_catalog.resolve_entry_path(root, entry), resolution="catalog")
-    return ResolvedArtifact(payload=read_json(root / "glow/federation/anchor_witness_status.json"), path="glow/federation/anchor_witness_status.json", resolution="disk")
+    return _resolve_catalog_then_disk(root, kind="witness_publish", disk_glob="glow/federation/anchor_witness_status.json")
 
 
 def _resolve_replay(root: Path) -> ResolvedArtifact:
     return _resolve_catalog_then_disk(root, kind="operator_replay", disk_glob="glow/forge/replay/replay_*.json")
+
+
+def _resolve_governor_rollup(root: Path) -> ResolvedArtifact:
+    gov_root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "glow/governor"))
+    if not gov_root.is_absolute():
+        gov_root = root / gov_root
+    payload = read_json(gov_root / "rollup.json")
+    if payload:
+        return ResolvedArtifact(payload=payload, path=str((gov_root / "rollup.json").relative_to(root)), resolution="disk")
+    return ResolvedArtifact(payload={}, path=None, resolution="disk")
+
+
+def _resolve_audit_trust(root: Path) -> ResolvedArtifact:
+    return _resolve_catalog_then_disk(root, kind="audit_report", disk_glob="glow/forge/audit_reports/report_*.json")
 
 
 def _signature_tip(root: Path) -> dict[str, object]:
@@ -131,19 +140,20 @@ def build_status_payload(root: Path) -> dict[str, object]:
     snapshot = _resolve_snapshot(root)
     witness = _resolve_witness_status(root)
     replay = _resolve_replay(root)
+    governor = _resolve_governor_rollup(root)
+    audit_trust = _resolve_audit_trust(root)
     sig_tip = _signature_tip(root)
     status_hash = sha256(canonical_json_bytes(integrity.payload)).hexdigest() if integrity.payload else ""
 
     reason_stack = integrity.payload.get("reason_stack") if isinstance(integrity.payload.get("reason_stack"), list) else []
     verify = _map_signature_streams(integrity.payload)
-
-    replay_consistency_status = "unknown"
-    replay_consistency_reason = "replay_missing_or_stale"
-    if replay.payload and replay_is_recent(replay.payload):
+    replay_consistency_status = "skipped"
+    replay_consistency_reason = "replay_missing"
+    if replay.payload:
         check = compare_tick_vs_replay(
             {
-                "policy_hash": integrity.payload.get("policy_hash") or snapshot.payload.get("policy_hash"),
-                "integrity_status_hash": status_hash or snapshot.payload.get("integrity_status_hash"),
+                "policy_hash": integrity.payload.get("policy_hash"),
+                "integrity_status_hash": status_hash,
                 "integrity_overall": _overall(integrity.payload.get("status") or integrity.payload.get("integrity_overall") or "ok"),
                 "path": integrity.path,
             },
@@ -151,6 +161,11 @@ def build_status_payload(root: Path) -> dict[str, object]:
         )
         replay_consistency_status = check.status
         replay_consistency_reason = check.reason
+
+    mode = integrity.payload.get("operating_mode")
+    quarantine = integrity.payload.get("quarantine_active")
+    pressure = integrity.payload.get("pressure_summary") if isinstance(integrity.payload.get("pressure_summary"), dict) else {}
+    governor_runtime = governor.payload.get("runtime_posture_summary") if isinstance(governor.payload.get("runtime_posture_summary"), dict) else {}
 
     payload: dict[str, Any] = {
         "schema_version": 1,
@@ -169,10 +184,27 @@ def build_status_payload(root: Path) -> dict[str, object]:
         "attestation_snapshot_hash": snapshot.payload.get("integrity_status_hash"),
         "attestation_snapshot_present": bool(snapshot.payload),
         "verify_summaries": verify,
+        "governor": {
+            "strategic_posture": integrity.payload.get("strategic_posture"),
+            "operating_mode": mode,
+            "quarantine_active": quarantine,
+            "pressure_summary": pressure,
+            "runtime_posture": governor_runtime,
+        },
+        "audit_trust": {
+            "status": audit_trust.payload.get("status") or "unknown",
+            "recovery_state": audit_trust.payload.get("recovery_state") if isinstance(audit_trust.payload.get("recovery_state"), dict) else {},
+        },
+        "trust_epoch_refs": {
+            "pulse_trust_epoch": governor_runtime.get("pulse_epoch") if isinstance(governor_runtime, dict) else None,
+            "attestation_snapshot_tip": snapshot.payload.get("ts"),
+        },
         "provenance": {
             "integrity_status": {"path": integrity.path, "resolution_source": integrity.resolution},
             "attestation_snapshot": {"path": snapshot.path, "resolution_source": snapshot.resolution},
             "witness_status": {"path": witness.path, "resolution_source": witness.resolution},
+            "governor_rollup": {"path": governor.path, "resolution_source": governor.resolution},
+            "audit_trust_report": {"path": audit_trust.path, "resolution_source": audit_trust.resolution},
         },
         "snapshot": {
             "present": bool(snapshot.payload),
@@ -190,17 +222,21 @@ def build_status_payload(root: Path) -> dict[str, object]:
 
 
 def _exit_code(payload: dict[str, object]) -> int:
-    has_integrity = bool(payload.get("provenance", {}).get("integrity_status", {}).get("path"))
-    has_snapshot = bool(payload.get("provenance", {}).get("attestation_snapshot", {}).get("path"))
+    provenance = payload.get("provenance") if isinstance(payload.get("provenance"), dict) else {}
+    has_integrity = bool((provenance.get("integrity_status") if isinstance(provenance.get("integrity_status"), dict) else {}).get("path"))
+    has_snapshot = bool((provenance.get("attestation_snapshot") if isinstance(provenance.get("attestation_snapshot"), dict) else {}).get("path"))
     if not has_integrity and not has_snapshot:
         return 3
     sigs = payload.get("verify_summaries")
     any_warn = False
     if isinstance(sigs, dict):
         any_warn = any(isinstance(item, dict) and item.get("status") == "warn" for item in sigs.values())
-    if payload.get("mutation_allowed") is False and payload.get("primary_reason") not in {None, "integrity_ok"}:
+        any_fail = any(isinstance(item, dict) and item.get("status") == "fail" for item in sigs.values())
+        if any_fail:
+            return 2
+    if payload.get("mutation_allowed") is False:
         return 2
-    if any_warn:
+    if any_warn or payload.get("integrity_overall") == "warn":
         return 1
     return 0
 
@@ -256,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"budget exhausted={payload.get('budget_exhausted')} remaining={payload.get('budget_remaining')}")
         print(f"policy_hash={payload.get('policy_hash')} integrity_status_hash={payload.get('integrity_status_hash')}")
+        print(f"provenance={payload.get('provenance')}")
         print(f"signing={payload.get('operator_report_signing')}")
         print(
             "tick_replay_consistency="

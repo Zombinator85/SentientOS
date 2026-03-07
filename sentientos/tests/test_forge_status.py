@@ -5,13 +5,15 @@ import os
 from pathlib import Path
 
 from scripts import forge_status
+from sentientos import artifact_catalog
 from sentientos.attestation import append_jsonl, write_json
 
 
-def _seed_integrity(root: Path) -> None:
+def _seed_integrity(root: Path) -> dict[str, object]:
     payload = {
         "schema_version": 1,
         "ts": "2099-01-01T00:00:00Z",
+        "status": "ok",
         "strategic_posture": "balanced",
         "operating_mode": "normal",
         "pressure_summary": {"level": "low", "metrics": {}},
@@ -32,10 +34,10 @@ def _seed_integrity(root: Path) -> None:
         "budget_exhausted": False,
         "budget_remaining": {"verify_streams": 1},
     }
-    write_json(root / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", payload)
+    return payload
 
 
-def _seed_snapshot(root: Path) -> None:
+def _seed_snapshot(root: Path) -> dict[str, object]:
     payload = {
         "schema_version": 1,
         "ts": "2099-01-01T00:00:00Z",
@@ -48,13 +50,15 @@ def _seed_snapshot(root: Path) -> None:
         "doctrine_bundle_sha256": None,
         "witness_summary": {},
     }
-    write_json(root / "glow/forge/attestation/snapshots/snapshot_2099-01-01T00-00-00Z.json", payload)
-    append_jsonl(root / "pulse/attestation_snapshots.jsonl", payload | {"path": "glow/forge/attestation/snapshots/snapshot_2099-01-01T00-00-00Z.json"})
+    return payload
 
 
 def test_forge_status_json_is_deterministic(tmp_path: Path, capsys) -> None:
-    _seed_integrity(tmp_path)
-    _seed_snapshot(tmp_path)
+    integrity_payload = _seed_integrity(tmp_path)
+    snapshot_payload = _seed_snapshot(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(tmp_path / "glow/forge/attestation/snapshots/snapshot_2099-01-01T00-00-00Z.json", snapshot_payload)
+    append_jsonl(tmp_path / "pulse/attestation_snapshots.jsonl", snapshot_payload | {"path": "glow/forge/attestation/snapshots/snapshot_2099-01-01T00-00-00Z.json"})
 
     (tmp_path / "glow/forge/attestation/signatures/attestation_snapshots").mkdir(parents=True, exist_ok=True)
     append_jsonl(
@@ -75,7 +79,9 @@ def test_forge_status_json_is_deterministic(tmp_path: Path, capsys) -> None:
     assert rc1 == 0
     assert rc2 == 0
     assert out1 == out2
-    assert json.loads(out1)["snapshot"]["signature_tip"]["sig_hash"] == "abc123"
+    payload = json.loads(out1)
+    assert payload["snapshot"]["signature_tip"]["sig_hash"] == "abc123"
+    assert payload["governor"]["operating_mode"] == "normal"
 
 
 def test_forge_status_exit_codes(tmp_path: Path) -> None:
@@ -84,18 +90,37 @@ def test_forge_status_exit_codes(tmp_path: Path) -> None:
         os.chdir(tmp_path)
         assert forge_status.main(["--json"]) == 3
 
-        _seed_integrity(tmp_path)
-        status_path = tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json"
-        payload = json.loads(status_path.read_text(encoding="utf-8"))
+        payload = _seed_integrity(tmp_path)
         payload["mutation_allowed"] = False
         payload["primary_reason"] = "doctrine_identity_mismatch"
-        write_json(status_path, payload)
+        write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", payload)
         assert forge_status.main(["--json"]) == 2
 
         payload["mutation_allowed"] = True
-        payload["gate_results"][0]["status"] = "warn"
-        payload["gate_results"][0]["reason"] = "warned"
-        write_json(status_path, payload)
+        payload["status"] = "warn"
+        write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", payload)
         assert forge_status.main(["--json"]) == 1
     finally:
         os.chdir(old)
+
+
+def test_forge_status_catalog_resolution_is_first_class(tmp_path: Path, capsys, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    integrity_payload = _seed_integrity(tmp_path)
+    status_rel = "glow/forge/integrity/status_2099-01-01T00-00-00Z.json"
+    write_json(tmp_path / status_rel, integrity_payload)
+    artifact_catalog.append_catalog_entry(
+        tmp_path,
+        kind="integrity_status",
+        artifact_id="2099-01-01T00:00:00Z",
+        relative_path=status_rel,
+        schema_name="integrity_status",
+        schema_version=1,
+        links={"policy_hash": "policy-hash"},
+        summary={"status": "ok"},
+        ts="2099-01-01T00:00:00Z",
+    )
+    monkeypatch.chdir(tmp_path)
+
+    forge_status.main(["--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["provenance"]["integrity_status"]["resolution_source"] == "catalog"

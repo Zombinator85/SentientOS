@@ -848,7 +848,22 @@ def _write_orchestrator_index_overlay(
 
 def _persist_integrity_status(repo_root: Path, integrity_status: IntegrityStatus) -> str:
     rel = Path("glow/forge/integrity") / f"status_{_safe_ts(integrity_status.ts)}.json"
-    write_json(repo_root / rel, integrity_status.to_dict())
+    payload = integrity_status.to_dict()
+    write_json(repo_root / rel, payload)
+    append_catalog_entry(
+        repo_root,
+        kind="integrity_status",
+        artifact_id=str(integrity_status.ts),
+        relative_path=str(rel),
+        schema_name="integrity_status",
+        schema_version=int(payload.get("schema_version") or 1),
+        links={
+            "policy_hash": payload.get("policy_hash"),
+            "integrity_status_hash": integrity_status.canonical_hash(),
+        },
+        summary={"status": integrity_status.status, "primary_reason": payload.get("primary_reason")},
+        ts=str(integrity_status.ts),
+    )
     return str(rel)
 
 

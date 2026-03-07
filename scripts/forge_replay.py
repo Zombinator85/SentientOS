@@ -8,11 +8,12 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from sentientos import artifact_catalog
-from sentientos.attestation import append_jsonl, canonical_json_bytes, iso_now, write_json
-from sentientos.attestation_snapshot import AttestationSnapshot, emit_snapshot, should_emit_snapshot, verify_recent_snapshots
+from sentientos.attestation import append_jsonl, canonical_json_bytes, iso_now, read_json, write_json
+from sentientos.attestation_snapshot import AttestationSnapshot, SNAPSHOT_DIR, emit_snapshot, should_emit_snapshot, verify_recent_snapshots
 from sentientos.integrity_controller import IntegrityBudget, evaluate_integrity
 from sentientos.operator_report_attestation import maybe_sign_operator_report
-from sentientos.policy_fingerprint import build_policy_dict, compute_policy_hash, emit_policy_fingerprint
+from sentientos.policy_fingerprint import build_policy_dict, compute_policy_hash
+from sentientos.remote_bundle import resolve_latest_artifact
 from sentientos.schema_registry import SchemaName, normalize
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, verify_signed_rollups
 from sentientos.signed_strategic import verify_recent
@@ -79,6 +80,8 @@ def _budgeted_verify(root: Path, *, last_n: int) -> dict[str, dict[str, object]]
 def _maybe_emit_snapshot(root: Path, *, emit_requested: bool, integrity_payload: dict[str, object], policy_hash: str) -> dict[str, object]:
     if not emit_requested:
         return {"emitted": False, "reason": "flag_disabled", "path": None}
+    if os.getenv("SENTIENTOS_REPLAY_ALLOW_MUTATION", "0") != "1":
+        return {"emitted": False, "reason": "replay_write_not_permitted", "path": None}
     integrity_hash = sha256(canonical_json_bytes(integrity_payload)).hexdigest()
     now = str(integrity_payload.get("ts") or iso_now())
     min_interval = max(1, int(os.getenv("SENTIENTOS_ATTESTATION_SNAPSHOT_MIN_INTERVAL_SECONDS", "600")))
@@ -113,6 +116,24 @@ def _normalize_report(payload: dict[str, Any]) -> dict[str, object]:
     return normalized
 
 
+def _resolution_provenance(root: Path) -> dict[str, dict[str, object]]:
+    integrity_payload, integrity_path = resolve_latest_artifact(root, kind="integrity_status", disk_glob="glow/forge/integrity/status_*.json")
+    snapshot_payload, snapshot_path = resolve_latest_artifact(root, kind="attestation_snapshot", disk_glob=str(SNAPSHOT_DIR / "snapshot_*.json"))
+    witness_payload, witness_path = resolve_latest_artifact(root, kind="witness_publish", disk_glob="glow/federation/anchor_witness_status.json")
+
+    def _source(kind: str, disk_path: str | None) -> str:
+        if artifact_catalog.latest(root, kind) is not None:
+            return "catalog"
+        return "disk" if disk_path else "missing"
+
+    return {
+        "integrity_status": {"path": integrity_path, "resolution_source": _source("integrity_status", integrity_path), "present": bool(integrity_payload)},
+        "attestation_snapshot": {"path": snapshot_path, "resolution_source": _source("attestation_snapshot", snapshot_path), "present": bool(snapshot_payload)},
+        "witness_status": {"path": witness_path, "resolution_source": _source("witness_publish", witness_path), "present": bool(witness_payload)},
+        "policy_fingerprint": {"path": "glow/forge/policy_fingerprint.json", "resolution_source": "disk", "present": (root / "glow/forge/policy_fingerprint.json").exists()},
+    }
+
+
 def _overall_from_integrity(integrity_status: str) -> str:
     if integrity_status in {"ok", "warn", "fail"}:
         return integrity_status
@@ -124,7 +145,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--verify", action="store_true")
     parser.add_argument("--last-n", type=int, default=25)
     parser.add_argument("--emit-snapshot", type=int, choices=[0, 1], default=0)
-    parser.add_argument("--write-policy", type=int, choices=[0, 1], default=0)
     args = parser.parse_args(argv)
 
     root = Path.cwd().resolve()
@@ -140,15 +160,13 @@ def main(argv: list[str] | None = None) -> int:
 
     policy = build_policy_dict()
     policy_hash = compute_policy_hash(policy)
-    if args.write_policy == 1:
-        emitted = emit_policy_fingerprint(root)
-        policy_hash = emitted.policy_hash
 
     with _temp_env("SENTIENTOS_INTEGRITY_MAX_VERIFY_LAST_N", str(max(1, args.last_n))):
         integrity = evaluate_integrity(root, policy_hash=policy_hash, replay_mode=True)
 
     verify_results = _budgeted_verify(root, last_n=max(1, args.last_n)) if args.verify else {}
     snapshot_emit = _maybe_emit_snapshot(root, emit_requested=args.emit_snapshot == 1, integrity_payload=integrity.to_dict(), policy_hash=policy_hash)
+    provenance = _resolution_provenance(root)
 
     ts = iso_now()
     reason_stack = [str(item) for item in integrity.reason_stack[:10]]
@@ -162,6 +180,7 @@ def main(argv: list[str] | None = None) -> int:
                 "verify_enabled": bool(args.verify),
                 "emit_snapshot_requested": bool(args.emit_snapshot),
                 "catalog_rebuild_requested": os.getenv("SENTIENTOS_ALLOW_CATALOG_REBUILD", "0") == "1",
+                "replay_write_allowed": os.getenv("SENTIENTOS_REPLAY_ALLOW_MUTATION", "0") == "1",
             },
             "policy_hash": policy_hash,
             "integrity_status_hash": integrity.canonical_hash(),
@@ -176,9 +195,10 @@ def main(argv: list[str] | None = None) -> int:
             "snapshot_emitted": bool(snapshot_emit.get("emitted")),
             "snapshot_emit_reason": snapshot_emit.get("reason"),
             "catalog_rebuild": {"status": catalog_status.get("status"), "reason": catalog_status.get("reason")},
+            "resolution": provenance,
             "provenance": {
-                "integrity_status": {"path": None, "resolution_source": "disk"},
-                "snapshot": {"path": snapshot_emit.get("path"), "resolution_source": "disk"},
+                "integrity_status": provenance.get("integrity_status"),
+                "snapshot": {"path": snapshot_emit.get("path"), "resolution_source": "disk" if snapshot_emit.get("path") else "none"},
                 "catalog_report_path": catalog_status.get("report_path"),
             },
             "exit_code": 0,
