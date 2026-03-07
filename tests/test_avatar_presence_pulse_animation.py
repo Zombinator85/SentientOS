@@ -4,7 +4,6 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
 
 import importlib
@@ -52,4 +51,3 @@ def test_animate_once_gui(tmp_path, monkeypatch):
     assert entry["pulse"] == 0.5
     if apa._GUI_VAR is not None:
         assert apa._GUI_VAR.get() == 0.5
-
