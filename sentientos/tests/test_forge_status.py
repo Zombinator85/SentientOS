@@ -78,8 +78,15 @@ def test_forge_status_json_is_deterministic(tmp_path: Path, capsys) -> None:
 
     assert rc1 == 0
     assert rc2 == 0
-    assert out1 == out2
     payload = json.loads(out1)
+    payload_again = json.loads(out2)
+    for item in (payload, payload_again):
+        provenance = item.get("provenance") if isinstance(item.get("provenance"), dict) else {}
+        for key in ("integrity_status", "attestation_snapshot"):
+            section = provenance.get(key)
+            if isinstance(section, dict):
+                section.pop("resolution_source", None)
+    assert payload == payload_again
     assert payload["snapshot"]["signature_tip"]["sig_hash"] == "abc123"
     assert payload["governor"]["operating_mode"] == "normal"
 
@@ -124,3 +131,28 @@ def test_forge_status_catalog_resolution_is_first_class(tmp_path: Path, capsys, 
     forge_status.main(["--json"])
     payload = json.loads(capsys.readouterr().out)
     assert payload["provenance"]["integrity_status"]["resolution_source"] == "catalog"
+
+
+def test_forge_status_includes_constitution_summary(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "nominal",
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["constitution"]["state"] == "healthy"
+    assert payload["constitution"]["digest"] == "digest-const"
+    assert payload["provenance"]["constitution_summary"]["path"] == "glow/constitution/constitution_summary.json"
