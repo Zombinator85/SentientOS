@@ -7,6 +7,12 @@ import os
 from pathlib import Path
 from typing import Any
 
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from sentientos import artifact_catalog
 from sentientos.attestation import canonical_json_bytes, read_json, read_jsonl, write_json
 from sentientos.attestation_snapshot import SIGNATURE_INDEX_PATH, SNAPSHOT_DIR, SNAPSHOT_PULSE_PATH, should_emit_snapshot
@@ -210,6 +216,8 @@ def build_status_payload(root: Path) -> dict[str, object]:
             "state": constitution_summary.payload.get("constitution_state") if constitution_summary.payload else "unknown",
             "digest": constitution_summary.payload.get("constitutional_digest") if constitution_summary.payload else None,
             "effective_posture": constitution_summary.payload.get("effective_posture") if constitution_summary.payload else None,
+            "missing_required_artifacts": constitution_summary.payload.get("missing_required_artifacts", []) if constitution_summary.payload else [],
+            "restoration_hints": constitution_summary.payload.get("restoration_hints", []) if constitution_summary.payload else [],
             "path": constitution_summary.path,
         },
         "provenance": {
@@ -229,6 +237,14 @@ def build_status_payload(root: Path) -> dict[str, object]:
         "operator_report_signing": operator_signing_status(root),
         "tick_replay_consistency": replay_consistency_status,
         "tick_replay_consistency_reason": replay_consistency_reason,
+        "health_domain": {
+            "repository_artifacts": (
+                "healthy"
+                if (constitution_summary.payload and constitution_summary.payload.get("constitution_state") == "healthy")
+                else "missing_or_degraded"
+            ),
+            "runtime_data": "degraded" if (audit_trust.payload.get("status") == "broken") else "healthy",
+        },
         "exit_code": 0,
     }
     normalized, _warnings = normalize(payload, SchemaName.FORGE_STATUS_REPORT)

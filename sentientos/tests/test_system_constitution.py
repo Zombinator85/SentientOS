@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from scripts import system_constitution
@@ -135,3 +137,25 @@ def test_constitution_transition_log_is_bounded(tmp_path: Path) -> None:
     assert len(rows) <= 512
     stored = read_json(tmp_path / "glow/constitution/system_constitution.json")
     assert stored["constitutional_digest"] == payload["constitutional_digest"]
+
+
+def test_missing_artifacts_are_reported_with_hints(tmp_path: Path) -> None:
+    _seed_required(tmp_path)
+    (tmp_path / "glow/runtime/audit_trust_state.json").unlink()
+    (tmp_path / "glow/federation/governance_digest.json").unlink()
+
+    payload = compose_system_constitution(tmp_path)
+    assert payload["constitution_state"] == "missing"
+    assert "audit_trust_state" in payload["missing_required_artifacts"]
+    assert "federation_governance_digest" in payload["missing_required_artifacts"]
+    assert any("audit_trust_state missing" in hint for hint in payload["restoration_hints"])
+
+
+
+def test_system_constitution_script_runs_without_pythonpath(tmp_path: Path) -> None:
+    _seed_required(tmp_path)
+    script = Path(__file__).resolve().parents[2] / "scripts" / "system_constitution.py"
+    completed = subprocess.run([sys.executable, str(script), "--verify"], cwd=tmp_path, check=False, capture_output=True, text=True)
+    assert completed.returncode == 0
+    assert "verify=healthy" in completed.stdout
+
