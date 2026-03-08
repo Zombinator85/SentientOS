@@ -7,6 +7,12 @@ import os
 from pathlib import Path
 from typing import Any, Iterator
 
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from sentientos import artifact_catalog
 from sentientos.attestation import append_jsonl, canonical_json_bytes, iso_now, read_json, write_json
 from sentientos.attestation_snapshot import AttestationSnapshot, SNAPSHOT_DIR, emit_snapshot, should_emit_snapshot, verify_recent_snapshots

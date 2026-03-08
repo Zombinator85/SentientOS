@@ -3,6 +3,12 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import sys
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from sentientos.attestation import canonical_json_bytes, read_json
 from sentientos.system_constitution import (
     SYSTEM_CONSTITUTION_REL,

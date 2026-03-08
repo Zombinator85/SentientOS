@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 from scripts import forge_status
@@ -156,3 +158,41 @@ def test_forge_status_includes_constitution_summary(tmp_path: Path, capsys) -> N
     assert payload["constitution"]["state"] == "healthy"
     assert payload["constitution"]["digest"] == "digest-const"
     assert payload["provenance"]["constitution_summary"]["path"] == "glow/constitution/constitution_summary.json"
+
+
+def test_forge_status_surfaces_constitution_restoration_hints(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "missing",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "unknown",
+            "missing_required_artifacts": ["audit_trust_state"],
+            "restoration_hints": ["audit_trust_state missing: run python -m sentientos.start"],
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["constitution"]["missing_required_artifacts"] == ["audit_trust_state"]
+    assert payload["constitution"]["restoration_hints"]
+    assert payload["health_domain"]["runtime_data"] in {"healthy", "degraded"}
+
+
+
+def test_forge_status_script_runs_without_pythonpath(tmp_path: Path) -> None:
+    payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", payload)
+    script = Path(__file__).resolve().parents[2] / "scripts" / "forge_status.py"
+    completed = subprocess.run([sys.executable, str(script), "--json"], cwd=tmp_path, check=False, capture_output=True, text=True)
+    assert completed.returncode == 0
+    assert '"integrity_overall":"ok"' in completed.stdout
+

@@ -129,6 +129,34 @@ def _constitution_state(*, missing_required: bool, restricted: bool, degraded: b
     return "healthy"
 
 
+def _missing_required_artifacts(resolved: dict[str, ConstitutionResolution]) -> list[str]:
+    missing: list[str] = []
+    for name, item in sorted(resolved.items()):
+        if item.required and not item.present:
+            missing.append(name)
+    return missing
+
+
+def _restoration_hints(*, missing_required_artifacts: list[str], degraded_modes: list[str], restricted: bool) -> list[str]:
+    hints: list[str] = []
+    for artifact in missing_required_artifacts:
+        if artifact == "audit_trust_state":
+            hints.append("audit_trust_state missing: run python -m sentientos.start or python scripts/verify_audits.py --strict")
+        elif artifact == "governor_rollup":
+            hints.append("governor_rollup missing: run runtime governor once to emit glow/governor/rollup.json")
+        elif artifact == "pulse_trust_epoch":
+            hints.append("pulse_trust_epoch missing: run pulse trust epoch bootstrap to emit glow/pulse_trust/epoch_state.json")
+        elif artifact in {"federation_governance_digest", "trust_ledger_state"}:
+            hints.append("federation governance artifacts missing: run federated governance digest/trust-ledger update")
+        elif artifact == "immutable_manifest":
+            hints.append("immutable_manifest missing: run python scripts/generate_immutable_manifest.py")
+    if restricted:
+        hints.append("constitution is restricted; audit trust recovery or re-anchor may be required")
+    if "runtime_posture_constrained" in degraded_modes:
+        hints.append("runtime posture constrained: inspect governor reason_chain and pressure summary")
+    return hints[:_MAX_REASON_STACK]
+
+
 def _constitution_exit_code(*, missing_required: bool, restricted: bool, degraded: bool) -> int:
     if missing_required:
         return 3
@@ -207,7 +235,8 @@ def compose_system_constitution(root: Path | None = None) -> dict[str, object]:
             if isinstance(trust_summary.get(trust_state), int) and int(trust_summary.get(trust_state, 0)) > 0:
                 degraded_modes.append(f"federation_peer_{trust_state}")
 
-    missing_required = any(not item.present for item in resolved.values() if item.required)
+    missing_required_artifacts = _missing_required_artifacts(resolved)
+    missing_required = bool(missing_required_artifacts)
     restricted = degraded_audit or effective_posture == "restricted" or compromise_mode
     degraded = bool(degraded_modes) and not restricted
 
@@ -270,6 +299,7 @@ def compose_system_constitution(root: Path | None = None) -> dict[str, object]:
             "governor_mode": rollup.get("mode", "unknown"),
         },
         "degraded_modes": sorted(set(degraded_modes))[:_MAX_REASON_STACK],
+        "missing_required_artifacts": missing_required_artifacts,
         "federation_governance": {
             "governance_digest": governance_digest.get("digest"),
             "digest_components": governance_digest.get("components") if isinstance(governance_digest.get("components"), dict) else {},
@@ -295,6 +325,11 @@ def compose_system_constitution(root: Path | None = None) -> dict[str, object]:
     payload = dict(canonical_core)
     payload["constitutional_digest"] = digest
     payload["exit_code"] = _constitution_exit_code(missing_required=missing_required, restricted=restricted, degraded=degraded)
+    payload["restoration_hints"] = _restoration_hints(
+        missing_required_artifacts=missing_required_artifacts,
+        degraded_modes=sorted(set(degraded_modes))[:_MAX_REASON_STACK],
+        restricted=restricted,
+    )
     payload["healthy"] = payload["constitution_state"] == "healthy"
     return payload
 
@@ -315,6 +350,8 @@ def write_constitution_artifacts(root: Path | None = None, *, payload: dict[str,
         "effective_posture": ((resolved_payload.get("runtime_posture") or {}) if isinstance(resolved_payload.get("runtime_posture"), dict) else {}).get("effective_posture"),
         "governor_mode": ((resolved_payload.get("runtime_posture") or {}) if isinstance(resolved_payload.get("runtime_posture"), dict) else {}).get("governor_mode"),
         "degraded_modes": list(resolved_payload.get("degraded_modes", []))[:_MAX_REASON_STACK],
+        "missing_required_artifacts": list(resolved_payload.get("missing_required_artifacts", []))[:_MAX_REASON_STACK],
+        "restoration_hints": list(resolved_payload.get("restoration_hints", []))[:_MAX_REASON_STACK],
         "exit_code": resolved_payload.get("exit_code"),
     }
     write_json(summary_path, summary)
