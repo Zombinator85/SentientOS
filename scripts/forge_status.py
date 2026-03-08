@@ -13,6 +13,7 @@ from sentientos.attestation_snapshot import SIGNATURE_INDEX_PATH, SNAPSHOT_DIR, 
 from sentientos.consistency_checks import compare_tick_vs_replay
 from sentientos.operator_report_attestation import maybe_sign_operator_report, operator_signing_status, verify_recent_operator_reports
 from sentientos.schema_registry import SchemaName, normalize
+from sentientos.system_constitution import CONSTITUTION_SUMMARY_REL
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,11 @@ def _resolve_witness_status(root: Path) -> ResolvedArtifact:
 def _resolve_replay(root: Path) -> ResolvedArtifact:
     return _resolve_catalog_then_disk(root, kind="operator_replay", disk_glob="glow/forge/replay/replay_*.json")
 
+
+
+
+def _resolve_constitution_summary(root: Path) -> ResolvedArtifact:
+    return _resolve_catalog_then_disk(root, kind="constitution_summary", disk_glob=str(CONSTITUTION_SUMMARY_REL))
 
 def _resolve_governor_rollup(root: Path) -> ResolvedArtifact:
     gov_root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "glow/governor"))
@@ -142,6 +148,7 @@ def build_status_payload(root: Path) -> dict[str, object]:
     replay = _resolve_replay(root)
     governor = _resolve_governor_rollup(root)
     audit_trust = _resolve_audit_trust(root)
+    constitution_summary = _resolve_constitution_summary(root)
     sig_tip = _signature_tip(root)
     status_hash = sha256(canonical_json_bytes(integrity.payload)).hexdigest() if integrity.payload else ""
 
@@ -199,12 +206,19 @@ def build_status_payload(root: Path) -> dict[str, object]:
             "pulse_trust_epoch": governor_runtime.get("pulse_epoch") if isinstance(governor_runtime, dict) else None,
             "attestation_snapshot_tip": snapshot.payload.get("ts"),
         },
+        "constitution": {
+            "state": constitution_summary.payload.get("constitution_state") if constitution_summary.payload else "unknown",
+            "digest": constitution_summary.payload.get("constitutional_digest") if constitution_summary.payload else None,
+            "effective_posture": constitution_summary.payload.get("effective_posture") if constitution_summary.payload else None,
+            "path": constitution_summary.path,
+        },
         "provenance": {
             "integrity_status": {"path": integrity.path, "resolution_source": integrity.resolution},
             "attestation_snapshot": {"path": snapshot.path, "resolution_source": snapshot.resolution},
             "witness_status": {"path": witness.path, "resolution_source": witness.resolution},
             "governor_rollup": {"path": governor.path, "resolution_source": governor.resolution},
             "audit_trust_report": {"path": audit_trust.path, "resolution_source": audit_trust.resolution},
+            "constitution_summary": {"path": constitution_summary.path, "resolution_source": constitution_summary.resolution},
         },
         "snapshot": {
             "present": bool(snapshot.payload),
