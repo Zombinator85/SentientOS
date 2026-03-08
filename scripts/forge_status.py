@@ -90,7 +90,10 @@ def _resolve_governor_rollup(root: Path) -> ResolvedArtifact:
 
 
 def _resolve_audit_trust(root: Path) -> ResolvedArtifact:
-    return _resolve_catalog_then_disk(root, kind="audit_report", disk_glob="glow/forge/audit_reports/report_*.json")
+    payload, path = _latest_json_from_glob(root, "glow/forge/audit_reports/audit_chain_report_*.json")
+    if payload:
+        return ResolvedArtifact(payload=payload, path=path, resolution="disk")
+    return _resolve_catalog_then_disk(root, kind="audit_report", disk_glob="glow/forge/audit_reports/audit_chain_report_*.json")
 
 
 def _signature_tip(root: Path) -> dict[str, object]:
@@ -243,7 +246,16 @@ def build_status_payload(root: Path) -> dict[str, object]:
                 if (constitution_summary.payload and constitution_summary.payload.get("constitution_state") == "healthy")
                 else "missing_or_degraded"
             ),
-            "runtime_data": "degraded" if (audit_trust.payload.get("status") == "broken") else "healthy",
+            "runtime_data": (
+                "degraded"
+                if (
+                    (audit_trust.payload.get("status") == "broken")
+                    or bool(
+                        ((audit_trust.payload.get("recovery_state") or {}) if isinstance(audit_trust.payload.get("recovery_state"), dict) else {}).get("degraded_audit_trust", False)
+                    )
+                )
+                else "healthy"
+            ),
         },
         "exit_code": 0,
     }

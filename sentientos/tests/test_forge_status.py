@@ -196,3 +196,37 @@ def test_forge_status_script_runs_without_pythonpath(tmp_path: Path) -> None:
     assert completed.returncode == 0
     assert '"integrity_overall":"ok"' in completed.stdout
 
+
+
+def test_forge_status_marks_runtime_degraded_from_audit_recovery_state(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "nominal",
+        },
+    )
+    write_json(
+        tmp_path / "glow/forge/audit_reports/audit_chain_report_2099-01-01T00-00-00Z.json",
+        {
+            "status": "reanchored",
+            "recovery_state": {
+                "history_state": "broken_preserved",
+                "degraded_audit_trust": True,
+            },
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["audit_trust"]["status"] == "reanchored"
+    assert payload["health_domain"]["runtime_data"] == "degraded"
