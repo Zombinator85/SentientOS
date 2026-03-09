@@ -68,5 +68,11 @@ def test_bootstrap_creates_explicit_checkpoint_without_rewriting_history(tmp_pat
     assert (tmp_path / "logs/privileged_audit.jsonl").read_text(encoding="utf-8") == original
 
     audit_after = report["audit_chain_after"]
-    assert audit_after["recovery_state"]["history_state"] == "broken_preserved"
+    assert audit_after["recovery_state"]["history_state"] == "reanchored_continuation"
+    assert audit_after["recovery_state"]["continuation_descends_from_anchor"] is True
     assert audit_after["recovery_state"]["checkpoint_id"]
+
+    continuation = report["continuation"]
+    assert continuation["status"] == "appended"
+    runtime_path = tmp_path / "pulse/audit/privileged_audit.runtime.jsonl"
+    assert runtime_path.exists()

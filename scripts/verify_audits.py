@@ -17,6 +17,7 @@ if str(CODE_ROOT) not in sys.path:
 
 from sentientos.audit_sink import AuditSinkConfig, resolve_audit_paths
 from sentientos.audit_chain_gate import verify_audit_chain, write_audit_chain_report
+from sentientos.audit_recovery import load_checkpoints
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
@@ -320,7 +321,29 @@ def _runtime_error_details(path: Path, errors: list[str]) -> tuple[str, list[str
 
 def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
     baseline_ok, baseline_errors = _verify_single(config.baseline_path)
-    runtime_ok, runtime_errors = _verify_single(config.runtime_path)
+    runtime_seed = "0" * 64
+    if config.runtime_path.exists():
+        try:
+            first = _first_prev_hash(config.runtime_path)
+        except Exception:
+            first = None
+        if isinstance(first, str) and first and first != runtime_seed:
+            root = Path.cwd().resolve()
+            checkpoints = [
+                item
+                for item in load_checkpoints(root)
+                if item.status == "active" and str(root / item.continuation_log_path) == str(config.runtime_path)
+            ]
+            checkpoints.sort(key=lambda item: item.created_at)
+            if checkpoints:
+                latest = checkpoints[-1]
+                if latest.continuation_anchor_prev_hash == first:
+                    runtime_seed = first
+
+    if config.runtime_path.exists():
+        runtime_ok, runtime_errors, _ = check_file(config.runtime_path, runtime_seed, quarantine=False, repair=False, stats={})
+    else:
+        runtime_ok, runtime_errors = True, []
 
     baseline_status = "ok"
     tracked = _tracked_content(config.baseline_path)

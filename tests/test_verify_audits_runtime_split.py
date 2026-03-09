@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from scripts import verify_audits
+from sentientos.audit_recovery import RecoveryCheckpoint, append_checkpoint, break_fingerprint
 from sentientos.audit_sink import resolve_audit_paths, safe_write_event
 
 
@@ -66,3 +67,53 @@ def test_strict_runtime_error_classification(tmp_path: Path, monkeypatch) -> Non
     assert status["runtime_status"] == "broken"
     assert status["runtime_error_kind"] in {"malformed_json", "truncated_line"}
     assert "make audit-repair" in str(status["suggested_fix"])
+
+
+def test_strict_runtime_accepts_reanchored_continuation_seed(tmp_path: Path, monkeypatch) -> None:
+    baseline = tmp_path / "logs" / "privileged_audit.jsonl"
+    runtime_dir = tmp_path / "pulse" / "audit"
+    runtime = runtime_dir / "privileged_audit.runtime.jsonl"
+    baseline.parent.mkdir(parents=True)
+    runtime_dir.mkdir(parents=True)
+    baseline.write_text("", encoding="utf-8")
+
+    seed = "a" * 64
+    runtime.write_text(
+        json.dumps(
+            {
+                "timestamp": "2026-01-01T00:00:00Z",
+                "data": {"event": "continuation"},
+                "prev_hash": seed,
+                "rolling_hash": verify_audits.ai._hash_entry("2026-01-01T00:00:00Z", {"event": "continuation"}, seed),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    fp = break_fingerprint(path="logs/privileged_audit.jsonl", line_number=1, expected_prev_hash=seed, found_prev_hash="0" * 64)
+    append_checkpoint(
+        tmp_path,
+        RecoveryCheckpoint(
+            checkpoint_id="reanchor:test",
+            created_at="2026-01-01T00:00:00Z",
+            break_fingerprint=fp,
+            break_path="logs/privileged_audit.jsonl",
+            break_line=1,
+            expected_prev_hash=seed,
+            found_prev_hash="0" * 64,
+            trusted_history_head_hash=seed,
+            continuation_anchor_prev_hash=seed,
+            continuation_log_path="pulse/audit/privileged_audit.runtime.jsonl",
+            reason="test",
+            status="active",
+        ),
+    )
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SENTIENTOS_AUDIT_BASELINE_PATH", str(baseline))
+    monkeypatch.setenv("SENTIENTOS_AUDIT_RUNTIME_DIR", str(runtime_dir))
+
+    cfg = resolve_audit_paths(tmp_path)
+    status = verify_audits._strict_privileged_status(cfg)
+    assert status["runtime_status"] == "ok"

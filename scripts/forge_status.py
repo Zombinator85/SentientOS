@@ -93,6 +93,21 @@ def _resolve_audit_trust(root: Path) -> ResolvedArtifact:
     payload, path = _latest_json_from_glob(root, "glow/forge/audit_reports/audit_chain_report_*.json")
     if payload:
         return ResolvedArtifact(payload=payload, path=path, resolution="disk")
+    runtime_state = read_json(root / "glow/runtime/audit_trust_state.json")
+    if runtime_state:
+        recovery_state = {
+            "history_state": runtime_state.get("history_state"),
+            "degraded_audit_trust": runtime_state.get("degraded_audit_trust"),
+            "checkpoint_id": runtime_state.get("checkpoint_id"),
+            "continuation_descends_from_anchor": runtime_state.get("continuation_descends_from_anchor"),
+            "trust_boundary_explicit": runtime_state.get("trust_boundary_explicit"),
+            "trusted_history_head_hash": runtime_state.get("trusted_history_head_hash"),
+        }
+        normalized = {
+            "status": runtime_state.get("status") or "unknown",
+            "recovery_state": recovery_state,
+        }
+        return ResolvedArtifact(payload=normalized, path="glow/runtime/audit_trust_state.json", resolution="disk")
     return _resolve_catalog_then_disk(root, kind="audit_report", disk_glob="glow/forge/audit_reports/audit_chain_report_*.json")
 
 
@@ -148,6 +163,29 @@ def _snapshot_cadence(root: Path, integrity: dict[str, object], snapshot: dict[s
 
 def _overall(status_value: object) -> str:
     return str(status_value) if str(status_value) in {"ok", "warn", "fail"} else "missing"
+
+
+def _audit_continuation_view(audit_payload: dict[str, object]) -> dict[str, object]:
+    recovery = audit_payload.get("recovery_state") if isinstance(audit_payload.get("recovery_state"), dict) else {}
+    history_state = str(recovery.get("history_state") or "unknown")
+    continuation_descends = recovery.get("continuation_descends_from_anchor")
+    if continuation_descends is None:
+        continuation_descends_bool = None
+    else:
+        continuation_descends_bool = bool(continuation_descends)
+    return {
+        "history_state": history_state,
+        "historical_break_visible": history_state in {"broken_preserved", "reanchored_continuation"},
+        "reanchor_checkpoint": bool(recovery.get("checkpoint_id")),
+        "continuation_descends_from_anchor": continuation_descends_bool,
+        "continuation_state": (
+            "healthy_continuation"
+            if history_state == "reanchored_continuation" and continuation_descends_bool is True
+            else "no_continuation"
+            if history_state in {"unknown", "intact_trusted"} and not recovery.get("checkpoint_id")
+            else "pending_or_broken_continuation"
+        ),
+    }
 
 
 def build_status_payload(root: Path) -> dict[str, object]:
@@ -211,6 +249,7 @@ def build_status_payload(root: Path) -> dict[str, object]:
             "status": audit_trust.payload.get("status") or "unknown",
             "recovery_state": audit_trust.payload.get("recovery_state") if isinstance(audit_trust.payload.get("recovery_state"), dict) else {},
         },
+        "audit_continuation": _audit_continuation_view(audit_trust.payload),
         "trust_epoch_refs": {
             "pulse_trust_epoch": governor_runtime.get("pulse_epoch") if isinstance(governor_runtime, dict) else None,
             "attestation_snapshot_tip": snapshot.payload.get("ts"),
