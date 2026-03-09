@@ -7,19 +7,19 @@
     ],
     "sort_keys": true
   },
-  "captured_by": "54a370e1b706cee40d78a804951c883f3390f0fc",
+  "captured_by": "14776c8d88bd610688d9031fcbd21e76efa94d1d",
   "files": {
     "NEWLEGACY.txt": {
       "sha256": "67d689ea6797c72ea7326ad431a0f5f54a7804d79d0ab6fea7e85d53c787b9d5",
       "size": 73
     },
     "scripts/audit_immutability_verifier.py": {
-      "sha256": "ce9404a76533b79ea311e9983d75714a4aebfbbd921c96ee3f92f2ab349a199e",
-      "size": 7374
+      "sha256": "a64278c63c6443ffb56b2a0b796a1ea18dda74ddb4e87d87ce21698e18de84fb",
+      "size": 9531
     },
     "scripts/verify_audits.py": {
-      "sha256": "2807fdc4b537819dd66a3501d60b083991a835c639a77fddd957ba51eac849f1",
-      "size": 18690
+      "sha256": "e1df1900aad97d581ed79d1ede9032799e4d89d4bb157c92aa0e74706d497d87",
+      "size": 19915
     },
     "vow/config.yaml": {
       "sha256": "52877f0eacc7013f98baabe1847aed6fe6fe1e602b70b1b6e9fd3bf1f58627a8",
@@ -35,7 +35,7 @@
     }
   },
   "generated_by": "scripts.generate_immutable_manifest",
-  "manifest_sha256": "c496a3db076bac343cc7bd0656051d34b102df648181f0da3848c3434d6891ab",
+  "manifest_sha256": "db3f7a0957ca74fdcde27bde5556a4a4115c7a9824379b8ed5e49ed6c938b6ab",
   "manifest_type": "sentientos_immutable",
   "schema_version": 1,
   "tool_version": "1"

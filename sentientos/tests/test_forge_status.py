@@ -230,3 +230,79 @@ def test_forge_status_marks_runtime_degraded_from_audit_recovery_state(tmp_path:
 
     assert payload["audit_trust"]["status"] == "reanchored"
     assert payload["health_domain"]["runtime_data"] == "degraded"
+
+
+def test_forge_status_surfaces_reanchor_continuation_distinction(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "nominal",
+        },
+    )
+    write_json(
+        tmp_path / "glow/forge/audit_reports/audit_chain_report_2099-01-01T00-00-00Z.json",
+        {
+            "status": "reanchored",
+            "recovery_state": {
+                "history_state": "reanchored_continuation",
+                "degraded_audit_trust": False,
+                "checkpoint_id": "reanchor:abc",
+                "continuation_descends_from_anchor": True,
+            },
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["health_domain"]["runtime_data"] == "healthy"
+    assert payload["audit_continuation"]["historical_break_visible"] is True
+    assert payload["audit_continuation"]["reanchor_checkpoint"] is True
+    assert payload["audit_continuation"]["continuation_descends_from_anchor"] is True
+    assert payload["audit_continuation"]["continuation_state"] == "healthy_continuation"
+
+
+def test_forge_status_uses_runtime_audit_trust_when_report_missing(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "nominal",
+        },
+    )
+    write_json(
+        tmp_path / "glow/runtime/audit_trust_state.json",
+        {
+            "status": "reanchored",
+            "history_state": "reanchored_continuation",
+            "degraded_audit_trust": False,
+            "checkpoint_id": "reanchor:runtime",
+            "continuation_descends_from_anchor": True,
+            "trust_boundary_explicit": True,
+            "trusted_history_head_hash": "abc",
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["audit_trust"]["status"] == "reanchored"
+    assert payload["audit_continuation"]["continuation_state"] == "healthy_continuation"
+    assert payload["health_domain"]["runtime_data"] == "healthy"
