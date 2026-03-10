@@ -184,15 +184,15 @@ def compose_system_constitution(root: Path | None = None) -> dict[str, object]:
 
     resolved = {
         "immutable_manifest": _resolve_json(repo_root, manifest_path, required=True),
-        "audit_trust_state": _resolve_json(repo_root, repo_root / "glow/runtime/audit_trust_state.json", required=True),
-        "governor_rollup": _resolve_json(repo_root, governor_root / "rollup.json", required=True),
+        "audit_trust_state": _resolve_json(repo_root, repo_root / "glow/runtime/audit_trust_state.json", required=False),
+        "governor_rollup": _resolve_json(repo_root, governor_root / "rollup.json", required=False),
         "governor_budget": _resolve_json(repo_root, governor_root / "storm_budget.json", required=False),
         "governor_observability": _resolve_json(repo_root, governor_root / "observability.jsonl", required=False),
-        "pulse_trust_epoch": _resolve_json(repo_root, epoch_state_path, required=True),
-        "federation_governance_digest": _resolve_json(repo_root, federation_root / "governance_digest.json", required=True),
+        "pulse_trust_epoch": _resolve_json(repo_root, epoch_state_path, required=False),
+        "federation_governance_digest": _resolve_json(repo_root, federation_root / "governance_digest.json", required=False),
         "federation_quorum_policy": _resolve_json(repo_root, federation_root / "federation_quorum_policy.json", required=False),
         "federation_peer_digests": _resolve_json(repo_root, federation_root / "peer_governance_digests.json", required=False),
-        "trust_ledger_state": _resolve_json(repo_root, federation_root / "trust_ledger_state.json", required=True),
+        "trust_ledger_state": _resolve_json(repo_root, federation_root / "trust_ledger_state.json", required=False),
         "trust_ledger_events": _resolve_json(repo_root, federation_root / "trust_ledger_events.jsonl", required=False),
         "audit_chain_report": _resolve_json(repo_root, repo_root / "glow/forge/audit_reports/latest.json", required=False),
     }
