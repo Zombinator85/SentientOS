@@ -23,6 +23,10 @@ from sentientos.remote_bundle import resolve_latest_artifact
 from sentientos.schema_registry import SchemaName, normalize
 from sentientos.signed_rollups import latest_catalog_checkpoint_hash, verify_signed_rollups
 from sentientos.signed_strategic import verify_recent
+try:
+    from scripts.cli_common import resolve_repo_root
+except ModuleNotFoundError:  # script execution fallback
+    from cli_common import resolve_repo_root
 
 
 @contextmanager
@@ -172,12 +176,13 @@ def _persist_integrity_status(root: Path, integrity_payload: dict[str, object]) 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Replay deterministic Forge integrity verification")
+    parser.add_argument("--repo-root", help="repository root (defaults to current working directory)")
     parser.add_argument("--verify", action="store_true")
     parser.add_argument("--last-n", type=int, default=25)
     parser.add_argument("--emit-snapshot", type=int, choices=[0, 1], default=0)
     args = parser.parse_args(argv)
 
-    root = Path.cwd().resolve()
+    root = resolve_repo_root(args.repo_root)
     catalog_path = root / artifact_catalog.CATALOG_PATH
     catalog_status: dict[str, object]
     if catalog_path.exists():
@@ -279,7 +284,7 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
     print(canonical_json_bytes(payload).decode("utf-8"), end="")
-    return 0
+    return int(payload.get("exit_code", 3))
 
 
 if __name__ == "__main__":

@@ -266,13 +266,12 @@ def main(argv: list[str] | None = None) -> int:
         summary = tooling_status.render_result(
             "audit_immutability_verifier", status=result.status, reason=result.reason
         )
-        print(json.dumps(summary, sort_keys=True))
+        exit_code = 1 if result.status in {"failed", "error"} else 0
+        print(json.dumps({**summary, "exit_code": exit_code}, sort_keys=True))
 
         ok = result.status in {"passed", "skipped"}
         write_result(ok=ok, issues=issues, error=None)
-        if result.status in {"failed", "error"}:
-            return 1
-        return 0
+        return exit_code
     except Exception as exc:  # pragma: no cover - defensive
         message = str(exc)
         write_result(ok=False, issues=issues, error=message)
@@ -282,6 +281,7 @@ def main(argv: list[str] | None = None) -> int:
                     "tool": "audit_immutability_verifier",
                     "status": "error",
                     "reason": message,
+                    "exit_code": 1,
                 },
                 sort_keys=True,
             )

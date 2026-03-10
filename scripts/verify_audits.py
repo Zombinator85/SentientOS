@@ -27,6 +27,10 @@ require_lumos_approval()
 
 import audit_immutability as ai
 from scripts import tooling_status
+try:
+    from scripts.cli_common import resolve_repo_root
+except ModuleNotFoundError:  # script execution fallback
+    from cli_common import resolve_repo_root
 from sentientos.recovery_tasks import enqueue_audit_chain_repair_task
 
 RESULT_PATH = Path("glow/audits/verify_audits_result.json")
@@ -383,10 +387,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--strict", action="store_true", help="abort if strict privileged audit checks fail")
     ap.add_argument("--show-paths", action="store_true", help="show resolved privileged baseline/runtime audit paths")
     ap.add_argument("--runtime-dir", type=str, help="override runtime audit directory")
+    ap.add_argument("--repo-root", help="repository root (defaults to current working directory)")
+    ap.add_argument("--json", action="store_true", help="emit machine-readable summary payload")
     args = ap.parse_args(argv)
 
     global REPO_ROOT, ROOT
-    REPO_ROOT = Path.cwd().resolve()
+    REPO_ROOT = resolve_repo_root(args.repo_root)
     ROOT = REPO_ROOT
     all_issues: List[str] = []
     structured_issues: List[AuditIssue] = []
@@ -413,23 +419,26 @@ def main(argv: list[str] | None = None) -> int:
 
         for file, errors in res.items():
             structured_issues.extend(path_errors.get(file, []))
-            if not errors:
-                print(f"{file}: valid")
-            else:
-                print(f"{file}: {len(errors)} issue(s)")
+            if not args.json:
+                if not errors:
+                    print(f"{file}: valid")
+                else:
+                    print(f"{file}: {len(errors)} issue(s)")
+                    for err in errors:
+                        print(f"  {err}")
+            if errors:
                 all_issues.extend(errors)
-                for err in errors:
-                    print(f"  {err}")
-        print(f"{percent:.1f}% of logs valid")
-        if (stats.get("fixed", 0), stats.get("quarantined", 0), stats.get("unrecoverable", 0)) == (0, 0, 0):
-            print("✅ No mismatches.")
-        print(json.dumps({"audit_chain_status": audit_chain.status, "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT))}, sort_keys=True))
+        if not args.json:
+            print(f"{percent:.1f}% of logs valid")
+            if (stats.get("fixed", 0), stats.get("quarantined", 0), stats.get("unrecoverable", 0)) == (0, 0, 0):
+                print("✅ No mismatches.")
+            print(json.dumps({"audit_chain_status": audit_chain.status, "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT))}, sort_keys=True))
 
         strict_output = _strict_privileged_status(sink_config) if args.strict else None
         if strict_output is not None:
             baseline_errors = cast(List[str], strict_output["baseline_errors"])
             runtime_errors = cast(List[str], strict_output["runtime_errors"])
-            print(json.dumps({
+            strict_summary = {
                 "baseline_status": strict_output["baseline_status"],
                 "runtime_status": strict_output["runtime_status"],
                 "baseline_path": strict_output["baseline_path"],
@@ -437,9 +446,13 @@ def main(argv: list[str] | None = None) -> int:
                 "runtime_error_kind": strict_output["runtime_error_kind"],
                 "runtime_error_examples": strict_output["runtime_error_examples"],
                 "suggested_fix": strict_output["suggested_fix"],
-            }, sort_keys=True))
+            }
+            if not args.json:
+                print(json.dumps(strict_summary, sort_keys=True))
             all_issues.extend([f"baseline:{issue}" for issue in baseline_errors])
             all_issues.extend([f"runtime:{issue}" for issue in runtime_errors])
+        else:
+            strict_summary = None
 
         status_label = "passed"
         reason = None
@@ -466,12 +479,30 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
         summary = tooling_status.render_result("verify_audits", status=status_label, reason=reason)
-        print(json.dumps(summary, sort_keys=True))
+        if args.json:
+            envelope = {
+                **summary,
+                "exit_code": exit_code,
+                "audit_chain_status": audit_chain.status,
+                "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT)),
+                "paths": {
+                    "baseline_path": str(sink_config.baseline_path),
+                    "runtime_path": str(sink_config.runtime_path),
+                    "mode": sink_config.mode,
+                },
+                "strict": strict_summary,
+                "valid_percent": percent,
+                "stats": stats,
+            }
+            print(json.dumps(envelope, sort_keys=True))
+        else:
+            print(json.dumps(summary, sort_keys=True))
         write_result(ok=exit_code == 0, issues=all_issues, structured_issues=structured_issues, error=None)
         return exit_code
     except Exception as exc:  # pragma: no cover
         write_result(ok=False, issues=all_issues, structured_issues=structured_issues, error=str(exc))
-        print(json.dumps({"tool": "verify_audits", "status": "error", "reason": str(exc)}, sort_keys=True))
+        error_payload = {"tool": "verify_audits", "status": "error", "reason": str(exc), "exit_code": 1}
+        print(json.dumps(error_payload, sort_keys=True))
         return 1
 
 
