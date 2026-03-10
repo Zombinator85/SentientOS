@@ -50,6 +50,58 @@ def test_unified_constitution_verify_and_script_parity(tmp_path: Path) -> None:
     assert rc_script == rc_ops
 
 
+
+
+def test_constitution_latest_supports_json_output(tmp_path: Path, capsys) -> None:
+    _seed_workspace(tmp_path)
+    rc = ops_main(["--repo-root", str(tmp_path), "constitution", "latest", "--json"])
+    assert rc in {0, 1, 2, 3}
+    payload = json.loads(capsys.readouterr().out)
+    assert "constitution_state" in payload
+    assert "constitutional_digest" in payload
+
+
+def test_forge_status_defaults_to_latest_mode(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    called: dict[str, object] = {}
+
+    def _fake(argv):  # type: ignore[no-untyped-def]
+        called["argv"] = list(argv)
+        return 0
+
+    monkeypatch.setattr("scripts.forge_status.main", _fake)
+    rc = ops_main(["--repo-root", str(tmp_path), "forge", "status"])
+    assert rc == 0
+    assert called["argv"] == ["--latest", "--repo-root", str(tmp_path)]
+
+
+def test_audit_verify_strips_passthrough_separator(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    called: dict[str, object] = {}
+
+    def _fake(argv):  # type: ignore[no-untyped-def]
+        called["argv"] = list(argv)
+        return 0
+
+    monkeypatch.setattr("sentientos.audit_tools.verify_audits_main", _fake)
+    rc = ops_main(["--repo-root", str(tmp_path), "audit", "verify", "--json", "--", "--strict"])
+    assert rc == 0
+    assert called["argv"] == ["--json", "--strict", "--repo-root", str(tmp_path)]
+
+
+def test_audit_immutability_uses_repo_root_for_manifest_resolution(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    called: dict[str, object] = {}
+
+    def _fake(argv):  # type: ignore[no-untyped-def]
+        called["argv"] = list(argv)
+        called["cwd"] = str(Path.cwd())
+        return 0
+
+    monkeypatch.setattr("scripts.audit_immutability_verifier.main", _fake)
+    rc = ops_main(["--repo-root", str(tmp_path), "audit", "immutability", "--allow-missing-manifest"])
+    assert rc == 0
+    assert called["cwd"] == str(tmp_path)
+    assert called["argv"] == ["--allow-missing-manifest"]
+
+
 def test_unified_audit_verify_module_surface(tmp_path: Path) -> None:
     log = tmp_path / "log.jsonl"
     ai.append_entry(log, {"x": 1})
@@ -61,3 +113,10 @@ def test_unified_audit_verify_module_surface(tmp_path: Path) -> None:
     payload = json.loads(cp.stdout)
     assert payload["tool"] == "verify_audits"
     assert payload["status"] in {"passed", "failed"}
+
+
+def test_help_surfaces_operator_friendly_flags() -> None:
+    cp = subprocess.run([sys.executable, "-m", "sentientos.ops", "audit", "immutability", "--help"], check=False, capture_output=True, text=True)
+    assert cp.returncode == 0
+    assert "--manifest" in cp.stdout
+    assert "--allow-missing-manifest" in cp.stdout
