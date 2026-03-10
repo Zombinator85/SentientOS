@@ -2,6 +2,7 @@
 # noqa: D100 - all tests share this setup module
 from __future__ import annotations
 import builtins
+import importlib.machinery
 import importlib.util
 import json
 import os
@@ -20,6 +21,16 @@ builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-define
 builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
 
 import pytest
+
+
+def _module_available(name: str) -> bool:
+    loaded = sys.modules.get(name)
+    if loaded is not None:
+        return getattr(loaded, "__spec__", None) is not None
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
 
 
 def _ensure_provisioned_environment() -> None:
@@ -49,20 +60,20 @@ def _ensure_provisioned_environment() -> None:
 
 _ensure_provisioned_environment()
 
-yaml_stub = types.ModuleType("yaml")
+if not _module_available("yaml"):
+    yaml_stub = types.ModuleType("yaml")
 
+    def _safe_yaml(text, *_, **__):
+        if not text:
+            return {}
+        try:
+            return json.loads(text)
+        except Exception:
+            return {}
 
-def _safe_yaml(text, *_, **__):
-    if not text:
-        return {}
-    try:
-        return json.loads(text)
-    except Exception:
-        return {}
-
-
-yaml_stub.safe_load = _safe_yaml
-sys.modules.setdefault("yaml", yaml_stub)
+    yaml_stub.safe_load = _safe_yaml
+    yaml_stub.__spec__ = importlib.machinery.ModuleSpec("yaml", loader=None)
+    sys.modules.setdefault("yaml", yaml_stub)
 
 pdfrw_stub = types.ModuleType("pdfrw")
 pdfrw_stub.PdfDict = dict
@@ -95,14 +106,19 @@ from privilege_lint._env import HAS_NODE, HAS_GO, HAS_DMYPY, NODE, GO, DMYPY
 from nacl.signing import SigningKey
 
 
-sys.modules['requests'] = types.ModuleType('requests')
-sys.modules['requests'].get = lambda *a, **k: None
-sys.modules['requests'].post = lambda *a, **k: None
-sys.modules['requests'].request = lambda *a, **k: None
+if not _module_available("requests"):
+    requests_stub = types.ModuleType('requests')
+    requests_stub.get = lambda *a, **k: None
+    requests_stub.post = lambda *a, **k: None
+    requests_stub.request = lambda *a, **k: None
+    requests_stub.__spec__ = importlib.machinery.ModuleSpec("requests", loader=None)
+    sys.modules.setdefault("requests", requests_stub)
 
 for name in ['pyesprima', 'sarif_om']:
-    if importlib.util.find_spec(name) is None:
-        sys.modules[name] = types.ModuleType(name)
+    if not _module_available(name):
+        stub = types.ModuleType(name)
+        stub.__spec__ = importlib.machinery.ModuleSpec(name, loader=None)
+        sys.modules.setdefault(name, stub)
 
 
 def pytest_configure(config):

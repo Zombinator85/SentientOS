@@ -78,6 +78,11 @@ python -m scripts.run_tests -q
 make ci
 ```
 
+`python -m scripts.run_tests` is the canonical test entrypoint. Direct `pytest`
+invocation is guarded by `tests/conftest.py` and expects the same editable-install
+and dependency contract. If you need to bypass that guard for local diagnosis,
+set `SENTIENTOS_ALLOW_NAKED_PYTEST=1` explicitly.
+
 ## 🧪 Demo Gallery
 
 Run deterministic experiment chains end-to-end without hardware by using the
