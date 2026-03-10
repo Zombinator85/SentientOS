@@ -364,6 +364,24 @@ def _unavailable_metrics_defaults(reason: str) -> tuple[
         None,
     )
 
+
+def _bootstrap_failure_message(pytest_exit_code: int, metrics_status: str, reporter_error: dict[str, str] | None) -> str | None:
+    if pytest_exit_code == 0 or metrics_status == "ok":
+        return None
+    if metrics_status == "unavailable":
+        detail = reporter_error.get("message") if isinstance(reporter_error, dict) else "pytest metrics unavailable"
+        return (
+            "ENVIRONMENT/BOOTSTRAP FAILURE: pytest ended without a complete metrics payload. "
+            f"This usually indicates plugin/bootstrap import failure rather than a test assertion failure ({detail})."
+        )
+    if metrics_status == "partial":
+        detail = reporter_error.get("message") if isinstance(reporter_error, dict) else "pytest metrics partial"
+        return (
+            "ENVIRONMENT/BOOTSTRAP WARNING: pytest metrics payload is partial; failure classification may be incomplete "
+            f"({detail})."
+        )
+    return None
+
 def _write_provenance(
     *,
     repo_root: Path,
@@ -814,6 +832,9 @@ def main(argv: list[str] | None = None) -> int:
         tests_skipped = 0
         tests_xfailed = 0
         tests_xpassed = 0
+    bootstrap_failure_message = _bootstrap_failure_message(pytest_exit_code, metrics_status, reporter_error)
+    if bootstrap_failure_message:
+        print(bootstrap_failure_message)
     budget_thresholds = {
         "min_passed": _int_env(env, MIN_PASSED_ENV, DEFAULT_MIN_PASSED),
         "max_skip_rate": _float_env(env, MAX_SKIP_RATE_ENV, DEFAULT_MAX_SKIP_RATE),
@@ -869,7 +890,10 @@ def main(argv: list[str] | None = None) -> int:
     if pytest_exit_code == 5:
         exit_reason = "no-tests-collected"
     elif pytest_exit_code != 0:
-        exit_reason = "pytest-failed"
+        if metrics_status in {"unavailable", "partial"}:
+            exit_reason = "bootstrap-metrics-failed"
+        else:
+            exit_reason = "pytest-failed"
     if budget_allow_violation:
         run_intent = "exceptional"
         print(

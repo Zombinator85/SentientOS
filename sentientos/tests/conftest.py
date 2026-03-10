@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import builtins
+import importlib.machinery
 import importlib.util
 import json
 import sys
@@ -15,7 +16,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 builtins.require_admin_banner = lambda *a, **k: None  # type: ignore[attr-defined]
 builtins.require_covenant_alignment = lambda *a, **k: None  # type: ignore[attr-defined]
 
-if importlib.util.find_spec("yaml") is None:  # pragma: no cover - optional dependency shim
+
+def _module_available(name: str) -> bool:
+    loaded = sys.modules.get(name)
+    if loaded is not None:
+        return getattr(loaded, "__spec__", None) is not None
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+if not _module_available("yaml"):  # pragma: no cover - optional dependency shim
     yaml_stub = types.ModuleType("yaml")
 
     def _safe_load(text: str | None, *_, **__) -> object:
@@ -27,6 +39,7 @@ if importlib.util.find_spec("yaml") is None:  # pragma: no cover - optional depe
             return {}
 
     yaml_stub.safe_load = _safe_load  # type: ignore[attr-defined]
+    yaml_stub.__spec__ = importlib.machinery.ModuleSpec("yaml", loader=None)
     sys.modules["yaml"] = yaml_stub
 
 # Stub agents modules required during sentientos package import
