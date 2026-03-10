@@ -346,3 +346,73 @@ def test_forge_status_required_artifacts_missing_marked_degraded(tmp_path: Path,
     assert payload["artifact_presence"]["required"]["integrity_status"] == "missing_degraded"
     assert payload["artifact_presence"]["required"]["constitution_summary"] == "missing_degraded"
     assert payload["artifact_presence"]["optional_publication"]["attestation_snapshot"] == "missing_optional"
+
+
+def test_forge_status_constitution_required_list_aligns_with_summary(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "unknown",
+            "missing_required_artifacts": [],
+            "constitutional_refs": {
+                "artifact_paths": {
+                    "immutable_manifest": {"path": "vow/immutable_manifest.json", "present": True, "required": True},
+                    "audit_trust_state": {"path": "glow/runtime/audit_trust_state.json", "present": False, "required": False},
+                    "governor_rollup": {"path": "glow/governor/rollup.json", "present": False, "required": False},
+                }
+            },
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["constitution"]["state"] == "healthy"
+    assert payload["constitution"]["missing_required_artifacts"] == []
+
+
+def test_forge_status_reports_optional_historical_audit_break_non_blocking(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "nominal",
+        },
+    )
+    write_json(
+        tmp_path / "glow/forge/audit_reports/audit_chain_report_2099-01-01T00-00-00Z.json",
+        {
+            "status": "broken",
+            "recovery_state": {
+                "history_state": "broken_preserved",
+                "degraded_audit_trust": True,
+                "checkpoint_id": None,
+                "continuation_descends_from_anchor": None,
+            },
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["audit_trust"]["status"] == "broken"
+    assert payload["audit_continuation"]["historical_break_visible"] is True
+    assert payload["health_domain"]["runtime_data"] == "degraded"
+    assert payload["exit_code"] == 0

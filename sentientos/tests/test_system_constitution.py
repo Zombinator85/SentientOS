@@ -91,8 +91,8 @@ def test_constitution_state_classification(tmp_path: Path) -> None:
 
     (tmp_path / "glow/runtime/audit_trust_state.json").unlink()
     missing_payload = compose_system_constitution(tmp_path)
-    assert missing_payload["constitution_state"] == "missing"
-    assert missing_payload["exit_code"] == 3
+    assert missing_payload["constitution_state"] == "healthy"
+    assert missing_payload["exit_code"] == 0
 
 
 def test_artifact_resolution_stability(tmp_path: Path) -> None:
@@ -116,7 +116,7 @@ def test_cli_exit_codes(tmp_path: Path, monkeypatch: object, capsys: object) -> 
     assert system_constitution.main(["--verify"]) == 2
 
     (tmp_path / "glow/runtime/audit_trust_state.json").unlink()
-    assert system_constitution.main(["--verify"]) == 3
+    assert system_constitution.main(["--verify"]) == 0
 
     out = capsys.readouterr().out  # type: ignore[union-attr]
     assert "verify=" in out
@@ -141,14 +141,12 @@ def test_constitution_transition_log_is_bounded(tmp_path: Path) -> None:
 
 def test_missing_artifacts_are_reported_with_hints(tmp_path: Path) -> None:
     _seed_required(tmp_path)
-    (tmp_path / "glow/runtime/audit_trust_state.json").unlink()
-    (tmp_path / "glow/federation/governance_digest.json").unlink()
+    (tmp_path / "vow/immutable_manifest.json").unlink()
 
     payload = compose_system_constitution(tmp_path)
     assert payload["constitution_state"] == "missing"
-    assert "audit_trust_state" in payload["missing_required_artifacts"]
-    assert "federation_governance_digest" in payload["missing_required_artifacts"]
-    assert any("audit_trust_state missing" in hint for hint in payload["restoration_hints"])
+    assert payload["missing_required_artifacts"] == ["immutable_manifest"]
+    assert any("immutable_manifest missing" in hint for hint in payload["restoration_hints"])
 
 
 
@@ -159,3 +157,24 @@ def test_system_constitution_script_runs_without_pythonpath(tmp_path: Path) -> N
     assert completed.returncode == 0
     assert "verify=healthy" in completed.stdout
 
+
+
+def test_only_immutable_manifest_is_constitution_required(tmp_path: Path) -> None:
+    _seed_required(tmp_path)
+    payload = compose_system_constitution(tmp_path)
+    refs = payload["constitutional_refs"]["artifact_paths"]
+
+    required = sorted(name for name, ref in refs.items() if ref.get("required"))
+    assert required == ["immutable_manifest"]
+
+
+def test_workspace_without_runtime_artifacts_is_healthy_with_manifest(tmp_path: Path) -> None:
+    write_json(tmp_path / "vow/immutable_manifest.json", {"manifest": "ok", "schema_version": 1})
+    (tmp_path / "vow/invariants.yaml").parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "vow/invariants.yaml").write_text("invariants: []\n", encoding="utf-8")
+
+    payload = compose_system_constitution(tmp_path)
+
+    assert payload["constitution_state"] == "healthy"
+    assert payload["missing_required_artifacts"] == []
+    assert payload["exit_code"] == 0
