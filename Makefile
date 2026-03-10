@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci rehearse audit perf
+.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
@@ -111,6 +111,18 @@ federation-drift:
 	$(PYTHON) -m scripts.detect_federation_identity_drift
 	$(PYTHON) -c "import json;from pathlib import Path;p=Path('glow/federation/federation_identity_drift_report.json');r=json.loads(p.read_text(encoding='utf-8'));print(f'drift_type={r.get(\"drift_type\", \"unknown\")}');print(f'drift_explanation={r.get(\"drift_explanation\") or r.get(\"explanation\", \"\")}')"
 
+
+node-bootstrap:
+	$(PYTHON) scripts/node_bootstrap.py --seed-minimal --json
+
+node-health:
+	$(PYTHON) scripts/node_health.py --json
+
+node-restore:
+	$(PYTHON) scripts/node_bootstrap.py --seed-minimal --json --reason operator_node_restore
+
+incident-bundle:
+	$(PYTHON) scripts/incident_bundle.py --json
 
 verify-audits-strict:
 	$(PYTHON) scripts/verify_audits.py --strict
