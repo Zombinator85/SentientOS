@@ -70,6 +70,12 @@ def _resolve_witness_status(root: Path) -> ResolvedArtifact:
     return _resolve_catalog_then_disk(root, kind="witness_publish", disk_glob="glow/federation/anchor_witness_status.json")
 
 
+def _artifact_presence_state(*, required: bool, present: bool) -> str:
+    if present:
+        return "present"
+    return "missing_degraded" if required else "missing_optional"
+
+
 def _resolve_replay(root: Path) -> ResolvedArtifact:
     return _resolve_catalog_then_disk(root, kind="operator_replay", disk_glob="glow/forge/replay/replay_*.json")
 
@@ -221,6 +227,18 @@ def build_status_payload(root: Path) -> dict[str, object]:
     pressure = integrity.payload.get("pressure_summary") if isinstance(integrity.payload.get("pressure_summary"), dict) else {}
     governor_runtime = governor.payload.get("runtime_posture_summary") if isinstance(governor.payload.get("runtime_posture_summary"), dict) else {}
 
+    artifact_presence = {
+        "required": {
+            "integrity_status": _artifact_presence_state(required=True, present=bool(integrity.payload)),
+            "constitution_summary": _artifact_presence_state(required=True, present=bool(constitution_summary.payload)),
+        },
+        "optional_publication": {
+            "attestation_snapshot": _artifact_presence_state(required=False, present=bool(snapshot.payload)),
+            "witness_status": _artifact_presence_state(required=False, present=bool(witness.payload)),
+            "attestation_signature_index": _artifact_presence_state(required=False, present=sig_tip.get("status") == "present"),
+        },
+    }
+
     payload: dict[str, Any] = {
         "schema_version": 1,
         "ts": str(integrity.payload.get("ts") or snapshot.payload.get("ts") or ""),
@@ -282,7 +300,7 @@ def build_status_payload(root: Path) -> dict[str, object]:
         "health_domain": {
             "repository_artifacts": (
                 "healthy"
-                if (constitution_summary.payload and constitution_summary.payload.get("constitution_state") == "healthy")
+                if (constitution_summary.payload and constitution_summary.payload.get("constitution_state") == "healthy" and bool(integrity.payload))
                 else "missing_or_degraded"
             ),
             "runtime_data": (
@@ -296,6 +314,7 @@ def build_status_payload(root: Path) -> dict[str, object]:
                 else "healthy"
             ),
         },
+        "artifact_presence": artifact_presence,
         "exit_code": 0,
     }
     normalized, _warnings = normalize(payload, SchemaName.FORGE_STATUS_REPORT)

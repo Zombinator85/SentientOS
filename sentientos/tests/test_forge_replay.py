@@ -81,3 +81,17 @@ def test_replay_uses_catalog_resolution_when_present(tmp_path: Path, monkeypatch
     replay_artifacts = sorted((tmp_path / "glow/forge/replay").glob("replay_*.json"), key=lambda item: item.name)
     payload = json.loads(replay_artifacts[-1].read_text(encoding="utf-8"))
     assert payload["resolution"]["integrity_status"]["resolution_source"] == "catalog"
+
+
+def test_replay_persists_integrity_status_for_steady_state(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    _seed_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+
+    forge_replay.main(["--verify", "--last-n", "5", "--emit-snapshot", "0"])
+
+    integrity_artifacts = sorted((tmp_path / "glow/forge/integrity").glob("status_*.json"), key=lambda item: item.name)
+    assert integrity_artifacts
+    replay_artifacts = sorted((tmp_path / "glow/forge/replay").glob("replay_*.json"), key=lambda item: item.name)
+    payload = json.loads(replay_artifacts[-1].read_text(encoding="utf-8"))
+    assert payload["provenance"]["integrity_status"]["path"] == str(integrity_artifacts[-1].relative_to(tmp_path))
+    assert payload["provenance"]["integrity_status"]["present"] is True
