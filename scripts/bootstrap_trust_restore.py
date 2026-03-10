@@ -292,20 +292,10 @@ def run_bootstrap(repo_root: Path, *, reason: str, create_checkpoint: bool) -> d
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Deterministic bootstrap + trust restoration for missing constitutional artifacts")
-    parser.add_argument("--reason", default="operator_bootstrap_restore", help="operator reason recorded in re-anchor checkpoint")
-    parser.add_argument("--no-checkpoint", action="store_true", help="skip explicit audit-chain checkpoint creation")
-    parser.add_argument("--json", action="store_true", help="print canonical JSON output")
-    args = parser.parse_args(argv)
+    from sentientos.ops import main as ops_main
 
-    root = Path.cwd().resolve()
-    payload = run_bootstrap(root, reason=str(args.reason), create_checkpoint=not args.no_checkpoint)
-    if args.json:
-        print(json.dumps(payload, sort_keys=True))
-    else:
-        print(f"restore_report={payload.get('report_path')} constitution_state={payload.get('constitution', {}).get('state')}")
-    still_missing = payload.get("still_missing_artifacts")
-    return 1 if isinstance(still_missing, list) and still_missing else 0
+    forwarded = ["node", "restore", *(argv or [])]
+    return int(ops_main(forwarded, prog="bootstrap_trust_restore"))
 
 
 if __name__ == "__main__":

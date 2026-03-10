@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import audit_immutability as ai
+
+from scripts import node_bootstrap, system_constitution
+from sentientos.ops import main as ops_main
+
+
+def _seed_workspace(root: Path) -> None:
+    (root / "vow").mkdir(parents=True, exist_ok=True)
+    (root / "vow/immutable_manifest.json").write_text('{"schema_version":1,"files":{}}\n', encoding="utf-8")
+    (root / "vow/invariants.yaml").write_text("version: 1\n", encoding="utf-8")
+
+
+def test_unified_help_lists_domains() -> None:
+    cp = subprocess.run([sys.executable, "-m", "sentientos.ops", "--help"], check=False, capture_output=True, text=True)
+    assert cp.returncode == 0
+    assert "node" in cp.stdout
+    assert "constitution" in cp.stdout
+    assert "forge" in cp.stdout
+    assert "incident" in cp.stdout
+    assert "audit" in cp.stdout
+
+
+def test_node_bootstrap_shim_routes_to_ops(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    called: dict[str, object] = {}
+
+    def _fake(argv, *, prog):  # type: ignore[no-untyped-def]
+        called["argv"] = list(argv)
+        called["prog"] = prog
+        return 0
+
+    monkeypatch.setattr("scripts.node_bootstrap.ops_main", _fake)
+    assert node_bootstrap.main(["--json"]) == 0
+    assert called["argv"] == ["node", "bootstrap", "--json"]
+    assert called["prog"] == "node_bootstrap"
+
+
+def test_unified_constitution_verify_and_script_parity(tmp_path: Path) -> None:
+    _seed_workspace(tmp_path)
+    rc_ops = ops_main(["--repo-root", str(tmp_path), "constitution", "verify"])
+    rc_script = system_constitution.main(["--repo-root", str(tmp_path), "--verify"])
+    assert rc_ops == 0
+    assert rc_script == rc_ops
+
+
+def test_unified_audit_verify_module_surface(tmp_path: Path) -> None:
+    log = tmp_path / "log.jsonl"
+    ai.append_entry(log, {"x": 1})
+    env = os.environ.copy()
+    env["LUMOS_AUTO_APPROVE"] = "1"
+    env["PYTHONPATH"] = "."
+    cp = subprocess.run([sys.executable, "-m", "sentientos.audit", "verify", str(tmp_path), "--json"], env=env, check=False, capture_output=True, text=True)
+    assert cp.returncode == 0
+    payload = json.loads(cp.stdout)
+    assert payload["tool"] == "verify_audits"
+    assert payload["status"] in {"passed", "failed"}
