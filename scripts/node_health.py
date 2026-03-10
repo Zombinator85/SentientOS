@@ -1,32 +1,33 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 
-import sys
+try:
+    from scripts.cli_common import emit_payload, ensure_repo_on_path, exit_code, resolve_repo_root
+except ModuleNotFoundError:  # script execution fallback
+    from cli_common import emit_payload, ensure_repo_on_path, exit_code, resolve_repo_root
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+ensure_repo_on_path(__file__)
 
-from sentientos.attestation import canonical_json_bytes
 from sentientos.node_operations import node_health
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Unified local node health surface")
+    parser.add_argument("--repo-root", help="repository root (defaults to current working directory)")
     parser.add_argument("--json", action="store_true", help="print canonical JSON health report")
     args = parser.parse_args(argv)
 
-    payload = node_health(Path.cwd().resolve())
-    if args.json:
-        print(canonical_json_bytes(payload).decode("utf-8"), end="")
-    else:
-        print(
-            f"health_state={payload.get('health_state')} constitution_state={payload.get('constitution_state')} "
-            f"integrity={payload.get('integrity_overall')}"
-        )
-    return int(payload.get("exit_code", 3))
+    payload = node_health(resolve_repo_root(args.repo_root))
+    emit_payload(
+        payload,
+        as_json=bool(args.json),
+        text_renderer=lambda row: (
+            f"health_state={row.get('health_state')} constitution_state={row.get('constitution_state')} "
+            f"integrity={row.get('integrity_overall')}"
+        ),
+    )
+    return exit_code(payload)
 
 
 if __name__ == "__main__":

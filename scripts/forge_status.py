@@ -20,6 +20,10 @@ from sentientos.consistency_checks import compare_tick_vs_replay
 from sentientos.operator_report_attestation import maybe_sign_operator_report, operator_signing_status, verify_recent_operator_reports
 from sentientos.schema_registry import SchemaName, normalize
 from sentientos.system_constitution import CONSTITUTION_SUMMARY_REL
+try:
+    from scripts.cli_common import resolve_repo_root
+except ModuleNotFoundError:  # script execution fallback
+    from cli_common import resolve_repo_root
 
 
 @dataclass(frozen=True)
@@ -343,6 +347,7 @@ def _exit_code(payload: dict[str, object]) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Forge integrity status summary")
+    parser.add_argument("--repo-root", help="repository root (defaults to current working directory)")
     parser.add_argument("--latest", action="store_true", help="print human summary")
     parser.add_argument("--json", action="store_true", help="print canonical JSON summary")
     args = parser.parse_args(argv)
@@ -351,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("choose --latest or --json")
         return 2
 
-    root = Path.cwd().resolve()
+    root = resolve_repo_root(args.repo_root)
     payload = build_status_payload(root)
     payload["exit_code"] = _exit_code(payload)
 
@@ -386,10 +391,17 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(canonical_json_bytes(payload).decode("utf-8"), end="")
     else:
+        artifact_presence = payload.get("artifact_presence") if isinstance(payload.get("artifact_presence"), dict) else {}
+        required = artifact_presence.get("required") if isinstance(artifact_presence.get("required"), dict) else {}
+        optional = artifact_presence.get("optional_publication") if isinstance(artifact_presence.get("optional_publication"), dict) else {}
+        required_missing = sorted(str(k) for k, v in required.items() if v != "present")
+        optional_missing = sorted(str(k) for k, v in optional.items() if v != "present")
         print(
             f"integrity={payload.get('integrity_overall')} reason={payload.get('primary_reason')} "
             f"mutation={payload.get('mutation_allowed')} publish={payload.get('publish_allowed')} automerge={payload.get('automerge_allowed')}"
         )
+        print(f"required_missing={required_missing if required_missing else 'none'}")
+        print(f"optional_missing={optional_missing if optional_missing else 'none'}")
         print(f"budget exhausted={payload.get('budget_exhausted')} remaining={payload.get('budget_remaining')}")
         print(f"policy_hash={payload.get('policy_hash')} integrity_status_hash={payload.get('integrity_status_hash')}")
         print(f"provenance={payload.get('provenance')}")
