@@ -146,6 +146,30 @@ def _overall_from_integrity(integrity_status: str) -> str:
     return "missing"
 
 
+def _persist_integrity_status(root: Path, integrity_payload: dict[str, object]) -> str:
+    ts = str(integrity_payload.get("ts") or iso_now())
+    rel = Path("glow/forge/integrity") / f"status_{ts.replace(':', '-').replace('.', '-')}.json"
+    write_json(root / rel, integrity_payload)
+    artifact_catalog.append_catalog_entry(
+        root,
+        kind="integrity_status",
+        artifact_id=ts,
+        relative_path=str(rel),
+        schema_name="integrity_status",
+        schema_version=int(integrity_payload.get("schema_version") or 1),
+        links={
+            "policy_hash": integrity_payload.get("policy_hash"),
+            "integrity_status_hash": sha256(canonical_json_bytes(integrity_payload)).hexdigest(),
+        },
+        summary={
+            "status": integrity_payload.get("status"),
+            "primary_reason": integrity_payload.get("primary_reason"),
+        },
+        ts=ts,
+    )
+    return str(rel)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Replay deterministic Forge integrity verification")
     parser.add_argument("--verify", action="store_true")
@@ -169,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
 
     with _temp_env("SENTIENTOS_INTEGRITY_MAX_VERIFY_LAST_N", str(max(1, args.last_n))):
         integrity = evaluate_integrity(root, policy_hash=policy_hash, replay_mode=True)
+    integrity_rel = _persist_integrity_status(root, integrity.to_dict())
 
     verify_results = _budgeted_verify(root, last_n=max(1, args.last_n)) if args.verify else {}
     snapshot_emit = _maybe_emit_snapshot(root, emit_requested=args.emit_snapshot == 1, integrity_payload=integrity.to_dict(), policy_hash=policy_hash)
@@ -203,7 +228,11 @@ def main(argv: list[str] | None = None) -> int:
             "catalog_rebuild": {"status": catalog_status.get("status"), "reason": catalog_status.get("reason")},
             "resolution": provenance,
             "provenance": {
-                "integrity_status": provenance.get("integrity_status"),
+                "integrity_status": {
+                    "path": integrity_rel,
+                    "resolution_source": "disk",
+                    "present": True,
+                },
                 "snapshot": {"path": snapshot_emit.get("path"), "resolution_source": "disk" if snapshot_emit.get("path") else "none"},
                 "catalog_report_path": catalog_status.get("report_path"),
             },

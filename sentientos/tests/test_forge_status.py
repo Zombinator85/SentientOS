@@ -306,3 +306,43 @@ def test_forge_status_uses_runtime_audit_trust_when_report_missing(tmp_path: Pat
     assert payload["audit_trust"]["status"] == "reanchored"
     assert payload["audit_continuation"]["continuation_state"] == "healthy_continuation"
     assert payload["health_domain"]["runtime_data"] == "healthy"
+
+
+def test_forge_status_classifies_optional_publication_artifacts(tmp_path: Path, capsys) -> None:
+    integrity_payload = _seed_integrity(tmp_path)
+    write_json(tmp_path / "glow/forge/integrity/status_2099-01-01T00-00-00Z.json", integrity_payload)
+    write_json(
+        tmp_path / "glow/constitution/constitution_summary.json",
+        {
+            "constitution_state": "healthy",
+            "constitutional_digest": "digest-const",
+            "effective_posture": "nominal",
+        },
+    )
+
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["artifact_presence"]["required"]["integrity_status"] == "present"
+    assert payload["artifact_presence"]["required"]["constitution_summary"] == "present"
+    assert payload["artifact_presence"]["optional_publication"]["attestation_snapshot"] == "missing_optional"
+    assert payload["artifact_presence"]["optional_publication"]["witness_status"] == "missing_optional"
+
+
+def test_forge_status_required_artifacts_missing_marked_degraded(tmp_path: Path, capsys) -> None:
+    old = Path.cwd()
+    try:
+        os.chdir(tmp_path)
+        forge_status.main(["--json"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        os.chdir(old)
+
+    assert payload["artifact_presence"]["required"]["integrity_status"] == "missing_degraded"
+    assert payload["artifact_presence"]["required"]["constitution_summary"] == "missing_degraded"
+    assert payload["artifact_presence"]["optional_publication"]["attestation_snapshot"] == "missing_optional"
