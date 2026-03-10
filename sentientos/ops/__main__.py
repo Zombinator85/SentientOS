@@ -33,6 +33,10 @@ def _with_repo_flag(argv: list[str], repo_root: Path | None) -> list[str]:
     return argv + ["--repo-root", str(repo_root)]
 
 
+def _normalize_passthrough(values: list[str]) -> list[str]:
+    return [value for value in values if value != "--"]
+
+
 def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog=prog, description="Unified SentientOS operations command surface")
     parser.add_argument("--repo-root", help="repository root (defaults to current working directory)")
@@ -58,9 +62,10 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
 
     constitution = domains.add_parser("constitution", help="system constitution operations")
     constitution_sub = constitution.add_subparsers(dest="action", required=True)
-    constitution_sub.add_parser("latest", help="read latest constitution summary")
+    constitution_latest = constitution_sub.add_parser("latest", help="read latest constitution summary")
+    constitution_latest.add_argument("--json", action="store_true", help="render canonical JSON payload")
     constitution_json = constitution_sub.add_parser("json", help="compose and write constitution artifacts")
-    constitution_json.add_argument("--json", action="store_true")
+    constitution_json.add_argument("--json", action="store_true", help="render canonical JSON payload")
     constitution_sub.add_parser("verify", help="verify constitution state and return constitutional exit code")
 
     forge = domains.add_parser("forge", help="forge integrity operations")
@@ -83,8 +88,11 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     audit = domains.add_parser("audit", help="audit verification operations")
     audit_sub = audit.add_subparsers(dest="action", required=True)
     audit_verify = audit_sub.add_parser("verify", help="verify audit ledgers")
+    audit_verify.add_argument("--json", action="store_true", help="render canonical JSON payload")
     audit_verify.add_argument("args", nargs=argparse.REMAINDER)
     audit_immutability = audit_sub.add_parser("immutability", help="verify immutable manifest file hashes")
+    audit_immutability.add_argument("--manifest", help="override immutable manifest path")
+    audit_immutability.add_argument("--allow-missing-manifest", action="store_true")
     audit_immutability.add_argument("args", nargs=argparse.REMAINDER)
 
     return parser
@@ -122,13 +130,16 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
 
     if args.domain == "constitution" and args.action == "latest":
         payload = _latest_constitution(repo_root)
+        if bool(args.json):
+            emit_payload(payload, as_json=True, text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
+            return exit_code(payload, default=0)
         print(f"constitution_state={payload.get('constitution_state')} identity={payload.get('constitution_identity')}")
         return 0
 
     if args.domain == "constitution" and args.action == "json":
         payload = compose_system_constitution(repo_root)
-        write_constitution_artifacts(repo_root, payload)
-        emit_payload(payload, as_json=True, text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
+        write_constitution_artifacts(repo_root, payload=payload)
+        emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
         return exit_code(payload)
 
     if args.domain == "constitution" and args.action == "verify":
@@ -145,6 +156,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         from scripts.forge_status import main as forge_status_main
 
         forwarded: list[str] = []
+        if not args.latest and not args.json:
+            forwarded.append("--latest")
         if args.latest:
             forwarded.append("--latest")
         if args.json:
@@ -166,13 +179,27 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
     if args.domain == "audit" and args.action == "verify":
         from sentientos.audit_tools import verify_audits_main
 
-        forwarded = [*list(args.args or []), *unknown]
+        forwarded = []
+        if bool(args.json):
+            forwarded.append("--json")
+        forwarded.extend(_normalize_passthrough([*list(args.args or []), *unknown]))
         return int(verify_audits_main(_with_repo_flag(forwarded, repo_root)))
 
     if args.domain == "audit" and args.action == "immutability":
         from scripts.audit_immutability_verifier import main as immutability_main
 
-        return int(immutability_main([*list(args.args or []), *unknown]))
+        forwarded = []
+        if args.manifest:
+            forwarded.extend(["--manifest", str(args.manifest)])
+        if bool(args.allow_missing_manifest):
+            forwarded.append("--allow-missing-manifest")
+        forwarded.extend(_normalize_passthrough([*list(args.args or []), *unknown]))
+        previous = Path.cwd()
+        os.chdir(repo_root)
+        try:
+            return int(immutability_main(forwarded))
+        finally:
+            os.chdir(previous)
 
     return 2
 
