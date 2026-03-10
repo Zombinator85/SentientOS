@@ -11,6 +11,8 @@ make node-bootstrap
 Equivalent CLI:
 
 ```bash
+python -m sentientos.ops node bootstrap --seed-minimal --json
+# compatibility shim
 python scripts/node_bootstrap.py --seed-minimal --json
 ```
 
@@ -41,7 +43,7 @@ Bootstrap and health commands generate bounded deterministic artifacts under `gl
 ```bash
 make node-health
 # or
-python scripts/node_health.py --json
+python -m sentientos.ops node health --json
 ```
 
 ### Restore degraded/restricted posture
@@ -55,9 +57,9 @@ python scripts/node_bootstrap.py --seed-minimal --reason operator_node_restore -
 ### Constitution and forge surfaces
 
 ```bash
-python scripts/system_constitution.py --json
-python scripts/forge_status.py --json
-python scripts/forge_replay.py --verify
+python -m sentientos.ops constitution json
+python -m sentientos.ops forge status --json
+python -m sentientos.ops forge replay --verify
 ```
 
 ## Exit codes
