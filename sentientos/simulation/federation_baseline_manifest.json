@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "suite": "sentientos_federation_baseline",
+  "deterministic_seed": 7,
+  "deterministic_seed_policy": "All baseline scenarios use explicit per-scenario seeds. If omitted, deterministic_seed is used.",
+  "scenarios": [
+    {
+      "name": "healthy_3node",
+      "seed": 7,
+      "release_gating": true,
+      "expected_oracle": {
+        "quorum_admit": true,
+        "restricted_nodes": 0
+      },
+      "artifact_expectations": {
+        "required_run_artifacts": [
+          "scenario_report.json",
+          "bundle_manifest.json",
+          "event_injection_log.jsonl"
+        ],
+        "required_node_artifact": "glow/simulation/status_snapshot.json"
+      }
+    },
+    {
+      "name": "quorum_failure",
+      "seed": 11,
+      "release_gating": true,
+      "expected_oracle": {
+        "quorum_admit": false
+      },
+      "artifact_expectations": {
+        "required_run_artifacts": [
+          "scenario_report.json",
+          "bundle_manifest.json",
+          "event_injection_log.jsonl"
+        ],
+        "required_node_artifact": "glow/simulation/status_snapshot.json"
+      }
+    },
+    {
+      "name": "replay_storm",
+      "seed": 5,
+      "release_gating": true,
+      "expected_oracle": {
+        "quorum_admit": true,
+        "duplicate_events": 12
+      },
+      "artifact_expectations": {
+        "required_run_artifacts": [
+          "scenario_report.json",
+          "bundle_manifest.json",
+          "event_injection_log.jsonl"
+        ],
+        "required_node_artifact": "glow/simulation/status_snapshot.json"
+      }
+    },
+    {
+      "name": "reanchor_continuation",
+      "seed": 13,
+      "release_gating": true,
+      "expected_oracle": {
+        "quorum_admit": true,
+        "continuation_recognized": true
+      },
+      "artifact_expectations": {
+        "required_run_artifacts": [
+          "scenario_report.json",
+          "bundle_manifest.json",
+          "event_injection_log.jsonl"
+        ],
+        "required_node_artifact": "glow/simulation/status_snapshot.json"
+      }
+    },
+    {
+      "name": "pressure_local_safety",
+      "seed": 17,
+      "release_gating": true,
+      "expected_oracle": {
+        "quorum_admit": false,
+        "local_safety_active": true
+      },
+      "artifact_expectations": {
+        "required_run_artifacts": [
+          "scenario_report.json",
+          "bundle_manifest.json",
+          "event_injection_log.jsonl"
+        ],
+        "required_node_artifact": "glow/simulation/status_snapshot.json"
+      }
+    }
+  ]
+}

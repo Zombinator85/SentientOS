@@ -134,6 +134,7 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     simulate_federation.add_argument("--nodes", type=int)
     simulate_federation.add_argument("--emit-bundle", action="store_true")
     simulate_federation.add_argument("--list-scenarios", action="store_true")
+    simulate_federation.add_argument("--baseline", action="store_true")
     simulate_federation.add_argument("--json", action="store_true")
 
     return parser
@@ -253,7 +254,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             os.chdir(previous)
 
     if args.domain == "simulate" and args.action == "federation":
-        from sentientos.simulation import list_federation_scenarios, run_federation_simulation
+        from sentientos.simulation import list_federation_scenarios, run_federation_baseline_suite, run_federation_simulation
 
         if bool(args.list_scenarios):
             payload = {
@@ -265,22 +266,25 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             payload = _decorate_payload(payload, domain=args.domain, action=args.action)
             emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(row.get('scenarios', []))}")
             return 0
-        payload = run_federation_simulation(
-            repo_root,
-            scenario_name=str(args.scenario),
-            seed=int(args.seed),
-            node_count=int(args.nodes) if args.nodes is not None else None,
-            emit_bundle=bool(args.emit_bundle),
-        )
+        if bool(args.baseline):
+            payload = run_federation_baseline_suite(repo_root, emit_bundle=True)
+        else:
+            payload = run_federation_simulation(
+                repo_root,
+                scenario_name=str(args.scenario),
+                seed=int(args.seed),
+                node_count=int(args.nodes) if args.nodes is not None else None,
+                emit_bundle=bool(args.emit_bundle),
+            )
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(
             payload,
             as_json=bool(args.json),
             text_renderer=lambda row: (
-                f"scenario={row.get('scenario')} "
+                f"scenario={row.get('scenario') or row.get('suite')} "
                 f"status={row.get('status')} "
                 f"quorum_admit={((row.get('quorum') if isinstance(row.get('quorum'), dict) else {}).get('admit'))} "
-                f"report_path={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('report_path'))}"
+                f"report_path={row.get('report_path') or ((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('report_path'))}"
             ),
         )
         return exit_code(payload)

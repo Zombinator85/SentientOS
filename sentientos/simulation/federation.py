@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import shutil
 from pathlib import Path
 from typing import Any
 
-from sentientos.attestation import append_jsonl, iso_now, read_json, write_json
+from sentientos.attestation import append_jsonl, read_json, write_json
 from sentientos.node_operations import build_incident_bundle, node_health, run_bootstrap
 
+
+BASELINE_MANIFEST_PATH = Path(__file__).with_name("federation_baseline_manifest.json")
 
 SCENARIOS: dict[str, dict[str, Any]] = {
     "healthy_3node": {
@@ -67,6 +68,11 @@ SCENARIOS: dict[str, dict[str, Any]] = {
         ],
     },
 }
+
+
+def load_federation_baseline_manifest() -> dict[str, Any]:
+    payload = read_json(BASELINE_MANIFEST_PATH)
+    return payload if payload else {}
 
 
 def list_federation_scenarios() -> list[dict[str, object]]:
@@ -231,6 +237,8 @@ def run_federation_simulation(
     }
 
     injection_log = run_root / "event_injection_log.jsonl"
+    injection_log.parent.mkdir(parents=True, exist_ok=True)
+    injection_log.write_text("", encoding="utf-8")
     for record in injections:
         append_jsonl(injection_log, record)
 
@@ -247,7 +255,7 @@ def run_federation_simulation(
         "description": scenario.get("description"),
         "seed": seed,
         "node_count": resolved_nodes,
-        "created_at": iso_now(),
+        "created_at": f"seed:{seed}",
         "node_ids": node_ids,
         "bootstrap": bootstrap,
         "statuses": statuses,
@@ -290,3 +298,105 @@ def run_federation_simulation(
     report["exit_code"] = 0 if report["ok"] else 1
     write_json(report_path, report)
     return report
+
+
+def _artifact_expectations_met(run_root: Path, *, node_count: int, expectations: dict[str, Any]) -> tuple[bool, list[str]]:
+    missing: list[str] = []
+    for rel in expectations.get("required_run_artifacts", []):
+        if not (run_root / str(rel)).is_file():
+            missing.append(str(rel))
+    node_rel = str(expectations.get("required_node_artifact") or "")
+    if node_rel:
+        for idx in range(1, node_count + 1):
+            node_id = f"node-{idx:02d}"
+            if not (run_root / "nodes" / node_id / node_rel).is_file():
+                missing.append(f"nodes/{node_id}/{node_rel}")
+    return (len(missing) == 0, missing)
+
+
+def run_federation_baseline_suite(repo_root: Path, *, emit_bundle: bool = True) -> dict[str, object]:
+    root = repo_root.resolve()
+    manifest = load_federation_baseline_manifest()
+    scenarios = manifest.get("scenarios") if isinstance(manifest.get("scenarios"), list) else []
+    deterministic_seed = int(manifest.get("deterministic_seed") or 7)
+
+    suite_rows: list[dict[str, object]] = []
+    gating_failures: list[str] = []
+
+    for row in scenarios:
+        if not isinstance(row, dict):
+            continue
+        scenario_name = str(row.get("name") or "")
+        release_gating = bool(row.get("release_gating"))
+        scenario_seed = int(row.get("seed") or deterministic_seed)
+        expected_oracle = row.get("expected_oracle") if isinstance(row.get("expected_oracle"), dict) else {}
+        artifact_expectations = row.get("artifact_expectations") if isinstance(row.get("artifact_expectations"), dict) else {}
+
+        result = run_federation_simulation(root, scenario_name=scenario_name, seed=scenario_seed, emit_bundle=emit_bundle)
+        run_rel = str((result.get("artifact_paths") if isinstance(result.get("artifact_paths"), dict) else {}).get("run_root") or "")
+        run_root = root / run_rel if run_rel else root / "glow/simulation"
+        artifact_ok, missing = _artifact_expectations_met(
+            run_root,
+            node_count=int(result.get("node_count") or 0),
+            expectations=artifact_expectations,
+        )
+
+        observed_oracle = (result.get("oracle") if isinstance(result.get("oracle"), dict) else {}).get("observed")
+        observed_oracle = observed_oracle if isinstance(observed_oracle, dict) else {}
+        oracle_expected_matches = {key: observed_oracle.get(key) == expected_oracle.get(key) for key in expected_oracle}
+        oracle_expected_ok = all(oracle_expected_matches.values())
+        scenario_ok = bool(result.get("ok")) and artifact_ok and oracle_expected_ok
+
+        incident_bundles = result.get("incident_bundles") if isinstance(result.get("incident_bundles"), list) else []
+        incident_bundle_for_failure: dict[str, object] | None = None
+        if not scenario_ok and not incident_bundles:
+            incident_bundle_for_failure = build_incident_bundle(
+                run_root / "nodes" / "node-01",
+                reason=f"simulation_baseline_gate_{scenario_name}",
+                window=25,
+            )
+
+        if release_gating and not scenario_ok:
+            gating_failures.append(scenario_name)
+
+        suite_rows.append(
+            {
+                "scenario": scenario_name,
+                "seed": scenario_seed,
+                "release_gating": release_gating,
+                "status": "passed" if scenario_ok else "failed",
+                "oracle_passed": bool(result.get("ok")),
+                "oracle_expected_matches": oracle_expected_matches,
+                "artifact_expectations_passed": artifact_ok,
+                "missing_artifacts": missing,
+                "artifact_paths": result.get("artifact_paths"),
+                "incident_bundle_for_failure": incident_bundle_for_failure,
+            }
+        )
+
+    baseline_report = {
+        "schema_version": 1,
+        "suite": str(manifest.get("suite") or "federation_baseline"),
+        "deterministic_seed": deterministic_seed,
+        "manifest_path": "sentientos/simulation/federation_baseline_manifest.json",
+        "scenarios": suite_rows,
+        "gating_failures": gating_failures,
+        "status": "passed" if not gating_failures else "failed",
+        "ok": not gating_failures,
+        "exit_code": 0 if not gating_failures else 1,
+    }
+
+    report_path = root / "glow/simulation/baseline_report.json"
+    write_json(report_path, baseline_report)
+    baseline_report["report_path"] = str(report_path.relative_to(root))
+    return baseline_report
+
+
+__all__ = [
+    "BASELINE_MANIFEST_PATH",
+    "SCENARIOS",
+    "list_federation_scenarios",
+    "load_federation_baseline_manifest",
+    "run_federation_baseline_suite",
+    "run_federation_simulation",
+]

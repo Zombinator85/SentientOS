@@ -125,7 +125,7 @@ incident-bundle:
 	$(PYTHON) scripts/incident_bundle.py --json
 
 simulate-federation:
-	$(PYTHON) scripts/simulate_federation.py --scenario healthy_3node --json
+	$(PYTHON) scripts/simulate_federation.py --baseline --json
 
 verify-audits-strict:
 	$(PYTHON) scripts/verify_audits.py --strict
