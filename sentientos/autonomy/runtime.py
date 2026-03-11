@@ -10,11 +10,10 @@ from collections import deque
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from enum import Enum
-import json
 import os
 from pathlib import Path
 from threading import BoundedSemaphore, Lock
-from typing import Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence
+from typing import Any, Callable, Dict, List, Mapping, MutableMapping, Optional, Sequence, cast
 
 from curiosity_goal_helper import CuriosityConfig as HelperCuriosityConfig
 from curiosity_goal_helper import CuriosityGoalHelper, configure_global_helper
@@ -47,6 +46,17 @@ from .state import ContinuitySnapshot, ContinuityStateManager, MoodStateManager
 from .conversation_triggers import ConversationTriggers
 
 LOGGER = logging.getLogger(__name__)
+
+RuntimePayload = Dict[str, object]
+
+
+def _coerce_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, (int, float, str, bytes, bytearray)):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
 
 
 def _utcnow() -> datetime:
@@ -134,8 +144,8 @@ class MemoryCurator:
         self._config = config
         self._metrics = metrics
         self._lock = Lock()
-        self._sessions: MutableMapping[str, List[dict]] = {}
-        self._capsules: MutableMapping[str, List[dict]] = {}
+        self._sessions: MutableMapping[str, List[RuntimePayload]] = {}
+        self._capsules: MutableMapping[str, List[RuntimePayload]] = {}
         self._privacy = privacy
         self._importance_floor = float(config.forgetting_curve.min_keep_score)
         self._target_capsules = max(1, int(config.target_capsules))
@@ -159,7 +169,7 @@ class MemoryCurator:
             )
         )
 
-    def rollup_session(self, session_id: str, corr_id: str) -> Optional[dict]:
+    def rollup_session(self, session_id: str, corr_id: str) -> Optional[RuntimePayload]:
         if not self._config.enable:
             return None
         with self._lock:
@@ -195,11 +205,11 @@ class MemoryCurator:
         with self._lock:
             return sum(len(turns) for turns in self._sessions.values())
 
-    def _build_capsule(self, turns: Sequence[Mapping[str, object]]) -> dict:
-        importance = sum(float(turn.get("importance", 0.0)) for turn in turns)
-        importance = min(importance, float(self._config.max_capsule_len))
+    def _build_capsule(self, turns: Sequence[Mapping[str, object]]) -> RuntimePayload:
+        total_importance = sum(_coerce_float(turn.get("importance", 0.0)) for turn in turns)
+        importance = min(total_importance, float(self._config.max_capsule_len))
         summary_texts = [str(turn.get("text", "")) for turn in turns]
-        summary = {
+        summary: RuntimePayload = {
             "text": " \n".join(summary_texts)[: self._config.max_capsule_len],
             "importance": importance,
             "turn_count": len(turns),
@@ -207,14 +217,14 @@ class MemoryCurator:
         }
         return summary
 
-    def _apply_forgetting(self, turns: Sequence[Mapping[str, object]]) -> List[dict]:
+    def _apply_forgetting(self, turns: Sequence[Mapping[str, object]]) -> List[RuntimePayload]:
         horizon = self._config.forgetting_curve.half_life_days
         keep_score = self._importance_floor
         now = time.monotonic()
-        retained: List[dict] = []
+        retained: List[RuntimePayload] = []
         for turn in turns:
-            importance = float(turn.get("importance", 0.0))
-            ts = float(turn.get("timestamp", now))
+            importance = _coerce_float(turn.get("importance", 0.0), 0.0)
+            ts = _coerce_float(turn.get("timestamp", now), now)
             age_days = max(0.0, (now - ts) / (60 * 60 * 24))
             decay = math.exp(-math.log(2) * age_days / max(horizon, 1e-6))
             if importance * decay >= keep_score:
@@ -245,11 +255,11 @@ class ReflexionEngine:
         self._config = config
         self._metrics = metrics
         self._semaphore = BoundedSemaphore(value=4)
-        self._notes: List[dict] = []
+        self._notes: List[RuntimePayload] = []
         self._budget = SlidingWindowLimiter(budget.max_per_hour, 3600.0)
         self._last_rate_limited: Optional[str] = None
 
-    def run(self, task: str, *, corr_id: str, timeout_s: float = 5.0) -> Optional[dict]:
+    def run(self, task: str, *, corr_id: str, timeout_s: float = 5.0) -> Optional[RuntimePayload]:
         if not self._config.enable:
             return None
         if not self._budget.consume():
@@ -282,7 +292,7 @@ class ReflexionEngine:
             self._semaphore.release()
 
     def _persist(self, note: Mapping[str, object]) -> None:
-        path = Path(self._config.store_path)
+        path = Path(cast(str, self._config.store_path))
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(note) + "\n")
@@ -309,7 +319,7 @@ class CriticEngine:
     def __init__(self, config: CriticConfig, metrics: MetricsRegistry) -> None:
         self._config = config
         self._metrics = metrics
-        self._disagreements: List[dict] = []
+        self._disagreements: List[RuntimePayload] = []
         self._semaphore = BoundedSemaphore(value=4)
 
     def review(
@@ -350,7 +360,7 @@ class CriticEngine:
         finally:
             self._semaphore.release()
 
-    def disagreements(self) -> List[dict]:
+    def disagreements(self) -> List[RuntimePayload]:
         return list(self._disagreements)
 
     def status(self) -> Mapping[str, object]:
@@ -367,7 +377,7 @@ class Council:
         self._members = list(members)
         self._quorum = max(1, quorum)
         self._tie_breaker = tie_breaker
-        self._history: deque[dict] = deque(maxlen=200)
+        self._history: deque[RuntimePayload] = deque(maxlen=200)
 
     def vote(self, proposal: str, *, corr_id: str, votes_for: int, votes_against: int) -> CouncilDecision:
         start = time.monotonic()
@@ -432,7 +442,7 @@ class Council:
             "quorum": self._quorum,
         }
 
-    def history(self, limit: int = 20) -> List[dict]:
+    def history(self, limit: int = 20) -> List[RuntimePayload]:
         limit = max(int(limit), 1)
         return list(self._history)[-limit:]
 
@@ -506,7 +516,7 @@ class OracleGateway:
         if not self._config.enable:
             return {"status": "disabled"}
         remaining = self._budget.remaining()
-        status = {
+        status: Dict[str, object] = {
             "status": "healthy" if self._mode == OracleMode.ONLINE else "degraded",
             "mode": self._mode.value,
         }
@@ -529,7 +539,7 @@ class GoalCurator:
     ) -> None:
         self._config = config
         self._metrics = metrics
-        self._active: List[dict] = []
+        self._active: List[RuntimePayload] = []
         self._last_created: Optional[float] = None
         self._tokens: float = float(config.max_concurrent_auto_goals)
         self._last_refill = time.monotonic()
@@ -669,22 +679,22 @@ class AutonomyRuntime:
             self.mood_state.update(str(self._continuity_state.mood))
         panic_flag = lambda: self._panic
         mood_provider = lambda: self.mood_state.current_mood() or snapshot.mood
-        self.asr = ASRListener(config.audio, metrics=self.metrics)
-        self.tts = TTSSpeaker(config.tts, metrics=self.metrics, mood_provider=mood_provider)
-        self.screen = ScreenOCR(config.screen, metrics=self.metrics)
+        self.asr = ASRListener(cast(Any, config.audio), metrics=self.metrics)
+        self.tts = TTSSpeaker(cast(Any, config.tts), metrics=self.metrics, mood_provider=mood_provider)
+        self.screen = ScreenOCR(cast(Any, config.screen), metrics=self.metrics)
         self.gui = GUIController(
-            config.gui,
+            cast(Any, config.gui),
             panic_flag=panic_flag,
             audit_logger=self.audit_log,
         )
         self.social = BrowserAutomator(
-            config.social,
+            cast(Any, config.social),
             metrics=self.metrics,
             panic_flag=panic_flag,
             audit_logger=self.audit_log,
             council_prompt=self._request_council_confirmation,
         )
-        self.conversation = ConversationTriggers(config.conversation, metrics=self.metrics)
+        self.conversation = ConversationTriggers(cast(Any, config.conversation), metrics=self.metrics)
         self.memory_curator = MemoryCurator(config.memory.curator, self.metrics, self.privacy)
         self.reflexion = ReflexionEngine(
             config.reflexion,
@@ -805,7 +815,7 @@ class AutonomyRuntime:
         *,
         report_path: str | os.PathLike[str] | None = None,
     ) -> None:
-        timestamp = _utcnow()
+        timestamp = _utcnow().isoformat()
         readiness_payload = {
             "summary": dict(summary),
             "report": str(report_path) if report_path else None,
@@ -839,14 +849,14 @@ class AutonomyRuntime:
     def _request_council_confirmation(self, action: str, target: str) -> bool:
         auto = os.getenv("SENTIENTOS_COUNCIL_AUTO_APPROVE", "0").lower()
         if auto in {"1", "true", "yes", "on"}:
-            self.audit_log.log("council", "vote", "approved", action=action, target=target)
+            self.audit_log.log("council", "vote", "approved", requested_action=action, target=target)
             return True
         LOGGER.warning("Council veto for %s on %s (auto-fail)", action, target)
         self.audit_log.log(
             "council",
             "vote",
             "blocked",
-            action=action,
+            requested_action=action,
             target=target,
             reason="council_veto",
         )
