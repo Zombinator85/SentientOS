@@ -126,6 +126,16 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     audit_immutability.add_argument("--allow-missing-manifest", action="store_true")
     audit_immutability.add_argument("args", nargs=argparse.REMAINDER)
 
+    simulate = domains.add_parser("simulate", help="deterministic simulation operations")
+    simulate_sub = simulate.add_subparsers(dest="action", required=True)
+    simulate_federation = simulate_sub.add_parser("federation", help="run bounded local federation simulation scenarios")
+    simulate_federation.add_argument("--scenario", default="healthy_3node")
+    simulate_federation.add_argument("--seed", type=int, default=7)
+    simulate_federation.add_argument("--nodes", type=int)
+    simulate_federation.add_argument("--emit-bundle", action="store_true")
+    simulate_federation.add_argument("--list-scenarios", action="store_true")
+    simulate_federation.add_argument("--json", action="store_true")
+
     return parser
 
 
@@ -241,6 +251,39 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             return int(immutability_main(forwarded))
         finally:
             os.chdir(previous)
+
+    if args.domain == "simulate" and args.action == "federation":
+        from sentientos.simulation import list_federation_scenarios, run_federation_simulation
+
+        if bool(args.list_scenarios):
+            payload = {
+                "schema_version": 1,
+                "scenarios": list_federation_scenarios(),
+                "status": "passed",
+                "exit_code": 0,
+            }
+            payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+            emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(row.get('scenarios', []))}")
+            return 0
+        payload = run_federation_simulation(
+            repo_root,
+            scenario_name=str(args.scenario),
+            seed=int(args.seed),
+            node_count=int(args.nodes) if args.nodes is not None else None,
+            emit_bundle=bool(args.emit_bundle),
+        )
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+        emit_payload(
+            payload,
+            as_json=bool(args.json),
+            text_renderer=lambda row: (
+                f"scenario={row.get('scenario')} "
+                f"status={row.get('status')} "
+                f"quorum_admit={((row.get('quorum') if isinstance(row.get('quorum'), dict) else {}).get('admit'))} "
+                f"report_path={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('report_path'))}"
+            ),
+        )
+        return exit_code(payload)
 
     return 2
 

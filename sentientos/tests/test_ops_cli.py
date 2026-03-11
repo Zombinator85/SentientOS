@@ -26,6 +26,7 @@ def test_unified_help_lists_domains() -> None:
     assert "forge" in cp.stdout
     assert "incident" in cp.stdout
     assert "audit" in cp.stdout
+    assert "simulate" in cp.stdout
 
 
 def test_node_bootstrap_shim_routes_to_ops(monkeypatch) -> None:  # type: ignore[no-untyped-def]
