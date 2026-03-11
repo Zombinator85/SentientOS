@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle
+.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
@@ -123,6 +123,9 @@ node-restore:
 
 incident-bundle:
 	$(PYTHON) scripts/incident_bundle.py --json
+
+simulate-federation:
+	$(PYTHON) scripts/simulate_federation.py --scenario healthy_3node --json
 
 verify-audits-strict:
 	$(PYTHON) scripts/verify_audits.py --strict
