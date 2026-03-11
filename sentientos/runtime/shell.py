@@ -11,11 +11,12 @@ import threading
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Deque, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Deque, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple, cast
 
 from sentientos.cathedral import (
     Amendment,
     AmendmentApplicator,
+    ApplyResult,
     CathedralDigest,
     DEFAULT_CATHEDRAL_CONFIG as BASE_CATHEDRAL_CONFIG,
     ReviewResult,
@@ -40,7 +41,7 @@ from sentientos.federation.sync_view import PeerSyncView
 from sentientos.voice.config import parse_tts_config
 from sentientos.voice.tts import TtsEngine
 from sentientos.world.bus import WorldEventBus
-from sentientos.world.events import WorldEvent
+from sentientos.world.events import WorldEvent, WorldEventKind
 from sentientos.world.sources import (
     DemoTriggerSource,
     IdlePulseSource,
@@ -69,14 +70,14 @@ __all__ = [
 ]
 
 
-_DEFAULT_CONFIG_TEMPLATE = bootstrap.build_default_config()
-DEFAULT_RUNTIME_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["runtime"])
-DEFAULT_PERSONA_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["persona"])
-DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dashboard"])
-DEFAULT_VOICE_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("voice", {}))
-DEFAULT_WORLD_CONFIG: Dict[str, object] = copy.deepcopy(_DEFAULT_CONFIG_TEMPLATE.get("world", {}))
+_DEFAULT_CONFIG_TEMPLATE = cast(Mapping[str, object], bootstrap.build_default_config())
+DEFAULT_RUNTIME_CONFIG: Dict[str, object] = dict(cast(Mapping[str, object], _DEFAULT_CONFIG_TEMPLATE["runtime"]))
+DEFAULT_PERSONA_CONFIG: Dict[str, object] = dict(cast(Mapping[str, object], _DEFAULT_CONFIG_TEMPLATE["persona"]))
+DEFAULT_DASHBOARD_CONFIG: Dict[str, object] = dict(cast(Mapping[str, object], _DEFAULT_CONFIG_TEMPLATE["dashboard"]))
+DEFAULT_VOICE_CONFIG: Dict[str, object] = dict(cast(Mapping[str, object], _DEFAULT_CONFIG_TEMPLATE.get("voice", {})))
+DEFAULT_WORLD_CONFIG: Dict[str, object] = dict(cast(Mapping[str, object], _DEFAULT_CONFIG_TEMPLATE.get("world", {})))
 DEFAULT_CATHEDRAL_CONFIG: Dict[str, object] = dict(BASE_CATHEDRAL_CONFIG)
-DEFAULT_DREAM_LOOP_CONFIG: Dict[str, object] = dict(_DEFAULT_CONFIG_TEMPLATE["dream_loop"])
+DEFAULT_DREAM_LOOP_CONFIG: Dict[str, object] = dict(cast(Mapping[str, object], _DEFAULT_CONFIG_TEMPLATE["dream_loop"]))
 
 ensure_runtime_dirs = bootstrap.ensure_runtime_dirs
 
@@ -88,13 +89,13 @@ class RuntimeShell:
         self._config = dict(config)
         runtime_section = _ensure_runtime_config(self._config)
         runtime_root_value = runtime_section.get("root") or bootstrap.get_base_dir()
-        self._runtime_root = Path(runtime_root_value)
+        self._runtime_root = Path(cast(str | os.PathLike[str], runtime_root_value))
         bootstrap.ensure_runtime_dirs(self._runtime_root)
         self._memory_mounts: MemoryMounts = ensure_memory_mounts(self._runtime_root)
         validate_memory_mounts(self._memory_mounts, self._runtime_root)
 
         logs_dir = runtime_section.get("logs_dir") or (self._runtime_root / "logs")
-        self._log_path = Path(logs_dir) / "runtime.log"
+        self._log_path = Path(cast(str | os.PathLike[str], logs_dir)) / "runtime.log"
         self._logger = logging.getLogger("sentientos.runtime.shell")
         self._logger.setLevel(logging.INFO)
         self._logger.propagate = False
@@ -117,21 +118,22 @@ class RuntimeShell:
         self._monitor_thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
         self._running = False
-        self._watchdog_interval = float(runtime_section.get("watchdog_interval", 5.0))
+        self._watchdog_interval = float(cast(float | int | str, runtime_section.get("watchdog_interval", 5.0)))
         self._windows_mode = bool(runtime_section.get("windows_mode", True))
         self._persona_enabled = bool(persona_section.get("enabled", True))
         self._persona_tick_interval = float(
-            persona_section.get("tick_interval_seconds", DEFAULT_PERSONA_CONFIG["tick_interval_seconds"])
+            cast(float | int | str, persona_section.get("tick_interval_seconds", DEFAULT_PERSONA_CONFIG["tick_interval_seconds"]))
         )
         self._persona_max_message_length = int(
-            persona_section.get("max_message_length", DEFAULT_PERSONA_CONFIG["max_message_length"])
+            cast(float | int | str, persona_section.get("max_message_length", DEFAULT_PERSONA_CONFIG["max_message_length"]))
         )
         self._persona_loop: Optional[PersonaLoop] = None
         self._tts_engine: Optional[TtsEngine] = None
         self._speak_callback: Optional[Callable[[str], None]] = None
         self._world_enabled = bool(world_section.get("enabled", True))
         self._world_poll_interval = max(
-            0.5, float(world_section.get("poll_interval_seconds", DEFAULT_WORLD_CONFIG.get("poll_interval_seconds", 2.0)))
+            0.5,
+            float(cast(float | int | str, world_section.get("poll_interval_seconds", DEFAULT_WORLD_CONFIG.get("poll_interval_seconds", 2.0))))
         )
         self._world_bus: Optional[WorldEventBus] = WorldEventBus() if self._world_enabled else None
         self._world_sources: List[WorldSource] = []
@@ -154,10 +156,10 @@ class RuntimeShell:
 
         dream_loop_section = _ensure_dream_loop_config(self._config)
         self._dream_loop_enabled = bool(dream_loop_section.get("enabled", DEFAULT_DREAM_LOOP_CONFIG["enabled"]))
-        interval_default = int(DEFAULT_DREAM_LOOP_CONFIG.get("interval_seconds", 60))
-        self._dream_loop_interval = max(5, int(dream_loop_section.get("interval_seconds", interval_default)))
+        interval_default = int(cast(float | int | str, DEFAULT_DREAM_LOOP_CONFIG.get("interval_seconds", 60)))
+        self._dream_loop_interval = max(5, int(cast(float | int | str, dream_loop_section.get("interval_seconds", interval_default))))
         self._dream_loop_max_recent = int(
-            dream_loop_section.get("max_recent_shards", DEFAULT_DREAM_LOOP_CONFIG.get("max_recent_shards", 5))
+            cast(float | int | str, dream_loop_section.get("max_recent_shards", DEFAULT_DREAM_LOOP_CONFIG.get("max_recent_shards", 5)))
         )
         self._dream_loop: Optional[DreamLoop] = None
 
@@ -224,7 +226,7 @@ class RuntimeShell:
         return self._config
 
     @property
-    def federation_config(self):
+    def federation_config(self) -> object:
         return self._federation_config
 
     @property
@@ -305,12 +307,12 @@ class RuntimeShell:
             return self._federation_poller.get_peer_sync_views()
         return {}
 
-    def get_federation_replay_state(self):
+    def get_federation_replay_state(self) -> Mapping[str, object]:
         if self._federation_poller:
             return self._federation_poller.get_replay_state()
         return {}
 
-    def replay_peer(self, peer_id: str):
+    def replay_peer(self, peer_id: str) -> Optional[object]:
         if self._federation_poller:
             return self._federation_poller.replay_peer(peer_id)
         return None
@@ -322,7 +324,12 @@ class RuntimeShell:
         else:
             cutoff = cutoff.astimezone(timezone.utc)
         with self._guard_lock:
-            return [event for event in self._guard_events if event.get("ts") > cutoff]
+            filtered: List[Dict[str, object]] = []
+            for event in self._guard_events:
+                ts = event.get("ts")
+                if isinstance(ts, datetime) and ts > cutoff:
+                    filtered.append(event)
+            return filtered
 
     def _persona_guard_event_source(self) -> List[Dict[str, object]]:
         events: List[Dict[str, object]] = []
@@ -424,7 +431,7 @@ class RuntimeShell:
         decision: GuardDecision,
         *,
         from_pending: bool = False,
-    ):
+    ) -> ApplyResult:
         message: Optional[str] = None
         if from_pending:
             if decision == "warn":
@@ -571,7 +578,7 @@ class RuntimeShell:
 
         return result
 
-    def _handle_application_result(self, amendment: Amendment, apply_result) -> None:
+    def _handle_application_result(self, amendment: Amendment, apply_result: ApplyResult) -> None:
         status = apply_result.status
         applied = apply_result.applied
         skipped = apply_result.skipped
@@ -615,8 +622,8 @@ class RuntimeShell:
                 except Exception:  # pragma: no cover - defensive logging
                     self._log("Failed to emit TTS alert", extra={"amendment_id": amendment.id})
 
-    def _run_post_apply_checks(self, amendment: Amendment, apply_result) -> None:
-        status = getattr(apply_result, "status", "")
+    def _run_post_apply_checks(self, amendment: Amendment, apply_result: ApplyResult) -> None:
+        status = apply_result.status
         if status not in {"applied", "partial"}:
             return
         violations = evaluate_invariants(amendment)
@@ -953,7 +960,7 @@ class RuntimeShell:
                 self,
                 self._memory_mounts,
                 interval_seconds=self._dream_loop_interval,
-                log_cb=lambda message, extra=None: self._log(message, extra=extra),
+                log_cb=self._dream_loop_log,
                 max_recent_shards=self._dream_loop_max_recent,
             )
         self._dream_loop.start()
@@ -1014,7 +1021,7 @@ class RuntimeShell:
         sources: List[WorldSource] = []
         interval_default = DEFAULT_WORLD_CONFIG.get("idle_pulse_interval_seconds", 60)
         interval_value = config.get("idle_pulse_interval_seconds", interval_default)
-        interval = self._safe_float(interval_value, float(interval_default))
+        interval = self._safe_float(interval_value, float(cast(float | int | str, interval_default)))
         if interval > 0:
             try:
                 sources.append(IdlePulseSource(interval))
@@ -1029,8 +1036,9 @@ class RuntimeShell:
         demo_cfg = config.get("demo_trigger")
         if isinstance(demo_cfg, Mapping) and demo_cfg.get("enabled"):
             demo_name = str(demo_cfg.get("demo_name") or "demo_simple_success").strip() or "demo_simple_success"
-            default_trigger = DEFAULT_WORLD_CONFIG.get("demo_trigger", {}).get("trigger_after_seconds", 60)
-            trigger = self._safe_float(demo_cfg.get("trigger_after_seconds"), float(default_trigger))
+            demo_trigger_cfg = cast(Mapping[str, object], DEFAULT_WORLD_CONFIG.get("demo_trigger", {}))
+            default_trigger = demo_trigger_cfg.get("trigger_after_seconds", 60)
+            trigger = self._safe_float(demo_cfg.get("trigger_after_seconds"), float(cast(float | int | str, default_trigger)))
             sources.append(DemoTriggerSource(demo_name, trigger_after_seconds=trigger))
 
         return sources
@@ -1057,16 +1065,16 @@ class RuntimeShell:
             except (TypeError, ValueError):
                 return None
             payload = item.get("event")
-            event: Optional[WorldEvent]
+            parsed_event: Optional[WorldEvent]
             if isinstance(payload, WorldEvent):
-                event = payload
+                parsed_event = payload
             elif isinstance(payload, Mapping):
-                event = self._build_world_event_from_mapping(payload)
+                parsed_event = self._build_world_event_from_mapping(cast(Mapping[str, object], payload))
             else:
-                event = self._build_world_event_from_mapping(item)
-            if event is None:
+                parsed_event = self._build_world_event_from_mapping(cast(Mapping[str, object], item))
+            if parsed_event is None:
                 return None
-            return offset, event
+            return offset, parsed_event
         return None
 
     def _build_world_event_from_mapping(self, payload: Mapping[str, object]) -> Optional[WorldEvent]:
@@ -1083,7 +1091,9 @@ class RuntimeShell:
             for key in ("subject", "source", "title", "starts_in_minutes", "level", "demo_name"):
                 if key in payload:
                     event_data[key] = payload[key]
-        return WorldEvent(kind, datetime.now(timezone.utc), summary, event_data)
+        if kind not in {"message", "calendar", "system_load", "file_change", "demo_trigger", "heartbeat"}:
+            return None
+        return WorldEvent(cast(WorldEventKind, kind), datetime.now(timezone.utc), summary, event_data)
 
     @staticmethod
     def _coerce_datetime(value: object) -> Optional[datetime]:
@@ -1103,9 +1113,12 @@ class RuntimeShell:
     @staticmethod
     def _safe_float(value: object, default: float) -> float:
         try:
-            return float(value)
+            return float(cast(float | int | str, value))
         except (TypeError, ValueError):
             return float(default)
+
+    def _dream_loop_log(self, message: str, extra: Optional[Dict[str, object]] = None) -> None:
+        self._log(message, extra=extra)
 
     def _load_recent_reflection(self) -> Optional[str]:
         entry = most_recent_glow_entry(self._memory_mounts)
@@ -1184,7 +1197,7 @@ class RuntimeShell:
 
     def _spawn_process(self, name: str) -> None:
         command, options = self._process_commands[name]
-        kwargs: Dict[str, object] = {}
+        kwargs: Dict[str, Any] = {}
         if options["cwd"] is not None:
             kwargs["cwd"] = options["cwd"]
         if options["env"] is not None:
@@ -1199,9 +1212,10 @@ class RuntimeShell:
             self._processes[name] = process
 
     def _log(self, message: str, *, extra: Optional[Mapping[str, object]] = None) -> None:
-        payload = {"message": message}
+        payload: Dict[str, object] = {"message": message}
         if extra:
-            payload.update(extra)
+            for key, value in extra.items():
+                payload[str(key)] = value
         self._logger.info(json.dumps(payload, sort_keys=True))
 
     def _configure_voice(self, voice_section: Mapping[str, object]) -> None:
@@ -1239,9 +1253,9 @@ def _ensure_runtime_config(config: MutableMapping[str, object]) -> MutableMappin
     runtime = dict(runtime_section)
     base_override = runtime.get("root")
     if isinstance(base_override, (str, Path)) and base_override:
-        defaults = bootstrap.build_default_config(Path(base_override)).get("runtime", {})
+        defaults = cast(Mapping[str, object], bootstrap.build_default_config(Path(base_override)).get("runtime", {}))
     else:
-        defaults = bootstrap.build_default_config().get("runtime", {})
+        defaults = cast(Mapping[str, object], bootstrap.build_default_config().get("runtime", {}))
     updated = False
     for key, default in defaults.items():
         if key not in runtime:
@@ -1277,9 +1291,9 @@ def _ensure_world_config(config: MutableMapping[str, object]) -> MutableMapping[
     for key, default in defaults.items():
         if isinstance(default, Mapping):
             existing = world.get(key)
-            merged = dict(default)
+            merged = dict(cast(Mapping[str, object], default))
             if isinstance(existing, Mapping):
-                merged.update(existing)
+                merged.update(cast(Mapping[str, object], existing))
             if world.get(key) != merged:
                 world[key] = merged
                 updated = True
@@ -1296,7 +1310,7 @@ def _ensure_federation_config(config: MutableMapping[str, object]) -> MutableMap
     section = config.get("federation", {})
     if not isinstance(section, Mapping):
         section = {}
-    defaults = bootstrap.build_default_config().get("federation", {})
+    defaults = cast(Mapping[str, object], bootstrap.build_default_config().get("federation", {}))
     federation = dict(defaults)
     indexes_value = section.get("indexes") if isinstance(section, Mapping) else None
     indexes_present = isinstance(indexes_value, Mapping)
@@ -1304,7 +1318,7 @@ def _ensure_federation_config(config: MutableMapping[str, object]) -> MutableMap
     if not indexes_present:
         federation.pop("indexes", None)
     config["federation"] = federation
-    return federation
+    return cast(MutableMapping[str, object], federation)
 
 
 def _ensure_voice_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
@@ -1317,9 +1331,9 @@ def _ensure_voice_config(config: MutableMapping[str, object]) -> MutableMapping[
     for key, default in defaults.items():
         if isinstance(default, Mapping):
             existing = voice.get(key)
-            merged = dict(default)
+            merged = dict(cast(Mapping[str, object], default))
             if isinstance(existing, Mapping):
-                merged.update(existing)
+                merged.update(cast(Mapping[str, object], existing))
             if voice.get(key) != merged:
                 voice[key] = merged
                 updated = True
@@ -1337,7 +1351,7 @@ def _ensure_dashboard_config(config: MutableMapping[str, object]) -> MutableMapp
     if not isinstance(dashboard_section, Mapping):
         dashboard_section = {}
     dashboard = dict(dashboard_section)
-    defaults = bootstrap.build_default_config().get("dashboard", {})
+    defaults = cast(Mapping[str, object], bootstrap.build_default_config().get("dashboard", {}))
     updated = False
     for key, default in defaults.items():
         if key not in dashboard:
@@ -1352,11 +1366,11 @@ def _ensure_dream_loop_config(config: MutableMapping[str, object]) -> MutableMap
     section = config.get("dream_loop", {})
     if not isinstance(section, Mapping):
         section = {}
-    defaults = bootstrap.build_default_config().get("dream_loop", {})
+    defaults = cast(Mapping[str, object], bootstrap.build_default_config().get("dream_loop", {}))
     dream_loop = dict(defaults)
     dream_loop.update(section)
     config["dream_loop"] = dream_loop
-    return dream_loop
+    return cast(MutableMapping[str, object], dream_loop)
 
 
 def _ensure_cathedral_config(config: MutableMapping[str, object]) -> MutableMapping[str, object]:
