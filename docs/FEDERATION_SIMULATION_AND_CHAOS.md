@@ -1,47 +1,70 @@
 # Federation Simulation + Chaos Validation Wing
 
-This wing adds deterministic multi-node federation simulation to SentientOS without introducing new constitutional/runtime/federation subsystems.
+This wing provides deterministic multi-node federation simulation as a release-gate surface without introducing new constitutional/runtime/federation subsystems.
 
 ## Entrypoints
 
-- `python -m sentientos.ops simulate federation --scenario healthy_3node --json`
-- `python -m sentientos.ops simulate federation --scenario quorum_failure --emit-bundle --json`
-- `python scripts/simulate_federation.py --scenario replay_storm --json`
-- `make simulate-federation`
+- Single scenario: `python -m sentientos.ops simulate federation --scenario healthy_3node --json`
+- Canonical baseline gate: `python -m sentientos.ops simulate federation --baseline --json`
+- List scenario catalog: `python -m sentientos.ops simulate federation --list-scenarios --json`
+- Script wrapper: `python scripts/simulate_federation.py --baseline --json`
 
-## Deterministic model
+## Canonical baseline suite
 
-Each simulation run is bounded and reproducible by:
+The baseline suite is declared in:
 
-- explicit scenario id
-- explicit node count
-- explicit deterministic seed
-- explicit phase + injection plan
+- `sentientos/simulation/federation_baseline_manifest.json`
 
-Run directory:
+Scenarios currently included:
 
-- `glow/simulation/<scenario>_seed<seed>_nodes<n>/`
+- `healthy_3node`
+- `quorum_failure`
+- `replay_storm`
+- `reanchor_continuation`
+- `pressure_local_safety`
 
-## What is exercised
+All listed scenarios are currently **release-gating**.
 
-The simulation wing stresses existing surfaces:
+## Deterministic policy
 
-- node bootstrap and health posture composition
-- federation governance digest and trust-epoch compatibility behaviors
-- quorum admit/deny outcomes
-- replay flood duplicate pressure
-- degraded audit trust + re-anchor continuation recognition
-- governor pressure and local safety precedence
-- incident bundle generation under stress
+Determinism is explicit and auditable:
+
+- baseline manifest has deterministic seed policy + per-scenario seed values
+- scenario run IDs are deterministic (`<scenario>_seed<seed>_nodes<n>`)
+- baseline report omits wall-clock timestamps to keep output stable across re-runs
+- chaos/fault injections are explicit and ledgered in `event_injection_log.jsonl`
+
+## Gate output + exit behavior
+
+`--baseline` writes:
+
+- `glow/simulation/baseline_report.json`
+
+The baseline report includes:
+
+- per-scenario pass/fail
+- release-gating flag
+- oracle expectation checks
+- required artifact expectation checks
+- missing artifact list (if any)
+- incident-bundle compatibility payload for failed scenarios
+
+Exit code behavior:
+
+- `0`: all release-gating scenarios passed
+- `1`: one or more release-gating scenarios failed
+- `2`: command/surface misuse (unknown scenario, argument contract violations)
 
 ## Artifacts
 
-Each run emits:
+Each scenario run emits:
 
 - `scenario_report.json`
 - per-node `glow/simulation/status_snapshot.json`
 - `event_injection_log.jsonl`
-- optional incident bundles from selected nodes
-- `bundle_manifest.json` (hashes and file sizes)
+- optional incident bundles
+- `bundle_manifest.json` (hash + size ledger)
 
-All injections are explicit and recorded in `event_injection_log.jsonl`.
+Baseline suite emits:
+
+- `glow/simulation/baseline_report.json` (deterministic release-gate summary)
