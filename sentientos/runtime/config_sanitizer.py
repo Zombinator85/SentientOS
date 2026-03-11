@@ -30,14 +30,14 @@ class ConfigSanitizer:
         fields = allowed_fields if allowed_fields is not None else list(_DEFAULT_ALLOWED_FIELDS)
         self.allowed_fields = tuple(str(field) for field in fields)
 
-    def sanitize(self, config: Mapping[str, Any] | None) -> dict:
+    def sanitize(self, config: Mapping[str, Any] | None) -> dict[str, Any]:
         """Produce a deterministic, deeply sorted, defensive-copied snapshot."""
 
         base_config: Mapping[str, Any] = config or {}
         sanitized = self._sanitize_dict(base_config, root=True)
         return {"config": sanitized}
 
-    def _sanitize_dict(self, data: Mapping[str, Any], root: bool = False) -> dict:
+    def _sanitize_dict(self, data: Mapping[str, Any], root: bool = False) -> dict[str, Any]:
         if not isinstance(data, Mapping):
             return {}
 

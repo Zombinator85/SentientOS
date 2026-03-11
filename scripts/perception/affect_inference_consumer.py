@@ -22,7 +22,8 @@ def _infer_affect(payload: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     confidence = float(payload.get("confidence", 0.0) or 0.0)
-    features = payload.get("features") if isinstance(payload.get("features"), dict) else {}
+    raw_features = payload.get("features")
+    features: dict[str, Any] = raw_features if isinstance(raw_features, dict) else {}
 
     if event_type == "perception.audio":
         energy = float(features.get("rms_energy", 0.0) or 0.0)

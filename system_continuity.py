@@ -419,8 +419,20 @@ def assert_no_silent_mutation(previous: Mapping[str, Any], current: Mapping[str,
 
 
 def assert_no_belief_deletion(previous: Mapping[str, Any], current: Mapping[str, Any]) -> None:
-    prev_beliefs = {b.get("id") for b in previous.get("beliefs", []) if isinstance(b, Mapping)}
-    curr_beliefs = {b.get("id") for b in current.get("beliefs", []) if isinstance(b, Mapping)}
+    prev_beliefs = {
+        belief_id
+        for b in previous.get("beliefs", [])
+        if isinstance(b, Mapping)
+        for belief_id in [b.get("id")]
+        if belief_id is not None
+    }
+    curr_beliefs = {
+        belief_id
+        for b in current.get("beliefs", [])
+        if isinstance(b, Mapping)
+        for belief_id in [b.get("id")]
+        if belief_id is not None
+    }
     missing = prev_beliefs - curr_beliefs
     if missing:
         raise GuardViolation(f"belief deletion detected: {sorted(missing)}")
