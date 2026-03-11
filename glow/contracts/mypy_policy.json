@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "description": "Incremental mypy ratchet policy for SentientOS. Baseline debt is preserved; protected surfaces are prevented from regressing.",
+  "protected_patterns": [
+    "scripts/audit_*.py",
+    "scripts/verify_audits.py",
+    "scripts/mypy_ratchet.py",
+    "sentientos/runtime/*.py",
+    "sentientos/federation/*.py",
+    "sentientos/simulation/*.py",
+    "sentientos/ops/*.py",
+    "sentientos/audit/*.py",
+    "sentientos/verify/*.py",
+    "sentientos/verify/adapters/*.py"
+  ],
+  "strict_patterns": [
+    "sentientos/cathedral_forge.py",
+    "sentientos/forge*.py",
+    "sentientos/forge_cli/*.py",
+    "sentientos/forge_goals/*.py",
+    "scripts/mypy_ratchet.py"
+  ],
+  "deferred_debt_classes": [
+    "Legacy untyped function boundaries in broad runtime surfaces",
+    "Generic-parameter omissions in legacy collections",
+    "attr-defined cascades from dynamic payload dictionaries",
+    "arg-type mismatches in long-tail root scripts"
+  ]
+}
