@@ -136,7 +136,7 @@ def _serialise_meta_value(value: Any) -> Any:
     return str(value)
 
 
-def _collect_persona_meta(runtime) -> Dict[str, Any]:
+def _collect_persona_meta(runtime: Any) -> Dict[str, Any]:
     getter = getattr(runtime, "get_persona_snapshot", None)
     if callable(getter):
         try:
@@ -148,7 +148,7 @@ def _collect_persona_meta(runtime) -> Dict[str, Any]:
     return {}
 
 
-def _collect_dream_meta(runtime) -> Dict[str, Any]:
+def _collect_dream_meta(runtime: Any) -> Dict[str, Any]:
     getter = getattr(runtime, "get_dream_snapshot", None)
     status_callable = getattr(runtime, "dream_loop_status", None)
     data = None
@@ -190,7 +190,7 @@ def _read_ledger_state(ledger_path: Path) -> tuple[str, int]:
     return last_digest, height
 
 
-def _resolve_ledger_path(runtime) -> Optional[Path]:
+def _resolve_ledger_path(runtime: Any) -> Optional[Path]:
     ledger_path = getattr(runtime, "ledger_path", None)
     if isinstance(ledger_path, Path):
         return ledger_path
@@ -263,7 +263,7 @@ def _string_list(value: object) -> List[str]:
 
 
 def build_cathedral_index(
-    runtime,
+    runtime: Any,
     limit: int,
     *,
     ledger_height: Optional[int] = None,
@@ -320,7 +320,7 @@ def build_cathedral_index(
 
 
 def build_experiment_index(
-    runtime,
+    runtime: Any,
     limit: int,
     *,
     experiments: Optional[Iterable[Mapping[str, Any]]] = None,
@@ -334,12 +334,13 @@ def build_experiment_index(
     if window <= 0:
         return None
 
+    records: List[Mapping[str, Any]]
     if experiments is None:
         if not _EXPERIMENT_TRACKER_AVAILABLE or experiment_tracker is None:
             records = []
         else:
             try:
-                records: List[Mapping[str, Any]] = list(experiment_tracker.list_experiments())
+                records = list(experiment_tracker.list_experiments())
             except Exception:  # pragma: no cover - defensive
                 records = []
     else:
@@ -405,7 +406,7 @@ def build_experiment_index(
     return ExperimentIndexSnapshot(runs=runs, chains=chains, latest_ids=list(latest_ids))
 
 
-def build_local_summary(runtime) -> FederationSummary:
+def build_local_summary(runtime: Any) -> FederationSummary:
     """Construct a local :class:`FederationSummary` snapshot."""
 
     config = getattr(runtime, "config", getattr(runtime, "_config", {}))
