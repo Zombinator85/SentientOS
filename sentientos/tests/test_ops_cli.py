@@ -115,6 +115,36 @@ def test_unified_audit_verify_module_surface(tmp_path: Path) -> None:
     assert payload["status"] in {"passed", "failed"}
 
 
+def test_unified_help_includes_workflow_examples() -> None:
+    cp = subprocess.run([sys.executable, "-m", "sentientos.ops", "--help"], check=False, capture_output=True, text=True)
+    assert cp.returncode == 0
+    assert "Workflow examples:" in cp.stdout
+    assert "node health --json" in cp.stdout
+    assert "constitution verify --json" in cp.stdout
+
+
+def test_constitution_verify_supports_json_with_unified_envelope(tmp_path: Path, capsys) -> None:
+    _seed_workspace(tmp_path)
+    rc = ops_main(["--repo-root", str(tmp_path), "constitution", "verify", "--json"])
+    assert rc in {0, 1, 2, 3}
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["surface"] == "sentientos.ops"
+    assert payload["command"] == "constitution.verify"
+    assert payload["status"] == payload["constitution_state"]
+    assert payload["exit_code"] == rc
+
+
+def test_node_health_json_uses_unified_envelope(tmp_path: Path, capsys) -> None:
+    _seed_workspace(tmp_path)
+    rc = ops_main(["--repo-root", str(tmp_path), "node", "health", "--json"])
+    assert rc in {0, 1, 2, 3}
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["surface"] == "sentientos.ops"
+    assert payload["command"] == "node.health"
+    assert payload["status"] == payload["health_state"]
+    assert payload["exit_code"] == rc
+
+
 def test_help_surfaces_operator_friendly_flags() -> None:
     cp = subprocess.run([sys.executable, "-m", "sentientos.ops", "audit", "immutability", "--help"], check=False, capture_output=True, text=True)
     assert cp.returncode == 0

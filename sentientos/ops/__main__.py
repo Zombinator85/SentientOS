@@ -16,6 +16,26 @@ from sentientos.system_constitution import (
 )
 
 
+def _status_from_payload(payload: dict[str, object]) -> str:
+    for key in ("health_state", "constitution_state", "status"):
+        value = payload.get(key)
+        if isinstance(value, str) and value:
+            return value
+    ok = payload.get("ok")
+    if isinstance(ok, bool):
+        return "passed" if ok else "failed"
+    return "unknown"
+
+
+def _decorate_payload(payload: dict[str, object], *, domain: str, action: str) -> dict[str, object]:
+    decorated = dict(payload)
+    decorated.setdefault("surface", "sentientos.ops")
+    decorated.setdefault("command", f"{domain}.{action}")
+    decorated.setdefault("status", _status_from_payload(payload))
+    decorated.setdefault("exit_code", exit_code(payload))
+    return decorated
+
+
 def _resolve_repo_root(repo_root: str | None) -> Path:
     if repo_root is None:
         return Path.cwd().resolve()
@@ -38,7 +58,17 @@ def _normalize_passthrough(values: list[str]) -> list[str]:
 
 
 def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog=prog, description="Unified SentientOS operations command surface")
+    parser = argparse.ArgumentParser(
+        prog=prog,
+        description="Unified SentientOS operations command surface",
+        epilog=(
+            "Workflow examples:\n"
+            "  python -m sentientos.ops node health --json\n"
+            "  python -m sentientos.ops constitution verify --json\n"
+            "  python -m sentientos.ops audit verify -- --strict"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--repo-root", help="repository root (defaults to current working directory)")
 
     domains = parser.add_subparsers(dest="domain", required=True)
@@ -66,7 +96,8 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     constitution_latest.add_argument("--json", action="store_true", help="render canonical JSON payload")
     constitution_json = constitution_sub.add_parser("json", help="compose and write constitution artifacts")
     constitution_json.add_argument("--json", action="store_true", help="render canonical JSON payload")
-    constitution_sub.add_parser("verify", help="verify constitution state and return constitutional exit code")
+    constitution_verify = constitution_sub.add_parser("verify", help="verify constitution state and return constitutional exit code")
+    constitution_verify.add_argument("--json", action="store_true", help="render canonical JSON payload")
 
     forge = domains.add_parser("forge", help="forge integrity operations")
     forge_sub = forge.add_subparsers(dest="action", required=True)
@@ -105,11 +136,13 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
 
     if args.domain == "node" and args.action == "bootstrap":
         payload = run_bootstrap(repo_root, reason=str(args.reason), seed_minimal=bool(args.seed_minimal), allow_restore=not bool(args.no_restore))
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"health_state={row.get('health_state')} constitution_state={row.get('constitution_state')} report_path={row.get('report_path')}")
         return exit_code(payload)
 
     if args.domain == "node" and args.action == "health":
         payload = node_health(repo_root)
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"health_state={row.get('health_state')} constitution_state={row.get('constitution_state')} integrity={row.get('integrity_overall')}")
         return exit_code(payload)
 
@@ -125,30 +158,38 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 os.environ.pop("SENTIENTOS_REPO_ROOT", None)
             else:
                 os.environ["SENTIENTOS_REPO_ROOT"] = previous
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"status={row.get('status')} checkpoint={row.get('checkpoint', {}).get('status')}")
         return exit_code(payload)
 
     if args.domain == "constitution" and args.action == "latest":
         payload = _latest_constitution(repo_root)
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         if bool(args.json):
             emit_payload(payload, as_json=True, text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
-            return exit_code(payload, default=0)
+            return exit_code(payload)
         print(f"constitution_state={payload.get('constitution_state')} identity={payload.get('constitution_identity')}")
-        return 0
+        return exit_code(payload)
 
     if args.domain == "constitution" and args.action == "json":
         payload = compose_system_constitution(repo_root)
         write_constitution_artifacts(repo_root, payload=payload)
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
         return exit_code(payload)
 
     if args.domain == "constitution" and args.action == "verify":
         payload, rc = verify_constitution(repo_root)
-        print(f"verify={payload.get('constitution_state')} identity={payload.get('constitution_identity')} missing_required={len(payload.get('missing_required_artifacts', []))}")
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+        if bool(args.json):
+            emit_payload(payload, as_json=True, text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
+            return exit_code(payload)
+        print(f"constitution_state={payload.get('constitution_state')} identity={payload.get('constitution_identity')} missing_required={len(payload.get('missing_required_artifacts', []))}")
         return int(rc)
 
     if args.domain == "incident" and args.action == "bundle":
         payload = build_incident_bundle(repo_root, reason=str(args.reason), window=max(1, int(args.window)))
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"bundle_path={row.get('bundle_path')} manifest_sha256={row.get('manifest_sha256')} included_count={row.get('included_count')}")
         return exit_code(payload)
 
