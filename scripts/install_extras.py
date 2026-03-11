@@ -1,11 +1,10 @@
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 from __future__ import annotations
+
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
-
 
 import argparse
 import importlib
@@ -18,18 +17,18 @@ from sentientos.toml_compat import tomllib
 
 
 def load_extras() -> dict[str, list[str]]:
-    data = tomllib.loads(Path('pyproject.toml').read_text())
-    extras = data.get('project', {}).get('optional-dependencies', {})
+    data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    extras = data.get("project", {}).get("optional-dependencies", {})
     return cast(dict[str, list[str]], extras)
 
 
 def _check_installed(packages: list[str]) -> list[str]:
-    missing = []
+    missing: list[str] = []
     for name in packages:
-        mod = name.split('[')[0].replace('-', '_')
+        mod = name.split("[")[0].replace("-", "_")
         try:
             importlib.import_module(mod)
-        except Exception:
+        except ModuleNotFoundError:
             missing.append(name)
     return missing
 
@@ -37,24 +36,27 @@ def _check_installed(packages: list[str]) -> list[str]:
 def install(extra: str, soft: bool) -> int:
     extras = load_extras()
     pkgs = extras.get(extra, [])
-    cmd = [sys.executable, '-m', 'pip', 'install', f'.[{extra}]']
+    cmd = [sys.executable, "-m", "pip", "install", f".[{extra}]"]
     proc = subprocess.run(cmd)
     if proc.returncode != 0 and soft:
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '--no-binary', ':all:', f'.[{extra}]'], check=False)
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--no-binary", ":all:", f".[{extra}]"],
+            check=False,
+        )
     missing = _check_installed(pkgs)
     if missing:
-        print('Missing packages:', ', '.join(missing))
+        print("Missing packages:", ", ".join(missing))
     return 0 if soft else (1 if missing else 0)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('extra', nargs='?', default='all')
-    parser.add_argument('--soft', action='store_true')
+    parser = argparse.ArgumentParser(description="Install optional dependency extras from pyproject.toml")
+    parser.add_argument("extra", nargs="?", default="all", help="Optional dependency group to install")
+    parser.add_argument("--soft", action="store_true", help="Fallback to source-only install when wheel install fails")
     args = parser.parse_args()
     code = install(args.extra, args.soft)
     sys.exit(code)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
