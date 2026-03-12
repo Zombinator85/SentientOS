@@ -1,0 +1,15 @@
+{
+  "spec_id": "pulse_trust_epoch",
+  "title": "Pulse trust epoch compromise-response model",
+  "bounded": true,
+  "compromise_restricted_actions": [
+    "federated_control",
+    "control_plane_task",
+    "amendment_apply"
+  ],
+  "required_properties": [
+    "pulse_revoked_never_current_trusted",
+    "pulse_compromise_mode_tightens",
+    "pulse_historical_distinct_from_revoked_unknown"
+  ]
+}

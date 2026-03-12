@@ -1,0 +1,13 @@
+{
+  "spec_id": "audit_reanchor",
+  "title": "Audit-chain re-anchor + continuation model",
+  "bounded": true,
+  "max_depth": 4,
+  "states": ["intact_trusted", "broken_preserved", "reanchored_continuation"],
+  "required_properties": [
+    "audit_no_silent_rewrite",
+    "audit_continuation_requires_anchor",
+    "audit_break_visibility_persists",
+    "audit_reanchor_coexists_with_preserved_break"
+  ]
+}

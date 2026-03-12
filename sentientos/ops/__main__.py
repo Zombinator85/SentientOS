@@ -65,7 +65,8 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
             "Workflow examples:\n"
             "  python -m sentientos.ops node health --json\n"
             "  python -m sentientos.ops constitution verify --json\n"
-            "  python -m sentientos.ops audit verify -- --strict"
+            "  python -m sentientos.ops audit verify -- --strict\n"
+            "  python -m sentientos.ops verify formal --json"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -136,6 +137,12 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     simulate_federation.add_argument("--list-scenarios", action="store_true")
     simulate_federation.add_argument("--baseline", action="store_true")
     simulate_federation.add_argument("--json", action="store_true")
+
+    verify = domains.add_parser("verify", help="verification wings")
+    verify_sub = verify.add_subparsers(dest="action", required=True)
+    verify_formal = verify_sub.add_parser("formal", help="run bounded formal model checks")
+    verify_formal.add_argument("--json", action="store_true", help="render canonical JSON payload")
+    verify_formal.add_argument("--spec", action="append", default=[], help="specific spec id (repeatable)")
 
     return parser
 
@@ -285,6 +292,22 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 f"status={row.get('status')} "
                 f"quorum_admit={((row.get('quorum') if isinstance(row.get('quorum'), dict) else {}).get('admit'))} "
                 f"report_path={row.get('report_path') or ((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('report_path'))}"
+            ),
+        )
+        return exit_code(payload)
+
+    if args.domain == "verify" and args.action == "formal":
+        from sentientos.formal_verification import run_formal_verification
+
+        payload = run_formal_verification(repo_root, selected_specs=list(args.spec or []))
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+        emit_payload(
+            payload,
+            as_json=bool(args.json),
+            text_renderer=lambda row: (
+                f"status={row.get('status')} "
+                f"spec_count={row.get('spec_count')} "
+                f"summary={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('summary'))}"
             ),
         )
         return exit_code(payload)

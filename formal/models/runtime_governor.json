@@ -1,0 +1,19 @@
+{
+  "spec_id": "runtime_governor",
+  "title": "RuntimeGovernor admission/arbitration model",
+  "bounded": true,
+  "contention_limit": 8,
+  "recovery_reserved_slots": 2,
+  "restricted_blocks": [
+    "federated_control",
+    "control_plane_task",
+    "amendment_apply"
+  ],
+  "actions": [
+    {"name": "restart_daemon", "priority": 0, "family": "recovery", "local_safety": true, "deferrable": false},
+    {"name": "repair_action", "priority": 1, "family": "recovery", "local_safety": true, "deferrable": false},
+    {"name": "federated_control", "priority": 2, "family": "federated", "local_safety": false, "deferrable": true},
+    {"name": "control_plane_task", "priority": 3, "family": "control_plane", "local_safety": false, "deferrable": true},
+    {"name": "amendment_apply", "priority": 4, "family": "amendment", "local_safety": false, "deferrable": true}
+  ]
+}
