@@ -1,0 +1,17 @@
+{
+  "spec_id": "federated_governance",
+  "title": "Federated governance digest + quorum gating model",
+  "bounded": true,
+  "peers": ["node-01", "node-02", "node-03"],
+  "quorum_requirements": {
+    "low": 1,
+    "medium": 1,
+    "high": 2
+  },
+  "required_properties": [
+    "fed_high_impact_requires_quorum",
+    "fed_digest_mismatch_blocks_required",
+    "fed_local_posture_dominates_quorum",
+    "fed_incompatible_peers_cannot_satisfy_quorum"
+  ]
+}

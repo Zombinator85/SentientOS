@@ -27,6 +27,7 @@ def test_unified_help_lists_domains() -> None:
     assert "incident" in cp.stdout
     assert "audit" in cp.stdout
     assert "simulate" in cp.stdout
+    assert "verify" in cp.stdout
 
 
 def test_node_bootstrap_shim_routes_to_ops(monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -122,6 +123,26 @@ def test_unified_help_includes_workflow_examples() -> None:
     assert "Workflow examples:" in cp.stdout
     assert "node health --json" in cp.stdout
     assert "constitution verify --json" in cp.stdout
+    assert "verify formal --json" in cp.stdout
+
+
+def test_verify_formal_json_surface(tmp_path: Path, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    (tmp_path / "formal/specs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "formal/models").mkdir(parents=True, exist_ok=True)
+    for src in (repo_root / "formal/specs").glob("*"):
+        if src.is_file():
+            (tmp_path / "formal/specs" / src.name).write_bytes(src.read_bytes())
+    for src in (repo_root / "formal/models").glob("*.json"):
+        (tmp_path / "formal/models" / src.name).write_bytes(src.read_bytes())
+
+    rc = ops_main(["--repo-root", str(tmp_path), "verify", "formal", "--json"])
+    assert rc in {0, 2}
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["surface"] == "sentientos.ops"
+    assert payload["command"] == "verify.formal"
+    assert "spec_count" in payload
+    assert "artifact_paths" in payload
 
 
 def test_constitution_verify_supports_json_with_unified_envelope(tmp_path: Path, capsys) -> None:
