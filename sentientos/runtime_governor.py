@@ -160,6 +160,7 @@ class RuntimeGovernor:
         self._storm_federated_limit = self._env_int("SENTIENTOS_GOVERNOR_STORM_FEDERATED_LIMIT", 2)
         self._starvation_streak_threshold = self._env_int("SENTIENTOS_GOVERNOR_STARVATION_STREAK_THRESHOLD", 5)
         self._subject_summary_limit = self._env_int("SENTIENTOS_GOVERNOR_SUBJECT_SUMMARY_LIMIT", 16)
+        self._subject_state_cap = self._env_int("SENTIENTOS_GOVERNOR_SUBJECT_STATE_CAP", 64)
         self._noisy_subject_share_threshold = self._env_float("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_SHARE", 0.7)
         self._noisy_subject_min_admits = self._env_int("SENTIENTOS_GOVERNOR_NOISY_SUBJECT_MIN_ADMITS", 3)
 
@@ -458,13 +459,14 @@ class RuntimeGovernor:
 
     def _subject_for_action(self, action_class: str, actor: str, payload: dict[str, object]) -> str:
         keys_by_class = {
-            "restart_daemon": ("daemon_name", "target", "subject"),
-            "repair_action": ("subject", "anomaly_subject", "target"),
-            "federated_control": ("peer_subject", "federated_source", "peer_name", "subject", "target"),
-            "control_plane_task": ("task_key", "task_origin", "request_type", "subject", "target"),
-            "amendment_apply": ("amendment_target", "subject", "target"),
+            "restart_daemon": ("subject", "daemon_name", "target", "daemon"),
+            "repair_action": ("subject", "anomaly_subject", "anomaly_key", "target"),
+            "federated_control": ("subject", "peer_subject", "peer", "federated_source", "peer_name", "target"),
+            "control_plane_task": ("subject", "task_key", "task_origin", "request_type", "target"),
+            "amendment_apply": ("subject", "amendment_target", "target"),
         }
-        for key in keys_by_class.get(action_class, ("subject", "target", "daemon_name")):
+        global_priority = ("subject", "daemon_name", "peer", "anomaly_key", "target")
+        for key in (*keys_by_class.get(action_class, ()), *global_priority):
             value = payload.get(key)
             if value is None:
                 continue
@@ -712,6 +714,11 @@ class RuntimeGovernor:
     def _write_rollup(self) -> None:
         rollup = self._build_rollup()
         self._rollup_path.write_text(json.dumps(rollup, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        fairness = rollup.get("subject_fairness", {})
+        (self._root / "subject_fairness_rollup.json").write_text(
+            json.dumps({"schema_version": 1, "generated_at": _iso_now(), "subject_fairness": fairness}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
     def admit_action(
         self,
@@ -1272,6 +1279,22 @@ class RuntimeGovernor:
         self._contention_allowed.append((now, action_class))
         self._contention_counts(now)
 
+    def _prune_subject_state(self, action_class: str) -> None:
+        attempts = self._subject_attempts.get(action_class, {})
+        if len(attempts) <= self._subject_state_cap:
+            return
+        scored: list[tuple[int, int, str]] = []
+        for subject in attempts:
+            decisions = self._subject_decisions[action_class][subject]
+            score = int(decisions.get("deny", 0)) + int(decisions.get("defer", 0)) + int(decisions.get("admit", 0))
+            streak = int(self._subject_denied_streak[action_class].get(subject, 0))
+            scored.append((score, streak, subject))
+        scored.sort(key=lambda item: (-item[0], -item[1], item[2]))
+        keep = {subject for _, _, subject in scored[: self._subject_state_cap]}
+        self._subject_attempts[action_class] = {k: v for k, v in attempts.items() if k in keep}
+        self._subject_denied_streak[action_class] = {k: v for k, v in self._subject_denied_streak[action_class].items() if k in keep}
+        self._subject_decisions[action_class] = {k: v for k, v in self._subject_decisions[action_class].items() if k in keep}
+
     def _decision(
         self,
         *,
@@ -1335,6 +1358,7 @@ class RuntimeGovernor:
         self._family_decisions[profile.family][outcome] += 1
         self._class_decisions[action_class][outcome] += 1
         self._subject_decisions[action_class][subject_key][outcome] += 1
+        self._prune_subject_state(action_class)
         self._reason_counts[reason] += 1
         self._pressure_bands[pressure_band] += 1
         self._subject_events.append((now, action_class, subject_key, outcome))

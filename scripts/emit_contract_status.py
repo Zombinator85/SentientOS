@@ -137,6 +137,27 @@ def _domain_status(
     return payload
 
 
+def _artifact_status(*, domain_name: str, artifact_path: Path, git_sha: str, strict_gate_envvar: str = "") -> dict[str, Any]:
+    present = artifact_path.exists()
+    return {
+        "domain_name": domain_name,
+        "baseline_present": present,
+        "last_baseline_path": str(artifact_path) if present else None,
+        "drift_report_path": None,
+        "drifted": False if present else None,
+        "drift_type": "none" if present else "artifact_missing",
+        "drift_explanation": None if present else "artifact missing",
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": strict_gate_envvar,
+        "captured_by": None,
+        "captured_at": None,
+        "tool_version": None,
+        "git_sha": git_sha,
+    }
+
+
 def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
     git_sha = _git_sha()
     previous_payload = _read_json(output_path) if output_path.exists() else None
@@ -188,6 +209,11 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         _stability_doctrine_status(git_sha=git_sha),
         _forge_observatory_status(git_sha=git_sha),
         _forge_progress_baseline_status(git_sha=git_sha, previous_payload=previous_payload),
+        _artifact_status(domain_name="pulse_key_epoch_status", artifact_path=Path("glow/contracts/pulse_key_epoch_status.json"), git_sha=git_sha),
+        _artifact_status(domain_name="pulse_key_rotation_report", artifact_path=Path("glow/contracts/pulse_key_rotation_report.json"), git_sha=git_sha),
+        _artifact_status(domain_name="federation_quorum_status", artifact_path=Path("glow/federation/quorum_status.json"), git_sha=git_sha),
+        _artifact_status(domain_name="governance_digest_mismatch_report", artifact_path=Path("glow/federation/governance_digest_mismatch_report.json"), git_sha=git_sha),
+        _artifact_status(domain_name="repair_outcomes", artifact_path=Path("glow/repairs/repair_outcomes.jsonl"), git_sha=git_sha),
     ]
 
     vow_manifest = next((entry for entry in contracts if entry.get("domain_name") == "vow_manifest"), None)

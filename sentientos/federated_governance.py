@@ -73,9 +73,10 @@ class FederatedGovernanceController:
         self._trusted_peers: set[str] = set()
         self._quorum_votes: dict[str, set[str]] = {}
         self._quorum_requirements: dict[str, int] = {
-            "low": max(1, self._env_int("SENTIENTOS_FEDERATION_QUORUM_LOW", 1)),
-            "medium": max(1, self._env_int("SENTIENTOS_FEDERATION_QUORUM_MEDIUM", 1)),
-            "high": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2)),
+            "low_impact_federated_control": max(1, self._env_int("SENTIENTOS_FEDERATION_QUORUM_LOW", 1)),
+            "federated_restart": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_RESTART", self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2))),
+            "lineage_affecting_operation": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_LINEAGE", self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2))),
+            "governance_affecting_operation": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_GOVERNANCE", self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2))),
         }
         self._governor_root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "/glow/governor"))
         self._federation_root = Path(os.getenv("SENTIENTOS_FEDERATION_ROOT", "/glow/federation"))
@@ -118,13 +119,16 @@ class FederatedGovernanceController:
         event_type = str(event.get("event_type") or "").strip().lower()
         if isinstance(payload, dict):
             action = str(payload.get("action") or payload.get("event_action") or "").strip().lower()
-        high_actions = {"restart_daemon", "rotate_keys", "amendment_apply", "lineage_rewrite"}
-        medium_actions = {"sync", "coordination", "reconcile", "replay"}
-        if action in high_actions or event_type in {"restart_request", "federated_control"}:
-            return "high"
-        if action in medium_actions or event_type in {"coordination", "federation_sync"}:
-            return "medium"
-        return "low"
+        restart_actions = {"restart_daemon"}
+        lineage_actions = {"lineage_rewrite", "lineage_rebind"}
+        governance_actions = {"rotate_keys", "amendment_apply", "governance_update"}
+        if action in restart_actions or event_type in {"restart_request"}:
+            return "federated_restart"
+        if action in lineage_actions:
+            return "lineage_affecting_operation"
+        if action in governance_actions or event_type in {"federated_control"}:
+            return "governance_affecting_operation"
+        return "low_impact_federated_control"
 
     def local_governance_digest(self) -> GovernanceDigest:
         repo_root = Path(os.getenv("SENTIENTOS_REPO_ROOT", Path.cwd())).resolve()
@@ -308,11 +312,7 @@ class FederatedGovernanceController:
             "updated_at": self._now(),
             "requirements": dict(sorted(self._quorum_requirements.items())),
             "trusted_peers": sorted(self._trusted_peers),
-            "action_classes": {
-                "low": "federated_advisory",
-                "medium": "federated_coordination",
-                "high": "federated_control",
-            },
+            "action_classes": dict(sorted(self._quorum_requirements.items())),
         }
         for root in (self._governor_root, self._federation_root):
             root.mkdir(parents=True, exist_ok=True)
@@ -362,8 +362,26 @@ class FederatedGovernanceController:
         }
         for root in (self._governor_root, self._federation_root):
             root.mkdir(parents=True, exist_ok=True)
-            with (root / "federation_quorum_decisions.jsonl").open("a", encoding="utf-8") as handle:
+            with (root / "quorum_decisions.jsonl").open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(payload, sort_keys=True) + "\n")
+            (root / "quorum_status.json").write_text(json.dumps({
+                "schema_version": 1,
+                "updated_at": self._now(),
+                "trusted_peers": sorted(self._trusted_peers),
+                "requirements": dict(sorted(self._quorum_requirements.items())),
+                "pending_actions": len(self._quorum_votes),
+                "last_decision": payload,
+            }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            if evaluation.digest_status in {"missing", "incompatible"}:
+                (root / "governance_digest_mismatch_report.json").write_text(json.dumps({
+                    "schema_version": 1,
+                    "updated_at": self._now(),
+                    "peer_name": evaluation.peer_name,
+                    "digest_status": evaluation.digest_status,
+                    "digest_reasons": evaluation.digest_reasons,
+                    "action_impact": evaluation.action_impact,
+                    "denial_cause": evaluation.denial_cause,
+                }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 _CONTROLLER = FederatedGovernanceController()
