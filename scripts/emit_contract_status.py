@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.ci_baseline import evaluate_ci_baseline_drift
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 
@@ -206,6 +207,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
             baseline_optional=True,
         ),
         _ci_baseline_status(git_sha=git_sha),
+        _federated_enforcement_status(git_sha=git_sha),
         _stability_doctrine_status(git_sha=git_sha),
         _forge_observatory_status(git_sha=git_sha),
         _forge_progress_baseline_status(git_sha=git_sha, previous_payload=previous_payload),
@@ -236,6 +238,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         "schema_version": 1,
         "generated_at": _iso_now(),
         "git_sha": git_sha,
+        "federated_enforcement_policy": resolve_policy().to_dict(),
         "contracts": contracts,
     }
 
@@ -276,6 +279,36 @@ def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:
     }
 
 
+
+
+
+def _federated_enforcement_status(*, git_sha: str) -> dict[str, Any]:
+    policy = resolve_policy().to_dict()
+    return {
+        "domain_name": "federated_enforcement_calibration",
+        "baseline_present": True,
+        "last_baseline_path": None,
+        "drift_report_path": None,
+        "drifted": False,
+        "drift_type": "none",
+        "drift_explanation": None,
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "SENTIENTOS_ENFORCEMENT_PROFILE",
+        "captured_by": git_sha,
+        "captured_at": _iso_now(),
+        "tool_version": None,
+        "git_sha": git_sha,
+        "profile": policy.get("profile"),
+        "policy_source": policy.get("source"),
+        "postures": policy.get("postures"),
+        "calibration_summary": {
+            "shadow_subsystems": sorted([k for k,v in (policy.get("postures") or {}).items() if v == "shadow"]),
+            "advisory_subsystems": sorted([k for k,v in (policy.get("postures") or {}).items() if v == "advisory"]),
+            "enforce_subsystems": sorted([k for k,v in (policy.get("postures") or {}).items() if v == "enforce"]),
+        },
+    }
 
 def _stability_doctrine_status(*, git_sha: str) -> dict[str, Any]:
     doctrine_path = Path("glow/contracts/stability_doctrine.json")

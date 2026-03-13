@@ -253,6 +253,7 @@ def run_contract_drift(*, from_existing_reports: bool = False) -> list[dict[str,
             _artifact_presence("federation_quorum_status", Path("glow/federation/quorum_status.json")),
             _artifact_presence("governance_digest", Path("glow/federation/governance_digest.json")),
             _artifact_presence("repair_outcomes", Path("glow/repairs/repair_outcomes.jsonl")),
+            _artifact_presence("federated_enforcement_policy", Path("glow/contracts/federated_enforcement_policy.json")),
         ]
     )
 
