@@ -181,6 +181,19 @@ def _run_audit_immutability_verifier(manifest_path: Path) -> dict[str, Any]:
     }
 
 
+
+
+def _artifact_presence(domain: str, path: Path) -> dict[str, Any]:
+    present = path.exists()
+    return {
+        "domain": domain,
+        "baseline_present": present,
+        "drift_type": "none" if present else "artifact_missing",
+        "drift_explanation": None if present else f"missing artifact: {path}",
+        "drifted": False if present else None,
+        "strict_gate_envvar": "",
+    }
+
 def run_contract_drift(*, from_existing_reports: bool = False) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
 
@@ -233,6 +246,15 @@ def run_contract_drift(*, from_existing_reports: bool = False) -> list[dict[str,
                 "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_VOW_MANIFEST_DRIFT",
             }
         )
+
+    results.extend(
+        [
+            _artifact_presence("pulse_key_epoch_status", Path("glow/contracts/pulse_key_epoch_status.json")),
+            _artifact_presence("federation_quorum_status", Path("glow/federation/quorum_status.json")),
+            _artifact_presence("governance_digest", Path("glow/federation/governance_digest.json")),
+            _artifact_presence("repair_outcomes", Path("glow/repairs/repair_outcomes.jsonl")),
+        ]
+    )
 
     for domain in DRIFT_DOMAINS:
         if not domain.baseline_path.exists():

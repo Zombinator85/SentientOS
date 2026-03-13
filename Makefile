@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched mypy-report
+.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched mypy-report pulse-key-status pulse-key-rotate federated-hardening-status federation-quorum-status governance-digest-status repair-verify constitutional-status
 
 PYTHON ?= python3
 
@@ -222,3 +222,29 @@ mypy-touched:
 
 mypy-report:
 	$(PYTHON) scripts/mypy_ratchet.py --report
+
+pulse-key-status:
+	$(PYTHON) scripts/pulse_key_status.py
+
+pulse-key-rotate:
+	$(PYTHON) -m scripts.rotate_pulse_keys $(if $(DRY_RUN),--dry-run,)
+
+federation-quorum-status:
+	$(PYTHON) -c "from sentientos.federated_governance import get_controller;import json;print(json.dumps(get_controller().local_governance_digest().to_dict(), sort_keys=True))"
+
+governance-digest-status:
+	$(PYTHON) -c "from sentientos.federated_governance import get_controller;import json;print(json.dumps(get_controller().local_governance_digest().to_dict(), sort_keys=True))"
+
+repair-verify:
+	$(PYTHON) -c "from sentientos.repair_outcome import verify_repair_outcome;import json;print(json.dumps(verify_repair_outcome(anomaly_kind='manual_check').to_dict(), sort_keys=True))"
+
+federated-hardening-status:
+	$(MAKE) pulse-key-status
+	$(MAKE) governance-digest-status
+	$(MAKE) federation-quorum-status
+	$(MAKE) contract-status
+
+constitutional-status:
+	$(MAKE) contract-drift
+	$(MAKE) federated-hardening-status
+

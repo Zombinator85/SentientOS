@@ -7,7 +7,7 @@ import binascii
 import json
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any, Mapping
@@ -177,6 +177,37 @@ class PulseTrustEpochManager:
             counters = dict(ordered)
         state["decision_counters"] = counters
 
+    @staticmethod
+    def _parse_ts(value: object) -> datetime | None:
+        if not isinstance(value, str) or not value:
+            return None
+        text = value
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    def _retired_replay_allowance_seconds(self) -> int:
+        value = os.getenv("SENTIENTOS_PULSE_RETIRED_REPLAY_SECONDS", "0").strip()
+        try:
+            return max(0, int(value))
+        except ValueError:
+            return 0
+
+    def _retired_epoch_allowed(self, epoch_cfg: Mapping[str, object]) -> bool:
+        allowance = self._retired_replay_allowance_seconds()
+        if allowance <= 0:
+            return False
+        closed_at = self._parse_ts(epoch_cfg.get("closed_at"))
+        if closed_at is None:
+            return False
+        return datetime.now(timezone.utc) <= closed_at + timedelta(seconds=allowance)
+
     def verify_event_signature(
         self,
         event: Mapping[str, object],
@@ -253,15 +284,25 @@ class PulseTrustEpochManager:
                 key_id=valid_key_id,
                 reason="active_epoch",
             )
-        else:
+        elif isinstance(epoch_cfg, dict) and self._retired_epoch_allowed(epoch_cfg):
             result = EpochVerificationResult(
                 signature_valid=True,
                 trusted=True,
-                classification="historical_closed_epoch",
+                classification="retired_epoch_replay_allowed",
                 epoch_id=valid_epoch,
                 active_epoch_id=active_epoch_id,
                 key_id=valid_key_id,
-                reason="trusted_historical_epoch",
+                reason="retired_epoch_within_replay_window",
+            )
+        else:
+            result = EpochVerificationResult(
+                signature_valid=True,
+                trusted=False,
+                classification="retired_epoch",
+                epoch_id=valid_epoch,
+                active_epoch_id=active_epoch_id,
+                key_id=valid_key_id,
+                reason="retired_epoch_outside_replay_window",
             )
         self._record_decision(result, actor=actor, peer_name=peer_name)
         return result
@@ -283,12 +324,12 @@ class PulseTrustEpochManager:
         if epoch_id == "legacy":
             result = EpochVerificationResult(
                 signature_valid=True,
-                trusted=True,
-                classification="historical_closed_epoch",
+                trusted=False,
+                classification="unknown_epoch",
                 epoch_id=epoch_id,
                 active_epoch_id=active_epoch_id,
                 key_id=normalized_key_id,
-                reason="legacy_epoch_accepted",
+                reason="legacy_epoch_not_counted_for_federation",
             )
         elif epoch_id in revoked:
             result = EpochVerificationResult(
@@ -321,15 +362,27 @@ class PulseTrustEpochManager:
                 reason="active_epoch",
             )
         else:
-            result = EpochVerificationResult(
-                signature_valid=True,
-                trusted=True,
-                classification="historical_closed_epoch",
-                epoch_id=epoch_id,
-                active_epoch_id=active_epoch_id,
-                key_id=normalized_key_id,
-                reason="trusted_historical_epoch",
-            )
+            epoch_cfg = epochs.get(epoch_id) if isinstance(epochs, dict) else None
+            if isinstance(epoch_cfg, dict) and self._retired_epoch_allowed(epoch_cfg):
+                result = EpochVerificationResult(
+                    signature_valid=True,
+                    trusted=True,
+                    classification="retired_epoch_replay_allowed",
+                    epoch_id=epoch_id,
+                    active_epoch_id=active_epoch_id,
+                    key_id=normalized_key_id,
+                    reason="retired_epoch_within_replay_window",
+                )
+            else:
+                result = EpochVerificationResult(
+                    signature_valid=True,
+                    trusted=False,
+                    classification="retired_epoch",
+                    epoch_id=epoch_id,
+                    active_epoch_id=active_epoch_id,
+                    key_id=normalized_key_id,
+                    reason="retired_epoch_outside_replay_window",
+                )
         self._record_decision(result, actor=actor, peer_name=peer_name)
         return result
 

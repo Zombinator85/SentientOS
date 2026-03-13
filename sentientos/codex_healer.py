@@ -15,6 +15,7 @@ from sentientos.audit_chain_gate import verify_audit_chain
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.immutability import read_manifest
 from sentientos.runtime_governor import get_runtime_governor
+from sentientos.repair_outcome import verify_repair_outcome
 
 
 def _ensure_utc(moment: datetime | None = None) -> datetime:
@@ -504,7 +505,7 @@ class CodexHealer:
         if attempts >= self._attempt_ceiling:
             regen_info = self._regenesis.rebuild(anomaly, None)
             return self._ledger.log(
-                "auto-repair escalated_ceiling",
+                "auto-repair regenesis_escalated",
                 anomaly=anomaly,
                 details={"attempts": attempts, "attempt_ceiling": self._attempt_ceiling, "regenesis": regen_info},
                 quarantined=True,
@@ -515,9 +516,9 @@ class CodexHealer:
         if action is None:
             regen_info = self._regenesis.rebuild(anomaly, None)
             return self._ledger.log(
-                "auto-repair escalated",
+                "auto-repair quarantined",
                 anomaly=anomaly,
-                details={"reason": "no_repair_available", "regenesis": regen_info},
+                details={"reason": "no_repair_available", "regenesis": regen_info, "repair_verification_status": "quarantined"},
                 correlation_id=correlation_id,
             )
         decision = self._board.evaluate(action, anomaly)
@@ -525,7 +526,7 @@ class CodexHealer:
             self._note_failure(key, now)
             regen_info = self._regenesis.rebuild(anomaly, action)
             return self._ledger.log(
-                "auto-repair rejected",
+                "auto-repair quarantined",
                 anomaly=anomaly,
                 action=action,
                 details={"review_reason": decision.reason, "regenesis": regen_info},
@@ -548,7 +549,7 @@ class CodexHealer:
             self._note_failure(key, now)
             regen_info = self._regenesis.rebuild(anomaly, action)
             return self._ledger.log(
-                "auto-repair denied_by_governor",
+                "auto-repair quarantined",
                 anomaly=anomaly,
                 action=action,
                 details={
@@ -566,7 +567,7 @@ class CodexHealer:
             self._note_success(key)
             verification = self._repair_verification(action=action, correlation_id=correlation_id)
             return self._ledger.log(
-                "auto-repair applied",
+                "auto-repair verified",
                 anomaly=anomaly,
                 action=action,
                 correlation_id=correlation_id,
@@ -575,40 +576,27 @@ class CodexHealer:
         self._note_failure(key, now)
         regen_info = self._regenesis.rebuild(anomaly, action)
         return self._ledger.log(
-            "auto-repair escalated",
+            "auto-repair regenesis_escalated",
             anomaly=anomaly,
             action=action,
-            details={"regenesis": regen_info},
+            details={"regenesis": regen_info, "repair_verification_status": "regenesis_escalated"},
             correlation_id=correlation_id,
         )
 
     def _repair_verification(self, *, action: RepairAction, correlation_id: str) -> dict[str, object]:
         if os.getenv("SENTIENTOS_REPAIR_VERIFY", "1") != "1":
-            return {"status": "skipped verification", "reason": "verification_disabled", "checks": []}
-        checks: list[dict[str, object]] = []
+            return {"status": "unverified", "reason": "verification_disabled", "checks": [], "correlation_id": correlation_id}
         try:
-            audit = verify_audit_chain(Path.cwd())
-            checks.append({"name": "audit_chain", "status": audit.status, "ok": audit.ok})
-            manifest_ok = True
-            try:
-                read_manifest()
-            except Exception:
-                manifest_ok = False
-            checks.append({"name": "immutable_manifest", "status": "ok" if manifest_ok else "invalid", "ok": manifest_ok})
-            all_ok = all(bool(item.get("ok")) for item in checks)
-            return {
-                "status": "verified" if all_ok else "unverified",
-                "reason": "ok" if all_ok else "post_repair_verification_failed",
-                "checks": checks,
-                "correlation_id": correlation_id,
-            }
+            outcome = verify_repair_outcome(anomaly_kind=action.kind)
+            return {**outcome.to_dict(), "correlation_id": correlation_id}
         except Exception as exc:
             return {
-                "status": "verification blocked/degraded",
+                "status": "failed",
                 "reason": f"verification_error:{exc}",
-                "checks": checks,
+                "checks": [],
                 "correlation_id": correlation_id,
             }
+
 
     @staticmethod
     def _anomaly_key(anomaly: Anomaly) -> str:
