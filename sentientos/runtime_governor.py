@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Deque
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust, write_audit_trust_artifacts
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.trust_ledger import get_trust_ledger
@@ -124,9 +125,10 @@ class RuntimeGovernor:
     """Deterministic admissibility layer for runtime control-plane actions."""
 
     def __init__(self) -> None:
-        self._mode = os.getenv("SENTIENTOS_GOVERNOR_MODE", "shadow").strip().lower()
-        if self._mode not in {"shadow", "advisory", "enforce"}:
-            self._mode = "shadow"
+        policy = resolve_policy()
+        self._policy_profile = policy.profile
+        self._policy_source = policy.source
+        self._mode = policy.runtime_governor
         self._root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "/glow/governor"))
         self._root.mkdir(parents=True, exist_ok=True)
         self._repo_root = Path(os.getenv("SENTIENTOS_REPO_ROOT", Path.cwd())).resolve()
@@ -394,6 +396,7 @@ class RuntimeGovernor:
         contention_total, _ = self._contention_counts(now)
         denied_streak = self._class_denied_streak.get(action_class, 0)
         storm_active = len(self._critical_events) > self._critical_limit
+        fairness_mode = resolve_policy().subject_fairness
         fairness_eval = PostureRuleEvaluation(
             dimension="fairness_starvation",
             reason="fairness_nominal",
@@ -410,9 +413,9 @@ class RuntimeGovernor:
         ):
             fairness_eval = PostureRuleEvaluation(
                 dimension="fairness_starvation",
-                reason="deferred_starvation_under_pressure",
+                reason=("deferred_starvation_under_pressure" if fairness_mode == "enforce" else "fairness_starvation_warning"),
                 restriction_class="fairness",
-                blocks=True,
+                blocks=fairness_mode == "enforce",
                 precedence=55,
                 details={"denied_streak": denied_streak, "threshold": self._starvation_streak_threshold},
             )
@@ -672,6 +675,8 @@ class RuntimeGovernor:
         return {
             "schema_version": 1,
             "mode": self._mode,
+            "policy_profile": self._policy_profile,
+            "policy_source": self._policy_source,
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "totals": {
                 "actions": sum(self._decision_totals.values()),
@@ -716,7 +721,7 @@ class RuntimeGovernor:
         self._rollup_path.write_text(json.dumps(rollup, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         fairness = rollup.get("subject_fairness", {})
         (self._root / "subject_fairness_rollup.json").write_text(
-            json.dumps({"schema_version": 1, "generated_at": _iso_now(), "subject_fairness": fairness}, indent=2, sort_keys=True) + "\n",
+            json.dumps({"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(), "subject_fairness": fairness}, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
 
@@ -1416,6 +1421,7 @@ class RuntimeGovernor:
         payload["decision"] = "allow" if allowed else "deny"
         payload["decision_outcome"] = outcome
         payload["governor_mode"] = self._mode
+        payload["enforcement_policy"] = resolve_policy().to_dict()
         payload["pressure_snapshot"] = pressure.to_dict()
         payload["pressure_band"] = pressure_band
         payload["contention_snapshot"] = contention_snapshot

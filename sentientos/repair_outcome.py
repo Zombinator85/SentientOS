@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Mapping
 
 from sentientos.audit_chain_gate import verify_audit_chain
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.immutability import read_manifest
 
 
@@ -43,14 +44,21 @@ def verify_repair_outcome(*, anomaly_kind: str, pre_details: Mapping[str, object
     checks.append({"name": "symptom_cleared", "ok": symptom_cleared, "status": "cleared" if symptom_cleared else "persisting", "anomaly_kind": anomaly_kind})
 
     ok = all(bool(c.get("ok")) for c in checks)
+    policy = resolve_policy()
+    mode = policy.repair_verification
     status = "verified" if ok else "unverified"
-    reason = "ok" if ok else "verification_failed"
+    if not ok and mode == "enforce":
+        reason = "verification_required_for_closure"
+    elif not ok and mode == "advisory":
+        reason = "verification_warning"
+    else:
+        reason = "ok" if ok else "verification_observed"
     outcome = RepairOutcome(status=status, reason=reason, checks=checks)
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = Path(f"glow/repairs/repair_outcome_report_{ts}.json")
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(), **outcome.to_dict()}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    out.write_text(json.dumps({"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(), "enforcement_policy": policy.to_dict(), "repair_verification_mode": mode, **outcome.to_dict()}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     with (out.parent / "repair_outcomes.jsonl").open("a", encoding="utf-8") as h:
-        h.write(json.dumps({"timestamp": datetime.now(timezone.utc).isoformat(), **outcome.to_dict()}, sort_keys=True) + "\n")
+        h.write(json.dumps({"timestamp": datetime.now(timezone.utc).isoformat(), "enforcement_policy": policy.to_dict(), "repair_verification_mode": mode, **outcome.to_dict()}, sort_keys=True) + "\n")
     return outcome

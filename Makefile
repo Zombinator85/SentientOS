@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched mypy-report pulse-key-status pulse-key-rotate federated-hardening-status federation-quorum-status governance-digest-status repair-verify constitutional-status
+.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched mypy-report pulse-key-status pulse-key-rotate federated-hardening-status federation-quorum-status governance-digest-status repair-verify constitutional-status enforcement-profile-dev enforcement-profile-ci enforcement-profile-enforce enforcement-policy-status
 
 PYTHON ?= python3
 
@@ -175,6 +175,7 @@ forge-ci:
 	$(MAKE) vow-artifacts
 	$(MAKE) contract-drift
 	$(MAKE) contract-status
+	$(MAKE) enforcement-policy-status
 	$(PYTHON) -m sentientos.forge run "forge_smoke_noop"
 
 mypy-forge:
@@ -207,6 +208,7 @@ perception-gaze:
 embodied-status:
 	$(MAKE) contract-drift
 	$(MAKE) contract-status
+	$(MAKE) enforcement-policy-status
 	$(PYTHON) -c "import json;from pathlib import Path;f=Path('glow/contracts/contract_status.json');p=json.loads(f.read_text(encoding='utf-8'));print('[embodied-status] contract_status='+str(f));print('[embodied-status] domains='+str(len(p.get('contracts', []))))"
 
 
@@ -238,11 +240,25 @@ governance-digest-status:
 repair-verify:
 	$(PYTHON) -c "from sentientos.repair_outcome import verify_repair_outcome;import json;print(json.dumps(verify_repair_outcome(anomaly_kind='manual_check').to_dict(), sort_keys=True))"
 
+
+enforcement-profile-dev:
+	$(PYTHON) -m scripts.federated_enforcement_profile --profile local-dev-relaxed --print-env
+
+enforcement-profile-ci:
+	$(PYTHON) -m scripts.federated_enforcement_profile --profile ci-advisory --print-env
+
+enforcement-profile-enforce:
+	$(PYTHON) -m scripts.federated_enforcement_profile --profile federation-enforce --print-env
+
+enforcement-policy-status:
+	$(PYTHON) -c "from sentientos.federated_enforcement_policy import resolve_policy;import json;print(json.dumps(resolve_policy().to_dict(), sort_keys=True))"
+
 federated-hardening-status:
 	$(MAKE) pulse-key-status
 	$(MAKE) governance-digest-status
 	$(MAKE) federation-quorum-status
 	$(MAKE) contract-status
+	$(MAKE) enforcement-policy-status
 
 constitutional-status:
 	$(MAKE) contract-drift

@@ -12,6 +12,7 @@ from threading import Lock
 from typing import Any, Mapping
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.trust_ledger import get_trust_ledger
 
@@ -137,7 +138,8 @@ class FederatedGovernanceController:
         audit = evaluate_audit_trust(repo_root, context="federation_governance_digest")
         epoch_state = get_trust_epoch_manager().load_state()
 
-        governor_mode = os.getenv("SENTIENTOS_GOVERNOR_MODE", "shadow").strip().lower()
+        policy = resolve_policy()
+        governor_mode = policy.runtime_governor
         components: dict[str, object] = {
             "schema_version": 1,
             "manifest_sha256": self._sha256_file(manifest_path),
@@ -160,6 +162,7 @@ class FederatedGovernanceController:
             },
             "governor_posture": {
                 "mode": governor_mode,
+                "profile": policy.profile,
                 "federated_window_seconds": self._env_int("SENTIENTOS_GOVERNOR_FEDERATED_WINDOW_SECONDS", 120),
                 "federated_limit": self._env_int("SENTIENTOS_GOVERNOR_FEDERATED_LIMIT", 20),
             },
@@ -241,6 +244,9 @@ class FederatedGovernanceController:
         missing_peers = [item for item in required_peers if item not in compatible_peers]
         quorum_satisfied = quorum_present >= quorum_required
 
+        policy = resolve_policy()
+        quorum_mode = policy.federated_quorum
+        digest_mode = policy.governance_digest
         denial_cause = "none"
         if not trusted:
             denial_cause = "untrusted_peer"
@@ -248,10 +254,13 @@ class FederatedGovernanceController:
             denial_cause = "peer_trust_restricted"
         elif epoch_status == "unexpected":
             denial_cause = "trust_epoch"
-        elif digest_status in {"missing", "incompatible"} and action_impact == "high":
-            denial_cause = "digest_mismatch"
+        elif digest_status in {"missing", "incompatible"}:
+            if digest_mode == "enforce" and action_impact in {"federated_restart", "lineage_affecting_operation", "governance_affecting_operation"}:
+                denial_cause = "digest_mismatch"
+            elif digest_mode == "advisory":
+                denial_cause = "digest_mismatch_advisory"
         elif not quorum_satisfied and quorum_required > 1:
-            denial_cause = "quorum_failure"
+            denial_cause = "quorum_failure" if quorum_mode == "enforce" else "quorum_warning"
 
         evaluation = PeerDigestEvaluation(
             peer_name=peer_name,
@@ -272,7 +281,7 @@ class FederatedGovernanceController:
             denial_cause=denial_cause,
         )
         self._record_peer_digest(peer_name, peer_digest_value, peer_components, evaluation)
-        self._append_quorum_decision(evaluation, action_key=action_key)
+        self._append_quorum_decision(evaluation, action_key=action_key, policy=policy.to_dict())
         get_trust_ledger().record_governance_evaluation(peer_name, evaluation.to_dict(), actor="federated_governance")
         return evaluation
 
@@ -353,11 +362,12 @@ class FederatedGovernanceController:
                 encoding="utf-8",
             )
 
-    def _append_quorum_decision(self, evaluation: PeerDigestEvaluation, *, action_key: str) -> None:
+    def _append_quorum_decision(self, evaluation: PeerDigestEvaluation, *, action_key: str, policy: Mapping[str, object]) -> None:
         payload = {
             "schema_version": 1,
             "timestamp": self._now(),
             "action_key": action_key,
+            "enforcement_policy": dict(policy),
             **evaluation.to_dict(),
         }
         for root in (self._governor_root, self._federation_root):

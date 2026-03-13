@@ -5,6 +5,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.pulse_trust_epoch import get_manager
 
 
@@ -24,6 +25,8 @@ payload = {
     "active_epoch_id": state.get("active_epoch_id"),
     "revoked_epochs": state.get("revoked_epochs", []),
     "epochs": state.get("epochs", {}),
+    "enforcement_policy": resolve_policy().to_dict(),
+    "pulse_trust_posture": resolve_policy().pulse_trust_epoch,
 }
 out = Path("glow/contracts/pulse_key_epoch_status.json")
 out.parent.mkdir(parents=True, exist_ok=True)

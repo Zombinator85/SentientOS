@@ -19,6 +19,7 @@ from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
 from . import pulse_bus
+from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.runtime_governor import get_runtime_governor
@@ -159,9 +160,10 @@ def verify_remote_signature(event: pulse_bus.PulseEvent, peer_name: str) -> bool
             classification=result.classification,
             actor="pulse_federation_signature",
         )
-        return False
+        if resolve_policy().pulse_trust_epoch == "enforce":
+            return False
     peer_epoch = event.get("pulse_epoch_id")
-    if isinstance(peer_epoch, str) and peer_epoch and peer_epoch not in {"legacy", result.active_epoch_id}:
+    if isinstance(peer_epoch, str) and peer_epoch and peer_epoch not in {"legacy", result.active_epoch_id} and resolve_policy().pulse_trust_epoch == "enforce":
         return False
     try:
         key.verify(payload, base64.b64decode(signature))
@@ -203,7 +205,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 "trust_epoch_id": trust.epoch_id,
             },
         )
-        if not decision.allowed:
+        if resolve_policy().pulse_trust_epoch == "enforce" and not decision.allowed:
             raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     payload = copy.deepcopy(event)
     governance = get_federated_governance_controller()
@@ -211,7 +213,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     trust_ledger = get_trust_ledger()
     event_payload = payload.get("payload")
 
-    if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
+    if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch", "digest_mismatch_advisory", "quorum_warning"}:
         decision = get_runtime_governor().admit_action(
             "federated_control",
             peer_name,
@@ -224,7 +226,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 "federated_denial_cause": evaluation.denial_cause,
             },
         )
-        if not decision.allowed:
+        if not decision.allowed and evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
             trust_ledger.record_control_attempt(
                 peer_name,
                 allowed=False,
