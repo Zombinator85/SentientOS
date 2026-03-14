@@ -4,15 +4,44 @@ The protected corridor is the bounded validation set expected to remain green to
 for release quality. It intentionally focuses on mature constitutional/runtime/federation/operator
 surfaces while explicitly classifying debt outside this corridor.
 
-## Corridor command
+## Canonical commands
+
+Provision once (deterministic editable install + test extras):
 
 ```bash
-PYTHONPATH=. python scripts/protected_corridor.py
+python scripts/protected_corridor.py --bootstrap
+```
+
+Verify corridor prerequisites only:
+
+```bash
+python scripts/protected_corridor.py --check-prereqs
+```
+
+Run the corridor:
+
+```bash
+PYTHONPATH=. python scripts/protected_corridor.py --profile ci-advisory
 ```
 
 Artifact output:
 
 - `glow/contracts/protected_corridor_report.json`
+
+## Prerequisites
+
+Blocking targeted test surfaces require:
+
+- editable install from this repository root
+- runtime test imports: `pytest`, `fastapi`, `starlette.testclient.TestClient`, `httpx`
+
+The report includes a deterministic provisioning section:
+
+- `provisioning.ready`
+- `provisioning.check_missing_prerequisites`
+- `provisioning.diagnostics`
+
+If prerequisites are missing, profiles are not executed and the command exits with code `2`.
 
 ## Profiles
 
@@ -38,6 +67,8 @@ Artifact output:
 
 - `blocking_release_corridor_failure`: release corridor blocker.
 - `blocking_correctness_failure`: correctness blocker.
+- `environment_unprovisioned`: bootstrap/runtime dependencies were missing.
+- `policy_doctrine_skipped`: execution was blocked by explicit doctrine/policy mode.
 - `non_blocking_optional_historical_runtime_state`: non-blocking operational/audit historical issue.
 - `legacy_deferred_debt`: known debt outside protected blocking scope.
 

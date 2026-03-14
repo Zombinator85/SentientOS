@@ -28,8 +28,39 @@ def test_profile_aware_expectation_for_forge_status() -> None:
     assert strict.bucket == "blocking_release_corridor_failure"
 
 
+def test_classifies_unprovisioned_environment() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "contract_status_rollup_targeted")
+
+    result = protected_corridor.classify_result(
+        check,
+        profile="ci-advisory",
+        returncode=1,
+        output="run_tests import airlock failed: fastapi import failed: No module named 'fastapi'",
+    )
+
+    assert result.bucket == "environment_unprovisioned"
+
+
+def test_classifies_policy_doctrine_skip() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "contract_status_rollup_targeted")
+
+    result = protected_corridor.classify_result(
+        check,
+        profile="ci-advisory",
+        returncode=1,
+        output="CI proof requires executed tests. Collection/info modes are not admissible.",
+    )
+
+    assert result.bucket == "policy_doctrine_skipped"
+
+
 def test_run_validation_writes_report(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(protected_corridor, "_iso_now", lambda: "2026-01-01T00:00:00Z")
+    monkeypatch.setattr(
+        protected_corridor,
+        "check_prerequisites",
+        lambda *args, **kwargs: protected_corridor.PrerequisiteStatus(ready=True, checks={}, diagnostics=[]),
+    )
 
     outcomes = {
         tuple(check.command): 0 for check in protected_corridor.CHECKS
@@ -49,12 +80,57 @@ def test_run_validation_writes_report(monkeypatch, tmp_path: Path) -> None:
     assert output.exists()
 
     payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["provisioning"]["ready"] is True
     assert payload["profiles"][0]["profile"] == "ci-advisory"
     assert payload["profiles"][0]["deferred_debt"][0]["name"] == "mypy_protected_scope"
+
+
+def test_run_validation_skips_profiles_when_unprovisioned(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(protected_corridor, "_iso_now", lambda: "2026-01-01T00:00:00Z")
+    monkeypatch.setattr(
+        protected_corridor,
+        "check_prerequisites",
+        lambda *args, **kwargs: protected_corridor.PrerequisiteStatus(
+            ready=False,
+            checks={"contract_status_rollup_targeted": ["editable_install"]},
+            diagnostics=["editable_install: editable install check failed (distribution-not-found)"],
+        ),
+    )
+
+    output = tmp_path / "corridor_unready.json"
+    report = protected_corridor.run_validation(profiles=["ci-advisory"], output_path=output)
+
+    assert report["profiles"] == []
+    assert report["provisioning"]["ready"] is False
+    assert "contract_status_rollup_targeted" in report["provisioning"]["check_missing_prerequisites"]
+
+
+
+
+def test_check_prerequisites_reports_missing_dependencies(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        protected_corridor,
+        "get_editable_install_status",
+        lambda repo_root: type("Status", (), {"ok": False, "reason": "distribution-not-found"})(),
+    )
+    monkeypatch.setattr(
+        protected_corridor,
+        "_test_runtime_imports_ok",
+        lambda repo_root: (False, ["fastapi import failed: No module named 'fastapi'"]),
+    )
+
+    status = protected_corridor.check_prerequisites(repo_root=tmp_path)
+
+    assert status.ready is False
+    assert "contract_status_rollup_targeted" in status.checks
+    assert "editable_install" in status.checks["contract_status_rollup_targeted"]
+    assert "test_runtime_imports" in status.checks["contract_status_rollup_targeted"]
+    assert any("distribution-not-found" in message for message in status.diagnostics)
 
 
 def test_contract_status_rollup_surface_is_in_protected_corridor() -> None:
     check = next(item for item in protected_corridor.CHECKS if item.name == "contract_status_rollup_targeted")
 
     assert check.blocking is True
+    assert check.prerequisites == ("editable_install", "test_runtime_imports")
     assert check.command == ("python", "-m", "scripts.run_tests", "-q", "tests/test_contract_status_rollup.py")
