@@ -26,6 +26,7 @@ def test_emit_contract_status_handles_missing_baselines(tmp_path: Path, monkeypa
     assert by_domain["federation_identity"]["drift_type"] == "baseline_missing"
     assert by_domain["vow_manifest"]["baseline_present"] is False
     assert by_domain["vow_manifest"]["drift_type"] == "preflight_required"
+    assert by_domain["protected_corridor_report"]["drift_type"] == "artifact_missing"
 
 
 def test_emit_contract_status_includes_vow_manifest_provenance(tmp_path: Path, monkeypatch) -> None:
