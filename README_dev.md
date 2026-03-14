@@ -229,13 +229,18 @@ Use the deterministic global validation pass to evaluate release-quality protect
 without introducing new architecture:
 
 ```bash
-PYTHONPATH=. python scripts/protected_corridor.py
+python scripts/protected_corridor.py --bootstrap
+python scripts/protected_corridor.py --check-prereqs
+PYTHONPATH=. python scripts/protected_corridor.py --profile ci-advisory
 ```
 
-This command writes `glow/contracts/protected_corridor_report.json` and runs one bounded corridor
+This writes `glow/contracts/protected_corridor_report.json` and runs one bounded corridor
 across constitutional verification, forge status/replay, contract status/drift, simulation baseline,
 formal verification, targeted federation+operator tests, mypy protected-scope ratchet, and audit
 verification tooling.
+
+If prerequisites are missing, corridor execution is reported as `environment_unprovisioned`
+(exit code `2`) instead of being mixed with true check regressions.
 
 Profiles are explicit and auditable:
 
