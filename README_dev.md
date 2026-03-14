@@ -222,3 +222,32 @@ Specify `policy="sentientos"` under `[lint]` to load additional rules from `poli
 Documentation lives at https://zombinator85.github.io/SentientOS/.
 
 SentientOS prioritizes operator accountability, auditability, and safe shutdown.
+
+## Protected corridor validation
+
+Use the deterministic global validation pass to evaluate release-quality protected surfaces
+without introducing new architecture:
+
+```bash
+PYTHONPATH=. python scripts/protected_corridor.py
+```
+
+This command writes `glow/contracts/protected_corridor_report.json` and runs one bounded corridor
+across constitutional verification, forge status/replay, contract status/drift, simulation baseline,
+formal verification, targeted federation+operator tests, mypy protected-scope ratchet, and audit
+verification tooling.
+
+Profiles are explicit and auditable:
+
+- `local-dev-relaxed`: allows expected advisory warnings for local artifact gaps and deferred debt.
+- `ci-advisory`: keeps mandatory corridor checks green while treating known debt as non-blocking.
+- `federation-enforce`: strict profile where protected blocking checks are expected green.
+
+Interpretation guidance:
+
+- `blocking_release_corridor_failure` / `blocking_correctness_failure`: release-blocking.
+- `non_blocking_optional_historical_runtime_state`: visible, non-blocking operational warning.
+- `legacy_deferred_debt`: known debt outside protected corridor, tracked but not hidden.
+
+Contract/operator visibility includes this artifact via `protected_corridor_report` in
+`glow/contracts/contract_status.json`.
