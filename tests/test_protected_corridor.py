@@ -51,3 +51,10 @@ def test_run_validation_writes_report(monkeypatch, tmp_path: Path) -> None:
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["profiles"][0]["profile"] == "ci-advisory"
     assert payload["profiles"][0]["deferred_debt"][0]["name"] == "mypy_protected_scope"
+
+
+def test_contract_status_rollup_surface_is_in_protected_corridor() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "contract_status_rollup_targeted")
+
+    assert check.blocking is True
+    assert check.command == ("python", "-m", "scripts.run_tests", "-q", "tests/test_contract_status_rollup.py")

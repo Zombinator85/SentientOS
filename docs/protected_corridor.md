@@ -25,6 +25,7 @@ Artifact output:
 - constitution verify
 - forge status + forge replay
 - contract status + contract drift
+- targeted contract status rollup tests
 - simulation baseline gate
 - formal verification
 - targeted federation hardening tests

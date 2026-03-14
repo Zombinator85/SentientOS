@@ -65,6 +65,13 @@ CHECKS: tuple[CorridorCheck, ...] = (
         notes="Contract status artifact must emit deterministically.",
     ),
     CorridorCheck(
+        name="contract_status_rollup_targeted",
+        command=("python", "-m", "scripts.run_tests", "-q", "tests/test_contract_status_rollup.py"),
+        blocking=True,
+        expected_relaxed="pass",
+        notes="Contract status rollup invariants are release-critical for operator visibility.",
+    ),
+    CorridorCheck(
         name="contract_drift",
         command=("python", "scripts/contract_drift.py"),
         blocking=False,
