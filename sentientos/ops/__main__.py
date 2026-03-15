@@ -138,6 +138,20 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     simulate_federation.add_argument("--baseline", action="store_true")
     simulate_federation.add_argument("--json", action="store_true")
 
+    lab = domains.add_parser("lab", help="live multi-node lab operations")
+    lab_sub = lab.add_subparsers(dest="action", required=True)
+    lab_federation = lab_sub.add_parser("federation", help="run live multi-node federation lab scenarios")
+    lab_federation.add_argument("--scenario", default="healthy_3node")
+    lab_federation.add_argument("--seed", type=int, default=7)
+    lab_federation.add_argument("--nodes", type=int)
+    lab_federation.add_argument("--runtime-s", type=float, default=2.0)
+    lab_federation.add_argument("--emit-bundle", action="store_true")
+    lab_federation.add_argument("--list-scenarios", action="store_true")
+    lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
+    lab_federation.add_argument("--json", action="store_true")
+    lab_clean = lab_sub.add_parser("clean", help="delete all live federation lab run artifacts")
+    lab_clean.add_argument("--json", action="store_true")
+
     verify = domains.add_parser("verify", help="verification wings")
     verify_sub = verify.add_subparsers(dest="action", required=True)
     verify_formal = verify_sub.add_parser("formal", help="run bounded formal model checks")
@@ -294,6 +308,49 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 f"report_path={row.get('report_path') or ((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('report_path'))}"
             ),
         )
+        return exit_code(payload)
+
+    if args.domain == "lab" and args.action == "federation":
+        from sentientos.lab import list_federation_lab_scenarios, run_live_federation_lab
+
+        if bool(args.list_scenarios):
+            payload = {
+                "schema_version": 1,
+                "scenarios": list_federation_lab_scenarios(),
+                "status": "passed",
+                "exit_code": 0,
+            }
+            payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+            emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(row.get('scenarios', []))}")
+            return 0
+        payload = run_live_federation_lab(
+            repo_root,
+            scenario_name=str(args.scenario),
+            seed=int(args.seed),
+            node_count=int(args.nodes) if args.nodes is not None else None,
+            emit_bundle=bool(args.emit_bundle),
+            runtime_s=float(args.runtime_s),
+            clean=bool(args.clean),
+        )
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+        emit_payload(
+            payload,
+            as_json=bool(args.json),
+            text_renderer=lambda row: (
+                f"scenario={row.get('scenario')} "
+                f"status={row.get('status')} "
+                f"quorum_admit={((row.get('observed') if isinstance(row.get('observed'), dict) else {}).get('quorum_admit'))} "
+                f"run_root={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('run_root'))}"
+            ),
+        )
+        return exit_code(payload)
+
+    if args.domain == "lab" and args.action == "clean":
+        from sentientos.lab import clean_live_federation_runs
+
+        payload = clean_live_federation_runs(repo_root)
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+        emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"removed={row.get('removed')} path={row.get('path')}")
         return exit_code(payload)
 
     if args.domain == "verify" and args.action == "formal":
