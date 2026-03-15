@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from sentientos.lab import deterministic_node_layout, list_federation_lab_scenarios, run_live_federation_lab
+from sentientos.ops import main as ops_main
+
+
+def test_deterministic_layout_stable() -> None:
+    first = deterministic_node_layout(nodes=3, seed=42)
+    second = deterministic_node_layout(nodes=3, seed=42)
+    assert first == second
+    assert [row.node_id for row in first] == ["node-01", "node-02", "node-03"]
+
+
+def test_scenario_list_contains_required_live_cases() -> None:
+    names = {row["name"] for row in list_federation_lab_scenarios()}
+    assert {"healthy_3node", "quorum_failure", "replay_storm", "reanchor_continuation", "pressure_local_safety"}.issubset(names)
+
+
+def test_ops_lab_list_scenarios_json(tmp_path: Path, capsys) -> None:
+    rc = ops_main(["--repo-root", str(tmp_path), "lab", "federation", "--list-scenarios", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["surface"] == "sentientos.ops"
+    assert payload["command"] == "lab.federation"
+
+
+def test_live_lab_run_emits_manifest(tmp_path: Path) -> None:
+    payload = run_live_federation_lab(tmp_path, scenario_name="healthy_3node", seed=7, node_count=2, runtime_s=0.3, clean=True)
+    assert payload["mode"] == "live_lab"
+    run_root = tmp_path / payload["artifact_paths"]["run_root"]
+    manifest_path = run_root / "artifact_manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["file_count"] > 0

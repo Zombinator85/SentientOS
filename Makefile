@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation
+.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-clean
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
@@ -126,6 +126,15 @@ incident-bundle:
 
 simulate-federation:
 	$(PYTHON) scripts/simulate_federation.py --baseline --json
+
+federation-lab:
+	$(PYTHON) scripts/federation_lab.py --scenario healthy_3node --nodes 3 --seed 42 --json
+
+federation-lab-scenario:
+	$(PYTHON) scripts/federation_lab.py --scenario $(if $(SCENARIO),$(SCENARIO),quorum_failure) --nodes $(if $(NODES),$(NODES),3) --seed $(if $(SEED),$(SEED),42) --emit-bundle --json
+
+federation-lab-clean:
+	$(PYTHON) -m sentientos.ops lab clean --json
 
 verify-audits-strict:
 	$(PYTHON) scripts/verify_audits.py --strict
@@ -263,4 +272,3 @@ federated-hardening-status:
 constitutional-status:
 	$(MAKE) contract-drift
 	$(MAKE) federated-hardening-status
-
