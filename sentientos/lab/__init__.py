@@ -9,6 +9,15 @@ from .federation_lab import (
     run_endurance_suite,
     run_live_federation_lab,
 )
+from .wan_federation import (
+    CANONICAL_TOPOLOGIES,
+    WAN_SCENARIOS,
+    deterministic_multihost_topology,
+    deterministic_wan_fault_schedule,
+    list_wan_scenarios,
+    run_wan_federation_lab,
+    run_wan_suite,
+)
 
 __all__ = [
     "ENDURANCE_SCENARIOS",
@@ -20,4 +29,11 @@ __all__ = [
     "list_federation_lab_scenarios",
     "run_endurance_suite",
     "run_live_federation_lab",
+    "CANONICAL_TOPOLOGIES",
+    "WAN_SCENARIOS",
+    "deterministic_multihost_topology",
+    "deterministic_wan_fault_schedule",
+    "list_wan_scenarios",
+    "run_wan_federation_lab",
+    "run_wan_suite",
 ]
