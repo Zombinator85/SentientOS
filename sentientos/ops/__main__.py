@@ -145,6 +145,7 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--seed", type=int, default=7)
     lab_federation.add_argument("--nodes", type=int)
     lab_federation.add_argument("--runtime-s", type=float, default=2.0)
+    lab_federation.add_argument("--mode", choices=["auto", "worker", "daemon"], default="auto")
     lab_federation.add_argument("--emit-bundle", action="store_true")
     lab_federation.add_argument("--list-scenarios", action="store_true")
     lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
@@ -331,6 +332,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             emit_bundle=bool(args.emit_bundle),
             runtime_s=float(args.runtime_s),
             clean=bool(args.clean),
+            runtime_mode=str(args.mode),
         )
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(

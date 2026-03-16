@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import shutil
 import subprocess
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from scripts import forge_replay
 from sentientos.attestation import append_jsonl, iso_now, read_json, read_jsonl, write_json
 from sentientos.node_operations import build_incident_bundle, node_health, run_bootstrap
+
+RuntimeMode = Literal["worker", "daemon", "auto"]
+ProcessState = Literal["planned", "starting", "running", "stopping", "stopped", "failed", "timeout", "restarting"]
 
 LIVE_SCENARIOS: dict[str, dict[str, Any]] = {
     "healthy_3node": {
@@ -77,6 +78,17 @@ class NodeLayout:
     runtime_dir: str
 
 
+@dataclass
+class NodeRuntimeProcess:
+    node_id: str
+    mode: RuntimeMode
+    proc: subprocess.Popen[str]
+    command: list[str]
+    cwd: Path
+    stdout_path: Path
+    stderr_path: Path
+
+
 def list_federation_lab_scenarios() -> list[dict[str, object]]:
     return [
         {
@@ -85,6 +97,7 @@ def list_federation_lab_scenarios() -> list[dict[str, object]]:
             "node_count": int(spec.get("node_count") or 0),
             "live_capable": bool(spec.get("live_capable", False)),
             "simulated_only": bool(spec.get("simulated_only", False)),
+            "daemon_parity": True,
         }
         for name, spec in sorted(LIVE_SCENARIOS.items())
     ]
@@ -120,6 +133,152 @@ def _node_root(run_root: Path, node_id: str) -> Path:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _resolve_runtime_mode(mode: RuntimeMode, repo_root: Path) -> RuntimeMode:
+    if mode in {"worker", "daemon"}:
+        return mode
+    daemon_entrypoint = repo_root / "scripts/orchestrator_daemon.py"
+    return "daemon" if daemon_entrypoint.exists() else "worker"
+
+
+def _append_transition(path: Path, *, node_id: str, mode: RuntimeMode, state: ProcessState, **extra: object) -> dict[str, object]:
+    row: dict[str, object] = {"schema_version": 1, "ts": iso_now(), "node": node_id, "mode": mode, "state": state}
+    row.update(extra)
+    append_jsonl(path, row)
+    return row
+
+
+def _daemon_command(repo_root: Path) -> list[str]:
+    return [sys.executable, str((repo_root / "scripts/orchestrator_daemon.py").resolve()), "--interval", "5"]
+
+
+def _worker_command(node_root: Path, node_id: str, heartbeat_s: float) -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "sentientos.lab.node_worker",
+        "--node-root",
+        str(node_root),
+        "--node-id",
+        node_id,
+        "--heartbeat-s",
+        str(heartbeat_s),
+    ]
+
+
+def _launch_node(
+    *,
+    repo_root: Path,
+    run_root: Path,
+    row: NodeLayout,
+    mode: RuntimeMode,
+    heartbeat_s: float,
+    transitions_path: Path,
+) -> NodeRuntimeProcess:
+    node_root = _node_root(run_root, row.node_id)
+    mode_dir = node_root / "glow/lab"
+    mode_dir.mkdir(parents=True, exist_ok=True)
+    stdout_path = mode_dir / f"{mode}_stdout.log"
+    stderr_path = mode_dir / f"{mode}_stderr.log"
+
+    if mode == "daemon":
+        command = _daemon_command(repo_root)
+        cwd = node_root
+    else:
+        command = _worker_command(node_root, row.node_id, heartbeat_s)
+        cwd = repo_root
+
+    _append_transition(transitions_path, node_id=row.node_id, mode=mode, state="starting", command=command, cwd=str(cwd))
+    proc = subprocess.Popen(command, cwd=cwd, stdout=stdout_path.open("a", encoding="utf-8"), stderr=stderr_path.open("a", encoding="utf-8"), text=True)
+    _append_transition(transitions_path, node_id=row.node_id, mode=mode, state="running", pid=proc.pid)
+    return NodeRuntimeProcess(node_id=row.node_id, mode=mode, proc=proc, command=command, cwd=cwd, stdout_path=stdout_path, stderr_path=stderr_path)
+
+
+def _start_nodes(
+    layout: list[NodeLayout],
+    run_root: Path,
+    *,
+    repo_root: Path,
+    mode: RuntimeMode,
+    heartbeat_s: float,
+    transitions_path: Path,
+) -> dict[str, NodeRuntimeProcess]:
+    return {
+        row.node_id: _launch_node(repo_root=repo_root, run_root=run_root, row=row, mode=mode, heartbeat_s=heartbeat_s, transitions_path=transitions_path)
+        for row in layout
+    }
+
+
+def _stop_nodes(
+    procs: dict[str, NodeRuntimeProcess],
+    *,
+    transitions_path: Path,
+    stop_timeout_s: float,
+) -> dict[str, int]:
+    exit_codes: dict[str, int] = {}
+    for node_id, process in procs.items():
+        if process.proc.poll() is None:
+            _append_transition(transitions_path, node_id=node_id, mode=process.mode, state="stopping", pid=process.proc.pid)
+            process.proc.terminate()
+    for node_id, process in procs.items():
+        try:
+            code = int(process.proc.wait(timeout=max(1.0, stop_timeout_s)))
+            exit_codes[node_id] = code
+            _append_transition(transitions_path, node_id=node_id, mode=process.mode, state="stopped", pid=process.proc.pid, exit_code=code)
+        except subprocess.TimeoutExpired:
+            process.proc.kill()
+            code = int(process.proc.wait(timeout=5))
+            exit_codes[node_id] = code
+            _append_transition(transitions_path, node_id=node_id, mode=process.mode, state="timeout", pid=process.proc.pid, exit_code=code)
+    return exit_codes
+
+
+def _restart_node(
+    node_id: str,
+    layout_map: dict[str, NodeLayout],
+    run_root: Path,
+    procs: dict[str, NodeRuntimeProcess],
+    *,
+    repo_root: Path,
+    mode: RuntimeMode,
+    heartbeat_s: float,
+    transitions_path: Path,
+) -> dict[str, object]:
+    existing = procs.get(node_id)
+    if existing is not None and existing.proc.poll() is None:
+        _append_transition(transitions_path, node_id=node_id, mode=existing.mode, state="restarting", pid=existing.proc.pid)
+        existing.proc.terminate()
+        existing.proc.wait(timeout=8)
+    procs[node_id] = _launch_node(repo_root=repo_root, run_root=run_root, row=layout_map[node_id], mode=mode, heartbeat_s=heartbeat_s, transitions_path=transitions_path)
+    return {"node": node_id, "event": "restarted", "pid": procs[node_id].proc.pid, "runtime_mode": mode, "ts": iso_now()}
+
+
+def _topology(layout: list[NodeLayout]) -> dict[str, object]:
+    nodes = [{"node_id": row.node_id, "peer_id": row.peer_id, "port": row.port, "runtime_dir": row.runtime_dir} for row in layout]
+    edges: list[dict[str, str]] = []
+    for idx, row in enumerate(layout):
+        peers = [layout[(idx + 1) % len(layout)].node_id] if len(layout) > 1 else []
+        for peer in peers:
+            edges.append({"from": row.node_id, "to": peer, "kind": "gossip"})
+    return {"schema_version": 1, "nodes": nodes, "edges": edges}
+
+
+def _write_daemon_snapshot(node_root: Path, *, node_id: str, process: NodeRuntimeProcess | None) -> dict[str, object]:
+    snapshot = {
+        "schema_version": 1,
+        "ts": iso_now(),
+        "node": node_id,
+        "runtime_mode": process.mode if process is not None else "worker",
+        "pid": process.proc.pid if process is not None else None,
+        "alive": bool(process is not None and process.proc.poll() is None),
+        "command": process.command if process is not None else [],
+        "cwd": str(process.cwd) if process is not None else "",
+        "stdout": str(process.stdout_path.relative_to(node_root)) if process is not None else "",
+        "stderr": str(process.stderr_path.relative_to(node_root)) if process is not None else "",
+    }
+    write_json(node_root / "glow/lab/runtime_process_snapshot.json", snapshot)
+    return snapshot
 
 
 def _apply_injection(node_root: Path, *, node_id: str, injection: dict[str, Any], seed: int) -> dict[str, object]:
@@ -175,75 +334,6 @@ def _apply_injection(node_root: Path, *, node_id: str, injection: dict[str, Any]
     return record
 
 
-def _start_workers(layout: list[NodeLayout], run_root: Path, *, heartbeat_s: float) -> dict[str, subprocess.Popen[str]]:
-    procs: dict[str, subprocess.Popen[str]] = {}
-    for row in layout:
-        node_root = _node_root(run_root, row.node_id)
-        stdout = (node_root / "glow/lab/worker_stdout.log").open("w", encoding="utf-8")
-        stderr = (node_root / "glow/lab/worker_stderr.log").open("w", encoding="utf-8")
-        cmd = [
-            sys.executable,
-            "-m",
-            "sentientos.lab.node_worker",
-            "--node-root",
-            str(node_root),
-            "--node-id",
-            row.node_id,
-            "--heartbeat-s",
-            str(heartbeat_s),
-        ]
-        procs[row.node_id] = subprocess.Popen(cmd, stdout=stdout, stderr=stderr, text=True)
-    return procs
-
-
-def _stop_workers(procs: dict[str, subprocess.Popen[str]]) -> dict[str, int]:
-    exit_codes: dict[str, int] = {}
-    for node_id, proc in procs.items():
-        if proc.poll() is None:
-            proc.terminate()
-    for node_id, proc in procs.items():
-        try:
-            exit_codes[node_id] = int(proc.wait(timeout=8))
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            exit_codes[node_id] = int(proc.wait(timeout=5))
-    return exit_codes
-
-
-def _restart_node(node_id: str, layout_map: dict[str, NodeLayout], run_root: Path, procs: dict[str, subprocess.Popen[str]], *, heartbeat_s: float) -> dict[str, object]:
-    proc = procs.get(node_id)
-    if proc is not None and proc.poll() is None:
-        proc.terminate()
-        proc.wait(timeout=8)
-    row = layout_map[node_id]
-    node_root = _node_root(run_root, row.node_id)
-    stdout = (node_root / "glow/lab/worker_stdout.log").open("a", encoding="utf-8")
-    stderr = (node_root / "glow/lab/worker_stderr.log").open("a", encoding="utf-8")
-    cmd = [
-        sys.executable,
-        "-m",
-        "sentientos.lab.node_worker",
-        "--node-root",
-        str(node_root),
-        "--node-id",
-        row.node_id,
-        "--heartbeat-s",
-        str(heartbeat_s),
-    ]
-    procs[row.node_id] = subprocess.Popen(cmd, stdout=stdout, stderr=stderr, text=True)
-    return {"node": node_id, "event": "restarted", "pid": procs[row.node_id].pid, "ts": iso_now()}
-
-
-def _topology(layout: list[NodeLayout]) -> dict[str, object]:
-    nodes = [{"node_id": row.node_id, "peer_id": row.peer_id, "port": row.port, "runtime_dir": row.runtime_dir} for row in layout]
-    edges: list[dict[str, str]] = []
-    for idx, row in enumerate(layout):
-        peers = [layout[(idx + 1) % len(layout)].node_id] if len(layout) > 1 else []
-        for peer in peers:
-            edges.append({"from": row.node_id, "to": peer, "kind": "gossip"})
-    return {"schema_version": 1, "nodes": nodes, "edges": edges}
-
-
 def run_live_federation_lab(
     repo_root: Path,
     *,
@@ -254,6 +344,7 @@ def run_live_federation_lab(
     runtime_s: float = 2.0,
     heartbeat_s: float = 0.6,
     clean: bool = False,
+    runtime_mode: RuntimeMode = "auto",
 ) -> dict[str, object]:
     root = repo_root.resolve()
     scenario = LIVE_SCENARIOS.get(scenario_name)
@@ -261,6 +352,7 @@ def run_live_federation_lab(
         raise ValueError(f"unknown live lab scenario: {scenario_name}")
 
     resolved_nodes = int(node_count or int(scenario.get("node_count") or 1))
+    resolved_mode = _resolve_runtime_mode(runtime_mode, root)
     run_id = _run_id(seed=seed, scenario=scenario_name)
     run_root = root / "glow/lab/federation" / run_id
     if clean and run_root.exists():
@@ -270,17 +362,43 @@ def run_live_federation_lab(
     layout = deterministic_node_layout(nodes=resolved_nodes, seed=seed)
     layout_map = {row.node_id: row for row in layout}
 
-    write_json(run_root / "run_metadata.json", {"schema_version": 1, "run_id": run_id, "scenario": scenario_name, "seed": seed, "node_count": resolved_nodes})
+    transitions_path = run_root / "process_transitions.jsonl"
+    transitions_path.write_text("", encoding="utf-8")
+
+    write_json(
+        run_root / "run_metadata.json",
+        {
+            "schema_version": 1,
+            "run_id": run_id,
+            "scenario": scenario_name,
+            "seed": seed,
+            "node_count": resolved_nodes,
+            "runtime_mode_requested": runtime_mode,
+            "runtime_mode_resolved": resolved_mode,
+        },
+    )
     write_json(run_root / "topology.json", _topology(layout))
 
     bootstrap_rows: list[dict[str, object]] = []
+    peer_map = [{"node_id": row.node_id, "peer_id": row.peer_id, "port": row.port} for row in layout]
     for row in layout:
         node_root = _node_root(run_root, row.node_id)
         node_root.mkdir(parents=True, exist_ok=True)
-        write_json(node_root / "glow/lab/node_identity.json", {"schema_version": 1, "node_id": row.node_id, "peer_id": row.peer_id, "port": row.port})
+        write_json(
+            node_root / "glow/lab/node_identity.json",
+            {
+                "schema_version": 1,
+                "node_id": row.node_id,
+                "peer_id": row.peer_id,
+                "port": row.port,
+                "runtime_root": str(node_root),
+                "runtime_mode": resolved_mode,
+                "peers": [peer for peer in peer_map if peer["node_id"] != row.node_id],
+            },
+        )
         bootstrap_rows.append(run_bootstrap(node_root, reason=f"lab_{scenario_name}", seed_minimal=True, allow_restore=True))
 
-    procs = _start_workers(layout, run_root, heartbeat_s=heartbeat_s)
+    procs = _start_nodes(layout, run_root, repo_root=root, mode=resolved_mode, heartbeat_s=heartbeat_s, transitions_path=transitions_path)
     time.sleep(max(0.2, runtime_s / 2))
 
     injection_records: list[dict[str, object]] = []
@@ -293,9 +411,21 @@ def run_live_federation_lab(
             if typ == "restart_storm":
                 count = max(1, int(injection.get("count") or 1))
                 for _ in range(count):
-                    injection_records.append(_restart_node(node_id, layout_map, run_root, procs, heartbeat_s=heartbeat_s))
+                    injection_records.append(
+                        _restart_node(
+                            node_id,
+                            layout_map,
+                            run_root,
+                            procs,
+                            repo_root=root,
+                            mode=resolved_mode,
+                            heartbeat_s=heartbeat_s,
+                            transitions_path=transitions_path,
+                        )
+                    )
                 continue
             record = _apply_injection(_node_root(run_root, node_id), node_id=node_id, injection=injection, seed=seed)
+            record["runtime_mode"] = resolved_mode
             injection_records.append(record)
 
     injection_log = run_root / "scenario_injection_log.jsonl"
@@ -304,18 +434,30 @@ def run_live_federation_lab(
         append_jsonl(injection_log, row)
 
     time.sleep(max(0.4, runtime_s))
-    process_exit = _stop_workers(procs)
+
+    process_snapshots: dict[str, dict[str, object]] = {}
+    for row in layout:
+        process_snapshots[row.node_id] = _write_daemon_snapshot(_node_root(run_root, row.node_id), node_id=row.node_id, process=procs.get(row.node_id))
+
+    process_exit = _stop_nodes(procs, transitions_path=transitions_path, stop_timeout_s=max(2.0, runtime_s))
 
     node_health_rows: dict[str, dict[str, object]] = {}
+    constitution_snapshots: dict[str, dict[str, object]] = {}
+    trust_snapshots: dict[str, dict[str, object]] = {}
+    governor_snapshots: dict[str, dict[str, object]] = {}
     for row in layout:
         node_root = _node_root(run_root, row.node_id)
         node_health_rows[row.node_id] = node_health(node_root)
         write_json(node_root / "glow/lab/health_snapshot.json", node_health_rows[row.node_id])
+        constitution_snapshots[row.node_id] = read_json(node_root / "glow/constitution/constitution_summary.json")
+        trust_snapshots[row.node_id] = read_json(node_root / "glow/pulse_trust/epoch_state.json")
+        governor_snapshots[row.node_id] = read_json(node_root / "glow/governor/rollup.json")
 
     duplicate_events = 0
     continuation_recognized = False
     quorum_present = 0
     local_safety_active = False
+    daemon_ready_nodes = 0
     for row in layout:
         node_root = _node_root(run_root, row.node_id)
         replay_rows = read_jsonl(node_root / "pulse/replay_runs.jsonl")
@@ -331,12 +473,15 @@ def run_live_federation_lab(
         quorum_present += 1
         governor = read_json(node_root / "glow/governor/rollup.json")
         local_safety_active = local_safety_active or bool(governor.get("local_safety_override", False))
+        if process_snapshots[row.node_id].get("pid"):
+            daemon_ready_nodes += 1
 
     quorum_required = (resolved_nodes // 2) + 1
     quorum_admit = quorum_present >= quorum_required
 
     expected = scenario.get("expected") if isinstance(scenario.get("expected"), dict) else {}
     oracle_checks = {
+        "runtime_boot_behavior": daemon_ready_nodes == resolved_nodes,
         "quorum_behavior": quorum_admit == bool(expected.get("quorum_admit", quorum_admit)),
         "continuation_behavior": (not bool(expected.get("continuation_recognized", False))) or continuation_recognized,
         "replay_behavior": duplicate_events >= int(expected.get("duplicate_events_min", 0)),
@@ -347,13 +492,7 @@ def run_live_federation_lab(
     for path in sorted(run_root.rglob("*")):
         if not path.is_file():
             continue
-        manifest_rows.append(
-            {
-                "path": str(path.relative_to(root)),
-                "sha256": _sha256(path),
-                "size": path.stat().st_size,
-            }
-        )
+        manifest_rows.append({"path": str(path.relative_to(root)), "sha256": _sha256(path), "size": path.stat().st_size})
     write_json(run_root / "artifact_manifest.json", {"schema_version": 1, "run_id": run_id, "file_count": len(manifest_rows), "files": manifest_rows})
 
     incident_bundles: list[dict[str, object]] = []
@@ -362,22 +501,32 @@ def run_live_federation_lab(
         for row in layout:
             node_root = _node_root(run_root, row.node_id)
             if not bool(oracle_checks["quorum_behavior"]):
-                incident_bundles.append({"node": row.node_id, "bundle": build_incident_bundle(node_root, reason=f"lab_{scenario_name}", window=30)})
+                incident_bundles.append(
+                    {
+                        "node": row.node_id,
+                        "runtime_mode": resolved_mode,
+                        "bundle": build_incident_bundle(node_root, reason=f"lab_{scenario_name}", window=30),
+                    }
+                )
             replay_rc = forge_replay.main(["--repo-root", str(node_root), "--verify", "--last-n", "20"])
-            replay_reports.append({"node": row.node_id, "exit_code": int(replay_rc)})
+            replay_reports.append({"node": row.node_id, "runtime_mode": resolved_mode, "exit_code": int(replay_rc)})
 
     timeline = [
-        {"ts": iso_now(), "event": "bootstrap_completed", "node_count": resolved_nodes},
+        {"ts": iso_now(), "event": "bootstrap_completed", "node_count": resolved_nodes, "runtime_mode": resolved_mode},
+        {"ts": iso_now(), "event": "processes_started", "node_count": len(procs), "runtime_mode": resolved_mode},
         {"ts": iso_now(), "event": "injections_applied", "count": len(injection_records)},
-        {"ts": iso_now(), "event": "workers_stopped"},
+        {"ts": iso_now(), "event": "processes_stopped", "runtime_mode": resolved_mode},
     ]
     write_json(run_root / "event_timeline.json", {"schema_version": 1, "events": timeline})
 
     payload = {
         "schema_version": 1,
         "mode": "live_lab",
+        "runtime_mode_requested": runtime_mode,
+        "runtime_mode_resolved": resolved_mode,
         "run_id": run_id,
         "scenario": scenario_name,
+        "scenario_parity": {"full_daemon": resolved_mode == "daemon", "worker_fallback_used": resolved_mode == "worker"},
         "seed": seed,
         "node_count": resolved_nodes,
         "scenario_support": {"live_capable": True, "simulated_only": False},
@@ -385,6 +534,7 @@ def run_live_federation_lab(
         "topology": _topology(layout),
         "bootstrap": bootstrap_rows,
         "process_exit_codes": process_exit,
+        "process_snapshots": process_snapshots,
         "node_health": node_health_rows,
         "observed": {
             "quorum_required": quorum_required,
@@ -393,16 +543,24 @@ def run_live_federation_lab(
             "duplicate_events": duplicate_events,
             "continuation_recognized": continuation_recognized,
             "local_safety_active": local_safety_active,
+            "daemon_ready_nodes": daemon_ready_nodes,
         },
         "oracle": {"expected": expected, "checks": oracle_checks, "passed": all(oracle_checks.values())},
         "injection_log": str(injection_log.relative_to(root)),
         "incident_bundles": incident_bundles,
         "replay_reports": replay_reports,
+        "node_snapshots": {
+            "constitution": constitution_snapshots,
+            "trust_epoch": trust_snapshots,
+            "governor": governor_snapshots,
+        },
         "artifact_paths": {
             "run_root": str(run_root.relative_to(root)),
             "metadata": str((run_root / "run_metadata.json").relative_to(root)),
             "topology": str((run_root / "topology.json").relative_to(root)),
             "timeline": str((run_root / "event_timeline.json").relative_to(root)),
+            "injection_log": str(injection_log.relative_to(root)),
+            "process_transitions": str(transitions_path.relative_to(root)),
             "artifact_manifest": str((run_root / "artifact_manifest.json").relative_to(root)),
         },
     }
