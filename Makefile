@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-clean
+.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-endurance federation-lab-clean
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
@@ -132,6 +132,9 @@ federation-lab:
 
 federation-lab-scenario:
 	$(PYTHON) scripts/federation_lab.py --scenario $(if $(SCENARIO),$(SCENARIO),quorum_failure) --nodes $(if $(NODES),$(NODES),3) --seed $(if $(SEED),$(SEED),42) --mode $(if $(MODE),$(MODE),auto) --emit-bundle --json
+
+federation-lab-endurance:
+	$(PYTHON) scripts/federation_lab.py --endurance-suite --mode $(if $(MODE),$(MODE),daemon) --seed $(if $(SEED),$(SEED),42) --json
 
 federation-lab-clean:
 	$(PYTHON) -m sentientos.ops lab clean --json
