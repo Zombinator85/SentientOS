@@ -128,10 +128,10 @@ simulate-federation:
 	$(PYTHON) scripts/simulate_federation.py --baseline --json
 
 federation-lab:
-	$(PYTHON) scripts/federation_lab.py --scenario healthy_3node --nodes 3 --seed 42 --json
+	$(PYTHON) scripts/federation_lab.py --scenario healthy_3node --nodes 3 --seed 42 --mode $(if $(MODE),$(MODE),auto) --json
 
 federation-lab-scenario:
-	$(PYTHON) scripts/federation_lab.py --scenario $(if $(SCENARIO),$(SCENARIO),quorum_failure) --nodes $(if $(NODES),$(NODES),3) --seed $(if $(SEED),$(SEED),42) --emit-bundle --json
+	$(PYTHON) scripts/federation_lab.py --scenario $(if $(SCENARIO),$(SCENARIO),quorum_failure) --nodes $(if $(NODES),$(NODES),3) --seed $(if $(SEED),$(SEED),42) --mode $(if $(MODE),$(MODE),auto) --emit-bundle --json
 
 federation-lab-clean:
 	$(PYTHON) -m sentientos.ops lab clean --json
