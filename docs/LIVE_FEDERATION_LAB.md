@@ -15,6 +15,7 @@ Also available:
 ```bash
 make federation-lab MODE=daemon
 make federation-lab-scenario SCENARIO=quorum_failure NODES=3 SEED=42 MODE=daemon
+make federation-lab-endurance MODE=daemon SEED=42
 make federation-lab-clean
 ```
 
@@ -58,3 +59,14 @@ Run-root files now include daemon lifecycle and observability evidence:
 - `run_summary.json`
 
 Each node also records runtime process snapshots and per-node logs under `nodes/node-XX/glow/lab/`.
+
+
+## Endurance wing
+
+Use the optional bounded endurance layer for staged daemon chaos:
+
+```bash
+python -m sentientos.ops lab federation --endurance-suite --mode daemon --seed 42 --json
+```
+
+See `docs/DAEMON_ENDURANCE_AND_CHAOS.md` and `docs/CONVERGENCE_ORACLES.md`.

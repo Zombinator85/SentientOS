@@ -148,6 +148,7 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--mode", choices=["auto", "worker", "daemon"], default="auto")
     lab_federation.add_argument("--emit-bundle", action="store_true")
     lab_federation.add_argument("--list-scenarios", action="store_true")
+    lab_federation.add_argument("--endurance-suite", action="store_true", help="run optional bounded daemon endurance suite")
     lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
     lab_federation.add_argument("--json", action="store_true")
     lab_clean = lab_sub.add_parser("clean", help="delete all live federation lab run artifacts")
@@ -312,7 +313,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         return exit_code(payload)
 
     if args.domain == "lab" and args.action == "federation":
-        from sentientos.lab import list_federation_lab_scenarios, run_live_federation_lab
+        from sentientos.lab import list_federation_lab_scenarios, run_endurance_suite, run_live_federation_lab
 
         if bool(args.list_scenarios):
             payload = {
@@ -324,16 +325,19 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             payload = _decorate_payload(payload, domain=args.domain, action=args.action)
             emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(row.get('scenarios', []))}")
             return 0
-        payload = run_live_federation_lab(
-            repo_root,
-            scenario_name=str(args.scenario),
-            seed=int(args.seed),
-            node_count=int(args.nodes) if args.nodes is not None else None,
-            emit_bundle=bool(args.emit_bundle),
-            runtime_s=float(args.runtime_s),
-            clean=bool(args.clean),
-            runtime_mode=str(args.mode),
-        )
+        if bool(args.endurance_suite):
+            payload = run_endurance_suite(repo_root, seed=int(args.seed), runtime_mode=str(args.mode), clean=bool(args.clean))
+        else:
+            payload = run_live_federation_lab(
+                repo_root,
+                scenario_name=str(args.scenario),
+                seed=int(args.seed),
+                node_count=int(args.nodes) if args.nodes is not None else None,
+                emit_bundle=bool(args.emit_bundle),
+                runtime_s=float(args.runtime_s),
+                clean=bool(args.clean),
+                runtime_mode=str(args.mode),
+            )
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(
             payload,
