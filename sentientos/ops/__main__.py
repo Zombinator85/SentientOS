@@ -149,6 +149,11 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--emit-bundle", action="store_true")
     lab_federation.add_argument("--list-scenarios", action="store_true")
     lab_federation.add_argument("--endurance-suite", action="store_true", help="run optional bounded daemon endurance suite")
+    lab_federation.add_argument("--wan-suite", action="store_true", help="run optional bounded WAN federation suite")
+    lab_federation.add_argument("--wan", action="store_true", help="run multi-host WAN federation lab scenario")
+    lab_federation.add_argument("--topology", default="three_host_ring")
+    lab_federation.add_argument("--hosts", help="path to host inventory JSON")
+    lab_federation.add_argument("--nodes-per-host", type=int, default=1)
     lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
     lab_federation.add_argument("--json", action="store_true")
     lab_clean = lab_sub.add_parser("clean", help="delete all live federation lab run artifacts")
@@ -313,12 +318,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         return exit_code(payload)
 
     if args.domain == "lab" and args.action == "federation":
-        from sentientos.lab import list_federation_lab_scenarios, run_endurance_suite, run_live_federation_lab
+        from sentientos.lab import list_federation_lab_scenarios, list_wan_scenarios, run_endurance_suite, run_live_federation_lab, run_wan_federation_lab, run_wan_suite
 
         if bool(args.list_scenarios):
             payload = {
                 "schema_version": 1,
-                "scenarios": list_federation_lab_scenarios(),
+                "scenarios": [*list_federation_lab_scenarios(), *list_wan_scenarios()],
                 "status": "passed",
                 "exit_code": 0,
             }
@@ -327,6 +332,28 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             return 0
         if bool(args.endurance_suite):
             payload = run_endurance_suite(repo_root, seed=int(args.seed), runtime_mode=str(args.mode), clean=bool(args.clean))
+        elif bool(args.wan_suite):
+            payload = run_wan_suite(
+                repo_root,
+                topology_name=str(args.topology),
+                seed=int(args.seed),
+                runtime_s=float(args.runtime_s),
+                nodes_per_host=max(1, int(args.nodes_per_host)),
+                hosts_file=Path(args.hosts).resolve() if args.hosts else None,
+                clean=bool(args.clean),
+            )
+        elif bool(args.wan):
+            payload = run_wan_federation_lab(
+                repo_root,
+                scenario_name=str(args.scenario),
+                topology_name=str(args.topology),
+                seed=int(args.seed),
+                runtime_s=float(args.runtime_s),
+                nodes_per_host=max(1, int(args.nodes_per_host)),
+                hosts_file=Path(args.hosts).resolve() if args.hosts else None,
+                emit_bundle=bool(args.emit_bundle),
+                clean=bool(args.clean),
+            )
         else:
             payload = run_live_federation_lab(
                 repo_root,
