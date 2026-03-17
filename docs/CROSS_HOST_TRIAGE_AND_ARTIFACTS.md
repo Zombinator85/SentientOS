@@ -13,12 +13,14 @@ Each WAN lab run emits correlated host/node artifacts under `glow/lab/wan/<run_i
 - `final_cluster_digest.json`
 - `artifact_hash_manifest.json`
 - `run_summary.json`
+- `node_truth_manifest.json`
 
 ## Per-host/per-node material
 
 Per host runtime roots include per-node:
 
 - `glow/lab/node_identity.json`
+- `glow/lab/node_truth_artifacts.json`
 - `glow/lab/wan_status.json` (if WAN faults touched node)
 - `glow/constitution/constitution_summary.json`
 - `glow/pulse_trust/epoch_state.json`
