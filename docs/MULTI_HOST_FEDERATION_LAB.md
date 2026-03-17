@@ -13,6 +13,7 @@ SentientOS now includes an optional WAN/multi-host federation lab wing layered o
 - Deterministic node-to-host placement from seed and topology.
 - Per-host runtime roots and per-host lifecycle transition logs.
 - Optional WAN suite mode (`--wan-suite`) and single-scenario WAN mode (`--wan`).
+- Optional bounded true remote smoke lane (`--remote-smoke`) over declared hosts.
 
 ## Example commands
 
@@ -20,6 +21,9 @@ SentientOS now includes an optional WAN/multi-host federation lab wing layered o
 python -m sentientos.ops lab federation --wan --scenario wan_partition_recovery --topology three_host_ring --json
 python -m sentientos.ops lab federation --wan --hosts hosts.json --scenario wan_asymmetric_loss --topology fault_domain_split --json
 python -m sentientos.ops lab federation --wan-suite --topology three_host_partial_mesh --json
+python -m sentientos.ops lab federation --wan --hosts hosts.yaml --remote-smoke --scenario remote_partition_recovery_smoke --json
+python -m sentientos.ops lab federation --wan-gate --hosts hosts.yaml --remote-smoke --json
+make federation-wan-remote-smoke HOSTS=hosts.yaml
 make federation-lab-wan
 ```
 

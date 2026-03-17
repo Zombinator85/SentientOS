@@ -152,7 +152,8 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--wan-suite", action="store_true", help="run optional bounded WAN federation suite")
     lab_federation.add_argument("--wan", action="store_true", help="run multi-host WAN federation lab scenario")
     lab_federation.add_argument("--topology", default="three_host_ring")
-    lab_federation.add_argument("--hosts", help="path to host inventory JSON")
+    lab_federation.add_argument("--hosts", help="path to host inventory JSON or YAML")
+    lab_federation.add_argument("--remote-smoke", action="store_true", help="run bounded true remote-host WAN smoke lane (optional)")
     lab_federation.add_argument("--nodes-per-host", type=int, default=1)
     lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
     lab_federation.add_argument("--truth-oracle", action="store_true", help="run WAN truth-oracle + provenance reconciliation")
@@ -346,6 +347,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 nodes_per_host=max(1, int(args.nodes_per_host)),
                 hosts_file=Path(args.hosts).resolve() if args.hosts else None,
                 clean=bool(args.clean),
+                remote_smoke=bool(args.remote_smoke),
             )
         elif bool(args.wan_gate):
             payload = run_wan_release_gate(
@@ -356,8 +358,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 nodes_per_host=max(1, int(args.nodes_per_host)),
                 hosts_file=Path(args.hosts).resolve() if args.hosts else None,
                 clean=bool(args.clean),
-                scenario=(str(args.scenario) if str(args.scenario).startswith("wan_") else None),
+                scenario=(str(args.scenario) if (str(args.scenario).startswith("wan_") or str(args.scenario).startswith("remote_")) else None),
                 profile=str(args.policy_profile),
+                remote_smoke=bool(args.remote_smoke),
             )
         elif bool(args.wan):
             payload = run_wan_federation_lab(
@@ -372,6 +375,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 truth_oracle=bool(args.truth_oracle),
                 emit_replay=bool(args.emit_replay),
                 clean=bool(args.clean),
+                remote_smoke=bool(args.remote_smoke),
             )
         else:
             payload = run_live_federation_lab(
