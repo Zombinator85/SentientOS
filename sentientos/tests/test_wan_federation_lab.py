@@ -12,6 +12,8 @@ from sentientos.lab import (
 from sentientos.ops import main as ops_main
 from sentientos.lab.wan_federation import HostSpec
 from sentientos.lab.wan_federation import SSHTransport
+from sentientos.lab.wan_federation import classify_remote_preflight
+from sentientos.lab.wan_federation import remote_preflight_observatory_report
 
 
 def test_topology_determinism() -> None:
@@ -131,6 +133,7 @@ def test_ops_lab_help_mentions_wan_gate(capsys) -> None:
         assert int(exc.code) == 0
     out = capsys.readouterr().out
     assert "--wan-gate" in out
+    assert "--remote-preflight-report" in out
 
 
 def test_load_hosts_yaml_and_metadata(tmp_path: Path) -> None:
@@ -233,3 +236,49 @@ def test_ops_remote_smoke_routing(tmp_path: Path, capsys) -> None:
     run_root = tmp_path / payload["artifact_paths"]["run_root"]
     assert (run_root / "remote_preflight_report.json").exists()
     assert (run_root / "remote_artifact_collection.json").exists()
+
+
+def test_classify_remote_preflight_transport_auth_failure() -> None:
+    status, labels = classify_remote_preflight(
+        check={"exit_code": 255, "stderr": "Permission denied (publickey)"},
+        mkdir={"exit_code": 255, "stderr": "Permission denied"},
+    )
+    assert status == "transport_auth_failure"
+    assert "transport_auth_failure" in labels
+
+
+def test_remote_preflight_observatory_rollup(tmp_path: Path) -> None:
+    hosts = tmp_path / "hosts.json"
+    hosts.write_text(json.dumps({"hosts": [{"host_id": "host-01", "transport": "local", "runtime_root": str(tmp_path / "h1")}, {"host_id": "host-02", "transport": "local", "runtime_root": str(tmp_path / "h2")}, {"host_id": "host-03", "transport": "local", "runtime_root": str(tmp_path / "h3")}]}), encoding="utf-8")
+    payload = run_wan_federation_lab(
+        tmp_path,
+        scenario_name="remote_partition_recovery_smoke",
+        topology_name="three_host_ring",
+        seed=5,
+        runtime_s=0.5,
+        nodes_per_host=1,
+        hosts_file=hosts,
+        emit_bundle=False,
+        truth_oracle=False,
+        emit_replay=False,
+        clean=True,
+        remote_smoke=True,
+    )
+    report = remote_preflight_observatory_report(tmp_path)
+    assert report["suite"] == "remote_preflight_observatory"
+    assert "rollup" in report
+    assert "trend" in report
+    assert payload["failure_classification"] in {
+        "passed",
+        "remote_transport_or_auth_failure",
+        "remote_environment_drift_or_provisioning_failure",
+        "scenario_or_runtime_regression",
+        "truth_or_gate_contradiction_failure",
+    }
+
+
+def test_ops_remote_preflight_report_route(tmp_path: Path, capsys) -> None:
+    rc = ops_main(["--repo-root", str(tmp_path), "lab", "federation", "--remote-preflight-report", "--json"])
+    assert rc == 0
+    payload = json.loads([line for line in capsys.readouterr().out.splitlines() if line.strip()][-1])
+    assert payload["suite"] == "remote_preflight_observatory"

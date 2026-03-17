@@ -50,7 +50,7 @@ Each SSH host is preflighted before dispatch:
 - runtime root creation check
 - explicit preflight status classification in `remote_preflight_report.json`
 
-Preflight failures are represented as provisioning failures in the preflight artifact and dispatch log.
+Preflight failures are represented with deterministic classifications in `remote_preflight_report.json` and accumulated in the trend observatory under `glow/lab/remote_preflight/`.
 
 ## Artifact collection
 

@@ -1,0 +1,73 @@
+name: Remote Smoke CI Lane
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Remote smoke scenario alias
+        required: true
+        default: remote_partition_recovery_smoke
+        type: choice
+        options:
+          - remote_partition_recovery_smoke
+          - remote_epoch_rotation_smoke
+          - remote_reanchor_truth_smoke
+  schedule:
+    - cron: '23 4 * * *'
+
+jobs:
+  remote-smoke:
+    if: ${{ secrets.REMOTE_SMOKE_HOST_1 != '' && secrets.REMOTE_SMOKE_HOST_2 != '' && secrets.REMOTE_SMOKE_USER != '' && secrets.REMOTE_SMOKE_RUNTIME_ROOT != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -e .[dev]
+      - name: Render ephemeral inventory
+        run: python scripts/render_remote_smoke_inventory.py --template .github/remote-smoke/hosts.ephemeral.yaml --output .github/remote-smoke/hosts.rendered.yaml
+        env:
+          REMOTE_SMOKE_HOST_1: ${{ secrets.REMOTE_SMOKE_HOST_1 }}
+          REMOTE_SMOKE_HOST_2: ${{ secrets.REMOTE_SMOKE_HOST_2 }}
+          REMOTE_SMOKE_USER: ${{ secrets.REMOTE_SMOKE_USER }}
+          REMOTE_SMOKE_RUNTIME_ROOT: ${{ secrets.REMOTE_SMOKE_RUNTIME_ROOT }}
+      - name: Remote smoke lane (bounded)
+        run: |
+          python -m sentientos.ops lab federation --wan --remote-smoke \
+            --hosts .github/remote-smoke/hosts.rendered.yaml \
+            --scenario "${SCENARIO}" \
+            --topology two_host_pair \
+            --seed 11 \
+            --runtime-s 1.8 \
+            --nodes-per-host 1 \
+            --json
+        env:
+          SCENARIO: ${{ github.event.inputs.scenario || 'remote_partition_recovery_smoke' }}
+      - name: Remote preflight trend report
+        if: always()
+        run: python -m sentientos.ops lab federation --remote-preflight-report --json
+      - name: WAN gate in remote smoke mode
+        if: always()
+        run: |
+          python -m sentientos.ops lab federation --wan-gate --remote-smoke \
+            --hosts .github/remote-smoke/hosts.rendered.yaml \
+            --scenario "${SCENARIO}" \
+            --topology two_host_pair \
+            --seed 11 \
+            --runtime-s 1.8 \
+            --nodes-per-host 1 \
+            --json
+        env:
+          SCENARIO: ${{ github.event.inputs.scenario || 'remote_partition_recovery_smoke' }}
+      - name: Upload remote smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: remote_smoke_lane_${{ github.run_id }}
+          path: |
+            glow/lab/wan/**
+            glow/lab/wan_gate/**
+            glow/lab/remote_preflight/**
+          if-no-files-found: ignore
