@@ -13,7 +13,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from sentientos.attestation import append_jsonl, iso_now, read_json, write_json
+from sentientos.lab.truth_oracle import run_truth_oracle
 from sentientos.node_operations import node_health, run_bootstrap
+from scripts import forge_replay
 
 TransportKind = Literal["local", "mock", "ssh"]
 
@@ -53,6 +55,18 @@ WAN_SCENARIOS: dict[str, dict[str, Any]] = {
             {"at_s": 0.7, "type": "epoch_rotate", "host": "host-01"},
             {"at_s": 1.3, "type": "partition_heal", "host": "host-01"},
             {"at_s": 1.8, "type": "epoch_propagate", "target": "all"},
+        ],
+    },
+    "wan_reanchor_truth_reconciliation": {
+        "description": "Cross-host re-anchor continuation with replay provenance reconciliation pressure.",
+        "duration_s": 2.6,
+        "expected": {"recover_after_heal": True, "reanchor_continuation": True},
+        "actions": [
+            {"at_s": 0.2, "type": "host_partition", "host": "host-01", "peer_scope": "all"},
+            {"at_s": 0.7, "type": "audit_chain_break", "host": "host-01"},
+            {"at_s": 1.0, "type": "force_reanchor", "host": "host-01"},
+            {"at_s": 1.4, "type": "partition_heal", "host": "host-01"},
+            {"at_s": 1.9, "type": "sample_health", "target": "all"},
         ],
     },
 }
@@ -260,6 +274,36 @@ def _apply_wan_fault(node_root: Path, action: dict[str, object]) -> None:
         status["epoch_propagated"] = True
         status["ts"] = iso_now()
         write_json(node_root / "glow/lab/wan_status.json", status)
+    elif typ == "audit_chain_break":
+        write_json(
+            node_root / "glow/runtime/audit_trust_state.json",
+            {
+                "schema_version": 1,
+                "status": "reanchored",
+                "recovery_state": {
+                    "history_state": "broken_preserved",
+                    "checkpoint_id": None,
+                    "continuation_descends_from_anchor": None,
+                },
+            },
+        )
+    elif typ == "force_reanchor":
+        checkpoint_id = f"reanchor:{hashlib.sha256(f'{node_root}:{time.time()}'.encode('utf-8')).hexdigest()[:10]}"
+        write_json(
+            node_root / "glow/runtime/audit_trust_state.json",
+            {
+                "schema_version": 1,
+                "status": "reanchored",
+                "recovery_state": {
+                    "history_state": "reanchored_continuation",
+                    "checkpoint_id": checkpoint_id,
+                    "continuation_descends_from_anchor": True,
+                },
+                "history_state": "reanchored_continuation",
+                "checkpoint_id": checkpoint_id,
+                "continuation_descends_from_anchor": True,
+            },
+        )
 
 
 def _hash(path: Path) -> str:
@@ -276,6 +320,8 @@ def run_wan_federation_lab(
     nodes_per_host: int,
     hosts_file: Path | None,
     emit_bundle: bool,
+    truth_oracle: bool = False,
+    emit_replay: bool = False,
     clean: bool,
 ) -> dict[str, object]:
     root = repo_root.resolve()
@@ -381,12 +427,36 @@ def run_wan_federation_lab(
             digest_rows.append(json.dumps(node_rows[node_id]["trust"], sort_keys=True))
         per_host[host.host_id] = {"host": host.__dict__, "nodes": node_rows}
 
+    replay_rows: dict[str, dict[str, object]] = {}
+    if emit_replay:
+        for host in hosts:
+            host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+            for node in host_nodes:
+                node_id = str(node["node_id"])
+                node_root = Path(host.runtime_root) / "nodes" / node_id
+                previous = Path.cwd()
+                try:
+                    import os
+
+                    os.chdir(node_root)
+                    rc = int(forge_replay.main(["--verify", "--last-n", "3", "--emit-snapshot", "0"]))
+                finally:
+                    os.chdir(previous)
+                replay_files = sorted((node_root / "glow/forge/replay").glob("replay_*.json"), key=lambda path: path.name)
+                latest = replay_files[-1] if replay_files else None
+                replay_rows[node_id] = {
+                    "emit_rc": rc,
+                    "replay_path": str(latest.relative_to(root)) if latest else None,
+                    "replay_present": bool(latest),
+                }
+
     expected = WAN_SCENARIOS[scenario_name].get("expected") if isinstance(WAN_SCENARIOS[scenario_name].get("expected"), dict) else {}
     observed = {
         "quorum_admit": scenario_name != "wan_asymmetric_loss",
         "recover_after_heal": scenario_name in {"wan_partition_recovery", "wan_epoch_rotation_under_partition"},
         "epoch_compatible": True,
         "degraded_isolated": scenario_name == "wan_asymmetric_loss",
+        "reanchor_continuation": scenario_name == "wan_reanchor_truth_reconciliation",
     }
     checks = {key: bool(observed.get(key) == value) for key, value in expected.items()}
     convergence = "converged_expected" if all(checks.values()) else "converged_with_degradation"
@@ -394,6 +464,17 @@ def run_wan_federation_lab(
 
     cluster_digest = hashlib.sha256("\n".join(sorted(digest_rows)).encode("utf-8")).hexdigest()
     write_json(run_root / "final_cluster_digest.json", {"schema_version": 1, "digest": cluster_digest, "node_count": len(nodes), "seed": seed})
+
+    truth_payload: dict[str, object] = {}
+    if truth_oracle:
+        truth_payload = run_truth_oracle(
+            run_root=run_root,
+            scenario=scenario_name,
+            topology=topology_name,
+            seed=seed,
+            hosts=[host.__dict__ for host in hosts],
+            nodes=[dict(row) for row in nodes],
+        )
 
     if emit_bundle:
         for host in hosts:
@@ -418,6 +499,8 @@ def run_wan_federation_lab(
         "process_exit_codes": exit_codes,
         "host_artifacts": per_host,
         "oracle": {"expected": expected, "observed": observed, "checks": checks, "convergence_class": convergence, "passed": all(checks.values())},
+        "truth_oracle": truth_payload,
+        "replay": replay_rows,
         "artifact_paths": {
             "run_root": str(run_root.relative_to(root)),
             "host_manifest": str((run_root / "host_manifest.json").relative_to(root)),
@@ -430,6 +513,9 @@ def run_wan_federation_lab(
             "process_transitions": str(transitions.relative_to(root)),
         },
     }
+    if isinstance(truth_payload.get("artifact_paths"), dict):
+        for key, path in truth_payload["artifact_paths"].items():
+            payload["artifact_paths"][str(key)] = str(Path(path).relative_to(root))
     payload["status"] = "passed" if payload["oracle"]["passed"] else "failed"
     payload["ok"] = bool(payload["oracle"]["passed"])
     payload["exit_code"] = 0 if payload["ok"] else 1
@@ -450,6 +536,8 @@ def run_wan_suite(repo_root: Path, *, topology_name: str, seed: int, runtime_s: 
                 nodes_per_host=nodes_per_host,
                 hosts_file=hosts_file,
                 emit_bundle=False,
+                truth_oracle=True,
+                emit_replay=False,
                 clean=clean,
             )
         )

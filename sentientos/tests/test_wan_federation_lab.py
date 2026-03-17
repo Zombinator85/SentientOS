@@ -42,6 +42,8 @@ def test_wan_run_generates_manifests(tmp_path: Path) -> None:
         nodes_per_host=1,
         hosts_file=None,
         emit_bundle=True,
+        truth_oracle=True,
+        emit_replay=False,
         clean=True,
     )
     run_root = tmp_path / payload["artifact_paths"]["run_root"]
@@ -49,6 +51,7 @@ def test_wan_run_generates_manifests(tmp_path: Path) -> None:
     assert (run_root / "host_manifest.json").exists()
     assert (run_root / "topology_manifest.json").exists()
     assert (run_root / "artifact_hash_manifest.json").exists()
+    assert (run_root / "wan_truth/truth_oracle_summary.json").exists()
 
 
 def test_ops_wan_routing(tmp_path: Path, capsys) -> None:
@@ -74,3 +77,22 @@ def test_ops_wan_routing(tmp_path: Path, capsys) -> None:
 def test_wan_scenarios_listed() -> None:
     names = {row["name"] for row in list_wan_scenarios()}
     assert {"wan_partition_recovery", "wan_asymmetric_loss", "wan_epoch_rotation_under_partition"}.issubset(names)
+
+
+def test_ops_wan_truth_oracle_routing(tmp_path: Path, capsys) -> None:
+    rc = ops_main([
+        "--repo-root",
+        str(tmp_path),
+        "lab",
+        "federation",
+        "--wan",
+        "--truth-oracle",
+        "--scenario",
+        "wan_partition_recovery",
+        "--topology",
+        "three_host_ring",
+        "--json",
+    ])
+    assert rc in {0, 1}
+    payload = json.loads([line for line in capsys.readouterr().out.splitlines() if line.strip()][-1])
+    assert "truth_oracle" in payload

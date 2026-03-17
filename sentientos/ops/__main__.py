@@ -155,6 +155,9 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--hosts", help="path to host inventory JSON")
     lab_federation.add_argument("--nodes-per-host", type=int, default=1)
     lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
+    lab_federation.add_argument("--truth-oracle", action="store_true", help="run WAN truth-oracle + provenance reconciliation")
+    lab_federation.add_argument("--emit-replay", action="store_true", help="emit replay verification artifacts for WAN nodes")
+    lab_federation.add_argument("--truth-report", action="store_true", help="print WAN truth report path in text mode")
     lab_federation.add_argument("--json", action="store_true")
     lab_clean = lab_sub.add_parser("clean", help="delete all live federation lab run artifacts")
     lab_clean.add_argument("--json", action="store_true")
@@ -352,6 +355,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 nodes_per_host=max(1, int(args.nodes_per_host)),
                 hosts_file=Path(args.hosts).resolve() if args.hosts else None,
                 emit_bundle=bool(args.emit_bundle),
+                truth_oracle=bool(args.truth_oracle),
+                emit_replay=bool(args.emit_replay),
                 clean=bool(args.clean),
             )
         else:
@@ -373,7 +378,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 f"scenario={row.get('scenario')} "
                 f"status={row.get('status')} "
                 f"quorum_admit={((row.get('observed') if isinstance(row.get('observed'), dict) else {}).get('quorum_admit'))} "
-                f"run_root={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('run_root'))}"
+                f"run_root={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('run_root'))} "
+                f"truth_report={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('truth_oracle_summary')) if bool(args.truth_report) else ''}"
             ),
         )
         return exit_code(payload)

@@ -18,6 +18,7 @@ from .wan_federation import (
     run_wan_federation_lab,
     run_wan_suite,
 )
+from .truth_oracle import TRUTH_DIMENSIONS, reconcile_provenance, run_truth_oracle
 
 __all__ = [
     "ENDURANCE_SCENARIOS",
@@ -36,4 +37,7 @@ __all__ = [
     "list_wan_scenarios",
     "run_wan_federation_lab",
     "run_wan_suite",
+    "TRUTH_DIMENSIONS",
+    "reconcile_provenance",
+    "run_truth_oracle",
 ]
