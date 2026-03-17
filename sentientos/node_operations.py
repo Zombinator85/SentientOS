@@ -132,6 +132,7 @@ def _write_operator_rollups(root: Path, *, constitution: dict[str, object], stat
             "pulse_trust_epoch": "glow/pulse_trust/epoch_state.json",
             "federation_governance_digest": "glow/federation/governance_digest.json",
             "trust_ledger_state": "glow/federation/trust_ledger_state.json",
+            "node_truth_artifacts": "glow/lab/node_truth_artifacts.json",
         },
     }
     summary_path = operator_root / "operator_summary.json"
@@ -306,6 +307,7 @@ def build_incident_bundle(root: Path, *, reason: str, window: int) -> dict[str, 
         "glow/federation/trust_ledger_state.json",
         "glow/operators/operator_summary.json",
         "glow/operators/current_restrictions.json",
+        "glow/lab/node_truth_artifacts.json",
     ]
     bounded_jsonl = [
         ("pulse/replay_runs.jsonl", window),

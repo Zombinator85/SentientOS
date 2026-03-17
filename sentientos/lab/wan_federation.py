@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from sentientos.attestation import append_jsonl, iso_now, read_json, write_json
+from sentientos.lab.node_truth_artifacts import emit_node_truth_artifacts
 from sentientos.lab.truth_oracle import run_truth_oracle
 from sentientos.node_operations import node_health, run_bootstrap
 from scripts import forge_replay
@@ -363,7 +364,8 @@ def run_wan_federation_lab(
                 "seed": seed,
             },
         )
-        command = [sys.executable, "-m", "sentientos.lab.node_worker", "--node-root", str(node_root), "--node-id", node_id, "--heartbeat-s", "0.6"]
+        emit_node_truth_artifacts(node_root, node_id=node_id, host_id=host_id)
+        command = [sys.executable, "-m", "sentientos.lab.node_worker", "--node-root", str(node_root), "--node-id", node_id, "--host-id", host_id, "--heartbeat-s", "0.6"]
         append_jsonl(transitions, {"ts": iso_now(), "state": "starting", "host_id": host_id, "node_id": node_id, "command": command, "transport": host.transport})
         if host.transport == "local":
             stdout = (node_root / "glow/lab/worker_stdout.log").open("a", encoding="utf-8")
@@ -397,6 +399,7 @@ def run_wan_federation_lab(
                 continue
             node_root = Path(host_by_id[str(node["host_id"])].runtime_root) / "nodes" / str(node["node_id"])
             _apply_wan_fault(node_root, action)
+            emit_node_truth_artifacts(node_root, node_id=str(node["node_id"]), host_id=str(node["host_id"]))
             append_jsonl(timeline_log, {"ts": iso_now(), "node_id": node["node_id"], "host_id": node["host_id"], **action})
 
     time.sleep(0.2)
@@ -417,12 +420,14 @@ def run_wan_federation_lab(
             node_id = str(node["node_id"])
             node_root = Path(host.runtime_root) / "nodes" / node_id
             health = node_health(node_root)
+            truth_artifacts = emit_node_truth_artifacts(node_root, node_id=node_id, host_id=host.host_id)
             node_rows[node_id] = {
                 "health": health,
                 "constitution": read_json(node_root / "glow/constitution/constitution_summary.json"),
                 "trust": read_json(node_root / "glow/pulse_trust/epoch_state.json"),
                 "quorum": read_json(node_root / "glow/federation/quorum_status.json"),
                 "governor": read_json(node_root / "glow/governor/rollup.json"),
+                "node_truth_artifacts": truth_artifacts,
             }
             digest_rows.append(json.dumps(node_rows[node_id]["trust"], sort_keys=True))
         per_host[host.host_id] = {"host": host.__dict__, "nodes": node_rows}
@@ -444,11 +449,33 @@ def run_wan_federation_lab(
                     os.chdir(previous)
                 replay_files = sorted((node_root / "glow/forge/replay").glob("replay_*.json"), key=lambda path: path.name)
                 latest = replay_files[-1] if replay_files else None
+                emit_node_truth_artifacts(node_root, node_id=node_id, host_id=host.host_id)
                 replay_rows[node_id] = {
                     "emit_rc": rc,
                     "replay_path": str(latest.relative_to(root)) if latest else None,
                     "replay_present": bool(latest),
                 }
+
+
+    completeness_rows: list[dict[str, object]] = []
+    for host in hosts:
+        host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+        for node in host_nodes:
+            node_id = str(node["node_id"])
+            node_root = Path(host.runtime_root) / "nodes" / node_id
+            truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
+            completeness = truth_payload.get("completeness") if isinstance(truth_payload.get("completeness"), dict) else {}
+            completeness_rows.append(
+                {
+                    "host_id": host.host_id,
+                    "node_id": node_id,
+                    "truth_artifact_path": str((node_root / "glow/lab/node_truth_artifacts.json").relative_to(root)),
+                    "required_present": completeness.get("required_present") if isinstance(completeness.get("required_present"), list) else [],
+                    "required_missing": completeness.get("required_missing") if isinstance(completeness.get("required_missing"), list) else [],
+                    "optional_present": completeness.get("optional_present") if isinstance(completeness.get("optional_present"), list) else [],
+                }
+            )
+    write_json(run_root / "node_truth_manifest.json", {"schema_version": 1, "rows": completeness_rows, "node_count": len(completeness_rows)})
 
     expected = WAN_SCENARIOS[scenario_name].get("expected") if isinstance(WAN_SCENARIOS[scenario_name].get("expected"), dict) else {}
     observed = {
@@ -511,6 +538,7 @@ def run_wan_federation_lab(
             "cluster_digest": str((run_root / "final_cluster_digest.json").relative_to(root)),
             "artifact_hash_manifest": str((run_root / "artifact_hash_manifest.json").relative_to(root)),
             "process_transitions": str(transitions.relative_to(root)),
+            "node_truth_manifest": str((run_root / "node_truth_manifest.json").relative_to(root)),
         },
     }
     if isinstance(truth_payload.get("artifact_paths"), dict):

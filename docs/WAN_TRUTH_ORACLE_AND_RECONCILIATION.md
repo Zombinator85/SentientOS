@@ -34,6 +34,7 @@ The oracle reads per-node and cluster evidence including:
 - daemon runtime transition logs
 - WAN fault timeline and executed faults
 - replay verification outputs (`glow/forge/replay/replay_*.json`)
+- default node truth artifacts (`glow/lab/node_truth_artifacts.json`)
 
 ## Reconciliation model
 
@@ -61,3 +62,8 @@ The run now includes both:
 - evidence truth outcome (truth dimensions + provenance reconciliation)
 
 Use contradictions report when these disagree.
+
+
+## Default completeness
+
+For WAN/live runs, nodes emit `glow/lab/node_truth_artifacts.json` and run-level `node_truth_manifest.json` so the oracle can reduce `missing_evidence` without requiring explicit `--emit-replay` in every scenario.

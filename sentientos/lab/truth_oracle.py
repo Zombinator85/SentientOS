@@ -68,10 +68,12 @@ def _collect_node_evidence(*, node_root: Path, node_id: str, host_id: str) -> di
     digest = read_json(node_root / "glow/federation/governance_digest.json")
     epoch = read_json(node_root / "glow/pulse_trust/epoch_state.json")
     governor = read_json(node_root / "glow/governor/rollup.json")
+    health = read_json(node_root / "glow/operators/node_health.json")
     audit_trust = read_json(node_root / "glow/runtime/audit_trust_state.json")
     identity = read_json(node_root / "glow/lab/node_identity.json")
     runtime_log = read_jsonl(node_root / "glow/lab/runtime_log.jsonl")
     replay, replay_path = _latest_replay(node_root)
+    node_truth = read_json(node_root / "glow/lab/node_truth_artifacts.json")
 
     history_state = _first_present(audit_trust, ("history_state",))
     recovery_state = audit_trust.get("recovery_state") if isinstance(audit_trust.get("recovery_state"), dict) else {}
@@ -96,11 +98,13 @@ def _collect_node_evidence(*, node_root: Path, node_id: str, host_id: str) -> di
         "digest": digest,
         "epoch": epoch,
         "governor": governor,
+        "health": health,
         "audit_trust": audit_trust,
         "history_state": history_state,
         "checkpoint_id": checkpoint_id,
         "continuation_descends_from_anchor": continuation_descends,
         "runtime_log_tail": runtime_log[-20:],
+        "node_truth": node_truth,
         "replay": replay,
         "replay_path": replay_path,
     }
@@ -110,7 +114,8 @@ def _classify_quorum(node_rows: list[dict[str, object]], fault_types: set[str]) 
     admits: list[bool] = []
     missing = 0
     for row in node_rows:
-        quorum = row.get("quorum") if isinstance(row.get("quorum"), dict) else {}
+        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
+        quorum = node_truth.get("quorum_state") if isinstance(node_truth.get("quorum_state"), dict) else (row.get("quorum") if isinstance(row.get("quorum"), dict) else {})
         value = quorum.get("admit")
         if isinstance(value, bool):
             admits.append(value)
@@ -130,10 +135,11 @@ def _classify_quorum(node_rows: list[dict[str, object]], fault_types: set[str]) 
 
 
 def _classify_digest(node_rows: list[dict[str, object]], fault_types: set[str]) -> tuple[TruthClassification, dict[str, object]]:
-    digests = [
-        _first_present(row.get("digest") if isinstance(row.get("digest"), dict) else {}, ("digest", "governance_digest", "constitutional_digest"))
-        for row in node_rows
-    ]
+    digests = []
+    for row in node_rows:
+        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
+        digest = node_truth.get("digest_state") if isinstance(node_truth.get("digest_state"), dict) else (row.get("digest") if isinstance(row.get("digest"), dict) else {})
+        digests.append(_first_present(digest, ("digest", "governance_digest", "constitutional_digest")))
     present = sorted({item for item in digests if item})
     if not present:
         return "missing_evidence", {"missing_nodes": len(node_rows)}
@@ -145,10 +151,11 @@ def _classify_digest(node_rows: list[dict[str, object]], fault_types: set[str]) 
 
 
 def _classify_epoch(node_rows: list[dict[str, object]], fault_types: set[str]) -> tuple[TruthClassification, dict[str, object]]:
-    epochs = [
-        _first_present(row.get("epoch") if isinstance(row.get("epoch"), dict) else {}, ("active_epoch_id", "epoch_id"))
-        for row in node_rows
-    ]
+    epochs = []
+    for row in node_rows:
+        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
+        epoch = node_truth.get("epoch_state") if isinstance(node_truth.get("epoch_state"), dict) else (row.get("epoch") if isinstance(row.get("epoch"), dict) else {})
+        epochs.append(_first_present(epoch, ("active_epoch_id", "epoch_id")))
     present = sorted({item for item in epochs if item})
     if not present:
         return "missing_evidence", {"missing_nodes": len(node_rows)}
@@ -161,26 +168,55 @@ def _classify_epoch(node_rows: list[dict[str, object]], fault_types: set[str]) -
 
 def _classify_replay(node_rows: list[dict[str, object]]) -> tuple[TruthClassification, dict[str, object]]:
     statuses: list[str] = []
+    replay_states: list[str] = []
     missing = 0
+    expected_missing = 0
+    compatible = 0
     for row in node_rows:
+        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
+        replay_state = node_truth.get("replay_state") if isinstance(node_truth.get("replay_state"), dict) else {}
+        state = _as_str(replay_state.get("state"))
+        requested = replay_state.get("requested") if isinstance(replay_state.get("requested"), bool) else None
+        if state:
+            replay_states.append(state)
+        if state == "replay_compatible_evidence":
+            compatible += 1
+        if state == "replay_missing_but_expected":
+            expected_missing += 1
+
         replay = row.get("replay") if isinstance(row.get("replay"), dict) else {}
-        if not replay:
-            missing += 1
+        if replay:
+            verdict = _as_str(replay.get("integrity_overall")) or _as_str(replay.get("status")) or "unknown"
+            statuses.append(verdict)
             continue
-        verdict = _as_str(replay.get("integrity_overall")) or _as_str(replay.get("status")) or "unknown"
-        statuses.append(verdict)
-    if not statuses and missing:
-        return "missing_evidence", {"missing_nodes": missing}
+        if not state or state == "no_replay_evidence_requested":
+            missing += 1
+
+        if requested is True and not replay and state in {"replay_missing_but_expected", "replay_compatible_evidence"}:
+            expected_missing += 1
+
     bad = [item for item in statuses if item in {"fail", "failed", "inconsistent"}]
-    if bad:
-        return "inconsistent", {"statuses": statuses}
+    if bad or any(state in {"replay_contradicted"} for state in replay_states):
+        return "inconsistent", {"statuses": statuses, "replay_states": replay_states}
+    if statuses and not missing and expected_missing == 0:
+        return "consistent", {"statuses": statuses, "replay_states": replay_states}
+    if expected_missing > 0:
+        return "degraded_but_explained", {
+            "statuses": statuses,
+            "replay_states": replay_states,
+            "missing_but_expected": expected_missing,
+        }
+    if compatible > 0:
+        return "degraded_but_explained", {"statuses": statuses, "replay_states": replay_states, "replay_compatible_nodes": compatible}
+    if not statuses and missing:
+        return "missing_evidence", {"missing_nodes": missing, "replay_states": replay_states, "reason": "no_replay_evidence_requested"}
     if missing:
-        return "degraded_but_explained", {"statuses": statuses, "missing_nodes": missing}
-    return "consistent", {"statuses": statuses}
+        return "degraded_but_explained", {"statuses": statuses, "replay_states": replay_states, "missing_nodes": missing}
+    return "missing_evidence", {"statuses": statuses, "replay_states": replay_states}
 
 
 def _classify_reanchor(node_rows: list[dict[str, object]], fault_types: set[str]) -> tuple[TruthClassification, dict[str, object]]:
-    has_break = any(str(row.get("history_state") or "") == "broken_preserved" for row in node_rows)
+    has_break = any(str((row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}).get("reanchor_state", {}).get("history_state") or row.get("history_state") or "") == "broken_preserved" for row in node_rows)
     continuations = [
         bool(row.get("continuation_descends_from_anchor"))
         for row in node_rows
@@ -224,10 +260,12 @@ def _classify_fairness(transitions: list[dict[str, object]], host_ids: list[str]
 
 
 def _classify_cluster_health(node_rows: list[dict[str, object]]) -> tuple[TruthClassification, dict[str, object]]:
-    states = [
-        _first_present(row.get("health") if isinstance(row.get("health"), dict) else {}, ("health_state",)) or "missing"
-        for row in node_rows
-    ]
+    states = []
+    for row in node_rows:
+        truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
+        truth_health = truth.get("health_state") if isinstance(truth.get("health_state"), dict) else {}
+        state = _first_present(truth_health, ("health_state",)) or _first_present(row.get("health") if isinstance(row.get("health"), dict) else {}, ("health_state",)) or "missing"
+        states.append(state)
     unique = sorted(set(states))
     if unique == ["healthy"]:
         return "consistent", {"states": states}
@@ -268,6 +306,7 @@ def reconcile_provenance(
                 "fault_schedule_id": schedule_id,
                 "replay_path": row.get("replay_path"),
                 "checkpoint_id": row.get("checkpoint_id"),
+                "node_truth_path": str(Path(str(row.get("node_root"))) / "glow/lab/node_truth_artifacts.json"),
             }
         )
 
@@ -382,6 +421,11 @@ def run_truth_oracle(
         contradictions.append({"kind": "provenance_mismatch", "detail": "cluster digest mismatch"})
     if dimensions["cluster_health_truth"]["classification"] == "consistent" and dimensions["replay_truth"]["classification"] == "inconsistent":
         contradictions.append({"kind": "runtime_vs_replay", "detail": "runtime appears healthy but replay failed"})
+    if dimensions["quorum_truth"]["classification"] == "consistent" and dimensions["digest_truth"]["classification"] == "inconsistent":
+        contradictions.append({"kind": "quorum_vs_digest", "detail": "quorum admitted while governance digest diverged"})
+    replay_evidence = dimensions["replay_truth"].get("evidence") if isinstance(dimensions["replay_truth"].get("evidence"), dict) else {}
+    if dimensions["replay_truth"]["classification"] == "degraded_but_explained" and int(replay_evidence.get("missing_but_expected") or 0) > 0:
+        contradictions.append({"kind": "replay_expected_missing", "detail": "replay evidence was expected but missing on one or more nodes"})
 
     score_weights = {
         "consistent": 1,
@@ -403,6 +447,7 @@ def run_truth_oracle(
                 "node_root": row.get("node_root"),
                 "replay_path": row.get("replay_path"),
                 "checkpoint_id": row.get("checkpoint_id"),
+                "node_truth_path": str(Path(str(row.get("node_root"))) / "glow/lab/node_truth_artifacts.json"),
             }
             for row in node_evidence
         ],
