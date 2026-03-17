@@ -14,6 +14,7 @@ from typing import Any, Literal
 
 from sentientos.attestation import append_jsonl, iso_now, read_json, write_json
 from sentientos.lab.node_truth_artifacts import emit_node_truth_artifacts
+from sentientos.lab.contradiction_policy import evaluate_release_gate
 from sentientos.lab.truth_oracle import run_truth_oracle
 from sentientos.node_operations import node_health, run_bootstrap
 from scripts import forge_replay
@@ -583,3 +584,130 @@ def run_wan_suite(repo_root: Path, *, topology_name: str, seed: int, runtime_s: 
         "ok": passed == len(rows),
         "exit_code": 0 if passed == len(rows) else 1,
     }
+
+
+RELEASE_GATE_SCENARIOS: tuple[str, ...] = (
+    "wan_partition_recovery",
+    "wan_asymmetric_loss",
+    "wan_epoch_rotation_under_partition",
+    "wan_reanchor_truth_reconciliation",
+)
+
+
+def _outcome_rank(outcome: str) -> int:
+    order = {"pass": 0, "pass_with_degradation": 1, "warning": 2, "indeterminate": 3, "blocking_failure": 4}
+    return order.get(outcome, 5)
+
+
+def run_wan_release_gate(
+    repo_root: Path,
+    *,
+    topology_name: str,
+    seed: int,
+    runtime_s: float,
+    nodes_per_host: int,
+    hosts_file: Path | None,
+    clean: bool,
+    scenario: str | None = None,
+    profile: str = "default",
+) -> dict[str, object]:
+    selected = [scenario] if scenario else list(RELEASE_GATE_SCENARIOS)
+    root = repo_root.resolve()
+    scenario_results: list[dict[str, object]] = []
+    for idx, scenario_name in enumerate(selected, start=1):
+        if scenario_name not in WAN_SCENARIOS:
+            raise ValueError(f"unknown WAN scenario: {scenario_name}")
+        run = run_wan_federation_lab(
+            repo_root,
+            scenario_name=scenario_name,
+            topology_name=topology_name,
+            seed=seed + idx,
+            runtime_s=runtime_s,
+            nodes_per_host=nodes_per_host,
+            hosts_file=hosts_file,
+            emit_bundle=False,
+            truth_oracle=True,
+            emit_replay=False,
+            clean=clean,
+        )
+        truth = run.get("truth_oracle") if isinstance(run.get("truth_oracle"), dict) else {}
+        policy = truth.get("contradiction_policy") if isinstance(truth.get("contradiction_policy"), dict) else evaluate_release_gate(
+            scenario=scenario_name,
+            dimensions=truth.get("dimensions") if isinstance(truth.get("dimensions"), dict) else {},
+            provenance=truth.get("provenance") if isinstance(truth.get("provenance"), dict) else {},
+            oracle_contradictions=truth.get("contradictions") if isinstance(truth.get("contradictions"), list) else [],
+            profile=profile,
+        )
+        scenario_results.append(
+            {
+                "scenario": scenario_name,
+                "run_id": run.get("run_id"),
+                "run_status": run.get("status"),
+                "gate_outcome": policy.get("outcome"),
+                "gate_reason": policy.get("reason"),
+                "counts": policy.get("counts"),
+                "gate_digest": policy.get("gate_digest"),
+                "artifact_paths": run.get("artifact_paths"),
+                "policy": policy,
+            }
+        )
+
+    aggregate_outcome = "pass"
+    if scenario_results:
+        aggregate_outcome = max((str(row.get("gate_outcome") or "indeterminate") for row in scenario_results), key=_outcome_rank)
+
+    aggregate_exit = {"pass": 0, "pass_with_degradation": 0, "warning": 1, "indeterminate": 2, "blocking_failure": 3}[aggregate_outcome]
+    gate_root = root / "glow/lab/wan_gate"
+    gate_root.mkdir(parents=True, exist_ok=True)
+
+    scenario_gate_results = {"schema_version": 1, "profile": profile, "results": scenario_results}
+    write_json(gate_root / "scenario_gate_results.json", scenario_gate_results)
+
+    contradiction_policy_report = {
+        "schema_version": 1,
+        "profile": profile,
+        "scenario_count": len(scenario_results),
+        "records": [
+            {"scenario": row.get("scenario"), "outcome": row.get("gate_outcome"), "reason": row.get("gate_reason"), "counts": row.get("counts")}
+            for row in scenario_results
+        ],
+        "aggregate_outcome": aggregate_outcome,
+    }
+    write_json(gate_root / "contradiction_policy_report.json", contradiction_policy_report)
+
+    release_gate_manifest = {
+        "schema_version": 1,
+        "suite": "wan_release_gate",
+        "profile": profile,
+        "selected_scenarios": selected,
+        "required_scenarios": list(RELEASE_GATE_SCENARIOS),
+        "aggregate_outcome": aggregate_outcome,
+        "exit_code": aggregate_exit,
+    }
+    write_json(gate_root / "release_gate_manifest.json", release_gate_manifest)
+
+    gate_digest = hashlib.sha256(json.dumps({"scenario_results": scenario_results, "manifest": release_gate_manifest}, sort_keys=True).encode("utf-8")).hexdigest()
+    final_digest = {"schema_version": 1, "aggregate_outcome": aggregate_outcome, "gate_digest": gate_digest}
+    write_json(gate_root / "final_wan_gate_digest.json", final_digest)
+
+    report = {
+        "schema_version": 1,
+        "suite": "wan_release_gate",
+        "profile": profile,
+        "scenario_count": len(scenario_results),
+        "scenario_results": scenario_results,
+        "aggregate_outcome": aggregate_outcome,
+        "status": "passed" if aggregate_exit == 0 else "failed",
+        "ok": aggregate_exit == 0,
+        "exit_code": aggregate_exit,
+        "artifact_paths": {
+            "gate_root": str(gate_root.relative_to(root)),
+            "wan_gate_report": str((gate_root / "wan_gate_report.json").relative_to(root)),
+            "scenario_gate_results": str((gate_root / "scenario_gate_results.json").relative_to(root)),
+            "contradiction_policy_report": str((gate_root / "contradiction_policy_report.json").relative_to(root)),
+            "release_gate_manifest": str((gate_root / "release_gate_manifest.json").relative_to(root)),
+            "final_wan_gate_digest": str((gate_root / "final_wan_gate_digest.json").relative_to(root)),
+        },
+    }
+    write_json(gate_root / "wan_gate_report.json", report)
+    return report

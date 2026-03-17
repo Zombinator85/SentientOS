@@ -99,3 +99,30 @@ def test_ops_wan_truth_oracle_routing(tmp_path: Path, capsys) -> None:
     assert rc in {0, 1}
     payload = json.loads([line for line in capsys.readouterr().out.splitlines() if line.strip()][-1])
     assert "truth_oracle" in payload
+
+
+def test_ops_wan_gate_routing(tmp_path: Path, capsys) -> None:
+    rc = ops_main([
+        "--repo-root",
+        str(tmp_path),
+        "lab",
+        "federation",
+        "--wan-gate",
+        "--scenario",
+        "wan_partition_recovery",
+        "--topology",
+        "three_host_ring",
+        "--json",
+    ])
+    assert rc in {0, 1, 2, 3}
+    payload = json.loads([line for line in capsys.readouterr().out.splitlines() if line.strip()][-1])
+    assert payload["suite"] == "wan_release_gate"
+
+
+def test_ops_lab_help_mentions_wan_gate(capsys) -> None:
+    try:
+        ops_main(["lab", "federation", "--help"])
+    except SystemExit as exc:
+        assert int(exc.code) == 0
+    out = capsys.readouterr().out
+    assert "--wan-gate" in out
