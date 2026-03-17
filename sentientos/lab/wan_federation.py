@@ -478,6 +478,46 @@ def run_wan_federation_lab(
             )
     write_json(run_root / "node_truth_manifest.json", {"schema_version": 1, "rows": completeness_rows, "node_count": len(completeness_rows)})
 
+    node_evidence_summary_rows: list[dict[str, object]] = []
+    for host in hosts:
+        host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+        for node in host_nodes:
+            node_id = str(node["node_id"])
+            node_root = Path(host.runtime_root) / "nodes" / node_id
+            truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
+            quorum = truth_payload.get("quorum_state") if isinstance(truth_payload.get("quorum_state"), dict) else {}
+            digest = truth_payload.get("digest_state") if isinstance(truth_payload.get("digest_state"), dict) else {}
+            epoch = truth_payload.get("epoch_state") if isinstance(truth_payload.get("epoch_state"), dict) else {}
+            reanchor = truth_payload.get("reanchor_state") if isinstance(truth_payload.get("reanchor_state"), dict) else {}
+            fairness = truth_payload.get("fairness_state") if isinstance(truth_payload.get("fairness_state"), dict) else {}
+            replay = truth_payload.get("replay_state") if isinstance(truth_payload.get("replay_state"), dict) else {}
+            node_evidence_summary_rows.append(
+                {
+                    "host_id": host.host_id,
+                    "node_id": node_id,
+                    "quorum_admit": quorum.get("admit"),
+                    "quorum_posture": quorum.get("posture"),
+                    "digest_posture": digest.get("posture"),
+                    "digest_mismatch_count": digest.get("mismatch_count"),
+                    "epoch_id": epoch.get("active_epoch_id"),
+                    "epoch_classification": epoch.get("classification"),
+                    "reanchor_posture": reanchor.get("posture"),
+                    "continuation_descends_from_anchor": reanchor.get("continuation_descends_from_anchor"),
+                    "fairness_posture": fairness.get("posture"),
+                    "fairness_starvation_signals": fairness.get("starvation_signals"),
+                    "replay_state": replay.get("state"),
+                }
+            )
+    write_json(
+        run_root / "node_evidence_summary.json",
+        {
+            "schema_version": 1,
+            "scenario": scenario_name,
+            "rows": node_evidence_summary_rows,
+            "node_count": len(node_evidence_summary_rows),
+        },
+    )
+
     expected = WAN_SCENARIOS[scenario_name].get("expected") if isinstance(WAN_SCENARIOS[scenario_name].get("expected"), dict) else {}
     observed = {
         "quorum_admit": scenario_name != "wan_asymmetric_loss",
@@ -492,6 +532,50 @@ def run_wan_federation_lab(
 
     cluster_digest = hashlib.sha256("\n".join(sorted(digest_rows)).encode("utf-8")).hexdigest()
     write_json(run_root / "final_cluster_digest.json", {"schema_version": 1, "digest": cluster_digest, "node_count": len(nodes), "seed": seed})
+
+    fairness_by_host: dict[str, dict[str, int]] = {}
+    for row in node_evidence_summary_rows:
+        host_id = str(row.get("host_id"))
+        state = str(row.get("fairness_posture") or "unknown")
+        host_summary = fairness_by_host.setdefault(host_id, {"balanced": 0, "degraded": 0, "unknown": 0})
+        if state == "balanced":
+            host_summary["balanced"] += 1
+        elif state == "degraded_signals":
+            host_summary["degraded"] += 1
+        else:
+            host_summary["unknown"] += 1
+
+    write_json(
+        run_root / "scenario_evidence_enrichment.json",
+        {
+            "schema_version": 1,
+            "scenario": scenario_name,
+            "topology": topology_name,
+            "seed": seed,
+            "quorum_decision_summary": {
+                "admit_true": sum(1 for row in node_evidence_summary_rows if row.get("quorum_admit") is True),
+                "admit_false": sum(1 for row in node_evidence_summary_rows if row.get("quorum_admit") is False),
+            },
+            "digest_compatibility_summary": {
+                "compatible_nodes": sum(1 for row in node_evidence_summary_rows if row.get("digest_posture") == "compatible"),
+                "mismatch_observed_nodes": sum(1 for row in node_evidence_summary_rows if row.get("digest_posture") == "mismatch_observed"),
+            },
+            "epoch_trust_summary": {
+                "epoch_ids": sorted({str(row.get("epoch_id")) for row in node_evidence_summary_rows if row.get("epoch_id")}),
+                "epoch_classifications": sorted({str(row.get("epoch_classification")) for row in node_evidence_summary_rows if row.get("epoch_classification")}),
+            },
+            "reanchor_continuation_summary": {
+                "continuation_verified_nodes": sum(1 for row in node_evidence_summary_rows if row.get("continuation_descends_from_anchor") is True),
+                "continuation_missing_nodes": sum(1 for row in node_evidence_summary_rows if row.get("continuation_descends_from_anchor") is False),
+            },
+            "fairness_pressure_summary": fairness_by_host,
+            "cluster_digest_evidence": {"cluster_digest": cluster_digest, "node_count": len(nodes)},
+            "replay_posture_summary": {
+                "replay_confirmed_or_compatible": sum(1 for row in node_evidence_summary_rows if str(row.get("replay_state") or "") in {"replay_confirmed", "replay_compatible_evidence"}),
+                "replay_not_requested": sum(1 for row in node_evidence_summary_rows if str(row.get("replay_state") or "") == "no_replay_evidence_requested"),
+            },
+        },
+    )
 
     truth_payload: dict[str, object] = {}
     if truth_oracle:
@@ -540,6 +624,8 @@ def run_wan_federation_lab(
             "artifact_hash_manifest": str((run_root / "artifact_hash_manifest.json").relative_to(root)),
             "process_transitions": str(transitions.relative_to(root)),
             "node_truth_manifest": str((run_root / "node_truth_manifest.json").relative_to(root)),
+            "node_evidence_summary": str((run_root / "node_evidence_summary.json").relative_to(root)),
+            "scenario_evidence_enrichment": str((run_root / "scenario_evidence_enrichment.json").relative_to(root)),
         },
     }
     if isinstance(truth_payload.get("artifact_paths"), dict):
@@ -614,6 +700,7 @@ def run_wan_release_gate(
     selected = [scenario] if scenario else list(RELEASE_GATE_SCENARIOS)
     root = repo_root.resolve()
     scenario_results: list[dict[str, object]] = []
+    completeness_rows: list[dict[str, object]] = []
     for idx, scenario_name in enumerate(selected, start=1):
         if scenario_name not in WAN_SCENARIOS:
             raise ValueError(f"unknown WAN scenario: {scenario_name}")
@@ -631,12 +718,23 @@ def run_wan_release_gate(
             clean=clean,
         )
         truth = run.get("truth_oracle") if isinstance(run.get("truth_oracle"), dict) else {}
+        completeness = truth.get("scenario_evidence_completeness") if isinstance(truth.get("scenario_evidence_completeness"), dict) else {}
         policy = truth.get("contradiction_policy") if isinstance(truth.get("contradiction_policy"), dict) else evaluate_release_gate(
             scenario=scenario_name,
             dimensions=truth.get("dimensions") if isinstance(truth.get("dimensions"), dict) else {},
             provenance=truth.get("provenance") if isinstance(truth.get("provenance"), dict) else {},
             oracle_contradictions=truth.get("contradictions") if isinstance(truth.get("contradictions"), list) else [],
             profile=profile,
+            evidence_completeness=completeness,
+        )
+        completeness_rows.append(
+            {
+                "scenario": scenario_name,
+                "default_complete": bool(completeness.get("default_complete")),
+                "fully_evidenced": bool(completeness.get("fully_evidenced")),
+                "required_missing": completeness.get("required_missing", []),
+                "required_degraded": completeness.get("required_degraded", []),
+            }
         )
         scenario_results.append(
             {
@@ -647,6 +745,7 @@ def run_wan_release_gate(
                 "gate_reason": policy.get("reason"),
                 "counts": policy.get("counts"),
                 "gate_digest": policy.get("gate_digest"),
+                "evidence_completeness": completeness,
                 "artifact_paths": run.get("artifact_paths"),
                 "policy": policy,
             }
@@ -662,6 +761,32 @@ def run_wan_release_gate(
 
     scenario_gate_results = {"schema_version": 1, "profile": profile, "results": scenario_results}
     write_json(gate_root / "scenario_gate_results.json", scenario_gate_results)
+
+    fully_evidenced_count = sum(1 for row in completeness_rows if row.get("fully_evidenced") is True)
+    default_complete_count = sum(1 for row in completeness_rows if row.get("default_complete") is True)
+    write_json(
+        gate_root / "scenario_evidence_completeness.json",
+        {
+            "schema_version": 1,
+            "profile": profile,
+            "rows": completeness_rows,
+            "scenario_count": len(completeness_rows),
+            "default_complete_count": default_complete_count,
+            "fully_evidenced_count": fully_evidenced_count,
+        },
+    )
+
+    write_json(
+        gate_root / "evidence_density_report.json",
+        {
+            "schema_version": 1,
+            "profile": profile,
+            "scenario_count": len(scenario_results),
+            "missing_evidence_nonblocking_total": sum(int((row.get("counts") or {}).get("missing_evidence_nonblocking", 0)) for row in scenario_results),
+            "degraded_scenarios": [row.get("scenario") for row in scenario_results if str(row.get("gate_outcome") or "") == "pass_with_degradation"],
+            "contradiction_driven_scenarios": [row.get("scenario") for row in scenario_results if str(row.get("gate_outcome") or "") in {"warning", "blocking_failure"}],
+        },
+    )
 
     contradiction_policy_report = {
         "schema_version": 1,
@@ -681,6 +806,11 @@ def run_wan_release_gate(
         "profile": profile,
         "selected_scenarios": selected,
         "required_scenarios": list(RELEASE_GATE_SCENARIOS),
+        "evidence_completeness": {
+            "default_complete_count": default_complete_count,
+            "fully_evidenced_count": fully_evidenced_count,
+            "scenario_count": len(completeness_rows),
+        },
         "aggregate_outcome": aggregate_outcome,
         "exit_code": aggregate_exit,
     }
@@ -697,6 +827,11 @@ def run_wan_release_gate(
         "scenario_count": len(scenario_results),
         "scenario_results": scenario_results,
         "aggregate_outcome": aggregate_outcome,
+        "evidence_completeness": {
+            "scenario_count": len(completeness_rows),
+            "default_complete_count": default_complete_count,
+            "fully_evidenced_count": fully_evidenced_count,
+        },
         "status": "passed" if aggregate_exit == 0 else "failed",
         "ok": aggregate_exit == 0,
         "exit_code": aggregate_exit,
@@ -705,6 +840,8 @@ def run_wan_release_gate(
             "wan_gate_report": str((gate_root / "wan_gate_report.json").relative_to(root)),
             "scenario_gate_results": str((gate_root / "scenario_gate_results.json").relative_to(root)),
             "contradiction_policy_report": str((gate_root / "contradiction_policy_report.json").relative_to(root)),
+            "scenario_evidence_completeness": str((gate_root / "scenario_evidence_completeness.json").relative_to(root)),
+            "evidence_density_report": str((gate_root / "evidence_density_report.json").relative_to(root)),
             "release_gate_manifest": str((gate_root / "release_gate_manifest.json").relative_to(root)),
             "final_wan_gate_digest": str((gate_root / "final_wan_gate_digest.json").relative_to(root)),
         },

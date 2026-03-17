@@ -35,6 +35,30 @@ def test_policy_pass_and_blocking_outcomes() -> None:
     assert blocked["outcome"] == "blocking_failure"
 
 
+def test_policy_tightens_when_default_complete_but_missing_exists() -> None:
+    row = evaluate_release_gate(
+        scenario="wan_partition_recovery",
+        dimensions={**_dims(), "epoch_truth": {"classification": "missing_evidence", "evidence": {}}},
+        provenance={"digest_match": True},
+        oracle_contradictions=[],
+        evidence_completeness={"default_complete": True, "fully_evidenced": False, "required_missing": [], "required_degraded": []},
+    )
+    assert row["outcome"] == "warning"
+
+
+def test_policy_evidence_strict_profile_thresholds() -> None:
+    row = evaluate_release_gate(
+        scenario="wan_partition_recovery",
+        dimensions={**_dims(), "replay_truth": {"classification": "missing_evidence", "evidence": {"missing_but_expected": 1}}},
+        provenance={"digest_match": True},
+        oracle_contradictions=[{"kind": "replay_expected_missing", "detail": "expected"}],
+        profile="evidence_strict",
+        evidence_completeness={"default_complete": True, "fully_evidenced": True, "required_missing": [], "required_degraded": []},
+    )
+    assert row["thresholds"]["max_missing_nonblocking"] == 2
+    assert row["outcome"] in {"warning", "indeterminate", "blocking_failure"}
+
+
 def test_policy_deterministic_digest() -> None:
     one = evaluate_release_gate(
         scenario="wan_asymmetric_loss",
@@ -67,3 +91,5 @@ def test_release_gate_subset_and_artifacts(tmp_path: Path) -> None:
     assert (gate_root / "wan_gate_report.json").exists()
     assert (gate_root / "release_gate_manifest.json").exists()
     assert (gate_root / "final_wan_gate_digest.json").exists()
+    assert (gate_root / "scenario_evidence_completeness.json").exists()
+    assert (gate_root / "evidence_density_report.json").exists()
