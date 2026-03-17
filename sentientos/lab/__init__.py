@@ -16,6 +16,7 @@ from .wan_federation import (
     deterministic_wan_fault_schedule,
     list_wan_scenarios,
     run_wan_federation_lab,
+    run_wan_release_gate,
     run_wan_suite,
 )
 from .truth_oracle import TRUTH_DIMENSIONS, reconcile_provenance, run_truth_oracle
@@ -36,6 +37,7 @@ __all__ = [
     "deterministic_wan_fault_schedule",
     "list_wan_scenarios",
     "run_wan_federation_lab",
+    "run_wan_release_gate",
     "run_wan_suite",
     "TRUTH_DIMENSIONS",
     "reconcile_provenance",

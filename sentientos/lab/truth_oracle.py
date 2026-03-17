@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from sentientos.attestation import read_json, read_jsonl, write_json
+from sentientos.lab.contradiction_policy import evaluate_release_gate
 
 TruthClassification = Literal[
     "consistent",
@@ -416,6 +417,13 @@ def run_truth_oracle(
 
     provenance = reconcile_provenance(run_root=run_root, scenario=scenario, topology=topology, seed=seed, node_rows=node_evidence)
 
+    evidence_refs = {
+        "fault_log": str(run_root / "wan_faults.jsonl"),
+        "process_transitions": str(run_root / "host_process_transitions.jsonl"),
+        "final_cluster_digest": str(run_root / "final_cluster_digest.json"),
+        "node_truth_paths": [str(Path(str(row.get("node_root"))) / "glow/lab/node_truth_artifacts.json") for row in node_evidence],
+    }
+
     contradictions: list[dict[str, object]] = []
     if provenance.get("status") == "inconsistent":
         contradictions.append({"kind": "provenance_mismatch", "detail": "cluster digest mismatch"})
@@ -426,6 +434,13 @@ def run_truth_oracle(
     replay_evidence = dimensions["replay_truth"].get("evidence") if isinstance(dimensions["replay_truth"].get("evidence"), dict) else {}
     if dimensions["replay_truth"]["classification"] == "degraded_but_explained" and int(replay_evidence.get("missing_but_expected") or 0) > 0:
         contradictions.append({"kind": "replay_expected_missing", "detail": "replay evidence was expected but missing on one or more nodes"})
+
+    contradiction_policy = evaluate_release_gate(
+        scenario=scenario,
+        dimensions=dimensions,
+        provenance=provenance,
+        oracle_contradictions=contradictions,
+    )
 
     score_weights = {
         "consistent": 1,
@@ -460,10 +475,11 @@ def run_truth_oracle(
     write_json(oracle_root / "truth_dimensions.json", {"schema_version": 1, "dimensions": dimensions})
     write_json(oracle_root / "provenance_reconciliation.json", provenance)
     write_json(oracle_root / "evidence_manifest.json", evidence_manifest)
-    write_json(oracle_root / "contradictions_report.json", {"schema_version": 1, "contradictions": contradictions})
+    write_json(oracle_root / "contradictions_report.json", {"schema_version": 1, "contradictions": contradictions, "records": contradiction_policy.get("records", [])})
+    write_json(oracle_root / "contradiction_policy_report.json", contradiction_policy)
 
     final_digest = hashlib.sha256(
-        json.dumps({"dimensions": dimensions, "provenance": provenance, "contradictions": contradictions}, sort_keys=True).encode("utf-8")
+        json.dumps({"dimensions": dimensions, "provenance": provenance, "contradictions": contradictions, "policy": contradiction_policy}, sort_keys=True).encode("utf-8")
     ).hexdigest()
     write_json(oracle_root / "cluster_final_truth_digest.json", {"schema_version": 1, "truth_digest": final_digest, "cluster_truth": cluster_truth})
 
@@ -474,6 +490,7 @@ def run_truth_oracle(
         "dimension_classifications": {key: row.get("classification") for key, row in dimensions.items()},
         "provenance_status": provenance.get("status"),
         "contradictions": contradictions,
+        "contradiction_outcome": contradiction_policy.get("outcome"),
         "artifact_root": str(oracle_root),
     }
     write_json(oracle_root / "truth_oracle_summary.json", summary)
@@ -484,6 +501,8 @@ def run_truth_oracle(
         "provenance": provenance,
         "evidence_manifest": evidence_manifest,
         "contradictions": contradictions,
+        "contradiction_policy": contradiction_policy,
+        "evidence_refs": evidence_refs,
         "truth_digest": final_digest,
         "artifact_paths": {
             "truth_oracle_summary": str(oracle_root / "truth_oracle_summary.json"),
@@ -492,5 +511,6 @@ def run_truth_oracle(
             "evidence_manifest": str(oracle_root / "evidence_manifest.json"),
             "cluster_final_truth_digest": str(oracle_root / "cluster_final_truth_digest.json"),
             "contradictions_report": str(oracle_root / "contradictions_report.json"),
+            "contradiction_policy_report": str(oracle_root / "contradiction_policy_report.json"),
         },
     }

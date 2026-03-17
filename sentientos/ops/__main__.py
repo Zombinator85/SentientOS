@@ -156,8 +156,10 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--nodes-per-host", type=int, default=1)
     lab_federation.add_argument("--clean", action="store_true", help="remove previous run folder before launching")
     lab_federation.add_argument("--truth-oracle", action="store_true", help="run WAN truth-oracle + provenance reconciliation")
+    lab_federation.add_argument("--wan-gate", action="store_true", help="run WAN contradiction-policy release gate")
     lab_federation.add_argument("--emit-replay", action="store_true", help="emit replay verification artifacts for WAN nodes")
     lab_federation.add_argument("--truth-report", action="store_true", help="print WAN truth report path in text mode")
+    lab_federation.add_argument("--policy-profile", default="default", help="WAN contradiction policy profile")
     lab_federation.add_argument("--json", action="store_true")
     lab_clean = lab_sub.add_parser("clean", help="delete all live federation lab run artifacts")
     lab_clean.add_argument("--json", action="store_true")
@@ -321,7 +323,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         return exit_code(payload)
 
     if args.domain == "lab" and args.action == "federation":
-        from sentientos.lab import list_federation_lab_scenarios, list_wan_scenarios, run_endurance_suite, run_live_federation_lab, run_wan_federation_lab, run_wan_suite
+        from sentientos.lab import list_federation_lab_scenarios, list_wan_scenarios, run_endurance_suite, run_live_federation_lab, run_wan_federation_lab, run_wan_release_gate, run_wan_suite
 
         if bool(args.list_scenarios):
             payload = {
@@ -344,6 +346,18 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 nodes_per_host=max(1, int(args.nodes_per_host)),
                 hosts_file=Path(args.hosts).resolve() if args.hosts else None,
                 clean=bool(args.clean),
+            )
+        elif bool(args.wan_gate):
+            payload = run_wan_release_gate(
+                repo_root,
+                topology_name=str(args.topology),
+                seed=int(args.seed),
+                runtime_s=float(args.runtime_s),
+                nodes_per_host=max(1, int(args.nodes_per_host)),
+                hosts_file=Path(args.hosts).resolve() if args.hosts else None,
+                clean=bool(args.clean),
+                scenario=(str(args.scenario) if str(args.scenario).startswith("wan_") else None),
+                profile=str(args.policy_profile),
             )
         elif bool(args.wan):
             payload = run_wan_federation_lab(
