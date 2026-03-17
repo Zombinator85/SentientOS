@@ -29,6 +29,8 @@ The gate writes bounded artifacts to `glow/lab/wan_gate/`:
 - `contradiction_policy_report.json`
 - `release_gate_manifest.json`
 - `final_wan_gate_digest.json`
+- `scenario_evidence_completeness.json`
+- `evidence_density_report.json`
 
 These artifacts answer:
 
@@ -36,6 +38,8 @@ These artifacts answer:
 - what contradictions were observed
 - which contradictions were tolerated/warned/blocked
 - why the aggregate gate passed or failed
+- which scenarios were default-complete / fully-evidenced
+- whether degradation is evidence-sparse vs contradiction-driven
 
 ## Triage guidance
 

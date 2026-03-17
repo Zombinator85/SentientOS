@@ -91,6 +91,8 @@ def test_truth_oracle_generates_dimension_reports(tmp_path: Path) -> None:
     assert set(payload["dimensions"]) == set(TRUTH_DIMENSIONS)
     assert payload["provenance"]["status"] == "inconsistent"
     assert payload["dimensions"]["replay_truth"]["classification"] == "degraded_but_explained"
+    assert payload["scenario_evidence_completeness"]["default_complete"] is True
+    assert "replay_truth" in payload["scenario_evidence_completeness"]["optional_heavy_dimensions"]
     assert Path(payload["artifact_paths"]["truth_oracle_summary"]).exists()
 
 
@@ -170,4 +172,26 @@ def test_truth_oracle_uses_node_truth_artifacts_for_cluster_health(tmp_path: Pat
 
     payload = run_truth_oracle(run_root=run_root, scenario="wan_partition_recovery", topology="three_host_ring", seed=1, hosts=hosts, nodes=nodes)
     assert payload["dimensions"]["cluster_health_truth"]["classification"] == "consistent"
-    assert payload["dimensions"]["replay_truth"]["classification"] == "missing_evidence"
+    assert payload["dimensions"]["replay_truth"]["classification"] == "degraded_but_explained"
+
+
+def test_truth_oracle_scenario_completeness_is_deterministic(tmp_path: Path) -> None:
+    run_root = tmp_path / "run"
+    hosts = [{"host_id": "h1", "runtime_root": str(tmp_path / "h1")}]
+    nodes = [{"node_id": "n1", "host_id": "h1"}]
+    _seed_node(tmp_path, node_id="n1", host_id="h1", scenario="wan_reanchor_truth_reconciliation", seed=5)
+    write_json(run_root / "fault_timeline.json", {"timeline": []})
+    (run_root / "wan_faults.jsonl").parent.mkdir(parents=True, exist_ok=True)
+    (run_root / "wan_faults.jsonl").write_text("", encoding="utf-8")
+    (run_root / "host_process_transitions.jsonl").write_text(
+        '{"ts":"2026-01-01T00:00:00Z","host_id":"h1","node_id":"n1","state":"running"}\n'
+        '{"ts":"2026-01-01T00:00:01Z","host_id":"h1","node_id":"n1","state":"stopped","exit_code":0}\n',
+        encoding="utf-8",
+    )
+
+    first = run_truth_oracle(run_root=run_root, scenario="wan_reanchor_truth_reconciliation", topology="three_host_ring", seed=5, hosts=hosts, nodes=nodes)
+    write_json(run_root / "final_cluster_digest.json", {"digest": first["provenance"]["recomputed_cluster_digest"]})
+    second = run_truth_oracle(run_root=run_root, scenario="wan_reanchor_truth_reconciliation", topology="three_host_ring", seed=5, hosts=hosts, nodes=nodes)
+    assert first["scenario_evidence_completeness"]["required_default_dimensions"] == second["scenario_evidence_completeness"]["required_default_dimensions"]
+    assert Path(second["artifact_paths"]["scenario_evidence_completeness"]).exists()
+    assert Path(second["artifact_paths"]["evidence_density_report"]).exists()

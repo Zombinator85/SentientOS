@@ -24,6 +24,12 @@ class PolicyThresholds:
     max_warning_before_block: int = 2
 
 
+PROFILE_THRESHOLDS: dict[str, PolicyThresholds] = {
+    "default": PolicyThresholds(max_missing_nonblocking=5, max_warning_before_block=2),
+    "evidence_strict": PolicyThresholds(max_missing_nonblocking=2, max_warning_before_block=1),
+}
+
+
 def _classification(dimensions: dict[str, dict[str, object]], key: str) -> str:
     row = dimensions.get(key)
     if not isinstance(row, dict):
@@ -228,8 +234,12 @@ def evaluate_release_gate(
     provenance: dict[str, object],
     oracle_contradictions: list[dict[str, object]],
     profile: str = "default",
+    evidence_completeness: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    thresholds = PolicyThresholds()
+    thresholds = PROFILE_THRESHOLDS.get(profile, PROFILE_THRESHOLDS["default"])
+    completeness = evidence_completeness if isinstance(evidence_completeness, dict) else {}
+    fully_evidenced = bool(completeness.get("fully_evidenced"))
+    default_complete = bool(completeness.get("default_complete"))
     records = classify_contradictions(
         scenario=scenario,
         dimensions=dimensions,
@@ -261,6 +271,15 @@ def evaluate_release_gate(
     elif missing > thresholds.max_missing_nonblocking:
         outcome = "indeterminate"
         reason = "evidence gaps exceed bounded nonblocking threshold"
+    elif profile == "evidence_strict" and fully_evidenced and missing > 0:
+        outcome = "warning"
+        reason = "evidence-rich run contains avoidable missing evidence"
+    elif fully_evidenced and warnings > 0:
+        outcome = "blocking_failure"
+        reason = "evidence-rich run does not tolerate warning contradictions"
+    elif default_complete and missing > 0:
+        outcome = "warning"
+        reason = "default-complete evidence run still has missing-evidence contradictions"
     elif degradations > 0 or missing > 0:
         outcome = "pass_with_degradation"
         reason = "only degradable contradictions observed"
@@ -283,6 +302,12 @@ def evaluate_release_gate(
         "thresholds": {
             "max_missing_nonblocking": thresholds.max_missing_nonblocking,
             "max_warning_before_block": thresholds.max_warning_before_block,
+        },
+        "evidence_completeness": {
+            "default_complete": default_complete,
+            "fully_evidenced": fully_evidenced,
+            "required_missing": completeness.get("required_missing", []),
+            "required_degraded": completeness.get("required_degraded", []),
         },
         "counts": counts,
         "records": records,

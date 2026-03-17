@@ -53,6 +53,10 @@ def test_wan_run_generates_manifests(tmp_path: Path) -> None:
     assert (run_root / "artifact_hash_manifest.json").exists()
     assert (run_root / "wan_truth/truth_oracle_summary.json").exists()
     assert (run_root / "node_truth_manifest.json").exists()
+    assert (run_root / "node_evidence_summary.json").exists()
+    assert (run_root / "scenario_evidence_enrichment.json").exists()
+    assert (run_root / "wan_truth/scenario_evidence_completeness.json").exists()
+    assert (run_root / "wan_truth/evidence_density_report.json").exists()
     manifest = json.loads((run_root / "node_truth_manifest.json").read_text(encoding="utf-8"))
     assert manifest["node_count"] >= 1
 

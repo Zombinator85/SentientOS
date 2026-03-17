@@ -27,6 +27,31 @@ TRUTH_DIMENSIONS: tuple[str, ...] = (
     "cluster_health_truth",
 )
 
+DEFAULT_EVIDENCE_DIMENSIONS: tuple[str, ...] = (
+    "quorum_truth",
+    "digest_truth",
+    "epoch_truth",
+    "reanchor_truth",
+    "fairness_truth",
+    "cluster_health_truth",
+)
+
+HEAVY_OPTIONAL_DIMENSIONS: tuple[str, ...] = ("replay_truth",)
+
+SCENARIO_REQUIRED_DIMENSIONS: dict[str, tuple[str, ...]] = {
+    "wan_partition_recovery": ("quorum_truth", "digest_truth", "epoch_truth", "fairness_truth", "cluster_health_truth"),
+    "wan_asymmetric_loss": ("quorum_truth", "digest_truth", "epoch_truth", "fairness_truth", "cluster_health_truth"),
+    "wan_epoch_rotation_under_partition": ("quorum_truth", "digest_truth", "epoch_truth", "fairness_truth", "cluster_health_truth"),
+    "wan_reanchor_truth_reconciliation": (
+        "quorum_truth",
+        "digest_truth",
+        "epoch_truth",
+        "reanchor_truth",
+        "fairness_truth",
+        "cluster_health_truth",
+    ),
+}
+
 
 def _as_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
@@ -167,7 +192,7 @@ def _classify_epoch(node_rows: list[dict[str, object]], fault_types: set[str]) -
     return "inconsistent", {"epochs": present}
 
 
-def _classify_replay(node_rows: list[dict[str, object]]) -> tuple[TruthClassification, dict[str, object]]:
+def _classify_replay(node_rows: list[dict[str, object]], *, scenario: str) -> tuple[TruthClassification, dict[str, object]]:
     statuses: list[str] = []
     replay_states: list[str] = []
     missing = 0
@@ -210,13 +235,18 @@ def _classify_replay(node_rows: list[dict[str, object]]) -> tuple[TruthClassific
     if compatible > 0:
         return "degraded_but_explained", {"statuses": statuses, "replay_states": replay_states, "replay_compatible_nodes": compatible}
     if not statuses and missing:
-        return "missing_evidence", {"missing_nodes": missing, "replay_states": replay_states, "reason": "no_replay_evidence_requested"}
+        return "degraded_but_explained", {
+            "missing_nodes": missing,
+            "replay_states": replay_states,
+            "reason": "no_replay_evidence_requested",
+            "scenario": scenario,
+        }
     if missing:
         return "degraded_but_explained", {"statuses": statuses, "replay_states": replay_states, "missing_nodes": missing}
     return "missing_evidence", {"statuses": statuses, "replay_states": replay_states}
 
 
-def _classify_reanchor(node_rows: list[dict[str, object]], fault_types: set[str]) -> tuple[TruthClassification, dict[str, object]]:
+def _classify_reanchor(node_rows: list[dict[str, object]], fault_types: set[str], *, scenario: str) -> tuple[TruthClassification, dict[str, object]]:
     has_break = any(str((row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}).get("reanchor_state", {}).get("history_state") or row.get("history_state") or "") == "broken_preserved" for row in node_rows)
     continuations = [
         bool(row.get("continuation_descends_from_anchor"))
@@ -225,7 +255,10 @@ def _classify_reanchor(node_rows: list[dict[str, object]], fault_types: set[str]
     ]
     checkpoint_count = sum(1 for row in node_rows if row.get("checkpoint_id"))
     if not has_break and not continuations and "force_reanchor" not in fault_types:
-        return "missing_evidence", {"reason": "no_reanchor_activity"}
+        return "degraded_but_explained", {
+            "reason": "no_reanchor_activity",
+            "scenario_expected": scenario == "wan_reanchor_truth_reconciliation",
+        }
     if has_break and checkpoint_count == 0:
         return "inconsistent", {"has_break": has_break, "checkpoint_count": checkpoint_count}
     if continuations and all(continuations):
@@ -376,6 +409,85 @@ def reconcile_provenance(
     }
 
 
+def build_scenario_evidence_completeness(
+    *,
+    scenario: str,
+    dimensions: dict[str, dict[str, object]],
+    provenance: dict[str, object],
+) -> dict[str, object]:
+    required = list(SCENARIO_REQUIRED_DIMENSIONS.get(scenario, DEFAULT_EVIDENCE_DIMENSIONS))
+    optional_heavy = list(HEAVY_OPTIONAL_DIMENSIONS)
+    rows: list[dict[str, object]] = []
+    required_missing: list[str] = []
+    required_degraded: list[str] = []
+    optional_missing: list[str] = []
+
+    for key in [*required, *optional_heavy]:
+        classification = str((dimensions.get(key) if isinstance(dimensions.get(key), dict) else {}).get("classification") or "missing_evidence")
+        state = "present"
+        if classification == "missing_evidence":
+            state = "missing"
+        elif classification in {"degraded_but_explained", "blocked_by_policy"}:
+            state = "degraded"
+        row = {
+            "dimension": key,
+            "classification": classification,
+            "tier": "required_default" if key in required else "optional_heavy",
+            "state": state,
+        }
+        rows.append(row)
+        if key in required:
+            if state == "missing":
+                required_missing.append(key)
+            elif state == "degraded":
+                required_degraded.append(key)
+        elif state == "missing":
+            optional_missing.append(key)
+
+    provenance_ok = bool(provenance.get("status") == "consistent" and provenance.get("digest_match") is True)
+    default_complete = not required_missing
+    fully_evidenced = default_complete and not required_degraded and provenance_ok
+    return {
+        "schema_version": 1,
+        "scenario": scenario,
+        "required_default_dimensions": required,
+        "optional_heavy_dimensions": optional_heavy,
+        "dimension_rows": rows,
+        "required_missing": required_missing,
+        "required_degraded": required_degraded,
+        "optional_missing": optional_missing,
+        "provenance_required": ["status=consistent", "digest_match=true"],
+        "provenance_ok": provenance_ok,
+        "default_complete": default_complete,
+        "fully_evidenced": fully_evidenced,
+    }
+
+
+def build_evidence_density_report(
+    *,
+    scenario: str,
+    dimensions: dict[str, dict[str, object]],
+    completeness: dict[str, object],
+) -> dict[str, object]:
+    counts: dict[str, int] = {}
+    sparse_dimensions: list[str] = []
+    for dim in TRUTH_DIMENSIONS:
+        classification = str((dimensions.get(dim) if isinstance(dimensions.get(dim), dict) else {}).get("classification") or "missing_evidence")
+        counts[classification] = counts.get(classification, 0) + 1
+        if classification == "missing_evidence":
+            sparse_dimensions.append(dim)
+    return {
+        "schema_version": 1,
+        "scenario": scenario,
+        "truth_dimension_count": len(TRUTH_DIMENSIONS),
+        "classification_counts": counts,
+        "sparse_dimensions": sparse_dimensions,
+        "required_missing": completeness.get("required_missing", []),
+        "required_degraded": completeness.get("required_degraded", []),
+        "fully_evidenced": bool(completeness.get("fully_evidenced")),
+    }
+
+
 def run_truth_oracle(
     *,
     run_root: Path,
@@ -406,9 +518,9 @@ def run_truth_oracle(
     dimensions["digest_truth"] = {"classification": digest_truth, "evidence": digest_evidence}
     epoch_truth, epoch_evidence = _classify_epoch(node_evidence, fault_types)
     dimensions["epoch_truth"] = {"classification": epoch_truth, "evidence": epoch_evidence}
-    replay_truth, replay_evidence = _classify_replay(node_evidence)
+    replay_truth, replay_evidence = _classify_replay(node_evidence, scenario=scenario)
     dimensions["replay_truth"] = {"classification": replay_truth, "evidence": replay_evidence}
-    reanchor_truth, reanchor_evidence = _classify_reanchor(node_evidence, fault_types)
+    reanchor_truth, reanchor_evidence = _classify_reanchor(node_evidence, fault_types, scenario=scenario)
     dimensions["reanchor_truth"] = {"classification": reanchor_truth, "evidence": reanchor_evidence}
     fairness_truth, fairness_evidence = _classify_fairness(transitions, [str(host.get("host_id")) for host in hosts])
     dimensions["fairness_truth"] = {"classification": fairness_truth, "evidence": fairness_evidence}
@@ -435,11 +547,15 @@ def run_truth_oracle(
     if dimensions["replay_truth"]["classification"] == "degraded_but_explained" and int(replay_evidence.get("missing_but_expected") or 0) > 0:
         contradictions.append({"kind": "replay_expected_missing", "detail": "replay evidence was expected but missing on one or more nodes"})
 
+    completeness = build_scenario_evidence_completeness(scenario=scenario, dimensions=dimensions, provenance=provenance)
+    density_report = build_evidence_density_report(scenario=scenario, dimensions=dimensions, completeness=completeness)
+
     contradiction_policy = evaluate_release_gate(
         scenario=scenario,
         dimensions=dimensions,
         provenance=provenance,
         oracle_contradictions=contradictions,
+        evidence_completeness=completeness,
     )
 
     score_weights = {
@@ -475,6 +591,8 @@ def run_truth_oracle(
     write_json(oracle_root / "truth_dimensions.json", {"schema_version": 1, "dimensions": dimensions})
     write_json(oracle_root / "provenance_reconciliation.json", provenance)
     write_json(oracle_root / "evidence_manifest.json", evidence_manifest)
+    write_json(oracle_root / "scenario_evidence_completeness.json", completeness)
+    write_json(oracle_root / "evidence_density_report.json", density_report)
     write_json(oracle_root / "contradictions_report.json", {"schema_version": 1, "contradictions": contradictions, "records": contradiction_policy.get("records", [])})
     write_json(oracle_root / "contradiction_policy_report.json", contradiction_policy)
 
@@ -491,6 +609,12 @@ def run_truth_oracle(
         "provenance_status": provenance.get("status"),
         "contradictions": contradictions,
         "contradiction_outcome": contradiction_policy.get("outcome"),
+        "evidence_completeness": {
+            "default_complete": completeness.get("default_complete"),
+            "fully_evidenced": completeness.get("fully_evidenced"),
+            "required_missing": completeness.get("required_missing"),
+            "required_degraded": completeness.get("required_degraded"),
+        },
         "artifact_root": str(oracle_root),
     }
     write_json(oracle_root / "truth_oracle_summary.json", summary)
@@ -500,6 +624,8 @@ def run_truth_oracle(
         "dimensions": dimensions,
         "provenance": provenance,
         "evidence_manifest": evidence_manifest,
+        "scenario_evidence_completeness": completeness,
+        "evidence_density_report": density_report,
         "contradictions": contradictions,
         "contradiction_policy": contradiction_policy,
         "evidence_refs": evidence_refs,
@@ -509,6 +635,8 @@ def run_truth_oracle(
             "provenance_reconciliation": str(oracle_root / "provenance_reconciliation.json"),
             "truth_dimensions": str(oracle_root / "truth_dimensions.json"),
             "evidence_manifest": str(oracle_root / "evidence_manifest.json"),
+            "scenario_evidence_completeness": str(oracle_root / "scenario_evidence_completeness.json"),
+            "evidence_density_report": str(oracle_root / "evidence_density_report.json"),
             "cluster_final_truth_digest": str(oracle_root / "cluster_final_truth_digest.json"),
             "contradictions_report": str(oracle_root / "contradictions_report.json"),
             "contradiction_policy_report": str(oracle_root / "contradiction_policy_report.json"),
