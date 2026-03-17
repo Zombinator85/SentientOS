@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import yaml
+
 from sentientos.attestation import append_jsonl, iso_now, read_json, write_json
 from sentientos.lab.node_truth_artifacts import emit_node_truth_artifacts
 from sentientos.lab.contradiction_policy import evaluate_release_gate
@@ -73,6 +75,12 @@ WAN_SCENARIOS: dict[str, dict[str, Any]] = {
     },
 }
 
+REMOTE_SMOKE_SCENARIOS: dict[str, str] = {
+    "remote_partition_recovery_smoke": "wan_partition_recovery",
+    "remote_epoch_rotation_smoke": "wan_epoch_rotation_under_partition",
+    "remote_reanchor_truth_smoke": "wan_reanchor_truth_reconciliation",
+}
+
 
 @dataclass(frozen=True)
 class HostSpec:
@@ -84,6 +92,8 @@ class HostSpec:
     zone: str = "default"
     latency_class: str = "lan"
     fault_domain: str = "fd-default"
+    tags: tuple[str, ...] = ()
+    capabilities: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -137,12 +147,16 @@ class MockTransport(BaseTransport):
 class SSHTransport(BaseTransport):
     kind: TransportKind = "ssh"
 
-    def run(self, host: HostSpec, command: list[str], *, cwd: str | None = None) -> dict[str, object]:
+    def build_ssh_command(self, host: HostSpec, command: list[str], *, cwd: str | None = None) -> list[str]:
         target = f"{host.user}@{host.address}" if host.user else host.address
         remote = " ".join(shlex.quote(arg) for arg in command)
         if cwd:
             remote = f"cd {shlex.quote(cwd)} && {remote}"
-        proc = subprocess.run(["ssh", target, "--", remote], text=True, capture_output=True, check=False)
+        return ["ssh", target, "--", remote]
+
+    def run(self, host: HostSpec, command: list[str], *, cwd: str | None = None) -> dict[str, object]:
+        target = f"{host.user}@{host.address}" if host.user else host.address
+        proc = subprocess.run(self.build_ssh_command(host, command, cwd=cwd), text=True, capture_output=True, check=False)
         return {
             "transport": self.kind,
             "host": host.host_id,
@@ -174,9 +188,18 @@ def list_wan_scenarios() -> list[dict[str, object]]:
 
 def _load_hosts(*, hosts_file: Path | None, run_root: Path, host_count: int) -> list[HostSpec]:
     if hosts_file is not None:
-        payload = json.loads(hosts_file.read_text(encoding="utf-8"))
+        suffix = hosts_file.suffix.lower()
+        payload = (
+            yaml.safe_load(hosts_file.read_text(encoding="utf-8"))
+            if suffix in {".yaml", ".yml"}
+            else json.loads(hosts_file.read_text(encoding="utf-8"))
+        )
+        if not isinstance(payload, dict):
+            raise ValueError("host inventory payload must be a mapping with hosts")
         hosts: list[HostSpec] = []
         for row in payload.get("hosts", []):
+            if not isinstance(row, dict):
+                raise ValueError("host inventory rows must be mappings")
             hosts.append(
                 HostSpec(
                     host_id=str(row["host_id"]),
@@ -187,15 +210,25 @@ def _load_hosts(*, hosts_file: Path | None, run_root: Path, host_count: int) -> 
                     zone=str(row.get("zone") or "default"),
                     latency_class=str(row.get("latency_class") or "lan"),
                     fault_domain=str(row.get("fault_domain") or "fd-default"),
+                    tags=tuple(sorted(str(item) for item in (row.get("tags") or []) if str(item))),
+                    capabilities=tuple(sorted(str(item) for item in (row.get("capabilities") or []) if str(item))),
                 )
             )
-        return hosts
+        deduped = sorted(hosts, key=lambda host: host.host_id)
+        ids = [host.host_id for host in deduped]
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate host_id values in host inventory")
+        return deduped
 
     hosts = []
     for idx in range(1, host_count + 1):
         host_id = f"host-{idx:02d}"
         hosts.append(HostSpec(host_id=host_id, transport="local", runtime_root=str(run_root / "hosts" / host_id)))
     return hosts
+
+
+def _scenario_for_remote_smoke(scenario_name: str) -> str:
+    return REMOTE_SMOKE_SCENARIOS.get(scenario_name, scenario_name)
 
 
 def _host_count_for_topology(topology: str) -> int:
@@ -308,6 +341,13 @@ def _apply_wan_fault(node_root: Path, action: dict[str, object]) -> None:
         )
 
 
+
+def _relative_or_absolute(path: Path, root: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
 def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -325,10 +365,14 @@ def run_wan_federation_lab(
     truth_oracle: bool = False,
     emit_replay: bool = False,
     clean: bool,
+    remote_smoke: bool = False,
 ) -> dict[str, object]:
     root = repo_root.resolve()
+    scenario_name = _scenario_for_remote_smoke(scenario_name)
     if scenario_name not in WAN_SCENARIOS:
         raise ValueError(f"unknown WAN scenario: {scenario_name}")
+    if remote_smoke and hosts_file is None:
+        raise ValueError("remote smoke mode requires --hosts inventory")
     run_id = f"federation_wan_{scenario_name}_{topology_name}_seed{seed}"
     run_root = root / "glow/lab/wan" / run_id
     if clean and run_root.exists():
@@ -336,12 +380,29 @@ def run_wan_federation_lab(
     run_root.mkdir(parents=True, exist_ok=True)
 
     hosts = _load_hosts(hosts_file=hosts_file, run_root=run_root, host_count=_host_count_for_topology(topology_name))
+    if remote_smoke:
+        runtime_s = min(runtime_s, 2.8)
+        nodes_per_host = 1
     topology = deterministic_multihost_topology(topology=topology_name, seed=seed, hosts=hosts, nodes_per_host=nodes_per_host)
     write_json(run_root / "host_manifest.json", {"schema_version": 1, "hosts": [host.__dict__ for host in hosts]})
     write_json(run_root / "topology_manifest.json", topology)
 
     transitions = run_root / "host_process_transitions.jsonl"
     transitions.write_text("", encoding="utf-8")
+    remote_dispatch = run_root / "remote_dispatch_log.jsonl"
+    remote_dispatch.write_text("", encoding="utf-8")
+    preflight_rows: list[dict[str, object]] = []
+    for host in hosts:
+        if host.transport != "ssh":
+            preflight_rows.append({"host_id": host.host_id, "transport": host.transport, "status": "skipped"})
+            continue
+        adapter = _transport("ssh")
+        check = adapter.run(host, ["sh", "-lc", "command -v sh && command -v mkdir"], cwd=None)
+        mkdir = adapter.run(host, ["mkdir", "-p", host.runtime_root], cwd=None)
+        status = "ok" if int(check.get("exit_code", 1)) == 0 and int(mkdir.get("exit_code", 1)) == 0 else "provisioning_failed"
+        preflight_rows.append({"host_id": host.host_id, "transport": host.transport, "status": status, "check": check, "mkdir": mkdir})
+        append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "preflight", "host_id": host.host_id, "status": status})
+    write_json(run_root / "remote_preflight_report.json", {"schema_version": 1, "rows": preflight_rows})
 
     host_by_id = {host.host_id: host for host in hosts}
     nodes = topology["nodes"] if isinstance(topology.get("nodes"), list) else []
@@ -350,7 +411,10 @@ def run_wan_federation_lab(
         node_id = str(row["node_id"])
         host_id = str(row["host_id"])
         host = host_by_id[host_id]
-        node_root = Path(host.runtime_root) / "nodes" / node_id
+        if remote_smoke and host.transport != "local":
+            node_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id
+        else:
+            node_root = Path(host.runtime_root) / "nodes" / node_id
         node_root.mkdir(parents=True, exist_ok=True)
         run_bootstrap(node_root, reason=f"wan_{scenario_name}", seed_minimal=True, allow_restore=True)
         write_json(
@@ -376,8 +440,16 @@ def run_wan_federation_lab(
             append_jsonl(transitions, {"ts": iso_now(), "state": "running", "host_id": host_id, "node_id": node_id, "pid": proc.pid, "transport": "local"})
         else:
             adapter = _transport(host.transport)
-            result = adapter.run(host, command, cwd=str(root))
+            remote_cmd = [
+                "sh",
+                "-lc",
+                f"mkdir -p {shlex.quote(host.runtime_root)}/nodes/{shlex.quote(node_id)}/glow/lab && "
+                f"printf '%s\n' {shlex.quote(json.dumps({'node_id': node_id, 'host_id': host_id, 'scenario': scenario_name, 'seed': seed}, sort_keys=True))} > "
+                f"{shlex.quote(host.runtime_root)}/nodes/{shlex.quote(node_id)}/glow/lab/remote_dispatch.json",
+            ]
+            result = adapter.run(host, remote_cmd, cwd=None)
             append_jsonl(transitions, {"ts": iso_now(), "state": "remote_dispatch", "host_id": host_id, "node_id": node_id, "transport": host.transport, "result": result})
+            append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "dispatch", "host_id": host_id, "node_id": node_id, "transport": host.transport, "result": result})
 
     schedule = deterministic_wan_fault_schedule(
         scenario=scenario_name,
@@ -411,6 +483,38 @@ def run_wan_federation_lab(
         code = int(proc.wait(timeout=5))
         exit_codes[str(row["node_id"])] = code
         append_jsonl(transitions, {"ts": iso_now(), "state": "stopped", "host_id": row["host_id"], "node_id": row["node_id"], "exit_code": code})
+
+    remote_collection_rows: list[dict[str, object]] = []
+    for host in hosts:
+        if host.transport != "ssh":
+            continue
+        adapter = _transport("ssh")
+        for node in [node for node in nodes if str(node["host_id"]) == host.host_id]:
+            node_id = str(node["node_id"])
+            target_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id / "glow/lab"
+            target_root.mkdir(parents=True, exist_ok=True)
+            cat = adapter.run(
+                host,
+                ["sh", "-lc", f"cat {shlex.quote(host.runtime_root)}/nodes/{shlex.quote(node_id)}/glow/lab/remote_dispatch.json"],
+                cwd=None,
+            )
+            remote_path = target_root / "remote_dispatch_collected.json"
+            if int(cat.get("exit_code", 1)) == 0:
+                remote_path.write_text(str(cat.get("stdout") or "{}"), encoding="utf-8")
+            remote_collection_rows.append(
+                {
+                    "host_id": host.host_id,
+                    "node_id": node_id,
+                    "transport": host.transport,
+                    "collection_exit_code": int(cat.get("exit_code", 1)),
+                    "remote_runtime_root": host.runtime_root,
+                    "collected_path": str(remote_path.relative_to(root)),
+                }
+            )
+            append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "collect", "host_id": host.host_id, "node_id": node_id, "result": cat})
+            cleanup = adapter.run(host, ["rm", "-rf", f"{host.runtime_root}/nodes/{node_id}"], cwd=None)
+            append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "cleanup", "host_id": host.host_id, "node_id": node_id, "result": cleanup})
+    write_json(run_root / "remote_artifact_collection.json", {"schema_version": 1, "rows": remote_collection_rows, "count": len(remote_collection_rows)})
 
     per_host: dict[str, dict[str, object]] = {}
     digest_rows: list[str] = []
@@ -453,7 +557,7 @@ def run_wan_federation_lab(
                 emit_node_truth_artifacts(node_root, node_id=node_id, host_id=host.host_id)
                 replay_rows[node_id] = {
                     "emit_rc": rc,
-                    "replay_path": str(latest.relative_to(root)) if latest else None,
+                    "replay_path": _relative_or_absolute(latest, root) if latest else None,
                     "replay_present": bool(latest),
                 }
 
@@ -470,7 +574,7 @@ def run_wan_federation_lab(
                 {
                     "host_id": host.host_id,
                     "node_id": node_id,
-                    "truth_artifact_path": str((node_root / "glow/lab/node_truth_artifacts.json").relative_to(root)),
+                    "truth_artifact_path": _relative_or_absolute(node_root / "glow/lab/node_truth_artifacts.json", root),
                     "required_present": completeness.get("required_present") if isinstance(completeness.get("required_present"), list) else [],
                     "required_missing": completeness.get("required_missing") if isinstance(completeness.get("required_missing"), list) else [],
                     "optional_present": completeness.get("optional_present") if isinstance(completeness.get("optional_present"), list) else [],
@@ -597,11 +701,25 @@ def run_wan_federation_lab(
         if path.is_file():
             files.append({"path": str(path.relative_to(root)), "sha256": _hash(path), "size": path.stat().st_size})
     write_json(run_root / "artifact_hash_manifest.json", {"schema_version": 1, "run_id": run_id, "files": files, "file_count": len(files)})
+    inventory_digest = hashlib.sha256(json.dumps([host.__dict__ for host in hosts], sort_keys=True).encode("utf-8")).hexdigest()
+    write_json(
+        run_root / "remote_run_metadata.json",
+        {
+            "schema_version": 1,
+            "run_id": run_id,
+            "remote_smoke": remote_smoke,
+            "scenario": scenario_name,
+            "inventory_digest": inventory_digest,
+            "host_count": len(hosts),
+            "dispatch_log": str(remote_dispatch.relative_to(root)),
+        },
+    )
 
     payload = {
         "schema_version": 1,
         "mode": "wan_lab",
         "family": "wan",
+        "remote_smoke": remote_smoke,
         "run_id": run_id,
         "scenario": scenario_name,
         "topology": topology_name,
@@ -626,6 +744,10 @@ def run_wan_federation_lab(
             "node_truth_manifest": str((run_root / "node_truth_manifest.json").relative_to(root)),
             "node_evidence_summary": str((run_root / "node_evidence_summary.json").relative_to(root)),
             "scenario_evidence_enrichment": str((run_root / "scenario_evidence_enrichment.json").relative_to(root)),
+            "remote_dispatch_log": str(remote_dispatch.relative_to(root)),
+            "remote_preflight_report": str((run_root / "remote_preflight_report.json").relative_to(root)),
+            "remote_artifact_collection": str((run_root / "remote_artifact_collection.json").relative_to(root)),
+            "remote_run_metadata": str((run_root / "remote_run_metadata.json").relative_to(root)),
         },
     }
     if isinstance(truth_payload.get("artifact_paths"), dict):
@@ -638,9 +760,10 @@ def run_wan_federation_lab(
     return payload
 
 
-def run_wan_suite(repo_root: Path, *, topology_name: str, seed: int, runtime_s: float, nodes_per_host: int, hosts_file: Path | None, clean: bool) -> dict[str, object]:
+def run_wan_suite(repo_root: Path, *, topology_name: str, seed: int, runtime_s: float, nodes_per_host: int, hosts_file: Path | None, clean: bool, remote_smoke: bool = False) -> dict[str, object]:
     rows = []
-    for idx, scenario in enumerate(sorted(WAN_SCENARIOS), start=1):
+    selected = [REMOTE_SMOKE_SCENARIOS[name] for name in sorted(REMOTE_SMOKE_SCENARIOS)] if remote_smoke else sorted(WAN_SCENARIOS)
+    for idx, scenario in enumerate(selected, start=1):
         rows.append(
             run_wan_federation_lab(
                 repo_root,
@@ -654,12 +777,14 @@ def run_wan_suite(repo_root: Path, *, topology_name: str, seed: int, runtime_s: 
                 truth_oracle=True,
                 emit_replay=False,
                 clean=clean,
+                remote_smoke=remote_smoke,
             )
         )
     passed = sum(1 for row in rows if row.get("ok"))
     return {
         "schema_version": 1,
         "suite": "federation_wan",
+        "remote_smoke": remote_smoke,
         "topology": topology_name,
         "seed": seed,
         "runs": rows,
@@ -696,8 +821,12 @@ def run_wan_release_gate(
     clean: bool,
     scenario: str | None = None,
     profile: str = "default",
+    remote_smoke: bool = False,
 ) -> dict[str, object]:
-    selected = [scenario] if scenario else list(RELEASE_GATE_SCENARIOS)
+    if remote_smoke:
+        selected = [REMOTE_SMOKE_SCENARIOS[name] for name in sorted(REMOTE_SMOKE_SCENARIOS)] if scenario is None else [_scenario_for_remote_smoke(scenario)]
+    else:
+        selected = [scenario] if scenario else list(RELEASE_GATE_SCENARIOS)
     root = repo_root.resolve()
     scenario_results: list[dict[str, object]] = []
     completeness_rows: list[dict[str, object]] = []
@@ -716,6 +845,7 @@ def run_wan_release_gate(
             truth_oracle=True,
             emit_replay=False,
             clean=clean,
+            remote_smoke=remote_smoke,
         )
         truth = run.get("truth_oracle") if isinstance(run.get("truth_oracle"), dict) else {}
         completeness = truth.get("scenario_evidence_completeness") if isinstance(truth.get("scenario_evidence_completeness"), dict) else {}

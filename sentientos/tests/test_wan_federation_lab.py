@@ -11,6 +11,7 @@ from sentientos.lab import (
 )
 from sentientos.ops import main as ops_main
 from sentientos.lab.wan_federation import HostSpec
+from sentientos.lab.wan_federation import SSHTransport
 
 
 def test_topology_determinism() -> None:
@@ -130,3 +131,105 @@ def test_ops_lab_help_mentions_wan_gate(capsys) -> None:
         assert int(exc.code) == 0
     out = capsys.readouterr().out
     assert "--wan-gate" in out
+
+
+def test_load_hosts_yaml_and_metadata(tmp_path: Path) -> None:
+    hosts = tmp_path / "hosts.yaml"
+    hosts.write_text(
+        """
+hosts:
+  - host_id: host-02
+    transport: ssh
+    address: 127.0.0.1
+    user: runner
+    runtime_root: /tmp/sentientos-h2
+    tags: [b, a]
+    capabilities: [python3, ssh]
+  - host_id: host-01
+    transport: local
+    runtime_root: /tmp/sentientos-h1
+""",
+        encoding="utf-8",
+    )
+    payload = run_wan_federation_lab(
+        tmp_path,
+        scenario_name="wan_partition_recovery",
+        topology_name="three_host_ring",
+        seed=6,
+        runtime_s=0.4,
+        nodes_per_host=1,
+        hosts_file=hosts,
+        emit_bundle=False,
+        truth_oracle=False,
+        emit_replay=False,
+        clean=True,
+    )
+    normalized = payload["hosts"]
+    assert [row["host_id"] for row in normalized] == ["host-01", "host-02"]
+    assert tuple(normalized[1]["tags"]) == ("a", "b")
+
+
+def test_remote_smoke_requires_hosts(tmp_path: Path) -> None:
+    try:
+        run_wan_federation_lab(
+            tmp_path,
+            scenario_name="remote_partition_recovery_smoke",
+            topology_name="three_host_ring",
+            seed=2,
+            runtime_s=1.0,
+            nodes_per_host=1,
+            hosts_file=None,
+            emit_bundle=False,
+            truth_oracle=False,
+            emit_replay=False,
+            clean=True,
+            remote_smoke=True,
+        )
+    except ValueError as exc:
+        assert "requires --hosts" in str(exc)
+    else:
+        raise AssertionError("expected ValueError")
+
+
+def test_ssh_command_construction() -> None:
+    transport = SSHTransport()
+    host = HostSpec(host_id="h1", transport="ssh", runtime_root="/r", user="u", address="example")
+    cmd = transport.build_ssh_command(host, ["python", "-m", "sentientos.ops"], cwd="/opt/repo")
+    assert cmd[0] == "ssh"
+    assert cmd[1] == "u@example"
+    assert "cd /opt/repo" in cmd[-1]
+
+
+def test_ops_remote_smoke_routing(tmp_path: Path, capsys) -> None:
+    hosts = tmp_path / "hosts.json"
+    hosts.write_text(
+        json.dumps(
+            {
+                "hosts": [
+                    {"host_id": "host-01", "transport": "local", "runtime_root": str(tmp_path / "h1")},
+                    {"host_id": "host-02", "transport": "local", "runtime_root": str(tmp_path / "h2")},
+                    {"host_id": "host-03", "transport": "local", "runtime_root": str(tmp_path / "h3")},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    rc = ops_main([
+        "--repo-root",
+        str(tmp_path),
+        "lab",
+        "federation",
+        "--wan",
+        "--remote-smoke",
+        "--hosts",
+        str(hosts),
+        "--scenario",
+        "remote_partition_recovery_smoke",
+        "--json",
+    ])
+    assert rc in {0, 1}
+    payload = json.loads([line for line in capsys.readouterr().out.splitlines() if line.strip()][-1])
+    assert payload["remote_smoke"] is True
+    run_root = tmp_path / payload["artifact_paths"]["run_root"]
+    assert (run_root / "remote_preflight_report.json").exists()
+    assert (run_root / "remote_artifact_collection.json").exists()
