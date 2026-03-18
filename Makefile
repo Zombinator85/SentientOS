@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-endurance federation-lab-wan federation-wan-remote-smoke federation-wan-gate federation-lab-clean
+.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-endurance federation-lab-wan federation-wan-remote-smoke federation-wan-remote-smoke-ci federation-wan-gate federation-lab-clean remote-preflight-report
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
@@ -143,8 +143,14 @@ federation-lab-wan:
 federation-wan-remote-smoke:
 	$(PYTHON) -m sentientos.ops lab federation --wan --remote-smoke --hosts $(if $(HOSTS),$(HOSTS),hosts.yaml) --scenario $(if $(SCENARIO),$(SCENARIO),remote_partition_recovery_smoke) --topology $(if $(TOPOLOGY),$(TOPOLOGY),three_host_ring) --seed $(if $(SEED),$(SEED),42) --runtime-s $(if $(RUNTIME),$(RUNTIME),2.0) --json
 
+federation-wan-remote-smoke-ci:
+	$(PYTHON) -m sentientos.ops lab federation --wan --remote-smoke --hosts $(if $(HOSTS),$(HOSTS),.github/remote-smoke/hosts.ephemeral.yaml) --scenario $(if $(SCENARIO),$(SCENARIO),remote_partition_recovery_smoke) --topology $(if $(TOPOLOGY),$(TOPOLOGY),two_host_pair) --seed $(if $(SEED),$(SEED),11) --runtime-s $(if $(RUNTIME),$(RUNTIME),1.8) --json
+
 federation-lab-clean:
 	$(PYTHON) -m sentientos.ops lab clean --json
+
+remote-preflight-report:
+	$(PYTHON) -m sentientos.ops lab federation --remote-preflight-report --json
 
 verify-audits-strict:
 	$(PYTHON) scripts/verify_audits.py --strict

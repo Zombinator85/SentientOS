@@ -1,0 +1,11 @@
+hosts:
+  - host_id: host-01
+    transport: ssh
+    address: ${REMOTE_SMOKE_HOST_1}
+    user: ${REMOTE_SMOKE_USER}
+    runtime_root: ${REMOTE_SMOKE_RUNTIME_ROOT}/host-01
+  - host_id: host-02
+    transport: ssh
+    address: ${REMOTE_SMOKE_HOST_2}
+    user: ${REMOTE_SMOKE_USER}
+    runtime_root: ${REMOTE_SMOKE_RUNTIME_ROOT}/host-02

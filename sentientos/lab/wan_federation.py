@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import shlex
 import shutil
@@ -80,6 +81,8 @@ REMOTE_SMOKE_SCENARIOS: dict[str, str] = {
     "remote_epoch_rotation_smoke": "wan_epoch_rotation_under_partition",
     "remote_reanchor_truth_smoke": "wan_reanchor_truth_reconciliation",
 }
+
+REMOTE_PREFLIGHT_HISTORY_LIMIT = 400
 
 
 @dataclass(frozen=True)
@@ -352,6 +355,172 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _classify_ssh_step(step: dict[str, object]) -> str:
+    exit_code = int(step.get("exit_code", 1))
+    stderr = str(step.get("stderr") or "").lower()
+    if exit_code == 0:
+        return "ok"
+    if "permission denied" in stderr or "authentication" in stderr:
+        return "transport_auth_failure"
+    if "no route to host" in stderr or "name or service not known" in stderr or "could not resolve" in stderr:
+        return "host_unreachable"
+    if "connection refused" in stderr or "connection timed out" in stderr:
+        return "transport_auth_failure"
+    if "not found" in stderr:
+        return "command_availability_failure"
+    return "transport_failure"
+
+
+def classify_remote_preflight(*, check: dict[str, object], mkdir: dict[str, object], cleanup_failures: int = 0) -> tuple[str, list[str]]:
+    check_class = _classify_ssh_step(check)
+    mkdir_class = _classify_ssh_step(mkdir)
+    classes: list[str] = []
+    if check_class != "ok":
+        classes.append(check_class)
+    elif int(check.get("exit_code", 1)) != 0:
+        classes.append("command_availability_failure")
+    if mkdir_class != "ok":
+        if mkdir_class in {"host_unreachable", "transport_auth_failure", "transport_failure"}:
+            classes.append(mkdir_class)
+        else:
+            classes.append("runtime_root_provisioning_failure")
+    elif int(mkdir.get("exit_code", 1)) != 0:
+        classes.append("runtime_root_provisioning_failure")
+    if cleanup_failures > 0:
+        classes.append("cleanup_failure")
+    deduped = sorted(set(classes))
+    if not deduped:
+        return "ok", ["preflight_success"]
+    if any(cls in {"host_unreachable", "transport_auth_failure", "transport_failure"} for cls in deduped):
+        return "transport_auth_failure", deduped
+    if "command_availability_failure" in deduped:
+        return "provisioning_failure", deduped
+    if "runtime_root_provisioning_failure" in deduped:
+        return "provisioning_failure", deduped
+    return "provisioning_failure", deduped
+
+
+def _update_remote_preflight_observatory(
+    *,
+    repo_root: Path,
+    lane: str,
+    scenario: str,
+    topology: str,
+    seed: int,
+    rows: list[dict[str, object]],
+) -> dict[str, str]:
+    obs_root = repo_root / "glow/lab/remote_preflight"
+    obs_root.mkdir(parents=True, exist_ok=True)
+    history_path = obs_root / "remote_preflight_history.jsonl"
+    history_path.touch(exist_ok=True)
+
+    now = iso_now()
+    for row in rows:
+        append_jsonl(
+            history_path,
+            {
+                "schema_version": 1,
+                "ts": now,
+                "lane": lane,
+                "scenario": scenario,
+                "topology": topology,
+                "seed": seed,
+                "host_id": row.get("host_id"),
+                "transport": row.get("transport"),
+                "status": row.get("status"),
+                "classification": row.get("classification"),
+                "labels": row.get("labels", []),
+                "reachable": bool(row.get("reachable", False)),
+                "cleanup_failures": int(row.get("cleanup_failures", 0)),
+            },
+        )
+
+    lines = [line for line in history_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if len(lines) > REMOTE_PREFLIGHT_HISTORY_LIMIT:
+        lines = lines[-REMOTE_PREFLIGHT_HISTORY_LIMIT:]
+        history_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    records = [json.loads(line) for line in lines]
+
+    by_host: dict[str, dict[str, object]] = {}
+    by_scenario: dict[str, dict[str, object]] = {}
+    by_lane: dict[str, dict[str, object]] = {}
+    classification_counts: dict[str, int] = {}
+    for rec in records:
+        host = str(rec.get("host_id") or "unknown")
+        scen = str(rec.get("scenario") or "unknown")
+        lane_name = str(rec.get("lane") or "unknown")
+        for bucket, key in ((by_host, host), (by_scenario, scen), (by_lane, lane_name)):
+            row = bucket.setdefault(key, {"total": 0, "success": 0})
+            row["total"] = int(row["total"]) + 1
+            if str(rec.get("status") or "") == "ok":
+                row["success"] = int(row["success"]) + 1
+        classification = str(rec.get("classification") or "unknown")
+        classification_counts[classification] = classification_counts.get(classification, 0) + 1
+
+    def _with_rate(rows: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
+        out: dict[str, dict[str, object]] = {}
+        for key, row in sorted(rows.items()):
+            total = max(1, int(row.get("total", 0)))
+            out[key] = {
+                "total": int(row.get("total", 0)),
+                "success": int(row.get("success", 0)),
+                "success_rate": round(float(int(row.get("success", 0)) / total), 4),
+            }
+        return out
+
+    rollup = {
+        "schema_version": 1,
+        "history_entries": len(records),
+        "classification_counts": dict(sorted(classification_counts.items())),
+        "by_host": _with_rate(by_host),
+        "by_scenario": _with_rate(by_scenario),
+        "by_lane": _with_rate(by_lane),
+        "generated_at": iso_now(),
+    }
+    trend = {
+        "schema_version": 1,
+        "window_entries": len(records),
+        "host_reachable": sum(1 for rec in records if bool(rec.get("reachable", False))),
+        "host_unreachable": sum(1 for rec in records if not bool(rec.get("reachable", False))),
+        "command_availability_failures": classification_counts.get("command_availability_failure", 0),
+        "runtime_root_provisioning_failures": classification_counts.get("runtime_root_provisioning_failure", 0),
+        "cleanup_failures": classification_counts.get("cleanup_failure", 0),
+        "transport_or_auth_failures": sum(
+            classification_counts.get(name, 0) for name in ("transport_auth_failure", "transport_failure", "host_unreachable")
+        ),
+        "preflight_success_count": classification_counts.get("preflight_success", 0),
+        "generated_at": iso_now(),
+    }
+    write_json(obs_root / "remote_preflight_rollup.json", rollup)
+    write_json(obs_root / "remote_preflight_trend_report.json", trend)
+    return {
+        "history": str(history_path.relative_to(repo_root)),
+        "rollup": str((obs_root / "remote_preflight_rollup.json").relative_to(repo_root)),
+        "trend": str((obs_root / "remote_preflight_trend_report.json").relative_to(repo_root)),
+    }
+
+
+def remote_preflight_observatory_report(repo_root: Path) -> dict[str, object]:
+    root = repo_root.resolve()
+    obs_root = root / "glow/lab/remote_preflight"
+    rollup = read_json(obs_root / "remote_preflight_rollup.json") if (obs_root / "remote_preflight_rollup.json").exists() else {}
+    trend = read_json(obs_root / "remote_preflight_trend_report.json") if (obs_root / "remote_preflight_trend_report.json").exists() else {}
+    return {
+        "schema_version": 1,
+        "suite": "remote_preflight_observatory",
+        "status": "passed",
+        "ok": True,
+        "exit_code": 0,
+        "rollup": rollup,
+        "trend": trend,
+        "artifact_paths": {
+            "history": _relative_or_absolute(obs_root / "remote_preflight_history.jsonl", root),
+            "rollup": _relative_or_absolute(obs_root / "remote_preflight_rollup.json", root),
+            "trend": _relative_or_absolute(obs_root / "remote_preflight_trend_report.json", root),
+        },
+    }
+
+
 def run_wan_federation_lab(
     repo_root: Path,
     *,
@@ -394,14 +563,35 @@ def run_wan_federation_lab(
     preflight_rows: list[dict[str, object]] = []
     for host in hosts:
         if host.transport != "ssh":
-            preflight_rows.append({"host_id": host.host_id, "transport": host.transport, "status": "skipped"})
+            preflight_rows.append(
+                {
+                    "host_id": host.host_id,
+                    "transport": host.transport,
+                    "status": "skipped",
+                    "classification": "not_remote_transport",
+                    "labels": ["not_remote_transport"],
+                    "reachable": True,
+                    "cleanup_failures": 0,
+                }
+            )
             continue
         adapter = _transport("ssh")
         check = adapter.run(host, ["sh", "-lc", "command -v sh && command -v mkdir"], cwd=None)
         mkdir = adapter.run(host, ["mkdir", "-p", host.runtime_root], cwd=None)
-        status = "ok" if int(check.get("exit_code", 1)) == 0 and int(mkdir.get("exit_code", 1)) == 0 else "provisioning_failed"
-        preflight_rows.append({"host_id": host.host_id, "transport": host.transport, "status": status, "check": check, "mkdir": mkdir})
-        append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "preflight", "host_id": host.host_id, "status": status})
+        status, labels = classify_remote_preflight(check=check, mkdir=mkdir)
+        row = {
+            "host_id": host.host_id,
+            "transport": host.transport,
+            "status": "ok" if status == "ok" else "failed",
+            "classification": status,
+            "labels": labels,
+            "reachable": status in {"ok", "provisioning_failure"},
+            "cleanup_failures": 0,
+            "check": check,
+            "mkdir": mkdir,
+        }
+        preflight_rows.append(row)
+        append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "preflight", "host_id": host.host_id, "status": row["status"], "classification": status, "labels": labels})
     write_json(run_root / "remote_preflight_report.json", {"schema_version": 1, "rows": preflight_rows})
 
     host_by_id = {host.host_id: host for host in hosts}
@@ -485,6 +675,7 @@ def run_wan_federation_lab(
         append_jsonl(transitions, {"ts": iso_now(), "state": "stopped", "host_id": row["host_id"], "node_id": row["node_id"], "exit_code": code})
 
     remote_collection_rows: list[dict[str, object]] = []
+    cleanup_failures_by_host: dict[str, int] = {}
     for host in hosts:
         if host.transport != "ssh":
             continue
@@ -513,7 +704,24 @@ def run_wan_federation_lab(
             )
             append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "collect", "host_id": host.host_id, "node_id": node_id, "result": cat})
             cleanup = adapter.run(host, ["rm", "-rf", f"{host.runtime_root}/nodes/{node_id}"], cwd=None)
+            if int(cleanup.get("exit_code", 1)) != 0:
+                cleanup_failures_by_host[host.host_id] = cleanup_failures_by_host.get(host.host_id, 0) + 1
             append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "cleanup", "host_id": host.host_id, "node_id": node_id, "result": cleanup})
+    for row in preflight_rows:
+        host_id = str(row.get("host_id") or "")
+        cleanup_failures = int(cleanup_failures_by_host.get(host_id, 0))
+        row["cleanup_failures"] = cleanup_failures
+        if row.get("transport") == "ssh":
+            status, labels = classify_remote_preflight(
+                check=row.get("check") if isinstance(row.get("check"), dict) else {},
+                mkdir=row.get("mkdir") if isinstance(row.get("mkdir"), dict) else {},
+                cleanup_failures=cleanup_failures,
+            )
+            row["classification"] = status
+            row["labels"] = labels
+            row["status"] = "ok" if status == "ok" else "failed"
+            row["reachable"] = status in {"ok", "provisioning_failure"}
+    write_json(run_root / "remote_preflight_report.json", {"schema_version": 1, "rows": preflight_rows})
     write_json(run_root / "remote_artifact_collection.json", {"schema_version": 1, "rows": remote_collection_rows, "count": len(remote_collection_rows)})
 
     per_host: dict[str, dict[str, object]] = {}
@@ -546,8 +754,6 @@ def run_wan_federation_lab(
                 node_root = Path(host.runtime_root) / "nodes" / node_id
                 previous = Path.cwd()
                 try:
-                    import os
-
                     os.chdir(node_root)
                     rc = int(forge_replay.main(["--verify", "--last-n", "3", "--emit-snapshot", "0"]))
                 finally:
@@ -714,6 +920,15 @@ def run_wan_federation_lab(
             "dispatch_log": str(remote_dispatch.relative_to(root)),
         },
     )
+    preflight_rows_for_obs = [row for row in preflight_rows if isinstance(row, dict) and str(row.get("transport")) == "ssh"]
+    preflight_observatory = _update_remote_preflight_observatory(
+        repo_root=root,
+        lane=("ci_ephemeral_remote_smoke" if remote_smoke and bool(os.environ.get("GITHUB_ACTIONS")) else "operator_remote_smoke"),
+        scenario=scenario_name,
+        topology=topology_name,
+        seed=seed,
+        rows=preflight_rows_for_obs,
+    ) if remote_smoke else {}
 
     payload = {
         "schema_version": 1,
@@ -731,6 +946,8 @@ def run_wan_federation_lab(
         "oracle": {"expected": expected, "observed": observed, "checks": checks, "convergence_class": convergence, "passed": all(checks.values())},
         "truth_oracle": truth_payload,
         "replay": replay_rows,
+        "preflight_rows": preflight_rows,
+        "preflight_observatory": preflight_observatory,
         "artifact_paths": {
             "run_root": str(run_root.relative_to(root)),
             "host_manifest": str((run_root / "host_manifest.json").relative_to(root)),
@@ -748,16 +965,39 @@ def run_wan_federation_lab(
             "remote_preflight_report": str((run_root / "remote_preflight_report.json").relative_to(root)),
             "remote_artifact_collection": str((run_root / "remote_artifact_collection.json").relative_to(root)),
             "remote_run_metadata": str((run_root / "remote_run_metadata.json").relative_to(root)),
+            **({
+                "remote_preflight_history": preflight_observatory.get("history"),
+                "remote_preflight_rollup": preflight_observatory.get("rollup"),
+                "remote_preflight_trend_report": preflight_observatory.get("trend"),
+            } if preflight_observatory else {}),
         },
     }
     if isinstance(truth_payload.get("artifact_paths"), dict):
         for key, path in truth_payload["artifact_paths"].items():
             payload["artifact_paths"][str(key)] = str(Path(path).relative_to(root))
+    payload["failure_classification"] = classify_wan_failure_surface(payload=payload)
     payload["status"] = "passed" if payload["oracle"]["passed"] else "failed"
     payload["ok"] = bool(payload["oracle"]["passed"])
     payload["exit_code"] = 0 if payload["ok"] else 1
     write_json(run_root / "run_summary.json", payload)
     return payload
+
+
+
+def classify_wan_failure_surface(*, payload: dict[str, object]) -> str:
+    preflight_rows = payload.get("preflight_rows") if isinstance(payload.get("preflight_rows"), list) else []
+    if any(str(row.get("classification") or "") in {"transport_auth_failure"} for row in preflight_rows if isinstance(row, dict)):
+        return "remote_transport_or_auth_failure"
+    if any(str(row.get("classification") or "") == "provisioning_failure" for row in preflight_rows if isinstance(row, dict)):
+        return "remote_environment_drift_or_provisioning_failure"
+    truth = payload.get("truth_oracle") if isinstance(payload.get("truth_oracle"), dict) else {}
+    policy = truth.get("contradiction_policy") if isinstance(truth.get("contradiction_policy"), dict) else {}
+    if str(policy.get("outcome") or "") in {"warning", "blocking_failure", "indeterminate"}:
+        return "truth_or_gate_contradiction_failure"
+    oracle = payload.get("oracle") if isinstance(payload.get("oracle"), dict) else {}
+    if not bool(oracle.get("passed", False)):
+        return "scenario_or_runtime_regression"
+    return "passed"
 
 
 def run_wan_suite(repo_root: Path, *, topology_name: str, seed: int, runtime_s: float, nodes_per_host: int, hosts_file: Path | None, clean: bool, remote_smoke: bool = False) -> dict[str, object]:
