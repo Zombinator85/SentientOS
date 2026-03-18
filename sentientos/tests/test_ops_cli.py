@@ -172,3 +172,20 @@ def test_help_surfaces_operator_friendly_flags() -> None:
     assert cp.returncode == 0
     assert "--manifest" in cp.stdout
     assert "--allow-missing-manifest" in cp.stdout
+
+
+def test_unified_help_lists_observatory_domain() -> None:
+    cp = subprocess.run([sys.executable, "-m", "sentientos.ops", "--help"], check=False, capture_output=True, text=True)
+    assert cp.returncode == 0
+    assert "observatory" in cp.stdout
+
+
+def test_observatory_fleet_json_surface(tmp_path: Path, capsys) -> None:
+    (tmp_path / "glow").mkdir(parents=True, exist_ok=True)
+    rc = ops_main(["--repo-root", str(tmp_path), "observatory", "fleet", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["surface"] == "sentientos.ops"
+    assert payload["command"] == "observatory.fleet"
+    assert "release_readiness" in payload
+    assert "artifact_paths" in payload
