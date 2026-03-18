@@ -66,7 +66,8 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
             "  python -m sentientos.ops node health --json\n"
             "  python -m sentientos.ops constitution verify --json\n"
             "  python -m sentientos.ops audit verify -- --strict\n"
-            "  python -m sentientos.ops verify formal --json"
+            "  python -m sentientos.ops verify formal --json\n"
+            "  python -m sentientos.ops observatory fleet --dashboard --json"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -165,6 +166,14 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     lab_federation.add_argument("--json", action="store_true")
     lab_clean = lab_sub.add_parser("clean", help="delete all live federation lab run artifacts")
     lab_clean.add_argument("--json", action="store_true")
+
+    observatory = domains.add_parser("observatory", help="fleet observatory aggregation surfaces")
+    observatory_sub = observatory.add_subparsers(dest="action", required=True)
+    observatory_fleet = observatory_sub.add_parser("fleet", help="aggregate fleet health observatory artifacts")
+    observatory_fleet.add_argument("--json", action="store_true", help="render canonical JSON payload")
+    observatory_fleet.add_argument("--dashboard", action="store_true", help="emit dashboard-focused text view")
+    observatory_fleet.add_argument("--release-readiness", action="store_true", help="emit release readiness focused text view")
+    observatory_fleet.add_argument("--degradations", action="store_true", help="emit degradation focused text view")
 
     verify = domains.add_parser("verify", help="verification wings")
     verify_sub = verify.add_subparsers(dest="action", required=True)
@@ -403,6 +412,33 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 f"truth_report={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('truth_oracle_summary')) if bool(args.truth_report) else ''}"
             ),
         )
+        return exit_code(payload)
+
+    if args.domain == "observatory" and args.action == "fleet":
+        from sentientos.observatory import build_fleet_health_observatory
+
+        payload = build_fleet_health_observatory(repo_root)
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+
+        def _render(row: dict[str, object]) -> str:
+            dims = row.get("fleet_dimensions") if isinstance(row.get("fleet_dimensions"), dict) else {}
+            if bool(args.release_readiness):
+                return f"release_readiness={row.get('release_readiness')} reasons={row.get('release_readiness_reasons')}"
+            if bool(args.degradations):
+                return (
+                    f"release_readiness={row.get('release_readiness')} "
+                    f"summary={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('fleet_health_summary'))} "
+                    f"degradations={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('fleet_degradations'))}"
+                )
+            if bool(args.dashboard):
+                return (
+                    f"release_readiness={row.get('release_readiness')} "
+                    f"dashboard={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('fleet_health_dashboard'))} "
+                    f"digest={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('final_fleet_health_digest'))}"
+                )
+            return f"release_readiness={row.get('release_readiness')} dimensions={dims}"
+
+        emit_payload(payload, as_json=bool(args.json), text_renderer=_render)
         return exit_code(payload)
 
     if args.domain == "lab" and args.action == "clean":
