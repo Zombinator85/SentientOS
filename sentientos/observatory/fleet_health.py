@@ -35,6 +35,7 @@ DIMENSIONS: tuple[str, ...] = (
     "remote_smoke_health",
     "preflight_drift_health",
     "evidence_density_health",
+    "strict_audit_health",
     "release_readiness",
 )
 
@@ -345,6 +346,36 @@ def _evidence_density_health(root: Path) -> tuple[FleetDimensionStatus, dict[str
     }, degradations
 
 
+def _strict_audit_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], list[dict[str, Any]]]:
+    status = _read_json_if_exists(root, "glow/contracts/strict_audit_status.json")
+    if not status:
+        return "missing_evidence", {"source": "glow/contracts/strict_audit_status.json", "bucket": "missing"}, [
+            {"kind": "strict_audit_status_missing", "severity": "missing_evidence", "message": "strict audit status missing"}
+        ]
+    bucket = str(status.get("bucket") or "")
+    blocking = bool(status.get("blocking"))
+    degraded = bool(status.get("degraded"))
+    readiness_class = str(status.get("readiness_class") or "")
+    degradations: list[dict[str, Any]] = []
+    if blocking:
+        dim: FleetDimensionStatus = "blocking"
+        degradations.append({"kind": "strict_audit_blocking", "severity": "blocking", "message": f"bucket={bucket}"})
+    elif degraded:
+        dim = "degraded"
+        degradations.append({"kind": "strict_audit_degraded", "severity": "degraded", "message": f"bucket={bucket}"})
+    elif bucket:
+        dim = "healthy"
+    else:
+        dim = "warning"
+    return dim, {
+        "source": "glow/contracts/strict_audit_status.json",
+        "bucket": bucket,
+        "readiness_class": readiness_class,
+        "blocking": blocking,
+        "degraded": degraded,
+    }, degradations
+
+
 def _contract_drift_health(root: Path) -> dict[str, Any]:
     status = _read_json_if_exists(root, "glow/contracts/contract_status.json")
     rows = status.get("contracts") if isinstance(status.get("contracts"), list) else []
@@ -417,6 +448,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
     remote_smoke_status, remote_smoke_detail, remote_smoke_degradations = _remote_smoke_health(root)
     preflight_status, preflight_detail, preflight_degradations = _preflight_drift_health(root)
     evidence_status, evidence_detail, evidence_degradations = _evidence_density_health(root)
+    strict_audit_status, strict_audit_detail, strict_audit_degradations = _strict_audit_health(root)
 
     dimensions: dict[str, FleetDimensionStatus] = {
         "constitution_health": constitution_status,
@@ -428,6 +460,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
         "remote_smoke_health": remote_smoke_status,
         "preflight_drift_health": preflight_status,
         "evidence_density_health": evidence_status,
+        "strict_audit_health": strict_audit_status,
     }
 
     readiness, readiness_reasons = _release_readiness(dimensions)
@@ -443,6 +476,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
         *remote_smoke_degradations,
         *preflight_degradations,
         *evidence_degradations,
+        *strict_audit_degradations,
     ]
 
     degradations_sorted = sorted(degradations, key=lambda row: (_status_rank(str(row.get("severity") or "unavailable")), str(row.get("kind") or "")))
@@ -474,6 +508,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             "remote_smoke_health": remote_smoke_detail,
             "preflight_drift_health": preflight_detail,
             "evidence_density_health": evidence_detail,
+            "strict_audit_health": strict_audit_detail,
             "release_readiness": {
                 "status": readiness,
                 "reasons": readiness_reasons,
@@ -496,6 +531,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             "wan_gate_health": wan_gate_status,
             "remote_smoke_health": remote_smoke_status,
             "evidence_density_health": evidence_status,
+            "strict_audit_health": strict_audit_status,
         },
     }
 
@@ -533,6 +569,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             "formal_summary": "glow/formal/formal_check_summary.json",
             "wan_gate_report": "glow/lab/wan_gate/wan_gate_report.json",
             "remote_preflight_trend": "glow/lab/remote_preflight/remote_preflight_trend_report.json",
+            "strict_audit_status": "glow/contracts/strict_audit_status.json",
             "artifact_index_latest_pointers": "glow/observatory/latest_pointers.json",
             "artifact_index_links": "glow/observatory/artifact_provenance_links.json",
         },

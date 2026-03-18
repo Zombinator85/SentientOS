@@ -21,20 +21,31 @@ def _entry(ts: str, data: dict[str, object], prev_hash: str) -> dict[str, object
 
 def test_verify_audit_chain_ok(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
-    e1 = _entry("2026-01-01T00:00:00Z", {"a": 1}, "0" * 64)
-    e2 = _entry("2026-01-01T00:00:01Z", {"a": 2}, str(e1["rolling_hash"]))
-    (tmp_path / "logs/audit.jsonl").write_text(json.dumps(e1) + "\n" + json.dumps(e2) + "\n", encoding="utf-8")
+    (tmp_path / "pulse/audit").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "logs/privileged_audit.jsonl").write_text(json.dumps(_entry("2026-01-01T00:00:00Z", {"p": 1}, "0" * 64)) + "\n", encoding="utf-8")
+    (tmp_path / "pulse/audit/privileged_audit.runtime.jsonl").write_text(
+        json.dumps(_entry("2026-01-01T00:00:01Z", {"p": 2}, "0" * 64)) + "\n",
+        encoding="utf-8",
+    )
     monkeypatch.chdir(tmp_path)
 
     assert verify_audits.main(["--strict"]) == 0
     result = verify_audit_chain(tmp_path)
     assert result.ok is True
+    status = json.loads((tmp_path / "glow/contracts/strict_audit_status.json").read_text(encoding="utf-8"))
+    assert status["bucket"] in {"healthy_strict", "healthy_reanchored"}
 
 
 def test_verify_audit_chain_broken_has_first_break(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     (tmp_path / "logs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pulse/audit").mkdir(parents=True, exist_ok=True)
     bad = {"timestamp": "2026-01-01T00:00:00Z", "data": {"a": 1}, "prev_hash": "bad", "rolling_hash": "bad"}
     (tmp_path / "logs/audit.jsonl").write_text(json.dumps(bad) + "\n", encoding="utf-8")
+    (tmp_path / "logs/privileged_audit.jsonl").write_text(json.dumps(_entry("2026-01-01T00:00:00Z", {"p": 1}, "0" * 64)) + "\n", encoding="utf-8")
+    (tmp_path / "pulse/audit/privileged_audit.runtime.jsonl").write_text(
+        json.dumps(_entry("2026-01-01T00:00:01Z", {"p": 2}, "0" * 64)) + "\n",
+        encoding="utf-8",
+    )
     monkeypatch.chdir(tmp_path)
 
     assert verify_audits.main(["--strict"]) == 1
@@ -43,6 +54,8 @@ def test_verify_audit_chain_broken_has_first_break(tmp_path: Path, monkeypatch) 
     payload = json.loads(reports[-1].read_text(encoding="utf-8"))
     assert payload["status"] == "broken"
     assert isinstance(payload["first_break"], dict)
+    strict_status = json.loads((tmp_path / "glow/contracts/strict_audit_status.json").read_text(encoding="utf-8"))
+    assert strict_status["bucket"] in {"blocking_chain_break", "degraded_runtime_split", "missing_required_audit_artifacts"}
 
 
 def test_audit_chain_doctor_index_repair_and_refusal(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]

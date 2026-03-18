@@ -15,6 +15,17 @@ def _write_json(path: Path, payload: dict[str, object]) -> None:
 def _seed_sources(root: Path) -> None:
     now = iso_now()
     _write_json(root / "glow/contracts/contract_status.json", {"schema_version": 1, "generated_at": now, "contracts": []})
+    _write_json(
+        root / "glow/contracts/strict_audit_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": now,
+            "bucket": "healthy_strict",
+            "readiness_class": "acceptable",
+            "blocking": False,
+            "degraded": False,
+        },
+    )
     _write_json(root / "glow/contracts/protected_corridor_report.json", {"schema_version": 1, "generated_at": now, "profiles": []})
     _write_json(root / "glow/simulation/baseline_report.json", {"schema_version": 1, "generated_at": now, "status": "passed"})
     _write_json(root / "glow/formal/formal_check_summary.json", {"schema_version": 1, "generated_at": now, "status": "passed", "specs": []})
@@ -99,6 +110,7 @@ def test_artifact_index_links_include_cross_surface_provenance(tmp_path: Path) -
     links = json.loads((tmp_path / "glow/observatory/artifact_provenance_links.json").read_text(encoding="utf-8"))
     rels = {(row["from_surface"], row["to_surface"], row["relation"]) for row in links["links"]}
     assert ("fleet_observatory", "wan_gate", "summarizes") in rels
+    assert ("fleet_observatory", "strict_audit_status", "summarizes") in rels
     assert ("wan_gate", "wan_truth_oracle", "depends_on_truth") in rels
     assert ("remote_preflight_trend", "remote_preflight_history", "rolls_up") in rels
 
