@@ -36,6 +36,16 @@ SURFACE_SPECS: tuple[SurfaceSpec, ...] = (
         created_at_keys=("generated_at",),
     ),
     SurfaceSpec(
+        name="strict_audit_status",
+        domain="contracts",
+        kind="strict_audit_status",
+        latest_mode="single",
+        paths=("glow/contracts/strict_audit_status.json",),
+        freshness_hours=24,
+        metadata_keys=("generated_at", "bucket", "readiness_class", "blocking", "degraded"),
+        created_at_keys=("generated_at",),
+    ),
+    SurfaceSpec(
         name="protected_corridor",
         domain="contracts",
         kind="protected_corridor_report",
@@ -241,6 +251,7 @@ def _artifact_links(root: Path, pointers: dict[str, dict[str, Any]]) -> dict[str
     if fleet:
         for upstream in (
             "contract_status",
+            "strict_audit_status",
             "protected_corridor",
             "simulation_baseline",
             "formal_verification",

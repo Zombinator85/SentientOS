@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -18,6 +19,7 @@ if str(CODE_ROOT) not in sys.path:
 from sentientos.audit_sink import AuditSinkConfig, resolve_audit_paths
 from sentientos.audit_chain_gate import verify_audit_chain, write_audit_chain_report
 from sentientos.audit_recovery import load_checkpoints
+from sentientos.audit_strict_status import StrictAuditInputs, classify_strict_audit_state, write_strict_audit_artifacts
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 os.environ["SENTIENTOS_AUDIT_MODE"] = "baseline"
@@ -264,7 +266,10 @@ def _tracked_content(path: Path) -> str | None:
         rel = path.relative_to(REPO_ROOT)
     except ValueError:
         return None
-    completed = subprocess.run(["git", "show", f"HEAD:{rel.as_posix()}"], check=False, capture_output=True, text=True)
+    try:
+        completed = subprocess.run(["git", "show", f"HEAD:{rel.as_posix()}"], check=False, capture_output=True, text=True)
+    except FileNotFoundError:
+        return None
     if completed.returncode != 0:
         return None
     return completed.stdout
@@ -324,6 +329,9 @@ def _runtime_error_details(path: Path, errors: list[str]) -> tuple[str, list[str
 
 
 def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
+    environment_issues: list[str] = []
+    if shutil.which("git") is None:
+        environment_issues.append("git_not_found_in_path")
     baseline_ok, baseline_errors = _verify_single(config.baseline_path)
     runtime_seed = "0" * 64
     if config.runtime_path.exists():
@@ -371,6 +379,7 @@ def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
         "runtime_error_kind": runtime_error_kind,
         "runtime_error_examples": runtime_error_examples,
         "suggested_fix": suggested_fix,
+        "environment_issues": environment_issues,
     }
 
 
@@ -434,7 +443,34 @@ def main(argv: list[str] | None = None) -> int:
                 print("✅ No mismatches.")
             print(json.dumps({"audit_chain_status": audit_chain.status, "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT))}, sort_keys=True))
 
-        strict_output = _strict_privileged_status(sink_config) if args.strict else None
+        strict_output = _strict_privileged_status(sink_config)
+        strict_inputs = StrictAuditInputs(
+            baseline_path=str(strict_output["baseline_path"]),
+            runtime_path=str(strict_output["runtime_path"]),
+            baseline_status=str(strict_output["baseline_status"]),
+            runtime_status=str(strict_output["runtime_status"]),
+            baseline_errors=cast(List[str], strict_output["baseline_errors"]),
+            runtime_errors=cast(List[str], strict_output["runtime_errors"]),
+            runtime_error_kind=str(strict_output["runtime_error_kind"]),
+            runtime_error_examples=cast(List[str], strict_output["runtime_error_examples"]),
+            suggested_fix=str(strict_output["suggested_fix"]),
+            environment_issues=cast(List[str], strict_output.get("environment_issues", [])),
+        )
+        strict_bucket, _strict_reasons, strict_readiness_class = classify_strict_audit_state(inputs=strict_inputs, audit_chain=audit_chain)
+        strict_artifacts = {
+            "bucket": strict_bucket,
+            "readiness_class": strict_readiness_class,
+            "artifact_paths": {
+                "strict_audit_status": "glow/contracts/strict_audit_status.json",
+                "strict_audit_breakdown": "glow/contracts/strict_audit_breakdown.json",
+                "strict_audit_recovery_links": "glow/contracts/strict_audit_recovery_links.json",
+                "strict_audit_manifest": "glow/contracts/strict_audit_manifest.json",
+                "final_strict_audit_digest": "glow/contracts/final_strict_audit_digest.json",
+            },
+        }
+        if not args.strict:
+            strict_output = None
+
         if strict_output is not None:
             baseline_errors = cast(List[str], strict_output["baseline_errors"])
             runtime_errors = cast(List[str], strict_output["runtime_errors"])
@@ -446,6 +482,10 @@ def main(argv: list[str] | None = None) -> int:
                 "runtime_error_kind": strict_output["runtime_error_kind"],
                 "runtime_error_examples": strict_output["runtime_error_examples"],
                 "suggested_fix": strict_output["suggested_fix"],
+                "environment_issues": strict_output.get("environment_issues", []),
+                "strict_bucket": strict_artifacts.get("bucket"),
+                "strict_readiness_class": strict_artifacts.get("readiness_class"),
+                "strict_artifact_paths": strict_artifacts.get("artifact_paths"),
             }
             if not args.json:
                 print(json.dumps(strict_summary, sort_keys=True))
@@ -461,8 +501,12 @@ def main(argv: list[str] | None = None) -> int:
             status_label = "failed"
             reason = "integrity_mismatch"
             exit_code = 1
+        strict_bucket = str(strict_artifacts.get("bucket") or "")
+        strict_blocking = strict_bucket in {"blocking_chain_break", "missing_required_audit_artifacts"}
         if args.strict and strict_output is not None and (
-            strict_output["baseline_status"] in {"drift", "broken"} or strict_output["runtime_status"] == "broken"
+            strict_output["baseline_status"] in {"drift", "broken"}
+            or strict_output["runtime_status"] == "broken"
+            or strict_bucket in {"blocking_chain_break", "missing_required_audit_artifacts"}
         ):
             status_label = "failed"
             reason = "strict_privileged_audit_failure"
@@ -491,12 +535,19 @@ def main(argv: list[str] | None = None) -> int:
                     "mode": sink_config.mode,
                 },
                 "strict": strict_summary,
+                "strict_artifacts": strict_artifacts,
                 "valid_percent": percent,
                 "stats": stats,
             }
             print(json.dumps(envelope, sort_keys=True))
         else:
             print(json.dumps(summary, sort_keys=True))
+        strict_artifacts = write_strict_audit_artifacts(
+            REPO_ROOT,
+            inputs=strict_inputs,
+            audit_chain=audit_chain,
+            verify_result={"status": status_label, "reason": reason, "exit_code": exit_code, "blocking": strict_blocking},
+        )
         write_result(ok=exit_code == 0, issues=all_issues, structured_issues=structured_issues, error=None)
         return exit_code
     except Exception as exc:  # pragma: no cover

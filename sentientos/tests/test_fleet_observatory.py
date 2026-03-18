@@ -30,6 +30,17 @@ def _seed_minimal_sources(root: Path) -> None:
         },
     )
     _write_json(root / "glow/contracts/contract_status.json", {"schema_version": 1, "contracts": []})
+    _write_json(
+        root / "glow/contracts/strict_audit_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": "2026-01-01T00:00:00Z",
+            "bucket": "healthy_strict",
+            "readiness_class": "acceptable",
+            "blocking": False,
+            "degraded": False,
+        },
+    )
     _write_json(root / "glow/simulation/baseline_report.json", {"schema_version": 1, "status": "passed", "gating_failures": []})
     _write_json(root / "glow/formal/formal_check_summary.json", {"schema_version": 1, "status": "passed", "specs": []})
     _write_json(
@@ -85,6 +96,23 @@ def test_observatory_release_readiness_not_ready_on_blocking(tmp_path: Path) -> 
     assert payload["release_readiness"] == "not_ready"
     summary = json.loads((tmp_path / "glow/observatory/fleet_health_summary.json").read_text(encoding="utf-8"))
     assert summary["fleet_dimensions"]["simulation_health"] == "blocking"
+
+
+def test_observatory_release_readiness_not_ready_on_strict_audit_blocking(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/strict_audit_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": "2026-01-01T00:00:00Z",
+            "bucket": "blocking_chain_break",
+            "readiness_class": "blocking",
+            "blocking": True,
+            "degraded": False,
+        },
+    )
+    payload = build_fleet_health_observatory(tmp_path)
+    assert payload["release_readiness"] == "not_ready"
 
 
 def test_observatory_release_readiness_indeterminate_when_missing_evidence(tmp_path: Path) -> None:
