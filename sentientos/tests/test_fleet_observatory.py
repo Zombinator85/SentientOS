@@ -125,3 +125,14 @@ def test_observatory_history_is_bounded_append_only(tmp_path: Path) -> None:
 
     lines = history.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 400
+
+
+def test_observatory_dashboard_embeds_artifact_index_links(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+
+    build_fleet_health_observatory(tmp_path)
+
+    dashboard = json.loads((tmp_path / "glow/observatory/fleet_health_dashboard.json").read_text(encoding="utf-8"))
+    assert "artifact_latest_pointers" in dashboard
+    assert "artifact_provenance_links" in dashboard
+    assert (tmp_path / "glow/observatory/latest_pointers.json").exists()

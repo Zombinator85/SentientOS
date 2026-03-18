@@ -189,3 +189,22 @@ def test_observatory_fleet_json_surface(tmp_path: Path, capsys) -> None:
     assert payload["command"] == "observatory.fleet"
     assert "release_readiness" in payload
     assert "artifact_paths" in payload
+
+
+def test_observatory_artifacts_json_surface(tmp_path: Path, capsys) -> None:
+    (tmp_path / "glow").mkdir(parents=True, exist_ok=True)
+    rc = ops_main(["--repo-root", str(tmp_path), "observatory", "artifacts", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["surface"] == "sentientos.ops"
+    assert payload["command"] == "observatory.artifacts"
+    assert "latest_pointers" in payload
+
+
+def test_observatory_artifacts_surface_selector(tmp_path: Path, capsys) -> None:
+    (tmp_path / "glow/observatory").mkdir(parents=True, exist_ok=True)
+    rc = ops_main(["--repo-root", str(tmp_path), "observatory", "artifacts", "--surface", "wan_gate", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selected_surface"] == "wan_gate"
+    assert isinstance(payload["selected_pointer"], dict)

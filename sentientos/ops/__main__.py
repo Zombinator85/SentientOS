@@ -174,6 +174,11 @@ def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.Argument
     observatory_fleet.add_argument("--dashboard", action="store_true", help="emit dashboard-focused text view")
     observatory_fleet.add_argument("--release-readiness", action="store_true", help="emit release readiness focused text view")
     observatory_fleet.add_argument("--degradations", action="store_true", help="emit degradation focused text view")
+    observatory_artifacts = observatory_sub.add_parser("artifacts", help="aggregate latest-pointer provenance index")
+    observatory_artifacts.add_argument("--json", action="store_true", help="render canonical JSON payload")
+    observatory_artifacts.add_argument("--latest", action="store_true", help="emit latest-pointer contract summary")
+    observatory_artifacts.add_argument("--links", action="store_true", help="emit cross-surface provenance links")
+    observatory_artifacts.add_argument("--surface", help="show latest-pointer row for one surface")
 
     verify = domains.add_parser("verify", help="verification wings")
     verify_sub = verify.add_subparsers(dest="action", required=True)
@@ -412,6 +417,33 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 f"truth_report={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('truth_oracle_summary')) if bool(args.truth_report) else ''}"
             ),
         )
+        return exit_code(payload)
+
+
+    if args.domain == "observatory" and args.action == "artifacts":
+        from sentientos.observatory import build_artifact_provenance_index
+
+        payload = build_artifact_provenance_index(repo_root)
+        latest = read_json(repo_root / "glow/observatory/latest_pointers.json")
+        links = read_json(repo_root / "glow/observatory/artifact_provenance_links.json")
+        index = read_json(repo_root / "glow/observatory/artifact_index.json")
+        payload["latest_pointers"] = latest.get("surfaces", {}) if isinstance(latest.get("surfaces"), dict) else {}
+        payload["provenance_links"] = links.get("links", []) if isinstance(links.get("links"), list) else []
+        if isinstance(args.surface, str) and args.surface:
+            payload["selected_surface"] = args.surface
+            payload["selected_pointer"] = payload["latest_pointers"].get(args.surface)
+        payload = _decorate_payload(payload, domain=args.domain, action=args.action)
+
+        def _render_artifacts(row: dict[str, object]) -> str:
+            if bool(args.surface):
+                return f"surface={args.surface} pointer={row.get('selected_pointer')}"
+            if bool(args.links):
+                return f"links={len((row.get('provenance_links') if isinstance(row.get('provenance_links'), list) else []))} path={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('artifact_provenance_links'))}"
+            if bool(args.latest):
+                return f"surface_count={len((row.get('latest_pointers') if isinstance(row.get('latest_pointers'), dict) else {}))} path={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('latest_pointers'))}"
+            return f"surface_count={len((row.get('latest_pointers') if isinstance(row.get('latest_pointers'), dict) else {}))} artifact_count={len((index.get('artifacts') if isinstance(index.get('artifacts'), list) else []))}"
+
+        emit_payload(payload, as_json=bool(args.json), text_renderer=_render_artifacts)
         return exit_code(payload)
 
     if args.domain == "observatory" and args.action == "fleet":

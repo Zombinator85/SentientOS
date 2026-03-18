@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
+from sentientos.observatory.artifact_index import build_artifact_provenance_index
 
 FleetDimensionStatus = Literal[
     "healthy",
@@ -505,6 +506,12 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
     }
 
     write_json(out_root / "fleet_health_summary.json", summary)
+    artifact_index_payload = build_artifact_provenance_index(root)
+    latest_pointers_payload = read_json(root / "glow/observatory/latest_pointers.json")
+    links_payload = read_json(root / "glow/observatory/artifact_provenance_links.json")
+    dashboard["artifact_latest_pointers"] = latest_pointers_payload.get("surfaces", {})
+    dashboard["artifact_provenance_links"] = links_payload.get("links", [])
+
     write_json(out_root / "fleet_health_dashboard.json", dashboard)
     write_json(out_root / "fleet_degradations.json", degradations_payload)
     write_json(out_root / "fleet_release_readiness.json", release)
@@ -526,6 +533,8 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             "formal_summary": "glow/formal/formal_check_summary.json",
             "wan_gate_report": "glow/lab/wan_gate/wan_gate_report.json",
             "remote_preflight_trend": "glow/lab/remote_preflight/remote_preflight_trend_report.json",
+            "artifact_index_latest_pointers": "glow/observatory/latest_pointers.json",
+            "artifact_index_links": "glow/observatory/artifact_provenance_links.json",
         },
     }
     write_json(out_root / "fleet_observatory_manifest.json", manifest)
@@ -570,5 +579,14 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             "fleet_observatory_manifest": "glow/observatory/fleet_observatory_manifest.json",
             "final_fleet_health_digest": "glow/observatory/final_fleet_health_digest.json",
             "fleet_health_history": "glow/observatory/fleet_health_history.jsonl",
+            "artifact_index": "glow/observatory/artifact_index.json",
+            "latest_pointers": "glow/observatory/latest_pointers.json",
+            "artifact_provenance_links": "glow/observatory/artifact_provenance_links.json",
+            "artifact_index_manifest": "glow/observatory/artifact_index_manifest.json",
+            "final_artifact_index_digest": "glow/observatory/final_artifact_index_digest.json",
+        },
+        "artifact_index": {
+            "suite": artifact_index_payload.get("suite"),
+            "surface_states": artifact_index_payload.get("surface_states"),
         },
     }
