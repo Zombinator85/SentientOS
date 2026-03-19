@@ -31,7 +31,10 @@ def _normalise_config(config: Mapping[str, Any]) -> Mapping[str, Any]:
             return value
         return repr(value)
 
-    return _normalise(dict(config))  # type: ignore[arg-type]
+    normalized = _normalise(dict(config))
+    if isinstance(normalized, Mapping):
+        return normalized
+    return {}
 
 
 def compute_fingerprint(*, node_name: str, runtime_root: Path, config: Mapping[str, Any]) -> str:

@@ -187,33 +187,38 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         actor="pulse_federation_ingest",
         peer_name=peer_name,
     )
+    payload = copy.deepcopy(event)
+    event_payload = payload.get("payload")
+    payload_action = ""
+    if isinstance(event_payload, dict):
+        payload_action = str(event_payload.get("action") or "").lower()
+    requires_control_gate = payload_action == "restart_daemon"
+
     if not trust.trusted:
         get_trust_ledger().record_epoch_classification(
             peer_name,
             classification=trust.classification,
             actor="pulse_federation_ingest",
         )
-        decision = get_runtime_governor().admit_action(
-            "federated_control",
-            peer_name,
-            str(event.get("correlation_id") or pulse_bus.compute_event_hash(event)),
-            metadata={
-                "subject": f"{peer_name}:epoch",
-                "scope": "federated",
-                "event_type": str(event.get("event_type", "")),
-                "trust_epoch_classification": trust.classification,
-                "trust_epoch_id": trust.epoch_id,
-            },
-        )
-        if resolve_policy().pulse_trust_epoch == "enforce" and not decision.allowed:
-            raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
-    payload = copy.deepcopy(event)
+        if requires_control_gate:
+            decision = get_runtime_governor().admit_action(
+                "federated_control",
+                peer_name,
+                str(event.get("correlation_id") or pulse_bus.compute_event_hash(event)),
+                metadata={
+                    "subject": f"{peer_name}:epoch",
+                    "scope": "federated",
+                    "event_type": str(event.get("event_type", "")),
+                    "trust_epoch_classification": trust.classification,
+                    "trust_epoch_id": trust.epoch_id,
+                },
+            )
+            if resolve_policy().pulse_trust_epoch == "enforce" and not decision.allowed:
+                raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     governance = get_federated_governance_controller()
     evaluation = governance.evaluate_peer_event(peer_name, payload)
     trust_ledger = get_trust_ledger()
-    event_payload = payload.get("payload")
-
-    if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch", "digest_mismatch_advisory", "quorum_warning"}:
+    if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
         decision = get_runtime_governor().admit_action(
             "federated_control",
             peer_name,

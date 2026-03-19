@@ -63,6 +63,7 @@ FEDERATION_MODULE_ALLOWLIST = {
     "drift",
     "enablement",
     "federation_digest",
+    "governance_digest",
     "handshake_semantics",
     "identity",
     "poller",
