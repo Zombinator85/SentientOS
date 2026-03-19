@@ -107,6 +107,22 @@ def _group_failures(failures: list[FailureCase]) -> list[FailureGroup]:
     return sorted(groups, key=lambda group: (-group.count, group.signature, group.nodeid))
 
 
+def _classify_failure(group: FailureGroup) -> str:
+    node = group.nodeid.lower()
+    message = "\n".join(group.message_lines).lower()
+    file_name = (group.file or "").lower()
+    text = " ".join([node, message, file_name])
+    if "pulse_federation" in text or "test_pulse_federation" in text:
+        return "pulse_federation_persistence"
+    if "pulse_persistence" in text or "signature mismatch" in text:
+        return "pulse_persistence_signature"
+    if "tripwire" in text or "module drift" in text or "invariant" in text:
+        return "covenant_tripwire_drift"
+    if "import airlock" in text or "module not found" in text:
+        return "bootstrap_import_instability"
+    return "unclassified_runtime_failure"
+
+
 def generate_failure_digest(
     *,
     junitxml_path: Path,
@@ -124,6 +140,7 @@ def generate_failure_digest(
         "failure_groups": [
             {
                 "count": group.count,
+                "failure_class": _classify_failure(group),
                 "signature": group.signature,
                 "exception_type": group.exception_type,
                 "example_nodeid": group.nodeid,
@@ -135,6 +152,11 @@ def generate_failure_digest(
             for group in groups
         ],
     }
+    class_counts: dict[str, int] = {}
+    for group in groups:
+        failure_class = _classify_failure(group)
+        class_counts[failure_class] = class_counts.get(failure_class, 0) + int(group.count)
+    payload["failure_class_totals"] = class_counts
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

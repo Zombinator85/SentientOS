@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 import platform
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, cast
 
 try:
     import experiment_tracker
@@ -86,7 +86,7 @@ def _detect_model_status(shell: Optional[RuntimeShell], config: Mapping[str, Any
             llama = processes.get("llama")
         if llama is not None:
             try:
-                running = llama.poll() is None  # type: ignore[call-arg]
+                running = bool(llama.poll() is None)
             except Exception:  # pragma: no cover - defensive
                 running = False
             if running:
@@ -201,10 +201,11 @@ def _extract_replay_extra(delta_payload: Mapping[str, Any]) -> Dict[str, List[st
 
 
 def _normalise_replay_state(raw: Any) -> List[Dict[str, Any]]:
+    iterable: Iterator[tuple[object, object]]
     if isinstance(raw, Mapping):
-        iterable = raw.items()
+        iterable = iter(raw.items())
     elif isinstance(raw, Iterable):
-        iterable = enumerate(raw)
+        iterable = enumerate(cast(Iterable[object], raw))
     else:
         return []
     entries: List[Dict[str, Any]] = []
@@ -327,7 +328,7 @@ def make_status_source(
                     if isinstance(sync_views, Mapping):
                         for peer_name, view in sync_views.items():
                             cathedral = getattr(view, "cathedral", None)
-                            experiments = getattr(view, "experiments", None)
+                            experiment_view = getattr(view, "experiments", None)
                             federation_sync[str(peer_name)] = {
                                 "cathedral": {
                                     "status": getattr(cathedral, "status", "unknown"),
@@ -335,9 +336,9 @@ def make_status_source(
                                     "missing_peer": list(getattr(cathedral, "missing_peer_ids", []) or []),
                                 },
                                 "experiments": {
-                                    "status": getattr(experiments, "status", "unknown"),
-                                    "missing_local": list(getattr(experiments, "missing_local_ids", []) or []),
-                                    "missing_peer": list(getattr(experiments, "missing_peer_ids", []) or []),
+                                    "status": getattr(experiment_view, "status", "unknown"),
+                                    "missing_local": list(getattr(experiment_view, "missing_local_ids", []) or []),
+                                    "missing_peer": list(getattr(experiment_view, "missing_peer_ids", []) or []),
                                 },
                             }
                 replay_getter = getattr(shell, "get_federation_replay_state", None)
@@ -346,7 +347,9 @@ def make_status_source(
                         raw_replay = replay_getter()
                     except Exception:
                         raw_replay = {}
-                    federation_replay_entries = _normalise_replay_state(raw_replay)
+                    federation_replay_entries = cast(
+                        List[Dict[str, object]], _normalise_replay_state(raw_replay)
+                    )
         if federation_node is None:
             candidate = federation_cfg.get("node_name")
             if isinstance(candidate, str) and candidate:

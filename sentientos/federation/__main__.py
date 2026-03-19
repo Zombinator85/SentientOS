@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Iterable, List, Mapping, Optional
 
 from sentientos.cathedral.digest import CathedralDigest, DEFAULT_CATHEDRAL_CONFIG
-from sentientos.federation.config import load_federation_config
+from sentientos.federation.config import FederationConfig, load_federation_config
 from sentientos.federation.summary import build_local_summary, read_peer_summary
 from sentientos.federation.sync_view import PeerSyncView, build_peer_sync_view
 from sentientos.runtime import bootstrap
@@ -22,14 +22,15 @@ def _resolve_config_path() -> Path:
     return config_dir / "runtime.json"
 
 
-def _coerce_mapping(value: Optional[Mapping[str, object]]) -> Mapping[str, object]:
+def _coerce_mapping(value: object) -> Mapping[str, object]:
     if isinstance(value, Mapping):
         return value
     return {}
 
 
-def _resolve_path(candidate: Optional[str], runtime_root: Path, fallback: str) -> Path:
-    raw = Path(candidate or fallback)
+def _resolve_path(candidate: object, runtime_root: Path, fallback: str) -> Path:
+    text = candidate if isinstance(candidate, str) and candidate else fallback
+    raw = Path(text)
     if not raw.is_absolute():
         raw = runtime_root / raw
     return raw
@@ -41,7 +42,12 @@ class _LedgerStub:
 
 
 class _RuntimeSummaryStub:
-    def __init__(self, config: Mapping[str, object], runtime_root: Path, federation_cfg) -> None:
+    def __init__(
+        self,
+        config: Mapping[str, object],
+        runtime_root: Path,
+        federation_cfg: FederationConfig,
+    ) -> None:
         self._config = dict(config)
         self._runtime_root = runtime_root
         self._federation_config = federation_cfg
@@ -60,7 +66,7 @@ class _RuntimeSummaryStub:
         return self._runtime_root
 
     @property
-    def federation_config(self):  # type: ignore[override]
+    def federation_config(self) -> FederationConfig:
         return self._federation_config
 
     @property
@@ -98,7 +104,12 @@ def _cmd_sync_view() -> int:
     config_path = _resolve_config_path()
     config = load_or_init_config(config_path)
     runtime_section = _coerce_mapping(config.get("runtime"))
-    runtime_root = Path(runtime_section.get("root") or bootstrap.get_base_dir())
+    runtime_root_value = runtime_section.get("root")
+    runtime_root = (
+        Path(runtime_root_value)
+        if isinstance(runtime_root_value, str) and runtime_root_value
+        else bootstrap.get_base_dir()
+    )
     federation_cfg, warnings = load_federation_config(config, runtime_root=runtime_root)
     for warning in warnings:
         print(f"Warning: {warning}", file=sys.stderr)

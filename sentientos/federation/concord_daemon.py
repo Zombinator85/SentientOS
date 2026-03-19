@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
 
 @dataclass
 class PeerSnapshot:
@@ -13,7 +14,12 @@ class PeerSnapshot:
 class ConcordDaemon:
     """Reconcile glossary definitions across federation peers.
     Expands local glossary alignment using shared deltas and emits reconciliation intents."""
-    def __init__(self, glossary_path: Path, doctrine_path: Path, symbolic_diff_paths: Iterable[Path] | None = None):
+    def __init__(
+        self,
+        glossary_path: Path,
+        doctrine_path: Path,
+        symbolic_diff_paths: Iterable[Path] | None = None,
+    ) -> None:
         self.glossary_path = Path(glossary_path)
         self.doctrine_path = Path(doctrine_path)
         self.symbolic_diff_paths = [Path(path) for path in symbolic_diff_paths or []]
@@ -23,7 +29,10 @@ class ConcordDaemon:
         if not target.exists():
             return {}
         try:
-            return json.loads(target.read_text(encoding="utf-8"))
+            payload = json.loads(target.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                return {str(key): str(value) for key, value in payload.items()}
+            return {}
         except json.JSONDecodeError:
             return {}
 
@@ -32,8 +41,8 @@ class ConcordDaemon:
             return ""
         return self.doctrine_path.read_text(encoding="utf-8")
 
-    def _load_symbolic_diff(self, path: Path) -> list[dict]:
-        entries: list[dict] = []
+    def _load_symbolic_diff(self, path: Path) -> list[dict[str, object]]:
+        entries: list[dict[str, object]] = []
         if not path.exists():
             return entries
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -41,22 +50,28 @@ class ConcordDaemon:
             if not line:
                 continue
             try:
-                entries.append(json.loads(line))
+                parsed = json.loads(line)
+                if isinstance(parsed, dict):
+                    entries.append({str(key): value for key, value in parsed.items()})
             except json.JSONDecodeError:
                 continue
         return entries
 
-    def reconcile(self, peers: Iterable[PeerSnapshot], output_dir: Path) -> dict:
+    def reconcile(
+        self,
+        peers: Iterable[PeerSnapshot],
+        output_dir: Path,
+    ) -> dict[str, object]:
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         local_glossary = self.load_glossary()
         peer_glossaries = {peer.name: self.load_glossary(peer.glossary_path) for peer in peers}
 
-        missing_alignment: list[dict] = []
-        conflicts: list[dict] = []
-        suggestions: list[dict] = []
-        proposals: list[dict] = []
+        missing_alignment: list[dict[str, object]] = []
+        conflicts: list[dict[str, object]] = []
+        suggestions: list[dict[str, object]] = []
+        proposals: list[dict[str, object]] = []
         definition_candidates: dict[str, list[str]] = {}
 
         for peer in peers:
@@ -134,8 +149,8 @@ class ConcordDaemon:
             self._write_jsonl(intents_path, suggestions)
         return {
             "report_path": report_path,
-            "report_entries": report_entries,
-            "proposals": proposals,
+            "report_entries": list(report_entries),
+            "proposals": list(proposals),
             "converged": converged,
             "realignment_event": realignment_event,
             "intents_path": intents_path,

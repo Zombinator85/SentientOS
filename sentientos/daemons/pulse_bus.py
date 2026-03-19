@@ -13,11 +13,14 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Callable, Deque, Dict, Iterable, Iterator, List
+from typing import Any, Callable, Deque, Dict, Iterable, Iterator, List, cast
 
 from nacl.exceptions import BadSignatureError
 from nacl.signing import SigningKey, VerifyKey
-from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
+from sentientos.pulse_trust_epoch import (
+    get_manager as get_trust_epoch_manager,
+    reset_manager as reset_trust_epoch_manager,
+)
 
 PulseEvent = Dict[str, object]
 EventHandler = Callable[[PulseEvent], None]
@@ -130,12 +133,12 @@ def _validate_extended_fields(event: PulseEvent) -> None:
     for field, meta in PULSE_V2_SCHEMA.items():
         if field not in event:
             continue
-        expected = meta["type"]
+        expected = cast(type[Any] | tuple[type[Any], ...], meta["type"])
         if not isinstance(event[field], expected):
             readable = (
                 expected.__name__
                 if isinstance(expected, type)
-                else ", ".join(t.__name__ for t in expected)  # type: ignore[arg-type]
+                else ", ".join(t.__name__ for t in expected)
             )
             raise TypeError(f"Pulse field '{field}' must be of type {readable}")
 
@@ -260,12 +263,13 @@ class _PulseBus:
         for subscriber in subscribers:
             if self._should_deliver(normalized, subscriber):
                 subscriber.handler(copy.deepcopy(normalized))
-        try:
-            from sentientos.runtime_governor import get_runtime_governor
+        if normalized.get("source_peer") in {None, "local"}:
+            try:
+                from sentientos.runtime_governor import get_runtime_governor
 
-            get_runtime_governor().observe_pulse_event(normalized)
-        except Exception:
-            pass
+                get_runtime_governor().observe_pulse_event(normalized)
+            except Exception:
+                pass
         return copy.deepcopy(normalized)
 
     def ingest(
@@ -564,14 +568,10 @@ def verify(event: PulseEvent) -> bool:
     if not isinstance(signature, str) or not signature:
         return False
 
-    serialized = _serialize_for_signature(event)
-    result = get_trust_epoch_manager().verify_event_signature(
-        event,
-        serialized_payload=serialized,
-        signature=signature,
-        actor="pulse_bus",
-    )
-    return result.trusted
+    if not _SIGNATURE_MANAGER.verify(event):
+        return False
+
+    return True
 
 
 def reset() -> None:
@@ -579,7 +579,7 @@ def reset() -> None:
 
     _BUS.reset()
     _SIGNATURE_MANAGER.reset()
-    get_trust_epoch_manager().reset()
+    reset_trust_epoch_manager()
 
 
 __all__ = [
