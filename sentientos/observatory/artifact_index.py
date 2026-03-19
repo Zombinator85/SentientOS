@@ -242,6 +242,12 @@ def _select_latest(root: Path, candidates: list[Path], spec: SurfaceSpec) -> Pat
 def _artifact_links(root: Path, pointers: dict[str, dict[str, Any]]) -> dict[str, Any]:
     links: list[dict[str, Any]] = []
 
+    def _as_dict(value: object) -> dict[str, object]:
+        return value if isinstance(value, dict) else {}
+
+    def _as_list(value: object) -> list[object]:
+        return value if isinstance(value, list) else []
+
     def _latest(surface: str) -> str | None:
         row = pointers.get(surface) if isinstance(pointers.get(surface), dict) else {}
         path = row.get("artifact_path") if isinstance(row, dict) else None
@@ -266,7 +272,7 @@ def _artifact_links(root: Path, pointers: dict[str, dict[str, Any]]) -> dict[str
     wan_gate = _latest("wan_gate")
     if wan_gate:
         gate_payload = read_json(root / wan_gate)
-        artifacts = gate_payload.get("artifact_paths") if isinstance(gate_payload.get("artifact_paths"), dict) else {}
+        artifacts = _as_dict(gate_payload.get("artifact_paths"))
         for key in ("contradiction_policy_report", "evidence_density_report", "release_gate_manifest"):
             value = artifacts.get(key)
             if isinstance(value, str) and value:
@@ -283,7 +289,7 @@ def _artifact_links(root: Path, pointers: dict[str, dict[str, Any]]) -> dict[str
         if evidence_manifest_path.exists():
             links.append({"from_surface": "wan_truth_oracle", "from_artifact": truth, "to_surface": "wan_truth_oracle", "to_artifact": _relative(root, evidence_manifest_path), "relation": "uses_evidence_manifest"})
             evidence_manifest = read_json(evidence_manifest_path)
-            rows = evidence_manifest.get("node_evidence") if isinstance(evidence_manifest.get("node_evidence"), list) else []
+            rows = _as_list(evidence_manifest.get("node_evidence"))
             for row in rows:
                 if not isinstance(row, dict):
                     continue

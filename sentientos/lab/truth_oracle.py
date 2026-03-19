@@ -57,6 +57,36 @@ def _as_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def _as_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _as_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
 def _parse_ts(value: object) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
@@ -140,8 +170,8 @@ def _classify_quorum(node_rows: list[dict[str, object]], fault_types: set[str]) 
     admits: list[bool] = []
     missing = 0
     for row in node_rows:
-        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
-        quorum = node_truth.get("quorum_state") if isinstance(node_truth.get("quorum_state"), dict) else (row.get("quorum") if isinstance(row.get("quorum"), dict) else {})
+        node_truth = _as_dict(row.get("node_truth"))
+        quorum = _as_dict(node_truth.get("quorum_state")) or _as_dict(row.get("quorum"))
         value = quorum.get("admit")
         if isinstance(value, bool):
             admits.append(value)
@@ -163,8 +193,8 @@ def _classify_quorum(node_rows: list[dict[str, object]], fault_types: set[str]) 
 def _classify_digest(node_rows: list[dict[str, object]], fault_types: set[str]) -> tuple[TruthClassification, dict[str, object]]:
     digests = []
     for row in node_rows:
-        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
-        digest = node_truth.get("digest_state") if isinstance(node_truth.get("digest_state"), dict) else (row.get("digest") if isinstance(row.get("digest"), dict) else {})
+        node_truth = _as_dict(row.get("node_truth"))
+        digest = _as_dict(node_truth.get("digest_state")) or _as_dict(row.get("digest"))
         digests.append(_first_present(digest, ("digest", "governance_digest", "constitutional_digest")))
     present = sorted({item for item in digests if item})
     if not present:
@@ -179,8 +209,8 @@ def _classify_digest(node_rows: list[dict[str, object]], fault_types: set[str]) 
 def _classify_epoch(node_rows: list[dict[str, object]], fault_types: set[str]) -> tuple[TruthClassification, dict[str, object]]:
     epochs = []
     for row in node_rows:
-        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
-        epoch = node_truth.get("epoch_state") if isinstance(node_truth.get("epoch_state"), dict) else (row.get("epoch") if isinstance(row.get("epoch"), dict) else {})
+        node_truth = _as_dict(row.get("node_truth"))
+        epoch = _as_dict(node_truth.get("epoch_state")) or _as_dict(row.get("epoch"))
         epochs.append(_first_present(epoch, ("active_epoch_id", "epoch_id")))
     present = sorted({item for item in epochs if item})
     if not present:
@@ -199,8 +229,8 @@ def _classify_replay(node_rows: list[dict[str, object]], *, scenario: str) -> tu
     expected_missing = 0
     compatible = 0
     for row in node_rows:
-        node_truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
-        replay_state = node_truth.get("replay_state") if isinstance(node_truth.get("replay_state"), dict) else {}
+        node_truth = _as_dict(row.get("node_truth"))
+        replay_state = _as_dict(node_truth.get("replay_state"))
         state = _as_str(replay_state.get("state"))
         requested = replay_state.get("requested") if isinstance(replay_state.get("requested"), bool) else None
         if state:
@@ -210,7 +240,7 @@ def _classify_replay(node_rows: list[dict[str, object]], *, scenario: str) -> tu
         if state == "replay_missing_but_expected":
             expected_missing += 1
 
-        replay = row.get("replay") if isinstance(row.get("replay"), dict) else {}
+        replay = _as_dict(row.get("replay"))
         if replay:
             verdict = _as_str(replay.get("integrity_overall")) or _as_str(replay.get("status")) or "unknown"
             statuses.append(verdict)
@@ -247,7 +277,11 @@ def _classify_replay(node_rows: list[dict[str, object]], *, scenario: str) -> tu
 
 
 def _classify_reanchor(node_rows: list[dict[str, object]], fault_types: set[str], *, scenario: str) -> tuple[TruthClassification, dict[str, object]]:
-    has_break = any(str((row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}).get("reanchor_state", {}).get("history_state") or row.get("history_state") or "") == "broken_preserved" for row in node_rows)
+    has_break = any(
+        str(_as_dict(_as_dict(row.get("node_truth")).get("reanchor_state")).get("history_state") or row.get("history_state") or "")
+        == "broken_preserved"
+        for row in node_rows
+    )
     continuations = [
         bool(row.get("continuation_descends_from_anchor"))
         for row in node_rows
@@ -296,9 +330,9 @@ def _classify_fairness(transitions: list[dict[str, object]], host_ids: list[str]
 def _classify_cluster_health(node_rows: list[dict[str, object]]) -> tuple[TruthClassification, dict[str, object]]:
     states = []
     for row in node_rows:
-        truth = row.get("node_truth") if isinstance(row.get("node_truth"), dict) else {}
-        truth_health = truth.get("health_state") if isinstance(truth.get("health_state"), dict) else {}
-        state = _first_present(truth_health, ("health_state",)) or _first_present(row.get("health") if isinstance(row.get("health"), dict) else {}, ("health_state",)) or "missing"
+        truth = _as_dict(row.get("node_truth"))
+        truth_health = _as_dict(truth.get("health_state"))
+        state = _first_present(truth_health, ("health_state",)) or _first_present(_as_dict(row.get("health")), ("health_state",)) or "missing"
         states.append(state)
     unique = sorted(set(states))
     if unique == ["healthy"]:
@@ -327,9 +361,9 @@ def reconcile_provenance(
     correlations: list[dict[str, object]] = []
     digest_rows: list[str] = []
     for row in sorted(node_rows, key=lambda item: (str(item.get("host_id")), str(item.get("node_id")))):
-        trust = row.get("epoch") if isinstance(row.get("epoch"), dict) else {}
+        trust = _as_dict(row.get("epoch"))
         digest_rows.append(json.dumps(trust, sort_keys=True))
-        identity = row.get("identity") if isinstance(row.get("identity"), dict) else {}
+        identity = _as_dict(row.get("identity"))
         correlations.append(
             {
                 "host_id": row.get("host_id"),
@@ -375,17 +409,14 @@ def reconcile_provenance(
 
     timeline_events.sort(
         key=lambda item: (
-            99999.0 if item.get("offset_s") is None else float(item["offset_s"]),
+            99999.0 if item.get("offset_s") is None else _as_float(item.get("offset_s")),
             str(item.get("source")),
             str(item.get("host_id")),
             str(item.get("node_id")),
         )
     )
 
-    identity_ok = all(
-        row.get("scenario_id") == scenario and row.get("topology") == topology and int(row.get("seed") or -1) == seed
-        for row in correlations
-    )
+    identity_ok = all(row.get("scenario_id") == scenario and row.get("topology") == topology and _as_int(row.get("seed"), -1) == seed for row in correlations)
     status: TruthClassification
     if not correlations:
         status = "missing_evidence"
@@ -423,13 +454,13 @@ def build_scenario_evidence_completeness(
     optional_missing: list[str] = []
 
     for key in [*required, *optional_heavy]:
-        classification = str((dimensions.get(key) if isinstance(dimensions.get(key), dict) else {}).get("classification") or "missing_evidence")
+        classification = str(_as_dict(dimensions.get(key)).get("classification") or "missing_evidence")
         state = "present"
         if classification == "missing_evidence":
             state = "missing"
         elif classification in {"degraded_but_explained", "blocked_by_policy"}:
             state = "degraded"
-        row = {
+        row: dict[str, object] = {
             "dimension": key,
             "classification": classification,
             "tier": "required_default" if key in required else "optional_heavy",
@@ -472,7 +503,7 @@ def build_evidence_density_report(
     counts: dict[str, int] = {}
     sparse_dimensions: list[str] = []
     for dim in TRUTH_DIMENSIONS:
-        classification = str((dimensions.get(dim) if isinstance(dimensions.get(dim), dict) else {}).get("classification") or "missing_evidence")
+        classification = str(_as_dict(dimensions.get(dim)).get("classification") or "missing_evidence")
         counts[classification] = counts.get(classification, 0) + 1
         if classification == "missing_evidence":
             sparse_dimensions.append(dim)
@@ -539,12 +570,16 @@ def run_truth_oracle(
     contradictions: list[dict[str, object]] = []
     if provenance.get("status") == "inconsistent":
         contradictions.append({"kind": "provenance_mismatch", "detail": "cluster digest mismatch"})
-    if dimensions["cluster_health_truth"]["classification"] == "consistent" and dimensions["replay_truth"]["classification"] == "inconsistent":
+    cluster_health = _as_dict(dimensions.get("cluster_health_truth"))
+    replay_truth_row = _as_dict(dimensions.get("replay_truth"))
+    quorum_truth_row = _as_dict(dimensions.get("quorum_truth"))
+    digest_truth_row = _as_dict(dimensions.get("digest_truth"))
+    if cluster_health.get("classification") == "consistent" and replay_truth_row.get("classification") == "inconsistent":
         contradictions.append({"kind": "runtime_vs_replay", "detail": "runtime appears healthy but replay failed"})
-    if dimensions["quorum_truth"]["classification"] == "consistent" and dimensions["digest_truth"]["classification"] == "inconsistent":
+    if quorum_truth_row.get("classification") == "consistent" and digest_truth_row.get("classification") == "inconsistent":
         contradictions.append({"kind": "quorum_vs_digest", "detail": "quorum admitted while governance digest diverged"})
-    replay_evidence = dimensions["replay_truth"].get("evidence") if isinstance(dimensions["replay_truth"].get("evidence"), dict) else {}
-    if dimensions["replay_truth"]["classification"] == "degraded_but_explained" and int(replay_evidence.get("missing_but_expected") or 0) > 0:
+    replay_evidence = _as_dict(replay_truth_row.get("evidence"))
+    if replay_truth_row.get("classification") == "degraded_but_explained" and _as_int(replay_evidence.get("missing_but_expected")) > 0:
         contradictions.append({"kind": "replay_expected_missing", "detail": "replay evidence was expected but missing on one or more nodes"})
 
     completeness = build_scenario_evidence_completeness(scenario=scenario, dimensions=dimensions, provenance=provenance)
@@ -565,7 +600,7 @@ def run_truth_oracle(
         "missing_evidence": -1,
         "inconsistent": -2,
     }
-    truth_score = sum(score_weights.get(str(row.get("classification")), -2) for row in dimensions.values())
+    truth_score = sum(score_weights.get(str(_as_dict(row).get("classification")), -2) for row in dimensions.values())
     cluster_truth = "consistent" if truth_score >= len(TRUTH_DIMENSIONS) - 1 else "degraded_but_explained" if truth_score >= 0 else "inconsistent"
 
     evidence_manifest = {
