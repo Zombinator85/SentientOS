@@ -2,6 +2,17 @@
 
 This pass focuses on high-value mature surfaces linked to federation, pulse reliability, and observability/reporting.
 
+## Latest pass (2026-03-19)
+
+- Comprehensive high-density offensive summary is recorded in `docs/TYPING_OFFENSIVE_PROGRESS.md`.
+- Repo-wide `mypy sentientos scripts api` moved from **2511** to **2418** errors in this pass.
+- Mature ops/simulation/lab/observatory modules targeted in this pass are now clean:
+  - `sentientos/ops/__main__.py`
+  - `sentientos/simulation/federation.py`
+  - `sentientos/lab/federation_lab.py`
+  - `sentientos/lab/truth_oracle.py`
+  - `sentientos/observatory/artifact_index.py`
+
 ## Scope of this offensive
 
 - Pulse bus and federation reliability paths (`sentientos/daemons/*`).

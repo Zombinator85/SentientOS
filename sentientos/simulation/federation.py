@@ -86,6 +86,29 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _as_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
 def _seed_node(node_root: Path, *, node_id: str, seed: int) -> None:
     (node_root / "vow").mkdir(parents=True, exist_ok=True)
     write_json(node_root / "vow/immutable_manifest.json", {"schema_version": 1, "files": {}, "seed": seed, "node_id": node_id})
@@ -139,7 +162,7 @@ def _inject(node_root: Path, *, node_id: str, injection: dict[str, Any], seed: i
         payload["revoked_epochs"] = [f"epoch-{seed}"]
         write_json(node_root / "glow/pulse_trust/epoch_state.json", payload)
     elif typ == "replay_duplicate":
-        count = max(1, int(injection.get("count") or 1))
+        count = max(1, _as_int(injection.get("count"), 1))
         base = {"schema_version": 1, "event_id": f"evt-{seed}-{node_id}", "kind": "federated_control", "result": "accepted"}
         for _ in range(count):
             append_jsonl(node_root / "pulse/replay_runs.jsonl", base)
@@ -160,7 +183,7 @@ def _inject(node_root: Path, *, node_id: str, injection: dict[str, Any], seed: i
         payload["restriction_cause"] = "local_safety"
         write_json(node_root / "glow/governor/rollup.json", payload)
     elif typ == "control_storm":
-        count = max(1, int(injection.get("count") or 1))
+        count = max(1, _as_int(injection.get("count"), 1))
         for idx in range(count):
             append_jsonl(node_root / "glow/governor/observability.jsonl", {"schema_version": 1, "event": "federated_control", "event_id": f"storm-{seed}-{node_id}-{idx}"})
         record["count"] = count
@@ -197,10 +220,10 @@ def run_federation_simulation(
         bootstrap.append(run_bootstrap(node_root, reason="simulation_bootstrap", seed_minimal=True, allow_restore=False))
 
     injections: list[dict[str, object]] = []
-    for phase in scenario.get("phases", []):
+    for phase in _as_list(scenario.get("phases")):
         if not isinstance(phase, dict):
             continue
-        for step in phase.get("inject", []):
+        for step in _as_list(phase.get("inject")):
             if not isinstance(step, dict):
                 continue
             targets = _nodes_for_target(str(step.get("node") or ""), node_ids)
@@ -223,11 +246,11 @@ def run_federation_simulation(
     quorum_present = resolved_nodes - len(mismatch_nodes)
     quorum_admit = quorum_present >= quorum_required and not local_safety
 
-    duplicate_events = sum(int(item.get("count") or 0) for item in injections if item.get("type") == "replay_duplicate")
+    duplicate_events = sum(_as_int(item.get("count")) for item in injections if item.get("type") == "replay_duplicate")
     restricted_nodes = sum(1 for _node, payload in statuses.items() if str(payload.get("health_state")) == "restricted")
     continuation_recognized = any(read_json(run_root / "nodes" / node_id / "glow/runtime/audit_trust_state.json").get("history_state") == "healthy_continuation" for node_id in node_ids)
 
-    expected = scenario.get("expected") if isinstance(scenario.get("expected"), dict) else {}
+    expected = _as_dict(scenario.get("expected"))
     oracle_checks = {
         "quorum_admit": quorum_admit == expected.get("quorum_admit", quorum_admit),
         "restricted_nodes": restricted_nodes == expected.get("restricted_nodes", restricted_nodes),
@@ -248,7 +271,7 @@ def run_federation_simulation(
             if node_id in mismatch_nodes or local_safety:
                 bundles.append({"node": node_id, "bundle": build_incident_bundle(run_root / "nodes" / node_id, reason=f"simulation_{scenario_name}", window=25)})
 
-    report = {
+    report: dict[str, object] = {
         "schema_version": 1,
         "run_id": run_id,
         "scenario": scenario_name,
@@ -259,7 +282,7 @@ def run_federation_simulation(
         "node_ids": node_ids,
         "bootstrap": bootstrap,
         "statuses": statuses,
-        "quorum": {"required": quorum_required, "present": quorum_present, "admit": quorum_admit, "mismatch_nodes": sorted(mismatch_nodes)},
+        "quorum": {"required": quorum_required, "present": quorum_present, "admit": quorum_admit, "mismatch_nodes": sorted(str(node) for node in mismatch_nodes)},
         "oracle": {
             "expected": expected,
             "observed": {
@@ -291,18 +314,21 @@ def run_federation_simulation(
     manifest = {"schema_version": 1, "run_id": run_id, "file_count": len(manifest_files), "files": manifest_files}
     write_json(run_root / "bundle_manifest.json", manifest)
 
-    report["artifact_paths"]["report_path"] = str(report_path.relative_to(root))
-    report["artifact_paths"]["bundle_manifest"] = str((run_root / "bundle_manifest.json").relative_to(root))
-    report["ok"] = bool(report["oracle"]["passed"])
-    report["status"] = "passed" if report["ok"] else "failed"
-    report["exit_code"] = 0 if report["ok"] else 1
+    artifact_paths = _as_dict(report.get("artifact_paths"))
+    artifact_paths["report_path"] = str(report_path.relative_to(root))
+    artifact_paths["bundle_manifest"] = str((run_root / "bundle_manifest.json").relative_to(root))
+    report["artifact_paths"] = artifact_paths
+    oracle = _as_dict(report.get("oracle"))
+    report["ok"] = bool(oracle.get("passed"))
+    report["status"] = "passed" if bool(report.get("ok")) else "failed"
+    report["exit_code"] = 0 if bool(report.get("ok")) else 1
     write_json(report_path, report)
     return report
 
 
 def _artifact_expectations_met(run_root: Path, *, node_count: int, expectations: dict[str, Any]) -> tuple[bool, list[str]]:
     missing: list[str] = []
-    for rel in expectations.get("required_run_artifacts", []):
+    for rel in _as_list(expectations.get("required_run_artifacts")):
         if not (run_root / str(rel)).is_file():
             missing.append(str(rel))
     node_rel = str(expectations.get("required_node_artifact") or "")
@@ -317,8 +343,8 @@ def _artifact_expectations_met(run_root: Path, *, node_count: int, expectations:
 def run_federation_baseline_suite(repo_root: Path, *, emit_bundle: bool = True) -> dict[str, object]:
     root = repo_root.resolve()
     manifest = load_federation_baseline_manifest()
-    scenarios = manifest.get("scenarios") if isinstance(manifest.get("scenarios"), list) else []
-    deterministic_seed = int(manifest.get("deterministic_seed") or 7)
+    scenarios = _as_list(manifest.get("scenarios"))
+    deterministic_seed = _as_int(manifest.get("deterministic_seed"), 7)
 
     suite_rows: list[dict[str, object]] = []
     gating_failures: list[str] = []
@@ -328,26 +354,25 @@ def run_federation_baseline_suite(repo_root: Path, *, emit_bundle: bool = True) 
             continue
         scenario_name = str(row.get("name") or "")
         release_gating = bool(row.get("release_gating"))
-        scenario_seed = int(row.get("seed") or deterministic_seed)
-        expected_oracle = row.get("expected_oracle") if isinstance(row.get("expected_oracle"), dict) else {}
-        artifact_expectations = row.get("artifact_expectations") if isinstance(row.get("artifact_expectations"), dict) else {}
+        scenario_seed = _as_int(row.get("seed"), deterministic_seed)
+        expected_oracle = _as_dict(row.get("expected_oracle"))
+        artifact_expectations = _as_dict(row.get("artifact_expectations"))
 
         result = run_federation_simulation(root, scenario_name=scenario_name, seed=scenario_seed, emit_bundle=emit_bundle)
-        run_rel = str((result.get("artifact_paths") if isinstance(result.get("artifact_paths"), dict) else {}).get("run_root") or "")
+        run_rel = str(_as_dict(result.get("artifact_paths")).get("run_root") or "")
         run_root = root / run_rel if run_rel else root / "glow/simulation"
         artifact_ok, missing = _artifact_expectations_met(
             run_root,
-            node_count=int(result.get("node_count") or 0),
+            node_count=_as_int(result.get("node_count")),
             expectations=artifact_expectations,
         )
 
-        observed_oracle = (result.get("oracle") if isinstance(result.get("oracle"), dict) else {}).get("observed")
-        observed_oracle = observed_oracle if isinstance(observed_oracle, dict) else {}
+        observed_oracle = _as_dict(_as_dict(result.get("oracle")).get("observed"))
         oracle_expected_matches = {key: observed_oracle.get(key) == expected_oracle.get(key) for key in expected_oracle}
         oracle_expected_ok = all(oracle_expected_matches.values())
         scenario_ok = bool(result.get("ok")) and artifact_ok and oracle_expected_ok
 
-        incident_bundles = result.get("incident_bundles") if isinstance(result.get("incident_bundles"), list) else []
+        incident_bundles = _as_list(result.get("incident_bundles"))
         incident_bundle_for_failure: dict[str, object] | None = None
         if not scenario_ok and not incident_bundles:
             incident_bundle_for_failure = build_incident_bundle(

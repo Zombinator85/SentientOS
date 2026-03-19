@@ -154,6 +154,40 @@ ENDURANCE_SCENARIOS: dict[str, dict[str, Any]] = {
 }
 
 
+def _as_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
+def _as_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return default
+    return default
+
+
 @dataclass(frozen=True)
 class NodeLayout:
     node_id: str
@@ -227,20 +261,20 @@ def deterministic_fault_schedule(*, scenario_name: str, seed: int, node_ids: lis
     spec = ENDURANCE_SCENARIOS.get(scenario_name)
     if spec is None:
         return []
-    phases = spec.get("phases") if isinstance(spec.get("phases"), list) else []
+    phases = _as_list(spec.get("phases"))
     rng = random.Random(f"{scenario_name}:{seed}:{','.join(node_ids)}")
     rows: list[dict[str, object]] = []
     seq = 0
     for phase in phases:
         if not isinstance(phase, dict):
             continue
-        at_s = min(max(0.0, float(phase.get("at_s") or 0.0)), duration_s)
-        actions = phase.get("actions") if isinstance(phase.get("actions"), list) else []
+        at_s = min(max(0.0, _as_float(phase.get("at_s"))), duration_s)
+        actions = _as_list(phase.get("actions"))
         for action in actions:
             if not isinstance(action, dict):
                 continue
             for node_id in _nodes_for_target(str(action.get("target") or ""), node_ids):
-                count = max(1, int(action.get("count") or 1)) if str(action.get("type")) in {"restart_storm", "replay_duplication"} else 1
+                count = max(1, _as_int(action.get("count"), 1)) if str(action.get("type")) in {"restart_storm", "replay_duplication"} else 1
                 for burst in range(count):
                     seq += 1
                     rows.append(
@@ -253,7 +287,7 @@ def deterministic_fault_schedule(*, scenario_name: str, seed: int, node_ids: lis
                             "params": {k: v for k, v in action.items() if k not in {"target", "type", "count"}},
                         }
                     )
-    rows.sort(key=lambda row: (float(row.get("offset_s", 0.0)), int(row.get("sequence", 0))))
+    rows.sort(key=lambda row: (_as_float(row.get("offset_s")), _as_int(row.get("sequence"))))
     return rows
 
 
@@ -491,9 +525,9 @@ def _apply_injection(node_root: Path, *, node_id: str, injection: dict[str, Any]
     elif typ == "noisy_subject_pressure":
         counters_path = node_root / "glow/lab/fairness_counters.json"
         counters = read_json(counters_path) if counters_path.exists() else {"schema_version": 1, "subject_events": 0, "blocked": 0}
-        count = max(1, int(injection.get("count") or 1))
-        counters["subject_events"] = int(counters.get("subject_events") or 0) + count
-        counters["blocked"] = int(counters.get("blocked") or 0) + max(1, count // 2)
+        count = max(1, _as_int(injection.get("count"), 1))
+        counters["subject_events"] = _as_int(counters.get("subject_events")) + count
+        counters["blocked"] = _as_int(counters.get("blocked")) + max(1, count // 2)
         counters["stabilized"] = False
         write_json(counters_path, counters)
         record["count"] = count
@@ -538,14 +572,14 @@ def _run_schedule(
     events: list[dict[str, object]] = []
     health_series: list[dict[str, object]] = []
     for row in schedule:
-        offset_s = float(row.get("offset_s") or 0.0)
+        offset_s = _as_float(row.get("offset_s"))
         deadline = start_monotonic + offset_s
         now = time.monotonic()
         if deadline > now:
             time.sleep(min(max(0.0, deadline - now), max(0.0, duration_s)))
         node_id = str(row.get("target") or "")
-        action = {"target": node_id, "type": str(row.get("type") or "")}
-        params = row.get("params") if isinstance(row.get("params"), dict) else {}
+        action: dict[str, object] = {"target": node_id, "type": str(row.get("type") or "")}
+        params = _as_dict(row.get("params"))
         action.update(params)
         if action["type"] == "restart_storm":
             restart = _restart_node(
@@ -601,7 +635,7 @@ def run_live_federation_lab(
     if scenario is None:
         raise ValueError(f"unknown live lab scenario: {scenario_name}")
 
-    resolved_nodes = int(node_count or int(scenario.get("node_count") or 1))
+    resolved_nodes = _as_int(node_count if node_count is not None else scenario.get("node_count"), 1)
     resolved_mode = _resolve_runtime_mode(runtime_mode, root)
     family = "endurance" if is_endurance else "live"
     run_id = _run_id(seed=seed, scenario=scenario_name, family=family)
@@ -617,7 +651,7 @@ def run_live_federation_lab(
     transitions_path = run_root / "process_transitions.jsonl"
     transitions_path.write_text("", encoding="utf-8")
 
-    resolved_runtime = float(scenario.get("duration_s") or runtime_s) if is_endurance else runtime_s
+    resolved_runtime = _as_float(scenario.get("duration_s"), runtime_s) if is_endurance else runtime_s
     if runtime_s > 0 and is_endurance:
         resolved_runtime = min(resolved_runtime, runtime_s)
 
@@ -685,14 +719,14 @@ def run_live_federation_lab(
             seed=seed,
         )
     else:
-        for injection in scenario.get("injections", []):
+        for injection in _as_list(scenario.get("injections")):
             if not isinstance(injection, dict):
                 continue
             target = str(injection.get("target") or "")
             typ = str(injection.get("type") or "")
             for node_id in _nodes_for_target(target, [row.node_id for row in layout]):
                 if typ == "restart_storm":
-                    count = max(1, int(injection.get("count") or 1))
+                    count = max(1, _as_int(injection.get("count"), 1))
                     for _ in range(count):
                         timeline_events.append(
                             _restart_node(
@@ -713,8 +747,8 @@ def run_live_federation_lab(
 
     injection_log = run_root / "scenario_injection_log.jsonl"
     injection_log.write_text("", encoding="utf-8")
-    for row in timeline_events:
-        append_jsonl(injection_log, row)
+    for event_row in timeline_events:
+        append_jsonl(injection_log, dict(event_row))
 
     time.sleep(max(0.4, resolved_runtime / 3))
 
@@ -758,9 +792,8 @@ def run_live_federation_lab(
         digest = read_json(node_root / "glow/federation/governance_digest.json")
         epoch = read_json(node_root / "glow/pulse_trust/epoch_state.json")
         epoch_values.add(str(epoch.get("active_epoch_id") or ""))
-        fairness = node_signals[row.node_id].get("fairness") if isinstance(node_signals[row.node_id], dict) else {}
-        if isinstance(fairness, dict):
-            fairness_peak = max(fairness_peak, int(fairness.get("blocked") or 0))
+        fairness = _as_dict(node_signals[row.node_id].get("fairness"))
+        fairness_peak = max(fairness_peak, _as_int(fairness.get("blocked")))
         health_state = str(node_health_rows[row.node_id].get("health_state") or "missing")
         if health_state == "missing":
             corridor_interpretable = False
@@ -777,13 +810,13 @@ def run_live_federation_lab(
     quorum_required = (resolved_nodes // 2) + 1
     quorum_admit = quorum_present >= quorum_required
 
-    expected = scenario.get("expected") if isinstance(scenario.get("expected"), dict) else {}
-    allowed_states = set(str(v) for v in (expected.get("state_allow") if isinstance(expected.get("state_allow"), list) else ["healthy", "degraded", "restricted"]))
+    expected = _as_dict(scenario.get("expected"))
+    allowed_states = {str(v) for v in _as_list(expected.get("state_allow"))} or {"healthy", "degraded", "restricted"}
     checks = {
         "runtime_boot_behavior": daemon_ready_nodes == resolved_nodes,
         "quorum_behavior": quorum_admit == bool(expected.get("quorum_admit", quorum_admit)),
         "continuation_behavior": (not bool(expected.get("continuation_recognized", False))) or continuation_recognized,
-        "replay_behavior": duplicate_events >= int(expected.get("duplicate_events_min", 0)),
+        "replay_behavior": duplicate_events >= _as_int(expected.get("duplicate_events_min")),
         "local_safety_behavior": (not bool(expected.get("local_safety_dominant", False))) or local_safety_active,
         "state_behavior": all(str(node_health_rows[node].get("health_state") or "missing") in allowed_states for node in node_health_rows),
         "epoch_behavior": (not bool(expected.get("epoch_compatible", False))) or len(epoch_values) == 1,
@@ -804,7 +837,7 @@ def run_live_federation_lab(
         "corridor_interpretable": corridor_interpretable,
     }
 
-    convergence: ConvergenceClass = classify_convergence(expected=expected, observed=observed, checks=checks)
+    convergence: ConvergenceClass = classify_convergence(expected=expected, observed=dict(observed), checks=checks)
     write_json(run_root / "convergence_summary.json", {"schema_version": 1, "scenario": scenario_name, "class": convergence, "checks": checks, "observed": observed})
 
     cluster_digest_payload = {
@@ -852,7 +885,7 @@ def run_live_federation_lab(
     ]
     write_json(run_root / "event_timeline.json", {"schema_version": 1, "events": timeline})
 
-    payload = {
+    payload: dict[str, object] = {
         "schema_version": 1,
         "mode": "live_lab",
         "family": family,
@@ -895,9 +928,10 @@ def run_live_federation_lab(
             "artifact_manifest": str((run_root / "artifact_manifest.json").relative_to(root)),
         },
     }
-    payload["status"] = "passed" if payload["oracle"]["passed"] else "failed"
-    payload["ok"] = bool(payload["oracle"]["passed"])
-    payload["exit_code"] = 0 if payload["ok"] else 1
+    oracle_row = _as_dict(payload.get("oracle"))
+    payload["status"] = "passed" if bool(oracle_row.get("passed")) else "failed"
+    payload["ok"] = bool(oracle_row.get("passed"))
+    payload["exit_code"] = 0 if bool(payload.get("ok")) else 1
     write_json(run_root / "run_summary.json", payload)
     return payload
 
@@ -912,7 +946,7 @@ def run_endurance_suite(repo_root: Path, *, seed: int, runtime_mode: RuntimeMode
                 seed=seed + idx,
                 node_count=None,
                 emit_bundle=False,
-                runtime_s=float(ENDURANCE_SCENARIOS[name].get("duration_s") or 4.0),
+                runtime_s=_as_float(ENDURANCE_SCENARIOS[name].get("duration_s"), 4.0),
                 clean=clean,
                 runtime_mode=runtime_mode,
             )

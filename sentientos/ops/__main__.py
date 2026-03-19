@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-from typing import Sequence
+from typing import Literal, Sequence, cast
 
 from scripts.cli_common import emit_payload, exit_code
 from sentientos.attestation import read_json
@@ -55,6 +55,22 @@ def _with_repo_flag(argv: list[str], repo_root: Path | None) -> list[str]:
 
 def _normalize_passthrough(values: list[str]) -> list[str]:
     return [value for value in values if value != "--"]
+
+
+def _as_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_list(value: object) -> list[object]:
+    return value if isinstance(value, list) else []
+
+
+RuntimeMode = Literal["auto", "worker", "daemon"]
+
+
+def _runtime_mode(value: object) -> RuntimeMode:
+    mode = str(value or "auto")
+    return cast(RuntimeMode, mode if mode in {"auto", "worker", "daemon"} else "auto")
 
 
 def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.ArgumentParser:
@@ -209,17 +225,21 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
     if args.domain == "node" and args.action == "restore":
         from scripts.bootstrap_trust_restore import run_bootstrap as run_restore
 
-        previous = os.environ.get("SENTIENTOS_REPO_ROOT")
+        previous_repo_root_env = os.environ.get("SENTIENTOS_REPO_ROOT")
         os.environ["SENTIENTOS_REPO_ROOT"] = str(repo_root)
         try:
             payload = run_restore(repo_root, reason=str(args.reason), create_checkpoint=not bool(args.no_checkpoint))
         finally:
-            if previous is None:
+            if previous_repo_root_env is None:
                 os.environ.pop("SENTIENTOS_REPO_ROOT", None)
             else:
-                os.environ["SENTIENTOS_REPO_ROOT"] = previous
+                os.environ["SENTIENTOS_REPO_ROOT"] = previous_repo_root_env
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
-        emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"status={row.get('status')} checkpoint={row.get('checkpoint', {}).get('status')}")
+        emit_payload(
+            payload,
+            as_json=bool(args.json),
+            text_renderer=lambda row: f"status={row.get('status')} checkpoint={_as_dict(row.get('checkpoint')).get('status')}",
+        )
         return exit_code(payload)
 
     if args.domain == "constitution" and args.action == "latest":
@@ -244,7 +264,10 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         if bool(args.json):
             emit_payload(payload, as_json=True, text_renderer=lambda row: f"constitution_state={row.get('constitution_state')} identity={row.get('constitution_identity')}")
             return exit_code(payload)
-        print(f"constitution_state={payload.get('constitution_state')} identity={payload.get('constitution_identity')} missing_required={len(payload.get('missing_required_artifacts', []))}")
+        print(
+            f"constitution_state={payload.get('constitution_state')} identity={payload.get('constitution_identity')} "
+            f"missing_required={len(_as_list(payload.get('missing_required_artifacts')))}"
+        )
         return int(rc)
 
     if args.domain == "incident" and args.action == "bundle":
@@ -295,7 +318,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         if bool(args.allow_missing_manifest):
             forwarded.append("--allow-missing-manifest")
         forwarded.extend(_normalize_passthrough([*list(args.args or []), *unknown]))
-        previous = Path.cwd()
+        previous: Path = Path.cwd()
         os.chdir(repo_root)
         try:
             return int(immutability_main(forwarded))
@@ -313,7 +336,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 "exit_code": 0,
             }
             payload = _decorate_payload(payload, domain=args.domain, action=args.action)
-            emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(row.get('scenarios', []))}")
+            emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(_as_list(row.get('scenarios')))}")
             return 0
         if bool(args.baseline):
             payload = run_federation_baseline_suite(repo_root, emit_bundle=True)
@@ -332,8 +355,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             text_renderer=lambda row: (
                 f"scenario={row.get('scenario') or row.get('suite')} "
                 f"status={row.get('status')} "
-                f"quorum_admit={((row.get('quorum') if isinstance(row.get('quorum'), dict) else {}).get('admit'))} "
-                f"report_path={row.get('report_path') or ((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('report_path'))}"
+                f"quorum_admit={_as_dict(row.get('quorum')).get('admit')} "
+                f"report_path={row.get('report_path') or _as_dict(row.get('artifact_paths')).get('report_path')}"
             ),
         )
         return exit_code(payload)
@@ -349,12 +372,12 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 "exit_code": 0,
             }
             payload = _decorate_payload(payload, domain=args.domain, action=args.action)
-            emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(row.get('scenarios', []))}")
+            emit_payload(payload, as_json=bool(args.json), text_renderer=lambda row: f"scenario_count={len(_as_list(row.get('scenarios')))}")
             return 0
         if bool(args.remote_preflight_report):
             payload = remote_preflight_observatory_report(repo_root)
         elif bool(args.endurance_suite):
-            payload = run_endurance_suite(repo_root, seed=int(args.seed), runtime_mode=str(args.mode), clean=bool(args.clean))
+            payload = run_endurance_suite(repo_root, seed=int(args.seed), runtime_mode=_runtime_mode(args.mode), clean=bool(args.clean))
         elif bool(args.wan_suite):
             payload = run_wan_suite(
                 repo_root,
@@ -403,7 +426,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 emit_bundle=bool(args.emit_bundle),
                 runtime_s=float(args.runtime_s),
                 clean=bool(args.clean),
-                runtime_mode=str(args.mode),
+                runtime_mode=_runtime_mode(args.mode),
             )
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
         emit_payload(
@@ -412,9 +435,9 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             text_renderer=lambda row: (
                 f"scenario={row.get('scenario')} "
                 f"status={row.get('status')} "
-                f"quorum_admit={((row.get('observed') if isinstance(row.get('observed'), dict) else {}).get('quorum_admit'))} "
-                f"run_root={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('run_root'))} "
-                f"truth_report={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('truth_oracle_summary')) if bool(args.truth_report) else ''}"
+                f"quorum_admit={_as_dict(row.get('observed')).get('quorum_admit')} "
+                f"run_root={_as_dict(row.get('artifact_paths')).get('run_root')} "
+                f"truth_report={_as_dict(row.get('artifact_paths')).get('truth_oracle_summary') if bool(args.truth_report) else ''}"
             ),
         )
         return exit_code(payload)
@@ -427,21 +450,30 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         latest = read_json(repo_root / "glow/observatory/latest_pointers.json")
         links = read_json(repo_root / "glow/observatory/artifact_provenance_links.json")
         index = read_json(repo_root / "glow/observatory/artifact_index.json")
-        payload["latest_pointers"] = latest.get("surfaces", {}) if isinstance(latest.get("surfaces"), dict) else {}
-        payload["provenance_links"] = links.get("links", []) if isinstance(links.get("links"), list) else []
+        payload["latest_pointers"] = _as_dict(latest.get("surfaces"))
+        payload["provenance_links"] = _as_list(links.get("links"))
         if isinstance(args.surface, str) and args.surface:
             payload["selected_surface"] = args.surface
-            payload["selected_pointer"] = payload["latest_pointers"].get(args.surface)
+            payload["selected_pointer"] = _as_dict(payload.get("latest_pointers")).get(args.surface)
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
 
         def _render_artifacts(row: dict[str, object]) -> str:
             if bool(args.surface):
                 return f"surface={args.surface} pointer={row.get('selected_pointer')}"
             if bool(args.links):
-                return f"links={len((row.get('provenance_links') if isinstance(row.get('provenance_links'), list) else []))} path={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('artifact_provenance_links'))}"
+                return (
+                    f"links={len(_as_list(row.get('provenance_links')))} "
+                    f"path={_as_dict(row.get('artifact_paths')).get('artifact_provenance_links')}"
+                )
             if bool(args.latest):
-                return f"surface_count={len((row.get('latest_pointers') if isinstance(row.get('latest_pointers'), dict) else {}))} path={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('latest_pointers'))}"
-            return f"surface_count={len((row.get('latest_pointers') if isinstance(row.get('latest_pointers'), dict) else {}))} artifact_count={len((index.get('artifacts') if isinstance(index.get('artifacts'), list) else []))}"
+                return (
+                    f"surface_count={len(_as_dict(row.get('latest_pointers')))} "
+                    f"path={_as_dict(row.get('artifact_paths')).get('latest_pointers')}"
+                )
+            return (
+                f"surface_count={len(_as_dict(row.get('latest_pointers')))} "
+                f"artifact_count={len(_as_list(index.get('artifacts')))}"
+            )
 
         emit_payload(payload, as_json=bool(args.json), text_renderer=_render_artifacts)
         return exit_code(payload)
@@ -453,20 +485,20 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
 
         def _render(row: dict[str, object]) -> str:
-            dims = row.get("fleet_dimensions") if isinstance(row.get("fleet_dimensions"), dict) else {}
+            dims = _as_dict(row.get("fleet_dimensions"))
             if bool(args.release_readiness):
                 return f"release_readiness={row.get('release_readiness')} reasons={row.get('release_readiness_reasons')}"
             if bool(args.degradations):
                 return (
                     f"release_readiness={row.get('release_readiness')} "
-                    f"summary={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('fleet_health_summary'))} "
-                    f"degradations={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('fleet_degradations'))}"
+                    f"summary={_as_dict(row.get('artifact_paths')).get('fleet_health_summary')} "
+                    f"degradations={_as_dict(row.get('artifact_paths')).get('fleet_degradations')}"
                 )
             if bool(args.dashboard):
                 return (
                     f"release_readiness={row.get('release_readiness')} "
-                    f"dashboard={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('fleet_health_dashboard'))} "
-                    f"digest={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('final_fleet_health_digest'))}"
+                    f"dashboard={_as_dict(row.get('artifact_paths')).get('fleet_health_dashboard')} "
+                    f"digest={_as_dict(row.get('artifact_paths')).get('final_fleet_health_digest')}"
                 )
             return f"release_readiness={row.get('release_readiness')} dimensions={dims}"
 
@@ -492,7 +524,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             text_renderer=lambda row: (
                 f"status={row.get('status')} "
                 f"spec_count={row.get('spec_count')} "
-                f"summary={((row.get('artifact_paths') if isinstance(row.get('artifact_paths'), dict) else {}).get('summary'))}"
+                f"summary={_as_dict(row.get('artifact_paths')).get('summary')}"
             ),
         )
         return exit_code(payload)
