@@ -1,5 +1,8 @@
 {
   "deferred_debt_error_count": 0,
+  "excluded_glob_count": 3,
+  "policy_strict_status": "ok",
+  "policy_strict_target_count": 9,
   "promotable_protected_modules": [],
   "protected_new_error_count": 0,
   "ratcheted_new_error_count": 0,

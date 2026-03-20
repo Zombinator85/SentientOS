@@ -1,5 +1,6 @@
 {
   "cluster_count": 0,
   "clusters": [],
+  "excluded_glob_count": 3,
   "schema_version": 1
 }
