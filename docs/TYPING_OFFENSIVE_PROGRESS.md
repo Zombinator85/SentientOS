@@ -75,3 +75,59 @@ After this pass, the same repo-wide command reports **2463** errors (**-53 net**
 6. `memory_manager.py` / `sentientos/narrative_synthesis.py`
 
 Recommended next offensive: runtime-heavy `architect_daemon.py` + `task_executor.py`, then a dedicated dashboard/reporting pass for `scripts/tooling_status.py`.
+
+---
+
+## High-density typing offensive III (2026-03-20)
+
+### Fresh density audit
+
+Baseline command:
+
+- `mypy . --hide-error-context --no-color-output`
+
+Before this pass, repo-wide output reported **7680** errors.
+
+Highest-value mature corridors (pulse/federation/runtime-core) still carrying dense, high-leverage typing debt:
+
+- `sentientos/lab/wan_federation.py` (48 errors in focused check; dominated by `attr-defined` / `arg-type` from loose payload objects).
+- `sentientos/runtime_governor.py` (16 errors; fairness/posture summary coercions and object-index payload access).
+- `sentientos/pulse_trust_epoch.py` (10 errors; state-shape narrowing and epoch payload indexing).
+- `sentientos/federation/consensus_sentinel.py` (6 errors; mapping/deepcopy and generic return typing).
+
+### Offensive III scope executed
+
+This pass focused on mature federation/runtime trust corridors and payload typing boundaries:
+
+- `sentientos/runtime_governor.py`
+- `sentientos/pulse_trust_epoch.py`
+- `sentientos/federation/consensus_sentinel.py`
+
+Change themes:
+
+- Added explicit mapping/object narrowing in pulse epoch state handling to stop `object` propagation.
+- Tightened federation sentinel return/component typing and normalized mapping copies.
+- Hardened runtime governor fairness/summary sorting paths with typed coercion helpers and explicit posture payload typing.
+- Preserved existing runtime/governor/trust behavior while improving type-safety around control-plane summary payloads.
+
+### Results
+
+After this pass, the same repo-wide command reports **7653** errors (**-27 net**).
+
+Targeted corridor deltas:
+
+- `sentientos/runtime_governor.py`: 16 -> 2 -> 0 (targeted follow-imports=skip checks during patching).
+- `sentientos/pulse_trust_epoch.py`: 10 -> 0.
+- `sentientos/federation/consensus_sentinel.py`: 6 -> 0.
+
+### Ratchet/protected-surface posture
+
+- No standards were loosened and no debt was hidden.
+- No constitutional/runtime/federation architecture redesign was introduced.
+- Trust epoch/quorum/digest and governor enforcement semantics were preserved while reducing source-level type-noise.
+
+### Recommended next clusters after Offensive III
+
+1. `sentientos/lab/wan_federation.py` (largest remaining federation corridor hotspot from this audit).
+2. `memory_governor.py` + `memory_manager.py` payload boundaries (cross-module `dict`/`object` propagation).
+3. `architect_daemon.py` and `task_executor.py` runtime-heavy corridors.
