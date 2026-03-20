@@ -19,12 +19,12 @@ class FederationConsensusSentinel:
     def record_external_digest(self, digest: Mapping[str, Any]) -> None:
         """Store an external digest snapshot defensively in FIFO order."""
 
-        self._reports.append(deepcopy(digest or {}))
+        self._reports.append(deepcopy(dict(digest or {})))
 
-    def compare(self, local_digest: Mapping[str, Any]) -> dict:
+    def compare(self, local_digest: Mapping[str, Any]) -> dict[str, object]:
         """Compare the provided local digest against stored external digests."""
 
-        local_snapshot = deepcopy(local_digest or {})
+        local_snapshot = deepcopy(dict(local_digest or {}))
         external_reports = list(self._reports)
 
         classifications = [self._classify(local_snapshot, report) for report in external_reports]
@@ -53,7 +53,7 @@ class FederationConsensusSentinel:
         digest = payload.get("digest")
         return str(digest) if digest is not None else ""
 
-    def _classify(self, local: Mapping[str, Any], external: Mapping[str, Any]) -> dict:
+    def _classify(self, local: Mapping[str, Any], external: Mapping[str, Any]) -> dict[str, object]:
         local_components = self._components(local)
         external_components = self._components(external)
 
@@ -77,7 +77,7 @@ class FederationConsensusSentinel:
             "level": level,
         }
 
-    def _components(self, payload: Mapping[str, Any]) -> dict:
+    def _components(self, payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
         if not isinstance(payload, Mapping):
             return {"identity": {}, "config": {}}
         components = payload.get("components")
@@ -86,11 +86,11 @@ class FederationConsensusSentinel:
         identity = components.get("identity") if isinstance(components, Mapping) else {}
         config = components.get("config") if isinstance(components, Mapping) else {}
         return {
-            "identity": deepcopy(identity) if isinstance(identity, Mapping) else {},
-            "config": deepcopy(config) if isinstance(config, Mapping) else {},
+            "identity": deepcopy(dict(identity)) if isinstance(identity, Mapping) else {},
+            "config": deepcopy(dict(config)) if isinstance(config, Mapping) else {},
         }
 
-    def _identity_class(self, identity: Mapping[str, Any]) -> tuple:
+    def _identity_class(self, identity: Mapping[str, Any]) -> tuple[tuple[str, Any], ...]:
         if not isinstance(identity, Mapping):
             return tuple()
         core = identity.get("core_themes")
@@ -137,7 +137,7 @@ class FederationConsensusSentinel:
             return [self._normalise(v) for v in value]
         return value
 
-    def _aggregate_drift_level(self, classifications: list[dict]) -> str:
+    def _aggregate_drift_level(self, classifications: list[dict[str, object]]) -> str:
         highest_index = 0
         for entry in classifications:
             level = entry.get("level")

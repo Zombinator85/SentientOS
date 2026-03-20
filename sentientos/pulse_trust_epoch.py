@@ -93,7 +93,8 @@ class PulseTrustEpochManager:
         verify_path = str(Path(os.getenv(_VERIFY_KEY_ENV, "/vow/keys/ed25519_public.key")))
         signing_path = str(Path(os.getenv(_SIGNING_KEY_ENV, "/vow/keys/ed25519_private.key")))
         epoch_id = "epoch-0001"
-        state = {
+        activated_at = self._utc_now()
+        state: dict[str, object] = {
             "schema_version": 1,
             "active_epoch_id": epoch_id,
             "compromise_response_mode": False,
@@ -102,7 +103,7 @@ class PulseTrustEpochManager:
                     "status": "active",
                     "verify_key_path": verify_path,
                     "signing_key_path": signing_path,
-                    "activated_at": self._utc_now(),
+                    "activated_at": activated_at,
                     "revoked": False,
                     "closed": False,
                     "transition_from": None,
@@ -121,7 +122,7 @@ class PulseTrustEpochManager:
                 "epoch_id": epoch_id,
                 "verify_key_path": verify_path,
                 "signing_key_path": signing_path,
-                "timestamp": state["epochs"][epoch_id]["activated_at"],
+                "timestamp": activated_at,
             },
         )
         return state
@@ -140,9 +141,15 @@ class PulseTrustEpochManager:
         state = self.load_state()
         epochs = state.get("epochs", {})
         active_id = str(state.get("active_epoch_id", "epoch-0001"))
-        epoch = epochs.get(active_id)
+        epoch = epochs.get(active_id) if isinstance(epochs, dict) else None
         if not isinstance(epoch, dict):
-            return self._bootstrap_state()["epochs"]["epoch-0001"]
+            bootstrap = self._bootstrap_state()
+            bootstrap_epochs = bootstrap.get("epochs")
+            if isinstance(bootstrap_epochs, dict):
+                default_epoch = bootstrap_epochs.get("epoch-0001")
+                if isinstance(default_epoch, dict):
+                    return default_epoch
+            return {}
         return epoch
 
     def active_epoch_id(self) -> str:
@@ -208,6 +215,10 @@ class PulseTrustEpochManager:
             return False
         return datetime.now(timezone.utc) <= closed_at + timedelta(seconds=allowance)
 
+    @staticmethod
+    def _as_dict(value: object) -> dict[str, object]:
+        return dict(value) if isinstance(value, dict) else {}
+
     def verify_event_signature(
         self,
         event: Mapping[str, object],
@@ -219,8 +230,10 @@ class PulseTrustEpochManager:
     ) -> EpochVerificationResult:
         state = self.load_state()
         active_epoch_id = str(state.get("active_epoch_id", "epoch-0001"))
-        epochs = state.get("epochs", {})
-        revoked = set(str(item) for item in state.get("revoked_epochs", []) if isinstance(item, str))
+        epochs = self._as_dict(state.get("epochs"))
+        revoked_raw = state.get("revoked_epochs")
+        revoked_source = revoked_raw if isinstance(revoked_raw, list) else []
+        revoked = {str(item) for item in revoked_source if isinstance(item, str)}
         epoch_id = str(event.get("pulse_epoch_id") or "legacy")
 
         candidate_epoch_ids: list[str] = [epoch_id]
@@ -231,8 +244,8 @@ class PulseTrustEpochManager:
         valid_key_id: str | None = None
         signature_valid = False
         for candidate in candidate_epoch_ids:
-            epoch_cfg = epochs.get(candidate)
-            if not isinstance(epoch_cfg, dict):
+            epoch_cfg = self._as_dict(epochs.get(candidate))
+            if not epoch_cfg:
                 continue
             verify_path = epoch_cfg.get("verify_key_path")
             if not isinstance(verify_path, str) or not verify_path:
@@ -241,7 +254,8 @@ class PulseTrustEpochManager:
                 verify_key = self._verify_key(verify_path)
                 verify_key.verify(serialized_payload, base64.b64decode(signature))
                 valid_epoch = candidate
-                valid_key_id = epoch_cfg.get("key_id") if isinstance(epoch_cfg.get("key_id"), str) else None
+                candidate_key_id = epoch_cfg.get("key_id")
+                valid_key_id = candidate_key_id if isinstance(candidate_key_id, str) else None
                 signature_valid = True
                 break
             except (BadSignatureError, FileNotFoundError, ValueError, binascii.Error):
@@ -260,9 +274,9 @@ class PulseTrustEpochManager:
             self._record_decision(result, actor=actor, peer_name=peer_name)
             return result
 
-        epoch_cfg = epochs.get(valid_epoch) if isinstance(epochs, dict) else None
+        epoch_cfg = self._as_dict(epochs.get(valid_epoch))
         status = "unknown"
-        if isinstance(epoch_cfg, dict):
+        if epoch_cfg:
             status = str(epoch_cfg.get("status") or "unknown")
         if valid_epoch in revoked or status == "revoked":
             result = EpochVerificationResult(
@@ -284,7 +298,7 @@ class PulseTrustEpochManager:
                 key_id=valid_key_id,
                 reason="active_epoch",
             )
-        elif isinstance(epoch_cfg, dict) and self._retired_epoch_allowed(epoch_cfg):
+        elif epoch_cfg and self._retired_epoch_allowed(epoch_cfg):
             result = EpochVerificationResult(
                 signature_valid=True,
                 trusted=True,
@@ -316,8 +330,10 @@ class PulseTrustEpochManager:
     ) -> EpochVerificationResult:
         state = self.load_state()
         active_epoch_id = str(state.get("active_epoch_id", "epoch-0001"))
-        epochs = state.get("epochs", {})
-        revoked = set(str(item) for item in state.get("revoked_epochs", []) if isinstance(item, str))
+        epochs = self._as_dict(state.get("epochs"))
+        revoked_raw = state.get("revoked_epochs")
+        revoked_source = revoked_raw if isinstance(revoked_raw, list) else []
+        revoked = {str(item) for item in revoked_source if isinstance(item, str)}
         epoch_id = str(event.get("pulse_epoch_id") or "legacy")
         key_id = event.get("pulse_key_id")
         normalized_key_id = key_id if isinstance(key_id, str) and key_id else None
@@ -341,7 +357,7 @@ class PulseTrustEpochManager:
                 key_id=normalized_key_id,
                 reason="epoch_revoked",
             )
-        elif isinstance(epochs, dict) and epoch_id not in epochs:
+        elif epoch_id not in epochs:
             result = EpochVerificationResult(
                 signature_valid=True,
                 trusted=False,
@@ -362,8 +378,8 @@ class PulseTrustEpochManager:
                 reason="active_epoch",
             )
         else:
-            epoch_cfg = epochs.get(epoch_id) if isinstance(epochs, dict) else None
-            if isinstance(epoch_cfg, dict) and self._retired_epoch_allowed(epoch_cfg):
+            epoch_cfg = self._as_dict(epochs.get(epoch_id))
+            if epoch_cfg and self._retired_epoch_allowed(epoch_cfg):
                 result = EpochVerificationResult(
                     signature_valid=True,
                     trusted=True,
@@ -439,7 +455,8 @@ class PulseTrustEpochManager:
             "key_id": self._key_id_for_path(verify_key_path),
         }
         state["active_epoch_id"] = new_epoch_id
-        state["transition_counter"] = int(state.get("transition_counter", 0)) + 1
+        transition_counter = state.get("transition_counter", 0)
+        state["transition_counter"] = int(transition_counter) + 1 if isinstance(transition_counter, (int, str)) else 1
         state["compromise_response_mode"] = bool(compromise_response_mode)
         self._write_state(state)
         self._append_jsonl(
@@ -480,7 +497,9 @@ class PulseTrustEpochManager:
         epoch["status"] = "revoked"
         epoch["revoked"] = True
         epoch["revoked_at"] = now
-        revoked = set(str(item) for item in state.get("revoked_epochs", []) if isinstance(item, str))
+        revoked_raw = state.get("revoked_epochs")
+        revoked_source = revoked_raw if isinstance(revoked_raw, list) else []
+        revoked = {str(item) for item in revoked_source if isinstance(item, str)}
         revoked.add(epoch_id)
         state["revoked_epochs"] = sorted(revoked)
         state["compromise_response_mode"] = True
