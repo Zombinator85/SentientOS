@@ -14,6 +14,30 @@ from typing import Mapping
 _TRUST_ORDER = {"trusted": 0, "watched": 1, "degraded": 2, "quarantined": 3, "incompatible": 4}
 
 
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+def _probe_history_from(value: object) -> dict[str, int]:
+    base = {"ok": 0, "warn": 0, "fail": 0, "skipped": 0}
+    if not isinstance(value, Mapping):
+        return base
+    for key in tuple(base):
+        base[key] = max(0, _as_int(value.get(key), 0))
+    return base
+
+
 @dataclass(frozen=True)
 class PeerTrustSnapshot:
     peer_id: str
@@ -108,19 +132,19 @@ class FederationTrustLedger:
         return state
 
     def _bounded_increment(self, state: dict[str, object], key: str, amount: int = 1) -> None:
-        current = int(state.get(key, 0)) if isinstance(state.get(key), int) else 0
+        current = _as_int(state.get(key), 0)
         state[key] = min(9999, current + amount)
 
     def _derive_state(self, state: Mapping[str, object]) -> tuple[str, list[str], bool]:
         reasons: list[str] = []
-        digest = int(state.get("digest_mismatch_events", 0))
-        epoch = int(state.get("epoch_mismatch_events", 0))
-        divergence = int(state.get("divergence_events", 0))
-        replay = int(state.get("replay_events", 0))
-        denied = int(state.get("control_denied_events", 0))
-        quorum_fail = int(state.get("quorum_failure_events", 0))
-        quorum_ok = int(state.get("quorum_success_events", 0))
-        probe_fail = int(((state.get("probe_history") or {}).get("fail", 0)) if isinstance(state.get("probe_history"), dict) else 0)
+        digest = _as_int(state.get("digest_mismatch_events"), 0)
+        epoch = _as_int(state.get("epoch_mismatch_events"), 0)
+        divergence = _as_int(state.get("divergence_events"), 0)
+        replay = _as_int(state.get("replay_events"), 0)
+        denied = _as_int(state.get("control_denied_events"), 0)
+        quorum_fail = _as_int(state.get("quorum_failure_events"), 0)
+        quorum_ok = _as_int(state.get("quorum_success_events"), 0)
+        probe_fail = _probe_history_from(state.get("probe_history")).get("fail", 0)
 
         if digest >= 3 or epoch >= 3:
             reasons.append("repeated_protocol_mismatch")
@@ -162,9 +186,7 @@ class FederationTrustLedger:
 
     def _snapshot_for(self, peer_id: str) -> PeerTrustSnapshot:
         state = self._ensure_peer(peer_id)
-        probe_history = state.get("probe_history")
-        if not isinstance(probe_history, dict):
-            probe_history = {"ok": 0, "warn": 0, "fail": 0, "skipped": 0}
+        probe_history = _probe_history_from(state.get("probe_history"))
         trust_state = str(state.get("trust_state") or "trusted")
         reasons = state.get("trust_reasons")
         trust_reasons = [str(item) for item in reasons] if isinstance(reasons, list) else ["unknown"]
@@ -177,29 +199,27 @@ class FederationTrustLedger:
             last_probe_at=str(state.get("last_probe_at")) if isinstance(state.get("last_probe_at"), str) else None,
             last_probe_status=str(state.get("last_probe_status") or "never"),
             probe_history={
-                "ok": int(probe_history.get("ok", 0)),
-                "warn": int(probe_history.get("warn", 0)),
-                "fail": int(probe_history.get("fail", 0)),
-                "skipped": int(probe_history.get("skipped", 0)),
+                "ok": _as_int(probe_history.get("ok"), 0),
+                "warn": _as_int(probe_history.get("warn"), 0),
+                "fail": _as_int(probe_history.get("fail"), 0),
+                "skipped": _as_int(probe_history.get("skipped"), 0),
             },
-            divergence_events=int(state.get("divergence_events", 0)),
-            epoch_mismatch_events=int(state.get("epoch_mismatch_events", 0)),
-            digest_mismatch_events=int(state.get("digest_mismatch_events", 0)),
-            quorum_success_events=int(state.get("quorum_success_events", 0)),
-            quorum_failure_events=int(state.get("quorum_failure_events", 0)),
-            replay_events=int(state.get("replay_events", 0)),
-            control_denied_events=int(state.get("control_denied_events", 0)),
+            divergence_events=_as_int(state.get("divergence_events"), 0),
+            epoch_mismatch_events=_as_int(state.get("epoch_mismatch_events"), 0),
+            digest_mismatch_events=_as_int(state.get("digest_mismatch_events"), 0),
+            quorum_success_events=_as_int(state.get("quorum_success_events"), 0),
+            quorum_failure_events=_as_int(state.get("quorum_failure_events"), 0),
+            replay_events=_as_int(state.get("replay_events"), 0),
+            control_denied_events=_as_int(state.get("control_denied_events"), 0),
         )
 
     def record_probe(self, peer_id: str, *, status: str, actor: str, reason: str) -> PeerTrustSnapshot:
         normalized = status if status in {"ok", "warn", "fail", "skipped"} else "warn"
         with self._lock:
             state = self._ensure_peer(peer_id)
-            history = state.get("probe_history")
-            if not isinstance(history, dict):
-                history = {"ok": 0, "warn": 0, "fail": 0, "skipped": 0}
-                state["probe_history"] = history
-            history[normalized] = int(history.get(normalized, 0)) + 1
+            history = _probe_history_from(state.get("probe_history"))
+            state["probe_history"] = history
+            history[normalized] = _as_int(history.get(normalized), 0) + 1
             sequence = state.get("probe_sequence")
             if not isinstance(sequence, list):
                 sequence = []

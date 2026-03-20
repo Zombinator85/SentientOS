@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Mapping
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
 from sentientos.observatory.artifact_index import build_artifact_provenance_index
@@ -24,6 +24,36 @@ ReleaseReadiness = Literal[
     "indeterminate_due_to_evidence",
     "blocked_by_policy",
 ]
+
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+def _as_rows(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+    rows: list[dict[str, object]] = []
+    for item in value:
+        if isinstance(item, Mapping):
+            rows.append(dict(item))
+    return rows
+
+
+def _as_mapping(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, Mapping) else {}
 
 DIMENSIONS: tuple[str, ...] = (
     "constitution_health",
@@ -60,14 +90,15 @@ def _find_latest_run(root: Path, rel_dir: str) -> Path | None:
 
 
 def _dimension_status(rank: int) -> FleetDimensionStatus:
-    return {
+    status_map: dict[int, FleetDimensionStatus] = {
         0: "healthy",
         1: "degraded",
         2: "warning",
         3: "restricted",
         4: "blocking",
         5: "missing_evidence",
-    }.get(rank, "unavailable")
+    }
+    return status_map.get(rank, "unavailable")
 
 
 def _status_rank(status: str) -> int:
@@ -118,17 +149,17 @@ def _corridor_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], 
         return "missing_evidence", {"source": "glow/contracts/protected_corridor_report.json", "profiles": []}, [
             {"kind": "protected_corridor_missing", "severity": "missing_evidence", "message": "protected corridor report missing"}
         ]
-    profiles = report.get("profiles") if isinstance(report.get("profiles"), list) else []
+    profiles = _as_rows(report.get("profiles"))
     block = 0
     provisioning = 0
     non_blocking = 0
     for row in profiles:
         if not isinstance(row, dict):
             continue
-        summary = row.get("summary") if isinstance(row.get("summary"), dict) else {}
-        block += int(summary.get("blocking_failure_count") or 0)
-        provisioning += int(summary.get("provisioning_failure_count") or 0)
-        non_blocking += int(summary.get("non_blocking_failure_count") or 0)
+        summary = _as_mapping(row.get("summary"))
+        block += _as_int(summary.get("blocking_failure_count"), 0)
+        provisioning += _as_int(summary.get("provisioning_failure_count"), 0)
+        non_blocking += _as_int(summary.get("non_blocking_failure_count"), 0)
     degradations: list[dict[str, Any]] = []
     if block > 0:
         degradations.append({"kind": "protected_corridor_blockers", "severity": "blocking", "message": f"blocking_failure_count={block}"})
@@ -157,7 +188,7 @@ def _simulation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any]
             {"kind": "simulation_baseline_missing", "severity": "missing_evidence", "message": "simulation baseline report missing"}
         ]
     status = str(report.get("status") or "")
-    gating_failures = report.get("gating_failures") if isinstance(report.get("gating_failures"), list) else []
+    gating_failures = _as_rows(report.get("gating_failures"))
     degradations: list[dict[str, Any]] = []
     if status == "passed":
         dim: FleetDimensionStatus = "healthy"
@@ -178,7 +209,7 @@ def _formal_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], li
             {"kind": "formal_summary_missing", "severity": "missing_evidence", "message": "formal verification summary missing"}
         ]
     status = str(report.get("status") or "")
-    specs = report.get("specs") if isinstance(report.get("specs"), list) else []
+    specs = _as_rows(report.get("specs"))
     failed_specs = [row.get("spec_id") for row in specs if isinstance(row, dict) and not bool(row.get("passed"))]
     degradations: list[dict[str, Any]] = []
     if status == "passed":
@@ -201,8 +232,8 @@ def _wan_gate_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], 
             {"kind": "wan_gate_report_missing", "severity": "missing_evidence", "message": "WAN release gate report missing"}
         ]
     outcome = str(report.get("aggregate_outcome") or "")
-    contradictions = int(report.get("contradiction_count") or 0)
-    degraded = int(report.get("degraded_scenario_count") or 0)
+    contradictions = _as_int(report.get("contradiction_count"), 0)
+    degraded = _as_int(report.get("degraded_scenario_count"), 0)
     degradations: list[dict[str, Any]] = []
     if outcome == "pass":
         dim: FleetDimensionStatus = "healthy"
@@ -233,10 +264,10 @@ def _federation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any]
             {"kind": "wan_run_missing", "severity": "missing_evidence", "message": "no WAN run found"}
         ]
     summary = read_json(latest / "run_summary.json")
-    truth = summary.get("truth_oracle") if isinstance(summary.get("truth_oracle"), dict) else {}
-    truth_summary = truth.get("summary") if isinstance(truth.get("summary"), dict) else {}
+    truth = _as_mapping(summary.get("truth_oracle"))
+    truth_summary = _as_mapping(truth.get("summary"))
     cluster_truth = str(truth_summary.get("cluster_truth") or "")
-    contradictions = truth_summary.get("contradictions") if isinstance(truth_summary.get("contradictions"), list) else []
+    contradictions = _as_rows(truth_summary.get("contradictions"))
     if cluster_truth == "consistent":
         dim: FleetDimensionStatus = "healthy"
         degradations: list[dict[str, Any]] = []
@@ -259,7 +290,7 @@ def _federation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any]
 
 def _remote_smoke_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], list[dict[str, Any]]]:
     gate = _read_json_if_exists(root, "glow/lab/wan_gate/wan_gate_report.json")
-    scenarios = gate.get("scenario_results") if isinstance(gate.get("scenario_results"), list) else []
+    scenarios = _as_rows(gate.get("scenario_results"))
     remote = [row for row in scenarios if isinstance(row, dict) and bool(row.get("remote_smoke"))]
     if not scenarios:
         return "missing_evidence", {"source": "glow/lab/wan_gate/wan_gate_report.json", "remote_smoke_count": 0}, [
@@ -292,8 +323,8 @@ def _preflight_drift_health(root: Path) -> tuple[FleetDimensionStatus, dict[str,
         return "missing_evidence", {"source": "glow/lab/remote_preflight/remote_preflight_trend_report.json"}, [
             {"kind": "remote_preflight_missing", "severity": "missing_evidence", "message": "remote preflight trend report missing"}
         ]
-    worsening = int(trend.get("worsening_total") or 0)
-    improved = int(trend.get("improved_total") or 0)
+    worsening = _as_int(trend.get("worsening_total"), 0)
+    improved = _as_int(trend.get("improved_total"), 0)
     pass_rate = trend.get("pass_rate")
     degradations: list[dict[str, Any]] = []
     if worsening > 0:
@@ -324,9 +355,9 @@ def _evidence_density_health(root: Path) -> tuple[FleetDimensionStatus, dict[str
         return "missing_evidence", {"source": "glow/lab/wan_gate/evidence_density_report.json"}, [
             {"kind": "evidence_density_missing", "severity": "missing_evidence", "message": "evidence density report missing"}
         ]
-    sparse = int(density.get("evidence_sparse_scenario_count") or 0)
-    partial = int(density.get("partially_evidenced_scenario_count") or 0)
-    full = int(density.get("fully_evidenced_scenario_count") or 0)
+    sparse = _as_int(density.get("evidence_sparse_scenario_count"), 0)
+    partial = _as_int(density.get("partially_evidenced_scenario_count"), 0)
+    full = _as_int(density.get("fully_evidenced_scenario_count"), 0)
     degradations: list[dict[str, Any]] = []
     if sparse > 0:
         dim: FleetDimensionStatus = "missing_evidence"
@@ -378,7 +409,7 @@ def _strict_audit_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, An
 
 def _contract_drift_health(root: Path) -> dict[str, Any]:
     status = _read_json_if_exists(root, "glow/contracts/contract_status.json")
-    rows = status.get("contracts") if isinstance(status.get("contracts"), list) else []
+    rows = _as_rows(status.get("contracts"))
     drifted = []
     missing = []
     for row in rows:

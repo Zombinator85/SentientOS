@@ -1,82 +1,77 @@
 # High-Density Typing Offensive Progress (2026-03-19)
 
-## Repo-wide failure-density audit
+## Repo-wide failure-density audit (Offensive II baseline)
 
 Baseline command:
 
-- `mypy sentientos scripts api --show-column-numbers --no-color-output`
+- `mypy scripts/ sentientos/`
 
-Before this pass, parser rollup identified **2511** errors.
+Before this pass, repo-wide output reported **2516** errors.
 
-Top clusters before:
+Top mature/high-value clusters before this pass (from file-density rollup):
 
-- `sentientos/tests`: 390
-- `scripts`: 153
-- `sentientos/lab`: 119
 - `architect_daemon.py`: 100
-- `sentientos/governance`: 77
 - `task_executor.py`: 71
+- `sentientos/lab/wan_federation.py`: 65
+- `sentientos/shell/__init__.py`: 65
+- `scripts/tooling_status.py`: 27
+- `sentientos/observatory/fleet_health.py`: 18
+- `sentientos/diagnostics/drift_detector.py`: 17
+- `sentientos/trust_ledger.py`: 16
 
-Top error families before:
+Targeted error families in selected clusters were dominated by:
 
-- `arg-type`: 509
-- `attr-defined`: 399
-- `type-arg`: 287
-- `no-untyped-def`: 282
-- `call-overload`: 231
-- `union-attr`: 163
+- `call-overload` on `int(...)`/`float(...)` from `object`
+- `union-attr` from nullable/list-or-dict JSON payloads
+- `attr-defined` on un-narrowed `object` payload access
 
-## High-density offensive executed
+## High-density typing offensive II executed
 
-This pass targeted mature, high-value surfaces aligned with operations, simulation/lab, and observatory reporting:
+This pass targeted the next dense mature clusters across trust/federation, dashboard/reporting, and runtime diagnostics:
 
-- `sentientos/ops/__main__.py`
-- `sentientos/simulation/federation.py`
-- `sentientos/lab/federation_lab.py`
-- `sentientos/lab/truth_oracle.py`
-- `sentientos/observatory/artifact_index.py`
+- `sentientos/trust_ledger.py`
+- `sentientos/observatory/fleet_health.py`
+- `sentientos/diagnostics/drift_detector.py`
+- `sentientos/diagnostics/drift_alerts.py`
 
 ### Change themes
 
-- Added safe typed adapters (`_as_dict`, `_as_list`, `_as_int`, `_as_float`) to constrain `object` propagation at module boundaries.
-- Replaced ad-hoc chained `.get()` access with explicit narrowing helpers.
-- Tightened runtime mode typing in ops CLI (`Literal["auto", "worker", "daemon"]`) while preserving existing behavior.
-- Fixed payload mutation patterns that were forcing unstable inferred unions in simulation/lab reports.
-- Hardened observatory artifact-link extraction against ambiguous JSON shapes.
+- Added local typed normalization helpers (`_as_int`, `_as_rows`, `_as_mapping`, `_probe_history_from`) to stop `object` propagation at source boundaries.
+- Replaced direct `int/float` coercion on untyped payload objects with explicit narrowing adapters.
+- Normalized optional silhouette/report payloads before aggregation to avoid nullable-union spread through runtime paths.
+- Kept behavior stable (same artifact contract/writes and trust-state derivation semantics), while making payload handling explicit for mypy.
 
 ## Results
 
-After this pass, the same repo-wide command reports **2418** errors (**-93 net**).
+After this pass, the same repo-wide command reports **2463** errors (**-53 net**).
 
 ### File-level deltas in targeted modules
 
-- `sentientos/ops/__main__.py`: 24 -> 0
-- `sentientos/simulation/federation.py`: 23 -> 0
-- `sentientos/lab/federation_lab.py`: 22 -> 0
-- `sentientos/lab/truth_oracle.py`: 21 -> 0
-- `sentientos/observatory/artifact_index.py`: 2 -> 0
+- `sentientos/trust_ledger.py`: 16 -> 0
+- `sentientos/observatory/fleet_health.py`: 18 -> 0
+- `sentientos/diagnostics/drift_detector.py`: 17 -> 0
+- `sentientos/diagnostics/drift_alerts.py`: 2 -> 0
 
-### Cluster-level movement
+### Cluster-level payoff in this pass
 
-- `sentientos/lab`: 119 -> 95
-- `arg-type`: 509 -> 495
-- `attr-defined`: 399 -> 380
-- `call-overload`: 231 -> 222
-- `union-attr`: 163 -> 145
+- Trust/federation-adjacent cluster (`trust_ledger`) now clean.
+- Observatory dashboard/status cluster (`fleet_health`) now clean.
+- Runtime diagnostics drift surfaces now clean.
+- Biggest drops in targeted families: `call-overload`, `union-attr`, and `attr-defined` across selected modules.
 
 ## Ratchet/protected-surface posture
 
 - No ratchet baselines were loosened.
-- No protected corridor semantics were altered.
-- This pass improves type signal quality on operational/reporting surfaces, making these modules stronger candidates for tighter per-surface ratchet treatment in follow-up passes.
+- No protected corridor/trust epoch/quorum/digest/contradiction-policy behavior was altered.
+- This pass improves typing signal quality on mature trust and observability surfaces and raises confidence for future ratchet expansion around these now-clean modules.
 
 ## Remaining heavy clusters (next candidates)
 
-1. `sentientos/tests`
-2. `scripts`
-3. `architect_daemon.py`
-4. `task_executor.py`
-5. `sentientos/shell`
-6. `sentientos/governance`
+1. `architect_daemon.py`
+2. `task_executor.py`
+3. `sentientos/shell/__init__.py`
+4. `sentientos/lab/wan_federation.py`
+5. `scripts/tooling_status.py`
+6. `memory_manager.py` / `sentientos/narrative_synthesis.py`
 
-Recommended next offensive: another high-density pass focused on `architect_daemon.py`, `task_executor.py`, and `sentientos/shell` cross-module `object` propagation.
+Recommended next offensive: runtime-heavy `architect_daemon.py` + `task_executor.py`, then a dedicated dashboard/reporting pass for `scripts/tooling_status.py`.

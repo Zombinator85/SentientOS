@@ -1,30 +1,28 @@
 # Typing Offensive and Ratchet Progress
 
-This pass focuses on high-value mature surfaces linked to federation, pulse reliability, and observability/reporting.
+This pass focuses on high-value mature surfaces linked to trust/federation runtime behavior, observatory dashboard/status aggregation, and drift diagnostics.
 
-## Latest pass (2026-03-19)
+## Latest pass (2026-03-19, Offensive II)
 
 - Comprehensive high-density offensive summary is recorded in `docs/TYPING_OFFENSIVE_PROGRESS.md`.
-- Repo-wide `mypy sentientos scripts api` moved from **2511** to **2418** errors in this pass.
-- Mature ops/simulation/lab/observatory modules targeted in this pass are now clean:
-  - `sentientos/ops/__main__.py`
-  - `sentientos/simulation/federation.py`
-  - `sentientos/lab/federation_lab.py`
-  - `sentientos/lab/truth_oracle.py`
-  - `sentientos/observatory/artifact_index.py`
+- Repo-wide `mypy scripts/ sentientos/` moved from **2516** to **2463** errors in this pass (**-53**).
+- Modules reduced to zero in this pass:
+  - `sentientos/trust_ledger.py`
+  - `sentientos/observatory/fleet_health.py`
+  - `sentientos/diagnostics/drift_detector.py`
+  - `sentientos/diagnostics/drift_alerts.py`
 
 ## Scope of this offensive
 
-- Pulse bus and federation reliability paths (`sentientos/daemons/*`).
-- Federation CLI and reconciliation surfaces (`sentientos/federation/*`).
-- Observatory/dashboard status typing cleanup (`sentientos/dashboard/status_source.py`).
-- Failure-digest classification reliability (`scripts/analyze_test_failures.py`).
+- Trust/federation-adjacent ledger normalization and probe-state typing.
+- Observatory fleet-health dashboard/detail aggregation typing.
+- Runtime drift detector and drift alert payload narrowing.
 
 ## Ratchet posture
 
-- **No debt hiding**: remaining global `mypy scripts/ sentientos/` debt is still visible.
-- **Higher signal quality**: key baseline lanes now fail in more deterministic classes.
-- **Incremental offensive model**: reduce high-value error clusters first, then continue ratcheting across legacy modules.
+- **No debt hiding**: remaining global `mypy scripts/ sentientos/` debt remains visible.
+- **No standards loosening**: no ratchet baseline expansion was used to mask errors.
+- **Improved protected-surface readiness**: selected trust/observability modules are now clean and better candidates for future stricter ratchet coverage.
 
 ## Deferred debt policy
 
@@ -36,6 +34,6 @@ Deferred typing/runtime debt is acceptable only when:
 
 ## Next pass recommendation
 
-- Continue focused typing cleanup in observatory/governance reporting modules.
-- Expand deterministic failure classification beyond current broad classes.
-- Ratchet mypy by reducing high-density modules instead of scattered low-impact files.
+- Runtime-heavy: `architect_daemon.py`, `task_executor.py`.
+- Dashboard/reporting: `scripts/tooling_status.py`.
+- Federation/lab adjacency: `sentientos/lab/wan_federation.py`, then `sentientos/shell/__init__.py`.
