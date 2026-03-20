@@ -60,6 +60,19 @@ class AuditIssue(TypedDict):
     details: str
 
 
+class StrictOutputPayload(TypedDict):
+    baseline_status: str
+    runtime_status: str
+    baseline_path: str
+    runtime_path: str
+    baseline_errors: List[str]
+    runtime_errors: List[str]
+    runtime_error_kind: str
+    runtime_error_examples: List[str]
+    suggested_fix: str
+    environment_issues: List[str]
+
+
 if os.getenv("LUMOS_AUTO_APPROVE") != "1" and (os.getenv("CI") or os.getenv("GIT_HOOKS")):
     os.environ["LUMOS_AUTO_APPROVE"] = "1"
 
@@ -328,7 +341,7 @@ def _runtime_error_details(path: Path, errors: list[str]) -> tuple[str, list[str
     return kind, examples
 
 
-def _strict_privileged_status(config: AuditSinkConfig) -> dict[str, object]:
+def _strict_privileged_status(config: AuditSinkConfig) -> StrictOutputPayload:
     environment_issues: list[str] = []
     if shutil.which("git") is None:
         environment_issues.append("git_not_found_in_path")
@@ -443,18 +456,18 @@ def main(argv: list[str] | None = None) -> int:
                 print("✅ No mismatches.")
             print(json.dumps({"audit_chain_status": audit_chain.status, "audit_chain_report": str(audit_chain_report.relative_to(REPO_ROOT))}, sort_keys=True))
 
-        strict_output = _strict_privileged_status(sink_config)
+        strict_probe = _strict_privileged_status(sink_config)
         strict_inputs = StrictAuditInputs(
-            baseline_path=str(strict_output["baseline_path"]),
-            runtime_path=str(strict_output["runtime_path"]),
-            baseline_status=str(strict_output["baseline_status"]),
-            runtime_status=str(strict_output["runtime_status"]),
-            baseline_errors=cast(List[str], strict_output["baseline_errors"]),
-            runtime_errors=cast(List[str], strict_output["runtime_errors"]),
-            runtime_error_kind=str(strict_output["runtime_error_kind"]),
-            runtime_error_examples=cast(List[str], strict_output["runtime_error_examples"]),
-            suggested_fix=str(strict_output["suggested_fix"]),
-            environment_issues=cast(List[str], strict_output.get("environment_issues", [])),
+            baseline_path=str(strict_probe["baseline_path"]),
+            runtime_path=str(strict_probe["runtime_path"]),
+            baseline_status=str(strict_probe["baseline_status"]),
+            runtime_status=str(strict_probe["runtime_status"]),
+            baseline_errors=strict_probe["baseline_errors"],
+            runtime_errors=strict_probe["runtime_errors"],
+            runtime_error_kind=str(strict_probe["runtime_error_kind"]),
+            runtime_error_examples=strict_probe["runtime_error_examples"],
+            suggested_fix=str(strict_probe["suggested_fix"]),
+            environment_issues=strict_probe.get("environment_issues", []),
         )
         strict_bucket, _strict_reasons, strict_readiness_class = classify_strict_audit_state(inputs=strict_inputs, audit_chain=audit_chain)
         strict_artifacts = {
@@ -468,12 +481,11 @@ def main(argv: list[str] | None = None) -> int:
                 "final_strict_audit_digest": "glow/contracts/final_strict_audit_digest.json",
             },
         }
-        if not args.strict:
-            strict_output = None
+        strict_output: Optional[StrictOutputPayload] = strict_probe if args.strict else None
 
         if strict_output is not None:
-            baseline_errors = cast(List[str], strict_output["baseline_errors"])
-            runtime_errors = cast(List[str], strict_output["runtime_errors"])
+            baseline_errors = strict_output["baseline_errors"]
+            runtime_errors = strict_output["runtime_errors"]
             strict_summary = {
                 "baseline_status": strict_output["baseline_status"],
                 "runtime_status": strict_output["runtime_status"],

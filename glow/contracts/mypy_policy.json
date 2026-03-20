@@ -7,10 +7,7 @@
   "canonical_exclude_globs": [
     "tests/*",
     "*/tests/*",
-    "escrow/*",
-    "godot_avatar_demo/*",
-    "glow/*",
-    "pulse/*"
+    "glow/*"
   ],
   "protected_patterns": [
     "scripts/audit_*.py",
@@ -22,19 +19,42 @@
     "sentientos/ops/*.py",
     "sentientos/audit/*.py",
     "sentientos/verify/*.py",
-    "sentientos/verify/adapters/*.py"
+    "sentientos/verify/adapters/*.py",
+    "sentientos/diagnostics/*.py",
+    "sentientos/observatory/*.py",
+    "sentientos/trust_ledger.py",
+    "sentientos/pulse_trust_epoch.py"
   ],
   "strict_patterns": [
     "sentientos/cathedral_forge.py",
     "sentientos/forge*.py",
     "sentientos/forge_cli/*.py",
     "sentientos/forge_goals/*.py",
-    "scripts/mypy_ratchet.py"
+    "scripts/mypy_ratchet.py",
+    "scripts/verify_audits.py",
+    "sentientos/runtime_governor.py",
+    "sentientos/pulse_trust_epoch.py",
+    "sentientos/federation/consensus_sentinel.py",
+    "sentientos/trust_ledger.py",
+    "sentientos/observatory/fleet_health.py",
+    "sentientos/diagnostics/drift_detector.py",
+    "sentientos/diagnostics/drift_alerts.py"
   ],
   "deferred_debt_classes": [
     "Legacy untyped function boundaries in broad runtime surfaces",
     "Generic-parameter omissions in legacy collections",
     "attr-defined cascades from dynamic payload dictionaries",
     "arg-type mismatches in long-tail root scripts"
+  ],
+  "strict_enforced_patterns": [
+    "scripts/mypy_ratchet.py",
+    "scripts/verify_audits.py",
+    "sentientos/runtime_governor.py",
+    "sentientos/pulse_trust_epoch.py",
+    "sentientos/federation/consensus_sentinel.py",
+    "sentientos/trust_ledger.py",
+    "sentientos/observatory/fleet_health.py",
+    "sentientos/diagnostics/drift_detector.py",
+    "sentientos/diagnostics/drift_alerts.py"
   ]
 }

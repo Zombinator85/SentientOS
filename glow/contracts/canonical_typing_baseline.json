@@ -208,10 +208,7 @@
   "excluded_globs": [
     "tests/*",
     "*/tests/*",
-    "escrow/*",
-    "godot_avatar_demo/*",
-    "glow/*",
-    "pulse/*"
+    "glow/*"
   ],
   "module_count": 0,
   "schema_version": 1

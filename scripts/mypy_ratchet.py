@@ -111,6 +111,27 @@ def _stable_signature_from_row(row: dict[str, object]) -> str:
     return f"{row.get('path', '')}:{row.get('code', '')}:{row.get('message', '')}"
 
 
+def _as_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if isinstance(item, str)]
+
+
+def _as_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    return default
+
+
 def _protected_scope_summary(
     *,
     baseline_rows: list[dict[str, object]],
@@ -143,10 +164,11 @@ def _baseline_rows(payload: dict[str, object]) -> list[dict[str, object]]:
 
 
 def _summary_report(*, baseline_payload: dict[str, object], policy: dict[str, object]) -> dict[str, object]:
-    modules = baseline_payload.get("errors_by_module", {})
+    modules_obj = baseline_payload.get("errors_by_module", {})
+    modules = modules_obj if isinstance(modules_obj, dict) else {}
     rows = _baseline_rows(baseline_payload)
-    protected_patterns = [str(item) for item in policy.get("protected_patterns", []) if isinstance(item, str)]
-    strict_patterns = [str(item) for item in policy.get("strict_patterns", []) if isinstance(item, str)]
+    protected_patterns = _as_string_list(policy.get("protected_patterns", []))
+    strict_patterns = _as_string_list(policy.get("strict_patterns", []))
     protected_modules = sorted(
         module
         for module in modules.keys()
@@ -157,8 +179,8 @@ def _summary_report(*, baseline_payload: dict[str, object], policy: dict[str, ob
     )
     return {
         "schema_version": 1,
-        "baseline_error_count": int(baseline_payload.get("error_count", 0)),
-        "baseline_module_count": len(modules) if isinstance(modules, dict) else 0,
+        "baseline_error_count": _as_int(baseline_payload.get("error_count", 0)),
+        "baseline_module_count": len(modules),
         "protected_patterns": protected_patterns,
         "protected_module_count": len(protected_modules),
         "protected_modules_sample": protected_modules[:25],
@@ -247,7 +269,7 @@ def _path_cluster(path: str) -> str:
     return path.split("/", 1)[0]
 
 
-def _cluster_summary(errors: list[MypyError]) -> dict[str, object]:
+def _cluster_summary(errors: list[MypyError], *, policy: dict[str, object]) -> dict[str, object]:
     by_cluster: dict[str, dict[str, int]] = {}
     for error in errors:
         cluster = _path_cluster(error.path)
@@ -262,6 +284,7 @@ def _cluster_summary(errors: list[MypyError]) -> dict[str, object]:
     ordered = sorted(by_cluster.items(), key=lambda item: (-item[1]["error_count"], item[0]))
     return {
         "schema_version": 1,
+        "excluded_glob_count": len(_canonical_excludes(policy)),
         "cluster_count": len(ordered),
         "clusters": [
             {"cluster": cluster, "error_count": counts["error_count"], "module_count": counts["module_count"]}
@@ -301,7 +324,7 @@ def _emit_typing_artifacts(
     checked_targets: list[str],
 ) -> None:
     baseline_rows = _baseline_rows(baseline_payload)
-    protected_patterns = [str(item) for item in policy.get("protected_patterns", []) if isinstance(item, str)]
+    protected_patterns = _as_string_list(policy.get("protected_patterns", []))
     baseline_signatures = {_stable_signature_from_row(row) for row in baseline_rows}
     current_signatures = {row.stable_signature() for row in current_errors}
     deferred_signatures = sorted(baseline_signatures & current_signatures)
@@ -314,7 +337,7 @@ def _emit_typing_artifacts(
     protected_scope = result.get("protected_scope", {})
     protected_new = 0
     if isinstance(protected_scope, dict):
-        protected_new = int(protected_scope.get("new_error_count", 0))
+        protected_new = _as_int(protected_scope.get("new_error_count", 0))
 
     canonical = {
         "schema_version": 1,
@@ -326,7 +349,9 @@ def _emit_typing_artifacts(
         "module_count": len({error.path for error in current_errors}),
         "error_count_by_code": _code_family_summary(current_errors),
     }
-    cluster_summary = _cluster_summary(current_errors)
+    cluster_summary = _cluster_summary(current_errors, policy=policy)
+    strict_targets_obj = result.get("policy_strict_targets", [])
+    strict_target_count = len(strict_targets_obj) if isinstance(strict_targets_obj, list) else 0
     ratchet_status = {
         "schema_version": 1,
         "status": str(result.get("status", "unknown")),
@@ -334,14 +359,19 @@ def _emit_typing_artifacts(
         "protected_new_error_count": protected_new,
         "deferred_debt_error_count": len(deferred_signatures),
         "promotable_protected_modules": promotable[:100],
+        "policy_strict_status": str(result.get("policy_strict_status", "not_run")),
+        "policy_strict_target_count": strict_target_count,
+        "excluded_glob_count": len(_canonical_excludes(policy)),
     }
     digest = {
         "schema_version": 1,
         "canonical_error_count": canonical["error_count"],
-        "baseline_error_count": int(baseline_payload.get("error_count", 0)),
-        "delta_vs_baseline": int(canonical["error_count"]) - int(baseline_payload.get("error_count", 0)),
+        "baseline_error_count": _as_int(baseline_payload.get("error_count", 0)),
+        "delta_vs_baseline": _as_int(canonical["error_count"]) - _as_int(baseline_payload.get("error_count", 0)),
         "cluster_count": cluster_summary["cluster_count"],
         "ratchet_status": ratchet_status["status"],
+        "policy_strict_status": ratchet_status["policy_strict_status"],
+        "excluded_glob_count": ratchet_status["excluded_glob_count"],
     }
     _write_json(CANONICAL_BASELINE_PATH, canonical)
     _write_json(CLUSTER_SUMMARY_PATH, cluster_summary)
@@ -444,7 +474,7 @@ def main(argv: list[str] | None = None) -> int:
         if strict_code != 0:
             result["strict_subset_excerpt"] = strict_out.splitlines()[:10]
 
-    protected_patterns = [str(item) for item in policy.get("protected_patterns", []) if isinstance(item, str)]
+    protected_patterns = _as_string_list(policy.get("protected_patterns", []))
     if protected_patterns:
         protected = _protected_scope_summary(
             baseline_rows=baseline_rows,
@@ -453,11 +483,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         result["protected_scope"] = protected
 
-    strict_patterns = [str(item) for item in policy.get("strict_patterns", []) if isinstance(item, str)]
+    strict_patterns = _as_string_list(policy.get("strict_patterns", []))
     strict_targets = sorted({error.path for error in errors if _matches_any(error.path, strict_patterns)})
-    if strict_targets:
-        strict_code, strict_out = _run_mypy(["--strict", "--follow-imports=skip", *strict_targets])
-        result["policy_strict_targets"] = strict_targets
+    enforced_patterns = _as_string_list(policy.get("strict_enforced_patterns", []))
+    enforced_targets = sorted({path for path in targets if _matches_any(path, enforced_patterns)})
+    all_strict_targets = sorted(set(strict_targets + enforced_targets))
+    if all_strict_targets:
+        strict_code, strict_out = _run_mypy(["--strict", "--follow-imports=skip", *all_strict_targets])
+        result["policy_strict_targets"] = all_strict_targets
         result["policy_strict_status"] = "ok" if strict_code == 0 else "failed"
         if strict_code != 0:
             result["policy_strict_excerpt"] = strict_out.splitlines()[:10]
@@ -472,7 +505,8 @@ def main(argv: list[str] | None = None) -> int:
         checked_targets=targets,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
-    protected_regression = int(result.get("protected_scope", {}).get("new_error_count", 0)) if isinstance(result.get("protected_scope"), dict) else 0
+    protected_scope = result.get("protected_scope", {})
+    protected_regression = _as_int(protected_scope.get("new_error_count", 0)) if isinstance(protected_scope, dict) else 0
     strict_failed = result.get("policy_strict_status") == "failed"
     return 1 if new_signatures or protected_regression or strict_failed else 0
 
