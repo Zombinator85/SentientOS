@@ -3,7 +3,18 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scripts.mypy_ratchet import MypyError, _summary_report, build_baseline, main
+from scripts.mypy_ratchet import (
+    CLUSTER_SUMMARY_PATH,
+    DIGEST_PATH,
+    RATCHET_STATUS_PATH,
+    CANONICAL_BASELINE_PATH,
+    MypyError,
+    _canonical_repo_targets,
+    _emit_typing_artifacts,
+    _summary_report,
+    build_baseline,
+    main,
+)
 
 
 def test_baseline_compare_unchanged_passes() -> None:
@@ -83,3 +94,42 @@ def test_report_mode_emits_summary(tmp_path: Path, capsys) -> None:
     assert rc == 0
     assert payload["status"] == "ok"
     assert payload["report"]["protected_module_count"] == 1
+
+
+def test_canonical_repo_targets_filters_excludes(tmp_path: Path) -> None:
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "escrow").mkdir()
+    (tmp_path / "scripts" / "ok.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "escrow" / "skip.py").write_text("x = 1\n", encoding="utf-8")
+    (tmp_path / "README.md").write_text("demo\n", encoding="utf-8")
+    import subprocess
+
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True, text=True)
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True, capture_output=True, text=True)
+    policy = {"canonical_roots": ["."], "canonical_exclude_globs": ["escrow/*"]}
+    targets = _canonical_repo_targets(tmp_path, policy)
+    assert targets == ["scripts/ok.py"]
+
+
+def test_emit_typing_artifacts_writes_expected_payloads(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    baseline = build_baseline([MypyError(path="sentientos/runtime/a.py", line=1, column=1, message="old", code="arg-type")])
+    current = [
+        MypyError(path="sentientos/runtime/a.py", line=1, column=1, message="old", code="arg-type"),
+        MypyError(path="scripts/x.py", line=1, column=1, message="new", code="type-arg"),
+    ]
+    _emit_typing_artifacts(
+        baseline_payload=baseline,
+        current_errors=current,
+        result={"status": "new_errors", "protected_scope": {"new_error_count": 0}},
+        policy={"protected_patterns": ["sentientos/runtime/*.py"], "canonical_exclude_globs": []},
+        checked_targets=["scripts/x.py", "sentientos/runtime/a.py"],
+    )
+    canonical = json.loads((tmp_path / CANONICAL_BASELINE_PATH).read_text(encoding="utf-8"))
+    clusters = json.loads((tmp_path / CLUSTER_SUMMARY_PATH).read_text(encoding="utf-8"))
+    ratchet = json.loads((tmp_path / RATCHET_STATUS_PATH).read_text(encoding="utf-8"))
+    digest = json.loads((tmp_path / DIGEST_PATH).read_text(encoding="utf-8"))
+    assert canonical["error_count"] == 2
+    assert clusters["cluster_count"] >= 1
+    assert ratchet["ratcheted_new_error_count"] == 1
+    assert digest["delta_vs_baseline"] == 1

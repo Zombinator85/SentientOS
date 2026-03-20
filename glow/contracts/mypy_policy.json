@@ -1,6 +1,17 @@
 {
   "schema_version": 1,
   "description": "Incremental mypy ratchet policy for SentientOS. Baseline debt is preserved; protected surfaces are prevented from regressing.",
+  "canonical_roots": [
+    "."
+  ],
+  "canonical_exclude_globs": [
+    "tests/*",
+    "*/tests/*",
+    "escrow/*",
+    "godot_avatar_demo/*",
+    "glow/*",
+    "pulse/*"
+  ],
   "protected_patterns": [
     "scripts/audit_*.py",
     "scripts/verify_audits.py",

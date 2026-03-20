@@ -1,0 +1,8 @@
+{
+  "baseline_error_count": 0,
+  "canonical_error_count": 0,
+  "cluster_count": 0,
+  "delta_vs_baseline": 0,
+  "ratchet_status": "ok",
+  "schema_version": 1
+}
