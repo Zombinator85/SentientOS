@@ -51,6 +51,12 @@ Resolution order (deterministic):
 - advisory: `digest_mismatch_advisory`
 - enforce: `digest_mismatch` blocks high-impact federated action classes
 
+Digest/quorum/epoch evaluations now also include explicit calibration metadata:
+
+- `calibration_posture`: resolved posture for the deciding subsystem
+- `calibration_action`: `observe`, `warn`, or `deny`
+- `calibration_reason`: deterministic classifier reason used in rollups/ledger evidence
+
 ### Repair verification
 - shadow: emit verification artifacts (`verification_observed` when unverified)
 - advisory: warning reason (`verification_warning`)
@@ -78,6 +84,10 @@ These produce/reflect `glow/contracts/federated_enforcement_policy.json` and the
   - posture per calibrated subsystem
   - grouped shadow/advisory/enforce subsystem lists
 
+Federated governance artifacts (`quorum_status.json`, `quorum_decisions.jsonl`,
+`peer_governance_digests.json`) include whether an outcome came from calibration
+(`observe`/`warn`/`deny`) versus intrinsic runtime failure.
+
 ## Rollout recommendation
 
 Recommended immediate default: `ci-advisory` in CI + `local-dev-relaxed` for local development.
@@ -86,4 +96,3 @@ Safe progression:
 1. run shadow/advisory and collect contract status + drift output
 2. eliminate recurring advisory mismatches (digest/quorum/epoch/repair)
 3. move to `federation-enforce` for protected branches and production federation links
-

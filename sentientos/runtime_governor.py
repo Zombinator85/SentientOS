@@ -298,16 +298,42 @@ class RuntimeGovernor:
         quorum_satisfied = bool(governance.get("quorum_satisfied", False))
 
         if action_class == "federated_control":
-            if epoch_status == "unexpected" or denial_cause == "trust_epoch":
-                reason, blocks = "federated_unexpected_epoch_blocked", True
+            policy = resolve_policy()
+            governance_posture = str(governance.get("calibration_posture") or policy.governance_digest)
+            governance_action = str(governance.get("calibration_action") or "observe")
+            governance_reason = str(governance.get("calibration_reason") or "federated_governance_nominal")
+            if epoch_status == "unexpected" and denial_cause in {"trust_epoch", "trust_epoch_advisory", "trust_epoch_observed"}:
+                if governance_action == "deny":
+                    reason, blocks = "federated_unexpected_epoch_blocked", True
+                elif governance_action == "warn":
+                    reason = "federated_unexpected_epoch_warning"
+                else:
+                    reason = "federated_unexpected_epoch_observed"
             elif compatibility_category == "locally_restricted":
                 reason, blocks = "federated_locally_restricted", True
-            elif digest_status in {"missing", "incompatible"} or denial_cause == "digest_mismatch":
-                reason, blocks = "federated_digest_mismatch_blocked", True
+            elif digest_status in {"missing", "incompatible"} or denial_cause in {
+                "digest_mismatch",
+                "digest_mismatch_advisory",
+                "digest_mismatch_observed",
+            }:
+                if governance_action == "deny":
+                    reason, blocks = "federated_digest_mismatch_blocked", True
+                elif governance_action == "warn":
+                    reason = "federated_digest_mismatch_warning"
+                else:
+                    reason = "federated_digest_mismatch_observed"
             elif denial_cause == "peer_trust_restricted":
                 reason, blocks = "federated_peer_trust_restricted", True
-            elif not quorum_satisfied or denial_cause == "quorum_failure":
-                reason, blocks = "federated_quorum_not_satisfied", True
+            elif not quorum_satisfied or denial_cause in {"quorum_failure", "quorum_warning", "quorum_observed"}:
+                if governance_action == "deny":
+                    reason, blocks = "federated_quorum_not_satisfied", True
+                elif governance_action == "warn":
+                    reason = "federated_quorum_warning"
+                else:
+                    reason = "federated_quorum_observed"
+            governance["calibration_posture"] = governance_posture
+            governance["calibration_action"] = governance_action
+            governance["calibration_reason"] = governance_reason
 
         evaluation = PostureRuleEvaluation(
             dimension="federated_governance",
@@ -359,13 +385,29 @@ class RuntimeGovernor:
         trust_class = str((metadata or {}).get("trust_epoch_classification") or "")
         reason = "pulse_epoch_nominal"
         blocks = False
+        pulse_mode = resolve_policy().pulse_trust_epoch
         if trust_class in {"revoked_epoch", "invalid_signature"}:
-            reason, blocks = "pulse_epoch_untrusted_federation_blocked", True
-        elif trust_class and trust_class not in {"current_trusted_epoch", "historical_closed_epoch"}:
-            reason, blocks = "pulse_epoch_mismatch_escalation_required", True
+            if pulse_mode == "enforce":
+                reason, blocks = "pulse_epoch_untrusted_federation_blocked", True
+            elif pulse_mode == "advisory":
+                reason = "pulse_epoch_untrusted_federation_warning"
+            else:
+                reason = "pulse_epoch_untrusted_federation_observed"
+        elif trust_class and trust_class not in {"current_trusted_epoch", "historical_closed_epoch", "retired_epoch_replay_allowed"}:
+            if pulse_mode == "enforce":
+                reason, blocks = "pulse_epoch_mismatch_escalation_required", True
+            elif pulse_mode == "advisory":
+                reason = "pulse_epoch_mismatch_warning"
+            else:
+                reason = "pulse_epoch_mismatch_observed"
         elif compromise_mode:
             if action_class in {"federated_control", "amendment_apply", "control_plane_task"}:
-                reason, blocks = "pulse_epoch_compromise_restricted", True
+                if pulse_mode == "enforce":
+                    reason, blocks = "pulse_epoch_compromise_restricted", True
+                elif pulse_mode == "advisory":
+                    reason = "pulse_epoch_compromise_warning"
+                else:
+                    reason = "pulse_epoch_compromise_observed"
             else:
                 reason = "pulse_epoch_compromise_tightened"
         evaluation = PostureRuleEvaluation(
