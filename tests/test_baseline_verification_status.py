@@ -23,7 +23,9 @@ def test_build_status_reads_new_corridor_global_summary(tmp_path: Path) -> None:
 
     status = build_status(
         failure_digest_path=tmp_path / "glow/test_runs/test_failure_digest.json",
+        run_provenance_path=tmp_path / "glow/test_runs/test_run_provenance.json",
         mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=tmp_path / "glow/contracts/typing_ratchet_status.json",
         corridor_report_path=corridor_path,
     )
 
@@ -55,10 +57,120 @@ def test_build_status_derived_profile_fallback_when_global_missing(tmp_path: Pat
 
     status = build_status(
         failure_digest_path=tmp_path / "glow/test_runs/test_failure_digest.json",
+        run_provenance_path=tmp_path / "glow/test_runs/test_run_provenance.json",
         mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=tmp_path / "glow/contracts/typing_ratchet_status.json",
         corridor_report_path=corridor_path,
     )
 
     assert status["lanes"]["protected_corridor"]["status"] == "red"
     assert status["lanes"]["protected_corridor"]["failure_count"] == 1
     assert status["protected_corridor_green"] is False
+
+
+def test_build_status_classifies_run_tests_lane_not_run_when_artifacts_absent(tmp_path: Path) -> None:
+    corridor_path = tmp_path / "glow/contracts/protected_corridor_report.json"
+    corridor_path.parent.mkdir(parents=True, exist_ok=True)
+    corridor_path.write_text(
+        json.dumps({"schema_version": 1, "global_summary": {"status": "green", "corridor_blocking": False}}),
+        encoding="utf-8",
+    )
+
+    status = build_status(
+        failure_digest_path=tmp_path / "glow/test_runs/test_failure_digest.json",
+        run_provenance_path=tmp_path / "glow/test_runs/test_run_provenance.json",
+        mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=tmp_path / "glow/contracts/typing_ratchet_status.json",
+        corridor_report_path=corridor_path,
+    )
+
+    assert status["lanes"]["run_tests"]["status"] == "missing"
+    assert status["lanes"]["run_tests"]["lane_state"] == "lane_not_run"
+
+
+def test_build_status_classifies_run_tests_unavailable_environment(tmp_path: Path) -> None:
+    corridor_path = tmp_path / "glow/contracts/protected_corridor_report.json"
+    corridor_path.parent.mkdir(parents=True, exist_ok=True)
+    corridor_path.write_text(
+        json.dumps({"schema_version": 1, "global_summary": {"status": "green", "corridor_blocking": False}}),
+        encoding="utf-8",
+    )
+    provenance = tmp_path / "glow/test_runs/test_run_provenance.json"
+    provenance.parent.mkdir(parents=True, exist_ok=True)
+    provenance.write_text(
+        json.dumps({"exit_reason": "airlock-failed", "metrics_status": "unavailable", "execution_mode": "execute"}),
+        encoding="utf-8",
+    )
+
+    status = build_status(
+        failure_digest_path=tmp_path / "glow/test_runs/test_failure_digest.json",
+        run_provenance_path=provenance,
+        mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=tmp_path / "glow/contracts/typing_ratchet_status.json",
+        corridor_report_path=corridor_path,
+    )
+
+    assert status["lanes"]["run_tests"]["status"] == "amber"
+    assert status["lanes"]["run_tests"]["lane_state"] == "lane_unavailable_in_environment"
+
+
+def test_build_status_classifies_run_tests_deferred_debt(tmp_path: Path) -> None:
+    corridor_path = tmp_path / "glow/contracts/protected_corridor_report.json"
+    corridor_path.parent.mkdir(parents=True, exist_ok=True)
+    corridor_path.write_text(
+        json.dumps({"schema_version": 1, "global_summary": {"status": "green", "corridor_blocking": False}}),
+        encoding="utf-8",
+    )
+    provenance = tmp_path / "glow/test_runs/test_run_provenance.json"
+    provenance.parent.mkdir(parents=True, exist_ok=True)
+    provenance.write_text(
+        json.dumps({"metrics_status": "ok", "execution_mode": "execute", "pytest_exit_code": 1}),
+        encoding="utf-8",
+    )
+    digest = tmp_path / "glow/test_runs/test_failure_digest.json"
+    digest.write_text(
+        json.dumps(
+            {
+                "failure_groups": [{"failure_class": "bootstrap_import_instability"}],
+                "failure_class_totals": {"bootstrap_import_instability": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = build_status(
+        failure_digest_path=digest,
+        run_provenance_path=provenance,
+        mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=tmp_path / "glow/contracts/typing_ratchet_status.json",
+        corridor_report_path=corridor_path,
+    )
+
+    assert status["lanes"]["run_tests"]["status"] == "amber"
+    assert status["lanes"]["run_tests"]["lane_state"] == "lane_completed_with_deferred_debt"
+
+
+def test_build_status_classifies_mypy_from_ratchet_status(tmp_path: Path) -> None:
+    corridor_path = tmp_path / "glow/contracts/protected_corridor_report.json"
+    corridor_path.parent.mkdir(parents=True, exist_ok=True)
+    corridor_path.write_text(
+        json.dumps({"schema_version": 1, "global_summary": {"status": "green", "corridor_blocking": False}}),
+        encoding="utf-8",
+    )
+    ratchet = tmp_path / "glow/contracts/typing_ratchet_status.json"
+    ratchet.parent.mkdir(parents=True, exist_ok=True)
+    ratchet.write_text(
+        json.dumps({"status": "ok", "deferred_debt_error_count": 12, "ratcheted_new_error_count": 0}),
+        encoding="utf-8",
+    )
+
+    status = build_status(
+        failure_digest_path=tmp_path / "glow/test_runs/test_failure_digest.json",
+        run_provenance_path=tmp_path / "glow/test_runs/test_run_provenance.json",
+        mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=ratchet,
+        corridor_report_path=corridor_path,
+    )
+
+    assert status["lanes"]["mypy"]["status"] == "amber"
+    assert status["lanes"]["mypy"]["lane_state"] == "lane_completed_with_deferred_debt"

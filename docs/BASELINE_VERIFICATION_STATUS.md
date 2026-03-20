@@ -24,6 +24,32 @@ This writes `glow/contracts/baseline_verification_status.json` with:
 - lane-level statuses (`protected_corridor`, `run_tests`, `mypy`)
 - deterministic failure class totals (from `glow/test_runs/test_failure_digest.json`)
 - explicit blocking vs deferred failure classes
+- deterministic lane-state taxonomy for incomplete/non-provisioned inputs
+
+## Broad-lane completeness semantics
+
+Each lane now includes a `lane_state` that distinguishes artifact and completeness posture:
+
+- `lane_not_run`: lane artifacts are absent for this cycle (for example, no
+  `glow/test_runs/test_run_provenance.json` and no digest).
+- `lane_unavailable_in_environment`: lane could not execute due to
+  environment/bootstrap preconditions (for example run_tests airlock/install failures).
+- `lane_incomplete`: lane started but artifact payloads are unreadable or partial.
+- `lane_completed_with_advisories`: lane completed without blocking findings.
+- `lane_completed_with_deferred_debt`: lane completed and only deferred debt remains.
+- `lane_completed_with_blocking_failure`: lane completed and found blocking failures.
+
+## Expected broad-lane artifacts
+
+- `run_tests` lane:
+  - primary provenance: `glow/test_runs/test_run_provenance.json`
+  - failure digest (when failures are grouped): `glow/test_runs/test_failure_digest.json`
+- `mypy` lane:
+  - primary ratchet status: `glow/contracts/typing_ratchet_status.json`
+  - fallback text summary (legacy): `glow/typecheck/mypy_latest.txt`
+
+This keeps protected corridor blocking doctrine unchanged while reducing amber
+noise caused by missing broad-lane artifacts versus true deferred debt.
 
 ## Failure classes
 
