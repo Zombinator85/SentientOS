@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +32,7 @@ class PeerDigestEvaluation:
     peer_name: str
     trusted_peer: bool
     digest_status: str
+    compatibility_category: str
     digest_reasons: list[str]
     epoch_status: str
     epoch_id: str
@@ -50,6 +52,7 @@ class PeerDigestEvaluation:
             "peer_name": self.peer_name,
             "trusted_peer": self.trusted_peer,
             "digest_status": self.digest_status,
+            "compatibility_category": self.compatibility_category,
             "digest_reasons": list(self.digest_reasons),
             "epoch_status": self.epoch_status,
             "epoch_id": self.epoch_id,
@@ -74,10 +77,9 @@ class FederatedGovernanceController:
         self._trusted_peers: set[str] = set()
         self._quorum_votes: dict[str, set[str]] = {}
         self._quorum_requirements: dict[str, int] = {
-            "low_impact_federated_control": max(1, self._env_int("SENTIENTOS_FEDERATION_QUORUM_LOW", 1)),
-            "federated_restart": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_RESTART", self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2))),
-            "lineage_affecting_operation": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_LINEAGE", self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2))),
-            "governance_affecting_operation": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_GOVERNANCE", self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2))),
+            "low_impact_advisory": max(1, self._env_int("SENTIENTOS_FEDERATION_QUORUM_LOW", 1)),
+            "medium_impact_coordination": max(1, self._env_int("SENTIENTOS_FEDERATION_QUORUM_MEDIUM", 1)),
+            "high_impact_control": max(2, self._env_int("SENTIENTOS_FEDERATION_QUORUM_HIGH", 2)),
         }
         self._governor_root = Path(os.getenv("SENTIENTOS_GOVERNOR_ROOT", "/glow/governor"))
         self._federation_root = Path(os.getenv("SENTIENTOS_FEDERATION_ROOT", "/glow/federation"))
@@ -124,12 +126,44 @@ class FederatedGovernanceController:
         lineage_actions = {"lineage_rewrite", "lineage_rebind"}
         governance_actions = {"rotate_keys", "amendment_apply", "governance_update"}
         if action in restart_actions or event_type in {"restart_request"}:
-            return "federated_restart"
+            return "high_impact_control"
         if action in lineage_actions:
-            return "lineage_affecting_operation"
+            return "high_impact_control"
         if action in governance_actions or event_type in {"federated_control"}:
-            return "governance_affecting_operation"
-        return "low_impact_federated_control"
+            return "high_impact_control"
+        if action in {"synchronize", "sync_state", "coordination_hint", "coordination_update"}:
+            return "medium_impact_coordination"
+        return "low_impact_advisory"
+
+    @staticmethod
+    def _git_sha(repo_root: Path) -> str:
+        try:
+            completed = subprocess.run(
+                ["git", "rev-parse", "--verify", "HEAD"],
+                cwd=str(repo_root),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+            return ""
+        return completed.stdout.strip()
+
+    def _json_fingerprint(self, path: Path) -> str | None:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        return self._sha256_text(encoded)
+
+    @staticmethod
+    def _compatibility_for_action(impact: str) -> set[str]:
+        if impact == "high_impact_control":
+            return {"exact_match", "compatible_family"}
+        if impact == "medium_impact_coordination":
+            return {"exact_match", "compatible_family", "patch_drift"}
+        return {"exact_match", "compatible_family", "patch_drift", "incompatible", "epoch_mismatch", "locally_restricted"}
 
     def local_governance_digest(self) -> GovernanceDigest:
         repo_root = Path(os.getenv("SENTIENTOS_REPO_ROOT", Path.cwd())).resolve()
@@ -140,6 +174,12 @@ class FederatedGovernanceController:
 
         policy = resolve_policy()
         governor_mode = policy.runtime_governor
+        pulse_schema_fp = self._json_fingerprint(repo_root / "glow/pulse/baseline/pulse_schema_baseline.json")
+        self_model_schema_fp = self._json_fingerprint(repo_root / "glow/self/baseline/self_model_baseline.json")
+        perception_schema_fp = self._json_fingerprint(repo_root / "glow/perception/baseline/perception_schema_baseline.json")
+        federation_identity_fp = self._json_fingerprint(
+            repo_root / "glow/federation/baseline/federation_identity_baseline.json"
+        )
         components: dict[str, object] = {
             "schema_version": 1,
             "manifest_sha256": self._sha256_file(manifest_path),
@@ -166,6 +206,13 @@ class FederatedGovernanceController:
                 "federated_window_seconds": self._env_int("SENTIENTOS_GOVERNOR_FEDERATED_WINDOW_SECONDS", 120),
                 "federated_limit": self._env_int("SENTIENTOS_GOVERNOR_FEDERATED_LIMIT", 20),
             },
+            "schema_fingerprints": {
+                "pulse_schema": pulse_schema_fp,
+                "self_model_schema": self_model_schema_fp,
+                "perception_schema": perception_schema_fp,
+            },
+            "federation_identity_digest": federation_identity_fp,
+            "git_sha": self._git_sha(repo_root),
         }
         digest = self._canonical_digest(components)
         out = GovernanceDigest(digest=digest, components=components)
@@ -197,6 +244,7 @@ class FederatedGovernanceController:
             peer_digest_raw = event["payload"].get("governance_digest")  # type: ignore[index]
 
         digest_status = "missing"
+        compatibility_category = "incompatible"
         digest_reasons: list[str] = []
         peer_digest_value = ""
         peer_components: dict[str, object] = {}
@@ -206,15 +254,26 @@ class FederatedGovernanceController:
             if isinstance(components, dict):
                 peer_components = dict(components)
             if peer_digest_value:
-                digest_status = "compatible" if peer_digest_value == local.digest else "incompatible"
-                if digest_status == "incompatible":
-                    for key in (
+                if peer_digest_value == local.digest:
+                    digest_status = "compatible"
+                    compatibility_category = "exact_match"
+                else:
+                    digest_status = "incompatible"
+                    family_keys = (
                         "manifest_sha256",
                         "invariants_sha256",
-                        "pulse_trust_epoch",
-                        "governor_posture",
-                        "audit_trust_posture",
-                    ):
+                        "federation_identity_digest",
+                    )
+                    family_match = all(peer_components.get(key) == local.components.get(key) for key in family_keys)
+                    posture_keys = ("governor_posture", "audit_trust_posture", "schema_fingerprints")
+                    posture_match = all(peer_components.get(key) == local.components.get(key) for key in posture_keys)
+                    if family_match and posture_match:
+                        compatibility_category = "patch_drift"
+                    elif family_match:
+                        compatibility_category = "compatible_family"
+                    else:
+                        compatibility_category = "incompatible"
+                    for key in family_keys + posture_keys + ("pulse_trust_epoch",):
                         if peer_components.get(key) != local.components.get(key):
                             digest_reasons.append(f"{key}_mismatch")
             else:
@@ -228,12 +287,24 @@ class FederatedGovernanceController:
             or ""
         )
         epoch_status = "expected" if not epoch_id or epoch_id == local_epoch or epoch_id == "legacy" else "unexpected"
+        if epoch_status == "unexpected":
+            compatibility_category = "epoch_mismatch"
+
+        if not quorum_eligible:
+            compatibility_category = "locally_restricted"
 
         action_key = self._action_key(event, action_impact)
         quorum_present = 0
         compatible_peers: list[str] = []
+        allowed_categories = self._compatibility_for_action(action_impact)
         with self._lock:
-            if trusted and quorum_eligible and digest_status == "compatible" and epoch_status == "expected":
+            if (
+                trusted
+                and quorum_eligible
+                and epoch_status == "expected"
+                and compatibility_category in allowed_categories
+                and compatibility_category != "locally_restricted"
+            ):
                 votes = self._quorum_votes.setdefault(action_key, set())
                 votes.add(peer_name)
             votes = self._quorum_votes.get(action_key, set())
@@ -254,8 +325,8 @@ class FederatedGovernanceController:
             denial_cause = "peer_trust_restricted"
         elif epoch_status == "unexpected":
             denial_cause = "trust_epoch"
-        elif digest_status in {"missing", "incompatible"}:
-            if digest_mode == "enforce" and action_impact in {"federated_restart", "lineage_affecting_operation", "governance_affecting_operation"}:
+        elif compatibility_category in {"incompatible", "epoch_mismatch", "locally_restricted", "patch_drift"} or digest_status == "missing":
+            if digest_mode == "enforce" and action_impact == "high_impact_control":
                 denial_cause = "digest_mismatch"
             elif digest_mode == "advisory":
                 denial_cause = "digest_mismatch_advisory"
@@ -266,6 +337,7 @@ class FederatedGovernanceController:
             peer_name=peer_name,
             trusted_peer=trusted,
             digest_status=digest_status,
+            compatibility_category=compatibility_category,
             digest_reasons=sorted(set(digest_reasons)),
             epoch_status=epoch_status,
             epoch_id=epoch_id,
@@ -316,12 +388,19 @@ class FederatedGovernanceController:
             )
 
     def _write_quorum_policy(self) -> None:
+        action_class_map = {
+            "advisory": "low_impact_advisory",
+            "coordination_update": "medium_impact_coordination",
+            "restart_daemon": "high_impact_control",
+            "lineage_rewrite": "high_impact_control",
+            "governance_update": "high_impact_control",
+        }
         payload = {
             "schema_version": 1,
             "updated_at": self._now(),
             "requirements": dict(sorted(self._quorum_requirements.items())),
             "trusted_peers": sorted(self._trusted_peers),
-            "action_classes": dict(sorted(self._quorum_requirements.items())),
+            "action_classes": dict(sorted(action_class_map.items())),
         }
         for root in (self._governor_root, self._federation_root):
             root.mkdir(parents=True, exist_ok=True)
@@ -348,6 +427,7 @@ class FederatedGovernanceController:
             "peer_trust_state": evaluation.peer_trust_state,
             "peer_trust_reasons": list(evaluation.peer_trust_reasons),
             "peer_quorum_eligible": evaluation.peer_quorum_eligible,
+            "compatibility_category": evaluation.compatibility_category,
             "denial_cause": evaluation.denial_cause,
         }
         payload = {
@@ -388,6 +468,7 @@ class FederatedGovernanceController:
                     "updated_at": self._now(),
                     "peer_name": evaluation.peer_name,
                     "digest_status": evaluation.digest_status,
+                    "compatibility_category": evaluation.compatibility_category,
                     "digest_reasons": evaluation.digest_reasons,
                     "action_impact": evaluation.action_impact,
                     "denial_cause": evaluation.denial_cause,

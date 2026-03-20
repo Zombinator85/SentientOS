@@ -20,18 +20,20 @@ Artifacts:
 ### 2) Peer digest compatibility
 Inbound federated events can carry `governance_digest`.
 The evaluator classifies peers as:
-- trusted + digest compatible
-- trusted + digest incompatible
-- trusted + digest missing
-- unexpected pulse epoch
+- `exact_match`
+- `compatible_family`
+- `patch_drift`
+- `epoch_mismatch`
+- `incompatible`
+- `locally_restricted`
 
 Digest mismatch reasons are explicit and deterministic (`*_mismatch` keys).
 
 ### 3) Quorum classes
 Deterministic quorum classes:
-- `low` impact: advisory/telemetry (single trusted peer)
-- `medium` impact: coordination (configurable quorum)
-- `high` impact: sensitive control (`restart_daemon`, lineage-adjacent operations)
+- `low_impact_advisory`: advisory/telemetry (single trusted peer)
+- `medium_impact_coordination`: coordination (configurable quorum)
+- `high_impact_control`: sensitive control (`restart_daemon`, lineage/trust-affecting operations)
 
 High-impact defaults to quorum `>=2` compatible trusted peers.
 
@@ -46,7 +48,7 @@ Artifacts:
 ## Integration points
 - `sentientos/daemons/pulse_federation.py`
   - trusted peer registry now feeds quorum evaluator
-  - outbound events now include local governance digest
+  - inbound events use embedded governance digests when present and persist peer digest state for audit
   - inbound events get digest/quorum evaluation before sensitive action admission
 - `sentientos/runtime_governor.py`
   - federated governance posture dimension added
@@ -59,6 +61,7 @@ Federated denial now distinguishes:
 - governance digest mismatch (`digest_mismatch`)
 - insufficient quorum (`quorum_failure`)
 - untrusted peer (`untrusted_peer`)
+- peer restricted by local trust posture (`peer_trust_restricted`)
 - local posture restriction (e.g., storm/pressure/audit posture) remains authoritative
 
 ## Remaining blind spots

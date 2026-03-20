@@ -293,12 +293,15 @@ class RuntimeGovernor:
         blocks = False
         denial_cause = str(governance.get("denial_cause") or "none")
         digest_status = str(governance.get("digest_status") or "missing")
+        compatibility_category = str(governance.get("compatibility_category") or "incompatible")
         epoch_status = str(governance.get("epoch_status") or "unknown")
         quorum_satisfied = bool(governance.get("quorum_satisfied", False))
 
         if action_class == "federated_control":
             if epoch_status == "unexpected" or denial_cause == "trust_epoch":
                 reason, blocks = "federated_unexpected_epoch_blocked", True
+            elif compatibility_category == "locally_restricted":
+                reason, blocks = "federated_locally_restricted", True
             elif digest_status in {"missing", "incompatible"} or denial_cause == "digest_mismatch":
                 reason, blocks = "federated_digest_mismatch_blocked", True
             elif denial_cause == "peer_trust_restricted":
@@ -669,6 +672,22 @@ class RuntimeGovernor:
         return {key: values[key] for key in sorted(values)[:limit]}
 
     def _build_rollup(self) -> dict[str, object]:
+        federation = get_federated_governance_controller()
+        local_digest = federation.local_governance_digest().to_dict()
+        quorum_status: dict[str, object] | None = None
+        mismatch_report: dict[str, object] | None = None
+        try:
+            quorum_payload = json.loads((self._root / "quorum_status.json").read_text(encoding="utf-8"))
+            if isinstance(quorum_payload, dict):
+                quorum_status = quorum_payload
+        except (OSError, json.JSONDecodeError):
+            quorum_status = None
+        try:
+            mismatch_payload = json.loads((self._root / "governance_digest_mismatch_report.json").read_text(encoding="utf-8"))
+            if isinstance(mismatch_payload, dict):
+                mismatch_report = mismatch_payload
+        except (OSError, json.JSONDecodeError):
+            mismatch_report = None
         starvation = self._starvation_signals()
         fairness = self._subject_fairness_summary()
         queue_pressure = self._queue_pressure_summary(datetime.now(timezone.utc))
@@ -734,6 +753,11 @@ class RuntimeGovernor:
                     "nominal": self._pressure_bands.get("normal", 0),
                 }
             ),
+            "federation_governance": {
+                "local_governance_digest": local_digest,
+                "quorum_status": quorum_status,
+                "latest_digest_mismatch_report": mismatch_report,
+            },
         }
 
     def _write_rollup(self) -> None:

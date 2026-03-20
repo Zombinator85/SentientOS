@@ -257,7 +257,7 @@ pulse-key-rotate:
 	$(PYTHON) -m scripts.rotate_pulse_keys $(if $(DRY_RUN),--dry-run,)
 
 federation-quorum-status:
-	$(PYTHON) -c "from sentientos.federated_governance import get_controller;import json;print(json.dumps(get_controller().local_governance_digest().to_dict(), sort_keys=True))"
+	$(PYTHON) -c "from sentientos.federated_governance import get_controller;import json;ctl=get_controller();ctl.local_governance_digest();print(json.dumps({'trusted_peers':ctl.trusted_peers(),'requirements':ctl._quorum_requirements}, sort_keys=True))"
 
 governance-digest-status:
 	$(PYTHON) -c "from sentientos.federated_governance import get_controller;import json;print(json.dumps(get_controller().local_governance_digest().to_dict(), sort_keys=True))"
