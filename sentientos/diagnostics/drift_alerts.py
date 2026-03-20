@@ -67,7 +67,7 @@ def get_silhouette_path(date_str: str) -> Path | None:
     normalized = normalize_drift_date(date_str)
     filename = f"{normalized}.json"
     for base in candidate_silhouette_dirs():
-        path = base / filename
+        path = Path(base) / filename
         if path.exists():
             return path
     return None
@@ -119,6 +119,8 @@ def _collect_reports(entries: Iterable[dict[str, object]]) -> dict[str, dict[str
         if entry.get("type") != "drift_detected":
             continue
         drift_type = entry.get("drift_type")
+        if not isinstance(drift_type, str):
+            continue
         flag = _DRIFT_TYPE_FLAGS.get(drift_type)
         if not flag:
             continue
@@ -194,10 +196,9 @@ def _has_any_drift(report: dict[str, object]) -> bool:
 
 
 def _coerce_positive(value: int | None, default: int) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
+    if value is None:
         return default
+    parsed = value if isinstance(value, int) else default
     return parsed if parsed > 0 else default
 
 

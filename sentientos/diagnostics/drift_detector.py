@@ -28,6 +28,9 @@ class DriftConfig:
     emit_pulse: bool = False
 
 
+_DEFAULT_DRIFT_CONFIG = DriftConfig()
+
+
 def load_drift_config(path: Path | None = None) -> DriftConfig:
     config_path = path or Path(os.getenv("SENTIENTOS_DRIFT_CONFIG", str(_DEFAULT_CONFIG_PATH)))
     if not config_path.exists():
@@ -39,17 +42,17 @@ def load_drift_config(path: Path | None = None) -> DriftConfig:
     if not isinstance(payload, dict):
         return DriftConfig()
     return DriftConfig(
-        window_days=_coerce_int(payload.get("window_days"), DriftConfig.window_days),
-        posture_repeat_max=_coerce_int(payload.get("posture_repeat_max"), DriftConfig.posture_repeat_max),
+        window_days=_coerce_int(payload.get("window_days"), _DEFAULT_DRIFT_CONFIG.window_days),
+        posture_repeat_max=_coerce_int(payload.get("posture_repeat_max"), _DEFAULT_DRIFT_CONFIG.posture_repeat_max),
         motion_starvation_days=_coerce_int(
-            payload.get("motion_starvation_days"), DriftConfig.motion_starvation_days
+            payload.get("motion_starvation_days"), _DEFAULT_DRIFT_CONFIG.motion_starvation_days
         ),
         plugin_dominance_percent=_coerce_float(
-            payload.get("plugin_dominance_percent"), DriftConfig.plugin_dominance_percent
+            payload.get("plugin_dominance_percent"), _DEFAULT_DRIFT_CONFIG.plugin_dominance_percent
         ),
-        anomaly_min_severity=_coerce_int(payload.get("anomaly_min_severity"), DriftConfig.anomaly_min_severity),
-        anomaly_streak_days=_coerce_int(payload.get("anomaly_streak_days"), DriftConfig.anomaly_streak_days),
-        emit_pulse=_coerce_bool(payload.get("emit_pulse"), DriftConfig.emit_pulse),
+        anomaly_min_severity=_coerce_int(payload.get("anomaly_min_severity"), _DEFAULT_DRIFT_CONFIG.anomaly_min_severity),
+        anomaly_streak_days=_coerce_int(payload.get("anomaly_streak_days"), _DEFAULT_DRIFT_CONFIG.anomaly_streak_days),
+        emit_pulse=_coerce_bool(payload.get("emit_pulse"), _DEFAULT_DRIFT_CONFIG.emit_pulse),
     )
 
 
@@ -59,37 +62,37 @@ def detect_drift(
 ) -> dict[str, object]:
     config = config or load_drift_config()
     window_days = max(1, config.window_days)
-    if silhouettes is None:
-        silhouettes = _load_recent_silhouettes(window_days)
+    source_silhouettes = silhouettes if silhouettes is not None else _load_recent_silhouettes(window_days)
+    silhouettes_norm: list[Mapping[str, object]] = list(source_silhouettes)
 
     events: list[dict[str, object]] = []
-    dates = [str(entry.get("date")) for entry in silhouettes if entry.get("date") is not None]
+    dates = [str(entry.get("date")) for entry in silhouettes_norm if entry.get("date") is not None]
 
-    posture_event = _detect_posture_stuck(silhouettes, config)
+    posture_event = _detect_posture_stuck(silhouettes_norm, config)
     if posture_event:
         events.append(posture_event)
 
-    motion_event = _detect_motion_starvation(silhouettes, config)
+    motion_event = _detect_motion_starvation(silhouettes_norm, config)
     if motion_event:
         events.append(motion_event)
 
-    plugin_event = _detect_plugin_dominance(silhouettes, config)
+    plugin_event = _detect_plugin_dominance(silhouettes_norm, config)
     if plugin_event:
         events.append(plugin_event)
 
-    anomaly_event = _detect_anomaly_trend(silhouettes, config)
+    anomaly_event = _detect_anomaly_trend(silhouettes_norm, config)
     if anomaly_event:
         events.append(anomaly_event)
 
     if events:
         _log_drift_events(events, dates, config)
         if config.emit_pulse:
-            _emit_drift_pulse(events, len(silhouettes))
+            _emit_drift_pulse(events, len(silhouettes_norm))
 
     return {
         "drift_detected": bool(events),
         "window_days": window_days,
-        "checked": len(silhouettes),
+        "checked": len(silhouettes_norm),
         "drift_events": events,
         "silhouette_dates": dates,
     }
@@ -347,17 +350,33 @@ def _count_map(value: object) -> dict[str, int]:
 
 
 def _coerce_int(value: object, default: int) -> int:
-    try:
+    if isinstance(value, bool):
         parsed = int(value)
-    except (TypeError, ValueError):
+    elif isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float):
+        parsed = int(value)
+    elif isinstance(value, str):
+        try:
+            parsed = int(value.strip())
+        except ValueError:
+            return default
+    else:
         return default
     return parsed if parsed > 0 else default
 
 
 def _coerce_float(value: object, default: float) -> float:
-    try:
+    if isinstance(value, bool):
         parsed = float(value)
-    except (TypeError, ValueError):
+    elif isinstance(value, (int, float)):
+        parsed = float(value)
+    elif isinstance(value, str):
+        try:
+            parsed = float(value.strip())
+        except ValueError:
+            return default
+    else:
         return default
     return parsed if parsed > 0 else default
 
