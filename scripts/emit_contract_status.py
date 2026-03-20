@@ -221,6 +221,10 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         _artifact_status(domain_name="repair_outcomes", artifact_path=Path("glow/repairs/repair_outcomes.jsonl"), git_sha=git_sha),
         _artifact_status(domain_name="protected_corridor_report", artifact_path=Path("glow/contracts/protected_corridor_report.json"), git_sha=git_sha),
         _artifact_status(domain_name="baseline_verification_status", artifact_path=Path("glow/contracts/baseline_verification_status.json"), git_sha=git_sha),
+        _artifact_status(domain_name="run_tests_provenance", artifact_path=Path("glow/test_runs/test_run_provenance.json"), git_sha=git_sha),
+        _artifact_status(domain_name="run_tests_failure_digest", artifact_path=Path("glow/test_runs/test_failure_digest.json"), git_sha=git_sha),
+        _artifact_status(domain_name="mypy_ratchet_status", artifact_path=Path("glow/contracts/typing_ratchet_status.json"), git_sha=git_sha),
+        _artifact_status(domain_name="mypy_ratchet_event_status", artifact_path=Path("glow/forge/ratchets/mypy_ratchet_status.json"), git_sha=git_sha),
         _artifact_status(domain_name="fleet_health_summary", artifact_path=Path("glow/observatory/fleet_health_summary.json"), git_sha=git_sha),
         _artifact_status(domain_name="strict_audit_status", artifact_path=Path("glow/contracts/strict_audit_status.json"), git_sha=git_sha),
     ]
