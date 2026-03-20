@@ -14,6 +14,7 @@ from scripts.detect_federation_identity_drift import detect_drift as detect_fede
 from scripts.detect_pulse_schema_drift import detect_drift as detect_pulse_schema_drift
 from scripts.detect_perception_schema_drift import detect_drift as detect_perception_schema_drift
 from scripts.detect_self_model_drift import detect_drift as detect_self_model_drift
+from sentientos.vow_artifacts import ensure_vow_artifacts
 
 
 @dataclass(frozen=True)

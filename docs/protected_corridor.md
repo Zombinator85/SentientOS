@@ -27,6 +27,7 @@ PYTHONPATH=. python scripts/protected_corridor.py --profile ci-advisory
 Artifact output:
 
 - `glow/contracts/protected_corridor_report.json`
+- `glow/contracts/baseline_verification_status.json` (consumes corridor global summary)
 
 ## Prerequisites
 
@@ -73,3 +74,21 @@ If prerequisites are missing, profiles are not executed and the command exits wi
 - `legacy_deferred_debt`: known debt outside protected blocking scope.
 
 This separation is deterministic and auditable in the report artifact.
+
+## Report semantics (machine + operator visibility)
+
+The corridor report includes:
+
+- `corridor_version`: deterministic release-corridor definition version.
+- `protected_corridor.failure_taxonomy`: explicit bucket vocabulary for failures/warnings.
+- `profiles[*].summary`: per-profile pass/blocking/advisory/debt counts.
+- `profiles[*].deferred_debt`: known non-blocking debt items per profile.
+- `global_summary`: cross-profile status with:
+  - `status` (`green` / `amber` / `red`)
+  - `blocking_profiles`
+  - `advisory_profiles`
+  - `debt_profiles`
+  - `deferred_debt_outside_corridor`
+
+`scripts/emit_baseline_verification_status.py` now consumes this schema directly so operator rollups
+can distinguish protected-corridor blockers from advisory/deferred repo-wide debt.
