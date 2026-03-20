@@ -18,9 +18,17 @@ class RepairOutcome:
     status: str
     reason: str
     checks: list[dict[str, object]]
+    closure_action: str
+    closure_allowed: bool
 
     def to_dict(self) -> dict[str, object]:
-        return {"status": self.status, "reason": self.reason, "checks": self.checks}
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "checks": self.checks,
+            "closure_action": self.closure_action,
+            "closure_allowed": self.closure_allowed,
+        }
 
 
 def verify_repair_outcome(*, anomaly_kind: str, pre_details: Mapping[str, object] | None = None) -> RepairOutcome:
@@ -47,13 +55,24 @@ def verify_repair_outcome(*, anomaly_kind: str, pre_details: Mapping[str, object
     policy = resolve_policy()
     mode = policy.repair_verification
     status = "verified" if ok else "unverified"
+    closure_action = "observe"
+    closure_allowed = True
     if not ok and mode == "enforce":
         reason = "verification_required_for_closure"
+        closure_action = "deny"
+        closure_allowed = False
     elif not ok and mode == "advisory":
         reason = "verification_warning"
+        closure_action = "warn"
     else:
         reason = "ok" if ok else "verification_observed"
-    outcome = RepairOutcome(status=status, reason=reason, checks=checks)
+    outcome = RepairOutcome(
+        status=status,
+        reason=reason,
+        checks=checks,
+        closure_action=closure_action,
+        closure_allowed=closure_allowed,
+    )
 
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = Path(f"glow/repairs/repair_outcome_report_{ts}.json")

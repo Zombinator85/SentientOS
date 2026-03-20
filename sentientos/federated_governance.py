@@ -46,6 +46,9 @@ class PeerDigestEvaluation:
     peer_trust_reasons: list[str]
     peer_quorum_eligible: bool
     denial_cause: str
+    calibration_posture: str
+    calibration_action: str
+    calibration_reason: str
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -66,6 +69,9 @@ class PeerDigestEvaluation:
             "peer_trust_reasons": list(self.peer_trust_reasons),
             "peer_quorum_eligible": self.peer_quorum_eligible,
             "denial_cause": self.denial_cause,
+            "calibration_posture": self.calibration_posture,
+            "calibration_action": self.calibration_action,
+            "calibration_reason": self.calibration_reason,
         }
 
 
@@ -164,6 +170,14 @@ class FederatedGovernanceController:
         if impact == "medium_impact_coordination":
             return {"exact_match", "compatible_family", "patch_drift"}
         return {"exact_match", "compatible_family", "patch_drift", "incompatible", "epoch_mismatch", "locally_restricted"}
+
+    @staticmethod
+    def _posture_action(posture: str) -> str:
+        if posture == "enforce":
+            return "deny"
+        if posture == "advisory":
+            return "warn"
+        return "observe"
 
     def local_governance_digest(self) -> GovernanceDigest:
         repo_root = Path(os.getenv("SENTIENTOS_REPO_ROOT", Path.cwd())).resolve()
@@ -319,19 +333,54 @@ class FederatedGovernanceController:
         quorum_mode = policy.federated_quorum
         digest_mode = policy.governance_digest
         denial_cause = "none"
+        calibration_reason = "federated_governance_nominal"
+        calibration_action = "observe"
+        calibration_posture = "shadow"
         if not trusted:
             denial_cause = "untrusted_peer"
+            calibration_reason = "untrusted_peer"
+            calibration_action = "deny"
+            calibration_posture = "enforce"
         elif not quorum_eligible:
             denial_cause = "peer_trust_restricted"
+            calibration_reason = "peer_trust_restricted"
+            calibration_action = "deny"
+            calibration_posture = "enforce"
         elif epoch_status == "unexpected":
-            denial_cause = "trust_epoch"
-        elif compatibility_category in {"incompatible", "epoch_mismatch", "locally_restricted", "patch_drift"} or digest_status == "missing":
-            if digest_mode == "enforce" and action_impact == "high_impact_control":
-                denial_cause = "digest_mismatch"
-            elif digest_mode == "advisory":
-                denial_cause = "digest_mismatch_advisory"
-        elif not quorum_satisfied and quorum_required > 1:
-            denial_cause = "quorum_failure" if quorum_mode == "enforce" else "quorum_warning"
+            calibration_posture = policy.pulse_trust_epoch
+            calibration_action = self._posture_action(calibration_posture)
+            calibration_reason = "pulse_epoch_mismatch"
+            if calibration_action == "deny":
+                denial_cause = "trust_epoch"
+            elif calibration_action == "warn":
+                denial_cause = "trust_epoch_advisory"
+            else:
+                denial_cause = "trust_epoch_observed"
+        else:
+            digest_mismatch = (
+                compatibility_category in {"incompatible", "epoch_mismatch", "locally_restricted", "patch_drift"}
+                or digest_status == "missing"
+            )
+            if digest_mismatch:
+                calibration_posture = digest_mode
+                calibration_action = self._posture_action(calibration_posture)
+                calibration_reason = "governance_digest_mismatch"
+                if calibration_action == "deny" and action_impact == "high_impact_control":
+                    denial_cause = "digest_mismatch"
+                elif calibration_action == "warn":
+                    denial_cause = "digest_mismatch_advisory"
+                else:
+                    denial_cause = "digest_mismatch_observed"
+            elif not quorum_satisfied and quorum_required > 1:
+                calibration_posture = quorum_mode
+                calibration_action = self._posture_action(calibration_posture)
+                calibration_reason = "federation_quorum_unsatisfied"
+                if calibration_action == "deny":
+                    denial_cause = "quorum_failure"
+                elif calibration_action == "warn":
+                    denial_cause = "quorum_warning"
+                else:
+                    denial_cause = "quorum_observed"
 
         evaluation = PeerDigestEvaluation(
             peer_name=peer_name,
@@ -351,6 +400,9 @@ class FederatedGovernanceController:
             peer_trust_reasons=trust_reasons,
             peer_quorum_eligible=quorum_eligible,
             denial_cause=denial_cause,
+            calibration_posture=calibration_posture,
+            calibration_action=calibration_action,
+            calibration_reason=calibration_reason,
         )
         self._record_peer_digest(peer_name, peer_digest_value, peer_components, evaluation)
         self._append_quorum_decision(evaluation, action_key=action_key, policy=policy.to_dict())

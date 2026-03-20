@@ -218,7 +218,17 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     governance = get_federated_governance_controller()
     evaluation = governance.evaluate_peer_event(peer_name, payload)
     trust_ledger = get_trust_ledger()
-    if evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
+    if evaluation.denial_cause in {
+        "digest_mismatch",
+        "digest_mismatch_advisory",
+        "digest_mismatch_observed",
+        "quorum_failure",
+        "quorum_warning",
+        "quorum_observed",
+        "trust_epoch",
+        "trust_epoch_advisory",
+        "trust_epoch_observed",
+    }:
         decision = get_runtime_governor().admit_action(
             "federated_control",
             peer_name,
@@ -231,11 +241,11 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 "federated_denial_cause": evaluation.denial_cause,
             },
         )
-        if not decision.allowed and evaluation.denial_cause in {"digest_mismatch", "quorum_failure", "trust_epoch"}:
+        if not decision.allowed or evaluation.calibration_action == "deny":
             trust_ledger.record_control_attempt(
                 peer_name,
                 allowed=False,
-                reason=decision.reason,
+                reason=f"{evaluation.denial_cause}/{decision.reason}",
                 actor="pulse_federation_ingest",
             )
             raise ValueError(
