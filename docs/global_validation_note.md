@@ -11,3 +11,7 @@ Current release-corridor posture is green on blocking checks under `ci-advisory`
 
 Deferred debt remains visible in `glow/contracts/protected_corridor_report.json` and should
 not be interpreted as hidden or waived blocking failures.
+
+The corridor artifact now records a deterministic `corridor_version`, explicit failure taxonomy,
+per-profile blocking/advisory/debt counts, and a `global_summary` section consumed by
+`glow/contracts/baseline_verification_status.json` for single-pane operator visibility.

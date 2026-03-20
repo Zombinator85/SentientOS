@@ -83,6 +83,8 @@ def test_run_validation_writes_report(monkeypatch, tmp_path: Path) -> None:
     assert payload["provisioning"]["ready"] is True
     assert payload["profiles"][0]["profile"] == "ci-advisory"
     assert payload["profiles"][0]["deferred_debt"][0]["name"] == "mypy_protected_scope"
+    assert payload["global_summary"]["status"] == "amber"
+    assert payload["global_summary"]["debt_profiles"] == ["ci-advisory"]
 
 
 def test_run_validation_skips_profiles_when_unprovisioned(monkeypatch, tmp_path: Path) -> None:
@@ -134,3 +136,14 @@ def test_contract_status_rollup_surface_is_in_protected_corridor() -> None:
     assert check.blocking is True
     assert check.prerequisites == ("editable_install", "test_runtime_imports")
     assert check.command == ("python", "-m", "scripts.run_tests", "-q", "tests/test_contract_status_rollup.py")
+
+
+def test_classifies_missing_command_as_environment_unavailable() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "contract_status")
+    result = protected_corridor.classify_result(
+        check,
+        profile="ci-advisory",
+        returncode=127,
+        output="command unavailable in environment: [Errno 2] No such file or directory: 'python'",
+    )
+    assert result.bucket == "command_unavailable_in_environment"

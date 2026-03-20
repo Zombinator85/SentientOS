@@ -19,6 +19,7 @@ from scripts.editable_install import get_editable_install_status
 PROFILES = ("local-dev-relaxed", "ci-advisory", "federation-enforce")
 DEFAULT_OUTPUT = Path("glow/contracts/protected_corridor_report.json")
 INSTALL_EXTRAS = ".[dev,test]"
+CORRIDOR_VERSION = "2026-03-20.1"
 
 PREREQUISITE_LABELS: dict[str, str] = {
     "editable_install": "Repository is installed as editable package from this repo root.",
@@ -166,7 +167,10 @@ def _iso_now() -> str:
 
 
 def _run_command(command: Sequence[str], env: dict[str, str]) -> tuple[int, str]:
-    completed = subprocess.run(command, capture_output=True, text=True, env=env)
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, env=env)
+    except FileNotFoundError as exc:
+        return 127, f"command unavailable in environment: {exc}"
     output = (completed.stdout or "") + (completed.stderr or "")
     return completed.returncode, output.strip()
 
@@ -248,7 +252,9 @@ def _expected_for_profile(check: CorridorCheck, profile: str) -> str:
 def classify_result(check: CorridorCheck, *, profile: str, returncode: int, output: str) -> CheckResult:
     expected = _expected_for_profile(check, profile)
     outcome = "pass" if returncode == 0 else "warn"
-    if returncode != 0 and (
+    if returncode != 0 and "command unavailable in environment" in output:
+        bucket = "command_unavailable_in_environment"
+    elif returncode != 0 and (
         "Not running against a test-capable editable install" in output
         or "run_tests import airlock failed" in output
         or "No module named 'fastapi'" in output
@@ -267,6 +273,8 @@ def classify_result(check: CorridorCheck, *, profile: str, returncode: int, outp
         bucket = "non_blocking_optional_historical_runtime_state"
     elif returncode != 0 and check.name in {"mypy_protected_scope", "contract_drift"}:
         bucket = "legacy_deferred_debt"
+    elif returncode != 0 and expected == "warn":
+        bucket = "advisory_mismatch_or_expected_warning"
     else:
         bucket = "pass"
 
@@ -301,14 +309,16 @@ def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> di
 
     blocking_failures = [asdict(item) for item in results if item.bucket.startswith("blocking_")]
     provisioning_failures = [asdict(item) for item in results if item.bucket == "environment_unprovisioned"]
+    unavailable_commands = [asdict(item) for item in results if item.bucket == "command_unavailable_in_environment"]
     doctrine_skips = [asdict(item) for item in results if item.bucket == "policy_doctrine_skipped"]
+    advisory_warnings = [asdict(item) for item in results if item.bucket == "advisory_mismatch_or_expected_warning"]
     non_blocking_failures = [asdict(item) for item in results if item.bucket in {"legacy_deferred_debt", "non_blocking_optional_historical_runtime_state"}]
     passed = [asdict(item) for item in results if item.bucket == "pass"]
 
     health = "green"
-    if blocking_failures or provisioning_failures:
+    if blocking_failures or provisioning_failures or unavailable_commands:
         health = "red"
-    elif non_blocking_failures:
+    elif non_blocking_failures or advisory_warnings or doctrine_skips:
         health = "amber"
 
     return {
@@ -320,22 +330,95 @@ def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> di
             "pass_count": len(passed),
             "blocking_failure_count": len(blocking_failures),
             "provisioning_failure_count": len(provisioning_failures),
+            "command_unavailable_count": len(unavailable_commands),
             "policy_skip_count": len(doctrine_skips),
+            "advisory_warning_count": len(advisory_warnings),
             "non_blocking_failure_count": len(non_blocking_failures),
             "repo_health": health,
         },
         "blocking_failures": blocking_failures,
         "provisioning_failures": provisioning_failures,
+        "command_unavailable": unavailable_commands,
         "policy_skips": doctrine_skips,
+        "advisory_warnings": advisory_warnings,
         "non_blocking_failures": non_blocking_failures,
         "deferred_debt": [entry for entry in non_blocking_failures if entry["bucket"] == "legacy_deferred_debt"],
     }
 
 
+def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    if not profiles:
+        return {
+            "status": "provisioning_required",
+            "repo_health": "red",
+            "blocking_profiles": [],
+            "advisory_profiles": [],
+            "debt_profiles": [],
+            "corridor_blocking": True,
+        }
+
+    blocking_profiles: list[str] = []
+    advisory_profiles: list[str] = []
+    debt_profiles: list[str] = []
+    deferred_debt: dict[str, dict[str, Any]] = {}
+    for profile in profiles:
+        summary = profile.get("summary") if isinstance(profile, dict) else {}
+        profile_name = str(profile.get("profile"))
+        if int(summary.get("blocking_failure_count", 0)) > 0:
+            blocking_profiles.append(profile_name)
+        if int(summary.get("provisioning_failure_count", 0)) > 0 or int(summary.get("command_unavailable_count", 0)) > 0:
+            blocking_profiles.append(profile_name)
+        if int(summary.get("policy_skip_count", 0)) > 0 or int(summary.get("advisory_warning_count", 0)) > 0:
+            advisory_profiles.append(profile_name)
+        if int(summary.get("non_blocking_failure_count", 0)) > 0:
+            debt_profiles.append(profile_name)
+            for check in profile.get("deferred_debt", []):
+                if not isinstance(check, dict):
+                    continue
+                name = check.get("name")
+                if not isinstance(name, str):
+                    continue
+                deferred_debt.setdefault(
+                    name,
+                    {
+                        "name": name,
+                        "bucket": check.get("bucket"),
+                        "note": check.get("note"),
+                        "profiles": [],
+                    },
+                )
+                deferred_debt[name]["profiles"].append(profile_name)
+
+    blocking_profiles = sorted(set(blocking_profiles))
+    advisory_profiles = sorted(set(advisory_profiles))
+    debt_profiles = sorted(set(debt_profiles))
+    if blocking_profiles:
+        status = "red"
+        repo_health = "red"
+    elif debt_profiles or advisory_profiles:
+        status = "amber"
+        repo_health = "amber"
+    else:
+        status = "green"
+        repo_health = "green"
+
+    return {
+        "status": status,
+        "repo_health": repo_health,
+        "blocking_profiles": blocking_profiles,
+        "advisory_profiles": advisory_profiles,
+        "debt_profiles": debt_profiles,
+        "corridor_blocking": bool(blocking_profiles),
+        "deferred_debt_outside_corridor": sorted(deferred_debt.values(), key=lambda item: item["name"]),
+    }
+
+
 def run_validation(*, profiles: Sequence[str], output_path: Path, prerequisite_status: PrerequisiteStatus | None = None) -> dict[str, Any]:
     status = prerequisite_status or check_prerequisites()
+    profile_reports = [run_profile(profile) for profile in profiles] if status.ready else []
     report = {
         "schema_version": 1,
+        "corridor_version": CORRIDOR_VERSION,
         "provisioning": {
             "ready": status.ready,
             "check_missing_prerequisites": status.checks,
@@ -343,6 +426,7 @@ def run_validation(*, profiles: Sequence[str], output_path: Path, prerequisite_s
             "prerequisite_labels": PREREQUISITE_LABELS,
         },
         "protected_corridor": {
+            "version": CORRIDOR_VERSION,
             "definition": [
                 {
                     "name": check.name,
@@ -352,9 +436,20 @@ def run_validation(*, profiles: Sequence[str], output_path: Path, prerequisite_s
                     "prerequisites": list(check.prerequisites),
                 }
                 for check in CHECKS
-            ]
+            ],
+            "failure_taxonomy": [
+                "blocking_release_corridor_failure",
+                "blocking_correctness_failure",
+                "advisory_mismatch_or_expected_warning",
+                "environment_unprovisioned",
+                "non_blocking_optional_historical_runtime_state",
+                "legacy_deferred_debt",
+                "audit_chain_local_state_outside_corridor",
+                "command_unavailable_in_environment",
+            ],
         },
-        "profiles": [run_profile(profile) for profile in profiles] if status.ready else [],
+        "profiles": profile_reports,
+        "global_summary": _global_summary(profile_reports),
         "generated_at": _iso_now(),
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)

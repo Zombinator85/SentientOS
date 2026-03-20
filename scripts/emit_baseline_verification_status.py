@@ -80,15 +80,60 @@ def _mypy_summary(output_path: Path) -> LaneSummary:
 def _corridor_summary(payload: Mapping[str, Any] | None) -> LaneSummary:
     if not isinstance(payload, Mapping):
         return LaneSummary("missing", 0, {"reason": "protected_corridor_report_missing"})
-    status = str(payload.get("status") or "unknown")
-    checks = payload.get("checks")
-    failing = 0
-    if isinstance(checks, list):
-        for check in checks:
-            if isinstance(check, Mapping) and str(check.get("status") or "") not in {"ok", "pass"}:
-                failing += 1
-    lane_status = "green" if status in {"ok", "pass", "green"} and failing == 0 else "red"
-    return LaneSummary(lane_status, failing, {"reported_status": status, "failing_checks": failing})
+    global_summary = payload.get("global_summary")
+    if isinstance(global_summary, Mapping):
+        reported_status = str(global_summary.get("status") or "unknown")
+        blocking_profiles = global_summary.get("blocking_profiles")
+        blocking_count = len(blocking_profiles) if isinstance(blocking_profiles, list) else 0
+        details = {
+            "reported_status": reported_status,
+            "blocking_profiles": blocking_profiles if isinstance(blocking_profiles, list) else [],
+            "advisory_profiles": global_summary.get("advisory_profiles") if isinstance(global_summary.get("advisory_profiles"), list) else [],
+            "debt_profiles": global_summary.get("debt_profiles") if isinstance(global_summary.get("debt_profiles"), list) else [],
+            "corridor_blocking": bool(global_summary.get("corridor_blocking", False)),
+        }
+        if reported_status == "green":
+            lane_status = "green"
+        elif reported_status == "amber":
+            lane_status = "amber"
+        else:
+            lane_status = "red"
+        return LaneSummary(lane_status, blocking_count, details)
+
+    profiles = payload.get("profiles")
+    if isinstance(profiles, list) and profiles:
+        blocking_count = 0
+        advisory_count = 0
+        for profile in profiles:
+            if not isinstance(profile, Mapping):
+                continue
+            summary = profile.get("summary")
+            if not isinstance(summary, Mapping):
+                continue
+            blocking_count += int(summary.get("blocking_failure_count", 0))
+            blocking_count += int(summary.get("provisioning_failure_count", 0))
+            blocking_count += int(summary.get("command_unavailable_count", 0))
+            advisory_count += int(summary.get("policy_skip_count", 0))
+            advisory_count += int(summary.get("advisory_warning_count", 0))
+            advisory_count += int(summary.get("non_blocking_failure_count", 0))
+        if blocking_count > 0:
+            lane_status = "red"
+        elif advisory_count > 0:
+            lane_status = "amber"
+        else:
+            lane_status = "green"
+        return LaneSummary(
+            lane_status,
+            blocking_count,
+            {
+                "reported_status": "derived_from_profiles",
+                "profile_count": len(profiles),
+                "blocking_failures": blocking_count,
+                "advisory_or_debt_count": advisory_count,
+            },
+        )
+
+    return LaneSummary("unknown", 0, {"reason": "protected_corridor_schema_unrecognized"})
 
 
 def build_status(
@@ -105,7 +150,7 @@ def build_status(
     protected_corridor = _corridor_summary(corridor_payload)
 
     broad_green = run_tests.status == "green" and mypy.status == "green"
-    protected_green = protected_corridor.status == "green"
+    protected_green = protected_corridor.status in {"green", "amber"}
 
     blocking_classes: list[str] = []
     deferred_classes: list[str] = []
