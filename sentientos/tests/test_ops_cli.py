@@ -213,6 +213,46 @@ def test_observatory_artifacts_surface_selector(tmp_path: Path, capsys) -> None:
     assert payload["selected_summary_rows"][0]["row_id"] in {"wan_release_gate", "wan_gate_missing"}
 
 
+def test_observatory_artifacts_contract_status_surface_selector_rows(tmp_path: Path, capsys) -> None:
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/contract_status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2026-03-21T00:00:00Z",
+                "contracts": [
+                    {
+                        "domain_name": "audits",
+                        "baseline_present": True,
+                        "drifted": False,
+                        "drift_type": "none",
+                        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT",
+                    },
+                    {
+                        "domain_name": "perception",
+                        "baseline_present": True,
+                        "drifted": True,
+                        "drift_type": "required_keys_changed",
+                        "drift_explanation": "required keys diverged from baseline",
+                        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/observatory").mkdir(parents=True, exist_ok=True)
+    rc = ops_main(["--repo-root", str(tmp_path), "observatory", "artifacts", "--surface", "contract_status", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selected_surface"] == "contract_status"
+    assert isinstance(payload["selected_pointer"], dict)
+    assert isinstance(payload["selected_summary_rows"], list)
+    rows = {row["domain"]: row for row in payload["selected_summary_rows"]}
+    assert rows["audits"]["status"] == "healthy"
+    assert rows["perception"]["status"] == "drifted"
+
+
 def test_observatory_artifacts_broad_lane_surface_selector_exposes_lane_rows(tmp_path: Path, capsys) -> None:
     (tmp_path / "glow/observatory").mkdir(parents=True, exist_ok=True)
     rc = ops_main(["--repo-root", str(tmp_path), "observatory", "artifacts", "--surface", "broad_lane_latest_summary", "--json"])

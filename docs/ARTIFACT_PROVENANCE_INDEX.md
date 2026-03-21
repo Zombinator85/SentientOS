@@ -82,6 +82,7 @@ inspection flows.
 
 Current generalized surfaces:
 
+- `contract_status`
 - `fleet_observatory`
 - `strict_audit_status`
 - `protected_corridor`
@@ -99,3 +100,32 @@ Each row remains compact and deterministic. It carries:
 
 This does **not** inline full source artifacts. Operators still dereference
 source artifacts for deep diagnostics and full evidence.
+
+## Contract-status selected-surface rows
+
+`contract_status` now emits one bounded `summary_rows` entry per contract
+domain directly from the latest-pointer metadata. This enables a single-hop
+answer for common questions like:
+
+- which domains are healthy, drifted, or baseline-missing?
+- whether drift posture is potentially strict-gated vs advisory/domain-specific
+- the short drift reason and compact provenance/freshness hints
+
+Each row carries compact fields such as:
+
+- `row_id` / `domain`
+- `status` and `drift_posture`
+- `pointer_state` (freshness/completeness only)
+- `baseline_present`, `drifted`, `drift_type`, bounded `drift_explanation`
+- `strict_gate_envvar`, `policy_meaning`, `gate_meaning`
+- `summary_reason`
+- `primary_artifact_path`, `created_at`, `digest_sha256`
+- bounded provenance hints (`domain_captured_at`, `domain_captured_by`, etc.)
+
+Important separation is preserved:
+
+- `pointer_state` tells whether the latest pointer is current/stale/missing.
+- `status`/`drift_posture` tells contract domain health meaning.
+
+So `stale + healthy`, `current + drifted`, or `missing + indeterminate` remain
+explicitly distinguishable in one hop.

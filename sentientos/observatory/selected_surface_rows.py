@@ -15,6 +15,15 @@ def _as_str(value: object) -> str:
     return str(value) if isinstance(value, (str, int, float, bool)) else ""
 
 
+def _truncate(value: object, *, max_chars: int = 180) -> str | None:
+    text = _as_str(value).strip()
+    if not text:
+        return None
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
+
+
 def _shared_row(
     *,
     row_id: str,
@@ -231,6 +240,70 @@ def _remote_preflight_rows(payload: dict[str, Any], *, pointer_state: str, artif
     ]
 
 
+def _contract_status_rows(payload: dict[str, Any], *, pointer_state: str, artifact_path: str, created_at: str | None, digest_sha256: str | None) -> list[dict[str, Any]]:
+    contracts = _as_list(payload.get("contracts"))
+    rows: list[dict[str, Any]] = []
+    for raw in contracts:
+        contract = _as_dict(raw)
+        domain = _as_str(contract.get("domain_name")).strip() or "unknown_domain"
+        baseline_present = bool(contract.get("baseline_present"))
+        drifted_raw = contract.get("drifted")
+        drifted: bool | None = drifted_raw if isinstance(drifted_raw, bool) else None
+        drift_type = _as_str(contract.get("drift_type")).strip() or "unknown"
+        drift_explanation = _truncate(contract.get("drift_explanation"), max_chars=220)
+        strict_gate_envvar = _as_str(contract.get("strict_gate_envvar")).strip() or None
+
+        if drift_type in {"baseline_missing", "artifact_missing", "preflight_required"} or (not baseline_present and drifted is None):
+            status = "baseline_missing"
+            policy_meaning = "strict_gate_precondition" if strict_gate_envvar else "missing_evidence"
+            gate_meaning = "strict_gate_precondition" if strict_gate_envvar else "no_strict_gate"
+        elif drifted is True:
+            status = "drifted"
+            policy_meaning = "strict_gate_configurable" if strict_gate_envvar else "domain_policy_defined"
+            gate_meaning = "strict_gate_configurable" if strict_gate_envvar else "no_strict_gate"
+        elif drifted is False:
+            status = "healthy"
+            policy_meaning = "contract_nominal"
+            gate_meaning = "strict_gate_available" if strict_gate_envvar else "no_strict_gate"
+        else:
+            status = "indeterminate"
+            policy_meaning = "read_source_artifact"
+            gate_meaning = "indeterminate"
+
+        summary_reason = drift_explanation or f"drift_type={drift_type}"
+        rows.append(
+            _shared_row(
+                row_id=f"contract_domain:{domain}",
+                status=status,
+                pointer_state=pointer_state,
+                summary_reason=summary_reason,
+                primary_artifact_path=artifact_path,
+                created_at=created_at,
+                digest_sha256=digest_sha256,
+                extras={
+                    "domain": domain,
+                    "drift_posture": status,
+                    "policy_meaning": policy_meaning,
+                    "gate_meaning": gate_meaning,
+                    "baseline_present": baseline_present,
+                    "drifted": drifted,
+                    "drift_type": drift_type,
+                    "drift_explanation": drift_explanation,
+                    "strict_gate_envvar": strict_gate_envvar,
+                    "domain_artifact_path": contract.get("last_baseline_path") if isinstance(contract.get("last_baseline_path"), str) else None,
+                    "drift_report_path": contract.get("drift_report_path") if isinstance(contract.get("drift_report_path"), str) else None,
+                    "domain_captured_at": contract.get("captured_at") if isinstance(contract.get("captured_at"), str) else None,
+                    "domain_captured_by": contract.get("captured_by") if isinstance(contract.get("captured_by"), str) else None,
+                    "domain_tool_version": contract.get("tool_version") if isinstance(contract.get("tool_version"), str) else None,
+                    "domain_git_sha": contract.get("git_sha") if isinstance(contract.get("git_sha"), str) else None,
+                    "drift_provenance_hint": _truncate(_as_dict(contract.get("drift_provenance")).get("captured_at") or _as_dict(contract.get("drift_provenance")).get("tool") or _as_dict(contract.get("drift_provenance")).get("source")),
+                },
+            )
+        )
+
+    return sorted(rows, key=lambda row: str(row.get("domain") or ""))
+
+
 def summary_rows_for_surface(
     *,
     surface: str,
@@ -241,6 +314,7 @@ def summary_rows_for_surface(
     digest_sha256: str | None,
 ) -> list[dict[str, Any]]:
     builders = {
+        "contract_status": _contract_status_rows,
         "fleet_observatory": _fleet_rows,
         "strict_audit_status": _strict_rows,
         "protected_corridor": _protected_corridor_rows,
@@ -260,7 +334,7 @@ def summary_rows_for_surface(
 
 
 def missing_summary_rows(*, surface: str, pointer_state: str) -> list[dict[str, Any]]:
-    if surface not in {"fleet_observatory", "strict_audit_status", "protected_corridor", "wan_gate", "remote_preflight_trend"}:
+    if surface not in {"contract_status", "fleet_observatory", "strict_audit_status", "protected_corridor", "wan_gate", "remote_preflight_trend"}:
         return []
     return [
         {
