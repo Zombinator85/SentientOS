@@ -926,21 +926,15 @@ class RuntimeGovernor:
         if self._quarantine[daemon_name]:
             reason = "daemon_quarantined"
             enforce_block = True
-        elif len(dq) > self._restart_limit:
-            reason = "restart_budget_exceeded"
-            self._quarantine[daemon_name] = True
-            enforce_block = True
-        elif scope == "federated" and len(self._federated_controls) > self._federated_limit:
-            reason = "federated_control_rate_exceeded"
-            enforce_block = True
-        elif len(self._critical_events) > self._critical_limit:
-            reason = "critical_event_storm_detected"
-            enforce_block = True
-        elif pressure.composite >= self._pressure_block:
-            reason = "pressure_block"
-            enforce_block = True
-        elif pressure.composite >= self._pressure_warn:
-            reason = "pressure_warn"
+        else:
+            reason, enforce_block = self._resolve_budget_reason(
+                action_class="restart_daemon",
+                pressure=pressure,
+                restart_attempts=len(dq),
+                federated_attempts=len(self._federated_controls) if scope == "federated" else 0,
+            )
+            if reason == "restart_budget_exceeded":
+                self._quarantine[daemon_name] = True
 
         trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="restart_daemon",
@@ -963,7 +957,12 @@ class RuntimeGovernor:
             restriction_class=self._restriction_class_for_reason(reason),
             blocks=enforce_block,
             precedence=70,
-            details={"scope": scope, "restart_attempts": len(dq)},
+            details={
+                "scope": scope,
+                "restart_attempts": len(dq),
+                "federated_attempts": len(self._federated_controls) if scope == "federated" else 0,
+                "critical_events": len(self._critical_events),
+            },
         )
         posture = self._compose_runtime_posture(
             action_class="restart_daemon",
@@ -1004,19 +1003,11 @@ class RuntimeGovernor:
         dq.append(now)
         self._trim(dq, now, self._repair_window)
 
-        reason = "allowed"
-        enforce_block = False
-        if len(dq) > self._repair_limit:
-            reason = "repair_budget_exceeded"
-            enforce_block = True
-        elif pressure.composite >= self._pressure_block:
-            reason = "pressure_block"
-            enforce_block = True
-        elif len(self._critical_events) > self._critical_limit:
-            reason = "critical_event_storm_detected"
-            enforce_block = True
-        elif pressure.composite >= self._pressure_warn:
-            reason = "pressure_warn"
+        reason, enforce_block = self._resolve_budget_reason(
+            action_class="repair_action",
+            pressure=pressure,
+            repair_attempts=len(dq),
+        )
 
         trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="repair_action",
@@ -1039,7 +1030,11 @@ class RuntimeGovernor:
             restriction_class=self._restriction_class_for_reason(reason),
             blocks=enforce_block,
             precedence=70,
-            details={"repair_attempts": len(dq), "anomaly_kind": anomaly_kind},
+            details={
+                "repair_attempts": len(dq),
+                "anomaly_kind": anomaly_kind,
+                "critical_events": len(self._critical_events),
+            },
         )
         posture = self._compose_runtime_posture(
             action_class="repair_action",
@@ -1079,19 +1074,11 @@ class RuntimeGovernor:
         self._federated_controls.append(now)
         self._trim(self._federated_controls, now, self._federated_window)
 
-        reason = "allowed"
-        enforce_block = False
-        if len(self._federated_controls) > self._federated_limit:
-            reason = "federated_control_rate_exceeded"
-            enforce_block = True
-        elif pressure.composite >= self._pressure_block:
-            reason = "pressure_block"
-            enforce_block = True
-        elif len(self._critical_events) > self._critical_limit:
-            reason = "critical_event_storm_detected"
-            enforce_block = True
-        elif pressure.composite >= self._pressure_warn:
-            reason = "pressure_warn"
+        reason, enforce_block = self._resolve_budget_reason(
+            action_class="federated_control",
+            pressure=pressure,
+            federated_attempts=len(self._federated_controls),
+        )
 
         trust_eval, trust_payload = self._evaluate_audit_trust_posture(
             action_class="federated_control",
@@ -1123,7 +1110,11 @@ class RuntimeGovernor:
             restriction_class=self._restriction_class_for_reason(reason),
             blocks=enforce_block,
             precedence=70,
-            details={"federated_controls": len(self._federated_controls)},
+            details={
+                "federated_controls": len(self._federated_controls),
+                "critical_events": len(self._critical_events),
+                "storm_parity": "restart_repair_federated_symmetric",
+            },
         )
         posture = self._compose_runtime_posture(
             action_class="federated_control",
@@ -1149,6 +1140,31 @@ class RuntimeGovernor:
         )
         self._record_contention(action_class="federated_control", allowed=allowed, now=now)
         return decision
+
+    def _resolve_budget_reason(
+        self,
+        *,
+        action_class: str,
+        pressure: PressureSnapshot,
+        restart_attempts: int = 0,
+        repair_attempts: int = 0,
+        federated_attempts: int = 0,
+    ) -> tuple[str, bool]:
+        reason = "allowed"
+        enforce_block = False
+        if action_class == "restart_daemon" and restart_attempts > self._restart_limit:
+            return "restart_budget_exceeded", True
+        if action_class == "repair_action" and repair_attempts > self._repair_limit:
+            return "repair_budget_exceeded", True
+        if action_class in {"restart_daemon", "federated_control"} and federated_attempts > self._federated_limit:
+            return "federated_control_rate_exceeded", True
+        if len(self._critical_events) > self._critical_limit:
+            return "critical_event_storm_detected", True
+        if pressure.composite >= self._pressure_block:
+            return "pressure_block", True
+        if pressure.composite >= self._pressure_warn:
+            return "pressure_warn", False
+        return reason, enforce_block
 
     def _admit_control_plane_task(
         self,

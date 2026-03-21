@@ -4,6 +4,28 @@ The Pulse Bus transports deterministic events between modules. Version 2.0
 formalizes alignment metadata and validation rules to keep cycles predictable and
 bounded.
 
+## Runtime trust boundary (verified ingress)
+
+Remote/federated ingress is now verified at bus ingress before local acceptance.
+
+- `ingest_verified(...)` is the default remote ingest path.
+- `ingest_untrusted(...)` is an explicit quarantine/reject path; untrusted events
+  are never delivered to normal subscribers or local pending queues.
+- Verified ingress stamps:
+  - `ingress_status=verified`
+  - `ingress_reason=signature_verified`
+  - `ingress_classification=accept`
+- Untrusted ingress stamps explicit reject metadata and is written to bounded
+  quarantine telemetry.
+
+Artifacts:
+
+- `/glow/pulse/ingress_audit.jsonl` (accept/reject/quarantine classifications)
+- `/glow/pulse/untrusted_quarantine.jsonl` (bounded explicit untrusted snapshots)
+
+This keeps pulse history append-only while ensuring signature validation is a bus
+trust-boundary responsibility, not only a consumer responsibility.
+
 ## Field Reference
 
 | Field | Type | Description | Validation |

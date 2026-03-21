@@ -11,6 +11,7 @@ import os
 import re
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Sequence, cast
 
@@ -61,6 +62,10 @@ def _keys_dir() -> Path:
     if override:
         return Path(override)
     return _DEFAULT_KEYS_DIR
+
+
+def _federation_runtime_root() -> Path:
+    return Path(os.getenv("SENTIENTOS_FEDERATION_ROOT", "/glow/federation"))
 
 
 def _sanitize_name(value: str) -> str:
@@ -180,7 +185,22 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     peer = _PEER_MAP.get(peer_name)
     if peer is None:
         raise ValueError(f"Unknown federation peer: {peer_name}")
+    correlation_id = str(event.get("correlation_id") or pulse_bus.compute_event_hash(event))
     if not verify_remote_signature(event, peer_name):
+        pulse_bus.ingest_untrusted(
+            event,
+            source_peer=peer_name,
+            reason="invalid_federated_signature",
+            classification="reject",
+        )
+        _record_federation_ingest(
+            peer_name=peer_name,
+            event=event,
+            classification="rejected_signature",
+            decision="deny",
+            reason="invalid_federated_signature",
+            correlation_id=correlation_id,
+        )
         raise ValueError(f"Invalid signature from federation peer: {peer_name}")
     trust = get_trust_epoch_manager().classify_epoch(
         event,
@@ -214,6 +234,14 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 },
             )
             if resolve_policy().pulse_trust_epoch == "enforce" and not decision.allowed:
+                _record_federation_ingest(
+                    peer_name=peer_name,
+                    event=event,
+                    classification="rejected_epoch",
+                    decision="deny",
+                    reason=f"epoch:{trust.classification}",
+                    correlation_id=correlation_id,
+                )
                 raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     governance = get_federated_governance_controller()
     evaluation = governance.evaluate_peer_event(peer_name, payload)
@@ -248,6 +276,14 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 reason=f"{evaluation.denial_cause}/{decision.reason}",
                 actor="pulse_federation_ingest",
             )
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="denied_governance",
+                decision="deny",
+                reason=f"{evaluation.denial_cause}/{decision.reason}",
+                correlation_id=correlation_id,
+            )
             raise ValueError(
                 f"Federated action denied for {peer_name}: "
                 f"{evaluation.denial_cause}/{decision.reason}"
@@ -257,6 +293,14 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     if _is_duplicate_event_hash(candidate_hash):
         logger.info("Suppressed duplicate federated pulse event hash=%s peer=%s", candidate_hash, peer_name)
         trust_ledger.record_replay_signal(peer_name, actor="pulse_federation_ingest", event_hash=candidate_hash)
+        _record_federation_ingest(
+            peer_name=peer_name,
+            event=payload,
+            classification="suppressed_replay",
+            decision="drop",
+            reason="duplicate_event_hash",
+            correlation_id=correlation_id,
+        )
         return payload
     if isinstance(event_payload, dict):
         action = str(event_payload.get("action", "")).lower()
@@ -289,6 +333,14 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     reason=decision.reason,
                     actor="pulse_federation_ingest",
                 )
+                _record_federation_ingest(
+                    peer_name=peer_name,
+                    event=payload,
+                    classification="denied_governor",
+                    decision="deny",
+                    reason=decision.reason,
+                    correlation_id=correlation_id,
+                )
                 raise ValueError(
                     f"Runtime governor denied federated control event from {peer_name}: {decision.reason}"
                 )
@@ -299,6 +351,14 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         allowed=True,
         reason="ingested",
         actor="pulse_federation_ingest",
+    )
+    _record_federation_ingest(
+        peer_name=peer_name,
+        event=ingested,
+        classification="accepted_verified",
+        decision="allow",
+        reason="verified_ingest",
+        correlation_id=correlation_id,
     )
     _remember_event_hash(candidate_hash)
     return ingested
@@ -316,6 +376,32 @@ def _remember_event_hash(event_hash: str) -> None:
     while len(_SEEN_EVENT_ORDER) > max(_REPLAY_CACHE_LIMIT, 128):
         old = _SEEN_EVENT_ORDER.popleft()
         _SEEN_EVENT_HASHES.discard(old)
+
+
+def _record_federation_ingest(
+    *,
+    peer_name: str,
+    event: pulse_bus.PulseEvent,
+    classification: str,
+    decision: str,
+    reason: str,
+    correlation_id: str,
+) -> None:
+    runtime_root = _federation_runtime_root()
+    runtime_root.mkdir(parents=True, exist_ok=True)
+    event_hash = str(event.get("event_hash") or pulse_bus.compute_event_hash(event))
+    payload = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "peer_name": peer_name,
+        "classification": classification,
+        "decision": decision,
+        "reason": reason,
+        "event_hash": event_hash,
+        "event_type": str(event.get("event_type", "")),
+        "correlation_id": correlation_id or event_hash,
+    }
+    with (runtime_root / "ingest_classifications.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
 def request_recent_events(minutes: int) -> List[pulse_bus.PulseEvent]:

@@ -97,6 +97,15 @@ def test_tampered_signature_rejected():
 
     with pytest.raises(ValueError):
         pulse_federation.ingest_remote_event(tampered, "peer-alpha")
+    ingested_metrics = [
+        evt for evt in pulse_bus.pending_events() if str(evt.get("event_type")) == "metric"
+    ]
+    assert len(ingested_metrics) == 1
+    classifications = Path(os.environ["SENTIENTOS_FEDERATION_ROOT"]) / "ingest_classifications.jsonl"
+    assert classifications.exists()
+    rows = classifications.read_text(encoding="utf-8")
+    assert '"classification": "accepted_verified"' in rows
+    assert '"classification": "rejected_signature"' in rows
 
 
 def test_remote_replay_ingests_events(monkeypatch):
@@ -113,6 +122,7 @@ def test_remote_replay_ingests_events(monkeypatch):
             "source_daemon": "remote",
             "event_type": "heartbeat",
             "payload": {"note": "synced"},
+            "correlation_id": "corr-peer-alpha-sync",
         },
     )
 
@@ -127,6 +137,7 @@ def test_remote_replay_ingests_events(monkeypatch):
     events = pulse_bus.pending_events()
     assert events and events[0]["event_type"] == "heartbeat"
     assert events[0]["source_peer"] == "peer-alpha"
+    assert events[0]["correlation_id"] == "corr-peer-alpha-sync"
     assert pulse_bus.verify(events[0]) is True
 
 
@@ -189,3 +200,43 @@ def test_duplicate_remote_events_suppressed(monkeypatch):
     pending = pulse_bus.pending_events()
     assert len(pending) == 1
     assert pending[0]["payload"]["note"] == "dup"
+    classifications = Path(os.environ["SENTIENTOS_FEDERATION_ROOT"]) / "ingest_classifications.jsonl"
+    rows = classifications.read_text(encoding="utf-8")
+    assert '"classification": "suppressed_replay"' in rows
+
+
+def test_distinct_remote_events_are_not_suppressed(monkeypatch):
+    key_dir = Path(os.environ["PULSE_FEDERATION_KEYS_DIR"])
+    signing_key = SigningKey.generate()
+    (key_dir / "peer-alpha.pub").write_bytes(signing_key.verify_key.encode())
+
+    pulse_federation.configure(enabled=True, peers=["peer-alpha"])
+
+    first = _sign_event(
+        signing_key,
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_daemon": "remote",
+            "event_type": "heartbeat",
+            "payload": {"note": "a"},
+        },
+    )
+    second = _sign_event(
+        signing_key,
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_daemon": "remote",
+            "event_type": "heartbeat",
+            "payload": {"note": "b"},
+        },
+    )
+
+    def fake_get(url: str, *, params: dict, timeout: int):  # noqa: ANN001
+        return [copy.deepcopy(first), copy.deepcopy(second)]
+
+    monkeypatch.setattr(pulse_federation, "_http_get", fake_get)
+    pulse_federation.request_recent_events(15)
+
+    pending = pulse_bus.pending_events()
+    notes = sorted(str(evt["payload"]["note"]) for evt in pending)
+    assert notes == ["a", "b"]

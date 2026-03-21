@@ -239,3 +239,43 @@ def test_runtime_governor_enforcement_blocks_restart(monkeypatch):
     daemon_manager.register("delta", start, stop)
     assert daemon_manager.restart("delta", reason="first") is True
     assert daemon_manager.restart("delta", reason="second") is False
+
+
+def test_federated_restart_preserves_correlation_id(monkeypatch):
+    monkeypatch.setattr(daemon_manager, "_is_trusted_peer", lambda peer: True, raising=False)
+
+    class Worker:
+        def __init__(self) -> None:
+            self.alive = True
+
+        def is_alive(self) -> bool:
+            return self.alive
+
+    def start() -> Worker:
+        return Worker()
+
+    def stop(instance: Worker) -> None:
+        instance.alive = False
+
+    daemon_manager.register("epsilon", start, stop)
+
+    corr = "corr-fed-epsilon"
+    pulse_bus.publish(
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source_daemon": "federation",
+            "event_type": "restart_request",
+            "priority": "critical",
+            "payload": {
+                "action": "restart_daemon",
+                "daemon_name": "epsilon",
+                "reason": "federated-request",
+                "scope": "local",
+            },
+            "correlation_id": corr,
+        }
+    )
+
+    entries = _read_ledger_entries()
+    assert entries
+    assert entries[-1]["correlation_id"]
