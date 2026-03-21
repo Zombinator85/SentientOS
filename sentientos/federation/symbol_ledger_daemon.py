@@ -12,7 +12,7 @@ class SymbolLedgerDaemon:
         self.ledger_path.parent.mkdir(parents=True, exist_ok=True)
         self.ledger_path.touch(exist_ok=True)
 
-    def unify_glossaries(self, peer_glossaries: Mapping[str, Dict[str, str]]) -> dict:
+    def unify_glossaries(self, peer_glossaries: Mapping[str, Dict[str, str]]) -> dict[str, object]:
         """Compute canonical definitions for terms from multiple peer glossaries and append to ledger if new or changed."""
         # Load last known canonical definitions
         last_canonical: Dict[str, str] = {}
@@ -32,7 +32,7 @@ class SymbolLedgerDaemon:
                         last_canonical[term] = definition
 
         timestamp = datetime.now(timezone.utc).isoformat()
-        new_entries: list[dict] = []
+        new_entries: list[dict[str, object]] = []
         all_terms = {term for glossary in peer_glossaries.values() for term in glossary}
         for term in sorted(all_terms):
             # Determine canonical definition by consensus
@@ -58,7 +58,7 @@ class SymbolLedgerDaemon:
             prev_def = last_canonical.get(term)
             if prev_def is None or str(prev_def) != most_common_def:
                 # Create a new ledger entry for this term
-                validations: list[dict] = []
+                validations: list[dict[str, object]] = []
                 for peer_name, glossary in peer_glossaries.items():
                     if term in glossary:
                         peer_def = str(glossary[term])
@@ -72,7 +72,7 @@ class SymbolLedgerDaemon:
                         validations.append(entry)
                     else:
                         validations.append({"peer": peer_name, "status": "missing"})
-                ledger_entry = {
+                ledger_entry: dict[str, object] = {
                     "timestamp": timestamp,
                     "event": "symbol_ledger",
                     "term": term,

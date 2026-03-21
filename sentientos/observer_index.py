@@ -74,8 +74,9 @@ class ObserverIndex:
             name = str(observation.get("observer") or observation.get("name") or "").strip()
             signal = str(observation.get("signal") or "").strip()
             delta_raw = observation.get("delta")
-            confidence = float(observation.get("confidence", 1.0))
-            frequency = observation.get("frequency", "unspecified")
+            confidence = self._coerce_float(observation.get("confidence"), default=1.0)
+            frequency_raw = observation.get("frequency", "unspecified")
+            frequency = frequency_raw if isinstance(frequency_raw, (str, float)) else str(frequency_raw)
 
             if name and name not in self._registry:
                 self.register(name, signal=signal, frequency=frequency)
@@ -84,7 +85,7 @@ class ObserverIndex:
                 continue
 
             registration = self._registry[name]
-            delta = float(delta_raw) if delta_raw is not None else 0.0
+            delta = self._coerce_float(delta_raw, default=0.0)
             should_suppress = self._should_suppress(registration, delta, confidence)
 
             report = ObserverReport(
@@ -112,13 +113,28 @@ class ObserverIndex:
                 }
             )
 
-        heartbeat = {
+        heartbeat: dict[str, object] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "emissions": emissions,
             "registry": [entry.to_dict() for entry in self._registry.values()],
             "audit_log": self.audit_log,
         }
         return heartbeat
+
+    @staticmethod
+    def _coerce_float(value: object, *, default: float) -> float:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return float(value)
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value.strip())
+            except ValueError:
+                return default
+        return default
 
     def _should_suppress(self, registration: ObserverRegistration, delta: float, confidence: float) -> bool:
         if registration.last_delta is not None and delta == registration.last_delta:

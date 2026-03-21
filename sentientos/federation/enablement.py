@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from collections.abc import Iterator
 from typing import Mapping
 import contextvars
 import os
@@ -55,7 +56,7 @@ def assert_federation_contract(context: str) -> None:
 
 
 @contextmanager
-def federation_opt_in(reason: str | None = None):
+def federation_opt_in(reason: str | None = None) -> Iterator[None]:
     """Explicit federation opt-in context for deliberate enablement."""
     _ = reason
     token = _FEDERATION_OPT_IN.set(True)
@@ -66,7 +67,7 @@ def federation_opt_in(reason: str | None = None):
 
 
 @contextmanager
-def legacy_federation_bypass(reason: str | None = None):
+def legacy_federation_bypass(reason: str | None = None) -> Iterator[None]:
     """Test-only legacy bypass for federation contract enforcement."""
     _ = reason
     if "PYTEST_CURRENT_TEST" not in os.environ and "pytest" not in sys.modules:

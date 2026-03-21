@@ -277,6 +277,7 @@ def _federation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any]
         and str(row.get("replay_horizon_classification") or "")
         in {"incompatible_replay_policy", "peer_too_stale_for_replay_horizon"}
     ]
+    degradations: list[dict[str, Any]]
     if latest is None:
         degradations = [{"kind": "wan_run_missing", "severity": "missing_evidence", "message": "no WAN run found"}]
         if incompatible:
@@ -293,7 +294,7 @@ def _federation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any]
     contradictions = _as_rows(truth_summary.get("contradictions"))
     if cluster_truth == "consistent":
         dim: FleetDimensionStatus = "healthy"
-        degradations: list[dict[str, Any]] = []
+        degradations = []
     elif cluster_truth == "degraded_but_explained":
         dim = "degraded"
         degradations = [{"kind": "wan_truth_degraded", "severity": "degraded", "message": f"contradictions={len(contradictions)}"}]

@@ -7,7 +7,7 @@ import base64
 import hashlib
 import json
 import threading
-from typing import Callable, Mapping, MutableMapping, Optional, Sequence
+from typing import Any, Callable, Mapping, MutableMapping, Optional, Sequence, cast
 
 from sentientos.federation.enablement import assert_federation_contract
 from sentientos.federation.handshake_semantics import (
@@ -31,8 +31,8 @@ def _encode_payload(payload: object) -> bytes:
         return bytes(payload)
     if hasattr(payload, "to_dict"):
         payload = getattr(payload, "to_dict")()
-    if is_dataclass(payload):
-        payload = asdict(payload)
+    if is_dataclass(payload) and not isinstance(payload, type):
+        payload = asdict(cast(Any, payload))
     if isinstance(payload, Mapping):
         return _stable_json(dict(payload)).encode("utf-8")
     if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
@@ -42,7 +42,7 @@ def _encode_payload(payload: object) -> bytes:
 
 def _decode_payload(payload: bytes) -> object | None:
     try:
-        return json.loads(payload.decode("utf-8"))
+        return cast(object, json.loads(payload.decode("utf-8")))
     except (UnicodeDecodeError, json.JSONDecodeError):
         return None
 

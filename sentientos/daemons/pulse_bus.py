@@ -139,7 +139,7 @@ def pulse_protocol_identity() -> dict[str, object]:
 
     required_fields = sorted(_REQUIRED_FIELDS)
     default_fields = sorted(PULSE_V2_SCHEMA.keys())
-    identity = {
+    identity: dict[str, object] = {
         "protocol_version": _PULSE_PROTOCOL_VERSION,
         "schema_family": _PULSE_PROTOCOL_SCHEMA_FAMILY,
         "required_fields_version": _PULSE_PROTOCOL_REQUIRED_FIELDS_VERSION,

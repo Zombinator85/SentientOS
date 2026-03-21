@@ -7,7 +7,7 @@ import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional
+from typing import Any, Callable, Dict, Mapping, Optional, Protocol, cast
 
 from sentientos.persona_events import publish_event
 
@@ -67,15 +67,19 @@ class PeerReplaySnapshot:
         delta_payload = payload.get("delta", {})
         return PeerReplaySnapshot(
             peer=str(payload.get("peer") or ""),
-            severity=str(payload.get("severity") or "none"),
+            severity=cast(ReplaySeverity, str(payload.get("severity") or "none")),
             delta=DeltaResult.from_payload(delta_payload if isinstance(delta_payload, Mapping) else {}),
             last_seen=ts,
             summary_digest=(str(payload.get("summary_digest")) or None),
         )
 
 
+class _FederationRuntime(Protocol):
+    def on_federation_window(self, window: FederationWindow) -> None: ...
+
+
 class FederationPoller:
-    def __init__(self, config: FederationConfig, runtime, log_cb: Callable[[str], None]) -> None:
+    def __init__(self, config: FederationConfig, runtime: _FederationRuntime | object, log_cb: Callable[[str], None]) -> None:
         self.config = config
         self.runtime = runtime
         self.log_cb = log_cb
@@ -199,7 +203,7 @@ class FederationPoller:
                 except Exception:  # pragma: no cover - defensive
                     self.log_cb("Federation window callback failed; continuing")
 
-    def _evaluate_peer(self, peer: PeerConfig, local_summary) -> tuple[DriftReport, Optional[FederationSummary]]:
+    def _evaluate_peer(self, peer: PeerConfig, local_summary: FederationSummary) -> tuple[DriftReport, Optional[FederationSummary]]:
         peer_summary = read_peer_summary(peer.state_file)
         if peer_summary is None:
             report = DriftReport(peer=peer.node_name, level="incompatible", reasons=["Missing or invalid summary"])
