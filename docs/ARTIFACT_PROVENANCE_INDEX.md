@@ -116,8 +116,10 @@ Each row carries compact fields such as:
 - `row_id` / `domain`
 - `status` and `drift_posture`
 - `pointer_state` (freshness/completeness only)
+- `freshness_posture` (`fresh_evidence`, `stale_evidence`, `evidence_unavailable`)
 - `baseline_present`, `drifted`, `drift_type`, bounded `drift_explanation`
 - `strict_gate_envvar`, `policy_meaning`, `gate_meaning`
+- `alert_kind` / `alert_reason` (consumer classification only)
 - `summary_reason`
 - `primary_artifact_path`, `created_at`, `digest_sha256`
 - bounded provenance hints (`domain_captured_at`, `domain_captured_by`, etc.)
@@ -129,3 +131,12 @@ Important separation is preserved:
 
 So `stale + healthy`, `current + drifted`, or `missing + indeterminate` remain
 explicitly distinguishable in one hop.
+
+`alert_kind` is normalized for read/report consumers without creating new
+blocking policy:
+
+- `freshness_issue` (stale/missing evidence path)
+- `domain_drift` (actual drift posture)
+- `baseline_absent` (baseline missing precondition)
+- `partial_evidence` (indeterminate payload posture)
+- `informational` (current + healthy rows)

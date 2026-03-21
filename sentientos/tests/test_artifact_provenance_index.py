@@ -234,6 +234,10 @@ def test_artifact_index_contract_status_selected_surface_summary_rows(tmp_path: 
     assert by_domain["federation_identity"]["drift_type"] == "baseline_missing"
     assert by_domain["perception"]["pointer_state"] == contract["pointer_state"]
     assert by_domain["audits"]["policy_meaning"] == "contract_nominal"
+    assert by_domain["audits"]["alert_kind"] == "informational"
+    assert by_domain["perception"]["alert_kind"] == "domain_drift"
+    assert by_domain["federation_identity"]["alert_kind"] == "baseline_absent"
+    assert by_domain["federation_identity"]["gate_meaning"] == "strict_gate_precondition"
 
 
 def test_artifact_index_contract_status_pointer_state_separate_from_drift_posture(tmp_path: Path) -> None:
@@ -264,6 +268,8 @@ def test_artifact_index_contract_status_pointer_state_separate_from_drift_postur
     assert row["pointer_state"] == "stale"
     assert row["status"] == "healthy"
     assert row["drifted"] is False
+    assert row["freshness_posture"] == "stale_evidence"
+    assert row["alert_kind"] == "freshness_issue"
 
 
 def test_artifact_index_contract_status_missing_surface_emits_missing_row(tmp_path: Path) -> None:
@@ -278,6 +284,8 @@ def test_artifact_index_contract_status_missing_surface_emits_missing_row(tmp_pa
     assert len(rows) == 1
     assert rows[0]["row_id"] == "contract_status_missing"
     assert rows[0]["status"] == "missing"
+    assert rows[0]["drift_posture"] == "indeterminate"
+    assert rows[0]["alert_kind"] == "freshness_issue"
 
 
 def test_selected_surface_summary_rows_keep_pointer_state_separate_from_health(tmp_path: Path) -> None:

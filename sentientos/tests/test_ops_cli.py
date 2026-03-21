@@ -251,6 +251,9 @@ def test_observatory_artifacts_contract_status_surface_selector_rows(tmp_path: P
     rows = {row["domain"]: row for row in payload["selected_summary_rows"]}
     assert rows["audits"]["status"] == "healthy"
     assert rows["perception"]["status"] == "drifted"
+    assert rows["audits"]["freshness_posture"] == "fresh_evidence"
+    assert rows["audits"]["alert_kind"] == "informational"
+    assert rows["perception"]["alert_kind"] == "domain_drift"
 
 
 def test_observatory_artifacts_broad_lane_surface_selector_exposes_lane_rows(tmp_path: Path, capsys) -> None:

@@ -7,6 +7,7 @@ from typing import Any, Literal, Mapping
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
 from sentientos.broad_lane_rows import rows_from_broad_lane_summary
+from sentientos.observatory.contract_status_consumer import summarize_contract_alerts
 from sentientos.observatory.artifact_index import build_artifact_provenance_index
 
 FleetDimensionStatus = Literal[
@@ -446,24 +447,25 @@ def _strict_audit_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, An
     }, degradations
 
 
-def _contract_drift_health(root: Path) -> dict[str, Any]:
+def _contract_drift_health(root: Path, *, contract_rows: list[dict[str, Any]]) -> dict[str, Any]:
     status = _read_json_if_exists(root, "glow/contracts/contract_status.json")
-    rows = _as_rows(status.get("contracts"))
-    drifted = []
-    missing = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        domain = str(row.get("domain_name") or "unknown")
-        drift_type = str(row.get("drift_type") or "")
-        drifted_value = row.get("drifted")
-        if drifted_value is True and drift_type not in {"none", ""}:
-            drifted.append({"domain": domain, "drift_type": drift_type, "drift_explanation": row.get("drift_explanation")})
-        if drift_type in {"baseline_missing", "artifact_missing", "preflight_required"}:
-            missing.append({"domain": domain, "drift_type": drift_type})
+    rollup = summarize_contract_alerts(contract_rows)
+
+    drifted = [
+        {"domain": str(row.get("domain") or "unknown"), "drift_type": row.get("drift_type"), "drift_explanation": row.get("drift_explanation")}
+        for row in contract_rows
+        if str(row.get("status") or "") == "drifted"
+    ]
+    missing = [
+        {"domain": str(row.get("domain") or "unknown"), "drift_type": row.get("drift_type")}
+        for row in contract_rows
+        if str(row.get("status") or "") == "baseline_missing"
+    ]
     return {
         "source": "glow/contracts/contract_status.json",
-        "contract_count": len(rows),
+        "contract_count": len(_as_rows(status.get("contracts"))),
+        "contract_rows": contract_rows,
+        "contract_row_summary": rollup,
         "drifted_domains": drifted,
         "missing_domains": missing,
     }
@@ -551,9 +553,6 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
 
     degradations_sorted = sorted(degradations, key=lambda row: (_status_rank(str(row.get("severity") or "unavailable")), str(row.get("kind") or "")))
 
-    contract_drift = _contract_drift_health(root)
-    incidents = _incident_snapshot(root)
-
     summary = {
         "schema_version": 1,
         "generated_at": iso_now(),
@@ -563,29 +562,6 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
         "degradation_count": len(degradations_sorted),
         "blocking_count": sum(1 for row in degradations_sorted if str(row.get("severity") or "") == "blocking"),
         "missing_evidence_count": sum(1 for row in degradations_sorted if str(row.get("severity") or "") == "missing_evidence"),
-    }
-
-    dashboard = {
-        "schema_version": 1,
-        "generated_at": summary["generated_at"],
-        "dimensions": {
-            "constitution_health": constitution_detail,
-            "corridor_health": corridor_detail,
-            "simulation_health": simulation_detail,
-            "formal_health": formal_detail,
-            "federation_health": federation_detail,
-            "wan_gate_health": wan_gate_detail,
-            "remote_smoke_health": remote_smoke_detail,
-            "preflight_drift_health": preflight_detail,
-            "evidence_density_health": evidence_detail,
-            "strict_audit_health": strict_audit_detail,
-            "release_readiness": {
-                "status": readiness,
-                "reasons": readiness_reasons,
-            },
-        },
-        "contract_drift_rollup": contract_drift,
-        "incident_rollup": incidents,
     }
 
     release = {
@@ -611,9 +587,38 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
         "degradations": degradations_sorted,
     }
 
-    write_json(out_root / "fleet_health_summary.json", summary)
     artifact_index_payload = build_artifact_provenance_index(root)
     latest_pointers_payload = read_json(root / "glow/observatory/latest_pointers.json")
+    contract_surface = _as_mapping(_as_mapping(latest_pointers_payload.get("surfaces")).get("contract_status"))
+    contract_rows = _as_rows(_as_mapping(contract_surface.get("metadata")).get("summary_rows"))
+    contract_drift = _contract_drift_health(root, contract_rows=contract_rows)
+    incidents = _incident_snapshot(root)
+
+    dashboard = {
+        "schema_version": 1,
+        "generated_at": summary["generated_at"],
+        "dimensions": {
+            "constitution_health": constitution_detail,
+            "corridor_health": corridor_detail,
+            "simulation_health": simulation_detail,
+            "formal_health": formal_detail,
+            "federation_health": federation_detail,
+            "wan_gate_health": wan_gate_detail,
+            "remote_smoke_health": remote_smoke_detail,
+            "preflight_drift_health": preflight_detail,
+            "evidence_density_health": evidence_detail,
+            "strict_audit_health": strict_audit_detail,
+            "release_readiness": {
+                "status": readiness,
+                "reasons": readiness_reasons,
+            },
+        },
+        "contract_drift_rollup": contract_drift,
+        "incident_rollup": incidents,
+    }
+
+    summary["contract_row_summary"] = _as_mapping(contract_drift.get("contract_row_summary"))
+    write_json(out_root / "fleet_health_summary.json", summary)
     links_payload = read_json(root / "glow/observatory/artifact_provenance_links.json")
     broad_lane_payload = read_json(root / "glow/observatory/broad_lane/broad_lane_latest_summary.json")
     broad_lane_rows = rows_from_broad_lane_summary(broad_lane_payload)
