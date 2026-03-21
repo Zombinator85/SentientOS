@@ -124,3 +124,21 @@ def test_artifact_index_digest_is_deterministic(tmp_path: Path) -> None:
     second = json.loads((tmp_path / "glow/observatory/final_artifact_index_digest.json").read_text(encoding="utf-8"))
 
     assert first["artifact_provenance_digest"] == second["artifact_provenance_digest"]
+
+def test_artifact_index_embeds_broad_lane_latest_surfaces(tmp_path: Path) -> None:
+    _seed_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/test_runs/test_run_provenance.json",
+        {"timestamp": iso_now(), "execution_mode": "execute", "metrics_status": "ok", "pytest_exit_code": 0},
+    )
+    _write_json(
+        tmp_path / "glow/contracts/typing_ratchet_status.json",
+        {"generated_at": iso_now(), "status": "ok", "deferred_debt_error_count": 0},
+    )
+
+    build_artifact_provenance_index(tmp_path)
+
+    latest = json.loads((tmp_path / "glow/observatory/latest_pointers.json").read_text(encoding="utf-8"))
+    assert latest["surfaces"]["run_tests_broad_lane"]["pointer_state"] in {"current", "stale", "unavailable", "incomplete"}
+    assert latest["surfaces"]["mypy_broad_lane"]["pointer_state"] in {"current", "stale", "unavailable", "incomplete"}
+    assert latest["surfaces"]["broad_lane_latest_summary"]["artifact_path"] == "glow/observatory/broad_lane/broad_lane_latest_summary.json"

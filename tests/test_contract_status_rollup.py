@@ -30,6 +30,9 @@ def test_emit_contract_status_handles_missing_baselines(tmp_path: Path, monkeypa
     assert by_domain["run_tests_provenance"]["drift_type"] == "artifact_missing"
     assert by_domain["run_tests_failure_digest"]["drift_type"] == "artifact_missing"
     assert by_domain["mypy_ratchet_status"]["drift_type"] == "artifact_missing"
+    assert by_domain["run_tests_latest_pointer"]["drift_type"] == "artifact_missing"
+    assert by_domain["mypy_latest_pointer"]["drift_type"] == "artifact_missing"
+    assert by_domain["broad_lane_latest_summary"]["drift_type"] == "artifact_missing"
     assert by_domain["fleet_health_summary"]["drift_type"] == "artifact_missing"
 
 

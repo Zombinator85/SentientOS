@@ -68,3 +68,13 @@ A baseline is considered **stabilized** when:
 1. protected corridor remains green,
 2. broad baseline either becomes green or has bounded/non-ambiguous failure classes,
 3. remaining debt is explicitly tagged as deferred and does not pollute corridor/protected gating.
+
+## Broad-lane latest pointers
+
+To remove cross-file inference, broad-lane recency is emitted at:
+
+- `glow/observatory/broad_lane/run_tests_latest_pointer.json`
+- `glow/observatory/broad_lane/mypy_latest_pointer.json`
+- `glow/observatory/broad_lane/broad_lane_latest_summary.json`
+
+`emit_baseline_verification_status.py` now consumes this summary first (when present) and falls back to direct lane artifacts if pointer artifacts are absent.

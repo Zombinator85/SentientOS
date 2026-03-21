@@ -49,3 +49,24 @@ Current high-value links include:
 - Pointer and link artifacts are locator metadata for operators.
 - This layer improves navigation (`summary -> source -> source-of-source`) while preserving immutable source evidence semantics.
 
+
+## Broad-lane latest pointer contract
+
+Broad lanes now have an explicit contract under `glow/observatory/broad_lane/`:
+
+- `run_tests_latest_pointer.json`
+- `mypy_latest_pointer.json`
+- `broad_lane_latest_summary.json`
+
+Each lane pointer includes:
+
+- `lane`, `status`, `lane_state`
+- `pointer_state` (`current`, `stale`, `missing`, `unavailable`, `incomplete`)
+- `primary_artifact_path`
+- `supporting_artifact_paths`
+- `created_at`
+- `run_id`
+- `digest_sha256`
+- `provenance_resolution` + `why_latest`
+
+`pointer_state` is a recency/completeness signal. `lane_state` remains health/outcome semantics (for example deferred debt vs blocking failure). A lane can be `pointer_state=current` while still `lane_state=lane_completed_with_blocking_failure`.

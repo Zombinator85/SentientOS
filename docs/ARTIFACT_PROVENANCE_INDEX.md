@@ -30,6 +30,9 @@ Running `python -m sentientos.ops observatory artifacts --json` emits:
 - `remote_preflight_trend`
 - `fleet_observatory`
 - `incident_summary`
+- `run_tests_broad_lane`
+- `mypy_broad_lane`
+- `broad_lane_latest_summary`
 
 ## Latest selection
 

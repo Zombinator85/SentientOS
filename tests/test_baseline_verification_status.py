@@ -174,3 +174,57 @@ def test_build_status_classifies_mypy_from_ratchet_status(tmp_path: Path) -> Non
 
     assert status["lanes"]["mypy"]["status"] == "amber"
     assert status["lanes"]["mypy"]["lane_state"] == "lane_completed_with_deferred_debt"
+
+def test_build_status_prefers_broad_lane_latest_summary_when_present(tmp_path: Path) -> None:
+    corridor_path = tmp_path / "glow/contracts/protected_corridor_report.json"
+    corridor_path.parent.mkdir(parents=True, exist_ok=True)
+    corridor_path.write_text(
+        json.dumps({"schema_version": 1, "global_summary": {"status": "green", "corridor_blocking": False}}),
+        encoding="utf-8",
+    )
+    summary_path = tmp_path / "glow/observatory/broad_lane/broad_lane_latest_summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "lanes": {
+                    "run_tests": {
+                        "status": "amber",
+                        "lane_state": "lane_completed_with_deferred_debt",
+                        "failure_count": 2,
+                        "details": {"failure_group_count": 2},
+                        "pointer_state": "current",
+                        "primary_artifact_path": "glow/test_runs/test_run_provenance.json",
+                        "supporting_artifact_paths": ["glow/test_runs/test_failure_digest.json"],
+                        "created_at": "2026-03-20T00:00:00Z",
+                        "run_id": "abc",
+                    },
+                    "mypy": {
+                        "status": "green",
+                        "lane_state": "lane_completed_with_advisories",
+                        "failure_count": 0,
+                        "details": {},
+                        "pointer_state": "current",
+                        "primary_artifact_path": "glow/contracts/typing_ratchet_status.json",
+                        "supporting_artifact_paths": [],
+                        "created_at": "2026-03-20T00:00:00Z",
+                        "run_id": None,
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = build_status(
+        failure_digest_path=tmp_path / "glow/test_runs/test_failure_digest.json",
+        run_provenance_path=tmp_path / "glow/test_runs/test_run_provenance.json",
+        mypy_output_path=tmp_path / "glow/typecheck/mypy_latest.txt",
+        mypy_ratchet_status_path=tmp_path / "glow/contracts/typing_ratchet_status.json",
+        corridor_report_path=corridor_path,
+        broad_lane_latest_summary_path=summary_path,
+    )
+
+    assert status["lanes"]["run_tests"]["failure_count"] == 2
+    assert status["lanes"]["run_tests"]["details"]["latest_pointer"]["run_id"] == "abc"
