@@ -236,22 +236,34 @@ class _DaemonManager:
         scope_value = payload.get("scope")
         scope = self._normalize_scope(scope_value)
         source_peer = self._normalize_peer(event.get("source_peer"))
+        correlation = str(event.get("correlation_id") or event.get("event_hash") or "")
+        ingress_status = str(event.get("ingress_status") or "verified")
 
         if scope == "federated":
             if source_peer in {"", "local"}:
                 # Local node is asking peers to restart themselves; ignore locally.
                 return
+            if ingress_status != "verified":
+                logger.warning(
+                    "Rejected federated restart for '%s' with untrusted ingress status '%s' (correlation=%s)",
+                    target,
+                    ingress_status,
+                    correlation,
+                )
+                return
             if not self._is_trusted_peer(source_peer):
                 logger.warning(
-                    "Rejected federated restart for '%s' from untrusted peer '%s'",
+                    "Rejected federated restart for '%s' from untrusted peer '%s' (correlation=%s)",
                     target,
                     source_peer,
+                    correlation,
                 )
                 return
             if not pulse_bus.verify(event):
                 logger.warning(
-                    "Rejected federated restart for '%s' due to invalid signature",
+                    "Rejected federated restart for '%s' due to invalid signature (correlation=%s)",
                     target,
+                    correlation,
                 )
                 return
             requester = source_peer
@@ -260,7 +272,6 @@ class _DaemonManager:
 
         reason_value = payload.get("reason") or event.get("event_type")
         reason_text = self._normalize_reason(reason_value)
-        correlation = str(event.get("correlation_id") or event.get("event_hash") or "")
         try:
             self.restart(
                 str(target),

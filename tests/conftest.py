@@ -164,6 +164,10 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     key_dir.mkdir(parents=True, exist_ok=True)
     monitoring_dir = tmp_path / "glow" / "monitoring"
     monitoring_dir.mkdir(parents=True, exist_ok=True)
+    pulse_runtime_dir = tmp_path / "glow" / "pulse"
+    pulse_runtime_dir.mkdir(parents=True, exist_ok=True)
+    federation_runtime_dir = tmp_path / "glow" / "federation"
+    federation_runtime_dir.mkdir(parents=True, exist_ok=True)
 
     signing_key = SigningKey.generate()
     private_key = key_dir / "ed25519_private.key"
@@ -174,6 +178,8 @@ def configure_pulse_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("PULSE_HISTORY_ROOT", str(history_dir))
     monkeypatch.setenv("PULSE_SIGNING_KEY", str(private_key))
     monkeypatch.setenv("PULSE_VERIFY_KEY", str(public_key))
+    monkeypatch.setenv("PULSE_RUNTIME_ROOT", str(pulse_runtime_dir))
+    monkeypatch.setenv("SENTIENTOS_FEDERATION_ROOT", str(federation_runtime_dir))
     monkeypatch.delenv("MONITORING_METRICS_PATH", raising=False)
 
     from sentientos import pulse_query as pulse_query_module

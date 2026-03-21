@@ -66,6 +66,13 @@ def test_ingest_rejects_invalid_federated_signature() -> None:
     }
     with pytest.raises(ValueError):
         pulse_bus.ingest(event, source_peer="peer-alpha")
+    assert pulse_bus.pending_events() == []
+    audit_path = Path(os.environ["PULSE_RUNTIME_ROOT"]) / "ingress_audit.jsonl"
+    quarantine_path = Path(os.environ["PULSE_RUNTIME_ROOT"]) / "untrusted_quarantine.jsonl"
+    assert audit_path.exists()
+    assert quarantine_path.exists()
+    assert '"classification": "reject"' in audit_path.read_text(encoding="utf-8")
+    assert '"reason": "signature_verification_failed"' in audit_path.read_text(encoding="utf-8")
 
 
 def test_signature_verification_detects_tampering() -> None:

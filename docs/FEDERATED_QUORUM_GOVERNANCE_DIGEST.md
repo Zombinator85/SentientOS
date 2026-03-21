@@ -53,7 +53,18 @@ Artifacts:
 - `sentientos/runtime_governor.py`
   - federated governance posture dimension added
   - digest/quorum/epoch mismatch reasons can block federated control deterministically
-  - governor state and budget artifacts include federation governance digest
+- governor state and budget artifacts include federation governance digest
+
+## Federation ingest replay suppression
+
+Federated pulse ingest uses deterministic event identity (`event_hash` over
+canonical payload) with a bounded replay cache. Duplicate/replayed ingress is
+classified explicitly as `suppressed_replay` and does not enter normal pulse
+dispatch/history flows.
+
+Classification artifact:
+
+- `/glow/federation/ingest_classifications.jsonl`
 
 ## Deterministic denial semantics
 Federated denial now distinguishes:

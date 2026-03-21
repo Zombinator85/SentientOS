@@ -35,6 +35,17 @@ Set `SENTIENTOS_GOVERNOR_MODE` to one of:
 - critical-event storm threshold
 - pressure threshold gates
 
+Storm/pressure budget ordering is symmetric across `restart_daemon`,
+`repair_action`, and `federated_control`:
+
+1. class budget/rate limits
+2. critical-storm gate
+3. block-pressure gate
+4. warn-pressure advisory
+
+This removes weaker federated-control storm paths and keeps deny/defer reasons
+artifact-backed and explicit.
+
 ## Deterministic arbitration model
 
 RuntimeGovernor applies fixed class semantics before final allow/deny:
@@ -57,6 +68,10 @@ Under pressure or storm conditions, deferrable classes can be denied with explic
 defer reasons, while local recovery paths keep precedence to avoid starvation.
 Every decision records `correlation_id`, `decision`, `reason`, `governor_mode`,
 `pressure_snapshot`, `action_priority`, and `action_family`.
+
+Federated control and restart/repair paths propagate machine-readable
+`correlation_id` so operators can trace one incident chain across pulse ingress,
+governor decisions, daemon restart logs, and repair ledgers.
 
 All denials emit signed pulse events:
 

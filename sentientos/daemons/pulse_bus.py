@@ -59,14 +59,22 @@ _SIGNING_KEY_ENV = "PULSE_SIGNING_KEY"
 _VERIFY_KEY_ENV = "PULSE_VERIFY_KEY"
 
 _DEFAULT_HISTORY_ROOT = Path("/glow/pulse_history")
+_DEFAULT_RUNTIME_ROOT = Path("/glow/pulse")
 _DEFAULT_SIGNING_KEY = Path("/vow/keys/ed25519_private.key")
 _DEFAULT_VERIFY_KEY = Path("/vow/keys/ed25519_public.key")
 
 _HISTORY_FILENAME = re.compile(r"pulse_(\d{4}-\d{2}-\d{2})\.jsonl$")
+_INGRESS_AUDIT_FILENAME = "ingress_audit.jsonl"
+_UNTRUSTED_QUARANTINE_FILENAME = "untrusted_quarantine.jsonl"
+_QUARANTINE_LIMIT = max(16, int(os.getenv("PULSE_UNTRUSTED_QUARANTINE_LIMIT", "256")))
 
 
 def _history_root() -> Path:
     return Path(os.getenv(_HISTORY_ROOT_ENV, str(_DEFAULT_HISTORY_ROOT)))
+
+
+def _runtime_root() -> Path:
+    return Path(os.getenv("PULSE_RUNTIME_ROOT", str(_DEFAULT_RUNTIME_ROOT)))
 
 
 def _signing_key_path() -> Path:
@@ -106,6 +114,9 @@ def _serialize_for_signature(event: PulseEvent) -> bytes:
     payload.pop("source_peer", None)
     payload.pop("event_hash", None)
     payload.pop("correlation_id", None)
+    payload.pop("ingress_status", None)
+    payload.pop("ingress_reason", None)
+    payload.pop("ingress_classification", None)
     return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
@@ -240,6 +251,7 @@ class _PulseBus:
     def __init__(self) -> None:
         self._events: Deque[PulseEvent] = deque()
         self._subscribers: List[_Subscriber] = []
+        self._quarantined: Deque[PulseEvent] = deque(maxlen=_QUARANTINE_LIMIT)
         self._lock = Lock()
 
     def publish(self, event: PulseEvent) -> PulseEvent:
@@ -275,10 +287,21 @@ class _PulseBus:
     def ingest(
         self, event: PulseEvent, *, source_peer: str | None = None
     ) -> PulseEvent:
+        return self.ingest_verified(event, source_peer=source_peer)
+
+    def ingest_verified(
+        self, event: PulseEvent, *, source_peer: str | None = None
+    ) -> PulseEvent:
         if not isinstance(event, dict):
             raise TypeError("Pulse events must be dictionaries")
         signature = event.get("signature")
         if not isinstance(signature, str) or not signature:
+            self.ingest_untrusted(
+                event,
+                source_peer=source_peer,
+                reason="missing_signature",
+                classification="reject",
+            )
             raise ValueError("Federated pulse events require a signature")
 
         verification_event = copy.deepcopy(event)
@@ -287,6 +310,13 @@ class _PulseBus:
         else:
             verification_event["source_peer"] = str(verification_event.get("source_peer", "remote"))
         if not verify(verification_event):
+            verification_source = str(verification_event.get("source_peer", "remote"))
+            self.ingest_untrusted(
+                event,
+                source_peer=verification_source,
+                reason="signature_verification_failed",
+                classification="reject",
+            )
             raise ValueError("Federated pulse event signature verification failed")
 
         normalized = self._normalize_event(event, apply_defaults=False)
@@ -295,6 +325,16 @@ class _PulseBus:
         normalized["event_hash"] = str(normalized.get("event_hash") or compute_event_hash(normalized))
         normalized["correlation_id"] = str(
             normalized.get("correlation_id") or normalized["event_hash"]
+        )
+        normalized["ingress_status"] = "verified"
+        normalized["ingress_reason"] = "signature_verified"
+        normalized["ingress_classification"] = "accept"
+        self._record_ingress_decision(
+            normalized,
+            source_peer=str(normalized["source_peer"]),
+            status="verified",
+            reason="signature_verified",
+            classification="accept",
         )
         self._persist_event(normalized)
         with self._lock:
@@ -311,6 +351,37 @@ class _PulseBus:
         except Exception:
             pass
         return copy.deepcopy(normalized)
+
+    def ingest_untrusted(
+        self,
+        event: PulseEvent,
+        *,
+        source_peer: str | None = None,
+        reason: str,
+        classification: str = "quarantine",
+    ) -> PulseEvent:
+        if not isinstance(event, dict):
+            raise TypeError("Pulse events must be dictionaries")
+        snapshot = copy.deepcopy(event)
+        normalized_peer = str(source_peer or snapshot.get("source_peer") or "remote")
+        snapshot["source_peer"] = normalized_peer
+        event_hash = str(snapshot.get("event_hash") or compute_event_hash(snapshot))
+        correlation_id = str(snapshot.get("correlation_id") or event_hash)
+        snapshot["event_hash"] = event_hash
+        snapshot["correlation_id"] = correlation_id
+        snapshot["ingress_status"] = "untrusted"
+        snapshot["ingress_reason"] = reason
+        snapshot["ingress_classification"] = classification
+        with self._lock:
+            self._quarantined.append(copy.deepcopy(snapshot))
+        self._record_ingress_decision(
+            snapshot,
+            source_peer=normalized_peer,
+            status="untrusted",
+            reason=reason,
+            classification=classification,
+        )
+        return snapshot
 
     def replay(self, since: datetime | None = None) -> Iterator[PulseEvent]:
         cutoff = _ensure_utc(since) if since is not None else None
@@ -372,6 +443,36 @@ class _PulseBus:
         with self._lock:
             self._events.clear()
             self._subscribers.clear()
+            self._quarantined.clear()
+
+    def _record_ingress_decision(
+        self,
+        event: PulseEvent,
+        *,
+        source_peer: str,
+        status: str,
+        reason: str,
+        classification: str,
+    ) -> None:
+        root = _runtime_root()
+        root.mkdir(parents=True, exist_ok=True)
+        event_hash = str(event.get("event_hash") or compute_event_hash(event))
+        correlation_id = str(event.get("correlation_id") or event_hash)
+        record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": status,
+            "classification": classification,
+            "reason": reason,
+            "source_peer": source_peer,
+            "event_type": str(event.get("event_type", "")),
+            "event_hash": event_hash,
+            "correlation_id": correlation_id,
+        }
+        with (root / _INGRESS_AUDIT_FILENAME).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+        if status == "untrusted":
+            with (root / _UNTRUSTED_QUARANTINE_FILENAME).open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps({**record, "event": event}, sort_keys=True) + "\n")
 
     def _persist_event(self, event: PulseEvent) -> None:
         history_root = _history_root()
@@ -509,13 +610,30 @@ def publish(event: PulseEvent) -> PulseEvent:
 def ingest(event: PulseEvent, *, source_peer: str | None = None) -> PulseEvent:
     """Ingest a pre-signed pulse event from a remote peer."""
 
-    return _BUS.ingest(event, source_peer=source_peer)
+    return _BUS.ingest_verified(event, source_peer=source_peer)
 
 
 def ingest_verified(event: PulseEvent, *, source_peer: str | None = None) -> PulseEvent:
     """Ingest and cryptographically verify a pre-signed pulse event."""
 
-    return _BUS.ingest(event, source_peer=source_peer)
+    return _BUS.ingest_verified(event, source_peer=source_peer)
+
+
+def ingest_untrusted(
+    event: PulseEvent,
+    *,
+    source_peer: str | None = None,
+    reason: str,
+    classification: str = "quarantine",
+) -> PulseEvent:
+    """Explicitly quarantine/reject untrusted pulse ingress without dispatching."""
+
+    return _BUS.ingest_untrusted(
+        event,
+        source_peer=source_peer,
+        reason=reason,
+        classification=classification,
+    )
 
 
 def replay(since: datetime | None = None) -> Iterator[PulseEvent]:
@@ -593,6 +711,7 @@ __all__ = [
     "consume_events",
     "ingest",
     "ingest_verified",
+    "ingest_untrusted",
     "verify",
     "apply_pulse_defaults",
     "compute_event_hash",

@@ -108,6 +108,45 @@ def test_federated_control_blocked_by_critical_storm(monkeypatch, tmp_path) -> N
     assert decision.reason == "critical_event_storm_detected"
 
 
+def test_storm_reason_parity_across_restart_repair_and_federated(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CRITICAL_LIMIT", "1")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_CPU", "0.95")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_IO", "0.95")
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_THERMAL", "0.95")
+    reset_runtime_governor()
+    governor = get_runtime_governor()
+
+    critical = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source_daemon": "network",
+        "event_type": "critical_alarm",
+        "priority": "critical",
+        "payload": {},
+    }
+    governor.observe_pulse_event(critical)
+    governor.observe_pulse_event(critical)
+
+    restart = governor.admit_action("restart_daemon", "local", "corr-restart", metadata={"subject": "alpha"})
+    repair = governor.admit_action(
+        "repair_action",
+        "codex_healer",
+        "corr-repair",
+        metadata={"subject": "alpha", "anomaly_kind": "daemon_unresponsive"},
+    )
+    federated = governor.admit_action(
+        "federated_control",
+        "peer-a",
+        "corr-fed",
+        metadata={"subject": "alpha", "scope": "federated"},
+    )
+
+    assert restart.reason == "critical_event_storm_detected"
+    assert repair.reason == "critical_event_storm_detected"
+    assert federated.reason == "critical_event_storm_detected"
+
+
 def test_admit_action_routes_control_plane_task(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_MODE", "enforce")
     monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
