@@ -73,3 +73,29 @@ This means selected-surface readers can directly consume:
   `created_at`, `run_id`, `digest_sha256`)
 
 without a second-hop reconstruction from per-lane pointer artifacts.
+
+## Generalized selected-surface summary rows
+
+For a bounded set of non-broad surfaces, `latest_pointers.json` now also exposes
+`metadata.summary_rows` so selected-surface reads can remain one hop for common
+inspection flows.
+
+Current generalized surfaces:
+
+- `fleet_observatory`
+- `strict_audit_status`
+- `protected_corridor`
+- `wan_gate`
+- `remote_preflight_trend`
+
+Each row remains compact and deterministic. It carries:
+
+- identity (`row_id`)
+- freshness locator state (`pointer_state`)
+- surface health/status classification (`status`, `health_state`)
+- short policy/readiness interpretation (`policy_meaning`, `readiness_meaning` where relevant)
+- short explanation (`summary_reason`)
+- minimal provenance (`primary_artifact_path`, `created_at`, `digest_sha256`)
+
+This does **not** inline full source artifacts. Operators still dereference
+source artifacts for deep diagnostics and full evidence.

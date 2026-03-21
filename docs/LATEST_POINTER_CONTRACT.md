@@ -92,6 +92,30 @@ Each `lane_rows` entry includes paired semantics and provenance fields together:
 
 This enables single-hop consumers (including artifact-index selected-surface views) to interpret freshness/completeness and health/debt/failure in one read.
 
+## Selected-surface summary rows (non-broad surfaces)
+
+`latest_pointers.json` may include `metadata.summary_rows` for selected
+high-value non-broad surfaces when compact one-hop interpretation is useful.
+
+This pass includes:
+
+- `fleet_observatory`
+- `strict_audit_status`
+- `protected_corridor`
+- `wan_gate`
+- `remote_preflight_trend`
+
+The row contract is intentionally bounded:
+
+- `pointer_state` remains pointer freshness/completeness state.
+- `status`/`health_state` remain source-surface health or classification state.
+- `policy_meaning` / `readiness_meaning` provide short policy interpretation only.
+- `summary_reason` provides one compact reason string.
+- `primary_artifact_path`, `created_at`, and `digest_sha256` preserve minimal provenance.
+
+Rows are a convenience layer for read-only summary inspection, not a replacement
+for source-truth artifacts or control-plane policy artifacts.
+
 ## Cross-consumer enforcement expectations
 
 Consumers that report broad-lane status should render both `pointer_state` and

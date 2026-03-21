@@ -209,6 +209,8 @@ def test_observatory_artifacts_surface_selector(tmp_path: Path, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["selected_surface"] == "wan_gate"
     assert isinstance(payload["selected_pointer"], dict)
+    assert isinstance(payload["selected_summary_rows"], list)
+    assert payload["selected_summary_rows"][0]["row_id"] in {"wan_release_gate", "wan_gate_missing"}
 
 
 def test_observatory_artifacts_broad_lane_surface_selector_exposes_lane_rows(tmp_path: Path, capsys) -> None:
@@ -218,7 +220,20 @@ def test_observatory_artifacts_broad_lane_surface_selector_exposes_lane_rows(tmp
     payload = json.loads(capsys.readouterr().out)
     assert payload["selected_surface"] == "broad_lane_latest_summary"
     assert isinstance(payload["selected_pointer"], dict)
+    assert isinstance(payload["selected_summary_rows"], list)
+    assert payload["selected_summary_rows"] == []
     assert isinstance(payload["selected_broad_lane_rows"], list)
     rows = {row["lane"]: row for row in payload["selected_broad_lane_rows"]}
     assert "run_tests" in rows
     assert "mypy" in rows
+
+
+def test_observatory_artifacts_surface_selector_fallback_when_summary_rows_absent(tmp_path: Path, capsys) -> None:
+    (tmp_path / "glow/observatory").mkdir(parents=True, exist_ok=True)
+    rc = ops_main(["--repo-root", str(tmp_path), "observatory", "artifacts", "--surface", "formal_verification", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selected_surface"] == "formal_verification"
+    assert isinstance(payload["selected_pointer"], dict)
+    assert isinstance(payload["selected_summary_rows"], list)
+    assert payload["selected_summary_rows"] == []
