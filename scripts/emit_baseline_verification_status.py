@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from sentientos.broad_lane_rows import build_broad_lane_row
+
 BLOCKING_FAILURE_CLASSES = {
     "covenant_tripwire_drift",
     "pulse_federation_persistence",
@@ -74,6 +76,21 @@ def _lane_summary_from_pointer(payload: Mapping[str, Any] | None, lane_name: str
         lane_state=lane_state,
         failure_count=(failure_count if isinstance(failure_count, int) else 0),
         details=normalized_details,
+    )
+
+
+def _lane_row(*, lane: str, summary: LaneSummary, pointer_bits: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    pointer = pointer_bits if isinstance(pointer_bits, Mapping) else {}
+    return build_broad_lane_row(
+        lane=lane,
+        status=summary.status,
+        lane_state=summary.lane_state,
+        pointer_state=pointer.get("pointer_state"),
+        primary_artifact_path=pointer.get("primary_artifact_path"),
+        created_at=pointer.get("created_at"),
+        run_id=pointer.get("run_id"),
+        failure_count=summary.failure_count,
+        details=summary.details,
     )
 
 
@@ -285,6 +302,11 @@ def build_status(
     run_tests = _lane_summary_from_pointer(broad_lane_latest, "run_tests") or _run_tests_summary(failure_digest=failure_digest, run_provenance=run_provenance)
     mypy = _lane_summary_from_pointer(broad_lane_latest, "mypy") or _mypy_summary(output_path=mypy_output_path, ratchet_status=mypy_ratchet_status)
     protected_corridor = _corridor_summary(corridor_payload)
+    run_tests_pointer = run_tests.details.get("latest_pointer") if isinstance(run_tests.details, Mapping) else {}
+    mypy_pointer = mypy.details.get("latest_pointer") if isinstance(mypy.details, Mapping) else {}
+    run_tests_row = _lane_row(lane="run_tests", summary=run_tests, pointer_bits=run_tests_pointer if isinstance(run_tests_pointer, Mapping) else {})
+    mypy_row = _lane_row(lane="mypy", summary=mypy, pointer_bits=mypy_pointer if isinstance(mypy_pointer, Mapping) else {})
+    protected_corridor_row = _lane_row(lane="protected_corridor", summary=protected_corridor, pointer_bits={})
 
     broad_green = run_tests.status == "green" and mypy.status == "green"
     protected_green = protected_corridor.status in {"green", "amber"}
@@ -319,21 +341,13 @@ def build_status(
         },
         "lanes": {
             "protected_corridor": {
-                "status": protected_corridor.status,
-                "lane_state": protected_corridor.lane_state,
-                "details": protected_corridor.details,
+                **protected_corridor_row,
             },
             "run_tests": {
-                "status": run_tests.status,
-                "lane_state": run_tests.lane_state,
-                "failure_count": run_tests.failure_count,
-                "details": run_tests.details,
+                **run_tests_row,
             },
             "mypy": {
-                "status": mypy.status,
-                "lane_state": mypy.lane_state,
-                "failure_count": mypy.failure_count,
-                "details": mypy.details,
+                **mypy_row,
             },
         },
         "broad_lane_latest_summary_path": str(broad_lane_latest_summary_path) if broad_lane_latest_summary_path is not None else None,

@@ -78,3 +78,21 @@ To remove cross-file inference, broad-lane recency is emitted at:
 - `glow/observatory/broad_lane/broad_lane_latest_summary.json`
 
 `emit_baseline_verification_status.py` now consumes this summary first (when present) and falls back to direct lane artifacts if pointer artifacts are absent.
+
+## Cross-consumer broad-lane row model
+
+Operator-facing consumers now use one explicit lane row envelope for `run_tests`
+and `mypy`:
+
+- `lane`
+- `pointer_state` (recency/completeness)
+- `lane_state` (health/debt/failure semantics)
+- `status`
+- `primary_artifact_path`
+- `created_at`
+- `run_id`
+- `summary_reason`
+- `policy_meaning` (`corridor_blocking`, `broad_lane_only`, `advisory`, `deferred`)
+
+This row appears in baseline verification and fleet observatory outputs so stale
+vs failing semantics are visible together.

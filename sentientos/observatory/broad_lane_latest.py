@@ -8,6 +8,7 @@ from typing import Any, Literal, Mapping
 
 from scripts.emit_baseline_verification_status import LaneSummary, _mypy_summary, _run_tests_summary
 from sentientos.attestation import iso_now, write_json
+from sentientos.broad_lane_rows import build_broad_lane_row
 
 BroadPointerState = Literal["current", "stale", "missing", "unavailable", "incomplete"]
 
@@ -29,23 +30,36 @@ class LanePointer:
     details: dict[str, Any]
 
     def to_payload(self, *, generated_at: str, freshness_hours: int) -> dict[str, Any]:
+        row = build_broad_lane_row(
+            lane=self.lane,
+            status=self.status,
+            lane_state=self.lane_state,
+            pointer_state=self.pointer_state,
+            primary_artifact_path=self.primary_artifact_path,
+            created_at=self.created_at,
+            run_id=self.run_id,
+            failure_count=self.failure_count,
+            details=self.details,
+        )
         return {
             "schema_version": 1,
             "generated_at": generated_at,
-            "lane": self.lane,
-            "status": self.status,
-            "lane_state": self.lane_state,
-            "pointer_state": self.pointer_state,
-            "primary_artifact_path": self.primary_artifact_path,
+            "lane": row["lane"],
+            "status": row["status"],
+            "lane_state": row["lane_state"],
+            "pointer_state": row["pointer_state"],
+            "primary_artifact_path": row["primary_artifact_path"],
             "supporting_artifact_paths": self.supporting_artifact_paths,
-            "created_at": self.created_at,
-            "run_id": self.run_id,
+            "created_at": row["created_at"],
+            "run_id": row["run_id"],
             "digest_sha256": self.digest_sha256,
             "provenance_resolution": self.provenance_resolution,
             "why_latest": self.why_latest,
             "freshness_hours": freshness_hours,
-            "failure_count": self.failure_count,
-            "details": self.details,
+            "failure_count": row["failure_count"],
+            "details": row["details"],
+            "policy_meaning": row["policy_meaning"],
+            "summary_reason": row["summary_reason"],
         }
 
 
