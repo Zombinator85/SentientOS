@@ -70,3 +70,24 @@ Each lane pointer includes:
 - `provenance_resolution` + `why_latest`
 
 `pointer_state` is a recency/completeness signal. `lane_state` remains health/outcome semantics (for example deferred debt vs blocking failure). A lane can be `pointer_state=current` while still `lane_state=lane_completed_with_blocking_failure`.
+
+## Cross-consumer enforcement expectations
+
+Consumers that report broad-lane status should render both `pointer_state` and
+`lane_state` in the same row/model and avoid collapsing one into the other.
+
+Common explicit combinations:
+
+- `current + lane_completed_with_advisories` → fresh and healthy.
+- `current + lane_completed_with_deferred_debt` → fresh but debt remains.
+- `current + lane_completed_with_blocking_failure` → fresh and failing.
+- `stale + lane_completed_with_advisories` → last run was healthy but too old.
+- `incomplete + lane_incomplete` → attempted run, incomplete evidence.
+- `unavailable + lane_unavailable_in_environment` → environment-gated.
+- `missing + lane_not_run` → no run evidence.
+
+Out of scope for this pass:
+
+- changing protected-corridor blocking doctrine
+- redefining artifact provenance or baseline semantics
+- introducing new blocker classes from pointer freshness alone

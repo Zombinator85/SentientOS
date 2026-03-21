@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Literal, Mapping
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
+from sentientos.broad_lane_rows import rows_from_broad_lane_summary
 from sentientos.observatory.artifact_index import build_artifact_provenance_index
 
 FleetDimensionStatus = Literal[
@@ -614,7 +615,10 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
     artifact_index_payload = build_artifact_provenance_index(root)
     latest_pointers_payload = read_json(root / "glow/observatory/latest_pointers.json")
     links_payload = read_json(root / "glow/observatory/artifact_provenance_links.json")
+    broad_lane_payload = read_json(root / "glow/observatory/broad_lane/broad_lane_latest_summary.json")
+    broad_lane_rows = rows_from_broad_lane_summary(broad_lane_payload)
     dashboard["artifact_latest_pointers"] = latest_pointers_payload.get("surfaces", {})
+    dashboard["broad_lane_rows"] = broad_lane_rows
     dashboard["artifact_provenance_links"] = links_payload.get("links", [])
 
     write_json(out_root / "fleet_health_dashboard.json", dashboard)
@@ -695,4 +699,5 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             "suite": artifact_index_payload.get("suite"),
             "surface_states": artifact_index_payload.get("surface_states"),
         },
+        "broad_lane_rows": broad_lane_rows,
     }

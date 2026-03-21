@@ -189,6 +189,7 @@ def test_observatory_fleet_json_surface(tmp_path: Path, capsys) -> None:
     assert payload["command"] == "observatory.fleet"
     assert "release_readiness" in payload
     assert "artifact_paths" in payload
+    assert "broad_lane_rows" in payload
 
 
 def test_observatory_artifacts_json_surface(tmp_path: Path, capsys) -> None:

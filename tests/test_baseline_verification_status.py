@@ -86,6 +86,7 @@ def test_build_status_classifies_run_tests_lane_not_run_when_artifacts_absent(tm
 
     assert status["lanes"]["run_tests"]["status"] == "missing"
     assert status["lanes"]["run_tests"]["lane_state"] == "lane_not_run"
+    assert status["lanes"]["run_tests"]["pointer_state"] == "missing"
 
 
 def test_build_status_classifies_run_tests_unavailable_environment(tmp_path: Path) -> None:
@@ -112,6 +113,7 @@ def test_build_status_classifies_run_tests_unavailable_environment(tmp_path: Pat
 
     assert status["lanes"]["run_tests"]["status"] == "amber"
     assert status["lanes"]["run_tests"]["lane_state"] == "lane_unavailable_in_environment"
+    assert status["lanes"]["run_tests"]["pointer_state"] == "unavailable"
 
 
 def test_build_status_classifies_run_tests_deferred_debt(tmp_path: Path) -> None:
@@ -148,6 +150,7 @@ def test_build_status_classifies_run_tests_deferred_debt(tmp_path: Path) -> None
 
     assert status["lanes"]["run_tests"]["status"] == "amber"
     assert status["lanes"]["run_tests"]["lane_state"] == "lane_completed_with_deferred_debt"
+    assert status["lanes"]["run_tests"]["pointer_state"] == "unavailable"
 
 
 def test_build_status_classifies_mypy_from_ratchet_status(tmp_path: Path) -> None:
@@ -174,6 +177,7 @@ def test_build_status_classifies_mypy_from_ratchet_status(tmp_path: Path) -> Non
 
     assert status["lanes"]["mypy"]["status"] == "amber"
     assert status["lanes"]["mypy"]["lane_state"] == "lane_completed_with_deferred_debt"
+    assert status["lanes"]["mypy"]["pointer_state"] == "unavailable"
 
 def test_build_status_prefers_broad_lane_latest_summary_when_present(tmp_path: Path) -> None:
     corridor_path = tmp_path / "glow/contracts/protected_corridor_report.json"
@@ -228,3 +232,7 @@ def test_build_status_prefers_broad_lane_latest_summary_when_present(tmp_path: P
 
     assert status["lanes"]["run_tests"]["failure_count"] == 2
     assert status["lanes"]["run_tests"]["details"]["latest_pointer"]["run_id"] == "abc"
+    assert status["lanes"]["run_tests"]["pointer_state"] == "current"
+    assert status["lanes"]["run_tests"]["lane_state"] == "lane_completed_with_deferred_debt"
+    assert status["lanes"]["run_tests"]["summary_reason"] == "pointer=current; lane=lane_completed_with_deferred_debt; policy=deferred"
+    assert status["lanes"]["mypy"]["pointer_state"] == "current"

@@ -162,6 +162,7 @@ def test_observatory_dashboard_embeds_artifact_index_links(tmp_path: Path) -> No
 
     dashboard = json.loads((tmp_path / "glow/observatory/fleet_health_dashboard.json").read_text(encoding="utf-8"))
     assert "artifact_latest_pointers" in dashboard
+    assert "broad_lane_rows" in dashboard
     assert "artifact_provenance_links" in dashboard
     assert (tmp_path / "glow/observatory/latest_pointers.json").exists()
 
@@ -185,3 +186,53 @@ def test_observatory_federation_health_includes_protocol_posture(tmp_path: Path)
 
     payload = build_fleet_health_observatory(tmp_path)
     assert payload["fleet_dimensions"]["federation_health"] == "blocking"
+
+
+def test_observatory_broad_lane_rows_show_pointer_and_lane_state_together(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/test_runs/test_run_provenance.json",
+        {
+            "timestamp": "2026-03-18T00:00:00Z",
+            "execution_mode": "execute",
+            "metrics_status": "ok",
+            "pytest_exit_code": 0,
+            "run_id": "run-tests-1",
+        },
+    )
+    _write_json(
+        tmp_path / "glow/contracts/typing_ratchet_status.json",
+        {
+            "generated_at": "2026-03-21T00:00:00Z",
+            "status": "ok",
+            "deferred_debt_error_count": 4,
+            "ratcheted_new_error_count": 0,
+        },
+    )
+
+    payload = build_fleet_health_observatory(tmp_path)
+    by_lane = {row["lane"]: row for row in payload["broad_lane_rows"]}
+    assert by_lane["run_tests"]["pointer_state"] == "stale"
+    assert by_lane["run_tests"]["lane_state"] == "lane_completed_with_advisories"
+    assert by_lane["mypy"]["pointer_state"] == "current"
+    assert by_lane["mypy"]["lane_state"] == "lane_completed_with_deferred_debt"
+
+
+def test_observatory_broad_lane_rows_distinguish_missing_and_unavailable(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/test_runs/test_run_provenance.json",
+        {
+            "timestamp": "2026-03-21T00:00:00Z",
+            "execution_mode": "execute",
+            "exit_reason": "airlock-failed",
+            "metrics_status": "unavailable",
+        },
+    )
+
+    payload = build_fleet_health_observatory(tmp_path)
+    by_lane = {row["lane"]: row for row in payload["broad_lane_rows"]}
+    assert by_lane["run_tests"]["pointer_state"] == "unavailable"
+    assert by_lane["run_tests"]["lane_state"] == "lane_unavailable_in_environment"
+    assert by_lane["mypy"]["pointer_state"] == "missing"
+    assert by_lane["mypy"]["lane_state"] == "lane_not_run"

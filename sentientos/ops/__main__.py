@@ -486,21 +486,29 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
 
         def _render(row: dict[str, object]) -> str:
             dims = _as_dict(row.get("fleet_dimensions"))
+            broad_rows = _as_list(row.get("broad_lane_rows"))
+            broad_bits = ",".join(
+                f"{_as_dict(item).get('lane')}:{_as_dict(item).get('pointer_state')}+{_as_dict(item).get('lane_state')}"
+                for item in broad_rows
+                if isinstance(item, dict)
+            )
             if bool(args.release_readiness):
                 return f"release_readiness={row.get('release_readiness')} reasons={row.get('release_readiness_reasons')}"
             if bool(args.degradations):
                 return (
                     f"release_readiness={row.get('release_readiness')} "
                     f"summary={_as_dict(row.get('artifact_paths')).get('fleet_health_summary')} "
-                    f"degradations={_as_dict(row.get('artifact_paths')).get('fleet_degradations')}"
+                    f"degradations={_as_dict(row.get('artifact_paths')).get('fleet_degradations')} "
+                    f"broad_lane={broad_bits}"
                 )
             if bool(args.dashboard):
                 return (
                     f"release_readiness={row.get('release_readiness')} "
                     f"dashboard={_as_dict(row.get('artifact_paths')).get('fleet_health_dashboard')} "
-                    f"digest={_as_dict(row.get('artifact_paths')).get('final_fleet_health_digest')}"
+                    f"digest={_as_dict(row.get('artifact_paths')).get('final_fleet_health_digest')} "
+                    f"broad_lane={broad_bits}"
                 )
-            return f"release_readiness={row.get('release_readiness')} dimensions={dims}"
+            return f"release_readiness={row.get('release_readiness')} dimensions={dims} broad_lane={broad_bits}"
 
         emit_payload(payload, as_json=bool(args.json), text_renderer=_render)
         return exit_code(payload)
