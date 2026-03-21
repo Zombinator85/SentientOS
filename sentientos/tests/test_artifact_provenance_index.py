@@ -142,3 +142,9 @@ def test_artifact_index_embeds_broad_lane_latest_surfaces(tmp_path: Path) -> Non
     assert latest["surfaces"]["run_tests_broad_lane"]["pointer_state"] in {"current", "stale", "unavailable", "incomplete"}
     assert latest["surfaces"]["mypy_broad_lane"]["pointer_state"] in {"current", "stale", "unavailable", "incomplete"}
     assert latest["surfaces"]["broad_lane_latest_summary"]["artifact_path"] == "glow/observatory/broad_lane/broad_lane_latest_summary.json"
+    broad_metadata = latest["surfaces"]["broad_lane_latest_summary"]["metadata"]
+    lane_rows = {row["lane"]: row for row in broad_metadata["lane_rows"]}
+    assert lane_rows["run_tests"]["pointer_state"] in {"current", "stale", "unavailable", "incomplete", "missing"}
+    assert lane_rows["run_tests"]["lane_state"]
+    assert lane_rows["run_tests"]["policy_meaning"]
+    assert lane_rows["run_tests"]["summary_reason"].startswith("pointer=")

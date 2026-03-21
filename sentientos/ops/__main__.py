@@ -454,12 +454,18 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
         payload["provenance_links"] = _as_list(links.get("links"))
         if isinstance(args.surface, str) and args.surface:
             payload["selected_surface"] = args.surface
-            payload["selected_pointer"] = _as_dict(payload.get("latest_pointers")).get(args.surface)
+            selected_pointer = _as_dict(payload.get("latest_pointers")).get(args.surface)
+            payload["selected_pointer"] = selected_pointer
+            if isinstance(selected_pointer, dict) and args.surface == "broad_lane_latest_summary":
+                payload["selected_broad_lane_rows"] = _as_list(_as_dict(selected_pointer.get("metadata")).get("lane_rows"))
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
 
         def _render_artifacts(row: dict[str, object]) -> str:
             if bool(args.surface):
-                return f"surface={args.surface} pointer={row.get('selected_pointer')}"
+                return (
+                    f"surface={args.surface} pointer={row.get('selected_pointer')} "
+                    f"broad_lane_rows={len(_as_list(row.get('selected_broad_lane_rows')))}"
+                )
             if bool(args.links):
                 return (
                     f"links={len(_as_list(row.get('provenance_links')))} "

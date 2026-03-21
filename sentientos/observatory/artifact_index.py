@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
+from sentientos.broad_lane_rows import rows_from_broad_lane_summary
 from .broad_lane_latest import emit_broad_lane_latest_pointers
 
 PointerState = Literal["current", "superseded", "missing", "stale", "unavailable"]
@@ -219,6 +220,8 @@ def _artifact_record(root: Path, spec: SurfaceSpec, path: Path, *, is_latest: bo
     created_at = _extract_created_at(payload, spec.created_at_keys, fallback_path=path)
     digest = _hash_file(path)
     metadata = {key: payload.get(key) for key in spec.metadata_keys if key in payload}
+    if spec.name == "broad_lane_latest_summary":
+        metadata["lane_rows"] = rows_from_broad_lane_summary(payload)
 
     pointer_state: PointerState
     if is_latest:
