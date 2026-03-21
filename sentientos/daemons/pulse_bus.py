@@ -67,6 +67,11 @@ _HISTORY_FILENAME = re.compile(r"pulse_(\d{4}-\d{2}-\d{2})\.jsonl$")
 _INGRESS_AUDIT_FILENAME = "ingress_audit.jsonl"
 _UNTRUSTED_QUARANTINE_FILENAME = "untrusted_quarantine.jsonl"
 _QUARANTINE_LIMIT = max(16, int(os.getenv("PULSE_UNTRUSTED_QUARANTINE_LIMIT", "256")))
+_PULSE_PROTOCOL_VERSION = os.getenv("SENTIENTOS_PULSE_PROTOCOL_VERSION", "2.1.0")
+_PULSE_PROTOCOL_SCHEMA_FAMILY = "pulse_bus_v2"
+_PULSE_PROTOCOL_REPLAY_POLICY_VERSION = "federation_replay_v1"
+_PULSE_PROTOCOL_SIGNING_ALGORITHM = "ed25519"
+_PULSE_PROTOCOL_REQUIRED_FIELDS_VERSION = "pulse_required_fields_v1"
 
 
 def _history_root() -> Path:
@@ -127,6 +132,25 @@ def compute_event_hash(event: PulseEvent) -> str:
     payload.pop("signature", None)
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def pulse_protocol_identity() -> dict[str, object]:
+    """Return the compact local protocol identity for federated pulse exchange."""
+
+    required_fields = sorted(_REQUIRED_FIELDS)
+    default_fields = sorted(PULSE_V2_SCHEMA.keys())
+    identity = {
+        "protocol_version": _PULSE_PROTOCOL_VERSION,
+        "schema_family": _PULSE_PROTOCOL_SCHEMA_FAMILY,
+        "required_fields_version": _PULSE_PROTOCOL_REQUIRED_FIELDS_VERSION,
+        "required_fields": required_fields,
+        "default_fields": default_fields,
+        "signing_algorithm": _PULSE_PROTOCOL_SIGNING_ALGORITHM,
+        "replay_policy_version": _PULSE_PROTOCOL_REPLAY_POLICY_VERSION,
+    }
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    identity["protocol_fingerprint"] = hashlib.sha256(encoded).hexdigest()
+    return identity
 
 
 def apply_pulse_defaults(event: PulseEvent) -> PulseEvent:
@@ -715,5 +739,6 @@ __all__ = [
     "verify",
     "apply_pulse_defaults",
     "compute_event_hash",
+    "pulse_protocol_identity",
     "reset",
 ]

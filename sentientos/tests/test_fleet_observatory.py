@@ -164,3 +164,24 @@ def test_observatory_dashboard_embeds_artifact_index_links(tmp_path: Path) -> No
     assert "artifact_latest_pointers" in dashboard
     assert "artifact_provenance_links" in dashboard
     assert (tmp_path / "glow/observatory/latest_pointers.json").exists()
+
+
+def test_observatory_federation_health_includes_protocol_posture(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/federation/pulse_protocol_posture.json",
+        {
+            "schema_version": 1,
+            "peers": [
+                {
+                    "peer_name": "peer-a",
+                    "protocol_compatibility": "incompatible_protocol",
+                    "replay_horizon_classification": "incompatible_replay_policy",
+                    "equivocation_classification": "confirmed_equivocation",
+                }
+            ],
+        },
+    )
+
+    payload = build_fleet_health_observatory(tmp_path)
+    assert payload["fleet_dimensions"]["federation_health"] == "blocking"

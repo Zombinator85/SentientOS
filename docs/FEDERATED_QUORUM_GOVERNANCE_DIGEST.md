@@ -55,6 +55,44 @@ Artifacts:
   - digest/quorum/epoch mismatch reasons can block federated control deterministically
 - governor state and budget artifacts include federation governance digest
 
+### 3) Pulse protocol compatibility contract
+
+Federated pulse events now carry an explicit `pulse_protocol` claim with:
+- protocol semver (`protocol_version`)
+- schema family + required/default field contract
+- signing expectations
+- replay policy contract (`policy_version`, window, tolerance)
+- deterministic `protocol_fingerprint`
+
+Compatibility is explicit and machine-classified:
+- `exact_protocol_match`
+- `compatible_family`
+- `patch_compatible`
+- `deprecated_but_accepted`
+- `incompatible_protocol`
+
+### 4) Replay-window harmonization
+
+Replay admission now differentiates:
+- `peer_within_compatible_replay_horizon`
+- `peer_outside_accepted_replay_horizon` (signed but dropped for control significance)
+- `peer_too_stale_for_replay_horizon`
+- `incompatible_replay_policy`
+
+### 5) Anti-equivocation evidence
+
+Bounded windows detect and persist:
+- `confirmed_equivocation` (same correlation with conflicting signed hashes)
+- `protocol_claim_conflict`
+- `replay_claim_conflict`
+- `weak_equivocation_signal` (digest posture conflict)
+- `no_equivocation_evidence`
+
+Artifacts:
+- `/glow/federation/equivocation_evidence.jsonl`
+- `/glow/federation/equivocation_summary.json`
+- `/glow/federation/pulse_protocol_posture.json`
+
 ## Federation ingest replay suppression
 
 Federated pulse ingest uses deterministic event identity (`event_hash` over
@@ -76,6 +114,6 @@ Federated denial now distinguishes:
 - local posture restriction (e.g., storm/pressure/audit posture) remains authoritative
 
 ## Remaining blind spots
-- There is no transport-level anti-equivocation exchange for peer digests; current model validates compatibility per-event.
 - Quorum currently accumulates within bounded in-memory action keys per process lifecycle and is not persisted across restarts.
-- Cross-node replay-window harmonization is still delegated to existing replay suppression and pulse trust-epoch checks.
+- Equivocation evidence is deterministic and bounded but local-to-node; there is no federated multi-party notarization exchange in this pass.
+- Replay harmonization is explicit at ingest-time only; this pass does not introduce historical re-ingest recovery workflows for stale traffic.

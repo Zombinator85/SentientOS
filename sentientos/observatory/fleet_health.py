@@ -259,10 +259,33 @@ def _wan_gate_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], 
 
 def _federation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any], list[dict[str, Any]]]:
     latest = _find_latest_run(root, "glow/lab/wan")
+    protocol_posture = _read_json_if_exists(root, "glow/federation/pulse_protocol_posture.json")
+    posture_peers = _as_rows(protocol_posture.get("peers"))
+    incompatible = [
+        row for row in posture_peers
+        if isinstance(row, dict) and str(row.get("protocol_compatibility") or "") == "incompatible_protocol"
+    ]
+    equivocated = [
+        row for row in posture_peers
+        if isinstance(row, dict)
+        and str(row.get("equivocation_classification") or "")
+        in {"confirmed_equivocation", "protocol_claim_conflict", "replay_claim_conflict"}
+    ]
+    replay_mismatch = [
+        row for row in posture_peers
+        if isinstance(row, dict)
+        and str(row.get("replay_horizon_classification") or "")
+        in {"incompatible_replay_policy", "peer_too_stale_for_replay_horizon"}
+    ]
     if latest is None:
-        return "missing_evidence", {"source": "glow/lab/wan/<latest>/run_summary.json", "status": "missing"}, [
-            {"kind": "wan_run_missing", "severity": "missing_evidence", "message": "no WAN run found"}
-        ]
+        degradations = [{"kind": "wan_run_missing", "severity": "missing_evidence", "message": "no WAN run found"}]
+        if incompatible:
+            degradations.append({"kind": "federation_protocol_incompatible", "severity": "blocking", "message": f"incompatible_peers={len(incompatible)}"})
+        if equivocated:
+            degradations.append({"kind": "federation_equivocation_detected", "severity": "blocking", "message": f"equivocation_peers={len(equivocated)}"})
+        if replay_mismatch:
+            degradations.append({"kind": "federation_replay_window_mismatch", "severity": "warning", "message": f"replay_mismatch_peers={len(replay_mismatch)}"})
+        return "missing_evidence", {"source": "glow/lab/wan/<latest>/run_summary.json", "status": "missing", "protocol_posture_source": "glow/federation/pulse_protocol_posture.json"}, degradations
     summary = read_json(latest / "run_summary.json")
     truth = _as_mapping(summary.get("truth_oracle"))
     truth_summary = _as_mapping(truth.get("summary"))
@@ -280,11 +303,25 @@ def _federation_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, Any]
     else:
         dim = "missing_evidence"
         degradations = [{"kind": "wan_truth_missing", "severity": "missing_evidence", "message": "truth oracle summary unavailable"}]
+    if incompatible or equivocated:
+        dim = "blocking"
+    elif replay_mismatch and dim == "healthy":
+        dim = "warning"
+    if incompatible:
+        degradations.append({"kind": "federation_protocol_incompatible", "severity": "blocking", "message": f"incompatible_peers={len(incompatible)}"})
+    if equivocated:
+        degradations.append({"kind": "federation_equivocation_detected", "severity": "blocking", "message": f"equivocation_peers={len(equivocated)}"})
+    if replay_mismatch:
+        degradations.append({"kind": "federation_replay_window_mismatch", "severity": "warning", "message": f"replay_mismatch_peers={len(replay_mismatch)}"})
     return dim, {
         "source": _path_or_none(root, latest / "run_summary.json"),
         "cluster_truth": cluster_truth,
         "contradiction_count": len(contradictions),
         "run_id": summary.get("run_id"),
+        "protocol_posture_source": "glow/federation/pulse_protocol_posture.json",
+        "incompatible_protocol_peers": len(incompatible),
+        "equivocation_peers": len(equivocated),
+        "replay_policy_mismatch_peers": len(replay_mismatch),
     }, degradations
 
 
