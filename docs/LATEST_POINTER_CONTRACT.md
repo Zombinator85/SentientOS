@@ -99,6 +99,7 @@ high-value non-broad surfaces when compact one-hop interpretation is useful.
 
 This pass includes:
 
+- `contract_status`
 - `fleet_observatory`
 - `strict_audit_status`
 - `protected_corridor`
@@ -115,6 +116,24 @@ The row contract is intentionally bounded:
 
 Rows are a convenience layer for read-only summary inspection, not a replacement
 for source-truth artifacts or control-plane policy artifacts.
+
+### Contract-status domain rollup semantics
+
+For `contract_status`, `metadata.summary_rows` is domain-oriented: one row per
+contract rollup domain, intentionally bounded and deterministic.
+
+Domain rows expose compact, first-class semantics for one-hop readers:
+
+- drift posture (`healthy`, `drifted`, `baseline_missing`, `indeterminate`)
+- drift details (`baseline_present`, `drifted`, `drift_type`, bounded explanation)
+- strict-gate context (`strict_gate_envvar`, `gate_meaning`, `policy_meaning`)
+- provenance/freshness hints (`primary_artifact_path`, `created_at`, digest and compact capture hints)
+
+Intentionally out of scope for these rows:
+
+- inlining full `contract_status.json` domain payloads
+- replacing source artifact dereference for deep diagnostics
+- changing protected-corridor or release-blocking doctrine
 
 ## Cross-consumer enforcement expectations
 

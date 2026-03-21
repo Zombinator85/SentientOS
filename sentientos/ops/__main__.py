@@ -456,6 +456,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             payload["selected_surface"] = args.surface
             selected_pointer = _as_dict(payload.get("latest_pointers")).get(args.surface)
             payload["selected_pointer"] = selected_pointer
+            payload["selected_summary_rows"] = []
             if isinstance(selected_pointer, dict):
                 payload["selected_summary_rows"] = _as_list(_as_dict(selected_pointer.get("metadata")).get("summary_rows"))
             if isinstance(selected_pointer, dict) and args.surface == "broad_lane_latest_summary":

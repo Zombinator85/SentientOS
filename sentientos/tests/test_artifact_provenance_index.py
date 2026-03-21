@@ -183,6 +183,103 @@ def test_artifact_index_selected_surfaces_embed_summary_rows(tmp_path: Path) -> 
         assert first["primary_artifact_path"] == row["artifact_path"]
 
 
+def test_artifact_index_contract_status_selected_surface_summary_rows(tmp_path: Path) -> None:
+    _seed_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/contract_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": iso_now(),
+            "contracts": [
+                {
+                    "domain_name": "audits",
+                    "baseline_present": True,
+                    "drifted": False,
+                    "drift_type": "none",
+                    "drift_explanation": None,
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT",
+                    "last_baseline_path": "glow/audits/baseline/audit_baseline.json",
+                },
+                {
+                    "domain_name": "perception",
+                    "baseline_present": True,
+                    "drifted": True,
+                    "drift_type": "required_keys_changed",
+                    "drift_explanation": "required keys diverged from baseline",
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT",
+                    "drift_report_path": "glow/perception/perception_schema_drift_report.json",
+                },
+                {
+                    "domain_name": "federation_identity",
+                    "baseline_present": False,
+                    "drifted": None,
+                    "drift_type": "baseline_missing",
+                    "drift_explanation": None,
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_FEDERATION_IDENTITY_DRIFT",
+                },
+            ],
+        },
+    )
+
+    build_artifact_provenance_index(tmp_path)
+    latest = json.loads((tmp_path / "glow/observatory/latest_pointers.json").read_text(encoding="utf-8"))
+
+    contract = latest["surfaces"]["contract_status"]
+    rows = contract["metadata"]["summary_rows"]
+    assert len(rows) == 3
+    by_domain = {row["domain"]: row for row in rows}
+    assert by_domain["audits"]["status"] == "healthy"
+    assert by_domain["perception"]["status"] == "drifted"
+    assert by_domain["federation_identity"]["status"] == "baseline_missing"
+    assert by_domain["federation_identity"]["drift_type"] == "baseline_missing"
+    assert by_domain["perception"]["pointer_state"] == contract["pointer_state"]
+    assert by_domain["audits"]["policy_meaning"] == "contract_nominal"
+
+
+def test_artifact_index_contract_status_pointer_state_separate_from_drift_posture(tmp_path: Path) -> None:
+    _seed_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/contract_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": "2020-01-01T00:00:00Z",
+            "contracts": [
+                {
+                    "domain_name": "audits",
+                    "baseline_present": True,
+                    "drifted": False,
+                    "drift_type": "none",
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT",
+                }
+            ],
+        },
+    )
+
+    build_artifact_provenance_index(tmp_path)
+    latest = json.loads((tmp_path / "glow/observatory/latest_pointers.json").read_text(encoding="utf-8"))
+
+    contract = latest["surfaces"]["contract_status"]
+    row = contract["metadata"]["summary_rows"][0]
+    assert contract["pointer_state"] == "stale"
+    assert row["pointer_state"] == "stale"
+    assert row["status"] == "healthy"
+    assert row["drifted"] is False
+
+
+def test_artifact_index_contract_status_missing_surface_emits_missing_row(tmp_path: Path) -> None:
+    _seed_sources(tmp_path)
+    (tmp_path / "glow/contracts/contract_status.json").unlink()
+
+    build_artifact_provenance_index(tmp_path)
+    latest = json.loads((tmp_path / "glow/observatory/latest_pointers.json").read_text(encoding="utf-8"))
+    contract = latest["surfaces"]["contract_status"]
+    assert contract["pointer_state"] == "missing"
+    rows = contract["metadata"]["summary_rows"]
+    assert len(rows) == 1
+    assert rows[0]["row_id"] == "contract_status_missing"
+    assert rows[0]["status"] == "missing"
+
+
 def test_selected_surface_summary_rows_keep_pointer_state_separate_from_health(tmp_path: Path) -> None:
     _seed_sources(tmp_path)
     _write_json(
