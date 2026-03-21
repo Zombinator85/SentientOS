@@ -40,6 +40,43 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _lane_summary_from_pointer(payload: Mapping[str, Any] | None, lane_name: str) -> LaneSummary | None:
+    if not isinstance(payload, Mapping):
+        return None
+    lanes = payload.get("lanes")
+    if not isinstance(lanes, Mapping):
+        return None
+    lane = lanes.get(lane_name)
+    if not isinstance(lane, Mapping):
+        return None
+
+    status = lane.get("status")
+    lane_state = lane.get("lane_state")
+    failure_count = lane.get("failure_count")
+    details = lane.get("details")
+    if not isinstance(status, str) or not status:
+        return None
+    if not isinstance(lane_state, str) or not lane_state:
+        return None
+
+    normalized_details = dict(details) if isinstance(details, dict) else {}
+    pointer_bits = {
+        "pointer_state": lane.get("pointer_state"),
+        "primary_artifact_path": lane.get("primary_artifact_path"),
+        "supporting_artifact_paths": lane.get("supporting_artifact_paths"),
+        "created_at": lane.get("created_at"),
+        "run_id": lane.get("run_id"),
+    }
+    normalized_details["latest_pointer"] = pointer_bits
+
+    return LaneSummary(
+        status=status,
+        lane_state=lane_state,
+        failure_count=(failure_count if isinstance(failure_count, int) else 0),
+        details=normalized_details,
+    )
+
+
 def _parse_mypy_found(line: str) -> tuple[int, int] | None:
     match = re.search(r"Found\s+(\d+)\s+errors\s+in\s+(\d+)\s+files", line)
     if not match:
@@ -237,14 +274,16 @@ def build_status(
     mypy_output_path: Path,
     mypy_ratchet_status_path: Path,
     corridor_report_path: Path,
+    broad_lane_latest_summary_path: Path | None = Path("glow/observatory/broad_lane/broad_lane_latest_summary.json"),
 ) -> dict[str, Any]:
     failure_digest = _read_json(failure_digest_path)
     run_provenance = _read_json(run_provenance_path)
     mypy_ratchet_status = _read_json(mypy_ratchet_status_path)
     corridor_payload = _read_json(corridor_report_path)
+    broad_lane_latest = _read_json(broad_lane_latest_summary_path) if broad_lane_latest_summary_path is not None else None
 
-    run_tests = _run_tests_summary(failure_digest=failure_digest, run_provenance=run_provenance)
-    mypy = _mypy_summary(output_path=mypy_output_path, ratchet_status=mypy_ratchet_status)
+    run_tests = _lane_summary_from_pointer(broad_lane_latest, "run_tests") or _run_tests_summary(failure_digest=failure_digest, run_provenance=run_provenance)
+    mypy = _lane_summary_from_pointer(broad_lane_latest, "mypy") or _mypy_summary(output_path=mypy_output_path, ratchet_status=mypy_ratchet_status)
     protected_corridor = _corridor_summary(corridor_payload)
 
     broad_green = run_tests.status == "green" and mypy.status == "green"
@@ -297,6 +336,7 @@ def build_status(
                 "details": mypy.details,
             },
         },
+        "broad_lane_latest_summary_path": str(broad_lane_latest_summary_path) if broad_lane_latest_summary_path is not None else None,
         "classification": {
             "failure_class_totals": class_totals,
             "blocking_failure_classes": sorted(set(blocking_classes)),
@@ -333,6 +373,11 @@ def main(argv: list[str] | None = None) -> int:
         default=Path("glow/contracts/protected_corridor_report.json"),
     )
     parser.add_argument(
+        "--broad-lane-latest-summary",
+        type=Path,
+        default=Path("glow/observatory/broad_lane/broad_lane_latest_summary.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("glow/contracts/baseline_verification_status.json"),
@@ -345,6 +390,7 @@ def main(argv: list[str] | None = None) -> int:
         mypy_output_path=args.mypy_output,
         mypy_ratchet_status_path=args.mypy_ratchet_status,
         corridor_report_path=args.protected_corridor_report,
+        broad_lane_latest_summary_path=args.broad_lane_latest_summary,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

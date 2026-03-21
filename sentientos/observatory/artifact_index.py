@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
+from .broad_lane_latest import emit_broad_lane_latest_pointers
 
 PointerState = Literal["current", "superseded", "missing", "stale", "unavailable"]
 
@@ -113,6 +114,36 @@ SURFACE_SPECS: tuple[SurfaceSpec, ...] = (
         paths=("glow/observatory/fleet_health_summary.json",),
         freshness_hours=24,
         metadata_keys=("generated_at", "release_readiness", "degradation_count"),
+        created_at_keys=("generated_at",),
+    ),
+    SurfaceSpec(
+        name="run_tests_broad_lane",
+        domain="observatory",
+        kind="broad_lane_run_tests_latest_pointer",
+        latest_mode="single",
+        paths=("glow/observatory/broad_lane/run_tests_latest_pointer.json",),
+        freshness_hours=24,
+        metadata_keys=("pointer_state", "lane_state", "status"),
+        created_at_keys=("generated_at",),
+    ),
+    SurfaceSpec(
+        name="mypy_broad_lane",
+        domain="observatory",
+        kind="broad_lane_mypy_latest_pointer",
+        latest_mode="single",
+        paths=("glow/observatory/broad_lane/mypy_latest_pointer.json",),
+        freshness_hours=24,
+        metadata_keys=("pointer_state", "lane_state", "status"),
+        created_at_keys=("generated_at",),
+    ),
+    SurfaceSpec(
+        name="broad_lane_latest_summary",
+        domain="observatory",
+        kind="broad_lane_latest_summary",
+        latest_mode="single",
+        paths=("glow/observatory/broad_lane/broad_lane_latest_summary.json",),
+        freshness_hours=24,
+        metadata_keys=("pointer_state", "broad_baseline_green"),
         created_at_keys=("generated_at",),
     ),
     SurfaceSpec(
@@ -342,6 +373,8 @@ def build_artifact_provenance_index(repo_root: Path) -> dict[str, Any]:
     generated_at = iso_now()
     now = _as_datetime(generated_at) or datetime.now(timezone.utc)
 
+    broad_lane_payload = emit_broad_lane_latest_pointers(root)
+
     artifact_rows: list[dict[str, Any]] = []
     latest_pointers: dict[str, dict[str, Any]] = {}
 
@@ -425,6 +458,9 @@ def build_artifact_provenance_index(repo_root: Path) -> dict[str, Any]:
             "artifact_index": "glow/observatory/artifact_index.json",
             "latest_pointers": "glow/observatory/latest_pointers.json",
             "artifact_provenance_links": "glow/observatory/artifact_provenance_links.json",
+            "run_tests_broad_lane": "glow/observatory/broad_lane/run_tests_latest_pointer.json",
+            "mypy_broad_lane": "glow/observatory/broad_lane/mypy_latest_pointer.json",
+            "broad_lane_latest_summary": "glow/observatory/broad_lane/broad_lane_latest_summary.json",
         },
         "source_surface_specs": [
             {
@@ -473,9 +509,13 @@ def build_artifact_provenance_index(repo_root: Path) -> dict[str, Any]:
             "artifact_index": "glow/observatory/artifact_index.json",
             "latest_pointers": "glow/observatory/latest_pointers.json",
             "artifact_provenance_links": "glow/observatory/artifact_provenance_links.json",
+            "run_tests_broad_lane": "glow/observatory/broad_lane/run_tests_latest_pointer.json",
+            "mypy_broad_lane": "glow/observatory/broad_lane/mypy_latest_pointer.json",
+            "broad_lane_latest_summary": "glow/observatory/broad_lane/broad_lane_latest_summary.json",
             "artifact_index_manifest": "glow/observatory/artifact_index_manifest.json",
             "final_artifact_index_digest": "glow/observatory/final_artifact_index_digest.json",
             "artifact_index_history": "glow/observatory/artifact_index_history.jsonl",
         },
         "surface_states": {name: row.get("pointer_state") for name, row in sorted(latest_pointers.items())},
+        "broad_lane_contract": broad_lane_payload,
     }
