@@ -13,6 +13,7 @@ from threading import Lock
 from typing import Any, Mapping
 
 from sentientos.audit_trust_runtime import evaluate_audit_trust
+from sentientos.daemons import pulse_bus
 from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.trust_ledger import get_trust_ledger
@@ -45,6 +46,9 @@ class PeerDigestEvaluation:
     peer_trust_state: str
     peer_trust_reasons: list[str]
     peer_quorum_eligible: bool
+    protocol_compatibility: str
+    replay_horizon_classification: str
+    equivocation_classification: str
     denial_cause: str
     calibration_posture: str
     calibration_action: str
@@ -68,6 +72,9 @@ class PeerDigestEvaluation:
             "peer_trust_state": self.peer_trust_state,
             "peer_trust_reasons": list(self.peer_trust_reasons),
             "peer_quorum_eligible": self.peer_quorum_eligible,
+            "protocol_compatibility": self.protocol_compatibility,
+            "replay_horizon_classification": self.replay_horizon_classification,
+            "equivocation_classification": self.equivocation_classification,
             "denial_cause": self.denial_cause,
             "calibration_posture": self.calibration_posture,
             "calibration_action": self.calibration_action,
@@ -225,6 +232,12 @@ class FederatedGovernanceController:
                 "self_model_schema": self_model_schema_fp,
                 "perception_schema": perception_schema_fp,
             },
+            "pulse_protocol_identity": pulse_bus.pulse_protocol_identity(),
+            "federation_replay_policy": {
+                "policy_version": "federation_replay_v1",
+                "window_seconds": self._env_int("SENTIENTOS_FEDERATION_REPLAY_WINDOW_SECONDS", 1200),
+                "tolerance_seconds": self._env_int("SENTIENTOS_FEDERATION_REPLAY_WINDOW_TOLERANCE_SECONDS", 120),
+            },
             "federation_identity_digest": federation_identity_fp,
             "git_sha": self._git_sha(repo_root),
         }
@@ -250,6 +263,14 @@ class FederatedGovernanceController:
         trust_state = peer_trust.trust_state
         trust_reasons = list(peer_trust.trust_reasons)
         quorum_eligible = trust_state in {"trusted", "watched", "degraded"}
+        protocol_posture = event.get("federation_protocol_posture")
+        protocol_compatibility = "unknown"
+        replay_horizon_classification = "unknown"
+        equivocation_classification = "no_equivocation_evidence"
+        if isinstance(protocol_posture, Mapping):
+            protocol_compatibility = str(protocol_posture.get("protocol_compatibility") or "unknown")
+            replay_horizon_classification = str(protocol_posture.get("replay_horizon_classification") or "unknown")
+            equivocation_classification = str(protocol_posture.get("equivocation_classification") or "no_equivocation_evidence")
         action_impact = self._action_impact_for_event(event)
         quorum_required = self._quorum_requirements[action_impact]
 
@@ -346,6 +367,25 @@ class FederatedGovernanceController:
             calibration_reason = "peer_trust_restricted"
             calibration_action = "deny"
             calibration_posture = "enforce"
+        elif protocol_compatibility == "incompatible_protocol":
+            denial_cause = "protocol_incompatibility"
+            calibration_reason = "protocol_incompatibility"
+            calibration_action = "deny"
+            calibration_posture = "enforce"
+        elif replay_horizon_classification in {"incompatible_replay_policy", "peer_too_stale_for_replay_horizon"}:
+            denial_cause = "replay_window_mismatch"
+            calibration_reason = replay_horizon_classification
+            calibration_action = "deny"
+            calibration_posture = "enforce"
+        elif equivocation_classification in {
+            "confirmed_equivocation",
+            "protocol_claim_conflict",
+            "replay_claim_conflict",
+        }:
+            denial_cause = "equivocation_evidence"
+            calibration_reason = equivocation_classification
+            calibration_action = "deny"
+            calibration_posture = "enforce"
         elif epoch_status == "unexpected":
             calibration_posture = policy.pulse_trust_epoch
             calibration_action = self._posture_action(calibration_posture)
@@ -399,6 +439,9 @@ class FederatedGovernanceController:
             peer_trust_state=trust_state,
             peer_trust_reasons=trust_reasons,
             peer_quorum_eligible=quorum_eligible,
+            protocol_compatibility=protocol_compatibility,
+            replay_horizon_classification=replay_horizon_classification,
+            equivocation_classification=equivocation_classification,
             denial_cause=denial_cause,
             calibration_posture=calibration_posture,
             calibration_action=calibration_action,
@@ -480,6 +523,9 @@ class FederatedGovernanceController:
             "peer_trust_reasons": list(evaluation.peer_trust_reasons),
             "peer_quorum_eligible": evaluation.peer_quorum_eligible,
             "compatibility_category": evaluation.compatibility_category,
+            "protocol_compatibility": evaluation.protocol_compatibility,
+            "replay_horizon_classification": evaluation.replay_horizon_classification,
+            "equivocation_classification": evaluation.equivocation_classification,
             "denial_cause": evaluation.denial_cause,
         }
         payload = {
