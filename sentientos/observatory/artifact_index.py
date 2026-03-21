@@ -9,6 +9,7 @@ from typing import Any, Literal
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
 from sentientos.broad_lane_rows import rows_from_broad_lane_summary
+from sentientos.observatory.selected_surface_rows import missing_summary_rows, summary_rows_for_surface
 from .broad_lane_latest import emit_broad_lane_latest_pointers
 
 PointerState = Literal["current", "superseded", "missing", "stale", "unavailable"]
@@ -228,6 +229,16 @@ def _artifact_record(root: Path, spec: SurfaceSpec, path: Path, *, is_latest: bo
         pointer_state = latest_state or _status_for_latest(created_at=created_at, now=now, freshness_hours=spec.freshness_hours)
     else:
         pointer_state = "superseded"
+    summary_rows = summary_rows_for_surface(
+        surface=spec.name,
+        payload=payload,
+        pointer_state=pointer_state,
+        artifact_path=rel,
+        created_at=created_at,
+        digest_sha256=digest,
+    )
+    if summary_rows:
+        metadata["summary_rows"] = summary_rows
 
     return {
         "surface": spec.name,
@@ -386,6 +397,10 @@ def build_artifact_provenance_index(repo_root: Path) -> dict[str, Any]:
         latest = _select_latest(root, candidates, spec)
 
         if latest is None:
+            missing_rows = missing_summary_rows(surface=spec.name, pointer_state="missing")
+            metadata: dict[str, Any] = {}
+            if missing_rows:
+                metadata["summary_rows"] = missing_rows
             latest_pointers[spec.name] = {
                 "surface": spec.name,
                 "domain": spec.domain,
@@ -400,6 +415,7 @@ def build_artifact_provenance_index(repo_root: Path) -> dict[str, Any]:
                 "seed": None,
                 "digest_sha256": None,
                 "pointer_state": "missing",
+                "metadata": metadata,
                 "freshness_hours": spec.freshness_hours,
                 "latest_rule": {
                     "mode": spec.latest_mode,

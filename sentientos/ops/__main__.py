@@ -456,6 +456,8 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             payload["selected_surface"] = args.surface
             selected_pointer = _as_dict(payload.get("latest_pointers")).get(args.surface)
             payload["selected_pointer"] = selected_pointer
+            if isinstance(selected_pointer, dict):
+                payload["selected_summary_rows"] = _as_list(_as_dict(selected_pointer.get("metadata")).get("summary_rows"))
             if isinstance(selected_pointer, dict) and args.surface == "broad_lane_latest_summary":
                 payload["selected_broad_lane_rows"] = _as_list(_as_dict(selected_pointer.get("metadata")).get("lane_rows"))
         payload = _decorate_payload(payload, domain=args.domain, action=args.action)
@@ -464,6 +466,7 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
             if bool(args.surface):
                 return (
                     f"surface={args.surface} pointer={row.get('selected_pointer')} "
+                    f"summary_rows={len(_as_list(row.get('selected_summary_rows')))} "
                     f"broad_lane_rows={len(_as_list(row.get('selected_broad_lane_rows')))}"
                 )
             if bool(args.links):

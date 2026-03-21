@@ -148,3 +148,62 @@ def test_artifact_index_embeds_broad_lane_latest_surfaces(tmp_path: Path) -> Non
     assert lane_rows["run_tests"]["lane_state"]
     assert lane_rows["run_tests"]["policy_meaning"]
     assert lane_rows["run_tests"]["summary_reason"].startswith("pointer=")
+
+
+def test_artifact_index_selected_surfaces_embed_summary_rows(tmp_path: Path) -> None:
+    _seed_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/protected_corridor_report.json",
+        {
+            "schema_version": 1,
+            "generated_at": iso_now(),
+            "global_summary": {
+                "status": "amber",
+                "repo_health": "amber",
+                "corridor_blocking": False,
+                "blocking_profiles": [],
+                "advisory_profiles": ["ci-advisory"],
+                "debt_profiles": [],
+            },
+            "profiles": [],
+        },
+    )
+
+    build_artifact_provenance_index(tmp_path)
+
+    latest = json.loads((tmp_path / "glow/observatory/latest_pointers.json").read_text(encoding="utf-8"))
+    for surface in ("fleet_observatory", "strict_audit_status", "protected_corridor", "wan_gate", "remote_preflight_trend"):
+        row = latest["surfaces"][surface]
+        summary_rows = row["metadata"]["summary_rows"]
+        assert isinstance(summary_rows, list)
+        assert len(summary_rows) == 1
+        first = summary_rows[0]
+        assert first["pointer_state"] == row["pointer_state"]
+        assert first["summary_reason"]
+        assert first["primary_artifact_path"] == row["artifact_path"]
+
+
+def test_selected_surface_summary_rows_keep_pointer_state_separate_from_health(tmp_path: Path) -> None:
+    _seed_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/strict_audit_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": "2020-01-01T00:00:00Z",
+            "bucket": "healthy_strict",
+            "readiness_class": "acceptable",
+            "blocking": False,
+            "degraded": False,
+            "status_hint": "all good",
+        },
+    )
+
+    build_artifact_provenance_index(tmp_path)
+    latest = json.loads((tmp_path / "glow/observatory/latest_pointers.json").read_text(encoding="utf-8"))
+    strict = latest["surfaces"]["strict_audit_status"]
+    summary = strict["metadata"]["summary_rows"][0]
+
+    assert strict["pointer_state"] == "stale"
+    assert summary["pointer_state"] == "stale"
+    assert summary["health_state"] == "healthy"
+    assert summary["status"] == "healthy_strict"
