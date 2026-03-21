@@ -26,7 +26,7 @@ class FederationDigest:
         base_fields: Iterable[str] = fields if fields is not None else _DEFAULT_FIELDS
         self.fields = tuple(str(field) for field in base_fields)
 
-    def compute_digest(self, identity_summary: Mapping[str, Any], config: Mapping[str, Any]) -> dict:
+    def compute_digest(self, identity_summary: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, object]:
         """Generate a stable digest for the provided identity and config snapshots."""
 
         identity_snapshot = deepcopy(identity_summary or {})

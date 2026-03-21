@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import json
 import os
 import platform
@@ -69,7 +70,8 @@ def optional_consciousness_cycle(system_context: Mapping[str, object]) -> Option
         return None
     if not isinstance(system_context, Mapping):
         return None
-    return run_consciousness_cycle(system_context)
+    result = run_consciousness_cycle(system_context)
+    return result if isinstance(result, dict) else None
 
 
 def build_default_config(base_dir: Optional[Path] = None) -> Dict[str, object]:

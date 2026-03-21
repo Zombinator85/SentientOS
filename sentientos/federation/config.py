@@ -40,6 +40,23 @@ def _coerce_mapping(value: object) -> MutableMapping[str, object]:
     return {}
 
 
+def _coerce_int(value: object, *, default: int) -> int:
+    if value in {None, ""}:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
 def _normalise_state_file(path_value: object, runtime_root: Path) -> Tuple[Optional[str], Optional[str]]:
     if not isinstance(path_value, str) or not path_value:
         return None, "State file must be a non-empty string"
@@ -72,16 +89,17 @@ def load_federation_config(
     runtime_section = _coerce_mapping(config.get("runtime"))
 
     node_name = str(federation_section.get("node_name") or runtime_section.get("node_name") or "local-node")
-    poll_interval = int(federation_section.get("poll_interval_seconds") or 10)
+    poll_interval = _coerce_int(federation_section.get("poll_interval_seconds"), default=10)
     drift_section = _coerce_mapping(federation_section.get("drift"))
 
     def _threshold(name: str, default: int) -> int:
         value = drift_section.get(name)
         if value in {None, ""}:
             return default
-        try:
-            coerced = int(value)
-        except (TypeError, ValueError):
+        coerced = _coerce_int(value, default=default)
+        if coerced == default and value not in {default, str(default)} and not (
+            isinstance(value, str) and value.strip() == str(default)
+        ):
             warnings.append(f"Invalid federation drift threshold for {name}; using {default}")
             return default
         if coerced < 0:
@@ -104,9 +122,10 @@ def load_federation_config(
         value = indexes.get(name)
         if value in {None, ""}:
             return default
-        try:
-            coerced = int(value)
-        except (TypeError, ValueError):
+        coerced = _coerce_int(value, default=default)
+        if coerced == default and value not in {default, str(default)} and not (
+            isinstance(value, str) and value.strip() == str(default)
+        ):
             warnings.append(f"Invalid federation index limit for {name}; using {default}")
             return default
         if coerced < 0:
@@ -134,7 +153,8 @@ def load_federation_config(
     quarantine_dir.mkdir(parents=True, exist_ok=True)
 
     peers: List[PeerConfig] = []
-    for raw_peer in federation_section.get("peers", []):
+    peer_rows = federation_section.get("peers")
+    for raw_peer in peer_rows if isinstance(peer_rows, list) else []:
         if not isinstance(raw_peer, Mapping):
             warnings.append("Ignoring malformed peer entry; expected mapping")
             continue

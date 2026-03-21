@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, List, Mapping, Sequence, cast
 
-import requests
+import requests  # type: ignore[import-untyped]
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
 
@@ -67,6 +67,25 @@ _REPLAY_POLICY_VERSION = "federation_replay_v1"
 _PROTOCOL_COMPAT_MIN_VERSION = os.getenv("SENTIENTOS_FEDERATION_PROTOCOL_MIN_VERSION", "2.0.0")
 _PROTOCOL_DEPRECATED_MIN_VERSION = os.getenv("SENTIENTOS_FEDERATION_PROTOCOL_DEPRECATED_MIN_VERSION", "1.9.0")
 _ACCEPT_DEPRECATED_PROTOCOL = os.getenv("SENTIENTOS_FEDERATION_ACCEPT_DEPRECATED_PROTOCOL", "1") not in {"0", "false", "False"}
+
+
+def _as_object_mapping(value: object) -> dict[str, object]:
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
+def _coerce_int(value: object, *, default: int) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
 
 
 def _keys_dir() -> Path:
@@ -177,15 +196,15 @@ def _classify_replay_horizon(
 ) -> tuple[str, dict[str, object]]:
     policy = _local_replay_policy()
     peer_policy = (
-        dict(peer_claim.get("replay_policy"))
-        if isinstance(peer_claim, Mapping) and isinstance(peer_claim.get("replay_policy"), Mapping)
+        _as_object_mapping(peer_claim.get("replay_policy"))
+        if isinstance(peer_claim, Mapping)
         else {}
     )
     peer_version = str(peer_policy.get("policy_version") or "")
     if peer_version and peer_version != _REPLAY_POLICY_VERSION:
         return "incompatible_replay_policy", {"local_policy": policy, "peer_policy": peer_policy}
-    peer_window = int(peer_policy.get("window_seconds") or _REPLAY_WINDOW_SECONDS)
-    peer_tolerance = int(peer_policy.get("tolerance_seconds") or _REPLAY_WINDOW_TOLERANCE_SECONDS)
+    peer_window = _coerce_int(peer_policy.get("window_seconds"), default=_REPLAY_WINDOW_SECONDS)
+    peer_tolerance = _coerce_int(peer_policy.get("tolerance_seconds"), default=_REPLAY_WINDOW_TOLERANCE_SECONDS)
     if abs(peer_window - _REPLAY_WINDOW_SECONDS) > max(_REPLAY_WINDOW_TOLERANCE_SECONDS, peer_tolerance):
         return "incompatible_replay_policy", {"local_policy": policy, "peer_policy": peer_policy}
     ts = pulse_bus._parse_timestamp(str(event.get("timestamp", "")))
@@ -230,7 +249,7 @@ def _record_equivocation(
     reason: str,
     evidence: Mapping[str, object],
 ) -> dict[str, object]:
-    payload = {
+    payload: dict[str, object] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "peer_name": peer_name,
         "classification": classification,
@@ -287,8 +306,8 @@ def _classify_equivocation(
     if protocol_fp:
         peer_claims[protocol_key] = protocol_fp
     replay_policy = (
-        dict(protocol_claim.get("replay_policy"))
-        if isinstance(protocol_claim, Mapping) and isinstance(protocol_claim.get("replay_policy"), Mapping)
+        _as_object_mapping(protocol_claim.get("replay_policy"))
+        if isinstance(protocol_claim, Mapping)
         else {}
     )
     replay_fp = _policy_fingerprint(replay_policy) if replay_policy else ""

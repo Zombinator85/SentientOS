@@ -186,6 +186,16 @@ class FederatedGovernanceController:
             return "warn"
         return "observe"
 
+    @staticmethod
+    def _as_mapping(value: object) -> Mapping[str, object]:
+        return value if isinstance(value, Mapping) else {}
+
+    @staticmethod
+    def _as_str_list(value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [str(item) for item in value if isinstance(item, str)]
+
     def local_governance_digest(self) -> GovernanceDigest:
         repo_root = Path(os.getenv("SENTIENTOS_REPO_ROOT", Path.cwd())).resolve()
         manifest_path = Path(os.getenv("SENTIENTOS_IMMUTABLE_MANIFEST", "/vow/immutable_manifest.json"))
@@ -215,11 +225,7 @@ class FederatedGovernanceController:
             "pulse_trust_epoch": {
                 "active_epoch_id": str(epoch_state.get("active_epoch_id") or ""),
                 "compromise_response_mode": bool(epoch_state.get("compromise_response_mode", False)),
-                "revoked_epochs": sorted(
-                    str(item)
-                    for item in epoch_state.get("revoked_epochs", [])
-                    if isinstance(item, str)
-                ),
+                "revoked_epochs": sorted(self._as_str_list(epoch_state.get("revoked_epochs"))),
             },
             "governor_posture": {
                 "mode": governor_mode,
@@ -275,8 +281,9 @@ class FederatedGovernanceController:
         quorum_required = self._quorum_requirements[action_impact]
 
         peer_digest_raw = event.get("governance_digest")
-        if peer_digest_raw is None and isinstance(event.get("payload"), dict):
-            peer_digest_raw = event["payload"].get("governance_digest")  # type: ignore[index]
+        payload = self._as_mapping(event.get("payload"))
+        if peer_digest_raw is None:
+            peer_digest_raw = payload.get("governance_digest")
 
         digest_status = "missing"
         compatibility_category = "incompatible"
@@ -317,10 +324,8 @@ class FederatedGovernanceController:
             digest_reasons.append("peer_digest_missing")
 
         epoch_id = str(event.get("pulse_epoch_id") or "")
-        local_epoch = str(
-            ((local.components.get("pulse_trust_epoch") or {}) if isinstance(local.components.get("pulse_trust_epoch"), dict) else {}).get("active_epoch_id")
-            or ""
-        )
+        local_epoch_payload = self._as_mapping(local.components.get("pulse_trust_epoch"))
+        local_epoch = str(local_epoch_payload.get("active_epoch_id") or "")
         epoch_status = "expected" if not epoch_id or epoch_id == local_epoch or epoch_id == "legacy" else "unexpected"
         if epoch_status == "unexpected":
             compatibility_category = "epoch_mismatch"

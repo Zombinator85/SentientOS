@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Mapping
+from typing import Any, Dict, Literal, Mapping, cast
 
 from .replay import AmendmentReplay, ChainReplay, DreamReplay, ExperimentReplay, ReplayResult
 
 ReplaySeverity = Literal["none", "low", "medium", "high"]
 
 __all__ = ["ReplaySeverity", "DeltaResult", "compute_delta"]
+
+
+def _coerce_severity(value: object) -> ReplaySeverity:
+    severity = str(value or "none")
+    if severity in {"none", "low", "medium", "high"}:
+        return cast(ReplaySeverity, severity)
+    return "none"
 
 
 @dataclass(frozen=True)
@@ -34,7 +41,7 @@ class DeltaResult:
     @staticmethod
     def from_payload(payload: Mapping[str, Any]) -> "DeltaResult":
         return DeltaResult(
-            severity=str(payload.get("severity") or "none"),
+            severity=_coerce_severity(payload.get("severity")),
             amendment=dict(payload.get("amendment", {})),
             experiment=dict(payload.get("experiment", {})),
             chain=dict(payload.get("chain", {})),
