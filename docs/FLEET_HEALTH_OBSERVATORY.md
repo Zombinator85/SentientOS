@@ -68,3 +68,28 @@ Use the existing ops CLI:
 3. Drill into source artifacts using `fleet_observatory_manifest.json`.
 
 The observatory is a control-plane summary layer, not a source-of-truth replacement.
+
+## Contract-status consumer semantics
+
+`fleet_health_dashboard.json` now carries `contract_drift_rollup.contract_rows` copied
+from `latest_pointers.surfaces.contract_status.metadata.summary_rows`, so operators get
+the same contract rendering semantics in observatory views and ops CLI surface
+selection:
+
+- freshness/completeness (`pointer_state`, `freshness_posture`)
+- domain posture (`status`, `drift_posture`)
+- policy/gate context (`policy_meaning`, `gate_meaning`)
+- reason/provenance (`summary_reason`, `primary_artifact_path`, `created_at`)
+
+This keeps stale-vs-drift and baseline-missing-vs-drifted distinct in one row:
+
+- `stale + healthy` => freshness issue, not domain drift
+- `current + drifted` => contract drift issue
+- `current + baseline_missing` => baseline absent/precondition issue
+- `missing + indeterminate` => evidence unavailable
+
+Out of scope for this layer:
+
+- changing protected-corridor blocking doctrine
+- changing contract drift policy
+- rewriting source `contract_status.json` or latest-pointer architecture

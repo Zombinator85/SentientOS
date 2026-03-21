@@ -236,3 +236,55 @@ def test_observatory_broad_lane_rows_distinguish_missing_and_unavailable(tmp_pat
     assert by_lane["run_tests"]["lane_state"] == "lane_unavailable_in_environment"
     assert by_lane["mypy"]["pointer_state"] == "missing"
     assert by_lane["mypy"]["lane_state"] == "lane_not_run"
+
+
+def test_observatory_contract_rollup_keeps_freshness_and_drift_distinct(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/contract_status.json",
+        {
+            "schema_version": 1,
+            "generated_at": "2020-01-01T00:00:00Z",
+            "contracts": [
+                {
+                    "domain_name": "audits",
+                    "baseline_present": True,
+                    "drifted": False,
+                    "drift_type": "none",
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT",
+                },
+                {
+                    "domain_name": "perception",
+                    "baseline_present": True,
+                    "drifted": True,
+                    "drift_type": "required_keys_changed",
+                    "drift_explanation": "required keys diverged from baseline",
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_PERCEPTION_SCHEMA_DRIFT",
+                },
+                {
+                    "domain_name": "federation_identity",
+                    "baseline_present": False,
+                    "drifted": None,
+                    "drift_type": "baseline_missing",
+                    "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_FEDERATION_IDENTITY_DRIFT",
+                },
+            ],
+        },
+    )
+
+    build_fleet_health_observatory(tmp_path)
+    dashboard = json.loads((tmp_path / "glow/observatory/fleet_health_dashboard.json").read_text(encoding="utf-8"))
+    rollup = dashboard["contract_drift_rollup"]
+    rows = {row["domain"]: row for row in rollup["contract_rows"]}
+
+    assert rows["audits"]["status"] == "healthy"
+    assert rows["audits"]["pointer_state"] == "stale"
+    assert rows["audits"]["alert_kind"] == "freshness_issue"
+    assert rows["perception"]["status"] == "drifted"
+    assert rows["perception"]["alert_kind"] == "domain_drift"
+    assert rows["federation_identity"]["status"] == "baseline_missing"
+    assert rows["federation_identity"]["alert_kind"] == "baseline_absent"
+    summary = rollup["contract_row_summary"]
+    assert summary["alert_counts"]["freshness_issue"] == 1
+    assert summary["alert_counts"]["domain_drift"] == 1
+    assert summary["alert_counts"]["baseline_absent"] == 1

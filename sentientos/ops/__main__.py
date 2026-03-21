@@ -73,6 +73,21 @@ def _runtime_mode(value: object) -> RuntimeMode:
     return cast(RuntimeMode, mode if mode in {"auto", "worker", "daemon"} else "auto")
 
 
+def _contract_status_row_rollup(rows: list[object]) -> str:
+    typed = [item for item in rows if isinstance(item, dict)]
+    if not typed:
+        return "rows=0"
+    freshness_issue = sum(1 for item in typed if str(item.get("alert_kind") or "") == "freshness_issue")
+    domain_drift = sum(1 for item in typed if str(item.get("alert_kind") or "") == "domain_drift")
+    baseline_absent = sum(1 for item in typed if str(item.get("alert_kind") or "") == "baseline_absent")
+    partial = sum(1 for item in typed if str(item.get("alert_kind") or "") == "partial_evidence")
+    informational = sum(1 for item in typed if str(item.get("alert_kind") or "") == "informational")
+    return (
+        f"rows={len(typed)} freshness_issue={freshness_issue} domain_drift={domain_drift} "
+        f"baseline_absent={baseline_absent} partial_evidence={partial} informational={informational}"
+    )
+
+
 def build_parser(*, prog: str = "python -m sentientos.ops") -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=prog,
@@ -465,10 +480,15 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
 
         def _render_artifacts(row: dict[str, object]) -> str:
             if bool(args.surface):
+                summary_rows = _as_list(row.get("selected_summary_rows"))
+                contract_rollup = ""
+                if args.surface == "contract_status":
+                    contract_rollup = f" contract_semantics=({_contract_status_row_rollup(summary_rows)})"
                 return (
                     f"surface={args.surface} pointer={row.get('selected_pointer')} "
-                    f"summary_rows={len(_as_list(row.get('selected_summary_rows')))} "
+                    f"summary_rows={len(summary_rows)} "
                     f"broad_lane_rows={len(_as_list(row.get('selected_broad_lane_rows')))}"
+                    f"{contract_rollup}"
                 )
             if bool(args.links):
                 return (
