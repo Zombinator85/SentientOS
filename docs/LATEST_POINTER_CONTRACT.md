@@ -71,6 +71,27 @@ Each lane pointer includes:
 
 `pointer_state` is a recency/completeness signal. `lane_state` remains health/outcome semantics (for example deferred debt vs blocking failure). A lane can be `pointer_state=current` while still `lane_state=lane_completed_with_blocking_failure`.
 
+## Aggregate broad-lane summary normalization
+
+`broad_lane_latest_summary.json` is now a first-class selected surface, not just a locator.
+It carries:
+
+- surface-level status (`pointer_state`, `broad_baseline_green`)
+- per-lane `lanes` payload entries
+- per-lane `lane_rows` entries normalized through the shared `sentientos.broad_lane_rows` helper
+
+Each `lane_rows` entry includes paired semantics and provenance fields together:
+
+- `lane`, `status`
+- `pointer_state` + `lane_state`
+- `policy_meaning` + `summary_reason`
+- `primary_artifact_path` + `supporting_artifact_paths`
+- `created_at`, `run_id`, `digest_sha256`
+- `provenance_resolution`, `why_latest`, `freshness_hours`
+- `failure_count`, `details`
+
+This enables single-hop consumers (including artifact-index selected-surface views) to interpret freshness/completeness and health/debt/failure in one read.
+
 ## Cross-consumer enforcement expectations
 
 Consumers that report broad-lane status should render both `pointer_state` and

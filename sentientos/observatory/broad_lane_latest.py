@@ -8,7 +8,7 @@ from typing import Any, Literal, Mapping
 
 from scripts.emit_baseline_verification_status import LaneSummary, _mypy_summary, _run_tests_summary
 from sentientos.attestation import iso_now, write_json
-from sentientos.broad_lane_rows import build_broad_lane_row
+from sentientos.broad_lane_rows import build_broad_lane_row, rows_from_broad_lane_summary
 
 BroadPointerState = Literal["current", "stale", "missing", "unavailable", "incomplete"]
 
@@ -36,8 +36,13 @@ class LanePointer:
             lane_state=self.lane_state,
             pointer_state=self.pointer_state,
             primary_artifact_path=self.primary_artifact_path,
+            supporting_artifact_paths=self.supporting_artifact_paths,
             created_at=self.created_at,
             run_id=self.run_id,
+            digest_sha256=self.digest_sha256,
+            provenance_resolution=self.provenance_resolution,
+            why_latest=self.why_latest,
+            freshness_hours=freshness_hours,
             failure_count=self.failure_count,
             details=self.details,
         )
@@ -49,13 +54,13 @@ class LanePointer:
             "lane_state": row["lane_state"],
             "pointer_state": row["pointer_state"],
             "primary_artifact_path": row["primary_artifact_path"],
-            "supporting_artifact_paths": self.supporting_artifact_paths,
+            "supporting_artifact_paths": row["supporting_artifact_paths"],
             "created_at": row["created_at"],
             "run_id": row["run_id"],
-            "digest_sha256": self.digest_sha256,
-            "provenance_resolution": self.provenance_resolution,
-            "why_latest": self.why_latest,
-            "freshness_hours": freshness_hours,
+            "digest_sha256": row["digest_sha256"],
+            "provenance_resolution": row["provenance_resolution"],
+            "why_latest": row["why_latest"],
+            "freshness_hours": row["freshness_hours"],
             "failure_count": row["failure_count"],
             "details": row["details"],
             "policy_meaning": row["policy_meaning"],
@@ -326,6 +331,7 @@ def emit_broad_lane_latest_pointers(repo_root: Path, *, freshness_hours: int = 2
             "mypy": "glow/observatory/broad_lane/mypy_latest_pointer.json",
         },
     }
+    combined["lane_rows"] = rows_from_broad_lane_summary(combined)
 
     write_json(out_dir / "run_tests_latest_pointer.json", lane_payloads["run_tests"])
     write_json(out_dir / "mypy_latest_pointer.json", lane_payloads["mypy"])

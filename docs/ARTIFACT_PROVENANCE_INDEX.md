@@ -59,3 +59,17 @@ The exact rule is recorded in each `latest_pointers.json` row under `latest_rule
 - Provenance links focus: `python -m sentientos.ops observatory artifacts --links`
 - Single surface pointer: `python -m sentientos.ops observatory artifacts --surface wan_gate --json`
 
+## Broad-lane selected-surface behavior
+
+When the selected surface is `broad_lane_latest_summary`, `latest_pointers.json`
+now includes `metadata.lane_rows` with normalized paired row semantics from the
+aggregate broad-lane summary.
+
+This means selected-surface readers can directly consume:
+
+- `pointer_state` and `lane_state` together
+- `policy_meaning` and `summary_reason`
+- provenance pointers (`primary_artifact_path`, `supporting_artifact_paths`,
+  `created_at`, `run_id`, `digest_sha256`)
+
+without a second-hop reconstruction from per-lane pointer artifacts.
