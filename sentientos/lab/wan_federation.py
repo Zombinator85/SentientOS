@@ -11,7 +11,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Mapping, cast
 
 import yaml
 
@@ -177,6 +177,47 @@ def _transport(kind: TransportKind) -> BaseTransport:
     return {"local": LocalTransport(), "mock": MockTransport(), "ssh": SSHTransport()}[kind]
 
 
+def _as_transport(value: object) -> TransportKind:
+    text = str(value or "local")
+    return cast(TransportKind, text if text in {"local", "mock", "ssh"} else "local")
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _as_rows(value: object) -> list[Mapping[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, Mapping)]
+
+
+def _to_int(value: object, *, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+def _to_float(value: object, *, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
 def list_wan_scenarios() -> list[dict[str, object]]:
     return [
         {
@@ -206,7 +247,7 @@ def _load_hosts(*, hosts_file: Path | None, run_root: Path, host_count: int) -> 
             hosts.append(
                 HostSpec(
                     host_id=str(row["host_id"]),
-                    transport=str(row.get("transport") or "local"),
+                    transport=_as_transport(row.get("transport")),
                     runtime_root=str(row.get("runtime_root") or (run_root / "hosts" / str(row["host_id"]))),
                     address=str(row.get("address") or ""),
                     user=str(row.get("user") or ""),
@@ -291,7 +332,7 @@ def deterministic_wan_fault_schedule(*, scenario: str, topology: str, seed: int,
     rng = random.Random(f"{scenario}:{topology}:{seed}")
     rows: list[dict[str, object]] = []
     for seq, action in enumerate(spec.get("actions", []), start=1):
-        offset = min(duration_s, max(0.0, float(action.get("at_s") or 0.0) + rng.uniform(0.01, 0.08)))
+        offset = min(duration_s, max(0.0, _to_float(action.get("at_s"), default=0.0) + rng.uniform(0.01, 0.08)))
         rows.append({"sequence": seq, "offset_s": round(offset, 3), **action})
     rows.sort(key=lambda row: float(row["offset_s"]))
     return rows
@@ -356,7 +397,7 @@ def _hash(path: Path) -> str:
 
 
 def _classify_ssh_step(step: dict[str, object]) -> str:
-    exit_code = int(step.get("exit_code", 1))
+    exit_code = _to_int(step.get("exit_code"), default=1)
     stderr = str(step.get("stderr") or "").lower()
     if exit_code == 0:
         return "ok"
@@ -377,14 +418,14 @@ def classify_remote_preflight(*, check: dict[str, object], mkdir: dict[str, obje
     classes: list[str] = []
     if check_class != "ok":
         classes.append(check_class)
-    elif int(check.get("exit_code", 1)) != 0:
+    elif _to_int(check.get("exit_code"), default=1) != 0:
         classes.append("command_availability_failure")
     if mkdir_class != "ok":
         if mkdir_class in {"host_unreachable", "transport_auth_failure", "transport_failure"}:
             classes.append(mkdir_class)
         else:
             classes.append("runtime_root_provisioning_failure")
-    elif int(mkdir.get("exit_code", 1)) != 0:
+    elif _to_int(mkdir.get("exit_code"), default=1) != 0:
         classes.append("runtime_root_provisioning_failure")
     if cleanup_failures > 0:
         classes.append("cleanup_failure")
@@ -431,7 +472,7 @@ def _update_remote_preflight_observatory(
                 "classification": row.get("classification"),
                 "labels": row.get("labels", []),
                 "reachable": bool(row.get("reachable", False)),
-                "cleanup_failures": int(row.get("cleanup_failures", 0)),
+                "cleanup_failures": _to_int(row.get("cleanup_failures"), default=0),
             },
         )
 
@@ -564,7 +605,9 @@ def run_wan_federation_lab(
     for host in hosts:
         if host.transport != "ssh":
             preflight_rows.append(
-                {
+                cast(
+                    dict[str, object],
+                    {
                     "host_id": host.host_id,
                     "transport": host.transport,
                     "status": "skipped",
@@ -572,14 +615,15 @@ def run_wan_federation_lab(
                     "labels": ["not_remote_transport"],
                     "reachable": True,
                     "cleanup_failures": 0,
-                }
+                    },
+                )
             )
             continue
         adapter = _transport("ssh")
         check = adapter.run(host, ["sh", "-lc", "command -v sh && command -v mkdir"], cwd=None)
         mkdir = adapter.run(host, ["mkdir", "-p", host.runtime_root], cwd=None)
         status, labels = classify_remote_preflight(check=check, mkdir=mkdir)
-        row = {
+        row: dict[str, object] = {
             "host_id": host.host_id,
             "transport": host.transport,
             "status": "ok" if status == "ok" else "failed",
@@ -595,11 +639,11 @@ def run_wan_federation_lab(
     write_json(run_root / "remote_preflight_report.json", {"schema_version": 1, "rows": preflight_rows})
 
     host_by_id = {host.host_id: host for host in hosts}
-    nodes = topology["nodes"] if isinstance(topology.get("nodes"), list) else []
+    nodes = _as_rows(topology.get("nodes"))
     active: list[dict[str, object]] = []
     for row in nodes:
-        node_id = str(row["node_id"])
-        host_id = str(row["host_id"])
+        node_id = str(row.get("node_id") or "")
+        host_id = str(row.get("host_id") or "")
         host = host_by_id[host_id]
         if remote_smoke and host.transport != "local":
             node_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id
@@ -645,7 +689,7 @@ def run_wan_federation_lab(
         scenario=scenario_name,
         topology=topology_name,
         seed=seed,
-        duration_s=min(runtime_s, float(WAN_SCENARIOS[scenario_name].get("duration_s") or runtime_s)),
+        duration_s=min(runtime_s, _to_float(WAN_SCENARIOS[scenario_name].get("duration_s"), default=runtime_s)),
     )
     write_json(run_root / "fault_timeline.json", {"schema_version": 1, "scenario": scenario_name, "timeline": schedule})
 
@@ -653,22 +697,24 @@ def run_wan_federation_lab(
     timeline_log = run_root / "wan_faults.jsonl"
     timeline_log.write_text("", encoding="utf-8")
     for action in schedule:
-        deadline = start + float(action["offset_s"])
+        deadline = start + _to_float(action.get("offset_s"), default=0.0)
         if deadline > time.monotonic():
             time.sleep(deadline - time.monotonic())
         host_filter = str(action.get("host") or "")
         for node in nodes:
-            if host_filter and str(node["host_id"]) != host_filter:
+            if host_filter and str(node.get("host_id") or "") != host_filter:
                 continue
-            node_root = Path(host_by_id[str(node["host_id"])].runtime_root) / "nodes" / str(node["node_id"])
+            node_root = Path(host_by_id[str(node.get("host_id") or "")].runtime_root) / "nodes" / str(node.get("node_id") or "")
             _apply_wan_fault(node_root, action)
-            emit_node_truth_artifacts(node_root, node_id=str(node["node_id"]), host_id=str(node["host_id"]))
-            append_jsonl(timeline_log, {"ts": iso_now(), "node_id": node["node_id"], "host_id": node["host_id"], **action})
+            emit_node_truth_artifacts(node_root, node_id=str(node.get("node_id") or ""), host_id=str(node.get("host_id") or ""))
+            append_jsonl(timeline_log, {"ts": iso_now(), "node_id": node.get("node_id"), "host_id": node.get("host_id"), **action})
 
     time.sleep(0.2)
     exit_codes: dict[str, int] = {}
     for row in active:
-        proc = row["proc"]
+        proc = row.get("proc")
+        if not isinstance(proc, subprocess.Popen):
+            continue
         proc.terminate()
         code = int(proc.wait(timeout=5))
         exit_codes[str(row["node_id"])] = code
@@ -680,8 +726,8 @@ def run_wan_federation_lab(
         if host.transport != "ssh":
             continue
         adapter = _transport("ssh")
-        for node in [node for node in nodes if str(node["host_id"]) == host.host_id]:
-            node_id = str(node["node_id"])
+        for node in [node for node in nodes if str(node.get("host_id") or "") == host.host_id]:
+            node_id = str(node.get("node_id") or "")
             target_root = run_root / "remote_collected" / host.host_id / "nodes" / node_id / "glow/lab"
             target_root.mkdir(parents=True, exist_ok=True)
             cat = adapter.run(
@@ -690,26 +736,26 @@ def run_wan_federation_lab(
                 cwd=None,
             )
             remote_path = target_root / "remote_dispatch_collected.json"
-            if int(cat.get("exit_code", 1)) == 0:
+            if _to_int(cat.get("exit_code"), default=1) == 0:
                 remote_path.write_text(str(cat.get("stdout") or "{}"), encoding="utf-8")
             remote_collection_rows.append(
                 {
                     "host_id": host.host_id,
                     "node_id": node_id,
                     "transport": host.transport,
-                    "collection_exit_code": int(cat.get("exit_code", 1)),
+                    "collection_exit_code": _to_int(cat.get("exit_code"), default=1),
                     "remote_runtime_root": host.runtime_root,
                     "collected_path": str(remote_path.relative_to(root)),
                 }
             )
             append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "collect", "host_id": host.host_id, "node_id": node_id, "result": cat})
             cleanup = adapter.run(host, ["rm", "-rf", f"{host.runtime_root}/nodes/{node_id}"], cwd=None)
-            if int(cleanup.get("exit_code", 1)) != 0:
+            if _to_int(cleanup.get("exit_code"), default=1) != 0:
                 cleanup_failures_by_host[host.host_id] = cleanup_failures_by_host.get(host.host_id, 0) + 1
             append_jsonl(remote_dispatch, {"ts": iso_now(), "phase": "cleanup", "host_id": host.host_id, "node_id": node_id, "result": cleanup})
     for row in preflight_rows:
         host_id = str(row.get("host_id") or "")
-        cleanup_failures = int(cleanup_failures_by_host.get(host_id, 0))
+        cleanup_failures = _to_int(cleanup_failures_by_host.get(host_id), default=0)
         row["cleanup_failures"] = cleanup_failures
         if row.get("transport") == "ssh":
             status, labels = classify_remote_preflight(
@@ -727,10 +773,10 @@ def run_wan_federation_lab(
     per_host: dict[str, dict[str, object]] = {}
     digest_rows: list[str] = []
     for host in hosts:
-        host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+        host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
         node_rows: dict[str, object] = {}
         for node in host_nodes:
-            node_id = str(node["node_id"])
+            node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
             health = node_health(node_root)
             truth_artifacts = emit_node_truth_artifacts(node_root, node_id=node_id, host_id=host.host_id)
@@ -742,15 +788,17 @@ def run_wan_federation_lab(
                 "governor": read_json(node_root / "glow/governor/rollup.json"),
                 "node_truth_artifacts": truth_artifacts,
             }
-            digest_rows.append(json.dumps(node_rows[node_id]["trust"], sort_keys=True))
+            trust_payload = read_json(node_root / "glow/pulse_trust/epoch_state.json")
+            node_rows[node_id]["trust"] = trust_payload
+            digest_rows.append(json.dumps(trust_payload, sort_keys=True))
         per_host[host.host_id] = {"host": host.__dict__, "nodes": node_rows}
 
     replay_rows: dict[str, dict[str, object]] = {}
     if emit_replay:
         for host in hosts:
-            host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+            host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
             for node in host_nodes:
-                node_id = str(node["node_id"])
+                node_id = str(node.get("node_id") or "")
                 node_root = Path(host.runtime_root) / "nodes" / node_id
                 previous = Path.cwd()
                 try:
@@ -770,12 +818,12 @@ def run_wan_federation_lab(
 
     completeness_rows: list[dict[str, object]] = []
     for host in hosts:
-        host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+        host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
         for node in host_nodes:
-            node_id = str(node["node_id"])
+            node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
-            truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
-            completeness = truth_payload.get("completeness") if isinstance(truth_payload.get("completeness"), dict) else {}
+            node_truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
+            completeness = node_truth_payload.get("completeness") if isinstance(node_truth_payload.get("completeness"), dict) else {}
             completeness_rows.append(
                 {
                     "host_id": host.host_id,
@@ -790,17 +838,17 @@ def run_wan_federation_lab(
 
     node_evidence_summary_rows: list[dict[str, object]] = []
     for host in hosts:
-        host_nodes = [node for node in nodes if str(node["host_id"]) == host.host_id]
+        host_nodes = [node for node in nodes if str(node.get("host_id") or "") == host.host_id]
         for node in host_nodes:
-            node_id = str(node["node_id"])
+            node_id = str(node.get("node_id") or "")
             node_root = Path(host.runtime_root) / "nodes" / node_id
-            truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
-            quorum = truth_payload.get("quorum_state") if isinstance(truth_payload.get("quorum_state"), dict) else {}
-            digest = truth_payload.get("digest_state") if isinstance(truth_payload.get("digest_state"), dict) else {}
-            epoch = truth_payload.get("epoch_state") if isinstance(truth_payload.get("epoch_state"), dict) else {}
-            reanchor = truth_payload.get("reanchor_state") if isinstance(truth_payload.get("reanchor_state"), dict) else {}
-            fairness = truth_payload.get("fairness_state") if isinstance(truth_payload.get("fairness_state"), dict) else {}
-            replay = truth_payload.get("replay_state") if isinstance(truth_payload.get("replay_state"), dict) else {}
+            node_truth_payload = read_json(node_root / "glow/lab/node_truth_artifacts.json")
+            quorum = _as_mapping(node_truth_payload.get("quorum_state"))
+            digest = _as_mapping(node_truth_payload.get("digest_state"))
+            epoch = _as_mapping(node_truth_payload.get("epoch_state"))
+            reanchor = _as_mapping(node_truth_payload.get("reanchor_state"))
+            fairness = _as_mapping(node_truth_payload.get("fairness_state"))
+            replay = _as_mapping(node_truth_payload.get("replay_state"))
             node_evidence_summary_rows.append(
                 {
                     "host_id": host.host_id,
@@ -836,7 +884,10 @@ def run_wan_federation_lab(
         "degraded_isolated": scenario_name == "wan_asymmetric_loss",
         "reanchor_continuation": scenario_name == "wan_reanchor_truth_reconciliation",
     }
-    checks = {key: bool(observed.get(key) == value) for key, value in expected.items()}
+    checks = {
+        key: bool(observed.get(key) == value)
+        for key, value in cast(dict[str, object], expected).items()
+    }
     convergence = "converged_expected" if all(checks.values()) else "converged_with_degradation"
     write_json(run_root / "convergence_summary.json", {"schema_version": 1, "expected": expected, "observed": observed, "checks": checks, "convergence_class": convergence})
 
@@ -930,7 +981,7 @@ def run_wan_federation_lab(
         rows=preflight_rows_for_obs,
     ) if remote_smoke else {}
 
-    payload = {
+    payload: dict[str, object] = {
         "schema_version": 1,
         "mode": "wan_lab",
         "family": "wan",
@@ -972,13 +1023,21 @@ def run_wan_federation_lab(
             } if preflight_observatory else {}),
         },
     }
-    if isinstance(truth_payload.get("artifact_paths"), dict):
-        for key, path in truth_payload["artifact_paths"].items():
-            payload["artifact_paths"][str(key)] = str(Path(path).relative_to(root))
+    artifact_paths = _as_mapping(payload.get("artifact_paths"))
+    truth_artifact_paths = _as_mapping(truth_payload.get("artifact_paths"))
+    if truth_artifact_paths:
+        merged_paths = dict(artifact_paths)
+        for key, path in truth_artifact_paths.items():
+            if isinstance(path, str):
+                merged_paths[str(key)] = str(Path(path).relative_to(root))
+        payload["artifact_paths"] = merged_paths
+        artifact_paths = merged_paths
     payload["failure_classification"] = classify_wan_failure_surface(payload=payload)
-    payload["status"] = "passed" if payload["oracle"]["passed"] else "failed"
-    payload["ok"] = bool(payload["oracle"]["passed"])
-    payload["exit_code"] = 0 if payload["ok"] else 1
+    oracle_payload = _as_mapping(payload.get("oracle"))
+    oracle_passed = bool(oracle_payload.get("passed"))
+    payload["status"] = "passed" if oracle_passed else "failed"
+    payload["ok"] = oracle_passed
+    payload["exit_code"] = 0 if oracle_passed else 1
     write_json(run_root / "run_summary.json", payload)
     return payload
 

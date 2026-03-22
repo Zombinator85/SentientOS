@@ -334,12 +334,12 @@ class ConsoleDashboard:
 
         replay_lines: List[str] = ["FEDERATION REPLAY"]
         if status.federation_replay:
-            for entry in status.federation_replay[:3]:
-                peer = entry.get("peer") if isinstance(entry, Mapping) else None
-                peer_name = str(peer or "peer")
-                severity = str(entry.get("severity") if isinstance(entry, Mapping) else "none")
+            for replay_entry in status.federation_replay[:3]:
+                peer_value = replay_entry.get("peer") if isinstance(replay_entry, Mapping) else None
+                peer_name = str(peer_value or "peer")
+                severity = str(replay_entry.get("severity") if isinstance(replay_entry, Mapping) else "none")
                 indicator = _replay_indicator(severity)
-                summary = _summarise_replay(entry if isinstance(entry, Mapping) else {})
+                summary = _summarise_replay(replay_entry if isinstance(replay_entry, Mapping) else {})
                 replay_lines.append(f"  {peer_name}:    {indicator} — {summary}")
         else:
             replay_lines.append("  (no replay data yet)")
@@ -350,8 +350,10 @@ class ConsoleDashboard:
             sync_lines.append("    Sync:")
             for peer, data in list(sorted(status.federation_sync.items()))[:3]:
                 snapshot = data if isinstance(data, Mapping) else {}
-                cat = snapshot.get("cathedral", {}) if isinstance(snapshot, Mapping) else {}
-                exp = snapshot.get("experiments", {}) if isinstance(snapshot, Mapping) else {}
+                cat_raw = snapshot.get("cathedral", {}) if isinstance(snapshot, Mapping) else {}
+                exp_raw = snapshot.get("experiments", {}) if isinstance(snapshot, Mapping) else {}
+                cat = cat_raw if isinstance(cat_raw, Mapping) else {}
+                exp = exp_raw if isinstance(exp_raw, Mapping) else {}
                 cat_status = str(cat.get("status") or "unknown").upper()
                 cat_parts: List[str] = []
                 local_missing = _summarise_ids(cat.get("missing_local"))
@@ -411,8 +413,8 @@ class ConsoleDashboard:
         if not recent:
             lines.append("  (no recent events)")
         else:
-            for entry in recent:
-                lines.append(f"  {entry}")
+            for recent_entry in recent:
+                lines.append(f"  {recent_entry}")
 
         lines.extend(
             [
