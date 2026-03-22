@@ -44,10 +44,12 @@ from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.forge_transaction import (
     ForgeGitOps,
     TransactionPolicy,
+    build_contract_status_digest,
     capture_snapshot,
     compare_snapshots,
     quarantine,
     rollback_session,
+    snapshot_to_report_dict,
 )
 from sentientos.forge_model import (
     ApplyResult,
@@ -109,6 +111,9 @@ class ForgeReport:
     baseline_progress: list[dict[str, object]] | None = None
     ci_baseline_before: dict[str, object] | None = None
     ci_baseline_after: dict[str, object] | None = None
+    contract_status_digest_preflight: dict[str, object] | None = None
+    transaction_snapshot_before: dict[str, object] | None = None
+    transaction_snapshot_after: dict[str, object] | None = None
     progress_delta: dict[str, float | int] | None = None
     transaction_status: str = "aborted"
     regression_reasons: list[str] | None = None
@@ -286,6 +291,7 @@ class CathedralForge:
                 if env_import.returncode != 0:
                     failure_reasons.append("forge_env_import_failed")
 
+            preflight_contract_digest = build_contract_status_digest(status_payload)
             preflight = ForgePreflight(
                 contract_drift=ForgeCheckResult(
                     status="fail" if drift_failed else "pass",
@@ -293,6 +299,7 @@ class CathedralForge:
                 ),
                 contract_status_path=str(CONTRACT_STATUS_PATH),
                 contract_status_embedded=status_payload,
+                contract_status_digest=preflight_contract_digest,
             )
 
             if goal_spec.goal_id == "repo_green_storm":
@@ -330,6 +337,9 @@ class CathedralForge:
                     test_failures_after=None,
                     docket_path=None,
                     transaction_status="aborted",
+                    contract_status_digest_preflight=preflight_contract_digest,
+                    transaction_snapshot_before=snapshot_to_report_dict(before_snapshot),
+                    transaction_snapshot_after=None,
                 )
                 run_trace.record_gate(name="mode_mutation_gate", mode="enforce", result="diagnostics_only", reason="mode_throttle_mutation")
                 persisted = run_trace.finalize(
@@ -550,6 +560,9 @@ class CathedralForge:
                 baseline_progress=baseline_progress or None,
                 ci_baseline_before=ci_baseline_before,
                 ci_baseline_after=ci_baseline_after,
+                contract_status_digest_preflight=preflight_contract_digest,
+                transaction_snapshot_before=snapshot_to_report_dict(before_snapshot),
+                transaction_snapshot_after=snapshot_to_report_dict(after_snapshot),
                 progress_delta=progress_delta,
                 transaction_status=transaction_status,
                 regression_reasons=regression_reasons or None,
@@ -716,6 +729,9 @@ class CathedralForge:
             baseline_progress=last_report.baseline_progress,
             ci_baseline_before=before.ci_baseline,
             ci_baseline_after=after.ci_baseline,
+            contract_status_digest_preflight=last_report.contract_status_digest_preflight,
+            transaction_snapshot_before=snapshot_to_report_dict(before),
+            transaction_snapshot_after=snapshot_to_report_dict(after),
             progress_delta=last_report.progress_delta,
             transaction_status=transaction_status,
             regression_reasons=regression_reasons or None,

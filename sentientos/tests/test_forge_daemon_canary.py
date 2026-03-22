@@ -21,6 +21,24 @@ class _Report:
         self.publish_remote = {"checks_overall": "failure", "pr_url": "https://github.com/o/r/pull/1"}
         self.goal_id = "forge_smoke_noop"
         self.notes: list[str] = []
+        self.contract_status_digest_preflight = {
+            "has_drift": False,
+            "drift_domains": [],
+            "contract_alert_badge": "informational",
+            "contract_alert_reason": "contract_rows_nominal",
+            "contract_alert_counts": {"informational": 1},
+            "contract_row_summary_counts": {"row_count": 1},
+        }
+        self.transaction_snapshot_after = {
+            "contract_status_digest": {
+                "has_drift": False,
+                "drift_domains": [],
+                "contract_alert_badge": "freshness_issue",
+                "contract_alert_reason": "rows_not_current",
+                "contract_alert_counts": {"freshness_issue": 1},
+                "contract_row_summary_counts": {"row_count": 1, "stale_or_missing_rows": 1},
+            }
+        }
 
 
 class _Forge:
@@ -85,3 +103,7 @@ def test_sentinel_cooldown_extension_on_failed_remote_checks(tmp_path: Path, mon
     assert domain == "forge_observatory"
     assert qref == "https://github.com/o/r/pull/1"
     assert "remote_checks_gate" in reasons
+    receipt = queue.recent_receipts(limit=1)[0]
+    assert receipt.contract_alert_badge == "freshness_issue"
+    assert receipt.contract_alert_reason == "rows_not_current"
+    assert receipt.has_drift is False

@@ -48,6 +48,12 @@ class ForgeReceipt:
     publish_status: str | None = None
     publish_pr_url: str | None = None
     publish_checks_overall: str | None = None
+    has_drift: bool | None = None
+    drift_domains: list[str] | None = None
+    contract_alert_badge: str | None = None
+    contract_alert_reason: str | None = None
+    contract_alert_counts: dict[str, int] | None = None
+    contract_row_summary_counts: dict[str, int] | None = None
 
 
 class ForgeQueue:
@@ -110,6 +116,12 @@ class ForgeQueue:
         publish_status: str | None = None,
         publish_pr_url: str | None = None,
         publish_checks_overall: str | None = None,
+        has_drift: bool | None = None,
+        drift_domains: list[str] | None = None,
+        contract_alert_badge: str | None = None,
+        contract_alert_reason: str | None = None,
+        contract_alert_counts: dict[str, int] | None = None,
+        contract_row_summary_counts: dict[str, int] | None = None,
     ) -> ForgeReceipt:
         receipt = ForgeReceipt(
             request_id=request_id,
@@ -126,6 +138,12 @@ class ForgeQueue:
             publish_status=publish_status,
             publish_pr_url=publish_pr_url,
             publish_checks_overall=publish_checks_overall,
+            has_drift=has_drift,
+            drift_domains=drift_domains,
+            contract_alert_badge=contract_alert_badge,
+            contract_alert_reason=contract_alert_reason,
+            contract_alert_counts=contract_alert_counts,
+            contract_row_summary_counts=contract_row_summary_counts,
         )
         self._append_jsonl(self.receipts_path, asdict(receipt))
         return receipt
@@ -272,6 +290,12 @@ def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:
     def _opt(name: str) -> str | None:
         value = row.get(name)
         return value if isinstance(value, str) else None
+    raw_domains = row.get("drift_domains")
+    drift_domains = [str(item) for item in raw_domains if isinstance(item, str)] if isinstance(raw_domains, list) else None
+    raw_alert_counts = row.get("contract_alert_counts")
+    alert_counts = {str(k): int(v) for k, v in raw_alert_counts.items() if isinstance(v, int)} if isinstance(raw_alert_counts, dict) else None
+    raw_row_counts = row.get("contract_row_summary_counts")
+    row_counts = {str(k): int(v) for k, v in raw_row_counts.items() if isinstance(v, int)} if isinstance(raw_row_counts, dict) else None
     return ForgeReceipt(
         request_id=request_id,
         status=status,
@@ -287,4 +311,10 @@ def _receipt_from_row(row: dict[str, object]) -> ForgeReceipt | None:
         publish_status=_opt("publish_status"),
         publish_pr_url=_opt("publish_pr_url"),
         publish_checks_overall=_opt("publish_checks_overall"),
+        has_drift=(row.get("has_drift") if isinstance(row.get("has_drift"), bool) else None),
+        drift_domains=drift_domains,
+        contract_alert_badge=_opt("contract_alert_badge"),
+        contract_alert_reason=_opt("contract_alert_reason"),
+        contract_alert_counts=alert_counts,
+        contract_row_summary_counts=row_counts,
     )

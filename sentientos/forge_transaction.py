@@ -74,7 +74,7 @@ def capture_snapshot(repo_root: Path, session_root: Path, *, git_ops: ForgeGitOp
     git_sha = _git_sha(session_root, ops)
     baseline = _load_json(session_root / CI_BASELINE_PATH)
     status = _load_json(session_root / CONTRACT_STATUS_PATH)
-    digest = _contract_status_digest(status)
+    digest = build_contract_status_digest(status)
     return TransactionSnapshot(
         git_sha=git_sha,
         ci_baseline={
@@ -164,7 +164,7 @@ def _load_json(path: Path) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
-def _contract_status_digest(status: dict[str, Any]) -> dict[str, Any]:
+def build_contract_status_digest(status: dict[str, Any]) -> dict[str, Any]:
     pointer_state_raw = status.get("pointer_state")
     pointer_state = pointer_state_raw if isinstance(pointer_state_raw, str) and pointer_state_raw in {"current", "stale", "missing", "unavailable"} else ("current" if status else "unavailable")
     generated_at = status.get("generated_at") if isinstance(status.get("generated_at"), str) else None
@@ -211,6 +211,20 @@ def _contract_status_digest(status: dict[str, Any]) -> dict[str, Any]:
             "indeterminate_rows": int(row_summary.get("indeterminate_rows", 0) or 0),
             "stale_or_missing_rows": int(row_summary.get("stale_or_missing_rows", 0) or 0),
         },
+    }
+
+
+def snapshot_to_report_dict(snapshot: TransactionSnapshot | None) -> dict[str, Any] | None:
+    if snapshot is None:
+        return None
+    return {
+        "git_sha": snapshot.git_sha,
+        "timestamp": snapshot.timestamp,
+        "ci_baseline": {
+            "passed": bool(snapshot.ci_baseline.get("passed", False)),
+            "failed_count": int(snapshot.ci_baseline.get("failed_count", 0) or 0),
+        },
+        "contract_status_digest": dict(snapshot.contract_status_digest),
     }
 
 

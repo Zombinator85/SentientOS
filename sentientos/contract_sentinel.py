@@ -370,6 +370,12 @@ class ContractSentinel:
             "last_progress_notes": summary.last_progress_notes,
             "no_improvement_streak": summary.no_improvement_streak,
             "audit_status": summary.audit_status,
+            "has_contract_drift": summary.has_contract_drift,
+            "drift_domains": list(summary.drift_domains),
+            "contract_alert_badge": summary.contract_alert_badge,
+            "contract_alert_reason": summary.contract_alert_reason,
+            "contract_alert_counts": dict(summary.contract_alert_counts),
+            "contract_row_summary_counts": dict(summary.contract_row_summary_counts),
             "created_at": summary.created_at,
             "transaction_status": getattr(summary, "transaction_status", None),
         }

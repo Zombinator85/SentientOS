@@ -54,7 +54,7 @@ def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> N
     _write_jsonl(
         tmp_path / "pulse/forge_receipts.jsonl",
         [
-            '{"request_id":"r1","status":"success","finished_at":"2099-01-01T00:00:00Z","report_path":"glow/forge/report_future.json"}',
+            '{"request_id":"r1","status":"success","finished_at":"2099-01-01T00:00:00Z","report_path":"glow/forge/report_future.json","has_drift":false,"drift_domains":[],"contract_alert_badge":"freshness_issue","contract_alert_reason":"rows_not_current","contract_alert_counts":{"freshness_issue":1},"contract_row_summary_counts":{"row_count":1}}',
             '{"request_id":"r2","status":"failed","finished_at":"2099-01-01T00:10:00Z"}',
         ],
     )
@@ -80,6 +80,8 @@ def test_compute_status_reads_lock_and_budgets(tmp_path: Path, monkeypatch) -> N
     assert status.runs_remaining_day >= 0
     assert status.runs_remaining_hour >= 0
     assert status.files_remaining_day >= 0
+    assert status.last_receipt is not None
+    assert "contract_alert_badge" in status.last_receipt
     assert isinstance(status.sentinel_enabled, bool)
     assert isinstance(status.train_enabled, bool)
 

@@ -6,10 +6,21 @@ consumers.
 
 ## Scope
 
-Updated surface:
+Updated surfaces:
 
 - `sentientos.forge_transaction.capture_snapshot()`
   - `TransactionSnapshot.contract_status_digest`
+- `sentientos.cathedral_forge.ForgeReport`
+  - `preflight.contract_status_digest`
+  - `contract_status_digest_preflight`
+  - `transaction_snapshot_before.contract_status_digest`
+  - `transaction_snapshot_after.contract_status_digest`
+- `pulse/forge_receipts.jsonl` (`ForgeReceipt`)
+  - `contract_alert_badge`
+  - `contract_alert_reason`
+  - `contract_alert_counts`
+  - `contract_row_summary_counts`
+  - compatibility mirrors: `has_drift`, `drift_domains`
 
 This pass is intentionally bounded. It **does not** redesign:
 
@@ -31,6 +42,20 @@ The digest still preserves compatibility booleans:
 
 - `has_drift`
 - `drift_domains`
+
+## Report / receipt propagation
+
+Forge report and receipt readers now have a compact single-hop contract digest
+path without dereferencing full `contract_status.json` rows:
+
+- `preflight.contract_status_digest` gives bounded semantics at preflight emit
+  time.
+- `transaction_snapshot_before/after.contract_status_digest` preserve before vs
+  after semantics for transactional comparisons.
+- Forge daemon receipts copy the **after** digest semantics into receipt rows so
+  queue/ops/observability consumers can read badge/reason/counts directly.
+
+This remains intentionally compact and does not inline full contract rows.
 
 ## Semantic mapping
 
@@ -62,3 +87,4 @@ No generic flattening into a single drift boolean is introduced.
 - changing transaction regression policy (`contract_drift_appeared` still uses
   compatibility `has_drift`)
 - introducing new blocker classes from digest metadata
+- changing protected-corridor or forge gating doctrine
