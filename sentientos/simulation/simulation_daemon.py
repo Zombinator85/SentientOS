@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 
 class SimulationDaemon:
@@ -38,10 +38,12 @@ class SimulationDaemon:
         return result
 
     def _clone_state(self, state: Mapping[str, Any]) -> dict[str, Any]:
-        return json.loads(json.dumps(state))
+        payload = json.loads(json.dumps(state))
+        return cast(dict[str, Any], payload if isinstance(payload, dict) else {})
 
     def _apply_patch(self, state: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
-        merged = json.loads(json.dumps(state))
+        merged_payload = json.loads(json.dumps(state))
+        merged = cast(dict[str, Any], merged_payload if isinstance(merged_payload, dict) else {})
         for key, value in patch.items():
             if isinstance(value, Mapping) and isinstance(merged.get(key), Mapping):
                 merged[key] = self._apply_patch(merged[key], value)

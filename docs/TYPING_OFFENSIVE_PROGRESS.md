@@ -131,3 +131,80 @@ Targeted corridor deltas:
 1. `sentientos/lab/wan_federation.py` (largest remaining federation corridor hotspot from this audit).
 2. `memory_governor.py` + `memory_manager.py` payload boundaries (cross-module `dict`/`object` propagation).
 3. `architect_daemon.py` and `task_executor.py` runtime-heavy corridors.
+
+---
+
+## High-density typing offensive IV (2026-03-22)
+
+### Failure-density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy . --show-error-codes --no-error-summary`
+
+Repo-wide error count before this pass: **7658**.
+
+Highest-density mature/high-value clusters observed from the full output:
+
+- Runtime/operator entry corridors: `relay_app.py` (139), `architect_daemon.py` (100), `task_executor.py` (71).
+- Observability/reporting operator surfaces: `dashboard_ui/api.py` (43), `plugin_dashboard.py` (41), `sentientos/admin_server.py` (31).
+- Lab/simulation/report-adjacent corridor: `sentientos/lab/wan_federation.py` (66), `sentientos/lab/node_truth_artifacts.py` (9), `sentientos/simulation/simulation_daemon.py` (2).
+- Dashboard snapshot/console rendering: `sentientos/dashboard/dashboard_snapshot.py` (12), `sentientos/dashboard/console.py` (8).
+
+Dominant error families in selected offensive corridor:
+
+- `attr-defined` from un-narrowed `object` payload access in report/status JSON.
+- `call-overload` / `arg-type` from direct `int(...)` / `float(...)` coercion of untyped payloads.
+- `index`/`assignment` fallout from mixed-shape dictionaries crossing module boundaries.
+
+### Offensive IV scope executed
+
+This pass focused on mature, operator-facing observability + lab/simulation/report-adjacent surfaces:
+
+- `sentientos/lab/wan_federation.py`
+- `sentientos/lab/node_truth_artifacts.py`
+- `sentientos/dashboard/dashboard_snapshot.py`
+- `sentientos/dashboard/console.py`
+- `sentientos/simulation/simulation_daemon.py`
+
+Change themes:
+
+- Added explicit payload narrowing/coercion helpers (`_as_mapping`, `_as_rows`, `_to_int`, `_to_float`, `_as_transport`) at boundary points to stop `object` propagation.
+- Normalized dashboard snapshot admission/log-path handling and typed avatar/viseme payload coercion.
+- Removed console render variable shadowing that widened inferred types across replay/sync blocks.
+- Tightened simulation clone/patch JSON round-trip returns with explicit typed normalization.
+- Reduced WAN federation boundary typing fallout by replacing object-indexing patterns with mapping-safe access in high-traffic sections.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy . --show-error-codes --no-error-summary`
+
+Repo-wide error count after this pass: **7588** (**-70 net**).
+
+Targeted file deltas:
+
+- `sentientos/lab/wan_federation.py`: 66 -> 27
+- `sentientos/lab/node_truth_artifacts.py`: 9 -> 0
+- `sentientos/dashboard/dashboard_snapshot.py`: 12 -> 0
+- `sentientos/dashboard/console.py`: 8 -> 0
+- `sentientos/simulation/simulation_daemon.py`: 2 -> 0
+
+Net reduction within targeted corridor: **97 -> 27** (**-70**).
+
+### Ratchet / protected-surface posture
+
+- No protected-corridor semantics were redesigned.
+- No trust/governor/quorum/digest/provenance runtime semantics were altered.
+- No ratchet was loosened; this pass is a debt reduction on stable surfaces and leaves remaining WAN-federation typing debt explicitly visible.
+
+### Deferred heavy clusters after Offensive IV
+
+1. `architect_daemon.py`
+2. `task_executor.py`
+3. `relay_app.py`
+4. `sentientos/shell/__init__.py`
+5. `scripts/tooling_status.py`
+
+Recommended next pass: runtime-heavy operator core (`architect_daemon.py` + `task_executor.py`) with focused payload-boundary cleanup to cut broad downstream `no-untyped-call`/`union-attr` propagation.

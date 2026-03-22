@@ -11,13 +11,13 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping, Optional
+from typing import Iterable, Mapping, MutableMapping, Optional, Sequence
 
 from logging_config import get_log_dir
 from runtime_mode import SENTIENTOS_MODE
 from sentientos.storage import get_state_file
 from speech_log import get_recent_speech
-from task_admission import ADMISSION_LOG_PATH
+from task_admission import _resolve_admission_log_path
 from task_executor import LOG_PATH as EXECUTOR_LOG_PATH
 
 from sentientos.glow import self_state
@@ -148,18 +148,15 @@ def _normalize_viseme_timeline(timeline: object) -> list[MutableMapping[str, obj
     for cue in timeline:
         if not isinstance(cue, Mapping):
             continue
-        try:
-            start = float(cue.get("time", 0.0) or 0.0)
-            duration = float(cue.get("duration", 0.0) or 0.0)
-        except Exception:
-            continue
+        start = _to_float(cue.get("time"), default=0.0)
+        duration = _to_float(cue.get("duration"), default=0.0)
         label = str(cue.get("viseme", cue.get("value", cue.get("mouth", "neutral")))) or "neutral"
         cues.append({
             "time": start,
             "duration": duration,
             "viseme": label,
         })
-    cues.sort(key=lambda cue: float(cue.get("time", 0.0)))
+    cues.sort(key=lambda cue: _to_float(cue.get("time"), default=0.0))
     return cues
 
 
@@ -200,8 +197,8 @@ def _compute_viseme_frame(
 
     total_duration = 0.0
     for cue in timeline:
-        start = float(cue.get("time", 0.0) or 0.0)
-        duration = float(cue.get("duration", 0.0) or 0.0)
+        start = _to_float(cue.get("time"), default=0.0)
+        duration = _to_float(cue.get("duration"), default=0.0)
         duration = duration if duration > 0 else 0.08
         end = start + duration
         total_duration = max(total_duration, end)
@@ -283,8 +280,8 @@ def _load_recent_reflection(log_dir: Path) -> Optional[str]:
     return None
 
 
-def _load_admissions(path: Path = ADMISSION_LOG_PATH, *, limit: int = 10) -> list[MutableMapping[str, object]]:
-    return _load_json_lines(path, limit=limit)
+def _load_admissions(path: Path | None = None, *, limit: int = 10) -> list[MutableMapping[str, object]]:
+    return _load_json_lines(path or _resolve_admission_log_path(), limit=limit)
 
 
 def _load_executor(path: Path = EXECUTOR_LOG_PATH, *, limit: int = 20) -> list[MutableMapping[str, object]]:
@@ -315,7 +312,7 @@ def _summarise_executor(entry: Mapping[str, object]) -> tuple[str, bool, str | N
     return marker, failed, None
 
 
-def _compute_executor_status(entries: list[Mapping[str, object]]) -> tuple[str, list[str], int, str | None]:
+def _compute_executor_status(entries: Sequence[Mapping[str, object]]) -> tuple[str, list[str], int, str | None]:
     if not entries:
         return "idle", [], 0, None
     recent_failures = 0
@@ -330,6 +327,32 @@ def _compute_executor_status(entries: list[Mapping[str, object]]) -> tuple[str, 
             last_completed = maybe_completed
     status = "failed" if recent_failures else "running"
     return status, active_steps, recent_failures, last_completed
+
+
+def _to_int(value: object, *, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
+
+
+def _to_float(value: object, *, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return default
+    return default
 
 
 _MOOD_EMOJI_MAP: dict[str, AvatarSnapshot] = {
@@ -391,16 +414,24 @@ def collect_snapshot(
     pulse_level, pulse_reason = _load_pulse(pulse_path)
     mind = _load_self_state(self_path)
 
-    admission_entries = _load_admissions(path=ADMISSION_LOG_PATH)
+    admission_log_path = _resolve_admission_log_path()
+    admission_entries = _load_admissions(path=admission_log_path)
     executor_entries = _load_executor(path=EXECUTOR_LOG_PATH)
 
-    executor_status, executor_steps, error_count, last_completed = _compute_executor_status(executor_entries)
+    executor_status, executor_steps, error_count, last_completed = _compute_executor_status(
+        list(executor_entries)
+    )
 
     recent_admissions = [_summarise_admission(entry) for entry in admission_entries[-5:]]
-    active_tasks = list({entry.get("task_id") for entry in executor_entries[-5:] if entry.get("status") != "failed"})
-    active_tasks = [str(item) for item in active_tasks if item]
+    active_tasks = sorted(
+        {
+            str(entry.get("task_id"))
+            for entry in executor_entries[-5:]
+            if entry.get("status") != "failed" and entry.get("task_id")
+        }
+    )
 
-    latest_timestamp = _pick_last_timestamp([pulse_path, ADMISSION_LOG_PATH, EXECUTOR_LOG_PATH])
+    latest_timestamp = _pick_last_timestamp([pulse_path, admission_log_path, EXECUTOR_LOG_PATH])
     last_event_age = _format_age(latest_timestamp)
 
     thoughts = ThoughtSnapshot(
@@ -427,12 +458,13 @@ def collect_snapshot(
     )
 
     avatar_state = _load_avatar_state()
-    phrase_block = avatar_state.get("phrase") if isinstance(avatar_state.get("phrase"), Mapping) else {}
+    phrase_candidate = avatar_state.get("phrase")
+    phrase_block: Mapping[str, object] = phrase_candidate if isinstance(phrase_candidate, Mapping) else {}
     phrase_text = phrase_block.get("text", avatar_state.get("current_phrase", ""))
     viseme_timeline = _normalize_viseme_timeline(avatar_state.get("viseme_timeline"))
     speaking = bool(avatar_state.get("speaking", avatar_state.get("is_speaking", False)))
     muted = bool(phrase_block.get("muted", avatar_state.get("muted", False)))
-    viseme_count = int(phrase_block.get("viseme_count", len(viseme_timeline)))
+    viseme_count = _to_int(phrase_block.get("viseme_count"), default=len(viseme_timeline))
 
     recent_speech = get_recent_speech()
     last_phrase = None
@@ -446,7 +478,7 @@ def collect_snapshot(
             last_duration = float(duration_value)
         if not viseme_count:
             try:
-                viseme_count = int(recent_speech.get("viseme_count", 0) or 0)
+                viseme_count = _to_int(recent_speech.get("viseme_count"), default=0)
             except Exception:
                 viseme_count = 0
         if recent_speech.get("muted"):

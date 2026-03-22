@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
 
@@ -18,6 +18,31 @@ OPTIONAL_DIMENSIONS: tuple[str, ...] = ("replay_state",)
 
 def _as_str(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
+
+
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
+
+
+def _as_rows(value: object) -> list[Mapping[str, object]]:
+    if not isinstance(value, list):
+        return []
+    return [row for row in value if isinstance(row, Mapping)]
+
+
+def _to_int(value: object, *, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return default
+    return default
 
 
 def _latest_replay_summary(node_root: Path) -> dict[str, object]:
@@ -53,19 +78,19 @@ def _latest_replay_summary(node_root: Path) -> dict[str, object]:
 
 
 def emit_node_truth_artifacts(node_root: Path, *, node_id: str, host_id: str) -> dict[str, object]:
-    health = read_json(node_root / "glow/operators/node_health.json")
-    quorum = read_json(node_root / "glow/federation/quorum_status.json")
-    digest = read_json(node_root / "glow/federation/governance_digest.json")
-    epoch = read_json(node_root / "glow/pulse_trust/epoch_state.json")
-    audit = read_json(node_root / "glow/runtime/audit_trust_state.json")
-    wan_status = read_json(node_root / "glow/lab/wan_status.json")
-    runtime_tail = read_jsonl(node_root / "glow/lab/runtime_log.jsonl")[-20:]
+    health = _as_mapping(read_json(node_root / "glow/operators/node_health.json"))
+    quorum = _as_mapping(read_json(node_root / "glow/federation/quorum_status.json"))
+    digest = _as_mapping(read_json(node_root / "glow/federation/governance_digest.json"))
+    epoch = _as_mapping(read_json(node_root / "glow/pulse_trust/epoch_state.json"))
+    audit = _as_mapping(read_json(node_root / "glow/runtime/audit_trust_state.json"))
+    wan_status = _as_mapping(read_json(node_root / "glow/lab/wan_status.json"))
+    runtime_tail = _as_rows(read_jsonl(node_root / "glow/lab/runtime_log.jsonl"))[-20:]
 
-    pending_votes = quorum.get("pending_votes") if isinstance(quorum.get("pending_votes"), int) else 0
-    observed_peers = digest.get("peer_observations") if isinstance(digest.get("peer_observations"), list) else []
-    mismatched = [row for row in observed_peers if isinstance(row, dict) and bool(row.get("compatible") is False)]
+    pending_votes = _to_int(quorum.get("pending_votes"), default=0)
+    observed_peers = _as_rows(digest.get("peer_observations"))
+    mismatched = [row for row in observed_peers if bool(row.get("compatible") is False)]
 
-    recovery = audit.get("recovery_state") if isinstance(audit.get("recovery_state"), dict) else {}
+    recovery = _as_mapping(audit.get("recovery_state"))
     history_state = _as_str(audit.get("history_state")) or _as_str(recovery.get("history_state")) or "unknown"
     checkpoint_id = _as_str(audit.get("checkpoint_id")) or _as_str(recovery.get("checkpoint_id"))
     continuation = audit.get("continuation_descends_from_anchor")
@@ -94,7 +119,7 @@ def emit_node_truth_artifacts(node_root: Path, *, node_id: str, host_id: str) ->
 
     replay = _latest_replay_summary(node_root)
 
-    evidence = {
+    evidence: dict[str, object] = {
         "schema_version": 1,
         "ts": iso_now(),
         "node_id": node_id,
@@ -141,14 +166,27 @@ def emit_node_truth_artifacts(node_root: Path, *, node_id: str, host_id: str) ->
         },
     }
 
+    completeness = _as_mapping(evidence.get("completeness"))
+    required_present_raw = completeness.get("required_present")
+    required_missing_raw = completeness.get("required_missing")
+    optional_present_raw = completeness.get("optional_present")
+    required_present = [str(item) for item in required_present_raw] if isinstance(required_present_raw, list) else []
+    required_missing = [str(item) for item in required_missing_raw] if isinstance(required_missing_raw, list) else []
+    optional_present = [str(item) for item in optional_present_raw] if isinstance(optional_present_raw, list) else []
     for key in REQUIRED_DIMENSIONS:
         if isinstance(evidence.get(key), dict) and evidence.get(key):
-            evidence["completeness"]["required_present"].append(key)
+            required_present.append(key)
         else:
-            evidence["completeness"]["required_missing"].append(key)
+            required_missing.append(key)
     for key in OPTIONAL_DIMENSIONS:
         if isinstance(evidence.get(key), dict) and evidence.get(key):
-            evidence["completeness"]["optional_present"].append(key)
+            optional_present.append(key)
+
+    evidence["completeness"] = {
+        "required_present": required_present,
+        "required_missing": required_missing,
+        "optional_present": optional_present,
+    }
 
     write_json(node_root / "glow/lab/node_truth_artifacts.json", evidence)
     return evidence
