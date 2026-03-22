@@ -280,3 +280,41 @@ def test_observatory_artifacts_surface_selector_fallback_when_summary_rows_absen
     assert isinstance(payload["selected_pointer"], dict)
     assert isinstance(payload["selected_summary_rows"], list)
     assert payload["selected_summary_rows"] == []
+
+
+def test_observatory_artifacts_fleet_surface_includes_contract_alert_semantics(tmp_path: Path, capsys) -> None:
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/contracts/contract_status.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "generated_at": "2020-01-01T00:00:00Z",
+                "contracts": [
+                    {
+                        "domain_name": "audits",
+                        "baseline_present": True,
+                        "drifted": False,
+                        "drift_type": "none",
+                        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_AUDIT_DRIFT",
+                    },
+                    {
+                        "domain_name": "federation_identity",
+                        "baseline_present": False,
+                        "drifted": None,
+                        "drift_type": "baseline_missing",
+                        "strict_gate_envvar": "SENTIENTOS_CI_FAIL_ON_FEDERATION_IDENTITY_DRIFT",
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/observatory").mkdir(parents=True, exist_ok=True)
+    rc = ops_main(["--repo-root", str(tmp_path), "observatory", "artifacts", "--surface", "fleet_observatory", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    row = payload["selected_summary_rows"][0]
+    assert row["contract_alert_badge"] == "baseline_absent"
+    assert row["contract_alert_reason"] == "baseline_missing_rows_present"
+    assert row["contract_alert_counts"]["freshness_issue"] == 1
+    assert row["contract_alert_counts"]["baseline_absent"] == 1

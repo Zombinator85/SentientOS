@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from sentientos.observatory.contract_status_consumer import missing_contract_status_rows, normalize_contract_status_row
+from sentientos.observatory.contract_status_consumer import (
+    missing_contract_status_rows,
+    normalize_contract_status_row,
+    summarize_contract_alert_badge,
+)
 
 
 def _as_dict(value: object) -> dict[str, Any]:
@@ -61,6 +65,9 @@ def _fleet_rows(payload: dict[str, Any], *, pointer_state: str, artifact_path: s
         "blocked_by_policy": "blocking",
         "indeterminate_due_to_evidence": "missing_evidence",
     }.get(readiness, "indeterminate")
+    contract_summary = _as_dict(payload.get("contract_row_summary"))
+    contract_alert_counts = _as_dict(contract_summary.get("alert_counts"))
+    contract_badge = summarize_contract_alert_badge(contract_summary)
     return [
         _shared_row(
             row_id="fleet_release_readiness",
@@ -77,6 +84,19 @@ def _fleet_rows(payload: dict[str, Any], *, pointer_state: str, artifact_path: s
                 "degradation_count": int(payload.get("degradation_count", 0) or 0),
                 "blocking_count": int(payload.get("blocking_count", 0) or 0),
                 "missing_evidence_count": int(payload.get("missing_evidence_count", 0) or 0),
+                "contract_alert_counts": {
+                    "freshness_issue": int(contract_alert_counts.get("freshness_issue", 0) or 0),
+                    "domain_drift": int(contract_alert_counts.get("domain_drift", 0) or 0),
+                    "baseline_absent": int(contract_alert_counts.get("baseline_absent", 0) or 0),
+                    "partial_evidence": int(contract_alert_counts.get("partial_evidence", 0) or 0),
+                    "informational": int(contract_alert_counts.get("informational", 0) or 0),
+                },
+                "contract_alert_badge": contract_badge.get("badge"),
+                "contract_alert_reason": contract_badge.get("reason"),
+                "contract_stale_or_missing_rows": int(contract_summary.get("stale_or_missing_rows", 0) or 0),
+                "contract_drifted_rows": int(contract_summary.get("drifted_rows", 0) or 0),
+                "contract_baseline_missing_rows": int(contract_summary.get("baseline_missing_rows", 0) or 0),
+                "contract_indeterminate_rows": int(contract_summary.get("indeterminate_rows", 0) or 0),
             },
         )
     ]

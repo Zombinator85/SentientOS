@@ -7,7 +7,7 @@ from typing import Any, Literal, Mapping
 
 from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
 from sentientos.broad_lane_rows import rows_from_broad_lane_summary
-from sentientos.observatory.contract_status_consumer import summarize_contract_alerts
+from sentientos.observatory.contract_status_consumer import summarize_contract_alert_badge, summarize_contract_alerts
 from sentientos.observatory.artifact_index import build_artifact_provenance_index
 
 FleetDimensionStatus = Literal[
@@ -450,6 +450,7 @@ def _strict_audit_health(root: Path) -> tuple[FleetDimensionStatus, dict[str, An
 def _contract_drift_health(root: Path, *, contract_rows: list[dict[str, Any]]) -> dict[str, Any]:
     status = _read_json_if_exists(root, "glow/contracts/contract_status.json")
     rollup = summarize_contract_alerts(contract_rows)
+    badge = summarize_contract_alert_badge(rollup)
 
     drifted = [
         {"domain": str(row.get("domain") or "unknown"), "drift_type": row.get("drift_type"), "drift_explanation": row.get("drift_explanation")}
@@ -466,6 +467,8 @@ def _contract_drift_health(root: Path, *, contract_rows: list[dict[str, Any]]) -
         "contract_count": len(_as_rows(status.get("contracts"))),
         "contract_rows": contract_rows,
         "contract_row_summary": rollup,
+        "contract_alert_badge": badge.get("badge"),
+        "contract_alert_reason": badge.get("reason"),
         "drifted_domains": drifted,
         "missing_domains": missing,
     }
