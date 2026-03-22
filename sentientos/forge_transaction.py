@@ -9,6 +9,13 @@ from pathlib import Path
 import subprocess
 from typing import Any
 
+from sentientos.observatory.contract_status_consumer import (
+    missing_contract_status_rows,
+    normalize_contract_status_row,
+    summarize_contract_alert_badge,
+    summarize_contract_alerts,
+)
+
 
 @dataclass(slots=True)
 class ForgeGitOps:
@@ -67,11 +74,7 @@ def capture_snapshot(repo_root: Path, session_root: Path, *, git_ops: ForgeGitOp
     git_sha = _git_sha(session_root, ops)
     baseline = _load_json(session_root / CI_BASELINE_PATH)
     status = _load_json(session_root / CONTRACT_STATUS_PATH)
-    digest = {
-        "has_drift": _has_contract_drift(status),
-        "drift_domains": _drift_domains(status),
-        "generated_at": status.get("generated_at") if isinstance(status.get("generated_at"), str) else None,
-    }
+    digest = _contract_status_digest(status)
     return TransactionSnapshot(
         git_sha=git_sha,
         ci_baseline={
@@ -159,6 +162,56 @@ def _load_json(path: Path) -> dict[str, Any]:
     except (OSError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _contract_status_digest(status: dict[str, Any]) -> dict[str, Any]:
+    pointer_state_raw = status.get("pointer_state")
+    pointer_state = pointer_state_raw if isinstance(pointer_state_raw, str) and pointer_state_raw in {"current", "stale", "missing", "unavailable"} else ("current" if status else "unavailable")
+    generated_at = status.get("generated_at") if isinstance(status.get("generated_at"), str) else None
+    contracts = status.get("contracts")
+    rows: list[dict[str, Any]] = []
+    if isinstance(contracts, list):
+        for contract in contracts:
+            if not isinstance(contract, dict):
+                continue
+            rows.append(
+                normalize_contract_status_row(
+                    contract,
+                    pointer_state=pointer_state,
+                    primary_artifact_path=str(CONTRACT_STATUS_PATH),
+                    created_at=generated_at,
+                    digest_sha256=None,
+                )
+            )
+    if not rows:
+        rows = missing_contract_status_rows(pointer_state=pointer_state)
+
+    row_summary = summarize_contract_alerts(rows)
+    badge = summarize_contract_alert_badge(row_summary)
+    alert_counts_raw = row_summary.get("alert_counts")
+    alert_counts = alert_counts_raw if isinstance(alert_counts_raw, dict) else {}
+
+    return {
+        "has_drift": _has_contract_drift(status),
+        "drift_domains": _drift_domains(status),
+        "generated_at": generated_at,
+        "contract_alert_badge": badge.get("badge"),
+        "contract_alert_reason": badge.get("reason"),
+        "contract_alert_counts": {
+            "freshness_issue": int(alert_counts.get("freshness_issue", 0) or 0),
+            "domain_drift": int(alert_counts.get("domain_drift", 0) or 0),
+            "baseline_absent": int(alert_counts.get("baseline_absent", 0) or 0),
+            "partial_evidence": int(alert_counts.get("partial_evidence", 0) or 0),
+            "informational": int(alert_counts.get("informational", 0) or 0),
+        },
+        "contract_row_summary_counts": {
+            "row_count": int(row_summary.get("row_count", 0) or 0),
+            "drifted_rows": int(row_summary.get("drifted_rows", 0) or 0),
+            "baseline_missing_rows": int(row_summary.get("baseline_missing_rows", 0) or 0),
+            "indeterminate_rows": int(row_summary.get("indeterminate_rows", 0) or 0),
+            "stale_or_missing_rows": int(row_summary.get("stale_or_missing_rows", 0) or 0),
+        },
+    }
 
 
 def _has_contract_drift(status: dict[str, Any]) -> bool:
