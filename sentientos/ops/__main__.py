@@ -484,6 +484,15 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                 contract_rollup = ""
                 if args.surface == "contract_status":
                     contract_rollup = f" contract_semantics=({_contract_status_row_rollup(summary_rows)})"
+                elif args.surface == "fleet_observatory" and summary_rows:
+                    fleet = _as_dict(summary_rows[0])
+                    contract_rollup = (
+                        " contract_semantics=("
+                        f"badge={fleet.get('contract_alert_badge')} "
+                        f"reason={fleet.get('contract_alert_reason')} "
+                        f"alerts={_as_dict(fleet.get('contract_alert_counts'))}"
+                        ")"
+                    )
                 return (
                     f"surface={args.surface} pointer={row.get('selected_pointer')} "
                     f"summary_rows={len(summary_rows)} "
@@ -532,13 +541,19 @@ def main(argv: Sequence[str] | None = None, *, prog: str = "python -m sentientos
                     f"broad_lane={broad_bits}"
                 )
             if bool(args.dashboard):
+                contract = _as_dict(_as_dict(row.get("contract_row_summary")).get("alert_counts"))
                 return (
                     f"release_readiness={row.get('release_readiness')} "
                     f"dashboard={_as_dict(row.get('artifact_paths')).get('fleet_health_dashboard')} "
                     f"digest={_as_dict(row.get('artifact_paths')).get('final_fleet_health_digest')} "
+                    f"contract_alerts={contract} "
                     f"broad_lane={broad_bits}"
                 )
-            return f"release_readiness={row.get('release_readiness')} dimensions={dims} broad_lane={broad_bits}"
+            contract = _as_dict(_as_dict(row.get("contract_row_summary")).get("alert_counts"))
+            return (
+                f"release_readiness={row.get('release_readiness')} dimensions={dims} "
+                f"contract_alerts={contract} broad_lane={broad_bits}"
+            )
 
         emit_payload(payload, as_json=bool(args.json), text_renderer=_render)
         return exit_code(payload)

@@ -288,3 +288,5 @@ def test_observatory_contract_rollup_keeps_freshness_and_drift_distinct(tmp_path
     assert summary["alert_counts"]["freshness_issue"] == 1
     assert summary["alert_counts"]["domain_drift"] == 1
     assert summary["alert_counts"]["baseline_absent"] == 1
+    assert rollup["contract_alert_badge"] == "domain_drift"
+    assert rollup["contract_alert_reason"] == "domain_drift_rows_present"

@@ -152,3 +152,24 @@ def summarize_contract_alerts(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "baseline_missing_rows": sum(1 for row in rows if str(row.get("status") or "") == "baseline_missing"),
         "indeterminate_rows": sum(1 for row in rows if str(row.get("status") or "") == "indeterminate"),
     }
+
+
+def summarize_contract_alert_badge(summary: dict[str, Any]) -> dict[str, Any]:
+    counts = _as_dict(summary.get("alert_counts"))
+    freshness_issue = int(counts.get("freshness_issue", 0) or 0)
+    domain_drift = int(counts.get("domain_drift", 0) or 0)
+    baseline_absent = int(counts.get("baseline_absent", 0) or 0)
+    partial_evidence = int(counts.get("partial_evidence", 0) or 0)
+    informational = int(counts.get("informational", 0) or 0)
+
+    if domain_drift > 0:
+        return {"badge": "domain_drift", "reason": "domain_drift_rows_present"}
+    if baseline_absent > 0:
+        return {"badge": "baseline_absent", "reason": "baseline_missing_rows_present"}
+    if freshness_issue > 0:
+        return {"badge": "freshness_issue", "reason": "rows_not_current"}
+    if partial_evidence > 0:
+        return {"badge": "partial_evidence", "reason": "rows_indeterminate_or_missing"}
+    if informational > 0:
+        return {"badge": "informational", "reason": "contract_rows_nominal"}
+    return {"badge": "informational", "reason": "no_contract_rows_available"}

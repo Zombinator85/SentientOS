@@ -88,6 +88,28 @@ This keeps stale-vs-drift and baseline-missing-vs-drifted distinct in one row:
 - `current + baseline_missing` => baseline absent/precondition issue
 - `missing + indeterminate` => evidence unavailable
 
+`fleet_health_dashboard.json` and `fleet_health_summary.json` also expose compact
+contract alert badges derived from those same normalized rows (not re-derived ad hoc):
+
+- `contract_alert_badge` and `contract_alert_reason` in dashboard rollups
+- `contract_row_summary.alert_counts` in summary and dashboard payloads
+- `selected_surface=fleet_observatory` summary rows include:
+  - `contract_alert_counts`
+  - `contract_alert_badge`
+  - `contract_alert_reason`
+  - `contract_stale_or_missing_rows`
+  - `contract_drifted_rows`
+  - `contract_baseline_missing_rows`
+  - `contract_indeterminate_rows`
+
+Badge priority is deterministic:
+
+1. `domain_drift`
+2. `baseline_absent`
+3. `freshness_issue`
+4. `partial_evidence`
+5. `informational`
+
 Out of scope for this layer:
 
 - changing protected-corridor blocking doctrine
