@@ -20,6 +20,12 @@ class OutcomeSummary:
     last_progress_notes: list[str]
     no_improvement_streak: int
     audit_status: str | None
+    has_contract_drift: bool | None
+    drift_domains: list[str]
+    contract_alert_badge: str | None
+    contract_alert_reason: str | None
+    contract_alert_counts: dict[str, int]
+    contract_row_summary_counts: dict[str, int]
     created_at: str
 
 
@@ -76,6 +82,11 @@ def summarize_report(report_json: dict[str, Any]) -> OutcomeSummary:
 
     doctrine = report_json.get("stability_doctrine") if isinstance(report_json.get("stability_doctrine"), dict) else {}
     audit_status = _as_str(report_json.get("audit_status")) or _as_str(doctrine.get("audit_strict_status"))
+    contract_digest = _contract_digest_from_report(report_json)
+    alert_counts = _as_dict(contract_digest.get("contract_alert_counts"))
+    row_counts = _as_dict(contract_digest.get("contract_row_summary_counts"))
+    drift_domains_raw = contract_digest.get("drift_domains")
+    drift_domains = [str(item) for item in drift_domains_raw if isinstance(item, str)] if isinstance(drift_domains_raw, list) else []
 
     return OutcomeSummary(
         run_id=run_id,
@@ -89,8 +100,46 @@ def summarize_report(report_json: dict[str, Any]) -> OutcomeSummary:
         last_progress_notes=bounded_notes,
         no_improvement_streak=no_improvement_streak,
         audit_status=audit_status,
+        has_contract_drift=bool(contract_digest.get("has_drift")) if "has_drift" in contract_digest else None,
+        drift_domains=drift_domains,
+        contract_alert_badge=_as_str(contract_digest.get("contract_alert_badge")),
+        contract_alert_reason=_as_str(contract_digest.get("contract_alert_reason")),
+        contract_alert_counts={
+            "freshness_issue": _as_count(alert_counts.get("freshness_issue")),
+            "domain_drift": _as_count(alert_counts.get("domain_drift")),
+            "baseline_absent": _as_count(alert_counts.get("baseline_absent")),
+            "partial_evidence": _as_count(alert_counts.get("partial_evidence")),
+            "informational": _as_count(alert_counts.get("informational")),
+        },
+        contract_row_summary_counts={
+            "row_count": _as_count(row_counts.get("row_count")),
+            "drifted_rows": _as_count(row_counts.get("drifted_rows")),
+            "baseline_missing_rows": _as_count(row_counts.get("baseline_missing_rows")),
+            "indeterminate_rows": _as_count(row_counts.get("indeterminate_rows")),
+            "stale_or_missing_rows": _as_count(row_counts.get("stale_or_missing_rows")),
+        },
         created_at=created_at,
     )
+
+
+def _contract_digest_from_report(report_json: dict[str, Any]) -> dict[str, Any]:
+    after = report_json.get("transaction_snapshot_after")
+    if isinstance(after, dict):
+        digest = after.get("contract_status_digest")
+        if isinstance(digest, dict):
+            return digest
+    digest_after = report_json.get("contract_status_digest_after")
+    if isinstance(digest_after, dict):
+        return digest_after
+    digest_preflight = report_json.get("contract_status_digest_preflight")
+    if isinstance(digest_preflight, dict):
+        return digest_preflight
+    preflight = report_json.get("preflight")
+    if isinstance(preflight, dict):
+        digest = preflight.get("contract_status_digest")
+        if isinstance(digest, dict):
+            return digest
+    return {}
 
 
 def _infer_no_improvement_streak(progress: list[Any]) -> int:
@@ -134,6 +183,13 @@ def _as_float(value: Any) -> float | None:
     return None
 
 
+def _as_dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_count(value: Any) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-

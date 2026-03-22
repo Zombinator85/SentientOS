@@ -89,6 +89,12 @@ def compute_status(repo_root: Path) -> ForgeStatus:
             "report_path": item.report_path,
             "error": item.error,
             "finished_at": item.finished_at,
+            "has_drift": item.has_drift,
+            "drift_domains": item.drift_domains,
+            "contract_alert_badge": item.contract_alert_badge,
+            "contract_alert_reason": item.contract_alert_reason,
+            "contract_alert_counts": item.contract_alert_counts,
+            "contract_row_summary_counts": item.contract_row_summary_counts,
         }
 
     sentinel_summary = ContractSentinel(repo_root=root).summary()

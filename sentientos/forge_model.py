@@ -82,6 +82,7 @@ class ForgePreflight:
     contract_drift: ForgeCheckResult
     contract_status_path: str
     contract_status_embedded: dict[str, object]
+    contract_status_digest: dict[str, object] | None = None
 
 
 def merge_env(base: Mapping[str, str], overlay: Mapping[str, str]) -> dict[str, str]:

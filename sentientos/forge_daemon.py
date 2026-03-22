@@ -170,6 +170,7 @@ class ForgeDaemon:
             status = "success" if report.outcome == "success" else "failed"
             error = "\n".join(report.failure_reasons) if report.failure_reasons else None
             publish_remote = report.publish_remote if isinstance(report.publish_remote, dict) else {}
+            contract_semantics = _contract_semantics_from_report(report)
             self.queue.mark_finished(
                 request.request_id,
                 status=status,
@@ -184,6 +185,12 @@ class ForgeDaemon:
                 publish_status=str(publish_remote.get("checks_overall")) if publish_remote.get("checks_overall") is not None else None,
                 publish_pr_url=str(publish_remote.get("pr_url")) if isinstance(publish_remote.get("pr_url"), str) else None,
                 publish_checks_overall=str(publish_remote.get("checks_overall")) if publish_remote.get("checks_overall") is not None else None,
+                has_drift=(contract_semantics.get("has_drift") if isinstance(contract_semantics.get("has_drift"), bool) else None),
+                drift_domains=contract_semantics.get("drift_domains") if isinstance(contract_semantics.get("drift_domains"), list) else None,
+                contract_alert_badge=(str(contract_semantics.get("contract_alert_badge")) if isinstance(contract_semantics.get("contract_alert_badge"), str) else None),
+                contract_alert_reason=(str(contract_semantics.get("contract_alert_reason")) if isinstance(contract_semantics.get("contract_alert_reason"), str) else None),
+                contract_alert_counts=contract_semantics.get("contract_alert_counts") if isinstance(contract_semantics.get("contract_alert_counts"), dict) else None,
+                contract_row_summary_counts=contract_semantics.get("contract_row_summary_counts") if isinstance(contract_semantics.get("contract_row_summary_counts"), dict) else None,
             )
             self._emit_forge_event(status=status, request=request, report_path=report_path, error=error, provenance_run_id=report.provenance_run_id, provenance_path=report.provenance_path)
             remote_gate_failed = isinstance(report.publish_remote, dict) and str(report.publish_remote.get("checks_overall")) in {"failure", "pending"}
@@ -402,6 +409,18 @@ def _extract_pr_metadata_path(notes: list[str]) -> str | None:
 def _is_in_window(value: str | None, floor: datetime) -> bool:
     parsed = _parse_iso(value)
     return parsed is not None and parsed >= floor
+
+
+def _contract_semantics_from_report(report: ForgeReport) -> dict[str, object]:
+    after_snapshot = getattr(report, "transaction_snapshot_after", None)
+    if isinstance(after_snapshot, dict):
+        digest = after_snapshot.get("contract_status_digest")
+        if isinstance(digest, dict):
+            return digest
+    preflight_digest = getattr(report, "contract_status_digest_preflight", None)
+    if isinstance(preflight_digest, dict):
+        return preflight_digest
+    return {}
 
 
 def _load_policy(path: Path) -> dict[str, object]:
