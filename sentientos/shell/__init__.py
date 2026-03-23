@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue
-from typing import Callable, Deque, Dict, List, Mapping, Sequence
+from typing import Any, Callable, Deque, Dict, List, Mapping, Protocol, Sequence, cast
 from uuid import uuid4
 
 from logging_config import get_log_path
@@ -26,7 +26,7 @@ from sentientos.first_boot import FirstBootWizard, WizardDecisions
 try:  # Lazy import to avoid expensive startup during tests.
     from daemon import codex_daemon
 except Exception:  # pragma: no cover - codex daemon optional in minimal envs
-    codex_daemon = None  # type: ignore[assignment]
+    codex_daemon = None
 
 __all__ = [
     "ShellApplication",
@@ -45,6 +45,28 @@ _ALLOWED_CODEX_MODES = {"observe", "repair", "full", "expand"}
 _BANNED_PATH_SEGMENTS = {"vow", "daemon", "glow"}
 _DEFAULT_REASONING_ROOT = Path("/daemon/logs/codex_reasoning")
 _DEFAULT_REQUEST_ROOT = Path("/glow/codex_requests")
+
+
+class _CodexModule(Protocol):
+    CODEX_SUGGEST_DIR: str
+
+    def run_once(self, queue: Queue[object]) -> dict[str, object] | None: ...
+
+    def confirm_veil_patch(self, patch_id: str) -> dict[str, object]: ...
+
+    def reject_veil_patch(self, patch_id: str) -> dict[str, object]: ...
+
+
+def _to_object_dict(value: object, *, default: dict[str, object] | None = None) -> dict[str, object]:
+    if isinstance(value, Mapping):
+        return {str(key): item for key, item in value.items()}
+    return {} if default is None else dict(default)
+
+
+def _to_object_list(value: object) -> list[object]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return list(value)
+    return []
 
 
 def _utcnow() -> datetime:
@@ -406,7 +428,7 @@ class CodexConsole:
         *,
         request_dir: Path | None = None,
         trace_dir: Path | None = None,
-        codex_module = codex_daemon,
+        codex_module: object | None = codex_daemon,
         max_prompt_bytes: int = 50 * 1024,
     ) -> None:
         self._logger = logger
@@ -455,11 +477,12 @@ class CodexConsole:
         )
         return results
 
-    def trigger_self_repair(self) -> dict | None:
+    def trigger_self_repair(self) -> dict[str, object] | None:
         if self._codex_module is None:
             raise RuntimeError("Codex daemon module not available")
-        queue: Queue = Queue()
-        result = self._codex_module.run_once(queue)  # type: ignore[operator]
+        queue: Queue[object] = Queue()
+        codex = cast(_CodexModule, self._codex_module)
+        result = codex.run_once(queue)
         self._logger.record("codex_self_repair_triggered", {"result": bool(result)})
         return result
 
@@ -476,7 +499,7 @@ class SystemDashboard:
         config: ShellConfig,
         codex_console: CodexConsole,
         driver_manager: driver_manager_module.DriverManager | None = None,
-        codex_module = codex_daemon,
+        codex_module: object | None = codex_daemon,
         metrics_window: str = "1h",
     ) -> None:
         self._logger = logger
@@ -525,14 +548,16 @@ class SystemDashboard:
     def _scan_veil_requests(self) -> List[dict[str, object]]:
         if self._codex_module is None:
             return []
-        suggestions_dir = getattr(self._codex_module, "CODEX_SUGGEST_DIR", None)
-        if suggestions_dir is None:
+        suggestions_dir = getattr(self._codex_module, "CODEX_SUGGEST_DIR", "")
+        if not isinstance(suggestions_dir, str) or not suggestions_dir:
             return []
         requests: List[dict[str, object]] = []
         for path in Path(suggestions_dir).glob("*.veil.json"):
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
             except Exception:
+                continue
+            if not isinstance(data, Mapping):
                 continue
             status = str(data.get("status", "")).lower()
             if status in {"pending", "suggested"}:
@@ -580,10 +605,10 @@ class SystemDashboard:
             "trajectory_id": str(status.get("last_trajectory_id", "")),
             "notes": str(status.get("last_trajectory_notes", "")),
         }
-        adjustment = {
+        adjustment: dict[str, object] = {
             "reason": str(status.get("trajectory_adjustment_reason", "")),
-            "settings": dict(status.get("trajectory_adjustment_settings", {})),
-            "overrides": dict(status.get("trajectory_overrides", {})),
+            "settings": _to_object_dict(status.get("trajectory_adjustment_settings", {})),
+            "overrides": _to_object_dict(status.get("trajectory_overrides", {})),
         }
         low_confidence_raw = status.get("low_confidence_priorities", [])
         if isinstance(low_confidence_raw, Sequence) and not isinstance(
@@ -697,14 +722,14 @@ class SystemDashboard:
                 "ended_at": str(report.get("ended_at", "")),
                 "cycles_included": [
                     str(item)
-                    for item in report.get("cycles_included", [])
+                    for item in _to_object_list(report.get("cycles_included", []))
                     if isinstance(item, str)
                 ],
                 "success_rate": float(report.get("success_rate", 0.0) or 0.0),
                 "failure_rate": float(report.get("failure_rate", 0.0) or 0.0),
                 "recurring_regressions": [
                     str(item)
-                    for item in report.get("recurring_regressions", [])
+                    for item in _to_object_list(report.get("recurring_regressions", []))
                     if isinstance(item, str)
                 ],
                 "priority_followthrough": {
@@ -786,8 +811,8 @@ class SystemDashboard:
             adjustment = architect_status.get("trajectory_adjustment", {})
             if isinstance(adjustment, Mapping):
                 steering["reason"] = str(adjustment.get("reason", ""))
-                steering["settings"] = dict(adjustment.get("settings", {}))
-                steering["overrides"] = dict(adjustment.get("overrides", {}))
+                steering["settings"] = _to_object_dict(adjustment.get("settings", {}))
+                steering["overrides"] = _to_object_dict(adjustment.get("overrides", {}))
             low_confidence = architect_status.get("low_confidence_priorities", [])
             if isinstance(low_confidence, Sequence) and not isinstance(
                 low_confidence, (str, bytes)
@@ -801,7 +826,7 @@ class SystemDashboard:
                 "followthrough": follow_chart,
             },
             "steering": steering,
-            "backlog": dict(backlog_snapshot),
+            "backlog": _to_object_dict(backlog_snapshot),
         }
 
     def _build_reflection_panel(
@@ -919,7 +944,8 @@ class SystemDashboard:
         )
         cycles = self._load_cycle_summaries()
         trajectories = self._build_trajectory_panel(architect)
-        dashboard = {
+        cooldown = _to_object_dict(architect.get("cooldown", {}))
+        dashboard: dict[str, object] = {
             "health": health,
             "ledger": ledger[-10:],
             "veil_requests": veil_requests,
@@ -935,9 +961,7 @@ class SystemDashboard:
             {
                 "veil_pending": len(veil_requests),
                 "drivers_missing": missing,
-                "architect_cooldown_active": bool(
-                    architect.get("cooldown", {}).get("active", False)
-                ),
+                "architect_cooldown_active": bool(cooldown.get("active", False)),
                 "cycles_count": len(cycles),
                 "trajectories_count": len(trajectories.get("reports", [])),
             },
@@ -987,7 +1011,8 @@ class SystemDashboard:
     def confirm_veil_request(self, patch_id: str) -> dict[str, object]:
         if self._codex_module is None:
             raise RuntimeError("Codex daemon module not available")
-        result = self._codex_module.confirm_veil_patch(patch_id)  # type: ignore[operator]
+        codex = cast(_CodexModule, self._codex_module)
+        result = codex.confirm_veil_patch(patch_id)
         self._ledger_cache.clear()
         self._logger.record("veil_confirmed_via_dashboard", {"patch_id": patch_id})
         return result
@@ -995,16 +1020,11 @@ class SystemDashboard:
     def reject_veil_request(self, patch_id: str) -> dict[str, object]:
         if self._codex_module is None:
             raise RuntimeError("Codex daemon module not available")
-        result = self._codex_module.reject_veil_patch(patch_id)  # type: ignore[operator]
+        codex = cast(_CodexModule, self._codex_module)
+        result = codex.reject_veil_patch(patch_id)
         self._ledger_cache.clear()
         self._logger.record("veil_rejected_via_dashboard", {"patch_id": patch_id})
         return result
-
-    def run_architect_now(self) -> dict[str, object]:
-        return self._dashboard.run_architect_now()
-
-    def reset_architect_cooldown(self) -> dict[str, object]:
-        return self._dashboard.reset_architect_cooldown()
 
     def run_architect_now(self) -> dict[str, object]:
         return self._logger.record(
@@ -1033,7 +1053,7 @@ class SentientShell:
         config: ShellConfig | None = None,
         request_dir: Path | None = None,
         trace_dir: Path | None = None,
-        codex_module = codex_daemon,
+        codex_module: object | None = codex_daemon,
         ci_runner: Callable[[], bool] | None = None,
         pulse_publisher: Callable[[Mapping[str, object]], Mapping[str, object]] | None = None,
         home_root: Path | None = None,
@@ -1042,7 +1062,7 @@ class SentientShell:
     ) -> None:
         from sentientos.installer import AppInstaller  # Local import to avoid cycle
 
-        username = user or os.getenv("USER", "sentient")
+        username = user or os.getenv("USER") or "sentient"
         self._logger = logger or ShellEventLogger()
         self._config = config or ShellConfig()
         self._file_explorer = FileExplorer(
@@ -1059,10 +1079,9 @@ class SentientShell:
         )
         manager_instance = driver_manager
         if manager_instance is None:
-            manager_kwargs: dict[str, object] = {}
-            if pulse_publisher is not None:
-                manager_kwargs["pulse_publisher"] = pulse_publisher
-            manager_instance = driver_manager_module.DriverManager(**manager_kwargs)
+            manager_instance = driver_manager_module.DriverManager(
+                pulse_publisher=pulse_publisher
+            )
         self._driver_manager = manager_instance
         self._dashboard = SystemDashboard(
             self._logger,
@@ -1075,17 +1094,23 @@ class SentientShell:
         )
         self._start_menu = StartMenu(self._logger, codex_console=self._codex_console)
         self._start_menu.bind_taskbar(self._taskbar)
-        installer_kwargs = {"action_logger": self._logger, "ci_runner": ci_runner}
-        if pulse_publisher is not None:
-            installer_kwargs["pulse_publisher"] = pulse_publisher
-        self._installer = AppInstaller(**installer_kwargs)
+        self._installer = AppInstaller(
+            action_logger=self._logger,
+            ci_runner=ci_runner,
+            pulse_publisher=pulse_publisher,
+        )
         self._assistive_enabled = bool(self._config.snapshot().get("assistive_enabled", False))
         wizard_instance = first_boot_wizard
         if wizard_instance is None:
-            wizard_kwargs: dict[str, object] = {"driver_manager": self._driver_manager}
+            wizard_publisher: Callable[[dict[str, object]], dict[str, object]] | None = None
             if pulse_publisher is not None:
-                wizard_kwargs["pulse_publisher"] = pulse_publisher
-            wizard_instance = FirstBootWizard(**wizard_kwargs)
+                wizard_publisher = (
+                    lambda event: _to_object_dict(pulse_publisher(event))
+                )
+            wizard_instance = FirstBootWizard(
+                driver_manager=self._driver_manager,
+                pulse_publisher=wizard_publisher,
+            )
         self._first_boot_wizard = wizard_instance
         self._first_boot_summary: dict[str, object] | None = None
         if self._first_boot_wizard.should_run():
@@ -1182,7 +1207,7 @@ class SentientShell:
         return dict(self._first_boot_summary)
 
     @property
-    def installer(self):
+    def installer(self) -> object:
         return self._installer
 
     def open_file_explorer(self) -> Dict[str, Path]:
@@ -1265,5 +1290,3 @@ class SentientShell:
 
 # Backwards compatibility for legacy dashboards; prefer :class:`SystemDashboard`.
 LumosDashboard = SystemDashboard
-
-

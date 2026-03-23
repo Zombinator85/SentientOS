@@ -285,3 +285,92 @@ Most-reduced error families in this pass:
 5. `sentientos/narrative_synthesis.py`
 
 Recommended next pass: focus `relay_app.py` + `sentientos/shell/__init__.py` decorator/route typing and dashboard payload narrowing, then tackle `architect_daemon.py` object-coercion clusters.
+
+---
+
+## High-density typing offensive VI (2026-03-23)
+
+### Fresh failure-density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy --hide-error-context --no-color-output --show-column-numbers --show-error-codes scripts sentientos`
+
+Repo-wide error count before this pass: **2253**.
+
+Highest mature runtime/execution/relay density observed from the full output:
+
+- `architect_daemon.py`: **100**
+  - Cluster: trajectory/backlog payload normalization.
+  - Families: `call-overload`, `attr-defined`, `arg-type`, `assignment`.
+  - Root cause: object-heavy payload traversal and container invariance across status/report maps.
+  - Payoff expectation: medium (high count, but distributed hotspots).
+- `sentientos/shell/__init__.py`: **62**
+  - Cluster: shell/dashboard wiring and daemon adapter boundaries.
+  - Families: `arg-type`, `attr-defined`, `no-any-return`, `no-untyped-def`, `no-redef`.
+  - Root cause: loose `object`/`dict` kwargs propagation, duplicate method definitions, weak codex-module typing.
+  - Payoff expectation: high (single corridor with concentrated boundary debt).
+- `relay_app.py`: **0** in this baseline (no longer a high-density candidate).
+
+Given this audit, Offensive VI targeted the **runtime shell + architect-adjacent execution corridor**, with primary density removal in `sentientos/shell/__init__.py` and supporting debt cuts in `architect_daemon.py`.
+
+### Offensive VI scope executed
+
+Primary modules:
+
+- `sentientos/shell/__init__.py`
+- `architect_daemon.py`
+
+Change themes:
+
+- Added explicit codex-module protocol typing at shell boundaries to reduce `Any`/`object` propagation while preserving daemon behavior.
+- Replaced loose kwargs splats with explicit constructor argument wiring for driver manager, installer, and first-boot wizard adapters.
+- Added mapping/list normalization helpers for dashboard payload traversal (`_to_object_dict`, `_to_object_list`) to limit `attr-defined` fallout.
+- Removed duplicate `SystemDashboard` method definitions that referenced non-existent attributes and caused `no-redef`/`attr-defined` issues.
+- Tightened return/container annotations in shell refresh paths to satisfy invariant `dict[str, object]` expectations.
+- Applied low-risk architect cleanup for untyped YAML import and history payload container typing (`dict[str, object]`) to reduce invariance/type-family churn.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy --hide-error-context --no-color-output --show-column-numbers --show-error-codes scripts sentientos`
+
+Repo-wide error count after this pass: **2202** (**-51 net**).
+
+Targeted corridor counts from the full-output density parse:
+
+- `sentientos/shell/__init__.py`: **62 -> 17** (**-45**)
+- `architect_daemon.py`: **100 -> 97** (**-3**)
+- Combined corridor: **162 -> 114** (**-48**)
+
+Additional targeted check:
+
+- `python -m mypy --follow-imports=skip --hide-error-context --no-color-output --show-column-numbers --show-error-codes architect_daemon.py sentientos/shell/__init__.py`
+  - Current targeted total: **113 errors in 2 files**.
+
+Zero-cleaned files in this offensive:
+
+- None.
+
+Most-reduced error families in this pass:
+
+- `arg-type` and `attr-defined` in shell/dashboard integration.
+- `no-untyped-def`, `no-any-return`, and `no-redef` in shell constructor and dashboard method boundaries.
+
+### Ratchet / protected-surface posture
+
+- No ratchet baseline was loosened.
+- No protected-surface promotions were asserted without zero-clean evidence.
+- Runtime governor/quorum/digest/protocol/forge/observatory behavior was not redesigned.
+- Append-only provenance and immutable manifest guarantees were not altered.
+
+### Deferred heavy clusters after Offensive VI
+
+1. `architect_daemon.py` (remaining broad object-coercion and overload hotspots)
+2. `memory_manager.py`
+3. `sentientos/narrative_synthesis.py`
+4. `daemon/codex_daemon.py`
+5. `sentientos/strategic_adaptation.py`
+
+Recommended next pass: a concentrated architect payload-normalization sweep (call-overload + attr-defined families), then `daemon/codex_daemon.py` queue/container invariant cleanup to reduce runtime execution-path propagation.
