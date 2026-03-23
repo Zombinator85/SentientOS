@@ -295,6 +295,12 @@ TraceRuleName = Literal[
 ]
 
 TraceRuleOutcome = Literal["match", "warn", "reject"]
+PolicyOverrideDimension = Literal[
+    "overall_status",
+    "producer_type",
+    "advisory_issues",
+    "redaction_profile",
+]
 _TRACE_RULE_NAMES: tuple[TraceRuleName, ...] = (
     "overall_status",
     "producer_type",
@@ -315,12 +321,7 @@ class PolicyDecisionRuleTrace:
 
 @dataclass(frozen=True)
 class PolicyOverrideTrace:
-    dimension: Literal[
-        "overall_status",
-        "producer_type",
-        "advisory_issues",
-        "redaction_profile",
-    ]
+    dimension: PolicyOverrideDimension
     mode: PolicyOverrideMode
     selected: tuple[str, ...] | int | None
     considered: tuple[tuple[str, tuple[str, ...] | int | None], ...]
@@ -426,6 +427,8 @@ class PolicyEvaluationSnapshot:
         return bool(self.uncertainty_reason_codes)
 
     def to_payload(self) -> PolicyEvaluationSnapshotPayload:
+        policy_payload: ToolingStatusPolicyPayload = _policy_to_payload(self.policy)
+        policy_forward_metadata = _serialize_payload(self.policy.forward_metadata)
         payload: PolicyEvaluationSnapshotPayload = {
             "schema_version": self.schema_version,
             "profile": self.options.profile.profile_name,
@@ -433,10 +436,10 @@ class PolicyEvaluationSnapshot:
                 self.aggregate.profiled_payload(self.options.profile)
             ),
             "aggregate_fingerprint": self.aggregate_fingerprint,
-            "policy": _serialize_payload(_policy_to_payload(self.policy)),
-            "policy_forward_metadata": _serialize_payload(self.policy.forward_metadata),
+            "policy": policy_payload,
+            "policy_forward_metadata": cast(dict[str, object], policy_forward_metadata),
             "policy_fingerprint": self.policy_fingerprint,
-            "decision": cast(PolicyDecisionPayload, _decision_to_payload(self.decision)),
+            "decision": _decision_to_payload(self.decision),
             "trace": _trace_to_payload(self.trace),
             "options": cast(
                 PolicyEvaluationOptionsPayload,
@@ -449,15 +452,21 @@ class PolicyEvaluationSnapshot:
             "snapshot_fingerprint": self.fingerprint,
         }
         if self.parent_snapshot_fingerprint is not None:
-            payload["parent_snapshot_fingerprint"] = self._redacted_parent_fingerprint()
+            redacted_parent = self._redacted_parent_fingerprint()
+            if redacted_parent is not None:
+                payload["parent_snapshot_fingerprint"] = redacted_parent
         if self.lineage_relation is not None:
             payload["lineage_relation"] = self.lineage_relation
         if self.snapshot_parent_fingerprint is not None:
-            payload["snapshot_parent_fingerprint"] = self._redacted_parent_fingerprint()
+            redacted_snapshot_parent = self._redacted_parent_fingerprint()
+            if redacted_snapshot_parent is not None:
+                payload["snapshot_parent_fingerprint"] = redacted_snapshot_parent
         if self.snapshot_relation is not None:
             payload["snapshot_relation"] = self.snapshot_relation
         if self.review_notes is not None:
-            payload["review_notes"] = self._redacted_review_notes()
+            redacted_notes = self._redacted_review_notes()
+            if redacted_notes is not None:
+                payload["review_notes"] = redacted_notes
         if self.confidence_band is not None:
             payload["confidence_band"] = self.confidence_band
         if self.uncertainty_score is not None:
@@ -828,7 +837,7 @@ def parse_tooling_status_policy_composition(
     if not isinstance(layers_value, list) or not layers_value:
         raise ValueError("Policy composition requires at least one layer")
     parsed_layers = tuple(_parse_policy_layer(entry) for entry in layers_value)
-    priorities = {}
+    priorities: dict[str, int] = {}
     for layer in parsed_layers:
         if layer.name in priorities:
             raise ValueError(f"Duplicate policy layer name '{layer.name}'")
@@ -938,20 +947,23 @@ def _derive_overall(results: Iterable[ToolResult]) -> OverallStatus:
 def emit(tool: str | None = None) -> dict[str, dict[str, object]]:
     if tool is not None:
         classification = get_classification(tool)
-        return {tool: classification.to_dict()}
-    return {name: cls.to_dict() for name, cls in _CLASSIFICATIONS.items()}
+        return {tool: cast(dict[str, object], classification.to_dict())}
+    return {
+        name: cast(dict[str, object], cls.to_dict())
+        for name, cls in _CLASSIFICATIONS.items()
+    }
 
 
 def render_result(tool: str, status: Status, *, reason: str | None = None) -> dict[str, object]:
     cls = get_classification(tool)
-    return ToolResult(
+    return cast(dict[str, object], ToolResult(
         tool=tool,
         classification=cls.classification,
         status=status,
         non_blocking=cls.non_blocking,
         reason=reason,
         dependency=cls.dependency,
-    ).to_dict()
+    ).to_dict())
 
 
 @dataclass(frozen=True)
@@ -1293,8 +1305,10 @@ def parse_tooling_status_payload(
                 constraints=constraints_value,
             )
     elif provenance_attestation_payload is not None:
+        aggregate_meta = forward_metadata.get("aggregate")
+        aggregate_mapping = aggregate_meta if isinstance(aggregate_meta, Mapping) else {}
         forward_metadata["aggregate"] = {
-            **forward_metadata.get("aggregate", {}),
+            **aggregate_mapping,
             "provenance_attestation": provenance_attestation_payload,
         }
 
@@ -1310,8 +1324,10 @@ def parse_tooling_status_payload(
             if lineage_parent is None:
                 raise ValueError("lineage_relation provided without lineage_parent_fingerprint")
     elif lineage_parent_payload is not None or lineage_relation_payload is not None:
+        aggregate_meta = forward_metadata.get("aggregate")
+        aggregate_mapping = aggregate_meta if isinstance(aggregate_meta, Mapping) else {}
         forward_metadata["aggregate"] = {
-            **forward_metadata.get("aggregate", {}),
+            **aggregate_mapping,
             **{
                 key: value
                 for key, value in (
@@ -1459,11 +1475,12 @@ def _compose_allowed_statuses(
     if mode is PolicyOverrideMode.MOST_SEVERE_WINS:
         severity = {"PASS": 0, "WARN": 1, "FAIL": 2}
         worst_allowed = max(max(severity[status] for status in entries) for entries in status_sets)
-        return tuple(
-            sorted(
-                {status for status, level in severity.items() if level <= worst_allowed}
-            )
-        )
+        allowed_statuses: set[OverallStatus] = {
+            cast(OverallStatus, status)
+            for status, level in severity.items()
+            if level <= worst_allowed
+        }
+        return tuple(sorted(allowed_statuses))
 
     raise ValueError(f"Unsupported override mode {mode.value}")
 
@@ -1733,7 +1750,7 @@ def _parse_policy_override_trace(
         discarded.append(_normalize_layer_value(entry))
 
     return PolicyOverrideTrace(
-        dimension=cast(PolicyOverrideTrace.__annotations__["dimension"], dimension_value),
+        dimension=cast(PolicyOverrideDimension, dimension_value),
         mode=mode,
         selected=selected,
         considered=tuple(sorted(considered, key=lambda entry: entry[0])),
@@ -1923,7 +1940,9 @@ def parse_policy_evaluation_snapshot(
         raise ValueError("Snapshot missing decision payload")
     decision = _parse_decision_payload(decision_payload)
 
-    trace = _parse_trace_payload(payload.get("trace"), profile=profile)
+    raw_trace_payload = payload.get("trace")
+    trace_payload = raw_trace_payload if isinstance(raw_trace_payload, Mapping) else None
+    trace = _parse_trace_payload(trace_payload, profile=profile)
 
     options_payload = payload.get("options")
     if not isinstance(options_payload, Mapping):
@@ -2361,8 +2380,8 @@ class _PolicyDecisionTraceBuilder:
                 }
                 if any(value is None for _, value in candidates):
                     if selected is not None:
-                        discarded_numbers.add(None)
-                return tuple(sorted(discarded_numbers, key=lambda entry: (-1 if entry is None else entry)))
+                        discarded_numbers.add(-1)
+                return tuple(sorted(discarded_numbers))
             if selected is None:
                 discarded_sets = [
                     set(value)
@@ -2370,13 +2389,13 @@ class _PolicyDecisionTraceBuilder:
                     if isinstance(value, tuple)
                 ]
                 combined = set().union(*discarded_sets) if discarded_sets else set()
-                return tuple(sorted(combined)) if combined else ()
+                return tuple((tuple(sorted(combined)),)) if combined else ()
             combined_candidates: set[str] = set()
             for _, value in candidates:
                 if isinstance(value, tuple):
                     combined_candidates.update(value)
             discarded = combined_candidates - set(selected)
-            return tuple(sorted(discarded)) if discarded else ()
+            return tuple((tuple(sorted(discarded)),)) if discarded else ()
 
         mappings: tuple[tuple[str, str, tuple[str, ...] | int | None], ...] = (
             (
@@ -2418,7 +2437,7 @@ class _PolicyDecisionTraceBuilder:
                 )
             overrides.append(
                 PolicyOverrideTrace(
-                    dimension=cast(PolicyOverrideTrace.__annotations__["dimension"], dimension),
+                    dimension=cast(PolicyOverrideDimension, dimension),
                     mode=PolicyOverrideMode(mode_value),
                     selected=selected,
                     considered=considered,
@@ -2499,7 +2518,7 @@ def compose_tooling_status_policies(
         parsed.layers, parsed.redaction_profile_rule
     )
 
-    metadata = {
+    metadata: dict[str, object] = {
         "composition_layers": tuple(
             (layer.name, layer.priority) for layer in parsed.layers
         ),
@@ -2978,6 +2997,8 @@ def detect_supersession_chains(
             and _snapshot_parent(current) is not None
         ):
             parent_fingerprint = _snapshot_parent(current)
+            if parent_fingerprint is None:
+                break
             if parent_fingerprint in visited:
                 raise ValueError("Snapshot lineage cycle detected")
             visited.add(parent_fingerprint)
@@ -3006,7 +3027,7 @@ def detect_supersession_chains(
     for tip in tips:
         chain: list[PolicyEvaluationSnapshot] = []
         current = tip
-        visited: set[str] = set()
+        chain_visited: set[str] = set()
         while True:
             chain.append(current)
             parent_fingerprint = _snapshot_parent(current)
@@ -3014,9 +3035,9 @@ def detect_supersession_chains(
                 break
             if _snapshot_relation(current) not in _AUTHORITATIVE_SNAPSHOT_RELATIONS:
                 break
-            if parent_fingerprint in visited:
+            if parent_fingerprint in chain_visited:
                 raise ValueError("Snapshot lineage cycle detected")
-            visited.add(parent_fingerprint)
+            chain_visited.add(parent_fingerprint)
             parent = fingerprint_index.get(parent_fingerprint)
             if parent is None:
                 break
@@ -3151,7 +3172,9 @@ class ReviewQueue:
         priority: int | None = None,
     ) -> "ReviewQueue":
         payload = _coerce_engagement_payload(engagement)
-        engagement_priority = priority if priority is not None else int(payload.get("pressure_score", 1) * 100)
+        pressure_score = payload.get("pressure_score", 1)
+        numeric_pressure = pressure_score if isinstance(pressure_score, (int, float)) else 1
+        engagement_priority = priority if priority is not None else int(numeric_pressure * 100)
         entry = ReviewQueueEntry(
             snapshot_fingerprint=str(payload.get("engagement_id")),
             evaluation_fingerprint=str(payload.get("constraint_id")),
@@ -3346,12 +3369,13 @@ def validate_lineage_chain(
             raise ValueError("Self-referential lineage detected")
 
         visited: set[str] = set()
-        current = parent_fingerprint
+        current: str | None = parent_fingerprint
         while current is not None and current in seen:
             if current in visited:
                 raise ValueError("Lineage cycle detected")
             visited.add(current)
-            current = seen[current].lineage_parent_fingerprint
+            parent = seen[current].lineage_parent_fingerprint
+            current = parent if isinstance(parent, str) else None
 
 
 def main(argv: list[str] | None = None) -> int:

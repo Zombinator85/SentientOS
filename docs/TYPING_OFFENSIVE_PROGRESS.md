@@ -208,3 +208,80 @@ Net reduction within targeted corridor: **97 -> 27** (**-70**).
 5. `scripts/tooling_status.py`
 
 Recommended next pass: runtime-heavy operator core (`architect_daemon.py` + `task_executor.py`) with focused payload-boundary cleanup to cut broad downstream `no-untyped-call`/`union-attr` propagation.
+
+---
+
+## High-density typing offensive V (2026-03-22)
+
+### Fresh failure-density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy . --show-error-codes --no-error-summary`
+
+Repo-wide error count before this pass: **7589**.
+
+Heaviest mature runtime/execution/reporting clusters in the current full output:
+
+- `relay_app.py`: 139 (`untyped-decorator`, `no-untyped-def`, `type-arg`, `arg-type` concentration around route/decorator surfaces).
+- `architect_daemon.py`: 100 (`call-overload`, `attr-defined`, `arg-type` from mixed object payload coercion).
+- `task_executor.py`: 71 (`union-attr` concentrated in step payload dispatch and adapter boundary typing).
+- `sentientos/shell/__init__.py`: 65 (`arg-type`, `attr-defined`, mapping/object narrowing gaps in dashboard/shell integration).
+- `scripts/tooling_status.py`: 27 (`typeddict-item`, `valid-type`, `arg-type`, lineage/override trace payload typing).
+
+### Offensive V scope executed
+
+Selected coherent runtime/execution/reporting corridor for this pass:
+
+- `task_executor.py` (runtime execution orchestration surface).
+- `scripts/tooling_status.py` (status/policy reporting surface adjacent to runtime outcomes).
+
+Change themes:
+
+- **Task execution payload narrowing**: made `_require_payload` generic to narrow by payload type at callsites and eliminate dispatcher `union-attr` fallout.
+- **Adapter execution boundary typing**: enforced authorization presence for adapter steps, normalized optional admission token payload, and tightened canonical declared-input extraction.
+- **Snapshot canonical typing**: fixed canonical authorization payload typing invariance (`dict[str, object]`) to prevent downstream return-value/assignment churn.
+- **Tooling status typed payload conformance**: tightened snapshot/policy payload assembly to satisfy TypedDict contracts without behavior changes.
+- **Lineage/override trace normalization**: replaced annotation-introspection casts with explicit literal aliasing and corrected mixed optional tuple/int discarded-value shaping.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy . --show-error-codes --no-error-summary`
+
+Repo-wide error count after this pass: **7491** (**-98 net**).
+
+Targeted file deltas:
+
+- `task_executor.py`: 71 -> 0
+- `scripts/tooling_status.py`: 27 -> 0
+
+Targeted corridor reduction for this pass: **98 -> 0** (**-98**).
+
+Zero-cleaned files in this offensive:
+
+- `task_executor.py`
+- `scripts/tooling_status.py`
+
+Most-reduced error families in this pass:
+
+- `union-attr` (task step payload dispatch).
+- `typeddict-item` + `valid-type` (tooling policy/snapshot payload assembly).
+- Secondary reductions across `arg-type`, `assignment`, and `no-redef` in targeted reporting lineage helpers.
+
+### Ratchet / protected-surface posture
+
+- No ratchet baselines were loosened.
+- No runtime governor/quorum/digest/provenance semantics were redesigned.
+- No append-only provenance or immutable manifest behavior was altered.
+
+### Deferred heavy clusters after Offensive V
+
+1. `relay_app.py`
+2. `architect_daemon.py`
+3. `sentientos/shell/__init__.py`
+4. `memory_manager.py`
+5. `sentientos/narrative_synthesis.py`
+
+Recommended next pass: focus `relay_app.py` + `sentientos/shell/__init__.py` decorator/route typing and dashboard payload narrowing, then tackle `architect_daemon.py` object-coercion clusters.
