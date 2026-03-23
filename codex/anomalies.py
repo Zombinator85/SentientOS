@@ -4,13 +4,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, Mapping, MutableMapping, Optional, TypeGuard
 
 import json
 
 from .rewrites import RewritePatch, ScopedRewriteEngine
 
 Severity = str
+EmbodimentEvent = Mapping[str, Any]
+
+
+def _is_embodiment_event(payload: object) -> TypeGuard[EmbodimentEvent]:
+    return isinstance(payload, Mapping)
 
 
 def _default_now() -> datetime:
@@ -201,8 +206,14 @@ class AnomalyDetector:
                 )
             )
 
-        embodiment_payloads = [_normalize_embodiment_event(event) for event in embodiment_events]
-        embodiment_payloads = [payload for payload in embodiment_payloads if payload is not None]
+        normalized_embodiment_payloads = [
+            _normalize_embodiment_event(event) for event in embodiment_events
+        ]
+        embodiment_payloads: List[EmbodimentEvent] = [
+            payload
+            for payload in normalized_embodiment_payloads
+            if _is_embodiment_event(payload)
+        ]
         anomalies.extend(_detect_embodiment_anomalies(embodiment_payloads, observed))
 
         return anomalies
@@ -213,7 +224,7 @@ def _is_orphan(entry: Mapping[str, Any]) -> bool:
     return bool(entry.get("orphaned")) or status == "orphaned"
 
 
-def _normalize_embodiment_event(entry: Mapping[str, Any] | Any) -> Optional[Dict[str, Any]]:
+def _normalize_embodiment_event(entry: object) -> Optional[Dict[str, Any]]:
     if not isinstance(entry, Mapping):
         return None
     channel = entry.get("channel") or entry.get("source") or entry.get("stream")
@@ -247,8 +258,10 @@ def _detect_embodiment_anomalies(
     for event in events:
         channel = str(event.get("channel") or "unknown")
         event_type = str(event.get("event_type") or "event")
-        payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
-        timestamp = event.get("timestamp") if isinstance(event.get("timestamp"), datetime) else observed
+        payload_value = event.get("payload")
+        payload: Mapping[str, Any] = payload_value if isinstance(payload_value, Mapping) else {}
+        timestamp_value = event.get("timestamp")
+        timestamp: datetime = timestamp_value if isinstance(timestamp_value, datetime) else observed
 
         if _is_motion_anomaly(event_type, payload):
             period = str(payload.get("period") or "").lower()
@@ -452,4 +465,3 @@ class AnomalyCoordinator:
             patch = self._proposal_engine.propose(plan, anomaly)
             patches.append(patch)
         return patches
-

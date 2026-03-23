@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Callable, Deque, Dict, List, Mapping, Optional, Set
+from typing import Callable, Deque, Dict, Iterator, List, Mapping, Optional, Set
 
 try:  # pragma: no cover - platform dependent
     import fcntl
@@ -23,6 +23,24 @@ from .intent_drafts import IntentDraft, ReadinessBand
 
 def _default_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _coerce_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value)
+        except ValueError:
+            return default
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return default
 
 
 class PublishWindowClosedError(RuntimeError):
@@ -407,10 +425,12 @@ class ExpressionBridge:
         return list(self._emission_log)
 
     def state_snapshot(self) -> Mapping[str, object]:
+        synthesis = self._state_snapshot.get("synthesis")
+        belief = self._state_snapshot.get("belief")
         return {
             "curiosity": self._state_snapshot["curiosity"],
-            "synthesis": list(self._state_snapshot["synthesis"]),
-            "belief": dict(self._state_snapshot["belief"]),
+            "synthesis": list(synthesis) if isinstance(synthesis, list) else [],
+            "belief": dict(belief) if isinstance(belief, Mapping) else {},
         }
 
     def _autopsy(self, artifact: ExpressionArtifact, *, emitted: bool) -> Mapping[str, object]:
@@ -430,18 +450,25 @@ class ExpressionBridge:
 
     def _record_autopsy(self, artifact: ExpressionArtifact, *, emitted: bool) -> None:
         summary = self._autopsy(artifact, emitted=emitted)
-        compressed = self._compressed_autopsies.get(artifact.artifact_hash, {
-            "artifact_hash": artifact.artifact_hash,
-            "source_draft_id": artifact.source_draft_id,
-            "emitted_count": 0,
-            "discarded_count": 0,
-            "state_influence": summary["state_influence"],
-            "intent_valid": summary["intent_valid"],
-        })
+        compressed: Dict[str, object] = dict(
+            self._compressed_autopsies.get(
+                artifact.artifact_hash,
+                {
+                    "artifact_hash": artifact.artifact_hash,
+                    "source_draft_id": artifact.source_draft_id,
+                    "emitted_count": 0,
+                    "discarded_count": 0,
+                    "state_influence": summary["state_influence"],
+                    "intent_valid": summary["intent_valid"],
+                },
+            )
+        )
+        emitted_count = _coerce_int(compressed.get("emitted_count", 0), 0)
+        discarded_count = _coerce_int(compressed.get("discarded_count", 0), 0)
         if emitted:
-            compressed["emitted_count"] = compressed.get("emitted_count", 0) + 1
+            compressed["emitted_count"] = emitted_count + 1
         else:
-            compressed["discarded_count"] = compressed.get("discarded_count", 0) + 1
+            compressed["discarded_count"] = discarded_count + 1
         compressed["last_timestamp"] = summary["timestamp"]
         compressed["silence_preferred"] = not emitted
         compressed["emitted"] = emitted
@@ -497,7 +524,7 @@ class ExpressionBridge:
         )
 
     @contextmanager
-    def _acquire_fork_guard(self):
+    def _acquire_fork_guard(self) -> Iterator[None]:
         with self._lock:
             if fcntl is None:
                 yield
