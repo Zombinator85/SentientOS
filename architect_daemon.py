@@ -149,6 +149,25 @@ def _normalize_mapping(value: Mapping[str, object]) -> dict[str, object]:
     return data
 
 
+def _to_sequence(value: object) -> list[object]:
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return list(value)
+    return []
+
+
+def _to_mapping(value: object) -> dict[str, object]:
+    if isinstance(value, Mapping):
+        return {str(key): item for key, item in value.items()}
+    return {}
+
+
+def _to_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _text_similarity(left: str, right: str) -> float:
     text_a = left.strip().lower()
     text_b = right.strip().lower()
@@ -599,11 +618,8 @@ class ArchitectDaemon:
         return payload
 
     def _hydrate_session_state(self) -> None:
-        self._cycle_counter = int(self._session.get("cycle_count", 0))
-        try:
-            self._failure_streak = int(self._session.get("failure_streak", 0))
-        except (TypeError, ValueError):
-            self._failure_streak = 0
+        self._cycle_counter = _to_int(self._session.get("cycle_count", 0), 0)
+        self._failure_streak = _to_int(self._session.get("failure_streak", 0), 0)
         cooldown_value = self._session.get("cooldown_until", 0.0)
         self._cooldown_until = self._coerce_float(cooldown_value, 0.0)
         next_cycle_value = self._session.get("next_cycle_due")
@@ -655,12 +671,12 @@ class ArchitectDaemon:
             self._last_trajectory_notes = trajectory_notes
         else:
             self._last_trajectory_notes = None
-        try:
-            interval_value = int(self._session.get("trajectory_interval", self._trajectory_interval))
-            if interval_value > 0:
-                self._trajectory_interval = interval_value
-        except (TypeError, ValueError):
-            pass
+        interval_value = _to_int(
+            self._session.get("trajectory_interval", self._trajectory_interval),
+            self._trajectory_interval,
+        )
+        if interval_value > 0:
+            self._trajectory_interval = interval_value
         reason_value = self._session.get("trajectory_adjustment_reason", "")
         if isinstance(reason_value, str):
             self._trajectory_adjustment_reason = reason_value.strip()
@@ -768,11 +784,15 @@ class ArchitectDaemon:
                 if status == "in_progress":
                     status = "pending"
                     dirty = True
-                entry: dict[str, object] = {"id": priority_id, "text": text, "status": status}
+                active_entry: dict[str, object] = {
+                    "id": priority_id,
+                    "text": text,
+                    "status": status,
+                }
                 confidence_value = str(item.get("confidence", "")).strip()
                 if confidence_value:
-                    entry["confidence"] = confidence_value
-                active_list.append(entry)
+                    active_entry["confidence"] = confidence_value
+                active_list.append(active_entry)
 
         history_list: list[dict[str, object]] = []
         raw_history = raw.get("history")
@@ -793,14 +813,14 @@ class ArchitectDaemon:
                     continue
                 if priority_id in seen:
                     continue
-                entry: dict[str, object] = {
+                history_entry: dict[str, object] = {
                     "id": priority_id,
                     "text": text,
                     "status": status,
                 }
                 if completed_at:
-                    entry["completed_at"] = completed_at
-                history_list.append(entry)
+                    history_entry["completed_at"] = completed_at
+                history_list.append(history_entry)
                 seen.add(priority_id)
 
         federated_entries: list[dict[str, object]] = []
@@ -846,7 +866,7 @@ class ArchitectDaemon:
                         elif isinstance(verified, (int, float)):
                             variant_entry["signature_verified"] = bool(verified)
                         variants.append(variant_entry)
-                entry: dict[str, object] = {
+                federated_entry: dict[str, object] = {
                     "id": entry_id,
                     "text": text,
                     "canonical": canonical or _canonicalize_priority_text(text),
@@ -856,14 +876,14 @@ class ArchitectDaemon:
                     "variants": variants,
                 }
                 if item.get("merged"):
-                    entry["merged"] = True
+                    federated_entry["merged"] = True
                     merged_at = str(item.get("merged_at", "")).strip()
                     if merged_at:
-                        entry["merged_at"] = merged_at
+                        federated_entry["merged_at"] = merged_at
                     merged_priority = str(item.get("merged_priority_id", "")).strip()
                     if merged_priority:
-                        entry["merged_priority_id"] = merged_priority
-                federated_entries.append(entry)
+                        federated_entry["merged_priority_id"] = merged_priority
+                federated_entries.append(federated_entry)
 
         conflict_entries: list[dict[str, object]] = []
         raw_conflicts = raw.get("conflicts")
@@ -929,7 +949,7 @@ class ArchitectDaemon:
                 if isinstance(merged_priority, str) and merged_priority.strip():
                     serialized["merged_priority_id"] = merged_priority.strip()
             variants_payload: list[dict[str, object]] = []
-            for variant in entry.get("variants", []):
+            for variant in _to_sequence(entry.get("variants", [])):
                 if not isinstance(variant, Mapping):
                     continue
                 peer = str(variant.get("peer", "")).strip()
@@ -945,9 +965,10 @@ class ArchitectDaemon:
                         variant.get("signature_verified")
                     )
                 variants_payload.append(variant_entry)
-            variants_payload.sort(key=lambda item: item.get("peer", ""))
+            variants_payload.sort(key=lambda item: str(item.get("peer", "")))
             serialized["variants"] = variants_payload
-            conflict_ids = sorted(self._conflict_index.get(serialized["id"], set()))
+            serialized_id = str(serialized["id"])
+            conflict_ids = sorted(self._conflict_index.get(serialized_id, set()))
             if conflict_ids:
                 serialized["conflicts"] = conflict_ids
                 serialized["conflict"] = any(
@@ -986,7 +1007,9 @@ class ArchitectDaemon:
                 if isinstance(received_at, str) and received_at.strip():
                     payload["received_at"] = received_at.strip()
                 variants_payload.append(payload)
-            variants_payload.sort(key=lambda item: (item.get("peer", ""), item.get("entry_id", "")))
+            variants_payload.sort(
+                key=lambda item: (str(item.get("peer", "")), str(item.get("entry_id", "")))
+            )
             codex_payload: dict[str, object] | None = None
             codex_state = conflict.get("codex")
             if isinstance(codex_state, Mapping):
@@ -1001,7 +1024,7 @@ class ArchitectDaemon:
             if codex_payload:
                 record["codex"] = codex_payload
             records.append(record)
-        records.sort(key=lambda item: item.get("detected_at", ""))
+        records.sort(key=lambda item: str(item.get("detected_at", "")))
         return records
 
     def _pending_snapshot(self) -> dict[str, dict[str, object]]:
@@ -1331,12 +1354,24 @@ class ArchitectDaemon:
         ).strip()
         received_at = str(variant.get("received_at", "")).strip()
         verified = bool(variant.get("signature_verified", False))
-        peer_map = entry.setdefault("_peer_map", {})
+        peer_map_raw = entry.setdefault("_peer_map", {})
+        if not isinstance(peer_map_raw, MutableMapping):
+            peer_map_raw = {}
+            entry["_peer_map"] = peer_map_raw
+        peer_map = peer_map_raw
         peer_map[peer] = text
-        origin_peers = entry.setdefault("origin_peers", [])
+        origin_peers_raw = entry.setdefault("origin_peers", [])
+        if not isinstance(origin_peers_raw, list):
+            origin_peers_raw = []
+            entry["origin_peers"] = origin_peers_raw
+        origin_peers = origin_peers_raw
         if peer not in origin_peers:
             origin_peers.append(peer)
-        variants = entry.setdefault("variants", [])
+        variants_raw = entry.setdefault("variants", [])
+        if not isinstance(variants_raw, list):
+            variants_raw = []
+            entry["variants"] = variants_raw
+        variants = variants_raw
         existing_variant: dict[str, object] | None = None
         for payload in variants:
             if isinstance(payload, Mapping) and payload.get("peer") == peer:
@@ -1423,7 +1458,9 @@ class ArchitectDaemon:
                     }
                     variant_records.append(record)
 
-        conflict_groups: dict[tuple[str, ...], dict[str, object]] = {}
+        conflict_groups: dict[
+            tuple[str, ...], dict[str, dict[tuple[str, str], dict[str, str]]]
+        ] = {}
         for left, right in itertools.combinations(variant_records, 2):
             if left["peer"] == right["peer"]:
                 continue
@@ -1450,20 +1487,11 @@ class ArchitectDaemon:
             else:
                 if similarity < _CONFLICT_SIMILARITY_THRESHOLD:
                     continue
-            group = conflict_groups.setdefault(entry_ids, {"variants": {}, "pairs": []})
+            group = conflict_groups.setdefault(entry_ids, {"variants": {}})
             for record in (left, right):
                 variant_key = (record["peer"], record["entry_id"])
                 if variant_key not in group["variants"]:
                     group["variants"][variant_key] = dict(record)
-            group.setdefault("pairs", []).append(
-                {
-                    "peer_a": left["peer"],
-                    "text_a": left["text"],
-                    "peer_b": right["peer"],
-                    "text_b": right["text"],
-                    "similarity": similarity,
-                }
-            )
 
         now_iso = self._now().isoformat()
         for key, details in conflict_groups.items():
@@ -1492,7 +1520,7 @@ class ArchitectDaemon:
                 if isinstance(codex_state, Mapping):
                     record["codex"] = dict(codex_state)
             variants_list: list[dict[str, object]] = []
-            for variant in details.get("variants", {}).values():
+            for variant in details["variants"].values():
                 payload: dict[str, object] = {
                     "peer": variant.get("peer", ""),
                     "text": variant.get("text", ""),
@@ -1502,7 +1530,9 @@ class ArchitectDaemon:
                 if received_at:
                     payload["received_at"] = received_at
                 variants_list.append(payload)
-            variants_list.sort(key=lambda item: (item.get("peer", ""), item.get("entry_id", "")))
+            variants_list.sort(
+                key=lambda item: (str(item.get("peer", "")), str(item.get("entry_id", "")))
+            )
             record["variants"] = variants_list
             new_lookup[key] = conflict_id
             new_conflicts[conflict_id] = record
@@ -1514,17 +1544,17 @@ class ArchitectDaemon:
                 if conflict_id not in previous_pending:
                     emitted_conflicts.add(conflict_id)
 
-        for conflict_id, record in self._conflicts.items():
+        for conflict_id, existing_record in self._conflicts.items():
             if conflict_id in new_conflicts:
                 continue
-            status = str(record.get("status", "pending"))
+            status = str(existing_record.get("status", "pending"))
             if status in {"accepted", "separate"}:
-                new_conflicts[conflict_id] = dict(record)
+                new_conflicts[conflict_id] = dict(existing_record)
                 key = tuple(
                     sorted(
                         {
                             str(value or "").strip()
-                            for value in record.get("federated_ids", [])
+                            for value in _to_sequence(existing_record.get("federated_ids", []))
                             if str(value or "").strip()
                         }
                     )
@@ -1566,10 +1596,17 @@ class ArchitectDaemon:
                     new_priorities[canonical] = entry
                 self._apply_peer_variant(entry, peer, variant)
         for entry in new_priorities.values():
-            entry["origin_peers"] = sorted(set(entry.get("origin_peers", [])))
+            origin_peers = [
+                str(peer).strip()
+                for peer in _to_sequence(entry.get("origin_peers", []))
+                if str(peer).strip()
+            ]
+            entry["origin_peers"] = sorted(set(origin_peers))
             variants = entry.get("variants", [])
             if isinstance(variants, list):
-                variants.sort(key=lambda data: data.get("peer", ""))
+                variants.sort(
+                    key=lambda data: str(data.get("peer", "")) if isinstance(data, Mapping) else ""
+                )
 
         emitted_conflicts = self._update_conflicts_from_priorities(new_priorities)
         for conflict_id in emitted_conflicts:
@@ -1578,7 +1615,9 @@ class ArchitectDaemon:
                 self._emit_backlog_conflict(conflict_record)
         self._federated_priorities = new_priorities
         self._federated_index = {
-            entry["id"]: entry for entry in new_priorities.values() if entry.get("id")
+            str(entry["id"]): entry
+            for entry in new_priorities.values()
+            if entry.get("id")
         }
 
     def _handle_backlog_action(self, event: Mapping[str, object]) -> None:

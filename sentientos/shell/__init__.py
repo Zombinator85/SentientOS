@@ -9,6 +9,7 @@ intact while exposing familiar controls for human operators and tests.
 from __future__ import annotations
 
 import json
+import importlib
 import os
 from collections import Counter, deque
 from dataclasses import dataclass, field
@@ -23,10 +24,12 @@ from log_utils import append_json, read_json
 from sentientos.daemons import driver_manager as driver_manager_module, pulse_bus
 from sentientos.first_boot import FirstBootWizard, WizardDecisions
 
+_codex_daemon_module: object | None
+
 try:  # Lazy import to avoid expensive startup during tests.
-    from daemon import codex_daemon
+    _codex_daemon_module = importlib.import_module("daemon.codex_daemon")
 except Exception:  # pragma: no cover - codex daemon optional in minimal envs
-    codex_daemon = None
+    _codex_daemon_module = None
 
 __all__ = [
     "ShellApplication",
@@ -57,6 +60,9 @@ class _CodexModule(Protocol):
     def reject_veil_patch(self, patch_id: str) -> dict[str, object]: ...
 
 
+codex_daemon: _CodexModule | None = cast(_CodexModule | None, _codex_daemon_module)
+
+
 def _to_object_dict(value: object, *, default: dict[str, object] | None = None) -> dict[str, object]:
     if isinstance(value, Mapping):
         return {str(key): item for key, item in value.items()}
@@ -71,6 +77,44 @@ def _to_object_list(value: object) -> list[object]:
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _to_int(value: object, default: int = 0) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return default
+        try:
+            return int(text)
+        except ValueError:
+            return default
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_float(value: object, default: float = 0.0) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return default
+        try:
+            return float(text)
+        except ValueError:
+            return default
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return default
 
 
 class ShellEventLogger:
@@ -123,7 +167,7 @@ class ShellEventLogger:
         }
         self._ledger_writer(self._ledger_path, ledger_entry)
 
-        pulse_event = {
+        pulse_event: dict[str, object] = {
             "timestamp": timestamp,
             "source_daemon": self._pulse_source,
             "event_type": event_type,
@@ -143,7 +187,7 @@ class ShellEventLogger:
                 "error": str(exc),
             }
             self._ledger_writer(self._pulse_fallback_path, fallback_entry)
-        return ledger_entry
+        return dict(ledger_entry)
 
 
 class ShellConfig:
@@ -520,10 +564,11 @@ class SystemDashboard:
             summary = metrics.get("summary", {}) if isinstance(metrics, Mapping) else {}
         except Exception:
             summary = {}
+        summary_payload = _to_object_dict(summary)
         return {
-            "cpu": summary.get("cpu_pct", 0),
-            "ram": summary.get("memory_pct", 0),
-            "network": summary.get("network", {}),
+            "cpu": summary_payload.get("cpu_pct", 0),
+            "ram": summary_payload.get("memory_pct", 0),
+            "network": summary_payload.get("network", {}),
         }
 
     def _load_ledger(self) -> List[dict[str, object]]:
@@ -540,7 +585,7 @@ class SystemDashboard:
         if self._driver_manager is None:
             return {"devices": [], "veil_pending": []}
         try:
-            return self._driver_manager.refresh()
+            return _to_object_dict(self._driver_manager.refresh())
         except Exception as exc:  # pragma: no cover - defensive fallback
             self._logger.record("driver_panel_error", {"error": str(exc)})
             return {"devices": [], "veil_pending": []}
@@ -594,12 +639,10 @@ class SystemDashboard:
         reflection_meta = self._extract_reflection_summary(
             status, ARCHITECT_REFLECTION_DIR
         )
-        try:
-            trajectory_interval = int(
-                status.get("trajectory_interval", ARCHITECT_TRAJECTORY_INTERVAL)
-            )
-        except (TypeError, ValueError):
-            trajectory_interval = ARCHITECT_TRAJECTORY_INTERVAL
+        trajectory_interval = _to_int(
+            status.get("trajectory_interval", ARCHITECT_TRAJECTORY_INTERVAL),
+            ARCHITECT_TRAJECTORY_INTERVAL,
+        )
         trajectory_meta = {
             "path": str(status.get("last_trajectory_path", "")),
             "trajectory_id": str(status.get("last_trajectory_id", "")),
@@ -651,7 +694,7 @@ class SystemDashboard:
             conflicts_raw = summary.get("federation_conflicts", [])
             reflections = [
                 str(item)
-                for item in reflections_raw
+                for item in _to_object_list(reflections_raw)
                 if isinstance(item, str) and item.strip()
             ]
             backlog_attempts: list[dict[str, object]] = []
@@ -689,7 +732,7 @@ class SystemDashboard:
                 "cooldown": bool(summary.get("cooldown", False)),
                 "anomalies": [
                     str(item)
-                    for item in summary.get("anomalies", [])
+                    for item in _to_object_list(summary.get("anomalies", []))
                     if isinstance(item, str)
                 ],
                 "notes": str(summary.get("notes", "")),
@@ -725,8 +768,8 @@ class SystemDashboard:
                     for item in _to_object_list(report.get("cycles_included", []))
                     if isinstance(item, str)
                 ],
-                "success_rate": float(report.get("success_rate", 0.0) or 0.0),
-                "failure_rate": float(report.get("failure_rate", 0.0) or 0.0),
+                "success_rate": _to_float(report.get("success_rate", 0.0), 0.0),
+                "failure_rate": _to_float(report.get("failure_rate", 0.0), 0.0),
                 "recurring_regressions": [
                     str(item)
                     for item in _to_object_list(report.get("recurring_regressions", []))
@@ -760,15 +803,16 @@ class SystemDashboard:
                 }
             )
             follow = entry.get("priority_followthrough", {})
+            follow_payload = _to_object_dict(follow)
             follow_chart.append(
                 {
                     "trajectory_id": entry.get("trajectory_id", ""),
-                    "planned": follow.get("planned", 0),
-                    "completed": follow.get("completed", 0),
-                    "discarded": follow.get("discarded", 0),
+                    "planned": follow_payload.get("planned", 0),
+                    "completed": follow_payload.get("completed", 0),
+                    "discarded": follow_payload.get("discarded", 0),
                 }
             )
-            for label in entry.get("recurring_regressions", []):
+            for label in _to_object_list(entry.get("recurring_regressions", [])):
                 if isinstance(label, str) and label:
                     regression_counter[label] += 1
         regression_chart = [
@@ -939,8 +983,9 @@ class SystemDashboard:
         else:
             missing = 0
         architect = self._load_architect_panel()
+        last_reflection = architect.get("last_reflection")
         reflections_panel = self._build_reflection_panel(
-            architect.get("last_reflection")
+            last_reflection if isinstance(last_reflection, Mapping) else None
         )
         cycles = self._load_cycle_summaries()
         trajectories = self._build_trajectory_panel(architect)
@@ -963,7 +1008,7 @@ class SystemDashboard:
                 "drivers_missing": missing,
                 "architect_cooldown_active": bool(cooldown.get("active", False)),
                 "cycles_count": len(cycles),
-                "trajectories_count": len(trajectories.get("reports", [])),
+                "trajectories_count": len(_to_object_list(trajectories.get("reports", []))),
             },
         )
         return dashboard
@@ -1001,7 +1046,7 @@ class SystemDashboard:
     def install_recommended_driver(self, device_id: str) -> dict[str, object]:
         if self._driver_manager is None:
             raise RuntimeError("Driver manager not available")
-        result = self._driver_manager.install_driver(device_id)
+        result = _to_object_dict(self._driver_manager.install_driver(device_id))
         self._logger.record(
             "driver_install_requested_via_dashboard",
             {"device_id": device_id, "status": result.get("status")},
@@ -1279,13 +1324,13 @@ class SentientShell:
         self._logger.record("assistive_toggle", {"enabled": self._assistive_enabled})
 
     def install_from_button(self, path: Path | str) -> Mapping[str, object]:
-        return self._installer.install_via_button(Path(path))
+        return _to_object_dict(self._installer.install_via_button(Path(path)))
 
     def install_via_double_click(self, path: Path | str) -> Mapping[str, object]:
-        return self._installer.double_click(Path(path))
+        return _to_object_dict(self._installer.double_click(Path(path)))
 
     def install_via_drag_and_drop(self, path: Path | str) -> Mapping[str, object]:
-        return self._installer.drag_and_drop(Path(path))
+        return _to_object_dict(self._installer.drag_and_drop(Path(path)))
 
 
 # Backwards compatibility for legacy dashboards; prefer :class:`SystemDashboard`.
