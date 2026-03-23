@@ -17,7 +17,7 @@ from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence
 import random
 from uuid import uuid4
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
@@ -774,7 +774,7 @@ class ArchitectDaemon:
                     entry["confidence"] = confidence_value
                 active_list.append(entry)
 
-        history_list: list[dict[str, str]] = []
+        history_list: list[dict[str, object]] = []
         raw_history = raw.get("history")
         if isinstance(raw_history, Sequence):
             seen: set[str] = set()
@@ -793,7 +793,7 @@ class ArchitectDaemon:
                     continue
                 if priority_id in seen:
                     continue
-                entry: dict[str, str] = {
+                entry: dict[str, object] = {
                     "id": priority_id,
                     "text": text,
                     "status": status,
