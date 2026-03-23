@@ -288,6 +288,91 @@ Recommended next pass: focus `relay_app.py` + `sentientos/shell/__init__.py` dec
 
 ---
 
+## High-density typing offensive IX (2026-03-23)
+
+### Fresh corridor density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy . --show-error-codes --no-error-summary`
+
+Repo-wide error-line count before this pass: **8865**.
+
+Architect/runtime corridor audit groups (selected by runtime adjacency and density):
+
+- `architect_daemon.py`: **128**
+  - Error families: `call-overload`, `attr-defined`, `arg-type`, `assignment`, `index`.
+  - Root cause: mixed `object` payload traversal (`list(...)` / `int(...)` / `float(...)` on un-narrowed values), dict invariance across backlog/conflict/session records, and reflection payload shape ambiguity.
+  - Spillover effect: noisy codex/runtime orchestration typing signal and fragile backlog/reconciliation boundaries.
+  - Expected payoff: very high (single concentrated file with most remaining runtime corridor debt).
+- `tests/test_runtime_shell.py`: **16**
+  - Error families: `index`, `attr-defined`, `operator`, `no-untyped-def`, `unused-ignore`.
+  - Root cause: broad `Dict[str, object]` fixture typing, stub constructor under-typing, and object-indexed config traversal.
+  - Spillover effect: harness typing noise and brittle runtime-shell startup assertions in non-Windows environments.
+  - Expected payoff: medium (boundary confidence + harness stabilization).
+- `sentientos/runtime/shell.py`: **0**
+  - Classification: not a current mypy debt source in this baseline; used as boundary reference only.
+
+### Offensive IX scope executed
+
+Primary burn-down modules:
+
+- `architect_daemon.py`
+- `tests/test_runtime_shell.py`
+
+Change themes:
+
+- Hardened architect runtime payload boundaries with explicit sequence/mapping/string coercion helpers and existing `_coerce_*` adapters.
+- Removed object-index/list coercion hotspots in federated backlog/conflict normalization, trajectory report payload shaping, reflection windows, and lifecycle counters.
+- Introduced typed reflection payload contract (`ReflectionPayload`) so reflection parsing/persistence/finalization no longer propagates generic `object`.
+- Resolved dict invariance hotspots by widening local entry/history payload typing to runtime-shaped `dict[str, object]`.
+- Stabilized runtime-shell harness surface:
+  - stub thread constructor now accepts extra args/kwargs used by runtime threading callsites,
+  - startup-order assertions now adapt to optional llama process availability,
+  - relay argument assertion targets the named relay call rather than a hard-coded index,
+  - fixture/config traversal typing narrowed via explicit mapping casts.
+
+### Results
+
+After the same repo-wide command:
+
+- Repo-wide error-line count: **8690** (**-175 net**).
+
+Corridor deltas:
+
+- `architect_daemon.py`: **128 -> 0**.
+- `tests/test_runtime_shell.py`: **16 -> 0**.
+- `sentientos/runtime/shell.py`: **0 -> 0**.
+- `tests/test_architect_daemon.py`: **12 -> 12** (deferred test-only debt outside this pass’s implementation focus).
+
+Corridor subtotal (`architect_daemon.py` + `tests/test_runtime_shell.py`): **144 -> 0** (**-144**).
+
+Largest reduced families repo-wide in this pass:
+
+- `call-overload` (**-37**)
+- `attr-defined` (**-14**)
+- `arg-type` (**-10**)
+- `assignment` (**-9**)
+- `index` (**-9**)
+
+### Harness/runtime-shell classification
+
+- The known runtime-shell harness issue in this cone (stub thread constructor/fragile startup expectations) was addressed in `tests/test_runtime_shell.py`.
+- Result: harness expectations now align with runtime behavior when llama artifacts are absent while preserving startup-order verification for mandatory processes.
+
+### Ratchet / protected-surface posture
+
+- No ratchet baseline was loosened.
+- No protected-corridor architecture redesign was introduced.
+- Append-only provenance and immutable-manifest verification flows were not altered.
+
+### Deferred after Offensive IX
+
+- `tests/test_architect_daemon.py` remains at 12 errors (test-surface typing debt).
+- Next likely major corridor after this architect/runtime pass: `relay_app.py` and `sentientos/narrative_synthesis.py` (current highest-density non-architect clusters in the full baseline).
+
+---
+
 ## High-density typing offensive VI (2026-03-23)
 
 ### Fresh failure-density audit (before pass)

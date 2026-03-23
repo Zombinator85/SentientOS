@@ -2,21 +2,18 @@
 
 This pass focuses on high-value mature surfaces linked to trust/federation runtime behavior, observatory dashboard/status aggregation, and drift diagnostics.
 
-## Latest pass (2026-03-19, Offensive II)
+## Latest pass (2026-03-23, Offensive IX)
 
 - Comprehensive high-density offensive summary is recorded in `docs/TYPING_OFFENSIVE_PROGRESS.md`.
-- Repo-wide `mypy scripts/ sentientos/` moved from **2516** to **2463** errors in this pass (**-53**).
-- Modules reduced to zero in this pass:
-  - `sentientos/trust_ledger.py`
-  - `sentientos/observatory/fleet_health.py`
-  - `sentientos/diagnostics/drift_detector.py`
-  - `sentientos/diagnostics/drift_alerts.py`
+- Repo-wide `python -m mypy . --show-error-codes --no-error-summary` moved from **8865** to **8690** error lines in this pass (**-175**).
+- Corridor files reduced to zero in this pass:
+  - `architect_daemon.py`
+  - `tests/test_runtime_shell.py`
 
 ## Scope of this offensive
 
-- Trust/federation-adjacent ledger normalization and probe-state typing.
-- Observatory fleet-health dashboard/detail aggregation typing.
-- Runtime drift detector and drift alert payload narrowing.
+- Architect runtime daemon payload/session/backlog/conflict/trajectory typing corridor.
+- Runtime-shell harness boundary stabilization in `tests/test_runtime_shell.py`.
 
 ## Ratchet posture
 
@@ -34,6 +31,6 @@ Deferred typing/runtime debt is acceptable only when:
 
 ## Next pass recommendation
 
-- Runtime-heavy: `architect_daemon.py`, `task_executor.py`.
-- Dashboard/reporting: `scripts/tooling_status.py`.
-- Federation/lab adjacency: `sentientos/lab/wan_federation.py`, then `sentientos/shell/__init__.py`.
+- Runtime/API corridor: `relay_app.py`.
+- Narrative runtime corridor: `sentientos/narrative_synthesis.py`.
+- Residual test corridor: `tests/test_architect_daemon.py`.

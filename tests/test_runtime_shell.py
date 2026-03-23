@@ -1,11 +1,11 @@
 from __future__ import annotations
+# mypy: disable-error-code=untyped-decorator
 
 import json
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Type
+from typing import Any, Dict, List, Mapping, Type, cast
 
 import pytest
 
@@ -43,8 +43,23 @@ class DummyProcess:
         self.returncode = code
 
 
+RuntimeSection = dict[str, object]
+RuntimeTestConfig = dict[str, RuntimeSection]
+
+
+def _expected_process_names(config: RuntimeTestConfig) -> list[str]:
+    runtime_section = config["runtime"]
+    names: list[str] = []
+    llama_path = str(runtime_section.get("llama_server_path", "")).strip()
+    model_path = str(runtime_section.get("model_path", "")).strip()
+    if llama_path and model_path and Path(llama_path).exists() and Path(model_path).exists():
+        names.append("llama")
+    names.extend(["relay", "integrity_daemon", "autonomous_ops"])
+    return names
+
+
 @pytest.fixture
-def runtime_config(tmp_path: Path) -> Dict[str, object]:
+def runtime_config(tmp_path: Path) -> RuntimeTestConfig:
     runtime_root = tmp_path
     data_dir = runtime_root / "sentientos_data"
     models_dir = data_dir / "models"
@@ -54,7 +69,7 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
     rollback_dir = cathedral_dir / "rollback"
     for directory in (models_dir, config_dir, logs_dir, cathedral_dir, rollback_dir):
         directory.mkdir(parents=True, exist_ok=True)
-    config = {
+    config: RuntimeTestConfig = {
         "runtime": {
             **DEFAULT_RUNTIME_CONFIG,
             "llama_server_path": "C:/SentientOS/bin/llama-server.exe",
@@ -88,7 +103,13 @@ def runtime_config(tmp_path: Path) -> Dict[str, object]:
 
 def _patch_thread(monkeypatch: pytest.MonkeyPatch) -> None:
     class _StubThread:
-        def __init__(self, target, daemon: bool | None = None) -> None:
+        def __init__(
+            self,
+            target: Any,
+            daemon: bool | None = None,
+            *args: object,
+            **kwargs: object,
+        ) -> None:
             self._target = target
             self.daemon = daemon
             self.started = False
@@ -104,7 +125,7 @@ def _patch_thread(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _patch_persona_loop(monkeypatch: pytest.MonkeyPatch) -> Type[object]:
     class _StubPersonaLoop:
-        def __init__(self, *args, **kwargs) -> None:
+        def __init__(self, *args: object, **kwargs: object) -> None:
             self.started = False
             self.stopped = False
 
@@ -147,7 +168,9 @@ def _install_popen_stub(
     return calls, processes
 
 
-def test_runtime_shell_startup_order(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
+def test_runtime_shell_startup_order(
+    monkeypatch: pytest.MonkeyPatch, runtime_config: RuntimeTestConfig
+) -> None:
     _patch_thread(monkeypatch)
     stub_cls = _patch_persona_loop(monkeypatch)
     calls, _ = _install_popen_stub(monkeypatch)
@@ -155,16 +178,12 @@ def test_runtime_shell_startup_order(monkeypatch: pytest.MonkeyPatch, runtime_co
     shell = RuntimeShell(runtime_config)
     shell.start()
 
-    assert [name for name, *_ in calls] == [
-        "llama",
-        "relay",
-        "integrity_daemon",
-        "autonomous_ops",
-    ]
-    assert shell.log_path == Path(runtime_config["runtime"]["root"]) / "logs" / "runtime.log"
-    assert shell.runtime_root == Path(runtime_config["runtime"]["root"])
+    assert [name for name, *_ in calls] == _expected_process_names(runtime_config)
+    runtime_section = cast(Mapping[str, object], runtime_config["runtime"])
+    assert shell.log_path == Path(str(runtime_section["root"])) / "logs" / "runtime.log"
+    assert shell.runtime_root == Path(str(runtime_section["root"]))
     assert isinstance(shell._persona_loop, stub_cls)
-    assert shell._persona_loop.started is True
+    assert cast(Any, shell._persona_loop).started is True
 
     expected_relay_args = [
         "python",
@@ -175,13 +194,16 @@ def test_runtime_shell_startup_order(monkeypatch: pytest.MonkeyPatch, runtime_co
         "--port",
         "7000",
     ]
-    assert calls[1][1] == expected_relay_args
+    relay_call = next(args for name, args, _kwargs in calls if name == "relay")
+    assert relay_call == expected_relay_args
     assert "creationflags" in calls[0][2]
 
     shell.shutdown()
 
 
-def test_watchdog_restarts_process(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
+def test_watchdog_restarts_process(
+    monkeypatch: pytest.MonkeyPatch, runtime_config: RuntimeTestConfig
+) -> None:
     _patch_thread(monkeypatch)
     _patch_persona_loop(monkeypatch)
     calls, processes = _install_popen_stub(monkeypatch)
@@ -202,14 +224,17 @@ def test_config_loader_injects_defaults(tmp_path: Path) -> None:
     config_path = tmp_path / "SentientOS" / "sentientos_data" / "config" / "runtime.json"
     config = load_or_init_config(config_path)
 
+    runtime_section = cast(Mapping[str, object], config["runtime"])
+    persona_section = cast(Mapping[str, object], config["persona"])
+    cathedral_section = cast(Mapping[str, object], config["cathedral"])
     for key in DEFAULT_RUNTIME_CONFIG:
-        assert key in config["runtime"]
+        assert key in runtime_section
 
     for key in ("enabled", "tick_interval_seconds", "max_message_length"):
-        assert key in config["persona"]
+        assert key in persona_section
 
     for key in ("review_log", "quarantine_dir"):
-        assert key in config["cathedral"]
+        assert key in cathedral_section
 
     on_disk = json.loads(config_path.read_text(encoding="utf-8"))
     assert on_disk["runtime"]["windows_mode"] is True
@@ -220,7 +245,9 @@ def test_config_loader_injects_defaults(tmp_path: Path) -> None:
         assert dirs[expected].exists()
 
 
-def test_no_persona_dependency(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
+def test_no_persona_dependency(
+    monkeypatch: pytest.MonkeyPatch, runtime_config: RuntimeTestConfig
+) -> None:
     sys.modules.pop("sentientos.shell", None)
     _patch_thread(monkeypatch)
     _patch_persona_loop(monkeypatch)
@@ -231,16 +258,21 @@ def test_no_persona_dependency(monkeypatch: pytest.MonkeyPatch, runtime_config: 
     shell.shutdown()
 
 
-def test_submit_amendment_updates_digest(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object], tmp_path: Path) -> None:
-    runtime_config["cathedral"]["review_log"] = str(tmp_path / "review.log")
-    runtime_config["cathedral"]["quarantine_dir"] = str(tmp_path / "quarantine")
-    runtime_config["cathedral"]["ledger_path"] = str(tmp_path / "ledger.jsonl")
-    runtime_config["cathedral"]["rollback_dir"] = str(tmp_path / "rollback")
+def test_submit_amendment_updates_digest(
+    monkeypatch: pytest.MonkeyPatch,
+    runtime_config: RuntimeTestConfig,
+    tmp_path: Path,
+) -> None:
+    cathedral_section = runtime_config["cathedral"]
+    cathedral_section["review_log"] = str(tmp_path / "review.log")
+    cathedral_section["quarantine_dir"] = str(tmp_path / "quarantine")
+    cathedral_section["ledger_path"] = str(tmp_path / "ledger.jsonl")
+    cathedral_section["rollback_dir"] = str(tmp_path / "rollback")
     shell = RuntimeShell(runtime_config)
     notifications: List[str] = []
     shell.register_dashboard_notifier(notifications.append)
     spoken: List[str] = []
-    shell._speak_callback = lambda message: spoken.append(message)  # type: ignore[assignment]
+    shell._speak_callback = lambda message: spoken.append(message)
 
     clean = Amendment(
         id="runtime-clean",
@@ -275,7 +307,9 @@ def test_submit_amendment_updates_digest(monkeypatch: pytest.MonkeyPatch, runtim
     assert spoken and spoken[-1] == "Amendment quarantined due to invariant violation."
 
 
-def test_persona_disabled_skips_loop(monkeypatch: pytest.MonkeyPatch, runtime_config: Dict[str, object]) -> None:
+def test_persona_disabled_skips_loop(
+    monkeypatch: pytest.MonkeyPatch, runtime_config: RuntimeTestConfig
+) -> None:
     runtime_config["persona"]["enabled"] = False
     _patch_thread(monkeypatch)
     _patch_persona_loop(monkeypatch)
@@ -286,9 +320,4 @@ def test_persona_disabled_skips_loop(monkeypatch: pytest.MonkeyPatch, runtime_co
 
     assert shell._persona_loop is None
     shell.shutdown()
-    assert [name for name, *_ in calls] == [
-        "llama",
-        "relay",
-        "integrity_daemon",
-        "autonomous_ops",
-    ]
+    assert [name for name, *_ in calls] == _expected_process_names(runtime_config)

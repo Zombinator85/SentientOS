@@ -12,12 +12,12 @@ import re
 import subprocess
 from collections import deque
 from pathlib import Path
-from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence
+from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence, TypedDict
 
 import random
 from uuid import uuid4
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 
@@ -155,6 +155,10 @@ def _to_sequence(value: object) -> list[object]:
     return []
 
 
+def _to_string_list(value: object) -> list[str]:
+    return [str(item).strip() for item in _to_sequence(value) if str(item).strip()]
+
+
 def _to_mapping(value: object) -> dict[str, object]:
     if isinstance(value, Mapping):
         return {str(key): item for key, item in value.items()}
@@ -162,10 +166,24 @@ def _to_mapping(value: object) -> dict[str, object]:
 
 
 def _to_int(value: object, default: int = 0) -> int:
-    try:
+    if isinstance(value, bool):
         return int(value)
-    except (TypeError, ValueError):
-        return default
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(float(value.strip()))
+        except ValueError:
+            return default
+    return default
+
+
+class ReflectionPayload(TypedDict):
+    summary: str
+    successes: list[str]
+    failures: list[str]
+    regressions: list[str]
+    next_priorities: list[str]
 
 
 def _text_similarity(left: str, right: str) -> float:
@@ -634,12 +652,9 @@ class ArchitectDaemon:
                 if isinstance(entry, Mapping):
                     self._cycle_history.append(dict(entry))
         self._throttled = bool(self._session.get("throttled", False))
-        try:
-            self._throttle_multiplier = float(
-                self._session.get("throttle_multiplier", 1.0)
-            )
-        except (TypeError, ValueError):
-            self._throttle_multiplier = 1.0
+        self._throttle_multiplier = self._coerce_float(
+            self._session.get("throttle_multiplier", 1.0), 1.0
+        )
         if self._throttle_multiplier <= 0:
             self._throttle_multiplier = 1.0
         path_value = self._session.get("last_reflection_path", "")
@@ -652,10 +667,9 @@ class ArchitectDaemon:
             self._last_reflection_summary = summary_value
         else:
             self._last_reflection_summary = None
-        try:
-            self._anomaly_streak = int(self._session.get("anomaly_streak", 0))
-        except (TypeError, ValueError):
-            self._anomaly_streak = 0
+        self._anomaly_streak = self._coerce_int(
+            self._session.get("anomaly_streak", 0), 0
+        )
         trajectory_path = self._session.get("last_trajectory_path", "")
         if isinstance(trajectory_path, str) and trajectory_path.strip():
             self._last_trajectory_path = trajectory_path
@@ -933,9 +947,7 @@ class ArchitectDaemon:
                 "id": str(entry.get("id", "")).strip(),
                 "text": text,
                 "canonical": entry.get("canonical", canonical),
-                "origin_peers": sorted({
-                    str(peer).strip() for peer in entry.get("origin_peers", []) if str(peer).strip()
-                }),
+                "origin_peers": sorted(set(_to_string_list(entry.get("origin_peers", [])))),
                 "status": str(entry.get("status", "pending") or "pending"),
             }
             if not serialized["id"]:
@@ -985,14 +997,14 @@ class ArchitectDaemon:
         records: list[dict[str, object]] = []
         for conflict_id, conflict in self._conflicts.items():
             federated_ids: list[str] = []
-            for value in conflict.get("federated_ids", []):
+            for value in _to_sequence(conflict.get("federated_ids", [])):
                 entry_id = str(value or "").strip()
                 if entry_id:
                     federated_ids.append(entry_id)
             if not federated_ids:
                 continue
             variants_payload: list[dict[str, object]] = []
-            for variant in conflict.get("variants", []):
+            for variant in _to_sequence(conflict.get("variants", [])):
                 if not isinstance(variant, Mapping):
                     continue
                 peer = str(variant.get("peer", "")).strip()
@@ -1111,14 +1123,18 @@ class ArchitectDaemon:
 
     def _register_reflection_priorities(
         self, priorities: Sequence[str]
-    ) -> list[dict[str, str]]:
-        created: list[dict[str, str]] = []
+    ) -> list[dict[str, object]]:
+        created: list[dict[str, object]] = []
         for item in priorities:
             text = str(item).strip()
             if not text:
                 continue
             priority_id = str(uuid4())
-            entry = {"id": priority_id, "text": text, "status": "pending"}
+            entry: dict[str, object] = {
+                "id": priority_id,
+                "text": text,
+                "status": "pending",
+            }
             self._priority_active.append(entry)
             self._priority_index[priority_id] = entry
             created.append(entry)
@@ -1145,12 +1161,7 @@ class ArchitectDaemon:
             if not canonical:
                 canonical = _canonicalize_priority_text(text)
             entry_id = str(item.get("id", "")).strip() or str(uuid4())
-            origin_peers_raw = item.get("origin_peers", [])
-            origin_peers = [
-                str(peer).strip()
-                for peer in origin_peers_raw
-                if isinstance(peer, (str, bytes)) and str(peer).strip()
-            ]
+            origin_peers = _to_string_list(item.get("origin_peers", []))
             entry: dict[str, object] = {
                 "id": entry_id,
                 "text": text,
@@ -1189,8 +1200,16 @@ class ArchitectDaemon:
                         variant_entry["signature_verified"] = bool(
                             variant.get("signature_verified")
                         )
-                    entry["variants"].append(variant_entry)
-                    entry["_peer_map"][peer] = variant_text
+                    variants_list = entry.setdefault("variants", [])
+                    if not isinstance(variants_list, list):
+                        variants_list = []
+                        entry["variants"] = variants_list
+                    variants_list.append(variant_entry)
+                    peer_map = entry.setdefault("_peer_map", {})
+                    if not isinstance(peer_map, MutableMapping):
+                        peer_map = {}
+                        entry["_peer_map"] = peer_map
+                    peer_map[peer] = variant_text
                     peer_entries = self._peer_backlog_entries.setdefault(peer, {})
                     canonical_variant = _canonicalize_priority_text(variant_text)
                     peer_entries[canonical_variant] = {
@@ -1202,7 +1221,13 @@ class ArchitectDaemon:
                             variant_entry.get("signature_verified", False)
                         ),
                     }
-            entry["variants"].sort(key=lambda data: data.get("peer", ""))
+            variants_list = entry.get("variants")
+            if isinstance(variants_list, list):
+                variants_list.sort(
+                    key=lambda data: str(data.get("peer", ""))
+                    if isinstance(data, Mapping)
+                    else ""
+                )
             self._federated_priorities[canonical] = entry
             self._federated_index[entry_id] = entry
             if entry.get("conflict"):
@@ -1267,7 +1292,7 @@ class ArchitectDaemon:
                     entry = self._federated_index.get(entry_id)
                     if not entry:
                         continue
-                    for variant in entry.get("variants", []):
+                    for variant in _to_sequence(entry.get("variants", [])):
                         if not isinstance(variant, Mapping):
                             continue
                         peer = str(variant.get("peer", "")).strip()
@@ -1287,7 +1312,7 @@ class ArchitectDaemon:
             raw_codex = item.get("codex")
             if isinstance(raw_codex, Mapping):
                 codex_state = dict(raw_codex)
-            record = {
+            record: dict[str, object] = {
                 "conflict_id": conflict_id,
                 "federated_ids": list(dict.fromkeys(federated_ids)),
                 "variants": variants,
@@ -1488,10 +1513,10 @@ class ArchitectDaemon:
                 if similarity < _CONFLICT_SIMILARITY_THRESHOLD:
                     continue
             group = conflict_groups.setdefault(entry_ids, {"variants": {}})
-            for record in (left, right):
-                variant_key = (record["peer"], record["entry_id"])
+            for variant_record in (left, right):
+                variant_key = (variant_record["peer"], variant_record["entry_id"])
                 if variant_key not in group["variants"]:
-                    group["variants"][variant_key] = dict(record)
+                    group["variants"][variant_key] = dict(variant_record)
 
         now_iso = self._now().isoformat()
         for key, details in conflict_groups.items():
@@ -1501,7 +1526,7 @@ class ArchitectDaemon:
             )
             if conflict_id is None:
                 conflict_id = str(uuid4())
-            record: dict[str, object] = {
+            conflict_record: dict[str, object] = {
                 "conflict_id": conflict_id,
                 "federated_ids": list(key),
                 "variants": [],
@@ -1512,13 +1537,13 @@ class ArchitectDaemon:
             if existing_conflict:
                 detected = str(existing_conflict.get("detected_at", "")).strip()
                 if detected:
-                    record["detected_at"] = detected
+                    conflict_record["detected_at"] = detected
                 status = str(existing_conflict.get("status", "pending"))
                 if status in {"pending", "rejected", "accepted", "separate"}:
-                    record["status"] = status
+                    conflict_record["status"] = status
                 codex_state = existing_conflict.get("codex")
                 if isinstance(codex_state, Mapping):
-                    record["codex"] = dict(codex_state)
+                    conflict_record["codex"] = dict(codex_state)
             variants_list: list[dict[str, object]] = []
             for variant in details["variants"].values():
                 payload: dict[str, object] = {
@@ -1533,10 +1558,10 @@ class ArchitectDaemon:
             variants_list.sort(
                 key=lambda item: (str(item.get("peer", "")), str(item.get("entry_id", "")))
             )
-            record["variants"] = variants_list
+            conflict_record["variants"] = variants_list
             new_lookup[key] = conflict_id
-            new_conflicts[conflict_id] = record
-            is_active = record["status"] in {"pending", "rejected"}
+            new_conflicts[conflict_id] = conflict_record
+            is_active = str(conflict_record.get("status", "")) in {"pending", "rejected"}
             for entry_id in key:
                 entry_conflict_index.setdefault(entry_id, set()).add(conflict_id)
             if is_active:
@@ -1638,13 +1663,10 @@ class ArchitectDaemon:
 
     def _emit_backlog_conflict(self, conflict: Mapping[str, object]) -> None:
         conflict_id = str(conflict.get("conflict_id", "")).strip()
-        federated_ids = [
-            str(value or "").strip() for value in conflict.get("federated_ids", [])
-            if str(value or "").strip()
-        ]
+        federated_ids = _to_string_list(conflict.get("federated_ids", []))
         variants_payload: list[dict[str, object]] = []
         peers: list[str] = []
-        for variant in conflict.get("variants", []):
+        for variant in _to_sequence(conflict.get("variants", [])):
             if not isinstance(variant, Mapping):
                 continue
             peer = str(variant.get("peer", "")).strip()
@@ -1836,15 +1858,12 @@ class ArchitectDaemon:
         origin_peers = sorted(
             {
                 str(variant.get("peer", "")).strip()
-                for variant in conflict.get("variants", [])
+                for variant in _to_sequence(conflict.get("variants", []))
                 if isinstance(variant, Mapping)
                 and str(variant.get("peer", "")).strip()
             }
         )
-        merged_from = [
-            str(value or "").strip() for value in conflict.get("federated_ids", [])
-            if str(value or "").strip()
-        ]
+        merged_from = _to_string_list(conflict.get("federated_ids", []))
         generated_at = self._now().isoformat()
         suggestion_record: dict[str, object] = {
             "priority_id": priority_id,
@@ -1875,16 +1894,14 @@ class ArchitectDaemon:
     def _emit_conflict_resolution_success(
         self, conflict_id: str, suggestion: Mapping[str, object]
     ) -> None:
-        peers = list(suggestion.get("origin_peers", [])) if isinstance(
-            suggestion.get("origin_peers"), Sequence
-        ) else []
+        peers = _to_sequence(suggestion.get("origin_peers", []))
         ledger_payload = {
             "event": "architect_backlog_resolved",
             "conflict_id": conflict_id,
             "priority_id": suggestion.get("priority_id"),
             "merged_priority": suggestion.get("merged_priority"),
             "origin_peers": peers,
-            "merged_from": list(suggestion.get("merged_from", [])),
+            "merged_from": _to_sequence(suggestion.get("merged_from", [])),
             "path": suggestion.get("path"),
         }
         self._emit_ledger_event(ledger_payload)
@@ -1899,7 +1916,7 @@ class ArchitectDaemon:
                     "priority_id": suggestion.get("priority_id"),
                     "merged_priority": suggestion.get("merged_priority"),
                     "origin_peers": peers,
-                    "merged_from": list(suggestion.get("merged_from", [])),
+                    "merged_from": _to_sequence(suggestion.get("merged_from", [])),
                     "path": suggestion.get("path"),
                 },
             }
@@ -1958,14 +1975,9 @@ class ArchitectDaemon:
             codex_state["suggestion"] = suggestion
         if priority_id in self._priority_index:
             return False
-        origin_peers = list(suggestion.get("origin_peers", [])) if isinstance(
-            suggestion.get("origin_peers"), Sequence
-        ) else []
-        merged_from = [
-            str(value or "").strip() for value in conflict.get("federated_ids", [])
-            if str(value or "").strip()
-        ]
-        entry = {
+        origin_peers = _to_string_list(suggestion.get("origin_peers"))
+        merged_from = _to_string_list(conflict.get("federated_ids", []))
+        entry: dict[str, object] = {
             "id": priority_id,
             "text": merged_priority,
             "status": "pending",
@@ -2068,7 +2080,9 @@ class ArchitectDaemon:
             },
         }
         if reason:
-            pulse_payload["payload"]["reason"] = reason
+            nested_payload = pulse_payload.get("payload")
+            if isinstance(nested_payload, MutableMapping):
+                nested_payload["reason"] = reason
         self._publish_pulse(pulse_payload)
         self._record_cycle_conflict(conflict_id)
         return True
@@ -2090,7 +2104,7 @@ class ArchitectDaemon:
             conflict["codex"] = codex_state
         conflict["status"] = "separate"
         conflict["resolved_at"] = now
-        for entry_id in conflict.get("federated_ids", []):
+        for entry_id in _to_sequence(conflict.get("federated_ids", [])):
             entry_id_str = str(entry_id or "").strip()
             if not entry_id_str:
                 continue
@@ -2112,7 +2126,7 @@ class ArchitectDaemon:
             {
                 "event": "architect_backlog_merge_separated",
                 "conflict_id": conflict_id,
-                "federated_ids": list(conflict.get("federated_ids", [])),
+                "federated_ids": _to_sequence(conflict.get("federated_ids", [])),
             }
         )
         self._publish_pulse(
@@ -2123,7 +2137,7 @@ class ArchitectDaemon:
                 "priority": "info",
                 "payload": {
                     "conflict_id": conflict_id,
-                    "federated_ids": list(conflict.get("federated_ids", [])),
+                    "federated_ids": _to_sequence(conflict.get("federated_ids", [])),
                 },
             }
         )
@@ -2248,7 +2262,7 @@ class ArchitectDaemon:
 
     def merge_federated_priority(
         self, federated_id: str
-    ) -> dict[str, str] | None:
+    ) -> dict[str, object] | None:
         entry = self._federated_index.get(federated_id)
         if not entry:
             return None
@@ -2256,7 +2270,11 @@ class ArchitectDaemon:
         if not text:
             return None
         priority_id = str(uuid4())
-        local_entry = {"id": priority_id, "text": text, "status": "pending"}
+        local_entry: dict[str, object] = {
+            "id": priority_id,
+            "text": text,
+            "status": "pending",
+        }
         self._priority_active.append(local_entry)
         self._priority_index[priority_id] = local_entry
         entry["merged"] = True
@@ -2268,7 +2286,7 @@ class ArchitectDaemon:
             "federated_id": federated_id,
             "priority_id": priority_id,
             "text": text,
-            "origin_peers": list(entry.get("origin_peers", [])),
+            "origin_peers": _to_sequence(entry.get("origin_peers", [])),
         }
         self._emit_ledger_event(ledger_payload)
         self._publish_pulse(
@@ -2281,7 +2299,7 @@ class ArchitectDaemon:
                     "federated_id": federated_id,
                     "priority_id": priority_id,
                     "text": text,
-                    "origin_peers": list(entry.get("origin_peers", [])),
+                    "origin_peers": _to_sequence(entry.get("origin_peers", [])),
                 },
             }
         )
@@ -2323,19 +2341,22 @@ class ArchitectDaemon:
             }
         )
 
-    def _select_backlog_priority(self, cycle_number: int) -> dict[str, str] | None:
+    def _select_backlog_priority(self, cycle_number: int) -> dict[str, object] | None:
         for entry in self._priority_active:
             status = str(entry.get("status", "pending")).strip().lower()
             if status == "pending":
                 entry["status"] = "in_progress"
-                self._priority_index[entry["id"]] = entry
+                entry_id = str(entry.get("id", "")).strip()
+                if not entry_id:
+                    continue
+                self._priority_index[entry_id] = entry
                 self._save_priority_backlog()
                 self._emit_priority_event(
                     "architect_priority_selected",
                     entry,
                     cycle=cycle_number,
                     priority_level="info",
-                    extra={"status": entry["status"]},
+                    extra={"status": str(entry.get("status", "pending"))},
                 )
                 return entry
         return None
@@ -2362,9 +2383,9 @@ class ArchitectDaemon:
                 hist.get("id") == priority_id for hist in self._priority_history
             )
             if not already_recorded:
-                record: dict[str, str] = {
-                    "id": entry["id"],
-                    "text": entry["text"],
+                record: dict[str, object] = {
+                    "id": str(entry.get("id", "")),
+                    "text": str(entry.get("text", "")),
                     "status": status,
                     "completed_at": self._now().isoformat(),
                 }
@@ -3270,11 +3291,13 @@ class ArchitectDaemon:
                 "trajectory_id": report.get("trajectory_id"),
                 "success_rate": report.get("success_rate"),
                 "failure_rate": report.get("failure_rate"),
-                "recurring_regressions": list(report.get("recurring_regressions", [])),
-                "priority_followthrough": dict(
+                "recurring_regressions": _to_sequence(
+                    report.get("recurring_regressions", [])
+                ),
+                "priority_followthrough": _to_mapping(
                     report.get("priority_followthrough", {})
                 ),
-                "cycles_included": list(report.get("cycles_included", [])),
+                "cycles_included": _to_sequence(report.get("cycles_included", [])),
                 "report_path": report_path.as_posix(),
             },
         }
@@ -3307,7 +3330,7 @@ class ArchitectDaemon:
         settings: dict[str, object] = {}
         changed = False
 
-        success_rate = float(report.get("success_rate", 0.0) or 0.0)
+        success_rate = self._coerce_float(report.get("success_rate", 0.0), 0.0)
         base_reflection = max(1, int(self._default_reflection_interval))
         if success_rate < self._success_rate_threshold:
             if base_reflection > 1:
@@ -3326,7 +3349,7 @@ class ArchitectDaemon:
                 changed = True
 
         failure_streak_value = max(
-            int(report.get("current_failure_streak", 0) or 0),
+            self._coerce_int(report.get("current_failure_streak", 0), 0),
             int(self._failure_streak or 0),
         )
         if failure_streak_value > self._failure_streak_threshold:
@@ -3347,7 +3370,7 @@ class ArchitectDaemon:
                 settings["cooldown_period"] = target_cooldown
                 changed = True
 
-        conflict_rate = float(report.get("conflict_rate", 0.0) or 0.0)
+        conflict_rate = self._coerce_float(report.get("conflict_rate", 0.0), 0.0)
         conflict_escalated = False
         if (
             conflict_rate > self._conflict_rate_threshold
@@ -3554,7 +3577,7 @@ class ArchitectDaemon:
     def _draft_cycle_request(self, cycle_number: int) -> ArchitectRequest:
         priority_entry = self._select_backlog_priority(cycle_number)
         if priority_entry is not None:
-            text = priority_entry.get("text", "").strip()
+            text = str(priority_entry.get("text", "")).strip()
             description = f"Backlog priority: {text}" if text else "Backlog priority"
             details = {
                 "description": description,
@@ -3833,14 +3856,18 @@ class ArchitectDaemon:
             self._anomaly_streak = min(len(anomalies), self._anomaly_threshold)
 
     def _record_success(self) -> None:
-        self._session["runs"] = int(self._session.get("runs", 0)) + 1
-        self._session["successes"] = int(self._session.get("successes", 0)) + 1
+        self._session["runs"] = self._coerce_int(self._session.get("runs", 0), 0) + 1
+        self._session["successes"] = (
+            self._coerce_int(self._session.get("successes", 0), 0) + 1
+        )
         self._failure_streak = 0
         self._save_session()
 
     def _record_failure(self) -> None:
-        self._session["runs"] = int(self._session.get("runs", 0)) + 1
-        self._session["failures"] = int(self._session.get("failures", 0)) + 1
+        self._session["runs"] = self._coerce_int(self._session.get("runs", 0), 0) + 1
+        self._session["failures"] = (
+            self._coerce_int(self._session.get("failures", 0), 0) + 1
+        )
         self._failure_streak += 1
         if self._failure_streak >= self._max_failures:
             self._enter_cooldown("failure_streak")
@@ -4020,17 +4047,22 @@ class ArchitectDaemon:
 
     def _apply_config(self, snapshot: Mapping[str, object]) -> None:
         self._codex_mode = str(snapshot.get("codex_mode", "observe"))
-        base_interval = float(
-            snapshot.get("architect_interval", snapshot.get("codex_interval", self._default_interval))
+        base_interval = self._coerce_float(
+            snapshot.get(
+                "architect_interval",
+                snapshot.get("codex_interval", self._default_interval),
+            ),
+            self._default_interval,
         )
         self._base_interval = max(60.0, base_interval)
         self.jitter = max(
             0.0,
-            float(snapshot.get("architect_jitter", self._default_jitter)),
+            self._coerce_float(snapshot.get("architect_jitter", self._default_jitter), self._default_jitter),
         )
         self._update_interval()
-        self.max_iterations = int(
-            snapshot.get("codex_max_iterations", self._default_max_iterations)
+        self.max_iterations = self._coerce_int(
+            snapshot.get("codex_max_iterations", self._default_max_iterations),
+            self._default_max_iterations,
         )
         self._federation_peer_name = str(
             snapshot.get("federation_peer_name", "")
@@ -4048,10 +4080,9 @@ class ArchitectDaemon:
             snapshot.get("federate_priorities", ARCHITECT_FEDERATE_PRIORITIES)
         )
         try:
-            trajectory_interval = int(
-                snapshot.get(
-                    "architect_trajectory_interval", self._trajectory_interval
-                )
+            trajectory_interval = self._coerce_int(
+                snapshot.get("architect_trajectory_interval", self._trajectory_interval),
+                self._trajectory_interval,
             )
         except (TypeError, ValueError):
             trajectory_interval = self._trajectory_interval
@@ -4250,7 +4281,7 @@ class ArchitectDaemon:
         if self._federation_peer_name and peer == self._federation_peer_name:
             return
         try:
-            verified = bool(pulse_bus.verify(event))
+            verified = bool(pulse_bus.verify(dict(event)))
         except Exception:
             verified = False
         if not verified:
@@ -4438,7 +4469,10 @@ class ArchitectDaemon:
         elif request.mode == "reflect":
             window_size = 10
             try:
-                window_size = int(request.details.get("window_size", window_size))
+                window_size = self._coerce_int(
+                    request.details.get("window_size", window_size),
+                    window_size,
+                )
             except Exception:
                 window_size = 10
             lines.append("Reflection Prompt:")
@@ -4504,7 +4538,7 @@ class ArchitectDaemon:
                 "architect_id": request.architect_id,
                 "mode": request.mode,
                 "request_id": entry.get("request_id", ""),
-                "files_changed": list(entry.get("files_changed", [])),
+                "files_changed": _to_sequence(entry.get("files_changed", [])),
                 "iterations": request.iterations,
                 "merge_status": status,
             }
@@ -4541,8 +4575,14 @@ class ArchitectDaemon:
         path = self._persist_reflection(request, reflection)
         summary = str(reflection["summary"]).strip()
         next_priorities = list(reflection["next_priorities"])
-        window_start = int(request.details.get("window_start", request.cycle_number))
-        window_end = int(request.details.get("window_end", request.cycle_number))
+        window_start = self._coerce_int(
+            request.details.get("window_start", request.cycle_number),
+            request.cycle_number,
+        )
+        window_end = self._coerce_int(
+            request.details.get("window_end", request.cycle_number),
+            request.cycle_number,
+        )
         cycle_range = {"start": window_start, "end": window_end}
         rel_path = path.as_posix().lstrip("/")
         completed_at = self._now().isoformat()
@@ -4676,7 +4716,7 @@ class ArchitectDaemon:
         self._prefix_index.pop(request.codex_prefix, None)
 
     def _persist_reflection(
-        self, request: ArchitectRequest, reflection: Mapping[str, object]
+        self, request: ArchitectRequest, reflection: ReflectionPayload
     ) -> Path:
         timestamp = self._now().strftime("%Y%m%d_%H%M%S")
         stem = f"reflection_{timestamp}"
@@ -4694,8 +4734,14 @@ class ArchitectDaemon:
             "architect_id": request.architect_id,
             "cycle": request.cycle_number,
             "cycle_range": {
-                "start": int(request.details.get("window_start", request.cycle_number)),
-                "end": int(request.details.get("window_end", request.cycle_number)),
+                "start": self._coerce_int(
+                    request.details.get("window_start", request.cycle_number),
+                    request.cycle_number,
+                ),
+                "end": self._coerce_int(
+                    request.details.get("window_end", request.cycle_number),
+                    request.cycle_number,
+                ),
             },
             "generated_at": self._now().isoformat(),
         }
@@ -4704,7 +4750,7 @@ class ArchitectDaemon:
 
     def _parse_reflection_output(
         self, payload: object
-    ) -> tuple[dict[str, object] | None, str | None]:
+    ) -> tuple[ReflectionPayload | None, str | None]:
         if isinstance(payload, Mapping):
             data = dict(payload)
         elif isinstance(payload, str):
@@ -4754,7 +4800,7 @@ class ArchitectDaemon:
         if any(value is None for value in (successes, failures, regressions, priorities)):
             return None, "invalid_list_field"
 
-        normalized: dict[str, object] = {
+        normalized: ReflectionPayload = {
             "summary": summary.strip() or summary,
             "successes": successes or [],
             "failures": failures or [],
@@ -4790,7 +4836,7 @@ class ArchitectDaemon:
             )
             self._record_failure()
             priority_id = request.details.get("priority_id")
-            cycle_number = int(request.cycle_number or 0)
+            cycle_number = self._coerce_int(request.cycle_number or 0, 0)
             if isinstance(priority_id, str) and priority_id:
                 self._finalize_priority(
                     priority_id,
@@ -4833,7 +4879,7 @@ class ArchitectDaemon:
             "mode": request.mode,
             "request_id": entry.get("patch_id", ""),
             "reason": request.reason,
-            "files_changed": list(entry.get("files_changed", [])),
+            "files_changed": _to_sequence(entry.get("files_changed", [])),
             "iterations": request.iterations,
         }
         self._update_cycle_entry(
