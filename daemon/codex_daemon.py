@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from queue import Queue
 from threading import Event
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence, TypeAlias
 
 from sentientos import immutability
 from sentientos.daemons import pulse_bus
@@ -33,6 +33,8 @@ EXPAND_REQUEST_DIR = Path("/glow/codex_requests")
 EXPAND_ARCHIVE_DIR = EXPAND_REQUEST_DIR / "archive"
 EXPAND_MAX_BYTES = 50 * 1024
 PROJECT_ROOT = Path(os.getenv("CODEX_PROJECT_ROOT", Path.cwd())).resolve()
+LedgerEntry: TypeAlias = dict[str, object]
+LedgerQueue: TypeAlias = Queue[LedgerEntry]
 
 def _workspace_root() -> Path:
     if isinstance(PROJECT_ROOT, Path):
@@ -47,6 +49,13 @@ def _normalize_repo_path(path: str) -> str:
     if text.startswith("/"):
         text = text[1:]
     return text
+
+
+def _string_list_from_mapping(data: Mapping[str, object], key: str) -> list[str]:
+    raw_value = data.get(key)
+    if not isinstance(raw_value, Sequence) or isinstance(raw_value, (str, bytes)):
+        return []
+    return [str(item) for item in raw_value if isinstance(item, str)]
 
 
 def _is_off_limits(path: str) -> bool:
@@ -269,10 +278,11 @@ def _write_expand_trace(
     return trace_path
 
 
-def _log_expand_entry(entry: dict[str, object], ledger_queue: Queue | None) -> None:
-    log_activity(dict(entry))
+def _log_expand_entry(entry: Mapping[str, object], ledger_queue: LedgerQueue | None) -> None:
+    payload = dict(entry)
+    log_activity(payload)
     if ledger_queue is not None:
-        ledger_queue.put(dict(entry))
+        ledger_queue.put(payload)
 
 
 def _publish_expand_request(
@@ -334,7 +344,7 @@ def _queue_expand_veil(
     patch_path: Path,
     files_changed: Sequence[str],
     task: str,
-    ledger_queue: Queue | None,
+    ledger_queue: LedgerQueue | None,
     *,
     response_format: str,
 ) -> None:
@@ -393,7 +403,7 @@ def _load_expand_request(path: Path) -> tuple[str, str | None]:
     raise ValueError("unsupported_request_format")
 
 
-def _handle_expand_request(path: Path, ledger_queue: Queue | None) -> dict[str, object]:
+def _handle_expand_request(path: Path, ledger_queue: LedgerQueue | None) -> dict[str, object]:
     request_id = _generate_expand_request_id(path.name)
     request_size = path.stat().st_size
     task = ""
@@ -411,7 +421,7 @@ def _handle_expand_request(path: Path, ledger_queue: Queue | None) -> dict[str, 
             context=context,
             size=request_size,
         )
-        entry = {
+        entry: LedgerEntry = {
             "ts": _ledger_timestamp(),
             "event": "self_expand_rejected",
             "request_id": request_id,
@@ -528,7 +538,7 @@ def _handle_expand_request(path: Path, ledger_queue: Queue | None) -> dict[str, 
         _archive_codex_response(request_id, codex_output, suffix=".diff")
 
     files_changed = sorted({_normalize_repo_path(path) for path in files_changed if path})
-    suggest_entry = {
+    suggest_entry: LedgerEntry = {
         "ts": _ledger_timestamp(),
         "event": "self_expand_suggested",
         "request_id": request_id,
@@ -637,7 +647,7 @@ def _handle_expand_request(path: Path, ledger_queue: Queue | None) -> dict[str, 
     subprocess.run(["git", "add", "-A"], check=False)
     subprocess.run(["git", "commit", "-m", "[codex:self_expand]"], check=False)
 
-    result_entry = {
+    result_entry: LedgerEntry = {
         "ts": _ledger_timestamp(),
         "event": "self_expand",
         "request_id": request_id,
@@ -660,7 +670,7 @@ def _handle_expand_request(path: Path, ledger_queue: Queue | None) -> dict[str, 
     return result_entry
 
 
-def _process_expand_requests(ledger_queue: Queue | None) -> dict[str, object] | None:
+def _process_expand_requests(ledger_queue: LedgerQueue | None) -> dict[str, object] | None:
     request_dir = EXPAND_REQUEST_DIR
     if not request_dir.exists():
         return None
@@ -698,7 +708,7 @@ def run_diagnostics() -> tuple[bool, str, int]:
     return True, "", 0
 
 
-def run_ci(queue: Queue) -> bool:
+def run_ci(queue: LedgerQueue) -> bool:
     return True
 
 
@@ -725,7 +735,7 @@ def _filtered_manifest_paths(files: Sequence[str]) -> list[str]:
 
 def _reconcile_manifest(
     files: Sequence[str],
-    ledger_queue: Queue | None,
+    ledger_queue: LedgerQueue | None,
     *,
     source_event: str,
 ) -> dict[str, object] | None:
@@ -737,7 +747,7 @@ def _reconcile_manifest(
     try:
         manifest = immutability.update_manifest(filtered, manifest_path=MANIFEST_PATH)
     except Exception as exc:  # pragma: no cover - surfaced via ledger
-        failure = {
+        failure: LedgerEntry = {
             "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
             "event": "manifest_reconcile_failed",
             "files_changed": filtered,
@@ -750,7 +760,7 @@ def _reconcile_manifest(
         return None
 
     now = datetime.now(timezone.utc).isoformat()
-    ledger_entry = {
+    ledger_entry: LedgerEntry = {
         "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
         "event": "manifest_reconciled",
         "files_changed": filtered,
@@ -782,7 +792,7 @@ class _PredictiveRepairManager:
         self.suggestion_dir = CODEX_SUGGEST_DIR
         self.metrics_path = MONITORING_METRICS_PATH
 
-    def handle_alert(self, event: Mapping[str, object], ledger_queue: Queue | None = None) -> None:
+    def handle_alert(self, event: Mapping[str, object], ledger_queue: LedgerQueue | None = None) -> None:
         payload = event.get("payload")
         if not isinstance(payload, Mapping):
             return
@@ -800,7 +810,7 @@ class _PredictiveRepairManager:
         target_daemon = self._target_daemon(payload)
         raw_confidence = payload.get("confidence")
         try:
-            event_confidence = float(raw_confidence)
+            event_confidence = float(raw_confidence or 0.0)
         except (TypeError, ValueError):
             event_confidence = 0.5
         integration_source = target_daemon or str(
@@ -1016,8 +1026,8 @@ class _PredictiveRepairManager:
         metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
         return metadata
 
-    def _publish_veil_request(self, metadata: Mapping[str, object], ledger_queue: Queue | None) -> None:
-        veil_event = {
+    def _publish_veil_request(self, metadata: Mapping[str, object], ledger_queue: LedgerQueue | None) -> None:
+        veil_event: LedgerEntry = {
             "timestamp": _iso_timestamp(),
             "source_daemon": "CodexDaemon",
             "event_type": "veil_request",
@@ -1032,7 +1042,7 @@ class _PredictiveRepairManager:
             "scope": metadata.get("scope", "local"),
             "status": metadata.get("status", "pending"),
             "requires_confirmation": True,
-            "files_changed": list(metadata.get("files_changed", [])),
+            "files_changed": _string_list_from_mapping(metadata, "files_changed"),
             "analysis_window": metadata.get("analysis_window", ""),
             "anomaly_pattern": metadata.get("anomaly_pattern", ""),
             "source_peer": metadata.get("source_peer", ""),
@@ -1050,7 +1060,7 @@ class _PredictiveRepairManager:
         analysis_window: str,
         anomaly_pattern: str,
         target_daemon: str,
-        ledger_queue: Queue | None,
+        ledger_queue: LedgerQueue | None,
     ) -> None:
         applied = bool(apply_patch(diff_text))
         verification = False
@@ -1147,7 +1157,7 @@ class _PredictiveRepairManager:
 
 
 def _process_predictive_suggestion(
-    event: Mapping[str, object], ledger_queue: Queue | None = None
+    event: Mapping[str, object], ledger_queue: LedgerQueue | None = None
 ) -> None:
     payload = event.get("payload")
     if not isinstance(payload, Mapping):
@@ -1304,7 +1314,10 @@ def _resolve_patch_file(patch_id: str, metadata: Mapping[str, object]) -> Path:
 
 def confirm_veil_patch(patch_id: str) -> dict[str, object]:
     metadata_path = _resolve_metadata_path(patch_id)
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    loaded = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise RuntimeError("invalid_veil_metadata")
+    metadata: dict[str, object] = loaded
     status = str(metadata.get("status", "pending"))
     if status not in {"pending", "suggested"}:
         raise RuntimeError("veil patch already resolved")
@@ -1312,19 +1325,17 @@ def confirm_veil_patch(patch_id: str) -> dict[str, object]:
     response_format = str(metadata.get("response_format", "diff"))
     if response_format == "json_mapping":
         mapping = json.loads(diff_path.read_text(encoding="utf-8"))
+        if not isinstance(mapping, Mapping):
+            raise RuntimeError("invalid_mapping_payload")
         files_changed = _apply_file_mapping(mapping)
         applied = True
     else:
         diff_text = diff_path.read_text(encoding="utf-8")
         applied = bool(apply_patch(diff_text))
-        files_changed = [
-            str(item)
-            for item in metadata.get("files_changed", [])
-            if isinstance(item, str)
-        ]
+        files_changed = _string_list_from_mapping(metadata, "files_changed")
     if not applied:
         raise RuntimeError("patch_apply_failed")
-    queue: Queue = Queue()
+    queue: LedgerQueue = Queue()
     verification = bool(run_ci(queue))
     if not verification:
         raise RuntimeError("verification_failed")
@@ -1358,7 +1369,10 @@ def confirm_veil_patch(patch_id: str) -> dict[str, object]:
 
 def reject_veil_patch(patch_id: str) -> dict[str, object]:
     metadata_path = _resolve_metadata_path(patch_id)
-    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    loaded = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise RuntimeError("invalid_veil_metadata")
+    metadata: dict[str, object] = loaded
     status = str(metadata.get("status", "pending"))
     if status not in {"pending", "suggested"}:
         raise RuntimeError("veil patch already resolved")
@@ -1368,7 +1382,7 @@ def reject_veil_patch(patch_id: str) -> dict[str, object]:
     metadata["status"] = "rejected"
     metadata["rejected_at"] = _iso_timestamp()
     metadata_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding="utf-8")
-    files_changed = [str(item) for item in metadata.get("files_changed", []) if isinstance(item, str)]
+    files_changed = _string_list_from_mapping(metadata, "files_changed")
     entry = {
         "ts": _ledger_timestamp(),
         "event": "veil_rejected",
@@ -1393,18 +1407,18 @@ def reject_veil_patch(patch_id: str) -> dict[str, object]:
 
 
 def record_self_predict_applied(
-    files_changed: Sequence[str], ledger_queue: Queue | None = None
+    files_changed: Sequence[str], ledger_queue: LedgerQueue | None = None
 ) -> None:
     _reconcile_manifest(files_changed, ledger_queue, source_event="self_predict_applied")
 
 
 def record_veil_confirmed(
-    files_changed: Sequence[str], ledger_queue: Queue | None = None
+    files_changed: Sequence[str], ledger_queue: LedgerQueue | None = None
 ) -> None:
     _reconcile_manifest(files_changed, ledger_queue, source_event="veil_confirmed")
 
 
-def run_once(ledger_queue: Queue) -> dict | None:
+def run_once(ledger_queue: LedgerQueue) -> dict[str, object] | None:
     """Execute a single Codex self-repair cycle with multi-iteration and workspace hygiene."""
 
     if CODEX_MODE == "expand":
@@ -1441,7 +1455,7 @@ def run_once(ledger_queue: Queue) -> dict | None:
     max_iterations = max(1, CODEX_MAX_ITERATIONS)
     current_summary = summary
     cumulative_files: set[str] = set()
-    last_entry: dict | None = None
+    last_entry: dict[str, object] | None = None
 
     for iteration in range(1, max_iterations + 1):
         failing_tests = parse_failing_tests(current_summary)
@@ -1550,8 +1564,15 @@ def run_once(ledger_queue: Queue) -> dict | None:
             log_activity(success_entry)
             ledger_queue.put(success_entry)
             send_notifications(success_entry)
+            success_files_value = success_entry.get("files_changed")
+            success_files = (
+                [str(item) for item in success_files_value if isinstance(item, str)]
+                if isinstance(success_files_value, Sequence)
+                and not isinstance(success_files_value, (str, bytes))
+                else []
+            )
             _reconcile_manifest(
-                success_entry["files_changed"],
+                success_files,
                 ledger_queue,
                 source_event="self_repair",
             )
@@ -1584,17 +1605,17 @@ def run_once(ledger_queue: Queue) -> dict | None:
     return last_entry
 
 
-def self_repair_check(queue: Queue | None = None) -> dict | None:
+def self_repair_check(queue: LedgerQueue | None = None) -> dict[str, object] | None:
     """Public entry point used by dashboards to trigger Codex self-repair."""
 
-    active_queue = queue or Queue()
+    active_queue: LedgerQueue = queue or Queue()
     return run_once(active_queue)
 
 
-def run_loop(stop_event: Event, queue: Queue | None = None) -> None:
+def run_loop(stop_event: Event, queue: LedgerQueue | None = None) -> None:
     """Background loop watching critical pulse events to trigger self repair."""
 
-    work_queue = queue or Queue()
+    work_queue: LedgerQueue = queue or Queue()
 
     def _handle(event: Mapping[str, object]) -> None:
         if stop_event.is_set():

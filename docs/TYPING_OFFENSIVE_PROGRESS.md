@@ -464,3 +464,106 @@ Most-reduced error families in this pass:
 5. `sentientos/strategic_adaptation.py`
 
 Recommended next pass: continue architect late-file coercion clusters (list/int overload bands around trajectory/reflection reducers), then attack `daemon/codex_daemon.py` invariance/type-arg queue surfaces for runtime spillover reduction.
+
+---
+
+## High-density typing offensive VIII (2026-03-23)
+
+### Fresh failure-density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy scripts/ sentientos/ --show-error-codes --no-color-output`
+
+Repo-wide error count before this pass: **2164**.
+
+Highest mature runtime corridor density in the current baseline:
+
+- `architect_daemon.py`: **76**
+  - Cluster: late-cycle trajectory/reflection coercion and mixed payload traversal.
+  - Families: `call-overload`, `attr-defined`, `arg-type`, `assignment`.
+  - Root cause: object/list/map traversal without narrow boundary adapters in deep runtime paths.
+- `daemon/codex_daemon.py`: **45**
+  - Cluster: queue/container invariance + expand/predictive ledger payload boundaries.
+  - Families: `type-arg`, `arg-type`, `return-value`, `call-overload`, `attr-defined`.
+  - Root cause: unparameterized `Queue`, invariant `dict[str, object]` mismatches, mixed metadata payload traversal.
+- `codex/anomalies.py`: **16**
+  - Cluster: embodiment event normalization pipeline.
+  - Families: `arg-type`, `union-attr`.
+  - Root cause: optional/mixed mapping payload values crossing detector boundaries.
+- `codex/expression_bridge.py`: **10**
+  - Cluster: autopsy/state snapshot aggregation.
+  - Families: `call-overload`, `index`, `operator`, `no-untyped-def`.
+  - Root cause: object-valued compressed state counters and untyped contextmanager return.
+
+Relay posture check:
+
+- `relay_app.py` remains **excluded from this repo-wide baseline command** (`scripts/ sentientos/` only), so it is still not a corridor driver for this offensive. It remains deferred out-of-scope for this pass.
+
+### Offensive VIII scope executed
+
+Corridor selected: **architect-adjacent codex runtime helper corridor** where helper cleanup had higher immediate payoff than direct deep-file architect edits in one pass.
+
+Primary modules:
+
+- `daemon/codex_daemon.py`
+- `codex/anomalies.py`
+- `codex/expression_bridge.py`
+
+Change themes:
+
+- Added explicit typed queue aliases and ledger entry boundaries in codex daemon (`LedgerQueue`/`LedgerEntry`) and narrowed metadata list extraction via typed helper.
+- Replaced repeated invariant dict-return fallout in expand/reject paths with explicit ledger-entry typing and mapping-safe adapters.
+- Hardened veil metadata JSON parsing with runtime shape checks before patch/mapping application.
+- Normalized embodiment-event narrowing in anomalies with type guards and explicit mapping/timestamp payload extraction.
+- Tightened expression bridge state/autopsy coercion paths using safe integer coercion and typed state snapshot narrowing.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy scripts/ sentientos/ --show-error-codes --no-color-output`
+
+Repo-wide error count after this pass: **2094** (**-70 net**).
+
+Targeted corridor deltas:
+
+- `daemon/codex_daemon.py`: **45 -> 0** (in focused module check)
+- `codex/anomalies.py`: **16 -> 0**
+- `codex/expression_bridge.py`: **10 -> 0**
+- `architect_daemon.py`: remains high-density (**76 -> 77** in this snapshot; effectively unchanged corridor-local debt)
+
+Targeted command:
+
+- `python -m mypy daemon/codex_daemon.py codex/anomalies.py codex/expression_bridge.py --show-error-codes --no-color-output`
+  - Current targeted total: **0 errors** in touched modules.
+
+Zero-cleaned files in this offensive:
+
+- `daemon/codex_daemon.py`
+- `codex/anomalies.py`
+- `codex/expression_bridge.py`
+
+Most-reduced error families in this pass:
+
+- `arg-type`
+- `type-arg`
+- `call-overload`
+- `union-attr`
+
+### Ratchet / protected-surface posture
+
+- No ratchet baselines were loosened.
+- No protected-surface promotions were asserted without evidence.
+- No runtime/governor/quorum/digest/protocol/forge/observatory architecture redesigns were introduced.
+- Append-only provenance and immutable-manifest behavior remained unchanged.
+
+### Deferred heavy clusters after Offensive VIII
+
+1. `architect_daemon.py` (remaining dominant runtime corridor)
+2. `memory_manager.py`
+3. `sentientos/narrative_synthesis.py`
+4. `sentientos/strategic_adaptation.py`
+5. `sentientos/governance/intentional_forgetting.py`
+
+Recommended next pass: a direct architect-only high-density sweep focused on the remaining `call-overload` + `attr-defined` + `assignment` hotspots (especially late trajectory/reflection sections), with helper extraction only where it clearly collapses repeated payload coercion bands.
