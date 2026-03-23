@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Dict, Literal, Mapping, MutableMapping, Sequence, TypeVar, cast
 
 from control_plane.enums import ReasonCode, RequestType
 from control_plane.records import AuthorizationError, AuthorizationRecord
@@ -64,6 +64,7 @@ class AdapterPayload:
 
 
 StepPayload = NoopPayload | ShellPayload | PythonPayload | MeshPayload | AdapterPayload
+StepPayloadT = TypeVar("StepPayloadT", bound=StepPayload)
 
 
 @dataclass(frozen=True)
@@ -458,13 +459,16 @@ def _run_adapter(
     approved_privileges: Sequence[str] = (),
 ) -> Dict[str, object]:
     payload = _require_payload(step, AdapterPayload)
+    if authorization is None:
+        raise StepExecutionError(step, "adapter step requires authorization")
+    admission_payload = asdict(admission_token) if admission_token is not None else None
     context = AdapterExecutionContext(
         source="task",
         task_id=task_id,
         routine_id=None,
         request_fingerprint=str(request_fingerprint),
         authorization=authorization,
-        admission_token=asdict(admission_token),
+        admission_token=admission_payload,
         approved_privileges=approved_privileges,
         required_privileges=required_privileges,
     )
@@ -473,7 +477,7 @@ def _run_adapter(
         action=payload.action,
         params=payload.params,
         adapter_config=payload.config,
-        context=context,
+        context=cast(Any, context),
         redact_keys=payload.redact_keys,
     )
     artifacts: Dict[str, object] = dict(result.outcome)
@@ -492,7 +496,7 @@ def _apply_expects(artifacts: Mapping[str, object], expects: Sequence[str]) -> D
     return finalized
 
 
-def _require_payload(step: Step, payload_type: type[StepPayload]) -> StepPayload:
+def _require_payload(step: Step, payload_type: type[StepPayloadT]) -> StepPayloadT:
     if not isinstance(step.payload, payload_type):
         raise StepExecutionError(step, f"{step.kind} payload must be {payload_type.__name__}")
     return step.payload
@@ -1294,11 +1298,16 @@ def canonicalise_task_execution_snapshot(
 ) -> dict[str, object]:
     if admission_token.task_id != task.task_id or result.task_id != task.task_id:
         raise SnapshotDivergenceError("task id mismatch between snapshot components")
+    declared_inputs_payload = declared_inputs
+    if declared_inputs_payload is None:
+        raw_declared_inputs = result.canonical_request.get("declared_inputs")
+        if isinstance(raw_declared_inputs, Mapping):
+            declared_inputs_payload = cast(Mapping[str, object], raw_declared_inputs)
     canonical_request = canonicalise_task_request(
         task=task,
         authorization=authorization,
         provenance=admission_token.provenance,
-        declared_inputs=declared_inputs or result.canonical_request.get("declared_inputs"),
+        declared_inputs=declared_inputs_payload,
     )
     fingerprint = request_fingerprint_from_canonical(canonical_request)
     if fingerprint.value != admission_token.request_fingerprint.value or fingerprint.value != result.request_fingerprint.value:
@@ -1609,7 +1618,7 @@ def _canonicalise_provenance_payload(payload: Mapping[str, Any]) -> dict[str, st
 
 
 def _canonicalise_authorization_payload(auth_payload: Mapping[str, Any]) -> dict[str, object]:
-    canonical_auth = {
+    canonical_auth: dict[str, object] = {
         "request_type": str(auth_payload.get("request_type", "")),
         "requester_id": str(auth_payload.get("requester_id", "")),
         "intent_hash": str(auth_payload.get("intent_hash", "")),
