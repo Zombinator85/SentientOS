@@ -374,3 +374,93 @@ Most-reduced error families in this pass:
 5. `sentientos/strategic_adaptation.py`
 
 Recommended next pass: a concentrated architect payload-normalization sweep (call-overload + attr-defined families), then `daemon/codex_daemon.py` queue/container invariant cleanup to reduce runtime execution-path propagation.
+
+---
+
+## High-density typing offensive VII (2026-03-23)
+
+### Fresh failure-density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy --hide-error-context --no-color-output --show-column-numbers --show-error-codes scripts sentientos`
+
+Repo-wide error count before this pass: **2202**.
+
+Runtime corridor density focus (post-Offensive VI reality check):
+
+- `architect_daemon.py`: **97**
+  - Cluster: federated backlog/conflict normalization + session/runtime coercion.
+  - Families: `call-overload` (41), `attr-defined` (19), `arg-type` (12), `assignment` (10), plus minor `index`/`no-redef`.
+  - Likely root cause: heavy `object` payload traversal and untyped list/map coercion at backlog + conflict boundaries.
+  - Expected payoff: high (single mature runtime file still top global offender).
+- `sentientos/shell/__init__.py`: **17**
+  - Cluster: dashboard adapter boundaries (`driver_manager`, architect panel/report hydration, codex module loading).
+  - Families: mostly `attr-defined`/`arg-type`/`call-overload`.
+  - Likely root cause: `object` propagation from adapter/module boundaries into report traversal.
+  - Expected payoff: high (small concentrated set with fast zero-clean opportunity).
+- `relay_app.py`: **0** (confirmed still out-of-scope for this offensive).
+
+Density summary: Offensive VII should stay in the **architect + shell mature runtime corridor**, with shell cleanup plus architect helper-driven normalization in shared payload traversal.
+
+### Offensive VII scope executed
+
+Primary modules:
+
+- `architect_daemon.py`
+- `sentientos/shell/__init__.py`
+
+Change themes:
+
+- Added explicit local coercion helpers in architect runtime paths (`_to_sequence`, `_to_mapping`, `_to_int`) and applied them in session hydration plus federated backlog/conflict traversal.
+- Reworked conflict-group assembly and sorting keys to avoid `object`/invariance fallout while preserving merge/conflict semantics.
+- Tightened mutable container narrowing in peer variant application and federated priority reconciliation.
+- Hardened shell adapter boundaries with explicit normalization/casts for driver status, architect panels, trajectory/followthrough charts, and installer returns.
+- Replaced direct module import typing leak with lazy import-module + protocol cast to preserve runtime behavior while removing shell boundary typing noise.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy --hide-error-context --no-color-output --show-column-numbers --show-error-codes scripts sentientos`
+
+Repo-wide error count after this pass: **2166** (**-36 net**).
+
+Targeted corridor deltas:
+
+- `architect_daemon.py`: **97 -> 76** (**-21**)
+- `sentientos/shell/__init__.py`: **17 -> 0** (**-17**)
+- `relay_app.py`: **0 -> 0**
+- Combined corridor: **114 -> 76** (**-38**)
+
+Targeted command:
+
+- `python -m mypy --follow-imports=skip --hide-error-context --no-color-output --show-column-numbers --show-error-codes architect_daemon.py sentientos/shell/__init__.py`
+  - Current targeted total: **75 errors in 1 file** (`architect_daemon.py` only).
+
+Zero-cleaned files in this offensive:
+
+- `sentientos/shell/__init__.py`
+
+Most-reduced error families in this pass:
+
+- `attr-defined` (architect + shell boundary narrowing)
+- `call-overload` (architect/session and payload coercion)
+- `arg-type`/`assignment` in runtime backlog/dashboard adapters
+
+### Ratchet / protected-surface posture
+
+- No baseline refreshes or loosened ratchet settings.
+- No protected-surface promotions asserted without zero-clean evidence.
+- No architecture redesigns or subsystem additions.
+- Append-only provenance, immutable manifest, and runtime governance semantics preserved.
+
+### Deferred heavy clusters after Offensive VII
+
+1. `architect_daemon.py` (remaining high-density object/list coercion corridor)
+2. `memory_manager.py`
+3. `sentientos/narrative_synthesis.py`
+4. `daemon/codex_daemon.py`
+5. `sentientos/strategic_adaptation.py`
+
+Recommended next pass: continue architect late-file coercion clusters (list/int overload bands around trajectory/reflection reducers), then attack `daemon/codex_daemon.py` invariance/type-arg queue surfaces for runtime spillover reduction.
