@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, Protocol, cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,14 +10,20 @@ from log_utils import append_json
 from sentientos.streams.audit_stream import tail_audit_entries
 
 
-def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
+class _StreamResponse(Protocol):
+    def iter_lines(self) -> Any: ...
+
+
+def _collect_sse_events(response: _StreamResponse, count: int) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
     current: dict[str, object] = {"data": []}
     for raw_line in response.iter_lines():
         line = raw_line.decode("utf-8")
         if not line:
-            if current["data"]:
-                data = json.loads("\n".join(current["data"]))
+            data_lines = current.get("data", [])
+            if isinstance(data_lines, list) and data_lines:
+                joined = "\n".join(str(item) for item in data_lines)
+                data = cast(dict[str, object], json.loads(joined))
                 events.append(
                     {
                         "id": current.get("id"),
@@ -35,8 +42,22 @@ def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
         elif line.startswith("event:"):
             current["event"] = line[6:].strip()
         elif line.startswith("data:"):
-            current["data"].append(line[5:].lstrip())
+            data_lines = current.get("data")
+            if isinstance(data_lines, list):
+                data_lines.append(line[5:].lstrip())
     return events
+
+
+def _event_payload(event: dict[str, object]) -> dict[str, object]:
+    payload = event.get("data")
+    return payload if isinstance(payload, dict) else {}
+
+
+def _event_date(event: dict[str, object]) -> str:
+    payload = _event_payload(event)
+    nested_payload = payload.get("payload")
+    nested = nested_payload if isinstance(nested_payload, dict) else {}
+    return str(nested.get("date", ""))
 
 
 def _write_pressure_event(log_path: Path, digest: str, event: str) -> None:
@@ -86,19 +107,20 @@ def test_pressure_stream_reconnect_no_dupe_and_bounds(
         first_batch = _collect_sse_events(response, 3)
 
     expected_offsets = [str(offset) for offset, _ in tail_entries]
-    assert [event["data"]["event_id"] for event in first_batch] == expected_offsets[:3]
-    last_id = first_batch[-1]["data"]["event_id"]
+    first_ids = [str(_event_payload(event).get("event_id", "")) for event in first_batch]
+    assert first_ids == expected_offsets[:3]
+    last_id = first_ids[-1]
 
     with client.stream(
         "GET", f"/api/pressure/stream?limit=500&since_id={last_id}"
     ) as response:
         second_batch = _collect_sse_events(response, 2)
 
-    reconnect_ids = [event["data"]["event_id"] for event in second_batch]
+    reconnect_ids = [str(_event_payload(event).get("event_id", "")) for event in second_batch]
     assert reconnect_ids == expected_offsets[3:5]
     assert min(int(value) for value in reconnect_ids) > int(last_id)
 
-    combined_ids = [event["data"]["event_id"] for event in first_batch + second_batch]
+    combined_ids = [str(_event_payload(event).get("event_id", "")) for event in first_batch + second_batch]
     assert len(combined_ids) == len(set(combined_ids))
 
     allowed_top_keys = {"stream", "schema_version", "event_id", "event_type", "timestamp", "payload", "digest"}
@@ -124,10 +146,12 @@ def test_pressure_stream_reconnect_no_dupe_and_bounds(
     }
     forbidden_payload_keys = {"raw_log", "stack"}
     for event in first_batch + second_batch:
-        payload = event["data"]
+        payload = _event_payload(event)
         assert set(payload.keys()) == allowed_top_keys
-        assert not forbidden_payload_keys.intersection(payload["payload"].keys())
-        assert set(payload["payload"].keys()).issubset(allowed_payload_keys)
+        nested_payload = payload.get("payload")
+        nested = nested_payload if isinstance(nested_payload, dict) else {}
+        assert not forbidden_payload_keys.intersection(nested.keys())
+        assert set(nested.keys()).issubset(allowed_payload_keys)
         assert len(json.dumps(payload)) < 10_000
 
 
@@ -143,7 +167,10 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     with client.stream("GET", "/api/drift/stream?limit=2") as response:
         first_batch = _collect_sse_events(response, 1)
 
-    last_date = first_batch[-1]["data"]["payload"]["date"]
+    first_payload = _event_payload(first_batch[-1])
+    first_nested_payload = first_payload.get("payload")
+    first_nested = first_nested_payload if isinstance(first_nested_payload, dict) else {}
+    last_date = str(first_nested.get("date", ""))
     _write_drift_event(log_path, "MOTION_STARVATION", "2024-01-03")
 
     with client.stream(
@@ -151,11 +178,14 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     ) as response:
         second_batch = _collect_sse_events(response, 1)
 
-    combined_dates = [event["data"]["payload"]["date"] for event in first_batch + second_batch]
+    combined_dates = [_event_date(event) for event in first_batch + second_batch]
     assert len(combined_dates) == len(set(combined_dates))
-    assert second_batch[0]["data"]["payload"]["date"] > last_date
+    second_payload = _event_payload(second_batch[0])
+    second_nested_payload = second_payload.get("payload")
+    second_nested = second_nested_payload if isinstance(second_nested_payload, dict) else {}
+    assert str(second_nested.get("date", "")) > last_date
     for batch in (first_batch, second_batch):
-        dates = [event["data"]["payload"]["date"] for event in batch]
+        dates = [_event_date(event) for event in batch]
         assert dates == sorted(dates, reverse=True)
 
     allowed_top_keys = {
@@ -169,7 +199,9 @@ def test_drift_stream_reconnect_no_dupe_and_payload_bounds(
     }
     forbidden_keys = {"silhouette", "raw_log", "stack"}
     for event in first_batch + second_batch:
-        payload = event["data"]
+        payload = _event_payload(event)
         assert set(payload.keys()).issubset(allowed_top_keys)
-        assert not forbidden_keys.intersection(payload["payload"].keys())
+        nested_payload = payload.get("payload")
+        nested = nested_payload if isinstance(nested_payload, dict) else {}
+        assert not forbidden_keys.intersection(nested.keys())
         assert len(json.dumps(payload)) < 10_000

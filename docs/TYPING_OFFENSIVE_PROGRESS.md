@@ -211,6 +211,88 @@ Recommended next pass: runtime-heavy operator core (`architect_daemon.py` + `tas
 
 ---
 
+## Operator Web Mainland III burn-down (2026-03-24)
+
+### Fresh full density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy . --hide-error-context --no-color-output`
+
+Repo-wide error count before this pass: **6391**.
+
+Operator/web/importer mainland density snapshot (selected high-payoff mature cone):
+
+- `dashboard_ui/api.py`: 43 (`untyped-decorator`, `no-untyped-def`, `arg-type`, `attr-defined`)
+- `sentientos/admin_server.py`: 31 (`untyped-decorator`, `valid-type`, `no-untyped-def`, `no-redef`)
+- `api/actuator.py`: 19 (`type-arg`, `no-untyped-def`, `arg-type`, `operator`)
+- `apps/dashboard/main.py`: 8 (`untyped-decorator`, `no-any-return`, `attr-defined`)
+- `tests/test_dashboard_sse_streams.py`: 14 (`index`, `attr-defined`, `arg-type`)
+- `tests/test_dashboard_sse_reconnect_smoke.py`: 16 (`index`, `attr-defined`, `arg-type`)
+
+Already-zero files in this cone (left out of scope): `plugin_dashboard.py`, `sentient_api.py`, `resonite_council_law_vault_engine.py` (from prior pass).
+
+Decision: continue Flask/FastAPI-backed operator-web cone (still highest ROI in the mature route/dashboard/reporting surface).
+
+### Mainland III scope executed
+
+Files touched in this offensive:
+
+- `dashboard_ui/api.py`
+- `sentientos/admin_server.py`
+- `apps/dashboard/main.py`
+- `api/actuator.py`
+- `tests/test_dashboard_sse_streams.py`
+- `tests/test_dashboard_sse_reconnect_smoke.py`
+- `sentientos/fastapi_stub.py` (shared boundary shim)
+
+Shared boundary themes:
+
+- Added a typed FastAPI shim to normalize request/response/decorator contracts in environments where FastAPI is optional.
+- Converted ad-hoc request payload assumptions to explicit mapping/string coercion at route boundaries.
+- Tightened SSE payload shaping and async generator typing.
+- Hardened actuator whitelist/template payload typing and timeout/pattern coercion at source.
+- Reduced test harness object/index fallout by normalizing SSE event payload extraction helpers.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy . --hide-error-context --no-color-output`
+
+Repo-wide error count after this pass: **6326** (**-65 net**).
+
+Cluster deltas:
+
+- `dashboard_ui/api.py`: 43 -> 0
+- `sentientos/admin_server.py`: 31 -> 0
+- `api/actuator.py`: 19 -> 0
+- `apps/dashboard/main.py`: 8 -> 0
+- `tests/test_dashboard_sse_streams.py`: 14 -> 0
+- `tests/test_dashboard_sse_reconnect_smoke.py`: 16 -> 0
+
+Selected mainland cluster reduction: **131 -> 0** (**-131**).
+
+Biggest family drops in this cluster:
+
+- `untyped-decorator`
+- `no-untyped-def`
+- `arg-type` / `attr-defined` from un-narrowed request/SSE payload objects
+- `type-arg` spillover in actuator helper paths
+
+### Ratchet / protected-surface posture
+
+- No ratchet loosening.
+- No runtime/governor/federation architecture redesign.
+- Operator/API/dashboard behavior preserved while enforcing typed request/response boundaries.
+
+### Deferred after this pass
+
+- Non-mainland heavy clusters still dominate repo-wide debt (`architect_daemon.py`, `relay_app.py`, `sentientos/shell/__init__.py`, broader sentientos innerworld/persona corridors).
+- Next likely mature mainland target: runtime operator core (`architect_daemon.py` + `relay_app.py`) or shell/reporting corridor, based on fresh density audit in the next pass.
+
+---
+
 ## High-density typing offensive V (2026-03-22)
 
 ### Fresh failure-density audit (before pass)
@@ -753,3 +835,87 @@ Most-reduced error families in this pass:
 5. `sentientos/governance/intentional_forgetting.py`
 
 Recommended next pass: a direct architect-only high-density sweep focused on the remaining `call-overload` + `attr-defined` + `assignment` hotspots (especially late trajectory/reflection sections), with helper extraction only where it clearly collapses repeated payload coercion bands.
+
+---
+
+## Operator Web Mainland III burn-down (2026-03-24)
+
+### Fresh full density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy . --hide-error-context --no-color-output`
+
+Repo-wide error count before this pass: **6391**.
+
+Operator/web/importer mainland density snapshot:
+
+- `dashboard_ui/api.py`: 43
+- `sentientos/admin_server.py`: 31
+- `api/actuator.py`: 19
+- `apps/dashboard/main.py`: 8
+- `tests/test_dashboard_sse_streams.py`: 14
+- `tests/test_dashboard_sse_reconnect_smoke.py`: 16
+
+Already-zero in this cone (kept out of scope): `plugin_dashboard.py`, `sentient_api.py`, `resonite_council_law_vault_engine.py`.
+
+Decision: continue the Flask/FastAPI-backed operator-web mainland (still the highest mature payoff corridor).
+
+### Mainland III scope executed
+
+Touched modules:
+
+- `dashboard_ui/api.py`
+- `sentientos/admin_server.py`
+- `apps/dashboard/main.py`
+- `api/actuator.py`
+- `tests/test_dashboard_sse_streams.py`
+- `tests/test_dashboard_sse_reconnect_smoke.py`
+- `sentientos/fastapi_stub.py`
+
+Change themes:
+
+- Added a typed FastAPI compatibility shim to normalize route/decorator/request/response contracts.
+- Replaced ad-hoc request payload assumptions with explicit mapping/string coercion at route boundaries.
+- Tightened SSE streaming generator typing and envelope event id/type normalization.
+- Normalized actuator whitelist/template timeout/pattern parsing to prevent `object` propagation.
+- Hardened adjacent SSE test harness payload extraction at source (instead of scattered unchecked indexing).
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy . --hide-error-context --no-color-output`
+
+Repo-wide error count after this pass: **6326** (**-65 net**).
+
+Cluster deltas:
+
+- `dashboard_ui/api.py`: 43 -> 0
+- `sentientos/admin_server.py`: 31 -> 0
+- `api/actuator.py`: 19 -> 0
+- `apps/dashboard/main.py`: 8 -> 0
+- `tests/test_dashboard_sse_streams.py`: 14 -> 0
+- `tests/test_dashboard_sse_reconnect_smoke.py`: 16 -> 0
+
+Selected mainland cluster reduction: **131 -> 0** (**-131**).
+
+Most-reduced families in this cluster:
+
+- `untyped-decorator`
+- `no-untyped-def`
+- `arg-type`
+- `attr-defined`
+- `type-arg`
+
+### Ratchet / protected-surface posture
+
+- No ratchet loosening.
+- No protected-surface promotion claims without evidence.
+- No runtime/governor/federation architectural redesign.
+- Operator/API/dashboard behavior preserved.
+
+### Deferred after this pass
+
+- Remaining repo-heavy debt is now centered outside this mainland (`architect_daemon.py`, `relay_app.py`, `sentientos/shell/__init__.py`, and broader innerworld/persona clusters).
+- Next likely mainland target: runtime operator core (`architect_daemon.py` + `relay_app.py`) after a fresh density audit.

@@ -3,54 +3,9 @@
 from __future__ import annotations
 
 import time
-from importlib import import_module
+from typing import Awaitable, Callable
 
-from .optional_deps import dependency_available
-
-if dependency_available("fastapi"):
-    FastAPI = import_module("fastapi").FastAPI
-    Request = import_module("fastapi").Request
-    JSONResponse = import_module("fastapi.responses").JSONResponse
-    PlainTextResponse = import_module("fastapi.responses").PlainTextResponse
-else:  # pragma: no cover - test fallback
-    class _SimpleResponse(dict):
-        def __init__(self, content, status_code: int = 200, media_type: str = "application/json") -> None:
-            super().__init__(content=content, status_code=status_code, media_type=media_type)
-
-    class JSONResponse(_SimpleResponse):
-        pass
-
-    class PlainTextResponse(_SimpleResponse):
-        pass
-
-    class Request:  # type: ignore[override]
-        def __init__(self, path: str = "/") -> None:
-            class _URL:
-                def __init__(self, path: str) -> None:
-                    self.path = path
-
-            self.url = _URL(path)
-
-    class FastAPI:  # type: ignore[misc]
-        def __init__(self) -> None:
-            self._routes = {}
-
-        def add_middleware(self, *args, **kwargs) -> None:
-            return None
-
-        def middleware(self, _type: str):
-            def decorator(fn):
-                self._routes.setdefault("middleware", []).append(fn)
-                return fn
-
-            return decorator
-
-        def get(self, path: str):
-            def decorator(fn):
-                self._routes[path] = fn
-                return fn
-
-            return decorator
+from .fastapi_stub import FastAPI, JSONResponse, PlainTextResponse, Request
 
 from daemon_autonomy_supervisor import DaemonAutonomySupervisor
 from .autonomy import AutonomyRuntime
@@ -70,9 +25,12 @@ APP.add_middleware(RedactingLoggingMiddleware, redactor=PRIVACY.redactor)
 
 
 @APP.middleware("http")
-async def _metrics_middleware(request: Request, call_next):
+async def _metrics_middleware(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[object]],
+) -> object:
     start = time.perf_counter()
-    path = request.url.path
+    path = str(getattr(getattr(request, "url", object()), "path", ""))
     is_admin = path.startswith("/admin")
     if is_admin:
         RUNTIME.metrics.increment("sos_admin_requests_total")

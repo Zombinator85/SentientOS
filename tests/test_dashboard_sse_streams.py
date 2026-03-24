@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Any, Protocol, cast
 
 import fastapi
 import pytest
@@ -11,14 +12,20 @@ from sentientos.streams.audit_stream import tail_audit_entries
 from sentientos.streams.schema_registry import current_schema_version
 
 
-def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
-    events = []
+class _StreamResponse(Protocol):
+    def iter_lines(self) -> Any: ...
+
+
+def _collect_sse_events(response: _StreamResponse, count: int) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
     current: dict[str, object] = {"data": []}
     for raw_line in response.iter_lines():
         line = raw_line.decode("utf-8")
         if not line:
-            if current["data"]:
-                data = json.loads("\n".join(current["data"]))
+            data_lines = current.get("data", [])
+            if isinstance(data_lines, list) and data_lines:
+                joined = "\n".join(str(item) for item in data_lines)
+                data = cast(dict[str, object], json.loads(joined))
                 events.append(
                     {
                         "id": current.get("id"),
@@ -37,8 +44,15 @@ def _collect_sse_events(response, count: int) -> list[dict[str, object]]:
         elif line.startswith("event:"):
             current["event"] = line[6:].strip()
         elif line.startswith("data:"):
-            current["data"].append(line[5:].lstrip())
+            data_lines = current.get("data")
+            if isinstance(data_lines, list):
+                data_lines.append(line[5:].lstrip())
     return events
+
+
+def _event_payload(event: dict[str, object]) -> dict[str, object]:
+    payload = event.get("data")
+    return payload if isinstance(payload, dict) else {}
 
 
 def _write_pressure_event(log_path: Path, digest: str, event: str) -> None:
@@ -89,11 +103,11 @@ def test_pressure_stream_replay_payload(monkeypatch: pytest.MonkeyPatch, tmp_pat
         events = _collect_sse_events(response, 2)
 
     assert len(events) == 2
-    payload = events[0]["data"]
+    payload = _event_payload(events[0])
     assert payload["stream"] == "pressure"
     assert payload["event_type"] == "pressure_enqueue"
     assert payload["schema_version"] == current_schema_version("pressure")
-    assert payload["digest"].startswith("sig-")
+    assert str(payload.get("digest", "")).startswith("sig-")
     assert payload["event_id"] is not None
     assert payload["timestamp"]
     assert "payload" in payload
@@ -123,11 +137,13 @@ def test_drift_stream_replay_payload(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         events = _collect_sse_events(response, 1)
 
     assert len(events) == 1
-    payload = events[0]["data"]
+    payload = _event_payload(events[0])
     assert payload["event_type"] == "drift_day"
     assert payload["schema_version"] == current_schema_version("drift")
-    assert payload["payload"]["date"] in {"2024-01-01", "2024-01-02"}
-    assert "summary_counts" in payload["payload"]
+    nested_payload = payload.get("payload")
+    nested = nested_payload if isinstance(nested_payload, dict) else {}
+    assert nested.get("date") in {"2024-01-01", "2024-01-02"}
+    assert "summary_counts" in nested
 
 
 def test_stream_disconnect_best_effort(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
