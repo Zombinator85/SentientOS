@@ -4,6 +4,8 @@ import sys
 
 """Relay API exposing memory ingestion and Emotion Processing Unit state."""
 
+from collections.abc import Iterator
+
 from flask_stub import Flask, jsonify, request, Response
 import os
 import json
@@ -56,10 +58,11 @@ def blessing_prompt() -> bool:
 
 @app.post("/ingest")
 @app.post("/memory")
-def ingest() -> object:
+def ingest() -> Response:
     """Ingest a text fragment with optional emotion and log the event."""
     data = request.get_json() or {}
-    text = data.get("text", "")
+    text_value = data.get("text", "")
+    text = text_value if isinstance(text_value, str) else str(text_value)
     emotion = data.get("emotion", "serene_awe")
     emotions = {emotion: 1.0} if isinstance(emotion, str) else {}
     _state.update(emotions)
@@ -85,7 +88,7 @@ def ingest() -> object:
 def sse() -> Response:
     """Stream transport keepalive ticks as server-sent events (monitoring continuity only)."""
 
-    def gen():
+    def gen() -> Iterator[str]:
         global _last_heartbeat
         while True:
             _last_heartbeat = next(_tick_counter)
@@ -97,7 +100,7 @@ def sse() -> Response:
 
 
 @app.get("/status")
-def status() -> object:
+def status() -> Response:
     """Return uptime, last heartbeat keepalive ID, log size and active endpoints."""
     uptime_seconds = int(time.time() - _start_time)
     days, rem = divmod(uptime_seconds, 86400)
@@ -119,12 +122,12 @@ def status() -> object:
 
 
 @app.get("/epu/state")
-def epu_state() -> object:
+def epu_state() -> Response:
     """Return the current emotion state."""
     return jsonify(_state.state())
 
 
-def _coerce_since_param(raw: str | None) -> object | None:
+def _coerce_since_param(raw: str | None) -> float | str | None:
     if raw is None:
         return None
     raw = raw.strip()
@@ -141,7 +144,7 @@ def _coerce_since_param(raw: str | None) -> object | None:
 
 
 @app.get("/observe/now")
-def observe_now() -> object:
+def observe_now() -> Response:
     """Return the most recent perception observation summary."""
 
     observation = mm.latest_observation()
@@ -149,23 +152,24 @@ def observe_now() -> object:
 
 
 @app.get("/observe/since")
-def observe_since() -> object:
+def observe_since() -> Response | tuple[Response, int]:
     """Return observation summaries since a timestamp."""
 
     try:
-        since = _coerce_since_param(request.args.get("ts"))
+        raw_ts = request.args.get("ts")
+        since = _coerce_since_param(raw_ts if isinstance(raw_ts, str) else None)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     try:
-        limit = int(request.args.get("limit", "20"))
+        raw_limit = request.args.get("limit", "20")
+        limit = int(raw_limit if isinstance(raw_limit, str) else "20")
     except ValueError:
         limit = 20
     observations = mm.recent_observations(limit=limit, since=since)
     return jsonify({"observations": observations, "count": len(observations)})
 
 
-def start_cathedral():
-    from flask_stub import app  # or your actual app import
+def start_cathedral() -> None:
     logging.basicConfig(level=logging.INFO)
     logging.info("~@ SentientOS now listening on port 3928.")
     app.run(port=3928)

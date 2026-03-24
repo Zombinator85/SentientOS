@@ -4,7 +4,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, Response, jsonify, request
 import plugin_framework as pf
 import trust_engine as te
 from resident_kernel import ResidentKernel
@@ -16,8 +16,14 @@ pf.set_kernel(_KERNEL)
 
 app = Flask(__name__)
 
+
+def _payload_field(name: str) -> str:
+    payload = request.get_json() or {}
+    value = payload.get(name)
+    return value if isinstance(value, str) else ""
+
 @app.route('/')
-def index():
+def index() -> str:
     return """<html><body><h3>Plugin Dashboard</h3>
 <table id='tbl'></table>
 <h4>Health</h4>
@@ -76,56 +82,66 @@ load();loadLogs();
 </script></body></html>"""
 
 @app.route('/api/plugins', methods=['GET', 'POST'])
-def plugins_api():
+def plugins_api() -> Response:
     info=pf.list_plugins()
     status=pf.plugin_status()
     return jsonify([{"id":n,"doc":info[n],"enabled":status.get(n,True)} for n in info])
 
 @app.route('/api/enable', methods=['POST'])
-def enable_api():
-    name=(request.get_json() or {}).get('plugin')
+def enable_api() -> Response | tuple[Response, int]:
+    name = _payload_field("plugin")
+    if not name:
+        return jsonify({"error": "plugin is required"}), 400
     pf.enable_plugin(name, user='dashboard')
     return jsonify({'status':'enabled'})
 
 @app.route('/api/disable', methods=['POST'])
-def disable_api():
-    name=(request.get_json() or {}).get('plugin')
+def disable_api() -> Response | tuple[Response, int]:
+    name = _payload_field("plugin")
+    if not name:
+        return jsonify({"error": "plugin is required"}), 400
     pf.disable_plugin(name, user='dashboard')
     return jsonify({'status':'disabled'})
 
 @app.route('/api/test', methods=['POST'])
-def test_api():
-    name=(request.get_json() or {}).get('plugin')
+def test_api() -> Response | tuple[Response, int]:
+    name = _payload_field("plugin")
+    if not name:
+        return jsonify({"error": "plugin is required"}), 400
     with _KERNEL.begin_epoch("plugin_dashboard"):
         res=pf.test_plugin(name, kernel=_KERNEL, dry_run=True)
     return jsonify(res)
 
 @app.route('/api/logs', methods=['GET', 'POST'])
-def logs_api():
+def logs_api() -> Response:
     return jsonify(te.list_events(limit=20))
 
 
 @app.route('/api/health', methods=['GET', 'POST'])
-def health_api():
+def health_api() -> Response:
     return jsonify(pf.list_health())
 
 
 @app.route('/api/proposals', methods=['GET', 'POST'])
-def proposals_api():
+def proposals_api() -> Response:
     props = pf.list_proposals()
     return jsonify([{"name": k, "status": v.get("status"), "url": v.get("url")} for k, v in props.items()])
 
 
 @app.route('/api/approve', methods=['POST'])
-def approve_api():
-    name = (request.get_json() or {}).get('name')
+def approve_api() -> Response | tuple[Response, int]:
+    name = _payload_field("name")
+    if not name:
+        return jsonify({"error": "name is required"}), 400
     pf.approve_proposal(name, user='dashboard')
     return jsonify({'status': 'ok'})
 
 
 @app.route('/api/deny', methods=['POST'])
-def deny_api():
-    name = (request.get_json() or {}).get('name')
+def deny_api() -> Response | tuple[Response, int]:
+    name = _payload_field("name")
+    if not name:
+        return jsonify({"error": "name is required"}), 400
     pf.deny_proposal(name, user='dashboard')
     return jsonify({'status': 'ok'})
 

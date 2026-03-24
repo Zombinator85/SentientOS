@@ -259,6 +259,107 @@ Targeted file deltas:
 
 Targeted corridor reduction for this pass: **98 -> 0** (**-98**).
 
+---
+
+## Typed mainland burn-down pass (2026-03-23)
+
+### Fresh full-repo density audit (before pass)
+
+Baseline command:
+
+- `python -m mypy . --hide-error-context --no-color-output --no-error-summary`
+
+Repo-wide error count before this pass: **7241**.
+
+Highest-value mature clusters still red at this baseline:
+
+- **Flask-backed runtime/operator API mainland** (high spillover): `plugin_dashboard.py` (41), `sentient_api.py` (29), `resonite_council_law_vault_engine.py` (31), plus many additional `flask_stub` consumers.
+- **Runtime/operator core**: `relay_app.py` (139), `memory_manager.py` (54), `resident_kernel.py` (34).
+- **Observability/dashboard/reporting**: `dashboard_ui/api.py` (43), `sentientos/pressure_queue.py` (35).
+- **Lab/simulation/truth-federation**: `sentientos/lab/wan_federation.py` (28 remaining in this snapshot).
+
+Dominant global error families before pass:
+
+- `no-untyped-def` (2155)
+- `no-untyped-call` (948)
+- `attr-defined` (705)
+- `type-arg` (698)
+- `arg-type` (677)
+- `untyped-decorator` (275)
+
+### Mainland target set chosen for this PR
+
+This pass targeted one broad and coherent high-payoff mainland:
+
+- **Flask boundary + operator web APIs cone**
+  - shared boundary helper: `flask_stub.py`
+  - mature runtime/operator modules: `sentient_api.py`, `plugin_dashboard.py`, `resonite_council_law_vault_engine.py`
+
+Why this set: one helper (`flask_stub.py`) was poisoning a large downstream surface (68 importers), creating repeated `no-untyped-call`, `untyped-decorator`, `no-any-return`, and `attr-defined` fallout.
+
+### Execution summary
+
+- Typed and hardened `flask_stub.py` route/decorator/test-client/request/response boundaries.
+- Added explicit `get`/`post` decorator support and typed response normalization at the shared helper source.
+- Tightened JSON payload coercion and route return annotations in `sentient_api.py`.
+- Tightened plugin dashboard payload field extraction and route return contracts in `plugin_dashboard.py`.
+- Tightened route return contracts and numeric coercion in `resonite_council_law_vault_engine.py`.
+
+### Results
+
+Repo-wide after command:
+
+- `python -m mypy . --hide-error-context --no-color-output --no-error-summary`
+
+Repo-wide error count after pass: **6560** (**-681 net**).
+
+Cluster-level payoff:
+
+- `flask_stub` importer mainland (`68` files): **1165 -> 505** (**-660**).
+
+Per-file deltas in directly targeted files:
+
+- `flask_stub.py`: **23 -> 0**
+- `sentient_api.py`: **29 -> 0**
+- `plugin_dashboard.py`: **41 -> 0**
+- `resonite_council_law_vault_engine.py`: **31 -> 0**
+
+Error families reduced most (repo-wide):
+
+- `no-untyped-call`: **948 -> 350** (**-598**)
+- `untyped-decorator`: **275 -> 118** (**-157**)
+- `no-any-return`: **276 -> 141** (**-135**)
+
+### Zero-clean files in this pass
+
+- `flask_stub.py`
+- `sentient_api.py`
+- `plugin_dashboard.py`
+- `resonite_council_law_vault_engine.py`
+
+### Harness/test adjacency
+
+- No in-cone harness typing file required source edits for this pass.
+- Test execution via repository harness ran, but surfaced pre-existing federation test failures outside the touched Flask mainland cone.
+
+### Ratchet/protected-surface posture
+
+- No typing policy loosening performed.
+- No runtime/governor/quorum/digest/provenance architecture redesign introduced.
+- This pass promotes confidence for future ratchet expansion on Flask-backed operator surfaces that are now zero-clean.
+
+### Deferred clusters after this mainland pass
+
+Remaining highest-density next targets (post-pass snapshot):
+
+1. `relay_app.py` (138)
+2. `memory_manager.py` (54)
+3. `sentientos/narrative_synthesis.py` (53)
+4. `dashboard_ui/api.py` (43)
+5. `resident_kernel.py` (34)
+
+Likely next mainland offensive: runtime core (`relay_app.py` + `memory_manager.py` + adjacent execution helpers), then observability API (`dashboard_ui/api.py`).
+
 Zero-cleaned files in this offensive:
 
 - `task_executor.py`
