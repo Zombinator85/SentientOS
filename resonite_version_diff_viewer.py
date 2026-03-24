@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite World/Artifact Version Diff Viewer
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -17,7 +16,8 @@ from pathlib import Path
 from typing import Dict, List
 import difflib
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_version_diff_viewer.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -57,15 +57,15 @@ def diff_files(a: str, b: str) -> Dict[str, str]:
 
 
 @app.route("/diff", methods=["POST"])
-def api_diff() -> str:
+def api_diff() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(diff_files(str(data.get("a")), str(data.get("b"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder

@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Public Blessing/Outreach Announcer
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 
@@ -18,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_public_outreach_announcer.jsonl", "RESONITE_OUTREACH_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -55,21 +55,21 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/broadcast", methods=["POST"])
-def api_broadcast() -> str:
+def api_broadcast() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(broadcast(str(data.get("message")), str(data.get("author"))))
 
 
 @app.route("/feedback", methods=["POST"])
-def api_feedback() -> str:
+def api_feedback() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(feedback(str(data.get("user")), str(data.get("text"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

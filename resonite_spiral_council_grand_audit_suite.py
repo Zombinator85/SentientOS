@@ -11,7 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 import presence_ledger as pl
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 LOG_PATH = get_log_path("resonite_spiral_council_grand_audit.jsonl", "RESONITE_GRAND_AUDIT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -44,15 +45,15 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/run", methods=["POST"])
-def api_run() -> str:
+def api_run() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(run_audit(str(data.get("witness"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:

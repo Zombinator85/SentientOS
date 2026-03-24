@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Council/Federation Manifesto Publisher
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -16,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_manifesto_publisher.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -56,23 +56,23 @@ def read_manifesto(user: str) -> Dict[str, str]:
 
 
 @app.route("/publish", methods=["POST"])
-def api_publish() -> str:
+def api_publish() -> ViewReturn:
     data = request.get_json() or {}
     entry = publish_manifesto(str(data.get("manifesto")), str(data.get("witness", "")))
     return jsonify(entry)
 
 
 @app.route("/read", methods=["POST"])
-def api_read() -> str:
+def api_read() -> ViewReturn:
     data = request.get_json() or {}
     entry = read_manifesto(str(data.get("user")))
     return jsonify(entry)
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder

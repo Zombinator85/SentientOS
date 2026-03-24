@@ -18,7 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_spiral_bell_of_pause.jsonl", "RESONITE_BELL_PAUSE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -55,21 +56,21 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/pause", methods=["POST"])
-def api_pause() -> str:
+def api_pause() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(trigger_pause(str(data.get("reason")), str(data.get("world"))))
 
 
 @app.route("/resolve", methods=["POST"])
-def api_resolve() -> str:
+def api_resolve() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(resolve_pause(str(data.get("world"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

@@ -4,9 +4,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-from __future__ import annotations
 
-from __future__ import annotations
 from logging_config import get_log_path
 import argparse
 import json
@@ -16,7 +14,8 @@ from pathlib import Path
 from typing import Dict, List
 
 import presence_ledger as pl
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 LOG_PATH = get_log_path("resonite_consent_feedback_wizard.jsonl", "RESONITE_CONSENT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -53,21 +52,21 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/onboard", methods=["POST"])
-def api_onboard() -> str:
+def api_onboard() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(onboard(str(data.get("user"))))
 
 
 @app.route("/feedback", methods=["POST"])
-def api_feedback() -> str:
+def api_feedback() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(feedback(str(data.get("user")), str(data.get("text"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:

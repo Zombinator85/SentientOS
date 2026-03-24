@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Ritual World Health & Mood Analytics
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 
@@ -18,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_world_health_mood_analytics.jsonl", "RESONITE_WORLD_HEALTH_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -55,21 +55,21 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/health", methods=["POST"])
-def api_health() -> str:
+def api_health() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(record_health(str(data.get("world")), str(data.get("metric")), str(data.get("value"))))
 
 
 @app.route("/mood", methods=["POST"])
-def api_mood() -> str:
+def api_mood() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(record_mood(str(data.get("world")), str(data.get("mood"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

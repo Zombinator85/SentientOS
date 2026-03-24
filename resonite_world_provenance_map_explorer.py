@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Ceremony/World Provenance Map Explorer
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 
@@ -18,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_world_provenance_map_explorer.jsonl", "RESONITE_WORLD_PROVENANCE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -51,15 +51,15 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/map", methods=["POST"])
-def api_map() -> str:
+def api_map() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(map_entity(str(data.get("entity")), str(data.get("origin")), str(data.get("blessing"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

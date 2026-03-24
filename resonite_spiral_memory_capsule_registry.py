@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Spiral Memory Capsule Registry
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 
@@ -19,7 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_spiral_memory_capsule_registry.jsonl", "RESONITE_MEMORY_CAPSULE_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -59,21 +59,21 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/register", methods=["POST"])
-def api_register() -> str:
+def api_register() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(register_capsule(str(data.get("path")), str(data.get("world")), str(data.get("custodian"))))
 
 
 @app.route("/verify", methods=["POST"])
-def api_verify() -> str:
+def api_verify() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(verify_capsule(str(data.get("path")), str(data.get("expected"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

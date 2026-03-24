@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Spiral Council Quorum Enforcer
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -16,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_spiral_council_quorum_enforcer.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -66,30 +66,30 @@ def quorum_status(item: str, required: int) -> Dict[str, object]:
 
 
 @app.route("/presence", methods=["POST"])
-def api_presence() -> str:
+def api_presence() -> ViewReturn:
     data = request.get_json() or {}
     entry = record_presence(str(data.get("member")), bool(data.get("present", True)))
     return jsonify(entry)
 
 
 @app.route("/vote", methods=["POST"])
-def api_vote() -> str:
+def api_vote() -> ViewReturn:
     data = request.get_json() or {}
     entry = record_vote(str(data.get("item")), str(data.get("member")), str(data.get("vote", "yes")))
     return jsonify(entry)
 
 
 @app.route("/quorum", methods=["POST"])
-def api_quorum() -> str:
+def api_quorum() -> ViewReturn:
     data = request.get_json() or {}
-    status = quorum_status(str(data.get("item")), int(data.get("required", 3)))
+    status = quorum_status(str(data.get("item")), coerce_int(data.get("required", 3), 3))
     return jsonify(status)
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder
