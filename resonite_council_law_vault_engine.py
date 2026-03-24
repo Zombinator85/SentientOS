@@ -4,11 +4,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 
 require_admin_banner()
 require_lumos_approval()
-"""Resonite Council Law Vault & Amendment Engine
-
-"""
-
-from __future__ import annotations
+"""Resonite Council Law Vault & Amendment Engine."""
 from logging_config import get_log_path
 
 
@@ -20,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, Response, jsonify, request
 
 LOG_PATH = get_log_path("resonite_council_law_vault_engine.jsonl", "RESONITE_LAW_VAULT_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -74,39 +70,41 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/propose", methods=["POST"])
-def api_propose() -> str:
+def api_propose() -> Response:
     data = request.get_json() or {}
     return jsonify(propose_law(str(data.get("title")), str(data.get("text")), str(data.get("author"))))
 
 
 @app.route("/amend", methods=["POST"])
-def api_amend() -> str:
+def api_amend() -> Response:
     data = request.get_json() or {}
     return jsonify(amend_law(str(data.get("id")), str(data.get("amendment")), str(data.get("author"))))
 
 
 @app.route("/freeze", methods=["POST"])
-def api_freeze() -> str:
+def api_freeze() -> Response:
     data = request.get_json() or {}
     return jsonify(freeze_law(str(data.get("id")), str(data.get("author"))))
 
 
 @app.route("/revoke", methods=["POST"])
-def api_revoke() -> str:
+def api_revoke() -> Response:
     data = request.get_json() or {}
     return jsonify(revoke_law(str(data.get("id")), str(data.get("author"))))
 
 
 @app.route("/seal", methods=["POST"])
-def api_seal() -> str:
+def api_seal() -> Response:
     data = request.get_json() or {}
     return jsonify(seal(str(data.get("id")), str(data.get("quorum")), str(data.get("intention"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> Response:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    limit = data.get("limit", 20)
+    parsed_limit = int(limit) if isinstance(limit, (str, int)) else 20
+    return jsonify(history(parsed_limit))
 
 
 # ProtoFlux hook
