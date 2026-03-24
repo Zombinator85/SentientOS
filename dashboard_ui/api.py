@@ -5,13 +5,21 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Any, AsyncGenerator, Dict, Iterable, Mapping, Optional, cast
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+from sentientos.fastapi_stub import (
+    Body,
+    Depends,
+    FastAPI,
+    HTMLResponse,
+    HTTPException,
+    JSONResponse,
+    Request,
+    Response,
+    StaticFiles,
+    StreamingResponse,
+    Jinja2Templates,
+)
 
 from .event_stream import EventStream
 from sentientos.diagnostics.drift_alerts import (
@@ -51,7 +59,7 @@ _MAX_DRIFT_REPLAY_LINES = 2000
 
 
 def _format_sse(
-    payload: Dict[str, object],
+    payload: Mapping[str, object],
     *,
     event_id: str | int | None = None,
     event_type: str | None = None,
@@ -69,39 +77,37 @@ def _format_sse_comment(message: str) -> str:
     return f": {message}\n\n"
 
 
-async def event_source(stream: EventStream):
+async def event_source(stream: EventStream) -> AsyncGenerator[str, None]:
     subscriber_id, queue = stream.subscribe()
     try:
         for event in stream.get_recent():
-            yield _format_sse(event)
+            yield _format_sse(dict(event))
         while True:
-            event = await queue.get()
-            yield _format_sse(event.as_dict())
+            queued_event = await queue.get()
+            yield _format_sse(queued_event.as_dict())
     finally:
         stream.unsubscribe(subscriber_id)
 
 
-class EventIn(BaseModel):
-    category: str = Field(pattern="^(feed|oracle|gapseeker|commits|research)$")
-    module: str
-    message: str
-    metadata: Dict[str, object] = Field(default_factory=dict)
+def _as_mapping(value: object) -> Mapping[str, object]:
+    return value if isinstance(value, Mapping) else {}
 
 
-class ArchiveResponse(BaseModel):
-    reports: Iterable[Dict[str, object]]
+def _as_string(value: object, default: str = "") -> str:
+    return value if isinstance(value, str) else default
 
 
-class PressureRevalidateIn(BaseModel):
-    as_of: str | None = None
-    actor: str
-
-
-class PressureCloseIn(BaseModel):
-    actor: str
-    reason: str
-    note: str | None = None
-    as_of: str | None = None
+def _parse_event_payload(payload: Mapping[str, object]) -> tuple[str, str, str, Dict[str, object]]:
+    category = _as_string(payload.get("category")).strip()
+    if category not in CATEGORIES:
+        raise HTTPException(status_code=422, detail="invalid category")
+    module = _as_string(payload.get("module")).strip()
+    message = _as_string(payload.get("message")).strip()
+    if not module or not message:
+        raise HTTPException(status_code=422, detail="module and message are required")
+    metadata_obj = payload.get("metadata", {})
+    metadata = dict(metadata_obj) if isinstance(metadata_obj, Mapping) else {}
+    return category, module, message, metadata
 
 
 def _parse_limit(value: str | None, default: int, maximum: int, name: str) -> int:
@@ -161,55 +167,70 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
     static_dir = Path(__file__).parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    app.state.event_stream = event_stream or EventStream(categories=CATEGORIES.keys())
+    state = cast(Any, app.state)
+    state.event_stream = event_stream or EventStream(categories=CATEGORIES.keys())
 
     def get_stream() -> EventStream:
-        return app.state.event_stream
+        stream = getattr(state, "event_stream", None)
+        if isinstance(stream, EventStream):
+            return stream
+        replacement = EventStream(categories=CATEGORIES.keys())
+        state.event_stream = replacement
+        return replacement
 
     @app.get("/dashboard", response_class=HTMLResponse)
     def dashboard(request: Request) -> Response:
         return templates.TemplateResponse("dashboard.html", {"request": request, "categories": CATEGORIES})
 
     @app.get("/events")
-    async def stream_events(stream: EventStream = Depends(get_stream)) -> StreamingResponse:
-        return StreamingResponse(event_source(stream), media_type="text/event-stream")
+    async def stream_events(stream: object = Depends(get_stream)) -> StreamingResponse:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return StreamingResponse(event_source(stream_obj), media_type="text/event-stream")
 
     @app.get("/feed")
-    def get_feed(stream: EventStream = Depends(get_stream), limit: int = 50):
-        return {"events": stream.get_history("feed", limit=limit)}
+    def get_feed(stream: object = Depends(get_stream), limit: int = 50) -> Dict[str, object]:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return {"events": stream_obj.get_history("feed", limit=limit)}
 
     @app.get("/oracle")
-    def get_oracle(stream: EventStream = Depends(get_stream), limit: int = 50):
-        return {"events": stream.get_history("oracle", limit=limit)}
+    def get_oracle(stream: object = Depends(get_stream), limit: int = 50) -> Dict[str, object]:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return {"events": stream_obj.get_history("oracle", limit=limit)}
 
     @app.get("/gapseeker")
-    def get_gapseeker(stream: EventStream = Depends(get_stream), limit: int = 50):
-        return {"events": stream.get_history("gapseeker", limit=limit)}
+    def get_gapseeker(stream: object = Depends(get_stream), limit: int = 50) -> Dict[str, object]:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return {"events": stream_obj.get_history("gapseeker", limit=limit)}
 
     @app.get("/commits")
-    def get_commits(stream: EventStream = Depends(get_stream), limit: int = 50):
-        return {"events": stream.get_history("commits", limit=limit)}
+    def get_commits(stream: object = Depends(get_stream), limit: int = 50) -> Dict[str, object]:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return {"events": stream_obj.get_history("commits", limit=limit)}
 
     @app.get("/research")
-    def get_research(stream: EventStream = Depends(get_stream), limit: int = 50):
-        return {"events": stream.get_history("research", limit=limit)}
+    def get_research(stream: object = Depends(get_stream), limit: int = 50) -> Dict[str, object]:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return {"events": stream_obj.get_history("research", limit=limit)}
 
     @app.get("/research/archive")
-    def download_research_archive(stream: EventStream = Depends(get_stream)) -> JSONResponse:
-        return JSONResponse({"reports": stream.get_history("research")})
+    def download_research_archive(stream: object = Depends(get_stream)) -> JSONResponse:
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
+        return JSONResponse({"reports": stream_obj.get_history("research")})
 
     @app.post("/events", status_code=201)
-    def publish_event(event: EventIn, stream: EventStream = Depends(get_stream)):
+    def publish_event(payload: object = Body(...), stream: object = Depends(get_stream)) -> Dict[str, object]:
+        category, module, message, metadata = _parse_event_payload(_as_mapping(payload))
+        stream_obj = stream if isinstance(stream, EventStream) else get_stream()
         try:
-            published = stream.publish(
-                category=event.category,
-                message=event.message,
-                module=event.module,
-                metadata=dict(event.metadata),
+            published = stream_obj.publish(
+                category=category,
+                message=message,
+                module=module,
+                metadata=metadata,
             )
         except ValueError as exc:  # pragma: no cover - validated upstream, safety net.
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return published.as_dict()
+        return dict(published.as_dict())
 
     def _coerce_bounded_positive(value: str | None, default: int, name: str) -> int:
         if value is None:
@@ -225,7 +246,8 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
     @app.get("/api/drift/recent")
     def drift_recent(n: str | None = None) -> list[Dict[str, object]]:
         limit = _coerce_bounded_positive(n, 7, "n")
-        return get_recent_drift_reports(limit=limit)
+        reports = get_recent_drift_reports(limit=limit)
+        return [dict(report) for report in reports]
 
     @app.get("/api/drift/{date_str}")
     def drift_by_date(date_str: str) -> Dict[str, object]:
@@ -233,7 +255,8 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             normalized = normalize_drift_date(date_str)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return get_drift_report_for_date(normalized)
+        payload = get_drift_report_for_date(normalized)
+        return dict(payload)
 
     @app.get("/api/drift/silhouette/{date_str}")
     def drift_silhouette(date_str: str) -> Dict[str, object]:
@@ -247,7 +270,7 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             raise HTTPException(status_code=422, detail="invalid silhouette payload") from exc
         if payload is None:
             raise HTTPException(status_code=404, detail="Silhouette not found")
-        return payload
+        return dict(payload)
 
     @app.get("/api/pressure/due")
     def pressure_due(as_of: str | None = None, limit: str | None = None) -> Dict[str, object]:
@@ -259,9 +282,10 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
     @app.post("/api/pressure/{digest}/revalidate")
     def pressure_revalidate(
         digest: str,
-        payload: PressureRevalidateIn = Body(...),
+        payload: object = Body(...),
     ) -> Dict[str, object]:
-        actor = payload.actor.strip() if isinstance(payload.actor, str) else ""
+        request_payload = _as_mapping(payload)
+        actor = _as_string(request_payload.get("actor")).strip()
         if not actor:
             raise HTTPException(status_code=400, detail="actor is required")
         state = get_pressure_signal_state(digest)
@@ -269,7 +293,7 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="pressure signal not found")
         if state.get("status") in {"closed", "expired"}:
             raise HTTPException(status_code=409, detail="pressure signal is not active")
-        as_of_time = _parse_iso_timestamp(payload.as_of, "as_of")
+        as_of_time = _parse_iso_timestamp(_as_string(request_payload.get("as_of")) or None, "as_of")
         try:
             event = revalidate_pressure_signal(digest, as_of_time=as_of_time, actor=actor)
         except ValueError as exc:
@@ -283,16 +307,18 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
     @app.post("/api/pressure/{digest}/close")
     def pressure_close(
         digest: str,
-        payload: PressureCloseIn = Body(...),
+        payload: object = Body(...),
     ) -> Dict[str, object]:
-        actor = payload.actor.strip() if isinstance(payload.actor, str) else ""
+        request_payload = _as_mapping(payload)
+        actor = _as_string(request_payload.get("actor")).strip()
         if not actor:
             raise HTTPException(status_code=400, detail="actor is required")
-        if payload.reason not in PRESSURE_CLOSURE_REASONS:
+        reason = _as_string(request_payload.get("reason"))
+        if reason not in PRESSURE_CLOSURE_REASONS:
             raise HTTPException(status_code=422, detail="invalid closure reason")
         note_value = None
-        if payload.note is not None:
-            note_value = str(payload.note).strip()
+        if request_payload.get("note") is not None:
+            note_value = _as_string(request_payload.get("note")).strip()
             if len(note_value) > PRESSURE_CLOSURE_NOTE_LIMIT:
                 raise HTTPException(status_code=400, detail="closure note exceeds maximum length")
         state = get_pressure_signal_state(digest)
@@ -300,12 +326,12 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="pressure signal not found")
         if state.get("status") in {"closed", "expired"}:
             raise HTTPException(status_code=409, detail="pressure signal is already closed")
-        closed_at = _parse_iso_timestamp(payload.as_of, "as_of")
+        closed_at = _parse_iso_timestamp(_as_string(request_payload.get("as_of")) or None, "as_of")
         try:
             event = close_pressure_signal(
                 digest,
                 actor=actor,
-                reason=payload.reason,
+                reason=reason,
                 note=note_value,
                 closed_at=closed_at,
             )
@@ -345,7 +371,7 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             else str(adapter.log_path.stat().st_size if adapter.log_path.exists() else 0)
         )
 
-        async def stream() -> Iterable[str]:
+        async def stream() -> AsyncGenerator[str, None]:
             stop = False
 
             async def monitor_disconnect() -> None:
@@ -360,10 +386,12 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             try:
                 for envelope in replay:
                     upgraded = upgrade_envelope(envelope.as_dict())
+                    event_id = upgraded.get("event_id")
+                    event_type = upgraded.get("event_type")
                     yield _format_sse(
                         upgraded,
-                        event_id=upgraded["event_id"],
-                        event_type=upgraded["event_type"],
+                        event_id=_as_string(event_id) if event_id is not None else None,
+                        event_type=_as_string(event_type) if event_type is not None else None,
                     )
                 for item in adapter.tail(start_cursor, should_stop=lambda: stop):
                     if stop:
@@ -374,10 +402,12 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
                     if last_replay_id is not None and int(item.event_id) <= last_replay_id:
                         continue
                     upgraded = upgrade_envelope(item.as_dict())
+                    event_id = upgraded.get("event_id")
+                    event_type = upgraded.get("event_type")
                     yield _format_sse(
                         upgraded,
-                        event_id=upgraded["event_id"],
-                        event_type=upgraded["event_type"],
+                        event_id=_as_string(event_id) if event_id is not None else None,
+                        event_type=_as_string(event_type) if event_type is not None else None,
                     )
             finally:
                 stop = True
@@ -413,7 +443,7 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
         replay = adapter.replay(normalized_since_date, bounded_limit)
         seen_ids = {envelope.event_id for envelope in replay}
 
-        async def stream() -> Iterable[str]:
+        async def stream() -> AsyncGenerator[str, None]:
             stop = False
 
             async def monitor_disconnect() -> None:
@@ -428,10 +458,12 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
             try:
                 for envelope in replay:
                     upgraded = upgrade_envelope(envelope.as_dict())
+                    event_id = upgraded.get("event_id")
+                    event_type = upgraded.get("event_type")
                     yield _format_sse(
                         upgraded,
-                        event_id=upgraded["event_id"],
-                        event_type=upgraded["event_type"],
+                        event_id=_as_string(event_id) if event_id is not None else None,
+                        event_type=_as_string(event_type) if event_type is not None else None,
                     )
                 for item in adapter.tail(normalized_since_date, should_stop=lambda: stop):
                     if stop:
@@ -443,10 +475,12 @@ def create_app(event_stream: Optional[EventStream] = None) -> FastAPI:
                         continue
                     seen_ids.add(item.event_id)
                     upgraded = upgrade_envelope(item.as_dict())
+                    event_id = upgraded.get("event_id")
+                    event_type = upgraded.get("event_type")
                     yield _format_sse(
                         upgraded,
-                        event_id=upgraded["event_id"],
-                        event_type=upgraded["event_type"],
+                        event_id=_as_string(event_id) if event_id is not None else None,
+                        event_type=_as_string(event_type) if event_type is not None else None,
                     )
             finally:
                 stop = True

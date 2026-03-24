@@ -17,7 +17,7 @@ from email.message import EmailMessage
 from pathlib import Path
 import autonomous_audit as aa
 import ast
-from typing import Any, Dict, Callable
+from typing import Any, Dict, Callable, Mapping
 
 from logging_config import get_log_path
 from talkback_bridge import CameraTalkback
@@ -87,11 +87,12 @@ from memory_manager import write_mem, save_reflection
 # Load whitelist
 WHITELIST_PATH = Path(os.getenv("ACT_WHITELIST", "config/act_whitelist.yml"))
 TEMPLATES_PATH = Path(os.getenv("ACT_TEMPLATES", "config/act_templates.yml"))
-def _load_yaml(text: str):
+def _load_yaml(text: str) -> dict[str, object]:
     yaml = optional_import("pyyaml", feature="actuator_whitelist")
     if yaml:
-        return yaml.safe_load(text)
-    data = {}
+        loaded = yaml.safe_load(text)
+        return loaded if isinstance(loaded, dict) else {}
+    data: dict[str, object] = {}
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith('#'):
@@ -206,10 +207,21 @@ def _match_patterns(value: str, patterns: list[str]) -> bool:
 
 def _allowed_shell(cmd: str) -> bool:
     first = cmd.strip().split()[0] if cmd.strip() else ""
-    patterns = WHITELIST.get("shell", [])
+    patterns_obj = WHITELIST.get("shell", [])
+    patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
     return _match_patterns(first, patterns)
 
-def run_shell(cmd: str, cwd: str = ".") -> dict:
+
+def _timeout_seconds() -> float:
+    timeout_value = WHITELIST.get("timeout", 30)
+    if isinstance(timeout_value, (int, float)):
+        return float(timeout_value)
+    try:
+        return float(str(timeout_value))
+    except (TypeError, ValueError):
+        return 30.0
+
+def run_shell(cmd: str, cwd: str = ".") -> dict[str, object]:
     if not _allowed_shell(cmd):
         raise PermissionError("Command not allowed")
     cwd_path = _safe_path(cwd if cwd != "." else "")
@@ -219,7 +231,7 @@ def run_shell(cmd: str, cwd: str = ".") -> dict:
         capture_output=True,
         text=True,
         cwd=str(cwd_path),
-        timeout=WHITELIST.get("timeout", 30),
+        timeout=_timeout_seconds(),
     )
     return {
         "code": res.returncode,
@@ -227,11 +239,12 @@ def run_shell(cmd: str, cwd: str = ".") -> dict:
         "stderr": res.stderr,
     }
 
-def http_fetch(url: str, method: str = "GET", **kwargs) -> dict:
-    patterns = WHITELIST.get("http", [])
+def http_fetch(url: str, method: str = "GET", **kwargs: object) -> dict[str, object]:
+    patterns_obj = WHITELIST.get("http", [])
+    patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
     if not _match_patterns(url, patterns):
         raise PermissionError("URL not allowed")
-    timeout = WHITELIST.get("timeout", 30)
+    timeout = _timeout_seconds()
     requests = optional_import("requests", feature="http_requests_client")
     if requests:
         resp = requests.request(method, url, timeout=timeout, **kwargs)
@@ -250,14 +263,14 @@ def _safe_path(rel: str) -> Path:
     return target
 
 
-def file_write(path: str, content: str) -> dict:
+def file_write(path: str, content: str) -> dict[str, object]:
     target = _safe_path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content)
     return {"written": str(target)}
 
 
-def send_email(to: str, subject: str, body: str) -> dict:
+def send_email(to: str, subject: str, body: str) -> dict[str, object]:
     host = os.getenv("SMTP_HOST")
     if not host:
         raise EnvironmentError("SMTP not configured")
@@ -277,31 +290,32 @@ def send_email(to: str, subject: str, body: str) -> dict:
     return {"sent": to}
 
 
-def trigger_webhook(url: str, payload: dict) -> dict:
-    patterns = WHITELIST.get("http", [])
+def trigger_webhook(url: str, payload: Mapping[str, object]) -> dict[str, object]:
+    patterns_obj = WHITELIST.get("http", [])
+    patterns = [item for item in patterns_obj if isinstance(item, str)] if isinstance(patterns_obj, list) else []
     if not _match_patterns(url, patterns):
         raise PermissionError("URL not allowed")
     requests = optional_import("requests", feature="http_requests_client")
     if requests:
-        resp = requests.post(url, json=payload, timeout=WHITELIST.get("timeout", 30))
+        resp = requests.post(url, json=payload, timeout=_timeout_seconds())
         return {"status": resp.status_code}
     import urllib.request
     import json as _json
     data = _json.dumps(payload).encode()
     req = urllib.request.Request(url, data=data, method="POST", headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=WHITELIST.get("timeout", 30)) as r:
+    with urllib.request.urlopen(req, timeout=_timeout_seconds()) as r:
         status = r.getcode()
     return {"status": status}
 
 
-TEMPLATES = {}
+TEMPLATES: dict[str, object] = {}
 if TEMPLATES_PATH.exists():
     TEMPLATES = _load_yaml(TEMPLATES_PATH.read_text()) or {}
 
 
 # --- Async handling ---------------------------------------------------------
 TASK_QUEUE: "queue.Queue[tuple[str, Dict[str, Any], str | None, str | None]]" = queue.Queue()
-ACTION_STATUS: dict[str, dict] = {}
+ACTION_STATUS: dict[str, dict[str, object]] = {}
 _worker_started = False
 
 
@@ -329,18 +343,20 @@ def start_async(intent: Dict[str, Any], explanation: str | None = None, user: st
     return action_id
 
 
-def get_status(action_id: str) -> dict:
+def get_status(action_id: str) -> dict[str, object]:
     return ACTION_STATUS.get(action_id, {"status": "unknown"})
 
 
-def expand_template(name: str, params: dict) -> dict:
+def expand_template(name: str, params: Mapping[str, object]) -> dict[str, object]:
     tpl = TEMPLATES.get(name)
     if not tpl:
         raise ValueError("Unknown template")
     if isinstance(tpl, str):
         tpl = tpl.format(**params)
-        return json.loads(tpl)
-    out = json.loads(json.dumps(tpl))  # deep copy
+        loaded = json.loads(tpl)
+        return loaded if isinstance(loaded, dict) else {}
+    out_obj = json.loads(json.dumps(tpl))  # deep copy
+    out: dict[str, object] = out_obj if isinstance(out_obj, dict) else {}
     for k, v in out.items():
         if isinstance(v, str):
             out[k] = v.format(**params)
@@ -354,7 +370,7 @@ def template_placeholders(name: str) -> set[str]:
         raise ValueError("Unknown template")
     import string
 
-    def collect(obj) -> set[str]:
+    def collect(obj: object) -> set[str]:
         keys: set[str] = set()
         if isinstance(obj, str):
             for _, field, _, _ in string.Formatter().parse(obj):
@@ -367,10 +383,14 @@ def template_placeholders(name: str) -> set[str]:
 
     return collect(tpl)
 
-def dispatch(intent: dict) -> dict:
-    itype = intent.get("type")
+def dispatch(intent: dict[str, Any]) -> dict[str, object]:
+    itype_obj = intent.get("type")
+    itype = str(itype_obj) if isinstance(itype_obj, str) else ""
     if itype == "template":
-        expanded = expand_template(intent.get("name", ""), intent.get("params", {}))
+        name = str(intent.get("name", ""))
+        params_obj = intent.get("params", {})
+        params = params_obj if isinstance(params_obj, Mapping) else {}
+        expanded = expand_template(name, params)
         return dispatch(expanded)
     act = ACTUATORS.get(itype)
     if not act:
@@ -383,7 +403,9 @@ RATE_LIMIT_SECONDS = int(os.getenv("ACT_RATE_LIMIT", "5"))
 
 
 def _rate_limit(intent: Dict[str, Any], user: str | None) -> None:
-    key = (user or "", intent.get("type") + ":" + intent.get("name", ""))
+    intent_type = str(intent.get("type", ""))
+    intent_name = str(intent.get("name", ""))
+    key = (user or "", f"{intent_type}:{intent_name}")
     now = time.time()
     last = LAST_EXECUTION.get(key, 0)
     if now - last < RATE_LIMIT_SECONDS:
@@ -391,7 +413,7 @@ def _rate_limit(intent: Dict[str, Any], user: str | None) -> None:
     LAST_EXECUTION[key] = now
 
 
-CRITIQUE_STEPS = [
+CRITIQUE_STEPS: list[Callable[[Mapping[str, Any], Exception], str]] = [
     lambda i, e: f"Action {i.get('type')} failed with {e}. Try again with adjusted parameters.",
     lambda i, e: f"Repeated failure for {i.get('type')}. Verify permissions or inputs before retrying.",
     lambda i, e: f"Escalation: manual intervention required for {i.get('type')}" ,
@@ -497,7 +519,7 @@ def auto_call(
     aa.log_entry(
         action=json.dumps(intent),
         rationale=explanation or "auto_call",
-        memory=[result.get("log_id")] if isinstance(result, dict) and result.get("log_id") else [],
+        memory=[str(result.get("log_id"))] if result.get("log_id") else [],
         expected=str(result),
         why_chain=[
             "Auto-call dispatched intent", 
@@ -516,7 +538,7 @@ def auto_call(
     return result
 
 
-def recent_logs(last: int = 10, reflect: bool = False) -> list[dict]:
+def recent_logs(last: int = 10, reflect: bool = False) -> list[dict[str, object]]:
     from memory_manager import RAW_PATH, recent_reflections
     files = sorted(RAW_PATH.glob("*.json"))
     refl_map = {}

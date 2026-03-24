@@ -11,8 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
-from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from sentientos.fastapi_stub import Depends, FastAPI, HTMLResponse, HTTPException, JSONResponse, Request
 
 from sentientos.admin_server import admin_metrics, admin_status
 from sentientos.storage import get_data_root
@@ -37,12 +36,14 @@ def require_token(request: Request) -> None:
 
 def _fetch_status() -> Mapping[str, object]:
     response = admin_status()
-    return json.loads(response.body.decode("utf-8"))
+    payload = json.loads(response.body.decode("utf-8"))
+    return payload if isinstance(payload, Mapping) else {}
 
 
 def _fetch_metrics() -> str:
     response = admin_metrics()
-    return response.body.decode("utf-8")
+    body = response.body.decode("utf-8")
+    return body if isinstance(body, str) else ""
 
 
 METRIC_RE = re.compile(
@@ -221,7 +222,11 @@ def _summarise_event(entry: Mapping[str, object]) -> str:
     if "event" in entry:
         event = str(entry["event"])
     elif "council" in entry:
-        event = f"council:{entry['council'].get('outcome', 'unknown')}"
+        council_entry = entry["council"]
+        if isinstance(council_entry, Mapping):
+            event = f"council:{council_entry.get('outcome', 'unknown')}"
+        else:
+            event = "council:unknown"
     else:
         event = "log"
     detail = entry.get("message") or entry.get("note") or ""
@@ -268,14 +273,14 @@ async def operator_silhouettes() -> HTMLResponse:
 
 
 @app.get("/data/status", response_class=JSONResponse)
-async def dashboard_data(_: None = Depends(require_token)) -> JSONResponse:
+async def dashboard_data(_: object = Depends(require_token)) -> JSONResponse:
     return JSONResponse(_status_payload())
 
 
 @app.get("/api/silhouettes/recent", response_class=JSONResponse)
 async def silhouettes_recent(
     n: int = 7,
-    _: None = Depends(require_token),
+    _: object = Depends(require_token),
 ) -> JSONResponse:
     if n <= 0:
         return JSONResponse({"source": "embodiment_silhouette", "count": 0, "silhouettes": []})
@@ -286,7 +291,7 @@ async def silhouettes_recent(
 @app.get("/api/silhouettes/{date_value}", response_class=JSONResponse)
 async def silhouettes_by_date(
     date_value: str,
-    _: None = Depends(require_token),
+    _: object = Depends(require_token),
 ) -> JSONResponse:
     try:
         payload = load_silhouette(date_value)
