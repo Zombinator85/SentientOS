@@ -18,7 +18,8 @@ from pathlib import Path
 from typing import Dict, List
 
 import presence_ledger as pl
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_cathedral_grand_commission.jsonl", "RESONITE_GRAND_COMMISSION_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -74,33 +75,33 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/launch", methods=["POST"])
-def api_launch() -> str:
+def api_launch() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(launch(str(data.get("council")), str(data.get("witness"))))
 
 
 @app.route("/audit", methods=["POST"])
-def api_audit() -> str:
+def api_audit() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(audit(str(data.get("witness"))))
 
 
 @app.route("/seal", methods=["POST"])
-def api_seal() -> str:
+def api_seal() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(seal(str(data.get("witness"))))
 
 
 @app.route("/chronicle", methods=["POST"])
-def api_chronicle() -> str:
+def api_chronicle() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(chronicle_entry(str(data.get("description"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

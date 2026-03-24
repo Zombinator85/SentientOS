@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Dict, List
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
@@ -40,15 +41,15 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/export", methods=["POST"])
-def api_export() -> str:
+def api_export() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(log_export(str(data.get("creator")), str(data.get("capsule"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 def protoflux_hook(data: Dict[str, str]) -> Dict[str, str]:

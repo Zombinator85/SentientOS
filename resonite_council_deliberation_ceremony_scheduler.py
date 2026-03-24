@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_council_deliberation_ceremony_scheduler.jsonl", "RESONITE_COUNCIL_SCHED_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -50,15 +51,15 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/schedule", methods=["POST"])
-def api_schedule() -> str:
+def api_schedule() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(schedule(str(data.get("ceremony")), str(data.get("time")), str(data.get("proposer"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

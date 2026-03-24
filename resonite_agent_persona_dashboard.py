@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Agent Persona/Emotion Dashboard
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -16,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_agent_persona_dashboard.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -52,16 +52,16 @@ def update_persona(agent: str, persona: str, mood: str) -> Dict[str, str]:
 
 
 @app.route("/update", methods=["POST"])
-def api_update() -> str:
+def api_update() -> ViewReturn:
     data = request.get_json() or {}
     entry = update_persona(str(data.get("agent")), str(data.get("persona")), str(data.get("mood", "")))
     return jsonify(entry)
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder

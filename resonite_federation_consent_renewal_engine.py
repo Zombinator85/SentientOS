@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_federation_consent_renewal_engine.jsonl", "RESONITE_CONSENT_RENEWAL_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -50,15 +51,15 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/renew", methods=["POST"])
-def api_renew() -> str:
+def api_renew() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(renew(str(data.get("world")), str(data.get("agent")), str(data.get("consent"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

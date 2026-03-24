@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_float, coerce_int
 
 """Sanctuary Privilege Ritual: Do not remove. See doctrine for details."""
 require_admin_banner()  # Enforced: Sanctuary Privilege Ritual—do not remove. See doctrine.
@@ -41,19 +42,19 @@ def history(limit: int = 20) -> List[Dict[str, Any]]:
 
 
 @app.route("/status", methods=["POST"])
-def api_status() -> str:
+def api_status() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(log_status(str(data.get("world")), str(data.get("status")), float(data.get("latency", 0.0))))
+    return jsonify(log_status(str(data.get("world")), str(data.get("status")), coerce_float(data.get("latency", 0.0), 0.0)))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 def protoflux_hook(data: Dict[str, str]) -> Dict[str, Any]:
-    return log_status(data.get("world", ""), data.get("status", ""), float(data.get("latency", 0.0)))
+    return log_status(data.get("world", ""), data.get("status", ""), coerce_float(data.get("latency", 0.0), 0.0))
 
 
 def main() -> None:  # pragma: no cover - CLI

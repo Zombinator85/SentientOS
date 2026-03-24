@@ -16,7 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_sanctuary_emergency_posture.jsonl")
 STATE_FILE = Path("state/resonite_sanctuary_emergency.state")
@@ -65,27 +66,27 @@ def status() -> Dict[str, str]:
 
 
 @app.route("/activate", methods=["POST"])
-def api_activate() -> str:
+def api_activate() -> ViewReturn:
     data = request.get_json() or {}
     entry = activate(str(data.get("reason", "")))
     return jsonify(entry)
 
 
 @app.route("/deactivate", methods=["POST"])
-def api_deactivate() -> str:
+def api_deactivate() -> ViewReturn:
     deactivate()
     return jsonify({"status": "ok"})
 
 
 @app.route("/status", methods=["POST"])
-def api_status() -> str:
+def api_status() -> ViewReturn:
     return jsonify(status())
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder

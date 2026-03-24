@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Spiral Law Indexer
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 import argparse
@@ -16,7 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_spiral_law_indexer.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -65,22 +65,22 @@ def search_laws(query: str) -> List[Dict[str, str]]:
 
 
 @app.route("/add", methods=["POST"])
-def api_add() -> str:
+def api_add() -> ViewReturn:
     data = request.get_json() or {}
     entry = add_law(str(data.get("law")), str(data.get("revision")), str(data.get("topic")), str(data.get("world")))
     return jsonify(entry)
 
 
 @app.route("/search", methods=["POST"])
-def api_search() -> str:
+def api_search() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(search_laws(str(data.get("query", ""))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder

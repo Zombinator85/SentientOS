@@ -10,7 +10,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 """Resonite Spiral Council Role/Privilege Auditor
 
 """
@@ -61,33 +62,33 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/view", methods=["POST"])
-def api_view() -> str:
+def api_view() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(view_role(str(data.get("agent"))))
 
 
 @app.route("/edit", methods=["POST"])
-def api_edit() -> str:
+def api_edit() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(edit_role(str(data.get("agent")), str(data.get("role"))))
 
 
 @app.route("/suspend", methods=["POST"])
-def api_suspend() -> str:
+def api_suspend() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(suspend_role(str(data.get("agent"))))
 
 
 @app.route("/transfer", methods=["POST"])
-def api_transfer() -> str:
+def api_transfer() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(transfer_role(str(data.get("agent")), str(data.get("target"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

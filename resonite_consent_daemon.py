@@ -9,7 +9,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 # Resonite Consent Renewal/Annulment Daemon
 
 
@@ -48,16 +49,16 @@ def update_consent(user: str, power: str, status: str) -> Dict[str, str]:
 
 
 @app.route("/consent", methods=["POST"])
-def api_consent() -> str:
+def api_consent() -> ViewReturn:
     data = request.get_json() or {}
     entry = update_consent(str(data.get("user")), str(data.get("power")), str(data.get("status", "renew")))
     return jsonify(entry)
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux placeholder

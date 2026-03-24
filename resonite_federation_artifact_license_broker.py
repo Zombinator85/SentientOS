@@ -7,7 +7,6 @@ require_lumos_approval()
 """Resonite Federation/Artifact License Broker
 
 """
-from __future__ import annotations
 from logging_config import get_log_path
 
 
@@ -19,7 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_federation_artifact_license_broker.jsonl", "RESONITE_LICENSE_BROKER_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -61,27 +61,27 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/request", methods=["POST"])
-def api_request() -> str:
+def api_request() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(request_license(str(data.get("artifact")), str(data.get("requester"))))
 
 
 @app.route("/approve", methods=["POST"])
-def api_approve() -> str:
+def api_approve() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(approve_license(str(data.get("id")), str(data.get("approver"))))
 
 
 @app.route("/view", methods=["POST"])
-def api_view() -> str:
+def api_view() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(view_license(str(data.get("artifact"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook

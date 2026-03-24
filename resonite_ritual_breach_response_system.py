@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
-from flask_stub import Flask, jsonify, request
+from flask_stub import Flask, ViewReturn, jsonify, request
+from resonite_flask_boundary import coerce_int
 
 LOG_PATH = get_log_path("resonite_ritual_breach_response_system.jsonl", "RESONITE_BREACH_LOG")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -54,21 +55,21 @@ def history(limit: int = 20) -> List[Dict[str, str]]:
 
 
 @app.route("/escalate", methods=["POST"])
-def api_escalate() -> str:
+def api_escalate() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(escalate(str(data.get("reason")), str(data.get("world"))))
 
 
 @app.route("/lockdown", methods=["POST"])
-def api_lockdown() -> str:
+def api_lockdown() -> ViewReturn:
     data = request.get_json() or {}
     return jsonify(lockdown(str(data.get("world"))))
 
 
 @app.route("/history", methods=["POST"])
-def api_history() -> str:
+def api_history() -> ViewReturn:
     data = request.get_json() or {}
-    return jsonify(history(int(data.get("limit", 20))))
+    return jsonify(history(coerce_int(data.get("limit", 20), 20)))
 
 
 # ProtoFlux hook
