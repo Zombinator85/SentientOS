@@ -203,7 +203,7 @@
     "daemon/disk_daemon.py"
   ],
   "config_file": "mypy.ini",
-  "error_count": 2369,
+  "error_count": 2349,
   "error_count_by_code": {
     "arg-type": 449,
     "assignment": 115,
@@ -214,7 +214,7 @@
     "dict-item": 18,
     "exit-return": 1,
     "func-returns-value": 1,
-    "import-untyped": 23,
+    "import-untyped": 3,
     "index": 36,
     "list-item": 1,
     "misc": 31,
@@ -242,6 +242,6 @@
     "privilege_lint.py",
     "sentientos/codex.py"
   ],
-  "module_count": 532,
+  "module_count": 527,
   "schema_version": 1
 }

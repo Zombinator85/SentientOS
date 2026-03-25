@@ -6,13 +6,18 @@ import json
 import platform
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, cast
+
+if TYPE_CHECKING:
+    import experiment_tracker as experiment_tracker_module
+else:
+    experiment_tracker_module = None
 
 try:
     import experiment_tracker
     _EXPERIMENT_TRACKER_AVAILABLE = True
 except ModuleNotFoundError:  # pragma: no cover - optional dependency
-    experiment_tracker = None  # type: ignore[assignment]
+    experiment_tracker = experiment_tracker_module
     _EXPERIMENT_TRACKER_AVAILABLE = False
 
 
@@ -22,10 +27,10 @@ from sentientos.experiments.federation_guard import should_run_experiment
 
 from .console import DashboardStatus, LogBuffer
 
-try:  # pragma: no cover - optional typing import
+if TYPE_CHECKING:  # pragma: no cover - typing only
     from sentientos.runtime.shell import RuntimeShell
-except Exception:  # pragma: no cover - fallback for minimal environments
-    RuntimeShell = None  # type: ignore
+else:
+    RuntimeShell = object
 
 from sentientos.experiments import runner
 

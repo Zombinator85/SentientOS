@@ -3,18 +3,18 @@
   "clusters": [
     {
       "cluster": "sentientos",
-      "error_count": 1049,
+      "error_count": 1048,
       "module_count": 173
     },
     {
       "cluster": "_repo_root",
-      "error_count": 978,
-      "module_count": 259
+      "error_count": 963,
+      "module_count": 256
     },
     {
       "cluster": "scripts",
-      "error_count": 113,
-      "module_count": 41
+      "error_count": 111,
+      "module_count": 39
     },
     {
       "cluster": "agents",
@@ -43,7 +43,7 @@
     },
     {
       "cluster": "vow",
-      "error_count": 21,
+      "error_count": 19,
       "module_count": 1
     },
     {

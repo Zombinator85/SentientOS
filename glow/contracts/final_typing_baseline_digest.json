@@ -1,8 +1,8 @@
 {
   "baseline_error_count": 2369,
-  "canonical_error_count": 2369,
+  "canonical_error_count": 2349,
   "cluster_count": 23,
-  "delta_vs_baseline": 0,
+  "delta_vs_baseline": -20,
   "excluded_glob_count": 5,
   "policy_strict_status": "ok",
   "ratchet_status": "ok",
