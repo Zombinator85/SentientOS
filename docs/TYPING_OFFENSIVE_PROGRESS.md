@@ -919,3 +919,74 @@ Most-reduced families in this cluster:
 
 - Remaining repo-heavy debt is now centered outside this mainland (`architect_daemon.py`, `relay_app.py`, `sentientos/shell/__init__.py`, and broader innerworld/persona clusters).
 - Next likely mainland target: runtime operator core (`architect_daemon.py` + `relay_app.py`) after a fresh density audit.
+
+---
+
+## Operator web strictness expansion + mainland promotion (2026-03-25)
+
+### Audit first: promotable operator/web mainland surfaces
+
+Pre-pass policy audit command:
+
+- `python scripts/mypy_ratchet.py --report`
+
+Promotable cluster review:
+
+| Cluster | Previous posture | Promotion decision |
+| --- | --- | --- |
+| `dashboard_ui/*.py` | not in protected/strict-enforced patterns | Promote to protected + strict-enforced (strict-clean). |
+| `apps/dashboard/*.py` | not in protected/strict-enforced patterns | Promote to protected + strict-enforced (strict-clean). |
+| `sentientos/dashboard/*.py` | not in protected/strict-enforced patterns | Promote to protected + strict-enforced after local cleanup. |
+| `sentientos/admin_server.py` | cleaned but not governed in ratchet policy | Promote to protected + strict-enforced. |
+| `sentientos/fastapi_stub.py` | shared boundary helper outside enforced policy | Promote to protected + strict-enforced. |
+| `sentientos/chat_service.py` | adjacent web surface with remaining strict debt (`BaseModel`/decorator typing) | Keep deferred intentionally (not over-promoted). |
+
+### Cleanup required to make promotion true
+
+- `sentientos/dashboard/status_source.py`:
+  - replaced fallback import/typing shape for optional `experiment_tracker` with a strict-safe `TYPE_CHECKING` split.
+  - converted runtime-only `RuntimeShell` typing fallback to a deterministic `TYPE_CHECKING` import plus runtime sentinel object.
+  - removed stale ignore-driven typing that blocked protected-scope promotion.
+
+### Policy and ratchet promotion implemented
+
+Updated `glow/contracts/mypy_policy.json`:
+
+- Expanded `protected_patterns` with:
+  - `dashboard_ui/*.py`
+  - `apps/dashboard/*.py`
+  - `sentientos/dashboard/*.py`
+  - `sentientos/admin_server.py`
+  - `sentientos/fastapi_stub.py`
+- Expanded `strict_patterns` for the same web/operator mainland cluster.
+- Expanded `strict_enforced_patterns` for the same web/operator mainland cluster.
+
+This converts the recently zero-cleaned FastAPI/dashboard/operator boundary cone into enforced typed territory rather than advisory debt.
+
+### Canonical artifacts refreshed
+
+Post-promotion canonical run:
+
+- `python scripts/mypy_ratchet.py`
+
+Artifacts refreshed:
+
+- `glow/contracts/canonical_typing_baseline.json`
+- `glow/contracts/typing_cluster_summary.json`
+- `glow/contracts/typing_ratchet_status.json`
+- `glow/contracts/final_typing_baseline_digest.json`
+
+Outcome:
+
+- Ratchet status remained green (`status=ok`).
+- Protected-scope regression count remained zero.
+- Policy strict enforcement remained green with expanded target set (now including dashboard/operator mainland modules).
+
+### Deferred territory (intentional)
+
+- Adjacent `sentientos/chat_service.py` remains deferred from strict-enforced policy in this pass because strict-mode decorator/model typing is still not clean.
+- Broad repo legacy debt remains explicit and unchanged outside this promoted cone.
+
+### Next likely strictness-expansion target
+
+- Runtime operator core mainland (`architect_daemon.py` + `relay_app.py`) remains the highest-payoff adjacent promotion candidate after a fresh strictness-readiness audit.
