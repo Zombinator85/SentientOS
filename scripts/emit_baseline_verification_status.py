@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 
 from sentientos.broad_lane_rows import build_broad_lane_row
 
@@ -39,7 +39,7 @@ def _read_json(path: Path) -> dict[str, Any] | None:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    return payload if isinstance(payload, dict) else None
+    return cast(dict[str, Any], payload) if isinstance(payload, dict) else None
 
 
 def _lane_summary_from_pointer(payload: Mapping[str, Any] | None, lane_name: str) -> LaneSummary | None:
@@ -81,7 +81,9 @@ def _lane_summary_from_pointer(payload: Mapping[str, Any] | None, lane_name: str
 
 def _lane_row(*, lane: str, summary: LaneSummary, pointer_bits: Mapping[str, Any] | None = None) -> dict[str, Any]:
     pointer = pointer_bits if isinstance(pointer_bits, Mapping) else {}
-    return build_broad_lane_row(
+    return cast(
+        dict[str, Any],
+        build_broad_lane_row(
         lane=lane,
         status=summary.status,
         lane_state=summary.lane_state,
@@ -91,6 +93,7 @@ def _lane_row(*, lane: str, summary: LaneSummary, pointer_bits: Mapping[str, Any
         run_id=pointer.get("run_id"),
         failure_count=summary.failure_count,
         details=summary.details,
+        ),
     )
 
 

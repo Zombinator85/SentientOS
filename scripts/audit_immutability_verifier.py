@@ -20,7 +20,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -54,7 +54,7 @@ PRIVILEGED_PATHS = [
 class AuditCheckOutcome:
     status: str
     reason: str | None = None
-    recorded_events: list[dict] | None = None
+    recorded_events: list[dict[str, Any]] | None = None
 
     def __bool__(self) -> bool:
         return self.status in {"passed", "skipped"}
@@ -86,25 +86,28 @@ def write_result(*, ok: bool, issues: list[str], error: str | None) -> dict[str,
     return payload
 
 
-def log_event(entry: dict) -> None:
+def log_event(entry: dict[str, Any]) -> None:
     LEDGER_PATH.parent.mkdir(parents=True, exist_ok=True)
     with LEDGER_PATH.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry) + "\n")
 
 
-def load_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> dict:
-    return immutability.read_manifest(manifest_path)
+def load_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
+    payload = immutability.read_manifest(manifest_path)
+    if not isinstance(payload, dict):
+        raise TypeError("immutability manifest must be a mapping")
+    return payload
 
 
 def verify_once(
     manifest_path: Path = DEFAULT_MANIFEST,
     allow_missing_manifest: bool = False,
-    logger: Callable[[dict], None] = log_event,
+    logger: Callable[[dict[str, Any]], None] = log_event,
 ) -> AuditCheckOutcome:
     ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    recorded: list[dict] = []
+    recorded: list[dict[str, Any]] = []
 
-    def _record(entry: dict) -> None:
+    def _record(entry: dict[str, Any]) -> None:
         recorded.append(entry)
         logger(entry)
 
@@ -141,11 +144,27 @@ def verify_once(
         _record(error_event)
         return AuditCheckOutcome("error", reason=str(exc), recorded_events=recorded)
 
+    files_obj = manifest.get("files")
+    if not isinstance(files_obj, dict):
+        _record(
+            {
+                "event": "immutability_check",
+                "status": "error",
+                "reason": "manifest_missing_files_mapping",
+                "ts": ts,
+                "manifest": str(manifest_path),
+            }
+        )
+        return AuditCheckOutcome("error", reason="manifest_missing_files_mapping", recorded_events=recorded)
+
     ok = True
-    for file, info in manifest["files"].items():
+    for file, info in files_obj.items():
+        if not isinstance(file, str):
+            continue
         path = Path(file)
         status = "tampered"
-        if path.exists() and _hash_file(path) == info.get("sha256"):
+        sha256 = info.get("sha256") if isinstance(info, dict) else None
+        if path.exists() and isinstance(sha256, str) and _hash_file(path) == sha256:
             status = "verified"
         else:
             ok = False
@@ -163,7 +182,7 @@ def _forge_timestamp() -> str:
 
 
 def _write_preflight_docket(*, status: str, reason: str, manifest_path: Path, ensure_output: dict[str, object] | None = None) -> Path:
-    docket = {
+    docket: dict[str, object] = {
         "kind": "audit_docket",
         "tool": "audit_immutability_verifier",
         "status": status,
@@ -184,7 +203,8 @@ def _ensure_manifest_if_missing(manifest_path: Path) -> tuple[bool, dict[str, ob
     try:
         from sentientos import vow_artifacts
 
-        payload = vow_artifacts.ensure_vow_artifacts(manifest_path=manifest_path)
+        raw_payload = vow_artifacts.ensure_vow_artifacts(manifest_path=manifest_path)
+        payload = raw_payload if isinstance(raw_payload, dict) else {"result": raw_payload}
     except Exception as exc:  # pragma: no cover - defensive
         _write_preflight_docket(status="failed", reason=f"ensure_failed:{exc}", manifest_path=manifest_path)
         return False, None
@@ -201,7 +221,7 @@ def _ensure_manifest_if_missing(manifest_path: Path) -> tuple[bool, dict[str, ob
     return True, payload
 def run_loop(
     stop: threading.Event,
-    logger: Callable[[dict], None] = log_event,
+    logger: Callable[[dict[str, Any]], None] = log_event,
     interval: int = 3600,
     manifest_path: Path = DEFAULT_MANIFEST,
 ) -> None:

@@ -1,6 +1,122 @@
 {
-  "cluster_count": 0,
-  "clusters": [],
-  "excluded_glob_count": 3,
+  "cluster_count": 23,
+  "clusters": [
+    {
+      "cluster": "sentientos",
+      "error_count": 1049,
+      "module_count": 173
+    },
+    {
+      "cluster": "_repo_root",
+      "error_count": 978,
+      "module_count": 259
+    },
+    {
+      "cluster": "scripts",
+      "error_count": 113,
+      "module_count": 41
+    },
+    {
+      "cluster": "agents",
+      "error_count": 36,
+      "module_count": 8
+    },
+    {
+      "cluster": "codex",
+      "error_count": 32,
+      "module_count": 12
+    },
+    {
+      "cluster": "gui",
+      "error_count": 25,
+      "module_count": 1
+    },
+    {
+      "cluster": "tools",
+      "error_count": 25,
+      "module_count": 6
+    },
+    {
+      "cluster": "daemon",
+      "error_count": 22,
+      "module_count": 6
+    },
+    {
+      "cluster": "vow",
+      "error_count": 21,
+      "module_count": 1
+    },
+    {
+      "cluster": "wdm",
+      "error_count": 19,
+      "module_count": 6
+    },
+    {
+      "cluster": "cli",
+      "error_count": 10,
+      "module_count": 1
+    },
+    {
+      "cluster": "plugins",
+      "error_count": 8,
+      "module_count": 4
+    },
+    {
+      "cluster": "sentientscript",
+      "error_count": 6,
+      "module_count": 1
+    },
+    {
+      "cluster": "embodiment",
+      "error_count": 4,
+      "module_count": 1
+    },
+    {
+      "cluster": "hf_intake",
+      "error_count": 4,
+      "module_count": 3
+    },
+    {
+      "cluster": "installer",
+      "error_count": 4,
+      "module_count": 1
+    },
+    {
+      "cluster": "privilege_lint",
+      "error_count": 4,
+      "module_count": 2
+    },
+    {
+      "cluster": "gp_plugins",
+      "error_count": 3,
+      "module_count": 1
+    },
+    {
+      "cluster": "witness",
+      "error_count": 2,
+      "module_count": 1
+    },
+    {
+      "cluster": "control_plane",
+      "error_count": 1,
+      "module_count": 1
+    },
+    {
+      "cluster": "council_adapters",
+      "error_count": 1,
+      "module_count": 1
+    },
+    {
+      "cluster": "policies",
+      "error_count": 1,
+      "module_count": 1
+    },
+    {
+      "cluster": "security",
+      "error_count": 1,
+      "module_count": 1
+    }
+  ],
+  "excluded_glob_count": 5,
   "schema_version": 1
 }

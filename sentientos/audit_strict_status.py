@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from sentientos.attestation import iso_now, read_json, write_json
 from sentientos.audit_chain_gate import AuditChainVerification
@@ -227,4 +227,4 @@ def write_strict_audit_artifacts(
 
 def load_strict_audit_status(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
-    return read_json(root / "glow/contracts/strict_audit_status.json")
+    return cast(dict[str, Any], read_json(root / "glow/contracts/strict_audit_status.json"))

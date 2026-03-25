@@ -1,5 +1,5 @@
 {
-  "checked_target_count": 1442,
+  "checked_target_count": 1446,
   "checked_targets_sample": [
     ".env.sync.autofill.py",
     "Liturgy/__init__.py",
@@ -203,13 +203,45 @@
     "daemon/disk_daemon.py"
   ],
   "config_file": "mypy.ini",
-  "error_count": 0,
-  "error_count_by_code": {},
+  "error_count": 2369,
+  "error_count_by_code": {
+    "arg-type": 449,
+    "assignment": 115,
+    "attr-defined": 337,
+    "call-arg": 6,
+    "call-overload": 160,
+    "comparison-overlap": 1,
+    "dict-item": 18,
+    "exit-return": 1,
+    "func-returns-value": 1,
+    "import-untyped": 23,
+    "index": 36,
+    "list-item": 1,
+    "misc": 31,
+    "name-defined": 17,
+    "no-any-return": 116,
+    "no-redef": 21,
+    "no-untyped-call": 41,
+    "no-untyped-def": 179,
+    "operator": 32,
+    "redundant-cast": 2,
+    "return": 1,
+    "return-value": 85,
+    "truthy-function": 2,
+    "type-arg": 495,
+    "type-var": 11,
+    "union-attr": 83,
+    "untyped-decorator": 85,
+    "valid-type": 8,
+    "var-annotated": 12
+  },
   "excluded_globs": [
     "tests/*",
     "*/tests/*",
-    "glow/*"
+    "glow/*",
+    "privilege_lint.py",
+    "sentientos/codex.py"
   ],
-  "module_count": 0,
+  "module_count": 532,
   "schema_version": 1
 }

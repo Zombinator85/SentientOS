@@ -7,10 +7,12 @@ from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pathlib import Path
 import time
-from typing import Generator
+from typing import Callable, Generator, TypeVar, cast
 
 app = FastAPI(title="Federation Stream API")
 LOG_PATH = Path("logs/federation_stream.jsonl")
+Handler = TypeVar("Handler", bound=Callable[..., object])
+typed_get = cast(Callable[[str], Callable[[Handler], Handler]], app.get)
 
 def stream_events(path: Path = LOG_PATH) -> Generator[str, None, None]:
     last_size = 0
@@ -24,6 +26,6 @@ def stream_events(path: Path = LOG_PATH) -> Generator[str, None, None]:
                 last_size = len(data)
         time.sleep(1)
 
-@app.get("/federation/stream")
+@typed_get("/federation/stream")
 def federation_stream() -> StreamingResponse:
     return StreamingResponse(stream_events(), media_type="text/event-stream")

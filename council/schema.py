@@ -6,7 +6,7 @@ require_admin_banner()
 require_lumos_approval()
 
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Any, Literal
 import time
 
 Role = Literal["system", "user", "assistant", "agent", "referee"]
@@ -20,7 +20,7 @@ class Message:
     timestamp: float = time.time()
     kind: Literal["answer","critique","synthesis","seed"] = "answer"
 
-def as_dict(m: Message) -> dict:
+def as_dict(m: Message) -> dict[str, Any]:
     return {
         "agent": m.agent,
         "role": m.role,
