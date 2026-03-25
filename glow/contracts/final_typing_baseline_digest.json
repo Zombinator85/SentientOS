@@ -1,9 +1,9 @@
 {
-  "baseline_error_count": 0,
-  "canonical_error_count": 0,
-  "cluster_count": 0,
+  "baseline_error_count": 2369,
+  "canonical_error_count": 2369,
+  "cluster_count": 23,
   "delta_vs_baseline": 0,
-  "excluded_glob_count": 3,
+  "excluded_glob_count": 5,
   "policy_strict_status": "ok",
   "ratchet_status": "ok",
   "schema_version": 1

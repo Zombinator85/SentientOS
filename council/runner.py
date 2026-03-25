@@ -5,7 +5,7 @@ from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner()
 require_lumos_approval()
 
-from typing import List
+from typing import List, Protocol
 from .bus import Bus
 from .schema import Message
 from .referee import Referee
@@ -13,10 +13,19 @@ from .adapters.openai_adapter import OpenAIAdapter
 from .adapters.deepseek_adapter import DeepSeekAdapter
 from .adapters.mistral_adapter import MistralAdapter
 
+
+class CouncilAdapter(Protocol):
+    name: str
+
+    def answer(self, prompt: str) -> str: ...
+
+    def critique(self, text: str) -> str: ...
+
+
 def run(seed: str, rounds: int = 2) -> List[Message]:
     bus = Bus()
     ref = Referee(bus, max_rounds=rounds)
-    agents = [OpenAIAdapter(), DeepSeekAdapter(), MistralAdapter()]
+    agents: list[CouncilAdapter] = [OpenAIAdapter(), DeepSeekAdapter(), MistralAdapter()]
 
     bus.publish(Message(agent="referee", role="referee", content=seed, round=0, kind="seed"))
 

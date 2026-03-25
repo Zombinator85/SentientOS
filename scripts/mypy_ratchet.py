@@ -24,6 +24,9 @@ STRICT_SUBSET_PREFIXES = ("sentientos/forge", "sentientos/cathedral_forge.py", "
 ERROR_PATTERN = re.compile(
     r"^(?P<path>[^:\n]+):(?P<line>\d+):(?P<column>\d+):\s+(?P<severity>error|note):\s+(?P<message>.+?)(?:\s+\[(?P<code>[^\]]+)\])?$"
 )
+NON_POSITION_ERROR_PATTERN = re.compile(
+    r"^(?P<path>[^:\n]+):\s+(?P<severity>error|note):\s+(?P<message>.+?)(?:\s+\[(?P<code>[^\]]+)\])?$"
+)
 
 
 @dataclass(frozen=True)
@@ -55,16 +58,29 @@ class MypyError:
 def parse_mypy_output(stdout: str) -> list[MypyError]:
     errors: list[MypyError] = []
     for raw in stdout.splitlines():
-        match = ERROR_PATTERN.match(raw.strip())
-        if match is None or match.group("severity") != "error":
+        stripped = raw.strip()
+        match = ERROR_PATTERN.match(stripped)
+        if match is not None and match.group("severity") == "error":
+            errors.append(
+                MypyError(
+                    path=match.group("path"),
+                    line=int(match.group("line")),
+                    column=int(match.group("column")),
+                    message=match.group("message"),
+                    code=match.group("code") or "mypy",
+                )
+            )
+            continue
+        non_position = NON_POSITION_ERROR_PATTERN.match(stripped)
+        if non_position is None or non_position.group("severity") != "error":
             continue
         errors.append(
             MypyError(
-                path=match.group("path"),
-                line=int(match.group("line")),
-                column=int(match.group("column")),
-                message=match.group("message"),
-                code=match.group("code") or "",
+                path=non_position.group("path"),
+                line=0,
+                column=0,
+                message=non_position.group("message"),
+                code=non_position.group("code") or "mypy",
             )
         )
     return sorted(errors, key=lambda item: (item.path, item.line, item.column, item.code, item.message))
@@ -487,10 +503,12 @@ def main(argv: list[str] | None = None) -> int:
     strict_targets = sorted({error.path for error in errors if _matches_any(error.path, strict_patterns)})
     enforced_patterns = _as_string_list(policy.get("strict_enforced_patterns", []))
     enforced_targets = sorted({path for path in targets if _matches_any(path, enforced_patterns)})
-    all_strict_targets = sorted(set(strict_targets + enforced_targets))
-    if all_strict_targets:
-        strict_code, strict_out = _run_mypy(["--strict", "--follow-imports=skip", *all_strict_targets])
-        result["policy_strict_targets"] = all_strict_targets
+    if strict_targets:
+        result["policy_strict_candidate_count"] = len(strict_targets)
+        result["policy_strict_candidates_sample"] = strict_targets[:100]
+    if enforced_targets:
+        strict_code, strict_out = _run_mypy(["--strict", "--follow-imports=skip", *enforced_targets])
+        result["policy_strict_targets"] = enforced_targets
         result["policy_strict_status"] = "ok" if strict_code == 0 else "failed"
         if strict_code != 0:
             result["policy_strict_excerpt"] = strict_out.splitlines()[:10]

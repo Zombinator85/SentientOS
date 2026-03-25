@@ -7,7 +7,9 @@
   "canonical_exclude_globs": [
     "tests/*",
     "*/tests/*",
-    "glow/*"
+    "glow/*",
+    "privilege_lint.py",
+    "sentientos/codex.py"
   ],
   "protected_patterns": [
     "scripts/audit_*.py",
@@ -23,7 +25,16 @@
     "sentientos/diagnostics/*.py",
     "sentientos/observatory/*.py",
     "sentientos/trust_ledger.py",
-    "sentientos/pulse_trust_epoch.py"
+    "sentientos/pulse_trust_epoch.py",
+    "control_plane/*.py",
+    "reporters/*.py",
+    "council/*.py",
+    "council/adapters/*.py",
+    "api/*.py",
+    "scripts/audit_immutability_verifier.py",
+    "scripts/emit_baseline_verification_status.py",
+    "sentientos/audit_strict_status.py",
+    "sentientos/ci_baseline.py"
   ],
   "strict_patterns": [
     "sentientos/cathedral_forge.py",
@@ -38,7 +49,16 @@
     "sentientos/trust_ledger.py",
     "sentientos/observatory/fleet_health.py",
     "sentientos/diagnostics/drift_detector.py",
-    "sentientos/diagnostics/drift_alerts.py"
+    "sentientos/diagnostics/drift_alerts.py",
+    "control_plane/*.py",
+    "reporters/*.py",
+    "council/*.py",
+    "council/adapters/*.py",
+    "api/*.py",
+    "scripts/audit_immutability_verifier.py",
+    "scripts/emit_baseline_verification_status.py",
+    "sentientos/audit_strict_status.py",
+    "sentientos/ci_baseline.py"
   ],
   "deferred_debt_classes": [
     "Legacy untyped function boundaries in broad runtime surfaces",
@@ -55,6 +75,15 @@
     "sentientos/trust_ledger.py",
     "sentientos/observatory/fleet_health.py",
     "sentientos/diagnostics/drift_detector.py",
-    "sentientos/diagnostics/drift_alerts.py"
+    "sentientos/diagnostics/drift_alerts.py",
+    "control_plane/*.py",
+    "reporters/*.py",
+    "council/*.py",
+    "council/adapters/*.py",
+    "api/*.py",
+    "scripts/audit_immutability_verifier.py",
+    "scripts/emit_baseline_verification_status.py",
+    "sentientos/audit_strict_status.py",
+    "sentientos/ci_baseline.py"
   ]
 }

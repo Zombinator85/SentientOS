@@ -143,7 +143,7 @@ def _top_clusters(harvest: HarvestResult, *, limit: int = 5) -> list[dict[str, o
 
 def _fallback_failed_count(harvest: HarvestResult, output: str) -> int:
     if harvest.total_failed:
-        return harvest.total_failed
+        return int(harvest.total_failed)
     parsed = parse_summary_failed_count(output)
     return parsed if parsed is not None else 0
 

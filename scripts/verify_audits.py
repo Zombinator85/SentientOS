@@ -513,12 +513,12 @@ def main(argv: list[str] | None = None) -> int:
             status_label = "failed"
             reason = "integrity_mismatch"
             exit_code = 1
-        strict_bucket = str(strict_artifacts.get("bucket") or "")
-        strict_blocking = strict_bucket in {"blocking_chain_break", "missing_required_audit_artifacts"}
+        strict_bucket_value = strict_artifacts.get("bucket")
+        strict_blocking = strict_bucket_value in {"blocking_chain_break", "missing_required_audit_artifacts"}
         if args.strict and strict_output is not None and (
             strict_output["baseline_status"] in {"drift", "broken"}
             or strict_output["runtime_status"] == "broken"
-            or strict_bucket in {"blocking_chain_break", "missing_required_audit_artifacts"}
+            or strict_bucket_value in {"blocking_chain_break", "missing_required_audit_artifacts"}
         ):
             status_label = "failed"
             reason = "strict_privileged_audit_failure"
