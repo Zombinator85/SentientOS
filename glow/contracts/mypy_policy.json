@@ -39,7 +39,10 @@
     "scripts/audit_immutability_verifier.py",
     "scripts/emit_baseline_verification_status.py",
     "sentientos/audit_strict_status.py",
-    "sentientos/ci_baseline.py"
+    "sentientos/ci_baseline.py",
+    "architect_daemon.py",
+    "relay_app.py",
+    "relay_watchdog.py"
   ],
   "strict_patterns": [
     "sentientos/cathedral_forge.py",
@@ -68,7 +71,10 @@
     "scripts/audit_immutability_verifier.py",
     "scripts/emit_baseline_verification_status.py",
     "sentientos/audit_strict_status.py",
-    "sentientos/ci_baseline.py"
+    "sentientos/ci_baseline.py",
+    "architect_daemon.py",
+    "relay_app.py",
+    "relay_watchdog.py"
   ],
   "deferred_debt_classes": [
     "Legacy untyped function boundaries in broad runtime surfaces",
@@ -99,6 +105,9 @@
     "scripts/audit_immutability_verifier.py",
     "scripts/emit_baseline_verification_status.py",
     "sentientos/audit_strict_status.py",
-    "sentientos/ci_baseline.py"
+    "sentientos/ci_baseline.py",
+    "architect_daemon.py",
+    "relay_app.py",
+    "relay_watchdog.py"
   ]
 }

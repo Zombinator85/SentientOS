@@ -8,8 +8,8 @@
     },
     {
       "cluster": "_repo_root",
-      "error_count": 963,
-      "module_count": 256
+      "error_count": 850,
+      "module_count": 255
     },
     {
       "cluster": "scripts",

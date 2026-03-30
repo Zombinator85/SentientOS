@@ -2,6 +2,61 @@
 
 This pass focuses on high-value mature surfaces linked to trust/federation runtime behavior, observatory dashboard/status aggregation, and drift diagnostics.
 
+## Latest pass (2026-03-25, Architect + Relay Strictness Expansion Cone)
+
+- Repo-wide canonical baseline moved from **2349** to **2236** errors (**-113** net).
+- Architect/relay cone moved from **167** to **52** errors (**-115** in-cone), with major reductions in `relay_app.py`.
+- Ratchet remained green (`python scripts/mypy_ratchet.py`: `status=ok`, no new errors).
+
+### Fresh cone audit (before implementation)
+
+Scoped cone and posture classification before cleanup:
+
+- `architect_daemon.py` — **strict candidate** (1 error, `import-untyped` on `yaml`), low-risk promotion candidate.
+- `relay_app.py` — **protected candidate** (131 errors; dominant families: `untyped-decorator`, `no-untyped-def`, `no-any-return`, `assignment`, `arg-type`), high-payoff primary target.
+- `relay_watchdog.py` — **strict candidate** (2 errors: `import-untyped`, `no-any-return`), low-risk promotion candidate.
+- `relay_server.py` — **deferred adjacent helper** (29 errors, heavy `untyped-decorator` + framework model typing debt), intentionally deferred this pass.
+- `sentientos/oracle_relay.py` — **deferred adjacent helper** (4 errors, optional playwright/browser attr-defined surface), intentionally deferred this pass.
+
+### Cleanup + promotion outcomes
+
+- `relay_app.py`
+  - Replaced untyped route decorators with a typed `route(...)` wrapper boundary.
+  - Added typed protocol shims for optional `requests` and script interpreter fallbacks.
+  - Tightened queue/deque generics, generator return typing, JSON response normalization, and boundary coercions.
+  - Reduced from **131 → 19** canonical errors (**-112**).
+- `architect_daemon.py`
+  - Normalized optional `yaml` typing boundary (`import-untyped` guard).
+  - Reduced **1 → 0**.
+- `relay_watchdog.py`
+  - Introduced typed requests protocol boundary and import guard.
+  - Reduced **2 → 0**.
+
+### Policy promotions
+
+Promoted to governed territory by extending all three ratchet policy corridors:
+
+- `protected_patterns`: `architect_daemon.py`, `relay_app.py`, `relay_watchdog.py`
+- `strict_patterns`: `architect_daemon.py`, `relay_app.py`, `relay_watchdog.py`
+- `strict_enforced_patterns`: `architect_daemon.py`, `relay_app.py`, `relay_watchdog.py`
+
+### Deferred in-cone remainder (explicit)
+
+- `relay_server.py` remains deferred due broad FastAPI `BaseModel`/decorator typing posture and larger framework-typing stabilization work.
+- `sentientos/oracle_relay.py` remains deferred due optional browser runtime typing (`playwright`) and local optional dependency boundaries.
+
+### Artifact refresh and constitution status
+
+- Refreshed canonical typing artifacts:
+  - `glow/contracts/mypy_baseline.json`
+  - `glow/contracts/canonical_typing_baseline.json`
+  - `glow/contracts/typing_cluster_summary.json`
+  - `glow/contracts/typing_ratchet_status.json`
+  - `glow/contracts/final_typing_baseline_digest.json`
+- Canonical policy updated in:
+  - `glow/contracts/mypy_policy.json`
+- Result: baseline and ratchet remain deterministic, auditable, and green with updated policy and refreshed canonical baseline.
+
 ## Latest pass (2026-03-24, Flask Importer Mainland Burn-Down II)
 
 - Repo-wide `mypy .` moved from **6562** to **6414** errors (**-148** net).

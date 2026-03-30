@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import datetime
+from collections.abc import Callable
 import hashlib
 import ipaddress
 import json
@@ -18,7 +19,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, MutableMapping, Optional, Protocol, Sequence, Set, Tuple, TypeVar, cast
 from types import SimpleNamespace
 
 from dotenv import load_dotenv
@@ -52,8 +53,10 @@ import mem_export
 import memory_governor as governor
 import secure_memory_storage as secure_store
 from safety_log import count_recent_events, log_event
+dream_loop: Any
 try:
-    import dream_loop
+    import dream_loop as _dream_loop
+    dream_loop = _dream_loop
 except Exception as exc:  # pragma: no cover - optional dependency for tests
     _logger = logging.getLogger(__name__)
     _logger.warning("[Relay] dream_loop unavailable (%s); using stub.", exc)
@@ -69,7 +72,7 @@ except Exception as exc:  # pragma: no cover - optional dependency for tests
         def is_enabled() -> bool:
             return False
 
-    dream_loop = _DreamLoopStub()  # type: ignore[assignment]
+    dream_loop = _DreamLoopStub()
 from nacl.signing import VerifyKey
 
 from sentient_verifier import (
@@ -81,6 +84,20 @@ from sentient_verifier import (
     merkle_root_for_report,
     verify_vote_signatures,
 )
+class _ScriptSigner(Protocol):
+    def sign(self, script: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def verify(self, script: Mapping[str, Any]) -> bool: ...
+
+
+class _ScriptInterpreter(Protocol):
+    history: List[Mapping[str, Any]]
+    signer: _ScriptSigner
+
+    def build_shadow(self, kind: str, text: str) -> Mapping[str, Any]: ...
+    def load_script(self, payload: Mapping[str, Any]) -> Mapping[str, Any]: ...
+    def execute(self, *args: Any, **kwargs: Any) -> Mapping[str, Any]: ...
+
+
 try:
     from sentientscript import (
         ScriptExecutionError,
@@ -92,7 +109,7 @@ except Exception as exc:  # pragma: no cover - optional dependency for tests
     _logger = logging.getLogger(__name__)
     _logger.warning("[Relay] sentientscript unavailable (%s); using stub.", exc)
 
-    class ScriptExecutionError(RuntimeError):
+    class ScriptExecutionError(RuntimeError):  # type: ignore[no-redef]
         pass
 
     class _StubSigner:
@@ -102,7 +119,7 @@ except Exception as exc:  # pragma: no cover - optional dependency for tests
         def verify(self, script: Mapping[str, Any]) -> bool:
             return True
 
-    class SentientScriptInterpreter:  # type: ignore[override]
+    class SentientScriptInterpreter:  # type: ignore[no-redef]
         def __init__(self) -> None:
             self.history: List[Mapping[str, Any]] = []
             self.signer = _StubSigner()
@@ -128,8 +145,17 @@ except Exception as exc:  # pragma: no cover - optional dependency for tests
     ) -> Optional[Mapping[str, Any]]:
         return None
 
+
+class _RequestsClient(Protocol):
+    RequestException: type[Exception]
+
+    def post(self, *_args: Any, **_kwargs: Any) -> Any: ...
+    def get(self, *_args: Any, **_kwargs: Any) -> Any: ...
+
+
 try:
-    import requests
+    import requests as _requests  # type: ignore[import-untyped,unused-ignore]
+    requests: _RequestsClient = _requests
 except Exception as exc:  # pragma: no cover - optional dependency for tests
     _logger = logging.getLogger(__name__)
     _logger.warning("[Relay] requests unavailable (%s); using stub.", exc)
@@ -137,10 +163,20 @@ except Exception as exc:  # pragma: no cover - optional dependency for tests
     class _RequestsStubException(Exception):
         pass
 
-    def _requests_stub_post(*_args: Any, **_kwargs: Any):
+    def _requests_stub_post(*_args: Any, **_kwargs: Any) -> Any:
         raise _RequestsStubException("requests unavailable")
 
-    requests = SimpleNamespace(post=_requests_stub_post, RequestException=_RequestsStubException)
+    def _requests_stub_get(*_args: Any, **_kwargs: Any) -> Any:
+        raise _RequestsStubException("requests unavailable")
+
+    requests = cast(
+        _RequestsClient,
+        SimpleNamespace(
+            post=_requests_stub_post,
+            get=_requests_stub_get,
+            RequestException=_RequestsStubException,
+        ),
+    )
 
 from distributed_memory import decrypt_reflection_payload, encode_payload, synchronizer
 from epu_core import get_global_state
@@ -176,6 +212,13 @@ def _initialise_mesh() -> tuple[SentientMesh, SentientAutonomyEngine]:
 
 
 app = Flask(__name__)
+_RouteHandler = TypeVar("_RouteHandler", bound=Callable[..., Any])
+
+
+def route(rule: str, **options: Any) -> Callable[[_RouteHandler], _RouteHandler]:
+    return cast(Callable[[_RouteHandler], _RouteHandler], app.route(rule, **options))
+
+
 log_level = os.getenv("RELAY_LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 LOGGER = logging.getLogger(__name__)
@@ -207,7 +250,7 @@ _ADMIN_ALLOWLIST_RAW = [
     for entry in (os.getenv("ADMIN_ALLOWLIST") or "127.0.0.1/32").split(",")
     if entry.strip()
 ]
-_ADMIN_ALLOWLIST: list = []
+_ADMIN_ALLOWLIST: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
 for entry in _ADMIN_ALLOWLIST_RAW:
     try:
         _ADMIN_ALLOWLIST.append(ipaddress.ip_network(entry, strict=False))
@@ -442,7 +485,7 @@ class _ConsensusState:
 
 _CONSENSUS_LOCK = threading.RLock()
 _CONSENSUS_STATES: Dict[str, _ConsensusState] = {}
-_MESH_RATE_TRACKER: Dict[str, deque] = {}
+_MESH_RATE_TRACKER: Dict[str, deque[float]] = {}
 _MESH_RATE_WINDOW = 60.0
 _MESH_RATE_LIMIT = 120
 _MAX_MESH_PARTICIPATION = 10
@@ -719,21 +762,21 @@ class _SseHub:
     def __init__(self, *, max_queue: int = 32) -> None:
         self._max_queue = max(4, int(max_queue))
         self._lock = threading.Lock()
-        self._subscribers: set[queue.Queue] = set()
+        self._subscribers: set[queue.Queue[dict[str, Any]]] = set()
 
-    def subscribe(self) -> queue.Queue:
-        subscriber: queue.Queue = queue.Queue(maxsize=self._max_queue)
+    def subscribe(self) -> queue.Queue[dict[str, Any]]:
+        subscriber: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=self._max_queue)
         with self._lock:
             self._subscribers.add(subscriber)
         return subscriber
 
-    def unsubscribe(self, subscriber: queue.Queue) -> None:
+    def unsubscribe(self, subscriber: queue.Queue[dict[str, Any]]) -> None:
         with self._lock:
             self._subscribers.discard(subscriber)
 
     def publish(self, event: str, data: Optional[Dict[str, Any]] = None) -> None:
         payload = {"event": event, "data": data or {}, "timestamp": time.time()}
-        stale: list[queue.Queue] = []
+        stale: list[queue.Queue[dict[str, Any]]] = []
         with self._lock:
             for subscriber in list(self._subscribers):
                 try:
@@ -779,21 +822,22 @@ _MAX_VERIFIER_BUNDLE_BYTES = 5_000_000
 _MAX_VERIFIER_STEPS = 1_000
 
 
-if not hasattr(registry, "_relay_original_register_or_update"):
-    registry._relay_original_register_or_update = registry.register_or_update  # type: ignore[attr-defined]
-_registry_register_or_update = registry._relay_original_register_or_update  # type: ignore[attr-defined]
-if not hasattr(registry, "_relay_original_record_voice_activity"):
-    registry._relay_original_record_voice_activity = registry.record_voice_activity  # type: ignore[attr-defined]
-_registry_record_voice_activity = registry._relay_original_record_voice_activity  # type: ignore[attr-defined]
-if not hasattr(registry, "_relay_original_set_trust_level"):
-    registry._relay_original_set_trust_level = registry.set_trust_level  # type: ignore[attr-defined]
-_registry_set_trust_level = registry._relay_original_set_trust_level  # type: ignore[attr-defined]
+_registry_any = cast(Any, registry)
+if not hasattr(_registry_any, "_relay_original_register_or_update"):
+    _registry_any._relay_original_register_or_update = registry.register_or_update
+_registry_register_or_update = _registry_any._relay_original_register_or_update
+if not hasattr(_registry_any, "_relay_original_record_voice_activity"):
+    _registry_any._relay_original_record_voice_activity = registry.record_voice_activity
+_registry_record_voice_activity = _registry_any._relay_original_record_voice_activity
+if not hasattr(_registry_any, "_relay_original_set_trust_level"):
+    _registry_any._relay_original_set_trust_level = registry.set_trust_level
+_registry_set_trust_level = _registry_any._relay_original_set_trust_level
 
 
 def _local_node_id() -> str:
     node_id = registry.local_hostname
     if node_id:
-        return node_id
+        return str(node_id)
     return socket.gethostname()
 
 
@@ -943,7 +987,7 @@ def _complete_voice_session(
 def _consume_transcription_events(
     session: _VoiceSessionState,
     hostname: str,
-    events,
+    events: Sequence[Any],
 ) -> list[Dict[str, Any]]:
     collected: list[Dict[str, Any]] = []
     for event in events:
@@ -962,7 +1006,7 @@ def _consume_transcription_events(
     return collected
 
 
-def _emit_node_update(record) -> None:
+def _emit_node_update(record: NodeRecord | None) -> None:
     if not record:
         return
     try:
@@ -975,22 +1019,22 @@ def _emit_node_update(record) -> None:
     _notify_admin("nodes", payload)
 
 
-def _register_or_update_with_event(*args, **kwargs):  # type: ignore[override]
-    record = _registry_register_or_update(*args, **kwargs)
+def _register_or_update_with_event(*args: Any, **kwargs: Any) -> NodeRecord:
+    record = cast(NodeRecord, _registry_register_or_update(*args, **kwargs))
     if record:
         _emit_node_update(record)
     return record
 
 
-def _set_trust_level_with_event(*args, **kwargs):  # type: ignore[override]
-    record = _registry_set_trust_level(*args, **kwargs)
+def _set_trust_level_with_event(*args: Any, **kwargs: Any) -> NodeRecord | None:
+    record = cast(NodeRecord | None, _registry_set_trust_level(*args, **kwargs))
     if record:
         _emit_node_update(record)
     return record
 
 
-def _record_voice_activity_with_event(*args, **kwargs):  # type: ignore[override]
-    record = _registry_record_voice_activity(*args, **kwargs)
+def _record_voice_activity_with_event(*args: Any, **kwargs: Any) -> NodeRecord | None:
+    record = cast(NodeRecord | None, _registry_record_voice_activity(*args, **kwargs))
     if record:
         _notify_admin(
             "voice-activity",
@@ -999,9 +1043,9 @@ def _record_voice_activity_with_event(*args, **kwargs):  # type: ignore[override
     return record
 
 
-registry.register_or_update = _register_or_update_with_event  # type: ignore[assignment]
-registry.set_trust_level = _set_trust_level_with_event  # type: ignore[assignment]
-registry.record_voice_activity = _record_voice_activity_with_event  # type: ignore[assignment]
+_registry_any.register_or_update = _register_or_update_with_event
+_registry_any.set_trust_level = _set_trust_level_with_event
+_registry_any.record_voice_activity = _record_voice_activity_with_event
 
 
 class _AdminStateWatcher(threading.Thread):
@@ -1132,7 +1176,8 @@ def _proxy_remote_json(path: str, payload: Dict[str, Any], *, capability: Option
         return None
     logging.info("[Relay] Routed %s to %s (%s)", path, node.hostname, node.ip)
     try:
-        return response.json()
+        data = response.json()
+        return data if isinstance(data, dict) else None
     except ValueError:
         logging.warning("[Relay] Remote %s produced non-JSON payload", path)
         return None
@@ -1160,14 +1205,14 @@ def _is_authorised_for_node_routes() -> bool:
 def _remote_ip() -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.remote_addr or "127.0.0.1"
+        return str(forwarded.split(",")[0].strip())
+    return str(request.remote_addr or "127.0.0.1")
 
 
 def _admin_actor() -> str:
     actor = request.headers.get("X-Admin-Actor")
     if actor:
-        return actor
+        return str(actor)
     token = request.headers.get(_NODE_HEADER)
     if token:
         return f"token:{token[:12]}"
@@ -1241,7 +1286,7 @@ def _gpu_status() -> Dict[str, Any]:
 
 
 def _memory_summary() -> Dict[str, Any]:
-    metrics = governor.metrics()
+    metrics = dict(governor.metrics())
     metrics["secure_store"] = secure_store.is_enabled()
     return metrics
 
@@ -1312,7 +1357,7 @@ def _top_emotions(vector: Mapping[str, float], limit: int = 3) -> list[Dict[str,
 def _goal_progress_snapshot(goal: Mapping[str, object]) -> Dict[str, object]:
     raw_fraction = goal.get("progress")
     try:
-        fraction = float(raw_fraction)
+        fraction = float(raw_fraction) if isinstance(raw_fraction, (int, float, str)) else 0.0
     except (TypeError, ValueError):
         fraction = 0.0
     status = str(goal.get("status") or "open").lower()
@@ -1415,7 +1460,7 @@ def _dream_panel_snapshot() -> Dict[str, Any]:
         if schedule_at:
             active_goal["scheduled_at"] = schedule_at
 
-    progress = {
+    progress: Dict[str, Any] = {
         "fraction": round(max(0.0, min(1.0, fraction)), 3),
         "percent": round(max(0.0, min(1.0, fraction)) * 100, 1),
         "seconds_since_last_cycle": seconds_since,
@@ -1473,7 +1518,7 @@ def _admin_status_payload() -> Dict[str, Any]:
 
 
 def _verifier_status() -> Dict[str, Any]:
-    summary = _SENTIENT_VERIFIER.status()
+    summary = dict(_SENTIENT_VERIFIER.status())
     summary["counts"] = _verifier_counts_today()
     return summary
 
@@ -1481,14 +1526,15 @@ def _verifier_status() -> Dict[str, Any]:
 def _verifier_counts_today() -> Dict[str, int]:
     try:
         today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        return _VERIFIER_STORE.verdict_counts(
+        counts = _VERIFIER_STORE.verdict_counts(
             since=today.replace(tzinfo=datetime.timezone.utc).timestamp()
         )
+        return dict(counts)
     except Exception:  # pragma: no cover - defensive
         return {}
 
 
-@app.route("/admin/scripts", methods=["GET", "POST"])
+@route("/admin/scripts", methods=["GET", "POST"])
 def admin_scripts() -> Response:
     if request.method == "GET":
         if not _admin_authorised():
@@ -1548,7 +1594,7 @@ def admin_scripts() -> Response:
     return _admin_response(response_payload)
 
 
-@app.route("/admin/scripts/<path:run_id>/logs", methods=["GET"])
+@route("/admin/scripts/<path:run_id>/logs", methods=["GET"])
 def admin_script_logs(run_id: str) -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -1615,7 +1661,7 @@ def _verifier_event_payload(report: "VerificationReport") -> Dict[str, Any]:
     }
 
 
-@app.route("/admin/verify/submit", methods=["POST"])
+@route("/admin/verify/submit", methods=["POST"])
 def admin_verify_submit() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -1667,7 +1713,7 @@ def admin_verify_submit() -> Response:
     return _admin_response(response_payload)
 
 
-@app.route("/admin/verify/status/<job_id>", methods=["GET"])
+@route("/admin/verify/status/<job_id>", methods=["GET"])
 def admin_verify_status(job_id: str) -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -1679,7 +1725,7 @@ def admin_verify_status(job_id: str) -> Response:
     return _admin_response(payload)
 
 
-@app.route("/admin/verify/report/<job_id>", methods=["GET"])
+@route("/admin/verify/report/<job_id>", methods=["GET"])
 def admin_verify_report(job_id: str) -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -1689,7 +1735,7 @@ def admin_verify_report(job_id: str) -> Response:
     return _admin_response(report)
 
 
-@app.route("/admin/verify/list", methods=["GET"])
+@route("/admin/verify/list", methods=["GET"])
 def admin_verify_list() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -1701,7 +1747,7 @@ def admin_verify_list() -> Response:
     return _admin_response({"reports": summaries})
 
 
-@app.route("/admin/verify/replay/<job_id>", methods=["POST"])
+@route("/admin/verify/replay/<job_id>", methods=["POST"])
 def admin_verify_replay(job_id: str) -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -1741,7 +1787,7 @@ def admin_verify_replay(job_id: str) -> Response:
     return _admin_response(response_payload)
 
 
-@app.route("/admin/verify/consensus/submit", methods=["POST"])
+@route("/admin/verify/consensus/submit", methods=["POST"])
 def admin_verify_consensus_submit() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -1795,7 +1841,7 @@ def admin_verify_consensus_submit() -> Response:
     return _admin_response(response_payload)
 
 
-@app.route("/admin/verify/consensus/status", methods=["GET"])
+@route("/admin/verify/consensus/status", methods=["GET"])
 def admin_verify_consensus_status() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -1842,12 +1888,14 @@ def admin_verify_consensus_status() -> Response:
         return _admin_response(payload)
     votes = _VERIFIER_STORE.list_votes(job_id)
     if votes:
-        participants = sorted({str(vote.get("voter_node")) for vote in votes if isinstance(vote, Mapping) and vote.get("voter_node")})
+        vote_participants: list[str] = sorted(
+            {str(vote.get("voter_node")) for vote in votes if isinstance(vote, Mapping) and vote.get("voter_node")}
+        )
         payload = {
             "job_id": job_id,
             "received": len(votes),
             "needed": 0,
-            "participants": participants,
+            "participants": vote_participants,
             "provisional_verdict": "INCONCLUSIVE",
             "finalized": False,
             "latest_votes": votes,
@@ -1861,7 +1909,7 @@ def admin_verify_consensus_status() -> Response:
     return jsonify({"error": "not_found"}), 404
 
 
-@app.route("/admin/verify/consensus/cancel", methods=["POST"])
+@route("/admin/verify/consensus/cancel", methods=["POST"])
 def admin_verify_consensus_cancel() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -1884,7 +1932,7 @@ def admin_verify_consensus_cancel() -> Response:
     return _admin_response({"status": "canceled", "snapshot": snapshot})
 
 
-@app.route("/admin/verify/consensus/finalize", methods=["POST"])
+@route("/admin/verify/consensus/finalize", methods=["POST"])
 def admin_verify_consensus_finalize() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -1914,7 +1962,7 @@ def admin_verify_consensus_finalize() -> Response:
     return _admin_response({"status": "finalized", "snapshot": snapshot, "consensus": consensus.to_dict()})
 
 
-@app.route("/admin/verify/consensus/report", methods=["GET"])
+@route("/admin/verify/consensus/report", methods=["GET"])
 def admin_verify_consensus_report() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -1935,7 +1983,7 @@ def admin_verify_consensus_report() -> Response:
     return jsonify({"error": "not_found"}), 404
 
 
-@app.route("/mesh/verify/solicit", methods=["POST"])
+@route("/mesh/verify/solicit", methods=["POST"])
 def mesh_verify_solicit() -> Response:
     payload = request.get_json(silent=True) or {}
     job_id = str(payload.get("job_id") or "")
@@ -2036,12 +2084,12 @@ def mesh_verify_solicit() -> Response:
     return _admin_response({"vote": vote.to_dict()})
 
 
-@app.route("/mesh/verify/submit_vote", methods=["POST"])
+@route("/mesh/verify/submit_vote", methods=["POST"])
 def mesh_verify_submit_vote() -> Response:
     payload = request.get_json(silent=True) or {}
     vote_payload: Mapping[str, Any]
     if isinstance(payload.get("vote"), Mapping):
-        vote_payload = payload["vote"]  # type: ignore[assignment]
+        vote_payload = dict(payload["vote"])
     elif isinstance(payload, Mapping):
         vote_payload = payload
     else:
@@ -2093,7 +2141,7 @@ def mesh_verify_submit_vote() -> Response:
     return _admin_response(response_payload)
 
 
-@app.route("/admin/dream", methods=["GET"])
+@route("/admin/dream", methods=["GET"])
 def admin_dream() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -2136,14 +2184,14 @@ def _serve_static(root: Path, asset: str, *, default_mimetype: str = "text/plain
         return response
 
 
-@app.route("/sse", methods=["GET"])
+@route("/sse", methods=["GET"])
 def admin_event_stream() -> Response:
     if not _authorised_for_sse():
         return Response("Forbidden", status=403)
 
     subscriber = _ADMIN_EVENTS.subscribe()
 
-    def stream():
+    def stream() -> Iterator[str]:
         try:
             yield "event: refresh\ndata: {}\n\n"
             while True:
@@ -2168,8 +2216,8 @@ def admin_event_stream() -> Response:
     return response
 
 
-def _sanitise_memories(entries: list[dict], *, decrypt: bool) -> list[dict]:
-    cleaned: list[dict] = []
+def _sanitise_memories(entries: list[dict[str, Any]], *, decrypt: bool) -> list[dict[str, Any]]:
+    cleaned: list[dict[str, Any]] = []
     for entry in entries:
         data = dict(entry)
         if not decrypt:
@@ -2200,7 +2248,8 @@ def _proxy_upstream_json(path: str, payload: Dict[str, Any]) -> Optional[Dict[st
         logging.warning("[Relay] Upstream %s returned %s", url, response.status_code)
         return None
     try:
-        return response.json()
+        data = response.json()
+        return data if isinstance(data, dict) else None
     except ValueError:
         logging.warning("[Relay] Upstream %s produced non-JSON payload", url)
         return None
@@ -2239,7 +2288,7 @@ def _ensure_background_services() -> None:
 _ensure_background_services()
 
 
-@app.route("/", methods=["GET"])
+@route("/", methods=["GET"])
 def webui_root() -> Response:
     if not _WEBUI_ENABLED:
         return Response("Web UI disabled", status=404)
@@ -2259,26 +2308,26 @@ def webui_root() -> Response:
         return resp
 
 
-@app.route("/console", methods=["GET"])
+@route("/console", methods=["GET"])
 def console_root() -> Response:
     if not _CONSOLE_ENABLED:
         return Response("Console disabled", status=404)
     return _serve_static(_CONSOLE_ROOT, "index.html", default_mimetype="text/html")
 
 
-@app.route("/console/<path:asset>", methods=["GET"])
+@route("/console/<path:asset>", methods=["GET"])
 def console_asset(asset: str) -> Response:
     if not _CONSOLE_ENABLED:
         return Response("Console disabled", status=404)
     return _serve_static(_CONSOLE_ROOT, asset)
 
 
-@app.route("/webui/pwa/<path:asset>", methods=["GET"])
+@route("/webui/pwa/<path:asset>", methods=["GET"])
 def pwa_asset(asset: str) -> Response:
     return _serve_static(_PWA_ROOT, asset)
 
 
-@app.route("/webui/<path:asset>", methods=["GET"])
+@route("/webui/<path:asset>", methods=["GET"])
 def webui_asset(asset: str) -> Response:
     if not _WEBUI_ENABLED:
         return Response("Web UI disabled", status=404)
@@ -2306,28 +2355,28 @@ def webui_asset(asset: str) -> Response:
         return resp
 
 
-@app.route("/nodes", methods=["GET"])
+@route("/nodes", methods=["GET"])
 def list_nodes() -> Response:
     if not _is_authorised_for_node_routes():
         return Response("Forbidden", status=403)
     return jsonify({"nodes": registry.active_nodes(), "capabilities": registry.capability_map()})
 
 
-@app.route("/nodes/list", methods=["GET"])
+@route("/nodes/list", methods=["GET"])
 def nodes_list_ui() -> Response:
     if not _authorised_for_ui():
         return Response("Forbidden", status=403)
     return jsonify({"nodes": registry.active_nodes(), "capabilities": registry.capability_map()})
 
 
-@app.route("/admin/status", methods=["GET"])
+@route("/admin/status", methods=["GET"])
 def admin_status() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
     return _admin_response(_admin_status_payload())
 
 
-@app.route("/admin/mesh/status", methods=["GET"])
+@route("/admin/mesh/status", methods=["GET"])
 def admin_mesh_status() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -2336,14 +2385,14 @@ def admin_mesh_status() -> Response:
     return _admin_response({"snapshot": snapshot})
 
 
-@app.route("/admin/mesh/voices", methods=["GET"])
+@route("/admin/mesh/voices", methods=["GET"])
 def admin_mesh_voices() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
     return _admin_response({"voices": _MESH.voices_status()})
 
 
-@app.route("/admin/mesh/sessions", methods=["GET"])
+@route("/admin/mesh/sessions", methods=["GET"])
 def admin_mesh_sessions() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -2356,7 +2405,7 @@ def admin_mesh_sessions() -> Response:
     return _admin_response({"sessions": sessions})
 
 
-@app.route("/admin/mesh/cycle", methods=["POST"])
+@route("/admin/mesh/cycle", methods=["POST"])
 def admin_mesh_cycle() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2389,14 +2438,14 @@ def admin_mesh_cycle() -> Response:
     return _admin_response({"snapshot": payload})
 
 
-@app.route("/admin/autonomy/status", methods=["GET"])
+@route("/admin/autonomy/status", methods=["GET"])
 def admin_autonomy_status() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
     return _admin_response(AUTONOMY.status())
 
 
-@app.route("/admin/autonomy/start", methods=["POST"])
+@route("/admin/autonomy/start", methods=["POST"])
 def admin_autonomy_start() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2404,7 +2453,7 @@ def admin_autonomy_start() -> Response:
     return _admin_response(AUTONOMY.status())
 
 
-@app.route("/admin/autonomy/stop", methods=["POST"])
+@route("/admin/autonomy/stop", methods=["POST"])
 def admin_autonomy_stop() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2412,7 +2461,7 @@ def admin_autonomy_stop() -> Response:
     return _admin_response(AUTONOMY.status())
 
 
-@app.route("/admin/autonomy/reflect", methods=["POST"])
+@route("/admin/autonomy/reflect", methods=["POST"])
 def admin_autonomy_reflect() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2423,7 +2472,7 @@ def admin_autonomy_reflect() -> Response:
     return _admin_response({"plans": plans, "snapshot": snapshot})
 
 
-@app.route("/admin/health", methods=["GET"])
+@route("/admin/health", methods=["GET"])
 def admin_health() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -2435,7 +2484,7 @@ def admin_health() -> Response:
     return _admin_response(payload)
 
 
-@app.route("/admin/nodes", methods=["GET"])
+@route("/admin/nodes", methods=["GET"])
 def admin_nodes() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -2452,14 +2501,14 @@ def admin_nodes() -> Response:
     return _admin_response(payload)
 
 
-@app.route("/admin/memory/summary", methods=["GET"])
+@route("/admin/memory/summary", methods=["GET"])
 def admin_memory_summary() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
     return _admin_response(_memory_summary())
 
 
-@app.route("/admin/memory/recall", methods=["POST"])
+@route("/admin/memory/recall", methods=["POST"])
 def admin_memory_recall() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2474,7 +2523,7 @@ def admin_memory_recall() -> Response:
     return jsonify({"memories": _sanitise_memories(memories, decrypt=decrypt)})
 
 
-@app.route("/admin/nodes/<hostname>/trust", methods=["POST"])
+@route("/admin/nodes/<hostname>/trust", methods=["POST"])
 def admin_nodes_trust(hostname: str) -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2486,7 +2535,7 @@ def admin_nodes_trust(hostname: str) -> Response:
     return jsonify(record.serialise())
 
 
-@app.route("/admin/nodes/<hostname>/block", methods=["POST"])
+@route("/admin/nodes/<hostname>/block", methods=["POST"])
 def admin_nodes_block(hostname: str) -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2496,7 +2545,7 @@ def admin_nodes_block(hostname: str) -> Response:
     return jsonify(record.serialise())
 
 
-@app.route("/admin/nodes/<hostname>/rekey", methods=["POST"])
+@route("/admin/nodes/<hostname>/rekey", methods=["POST"])
 def admin_nodes_rekey(hostname: str) -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2511,7 +2560,7 @@ def admin_nodes_rekey(hostname: str) -> Response:
     return jsonify({"stored": True, "hostname": hostname})
 
 
-@app.route("/admin/rotate-keys", methods=["POST"])
+@route("/admin/rotate-keys", methods=["POST"])
 def admin_rotate_keys() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2519,7 +2568,7 @@ def admin_rotate_keys() -> Response:
     return jsonify(result)
 
 
-@app.route("/webrtc/create", methods=["POST"])
+@route("/webrtc/create", methods=["POST"])
 def webrtc_create() -> Response:
     if not _VOICE_ENABLED or _WEBRTC_MANAGER is None:
         return Response("Voice disabled", status=404)
@@ -2536,7 +2585,7 @@ def webrtc_create() -> Response:
     return jsonify(session)
 
 
-@app.route("/webrtc/ice", methods=["POST"])
+@route("/webrtc/ice", methods=["POST"])
 def webrtc_add_ice() -> Response:
     if not _VOICE_ENABLED or _WEBRTC_MANAGER is None:
         return Response("Voice disabled", status=404)
@@ -2554,7 +2603,7 @@ def webrtc_add_ice() -> Response:
     return jsonify(updated)
 
 
-@app.route("/voice/stream", methods=["POST"])
+@route("/voice/stream", methods=["POST"])
 def voice_stream() -> Response:
     if not _VOICE_ENABLED or _STT_PIPELINE is None:
         return Response("Voice disabled", status=404)
@@ -2586,11 +2635,11 @@ def voice_stream() -> Response:
                 try:
                     submitted = base64.b64decode(chunk)
                 except Exception:
-                    submitted = chunk
+                    submitted = chunk.encode("utf-8")
             else:
-                submitted = chunk
+                submitted = chunk.encode("utf-8")
         else:
-            submitted = json.dumps(chunk)
+                submitted = json.dumps(chunk).encode("utf-8")
         response_events.extend(_consume_transcription_events(session, hostname, session.transcriber.submit_audio(submitted)))
 
     if payload.get("flush"):
@@ -2623,7 +2672,7 @@ def voice_stream() -> Response:
     return jsonify(result)
 
 
-@app.route("/nodes/trust", methods=["POST"])
+@route("/nodes/trust", methods=["POST"])
 def nodes_trust() -> Response:
     if not _authorised_for_ui():
         return Response("Forbidden", status=403)
@@ -2638,7 +2687,7 @@ def nodes_trust() -> Response:
     return jsonify(record.serialise())
 
 
-@app.route("/nodes/block", methods=["POST"])
+@route("/nodes/block", methods=["POST"])
 def nodes_block() -> Response:
     if not _authorised_for_ui():
         return Response("Forbidden", status=403)
@@ -2652,7 +2701,7 @@ def nodes_block() -> Response:
     return jsonify(record.serialise())
 
 
-@app.route("/admin/webrtc/sessions", methods=["GET"])
+@route("/admin/webrtc/sessions", methods=["GET"])
 def admin_webrtc_sessions() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
@@ -2661,14 +2710,14 @@ def admin_webrtc_sessions() -> Response:
     return _admin_response({"sessions": _WEBRTC_MANAGER.list_sessions()})
 
 
-@app.route("/admin/watchdog", methods=["GET"])
+@route("/admin/watchdog", methods=["GET"])
 def admin_watchdog_snapshot() -> Response:
     if not _admin_authorised():
         return Response("Forbidden", status=403)
     return _admin_response(WATCHDOG.snapshot())
 
 
-@app.route("/admin/watchdog/register", methods=["POST"])
+@route("/admin/watchdog/register", methods=["POST"])
 def admin_watchdog_register() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2686,7 +2735,7 @@ def admin_watchdog_register() -> Response:
     return jsonify({"registered": True, "name": name})
 
 
-@app.route("/admin/watchdog/heartbeat", methods=["POST"])
+@route("/admin/watchdog/heartbeat", methods=["POST"])
 def admin_watchdog_heartbeat() -> Response:
     if not _admin_authorised(require_csrf=True):
         return Response("Forbidden", status=403)
@@ -2698,7 +2747,7 @@ def admin_watchdog_heartbeat() -> Response:
     return jsonify({"ack": True, "name": name})
 
 
-@app.route("/pair/start", methods=["POST"])
+@route("/pair/start", methods=["POST"])
 def pair_start() -> Response:
     if not _authorised_for_ui():
         return Response("Forbidden", status=403)
@@ -2707,7 +2756,7 @@ def pair_start() -> Response:
     return jsonify(data)
 
 
-@app.route("/pair/confirm", methods=["POST"])
+@route("/pair/confirm", methods=["POST"])
 def pair_confirm() -> Response:
     payload = request.get_json() or {}
     try:
@@ -2728,7 +2777,7 @@ def pair_confirm() -> Response:
     return response
 
 
-@app.route("/nodes/register", methods=["POST"])
+@route("/nodes/register", methods=["POST"])
 def register_node() -> Response:
     if not _is_authorised_for_node_routes():
         return Response("Forbidden", status=403)
@@ -2749,7 +2798,7 @@ def register_node() -> Response:
     return jsonify(record.serialise()), 201
 
 
-@app.route("/memory/export", methods=["GET", "POST"])
+@route("/memory/export", methods=["GET", "POST"])
 def memory_export() -> Response:
     if request.method == "GET":
         if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
@@ -2787,7 +2836,7 @@ def memory_export() -> Response:
     return response
 
 
-@app.route("/reflect/sync", methods=["POST"])
+@route("/reflect/sync", methods=["POST"])
 def reflect_sync() -> Response:
     if NODE_TOKEN and request.headers.get(_NODE_HEADER) != NODE_TOKEN:
         return Response("Forbidden", status=403)
@@ -2847,7 +2896,7 @@ def reflect_sync() -> Response:
     return jsonify({"status": "ok"})
 
 
-@app.route("/chat", methods=["POST"])
+@route("/chat", methods=["POST"])
 def chat() -> Response:
     payload = request.get_json() or {}
     if _ROLE == "thin":
@@ -2874,8 +2923,8 @@ def chat() -> Response:
     return jsonify({"reply": reply, "model": model, "routed": "local", "chunks": chunks})
 
 
-@app.route("/relay", methods=["POST"])
-def relay():
+@route("/relay", methods=["POST"])
+def relay() -> Response:
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
 
@@ -2898,7 +2947,7 @@ def relay():
     return jsonify({"reply_chunks": chunk_message(reply)})
 
 
-@app.route("/memory/import", methods=["POST"])
+@route("/memory/import", methods=["POST"])
 def memory_import() -> Response:
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return Response("Forbidden", status=403)
@@ -2922,7 +2971,7 @@ def memory_import() -> Response:
     return jsonify(stats)
 
 
-@app.route("/memory/stats", methods=["GET"])
+@route("/memory/stats", methods=["GET"])
 def memory_stats() -> Response:
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return Response("Forbidden", status=403)
@@ -2935,7 +2984,7 @@ def memory_stats() -> Response:
     return jsonify({"categories": categories, "count": count})
 
 
-@app.route("/status", methods=["GET"])
+@route("/status", methods=["GET"])
 def status() -> Response:
     loop_status: Dict[str, Any] = {}
     try:
@@ -2975,7 +3024,7 @@ def status() -> Response:
     return jsonify(payload)
 
 
-@app.route("/health/status", methods=["GET"])
+@route("/health/status", methods=["GET"])
 def health_status() -> Response:
     payload = {
         "incognito": _incognito_enabled(),
@@ -2990,7 +3039,7 @@ def health_status() -> Response:
     return jsonify(payload)
 
 
-@app.route("/dreamloop/status", methods=["GET"])
+@route("/dreamloop/status", methods=["GET"])
 def dreamloop_status() -> Response:
     payload: Dict[str, Any] = {}
     try:
@@ -3004,8 +3053,8 @@ def dreamloop_status() -> Response:
     return jsonify(payload)
 
 
-@app.route("/act", methods=["POST"])
-def act():
+@route("/act", methods=["POST"])
+def act() -> Response:
     if _ROLE == "thin":
         payload = request.get_json() or {}
         upstream = _proxy_upstream_json("/act", payload)
@@ -3038,21 +3087,21 @@ def act():
     return jsonify(result)
 
 
-@app.route("/act_status", methods=["POST"])
-def act_status():
+@route("/act_status", methods=["POST"])
+def act_status() -> Response:
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     aid = (request.get_json() or {}).get("id", "")
     return jsonify(actuator.get_status(aid))
 
 
-@app.route("/act_stream", methods=["POST"])
-def act_stream():
+@route("/act_stream", methods=["POST"])
+def act_stream() -> Response:
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     aid = (request.get_json() or {}).get("id", "")
 
-    def gen():
+    def gen() -> Iterator[str]:
         last = None
         while True:
             status = actuator.get_status(aid)
@@ -3066,8 +3115,8 @@ def act_stream():
     return Response(gen(), mimetype="text/event-stream")
 
 
-@app.route("/goals/list", methods=["POST"])
-def goals_list():
+@route("/goals/list", methods=["POST"])
+def goals_list() -> Response:
     if _ROLE == "thin":
         upstream = _proxy_upstream_json("/goals/list", request.get_json() or {})
         if upstream is not None:
@@ -3078,8 +3127,8 @@ def goals_list():
     return jsonify(mm.get_goals(open_only=False))
 
 
-@app.route("/goals/add", methods=["POST"])
-def goals_add():
+@route("/goals/add", methods=["POST"])
+def goals_add() -> Response:
     if _ROLE == "thin":
         upstream = _proxy_upstream_json("/goals/add", request.get_json() or {})
         if upstream is not None:
@@ -3099,8 +3148,8 @@ def goals_add():
     return jsonify(goal)
 
 
-@app.route("/goals/complete", methods=["POST"])
-def goals_complete():
+@route("/goals/complete", methods=["POST"])
+def goals_complete() -> Response:
     if _ROLE == "thin":
         upstream = _proxy_upstream_json("/goals/complete", request.get_json() or {})
         if upstream is not None:
@@ -3117,8 +3166,8 @@ def goals_complete():
     return jsonify({"status": "ok"})
 
 
-@app.route("/goals/delete", methods=["POST"])
-def goals_delete():
+@route("/goals/delete", methods=["POST"])
+def goals_delete() -> Response:
     if _ROLE == "thin":
         upstream = _proxy_upstream_json("/goals/delete", request.get_json() or {})
         if upstream is not None:
@@ -3131,8 +3180,8 @@ def goals_delete():
     return jsonify({"status": "deleted"})
 
 
-@app.route("/agent/run", methods=["POST"])
-def agent_run():
+@route("/agent/run", methods=["POST"])
+def agent_run() -> Response:
     if request.headers.get("X-Relay-Secret") != RELAY_SECRET:
         return "Forbidden", 403
     cycles = int((request.get_json() or {}).get("cycles", 1))
@@ -3141,40 +3190,41 @@ def agent_run():
     return jsonify({"status": "ran", "cycles": cycles})
 
 
-def _read_last(path: Path) -> dict:
+def _read_last(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     try:
         line = path.read_text(encoding="utf-8").strip().splitlines()[-1]
-        return json.loads(line)
+        payload = json.loads(line)
+        return payload if isinstance(payload, dict) else {}
     except Exception:
         return {}
 
 
-@app.route("/mood")
+@route("/mood")
 def mood() -> Response:
     data = _read_last(epu.MOOD_LOG)
     return jsonify(data.get("mood", {}))
 
 
-@app.route("/current_emotion")
+@route("/current_emotion")
 def current_emotion() -> Response:
     return mood()
 
 
-@app.route("/eeg")
+@route("/eeg")
 def eeg_state() -> Response:
     path = get_log_path("eeg_events.jsonl", "EEG_LOG")
     return jsonify(_read_last(path))
 
 
-@app.route("/haptics")
+@route("/haptics")
 def haptics_state() -> Response:
     path = get_log_path("haptics_events.jsonl", "HAPTIC_LOG")
     return jsonify(_read_last(path))
 
 
-@app.route("/bio")
+@route("/bio")
 def bio_state() -> Response:
     path = get_log_path("bio_events.jsonl", "BIO_LOG")
     return jsonify(_read_last(path))
@@ -3208,7 +3258,7 @@ def register_voice_session(
     _notify_admin("memory", {"category": "voice_session"})
 
 
-def register_watchdog_check(name: str, check) -> None:
+def register_watchdog_check(name: str, check: Callable[[], tuple[bool, str | None]]) -> None:
     WATCHDOG.register_check(name, check)
 
 
