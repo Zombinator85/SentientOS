@@ -17,7 +17,7 @@ from typing import Callable, Deque, Iterable, Mapping, MutableMapping, Sequence,
 import random
 from uuid import uuid4
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 

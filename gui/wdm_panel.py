@@ -3,7 +3,7 @@ from __future__ import annotations
 from sentientos.privilege import require_admin_banner, require_lumos_approval
 require_admin_banner(); require_lumos_approval()
 
-import json, yaml
+import json, yaml  # type: ignore[import-untyped]
 from typing import Dict
 
 try:
@@ -54,4 +54,3 @@ def render() -> None:
         if cheers:
             cheers_log = cfg.get("activation", {}).get("cheers_channel", "logs/wdm/cheers.jsonl")
             st.write(f"[cheers log]({cheers_log})")
-

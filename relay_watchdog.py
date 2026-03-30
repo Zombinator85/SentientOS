@@ -10,13 +10,22 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List, Protocol
 
 from logging_config import get_log_path
 import json
 
+class _ResponseLike(Protocol):
+    status_code: int
+
+
+class _RequestsLike(Protocol):
+    def get(self, url: str, timeout: float) -> _ResponseLike: ...
+
+
 try:
-    import requests
+    import requests as _requests  # type: ignore[import-untyped]
+    requests: _RequestsLike | None = _requests
 except Exception:  # pragma: no cover - optional
     requests = None
 
@@ -38,9 +47,6 @@ def _log(event: str, target: str, detail: str = "") -> None:
     }
     with LOG_FILE.open("a", encoding="utf-8") as f:
         f.write(json.dumps(entry) + "\n")
-
-
-import json
 
 
 def _check(url: str) -> bool:

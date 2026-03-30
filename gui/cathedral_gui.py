@@ -28,7 +28,7 @@ from sentientos.github_checks import fetch_pr_checks
 
 requests: Any = None
 try:
-    import requests as _requests
+    import requests as _requests  # type: ignore[import-untyped]
 
     requests = _requests
 except Exception:  # pragma: no cover - optional

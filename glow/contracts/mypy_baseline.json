@@ -10,35 +10,35 @@
   "canonical_roots": [
     "."
   ],
-  "error_count": 2369,
+  "error_count": 2236,
   "error_count_by_code": {
-    "arg-type": 449,
-    "assignment": 115,
-    "attr-defined": 337,
+    "arg-type": 447,
+    "assignment": 109,
+    "attr-defined": 336,
     "call-arg": 6,
     "call-overload": 160,
     "comparison-overlap": 1,
     "dict-item": 18,
     "exit-return": 1,
     "func-returns-value": 1,
-    "import-untyped": 23,
+    "import-untyped": 2,
     "index": 36,
     "list-item": 1,
     "misc": 31,
     "name-defined": 17,
-    "no-any-return": 116,
-    "no-redef": 21,
-    "no-untyped-call": 41,
-    "no-untyped-def": 179,
+    "no-any-return": 110,
+    "no-redef": 19,
+    "no-untyped-call": 39,
+    "no-untyped-def": 161,
     "operator": 32,
     "redundant-cast": 2,
     "return": 1,
     "return-value": 85,
     "truthy-function": 2,
-    "type-arg": 495,
+    "type-arg": 485,
     "type-var": 11,
     "union-attr": 83,
-    "untyped-decorator": 85,
+    "untyped-decorator": 20,
     "valid-type": 8,
     "var-annotated": 12
   },
@@ -437,17 +437,6 @@
         "path": "agents/forms/ssa_disability_agent.py",
         "signature": "agents/forms/ssa_disability_agent.py:85:5:no-untyped-def:Function is missing a type annotation for one or more arguments",
         "stable_signature": "agents/forms/ssa_disability_agent.py:no-untyped-def:Function is missing a type annotation for one or more arguments"
-      }
-    ],
-    "architect_daemon.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 20,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "architect_daemon.py",
-        "signature": "architect_daemon.py:20:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "architect_daemon.py:import-untyped:Library stubs not installed for \"yaml\""
       }
     ],
     "archive_blessing.py": [
@@ -991,15 +980,6 @@
     ],
     "bridge_watchdog.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 17,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "bridge_watchdog.py",
-        "signature": "bridge_watchdog.py:17:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "bridge_watchdog.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
         "code": "no-any-return",
         "column": 9,
         "line": 47,
@@ -1141,15 +1121,6 @@
     ],
     "cathedral_hog_wild_heartbeat.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 8,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "cathedral_hog_wild_heartbeat.py",
-        "signature": "cathedral_hog_wild_heartbeat.py:8:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "cathedral_hog_wild_heartbeat.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
         "code": "no-untyped-def",
         "column": 1,
         "line": 58,
@@ -1223,15 +1194,6 @@
       }
     ],
     "cathedral_launcher.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 24,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "cathedral_launcher.py",
-        "signature": "cathedral_launcher.py:24:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "cathedral_launcher.py:import-untyped:Library stubs not installed for \"requests\""
-      },
       {
         "code": "assignment",
         "column": 31,
@@ -2748,15 +2710,6 @@
     ],
     "distributed_memory.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 20,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "distributed_memory.py",
-        "signature": "distributed_memory.py:20:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "distributed_memory.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
         "code": "no-untyped-def",
         "column": 5,
         "line": 27,
@@ -3279,17 +3232,6 @@
         "path": "emotion_dashboard.py",
         "signature": "emotion_dashboard.py:24:23:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"type[FeedbackManager]\")",
         "stable_signature": "emotion_dashboard.py:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"type[FeedbackManager]\")"
-      }
-    ],
-    "emotion_fallback.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 11,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "emotion_fallback.py",
-        "signature": "emotion_fallback.py:11:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "emotion_fallback.py:import-untyped:Library stubs not installed for \"yaml\""
       }
     ],
     "emotion_ledger_analytics.py": [
@@ -4135,15 +4077,6 @@
       }
     ],
     "heartbeat.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 8,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "heartbeat.py",
-        "signature": "heartbeat.py:8:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "heartbeat.py:import-untyped:Library stubs not installed for \"requests\""
-      },
       {
         "code": "no-untyped-def",
         "column": 1,
@@ -5408,15 +5341,6 @@
         "path": "model_bridge.py",
         "signature": "model_bridge.py:58:13:no-any-return:Returning Any from function declared to return \"dict[str, object]\"",
         "stable_signature": "model_bridge.py:no-any-return:Returning Any from function declared to return \"dict[str, object]\""
-      },
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 196,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "model_bridge.py",
-        "signature": "model_bridge.py:196:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "model_bridge.py:import-untyped:Library stubs not installed for \"requests\""
       }
     ],
     "monthly_audit.py": [
@@ -6020,15 +5944,6 @@
     ],
     "ocr_pipeline.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 15,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "ocr_pipeline.py",
-        "signature": "ocr_pipeline.py:15:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "ocr_pipeline.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
         "code": "no-untyped-def",
         "column": 1,
         "line": 92,
@@ -6049,15 +5964,6 @@
     ],
     "onboarding_dashboard.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 15,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "onboarding_dashboard.py",
-        "signature": "onboarding_dashboard.py:15:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "onboarding_dashboard.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
         "code": "type-arg",
         "column": 19,
         "line": 22,
@@ -6077,15 +5983,6 @@
       }
     ],
     "openai_connector.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 22,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "openai_connector.py",
-        "signature": "openai_connector.py:22:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "openai_connector.py:import-untyped:Library stubs not installed for \"requests\""
-      },
       {
         "code": "return-value",
         "column": 16,
@@ -6999,1181 +6896,173 @@
       {
         "code": "attr-defined",
         "column": 5,
-        "line": 85,
+        "line": 102,
         "message": "Module \"sentientscript\" has no attribute \"list_script_history\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:85:5:attr-defined:Module \"sentientscript\" has no attribute \"list_script_history\"",
+        "signature": "relay_app.py:102:5:attr-defined:Module \"sentientscript\" has no attribute \"list_script_history\"",
         "stable_signature": "relay_app.py:attr-defined:Module \"sentientscript\" has no attribute \"list_script_history\""
       },
       {
         "code": "attr-defined",
         "column": 5,
-        "line": 85,
+        "line": 102,
         "message": "Module \"sentientscript\" has no attribute \"load_safety_shadow\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:85:5:attr-defined:Module \"sentientscript\" has no attribute \"load_safety_shadow\"",
+        "signature": "relay_app.py:102:5:attr-defined:Module \"sentientscript\" has no attribute \"load_safety_shadow\"",
         "stable_signature": "relay_app.py:attr-defined:Module \"sentientscript\" has no attribute \"load_safety_shadow\""
-      },
-      {
-        "code": "no-redef",
-        "column": 5,
-        "line": 95,
-        "message": "Name \"ScriptExecutionError\" already defined (possibly by an import)",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:95:5:no-redef:Name \"ScriptExecutionError\" already defined (possibly by an import)",
-        "stable_signature": "relay_app.py:no-redef:Name \"ScriptExecutionError\" already defined (possibly by an import)"
-      },
-      {
-        "code": "no-redef",
-        "column": 5,
-        "line": 105,
-        "message": "Name \"SentientScriptInterpreter\" already defined (possibly by an import)",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:105:5:no-redef:Name \"SentientScriptInterpreter\" already defined (possibly by an import)",
-        "stable_signature": "relay_app.py:no-redef:Name \"SentientScriptInterpreter\" already defined (possibly by an import)"
-      },
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 132,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:132:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "relay_app.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 5,
-        "line": 140,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:140:5:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "type-arg",
-        "column": 19,
-        "line": 210,
-        "message": "Missing type parameters for generic type \"list\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:210:19:type-arg:Missing type parameters for generic type \"list\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"list\""
       },
       {
         "code": "assignment",
         "column": 19,
-        "line": 235,
+        "line": 278,
         "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"dict[str, str]\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:235:19:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"dict[str, str]\")",
+        "signature": "relay_app.py:278:19:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"dict[str, str]\")",
         "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"dict[str, str]\")"
       },
       {
         "code": "assignment",
         "column": 21,
-        "line": 236,
+        "line": 279,
         "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"StreamingTranscriber\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:236:21:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"StreamingTranscriber\")",
+        "signature": "relay_app.py:279:21:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"StreamingTranscriber\")",
         "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"StreamingTranscriber\")"
       },
       {
         "code": "assignment",
         "column": 21,
-        "line": 237,
+        "line": 280,
         "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"TtsStreamer\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:237:21:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"TtsStreamer\")",
+        "signature": "relay_app.py:280:21:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"TtsStreamer\")",
         "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"TtsStreamer\")"
       },
       {
         "code": "assignment",
         "column": 19,
-        "line": 238,
+        "line": 281,
         "message": "Incompatible types in assignment (expression has type \"None\", variable has type \"WebRTCSessionManager\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:238:19:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"WebRTCSessionManager\")",
+        "signature": "relay_app.py:281:19:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"WebRTCSessionManager\")",
         "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"None\", variable has type \"WebRTCSessionManager\")"
-      },
-      {
-        "code": "type-arg",
-        "column": 31,
-        "line": 445,
-        "message": "Missing type parameters for generic type \"deque\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:445:31:type-arg:Missing type parameters for generic type \"deque\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"deque\""
-      },
-      {
-        "code": "type-arg",
-        "column": 32,
-        "line": 722,
-        "message": "Missing type parameters for generic type \"Queue\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:722:32:type-arg:Missing type parameters for generic type \"Queue\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"Queue\""
-      },
-      {
-        "code": "type-arg",
-        "column": 28,
-        "line": 724,
-        "message": "Missing type parameters for generic type \"Queue\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:724:28:type-arg:Missing type parameters for generic type \"Queue\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"Queue\""
-      },
-      {
-        "code": "type-arg",
-        "column": 21,
-        "line": 725,
-        "message": "Missing type parameters for generic type \"Queue\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:725:21:type-arg:Missing type parameters for generic type \"Queue\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"Queue\""
-      },
-      {
-        "code": "type-arg",
-        "column": 39,
-        "line": 730,
-        "message": "Missing type parameters for generic type \"Queue\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:730:39:type-arg:Missing type parameters for generic type \"Queue\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"Queue\""
-      },
-      {
-        "code": "type-arg",
-        "column": 21,
-        "line": 736,
-        "message": "Missing type parameters for generic type \"Queue\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:736:21:type-arg:Missing type parameters for generic type \"Queue\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"Queue\""
       },
       {
         "code": "arg-type",
         "column": 25,
-        "line": 836,
+        "line": 880,
         "message": "Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:836:25:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
+        "signature": "relay_app.py:880:25:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\""
       },
       {
         "code": "arg-type",
         "column": 24,
-        "line": 837,
+        "line": 881,
         "message": "Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:837:24:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
+        "signature": "relay_app.py:881:24:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\""
       },
       {
         "code": "index",
         "column": 9,
-        "line": 863,
+        "line": 907,
         "message": "Unsupported target for indexed assignment (\"object\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:863:9:index:Unsupported target for indexed assignment (\"object\")",
+        "signature": "relay_app.py:907:9:index:Unsupported target for indexed assignment (\"object\")",
         "stable_signature": "relay_app.py:index:Unsupported target for indexed assignment (\"object\")"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 943,
-        "message": "Function is missing a type annotation for one or more arguments",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:943:1:no-untyped-def:Function is missing a type annotation for one or more arguments",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a type annotation for one or more arguments"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 965,
-        "message": "Function is missing a type annotation for one or more arguments",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:965:1:no-untyped-def:Function is missing a type annotation for one or more arguments",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a type annotation for one or more arguments"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 978,
-        "message": "Function is missing a type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:978:1:no-untyped-def:Function is missing a type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 985,
-        "message": "Function is missing a type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:985:1:no-untyped-def:Function is missing a type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 992,
-        "message": "Function is missing a type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:992:1:no-untyped-def:Function is missing a type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a type annotation"
       },
       {
         "code": "arg-type",
         "column": 54,
-        "line": 1034,
+        "line": 1078,
         "message": "Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:1034:54:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
+        "signature": "relay_app.py:1078:54:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\""
-      },
-      {
-        "code": "no-any-return",
-        "column": 9,
-        "line": 1135,
-        "message": "Returning Any from function declared to return \"dict[str, Any] | None\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1135:9:no-any-return:Returning Any from function declared to return \"dict[str, Any] | None\"",
-        "stable_signature": "relay_app.py:no-any-return:Returning Any from function declared to return \"dict[str, Any] | None\""
-      },
-      {
-        "code": "no-any-return",
-        "column": 9,
-        "line": 1163,
-        "message": "Returning Any from function declared to return \"str\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1163:9:no-any-return:Returning Any from function declared to return \"str\"",
-        "stable_signature": "relay_app.py:no-any-return:Returning Any from function declared to return \"str\""
-      },
-      {
-        "code": "no-any-return",
-        "column": 9,
-        "line": 1170,
-        "message": "Returning Any from function declared to return \"str\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1170:9:no-any-return:Returning Any from function declared to return \"str\"",
-        "stable_signature": "relay_app.py:no-any-return:Returning Any from function declared to return \"str\""
-      },
-      {
-        "code": "arg-type",
-        "column": 26,
-        "line": 1315,
-        "message": "Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1315:26:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
-        "stable_signature": "relay_app.py:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\""
-      },
-      {
-        "code": "arg-type",
-        "column": 34,
-        "line": 1362,
-        "message": "Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1362:34:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
-        "stable_signature": "relay_app.py:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\""
-      },
-      {
-        "code": "assignment",
-        "column": 31,
-        "line": 1425,
-        "message": "Incompatible types in assignment (expression has type \"str\", target has type \"float | None\")",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1425:31:assignment:Incompatible types in assignment (expression has type \"str\", target has type \"float | None\")",
-        "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"str\", target has type \"float | None\")"
-      },
-      {
-        "code": "assignment",
-        "column": 31,
-        "line": 1426,
-        "message": "Incompatible types in assignment (expression has type \"str\", target has type \"float | None\")",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1426:31:assignment:Incompatible types in assignment (expression has type \"str\", target has type \"float | None\")",
-        "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"str\", target has type \"float | None\")"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1491,
-        "message": "Untyped decorator makes function \"admin_scripts\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1491:2:untyped-decorator:Untyped decorator makes function \"admin_scripts\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_scripts\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1551,
-        "message": "Untyped decorator makes function \"admin_script_logs\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1551:2:untyped-decorator:Untyped decorator makes function \"admin_script_logs\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_script_logs\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1618,
-        "message": "Untyped decorator makes function \"admin_verify_submit\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1618:2:untyped-decorator:Untyped decorator makes function \"admin_verify_submit\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_submit\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1670,
-        "message": "Untyped decorator makes function \"admin_verify_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1670:2:untyped-decorator:Untyped decorator makes function \"admin_verify_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_status\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1682,
-        "message": "Untyped decorator makes function \"admin_verify_report\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1682:2:untyped-decorator:Untyped decorator makes function \"admin_verify_report\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_report\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1692,
-        "message": "Untyped decorator makes function \"admin_verify_list\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1692:2:untyped-decorator:Untyped decorator makes function \"admin_verify_list\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_list\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1704,
-        "message": "Untyped decorator makes function \"admin_verify_replay\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1704:2:untyped-decorator:Untyped decorator makes function \"admin_verify_replay\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_replay\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1744,
-        "message": "Untyped decorator makes function \"admin_verify_consensus_submit\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1744:2:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_submit\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_submit\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1798,
-        "message": "Untyped decorator makes function \"admin_verify_consensus_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1798:2:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_status\" untyped"
-      },
-      {
-        "code": "assignment",
-        "column": 24,
-        "line": 1845,
-        "message": "Incompatible types in assignment (expression has type \"list[str]\", variable has type \"set[str]\")",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1845:24:assignment:Incompatible types in assignment (expression has type \"list[str]\", variable has type \"set[str]\")",
-        "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"list[str]\", variable has type \"set[str]\")"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1864,
-        "message": "Untyped decorator makes function \"admin_verify_consensus_cancel\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1864:2:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_cancel\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_cancel\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1887,
-        "message": "Untyped decorator makes function \"admin_verify_consensus_finalize\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1887:2:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_finalize\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_finalize\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1917,
-        "message": "Untyped decorator makes function \"admin_verify_consensus_report\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1917:2:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_report\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_verify_consensus_report\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 1938,
-        "message": "Untyped decorator makes function \"mesh_verify_solicit\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:1938:2:untyped-decorator:Untyped decorator makes function \"mesh_verify_solicit\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"mesh_verify_solicit\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2039,
-        "message": "Untyped decorator makes function \"mesh_verify_submit_vote\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2039:2:untyped-decorator:Untyped decorator makes function \"mesh_verify_submit_vote\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"mesh_verify_submit_vote\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2096,
-        "message": "Untyped decorator makes function \"admin_dream\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2096:2:untyped-decorator:Untyped decorator makes function \"admin_dream\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_dream\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2139,
-        "message": "Untyped decorator makes function \"admin_event_stream\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2139:2:untyped-decorator:Untyped decorator makes function \"admin_event_stream\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_event_stream\" untyped"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 5,
-        "line": 2146,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2146:5:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-call",
-        "column": 25,
-        "line": 2165,
-        "message": "Call to untyped function \"stream\" in typed context",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2165:25:no-untyped-call:Call to untyped function \"stream\" in typed context",
-        "stable_signature": "relay_app.py:no-untyped-call:Call to untyped function \"stream\" in typed context"
-      },
-      {
-        "code": "type-arg",
-        "column": 38,
-        "line": 2171,
-        "message": "Missing type parameters for generic type \"dict\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2171:38:type-arg:Missing type parameters for generic type \"dict\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"dict\""
-      },
-      {
-        "code": "type-arg",
-        "column": 19,
-        "line": 2172,
-        "message": "Missing type parameters for generic type \"dict\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2172:19:type-arg:Missing type parameters for generic type \"dict\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"dict\""
-      },
-      {
-        "code": "no-any-return",
-        "column": 9,
-        "line": 2203,
-        "message": "Returning Any from function declared to return \"dict[str, Any] | None\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2203:9:no-any-return:Returning Any from function declared to return \"dict[str, Any] | None\"",
-        "stable_signature": "relay_app.py:no-any-return:Returning Any from function declared to return \"dict[str, Any] | None\""
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2242,
-        "message": "Untyped decorator makes function \"webui_root\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2242:2:untyped-decorator:Untyped decorator makes function \"webui_root\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"webui_root\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2262,
-        "message": "Untyped decorator makes function \"console_root\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2262:2:untyped-decorator:Untyped decorator makes function \"console_root\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"console_root\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2269,
-        "message": "Untyped decorator makes function \"console_asset\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2269:2:untyped-decorator:Untyped decorator makes function \"console_asset\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"console_asset\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2276,
-        "message": "Untyped decorator makes function \"pwa_asset\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2276:2:untyped-decorator:Untyped decorator makes function \"pwa_asset\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"pwa_asset\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2281,
-        "message": "Untyped decorator makes function \"webui_asset\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2281:2:untyped-decorator:Untyped decorator makes function \"webui_asset\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"webui_asset\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2309,
-        "message": "Untyped decorator makes function \"list_nodes\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2309:2:untyped-decorator:Untyped decorator makes function \"list_nodes\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"list_nodes\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2316,
-        "message": "Untyped decorator makes function \"nodes_list_ui\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2316:2:untyped-decorator:Untyped decorator makes function \"nodes_list_ui\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"nodes_list_ui\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2323,
-        "message": "Untyped decorator makes function \"admin_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2323:2:untyped-decorator:Untyped decorator makes function \"admin_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_status\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2330,
-        "message": "Untyped decorator makes function \"admin_mesh_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2330:2:untyped-decorator:Untyped decorator makes function \"admin_mesh_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_mesh_status\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2339,
-        "message": "Untyped decorator makes function \"admin_mesh_voices\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2339:2:untyped-decorator:Untyped decorator makes function \"admin_mesh_voices\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_mesh_voices\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2346,
-        "message": "Untyped decorator makes function \"admin_mesh_sessions\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2346:2:untyped-decorator:Untyped decorator makes function \"admin_mesh_sessions\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_mesh_sessions\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2359,
-        "message": "Untyped decorator makes function \"admin_mesh_cycle\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2359:2:untyped-decorator:Untyped decorator makes function \"admin_mesh_cycle\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_mesh_cycle\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2392,
-        "message": "Untyped decorator makes function \"admin_autonomy_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2392:2:untyped-decorator:Untyped decorator makes function \"admin_autonomy_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_autonomy_status\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2399,
-        "message": "Untyped decorator makes function \"admin_autonomy_start\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2399:2:untyped-decorator:Untyped decorator makes function \"admin_autonomy_start\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_autonomy_start\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2407,
-        "message": "Untyped decorator makes function \"admin_autonomy_stop\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2407:2:untyped-decorator:Untyped decorator makes function \"admin_autonomy_stop\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_autonomy_stop\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2415,
-        "message": "Untyped decorator makes function \"admin_autonomy_reflect\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2415:2:untyped-decorator:Untyped decorator makes function \"admin_autonomy_reflect\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_autonomy_reflect\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2426,
-        "message": "Untyped decorator makes function \"admin_health\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2426:2:untyped-decorator:Untyped decorator makes function \"admin_health\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_health\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2438,
-        "message": "Untyped decorator makes function \"admin_nodes\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2438:2:untyped-decorator:Untyped decorator makes function \"admin_nodes\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_nodes\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2455,
-        "message": "Untyped decorator makes function \"admin_memory_summary\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2455:2:untyped-decorator:Untyped decorator makes function \"admin_memory_summary\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_memory_summary\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2462,
-        "message": "Untyped decorator makes function \"admin_memory_recall\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2462:2:untyped-decorator:Untyped decorator makes function \"admin_memory_recall\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_memory_recall\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2477,
-        "message": "Untyped decorator makes function \"admin_nodes_trust\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2477:2:untyped-decorator:Untyped decorator makes function \"admin_nodes_trust\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_nodes_trust\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2489,
-        "message": "Untyped decorator makes function \"admin_nodes_block\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2489:2:untyped-decorator:Untyped decorator makes function \"admin_nodes_block\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_nodes_block\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2499,
-        "message": "Untyped decorator makes function \"admin_nodes_rekey\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2499:2:untyped-decorator:Untyped decorator makes function \"admin_nodes_rekey\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_nodes_rekey\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2514,
-        "message": "Untyped decorator makes function \"admin_rotate_keys\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2514:2:untyped-decorator:Untyped decorator makes function \"admin_rotate_keys\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_rotate_keys\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2522,
-        "message": "Untyped decorator makes function \"webrtc_create\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2522:2:untyped-decorator:Untyped decorator makes function \"webrtc_create\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"webrtc_create\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2539,
-        "message": "Untyped decorator makes function \"webrtc_add_ice\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2539:2:untyped-decorator:Untyped decorator makes function \"webrtc_add_ice\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"webrtc_add_ice\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2557,
-        "message": "Untyped decorator makes function \"voice_stream\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2557:2:untyped-decorator:Untyped decorator makes function \"voice_stream\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"voice_stream\" untyped"
-      },
-      {
-        "code": "assignment",
-        "column": 33,
-        "line": 2589,
-        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2589:33:assignment:Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")",
-        "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")"
-      },
-      {
-        "code": "assignment",
-        "column": 29,
-        "line": 2591,
-        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2591:29:assignment:Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")",
-        "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")"
-      },
-      {
-        "code": "assignment",
-        "column": 25,
-        "line": 2593,
-        "message": "Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2593:25:assignment:Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")",
-        "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"str\", variable has type \"bytes\")"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2626,
-        "message": "Untyped decorator makes function \"nodes_trust\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2626:2:untyped-decorator:Untyped decorator makes function \"nodes_trust\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"nodes_trust\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2641,
-        "message": "Untyped decorator makes function \"nodes_block\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2641:2:untyped-decorator:Untyped decorator makes function \"nodes_block\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"nodes_block\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2655,
-        "message": "Untyped decorator makes function \"admin_webrtc_sessions\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2655:2:untyped-decorator:Untyped decorator makes function \"admin_webrtc_sessions\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_webrtc_sessions\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2664,
-        "message": "Untyped decorator makes function \"admin_watchdog_snapshot\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2664:2:untyped-decorator:Untyped decorator makes function \"admin_watchdog_snapshot\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_watchdog_snapshot\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2671,
-        "message": "Untyped decorator makes function \"admin_watchdog_register\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2671:2:untyped-decorator:Untyped decorator makes function \"admin_watchdog_register\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_watchdog_register\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2689,
-        "message": "Untyped decorator makes function \"admin_watchdog_heartbeat\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2689:2:untyped-decorator:Untyped decorator makes function \"admin_watchdog_heartbeat\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"admin_watchdog_heartbeat\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2701,
-        "message": "Untyped decorator makes function \"pair_start\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2701:2:untyped-decorator:Untyped decorator makes function \"pair_start\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"pair_start\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2710,
-        "message": "Untyped decorator makes function \"pair_confirm\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2710:2:untyped-decorator:Untyped decorator makes function \"pair_confirm\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"pair_confirm\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2731,
-        "message": "Untyped decorator makes function \"register_node\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2731:2:untyped-decorator:Untyped decorator makes function \"register_node\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"register_node\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2752,
-        "message": "Untyped decorator makes function \"memory_export\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2752:2:untyped-decorator:Untyped decorator makes function \"memory_export\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"memory_export\" untyped"
       },
       {
         "code": "arg-type",
         "column": 40,
-        "line": 2767,
+        "line": 2816,
         "message": "Argument 1 to \"encode_payload\" has incompatible type \"dict[str, list[dict[Any, Any]]]\"; expected \"dict[str, object]\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:2767:40:arg-type:Argument 1 to \"encode_payload\" has incompatible type \"dict[str, list[dict[Any, Any]]]\"; expected \"dict[str, object]\"",
+        "signature": "relay_app.py:2816:40:arg-type:Argument 1 to \"encode_payload\" has incompatible type \"dict[str, list[dict[Any, Any]]]\"; expected \"dict[str, object]\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"encode_payload\" has incompatible type \"dict[str, list[dict[Any, Any]]]\"; expected \"dict[str, object]\""
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2790,
-        "message": "Untyped decorator makes function \"reflect_sync\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2790:2:untyped-decorator:Untyped decorator makes function \"reflect_sync\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"reflect_sync\" untyped"
       },
       {
         "code": "arg-type",
         "column": 34,
-        "line": 2818,
+        "line": 2867,
         "message": "Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:2818:34:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
+        "signature": "relay_app.py:2867:34:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"float\" has incompatible type \"object\"; expected \"str | Buffer | SupportsFloat | SupportsIndex\""
       },
       {
         "code": "arg-type",
         "column": 21,
-        "line": 2841,
+        "line": 2890,
         "message": "Argument \"summary\" to \"append_memory\" has incompatible type \"object\"; expected \"str | None\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:2841:21:arg-type:Argument \"summary\" to \"append_memory\" has incompatible type \"object\"; expected \"str | None\"",
+        "signature": "relay_app.py:2890:21:arg-type:Argument \"summary\" to \"append_memory\" has incompatible type \"object\"; expected \"str | None\"",
         "stable_signature": "relay_app.py:arg-type:Argument \"summary\" to \"append_memory\" has incompatible type \"object\"; expected \"str | None\""
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2850,
-        "message": "Untyped decorator makes function \"chat\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2850:2:untyped-decorator:Untyped decorator makes function \"chat\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"chat\" untyped"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 2878,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2878:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2901,
-        "message": "Untyped decorator makes function \"memory_import\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2901:2:untyped-decorator:Untyped decorator makes function \"memory_import\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"memory_import\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2925,
-        "message": "Untyped decorator makes function \"memory_stats\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2925:2:untyped-decorator:Untyped decorator makes function \"memory_stats\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"memory_stats\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2938,
-        "message": "Untyped decorator makes function \"status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2938:2:untyped-decorator:Untyped decorator makes function \"status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"status\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2978,
-        "message": "Untyped decorator makes function \"health_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2978:2:untyped-decorator:Untyped decorator makes function \"health_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"health_status\" untyped"
       },
       {
         "code": "index",
         "column": 9,
-        "line": 2988,
+        "line": 3037,
         "message": "Unsupported target for indexed assignment (\"dict[str, bool] | bool | None\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:2988:9:index:Unsupported target for indexed assignment (\"dict[str, bool] | bool | None\")",
+        "signature": "relay_app.py:3037:9:index:Unsupported target for indexed assignment (\"dict[str, bool] | bool | None\")",
         "stable_signature": "relay_app.py:index:Unsupported target for indexed assignment (\"dict[str, bool] | bool | None\")"
       },
       {
         "code": "assignment",
         "column": 35,
-        "line": 2988,
+        "line": 3037,
         "message": "Incompatible types in assignment (expression has type \"dict[str, str]\", target has type \"bool\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:2988:35:assignment:Incompatible types in assignment (expression has type \"dict[str, str]\", target has type \"bool\")",
+        "signature": "relay_app.py:3037:35:assignment:Incompatible types in assignment (expression has type \"dict[str, str]\", target has type \"bool\")",
         "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"dict[str, str]\", target has type \"bool\")"
       },
       {
         "code": "assignment",
         "column": 27,
-        "line": 2989,
+        "line": 3038,
         "message": "Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"dict[str, bool] | bool | None\")",
         "path": "relay_app.py",
-        "signature": "relay_app.py:2989:27:assignment:Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"dict[str, bool] | bool | None\")",
+        "signature": "relay_app.py:3038:27:assignment:Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"dict[str, bool] | bool | None\")",
         "stable_signature": "relay_app.py:assignment:Incompatible types in assignment (expression has type \"dict[str, object]\", target has type \"dict[str, bool] | bool | None\")"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 2993,
-        "message": "Untyped decorator makes function \"dreamloop_status\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:2993:2:untyped-decorator:Untyped decorator makes function \"dreamloop_status\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"dreamloop_status\" untyped"
-      },
-      {
-        "code": "attr-defined",
-        "column": 37,
-        "line": 3000,
-        "message": "Module has no attribute \"is_enabled\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3000:37:attr-defined:Module has no attribute \"is_enabled\"",
-        "stable_signature": "relay_app.py:attr-defined:Module has no attribute \"is_enabled\""
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3008,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3008:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3042,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3042:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3050,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3050:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 5,
-        "line": 3055,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3055:5:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-call",
-        "column": 21,
-        "line": 3066,
-        "message": "Call to untyped function \"gen\" in typed context",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3066:21:no-untyped-call:Call to untyped function \"gen\" in typed context",
-        "stable_signature": "relay_app.py:no-untyped-call:Call to untyped function \"gen\" in typed context"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3070,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3070:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3082,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3082:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3103,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3103:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
       },
       {
         "code": "arg-type",
         "column": 24,
-        "line": 3112,
+        "line": 3161,
         "message": "Argument 1 to \"get_goal\" has incompatible type \"Any | None\"; expected \"str\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:3112:24:arg-type:Argument 1 to \"get_goal\" has incompatible type \"Any | None\"; expected \"str\"",
+        "signature": "relay_app.py:3161:24:arg-type:Argument 1 to \"get_goal\" has incompatible type \"Any | None\"; expected \"str\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"get_goal\" has incompatible type \"Any | None\"; expected \"str\""
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3121,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3121:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
       },
       {
         "code": "arg-type",
         "column": 20,
-        "line": 3130,
+        "line": 3179,
         "message": "Argument 1 to \"delete_goal\" has incompatible type \"Any | None\"; expected \"str\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:3130:20:arg-type:Argument 1 to \"delete_goal\" has incompatible type \"Any | None\"; expected \"str\"",
+        "signature": "relay_app.py:3179:20:arg-type:Argument 1 to \"delete_goal\" has incompatible type \"Any | None\"; expected \"str\"",
         "stable_signature": "relay_app.py:arg-type:Argument 1 to \"delete_goal\" has incompatible type \"Any | None\"; expected \"str\""
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3135,
-        "message": "Function is missing a return type annotation",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3135:1:no-untyped-def:Function is missing a return type annotation",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a return type annotation"
-      },
-      {
-        "code": "type-arg",
-        "column": 31,
-        "line": 3144,
-        "message": "Missing type parameters for generic type \"dict\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3144:31:type-arg:Missing type parameters for generic type \"dict\"",
-        "stable_signature": "relay_app.py:type-arg:Missing type parameters for generic type \"dict\""
-      },
-      {
-        "code": "no-any-return",
-        "column": 9,
-        "line": 3149,
-        "message": "Returning Any from function declared to return \"dict[Any, Any]\"",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3149:9:no-any-return:Returning Any from function declared to return \"dict[Any, Any]\"",
-        "stable_signature": "relay_app.py:no-any-return:Returning Any from function declared to return \"dict[Any, Any]\""
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 3154,
-        "message": "Untyped decorator makes function \"mood\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3154:2:untyped-decorator:Untyped decorator makes function \"mood\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"mood\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 3160,
-        "message": "Untyped decorator makes function \"current_emotion\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3160:2:untyped-decorator:Untyped decorator makes function \"current_emotion\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"current_emotion\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 3165,
-        "message": "Untyped decorator makes function \"eeg_state\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3165:2:untyped-decorator:Untyped decorator makes function \"eeg_state\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"eeg_state\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 3171,
-        "message": "Untyped decorator makes function \"haptics_state\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3171:2:untyped-decorator:Untyped decorator makes function \"haptics_state\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"haptics_state\" untyped"
-      },
-      {
-        "code": "untyped-decorator",
-        "column": 2,
-        "line": 3177,
-        "message": "Untyped decorator makes function \"bio_state\" untyped",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3177:2:untyped-decorator:Untyped decorator makes function \"bio_state\" untyped",
-        "stable_signature": "relay_app.py:untyped-decorator:Untyped decorator makes function \"bio_state\" untyped"
       },
       {
         "code": "union-attr",
         "column": 60,
-        "line": 3205,
+        "line": 3255,
         "message": "Item \"str\" of \"dict[Any, Any] | str\" has no attribute \"get\"",
         "path": "relay_app.py",
-        "signature": "relay_app.py:3205:60:union-attr:Item \"str\" of \"dict[Any, Any] | str\" has no attribute \"get\"",
+        "signature": "relay_app.py:3255:60:union-attr:Item \"str\" of \"dict[Any, Any] | str\" has no attribute \"get\"",
         "stable_signature": "relay_app.py:union-attr:Item \"str\" of \"dict[Any, Any] | str\" has no attribute \"get\""
-      },
-      {
-        "code": "no-untyped-def",
-        "column": 1,
-        "line": 3211,
-        "message": "Function is missing a type annotation for one or more arguments",
-        "path": "relay_app.py",
-        "signature": "relay_app.py:3211:1:no-untyped-def:Function is missing a type annotation for one or more arguments",
-        "stable_signature": "relay_app.py:no-untyped-def:Function is missing a type annotation for one or more arguments"
       }
     ],
     "relay_server.py": [
@@ -8437,26 +7326,6 @@
         "path": "relay_server.py",
         "signature": "relay_server.py:397:2:untyped-decorator:Untyped decorator makes function \"codex_patch\" untyped",
         "stable_signature": "relay_server.py:untyped-decorator:Untyped decorator makes function \"codex_patch\" untyped"
-      }
-    ],
-    "relay_watchdog.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 19,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "relay_watchdog.py",
-        "signature": "relay_watchdog.py:19:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "relay_watchdog.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
-        "code": "no-any-return",
-        "column": 9,
-        "line": 51,
-        "message": "Returning Any from function declared to return \"bool\"",
-        "path": "relay_watchdog.py",
-        "signature": "relay_watchdog.py:51:9:no-any-return:Returning Any from function declared to return \"bool\"",
-        "stable_signature": "relay_watchdog.py:no-any-return:Returning Any from function declared to return \"bool\""
       }
     ],
     "replay.py": [
@@ -9815,28 +8684,6 @@
         "path": "scripts/export_manual_audit_issues.py",
         "signature": "scripts/export_manual_audit_issues.py:32:5:no-any-return:Returning Any from function declared to return \"dict[str, Any] | None\"",
         "stable_signature": "scripts/export_manual_audit_issues.py:no-any-return:Returning Any from function declared to return \"dict[str, Any] | None\""
-      }
-    ],
-    "scripts/federation_puller.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 14,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "scripts/federation_puller.py",
-        "signature": "scripts/federation_puller.py:14:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "scripts/federation_puller.py:import-untyped:Library stubs not installed for \"yaml\""
-      }
-    ],
-    "scripts/federation_stream_relay.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 13,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "scripts/federation_stream_relay.py",
-        "signature": "scripts/federation_stream_relay.py:13:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "scripts/federation_stream_relay.py:import-untyped:Library stubs not installed for \"yaml\""
       }
     ],
     "scripts/forge_replay.py": [
@@ -14187,15 +13034,6 @@
       }
     ],
     "sentientos/first_boot.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 9,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "sentientos/first_boot.py",
-        "signature": "sentientos/first_boot.py:9:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "sentientos/first_boot.py:import-untyped:Library stubs not installed for \"yaml\""
-      },
       {
         "code": "assignment",
         "column": 34,
@@ -21824,15 +20662,6 @@
     ],
     "voice_loop.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 11,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "voice_loop.py",
-        "signature": "voice_loop.py:11:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "voice_loop.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
         "code": "type-arg",
         "column": 21,
         "line": 28,
@@ -21879,24 +20708,6 @@
       }
     ],
     "vow/init.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 36,
-        "message": "Library stubs not installed for \"requests\"",
-        "path": "vow/init.py",
-        "signature": "vow/init.py:36:1:import-untyped:Library stubs not installed for \"requests\"",
-        "stable_signature": "vow/init.py:import-untyped:Library stubs not installed for \"requests\""
-      },
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 38,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "vow/init.py",
-        "signature": "vow/init.py:38:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "vow/init.py:import-untyped:Library stubs not installed for \"yaml\""
-      },
       {
         "code": "type-arg",
         "column": 23,
@@ -22254,15 +21065,6 @@
     ],
     "wdm_api.py": [
       {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 8,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "wdm_api.py",
-        "signature": "wdm_api.py:8:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "wdm_api.py:import-untyped:Library stubs not installed for \"yaml\""
-      },
-      {
         "code": "misc",
         "column": 14,
         "line": 14,
@@ -22297,17 +21099,6 @@
         "path": "wdm_api.py",
         "signature": "wdm_api.py:20:1:no-untyped-def:Function is missing a return type annotation",
         "stable_signature": "wdm_api.py:no-untyped-def:Function is missing a return type annotation"
-      }
-    ],
-    "wdm_cli.py": [
-      {
-        "code": "import-untyped",
-        "column": 1,
-        "line": 6,
-        "message": "Library stubs not installed for \"yaml\"",
-        "path": "wdm_cli.py",
-        "signature": "wdm_cli.py:6:1:import-untyped:Library stubs not installed for \"yaml\"",
-        "stable_signature": "wdm_cli.py:import-untyped:Library stubs not installed for \"yaml\""
       }
     ],
     "webhook_status_monitor.py": [
@@ -22436,10 +21227,6 @@
   ],
   "top_modules": [
     {
-      "error_count": 131,
-      "module": "relay_app.py"
-    },
-    {
       "error_count": 54,
       "module": "memory_manager.py"
     },
@@ -22500,12 +21287,16 @@
       "module": "sentientos/innerworld/orchestrator.py"
     },
     {
-      "error_count": 21,
-      "module": "vow/init.py"
+      "error_count": 19,
+      "module": "check_connector_health.py"
     },
     {
       "error_count": 19,
-      "module": "check_connector_health.py"
+      "module": "relay_app.py"
+    },
+    {
+      "error_count": 19,
+      "module": "vow/init.py"
     },
     {
       "error_count": 17,
@@ -22521,10 +21312,6 @@
     },
     {
       "error_count": 16,
-      "module": "sentientos/first_boot.py"
-    },
-    {
-      "error_count": 16,
       "module": "sentientos/ois.py"
     },
     {
@@ -22534,6 +21321,10 @@
     {
       "error_count": 15,
       "module": "scripts/forge_status.py"
+    },
+    {
+      "error_count": 15,
+      "module": "sentientos/first_boot.py"
     }
   ]
 }

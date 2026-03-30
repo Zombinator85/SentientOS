@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Mapping, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from sentientos.attestation import append_jsonl, iso_now, read_json, write_json
 from sentientos.lab.node_truth_artifacts import emit_node_truth_artifacts
