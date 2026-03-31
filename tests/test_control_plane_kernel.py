@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+import pytest
+
 from codex.proof_budget_governor import GovernorConfig, PressureState
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.control_plane_kernel import (
@@ -42,6 +44,17 @@ class FakeRuntimeGovernor:
             action_priority=0,
             action_family="control",
         )
+
+
+@dataclass
+class MissingRuntimeGovernor:
+    pass
+
+
+@dataclass
+class ExplodingRuntimeGovernor:
+    def admit_action(self, action_type: str, actor: str, correlation_id: str, metadata=None) -> GovernorDecision:
+        raise RuntimeError("boom")
 
 
 def test_legal_bootstrap_action_allowed(tmp_path):
@@ -102,6 +115,25 @@ def test_runtime_maintenance_mediation_allows_startup_guarded_invocation(tmp_pat
     assert invoked["ok"] is True
 
 
+def test_runtime_startup_symbol_without_maintenance_mediation_is_deferred(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    decision, result = kernel.admit_and_execute(
+        ControlActionRequest(
+            action_kind="expand",
+            authority_class=AuthorityClass.REPAIR,
+            actor="runtime",
+            target_subsystem="genesis",
+            requested_phase=LifecyclePhase.RUNTIME,
+            startup_symbol="GenesisForge",
+        ),
+        execute=lambda: enforce_codex_startup("GenesisForge"),
+    )
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "startup_mediation_required" in decision.reason_codes
+    assert result is None
+
+
 def test_runtime_governor_denial_bubbles_to_kernel(tmp_path):
     kernel = ControlPlaneKernel(
         runtime_governor=FakeRuntimeGovernor(allow=False, reason="restart_budget_exceeded"),
@@ -121,6 +153,38 @@ def test_runtime_governor_denial_bubbles_to_kernel(tmp_path):
     assert "runtime_governor:restart_budget_exceeded" in decision.reason_codes
 
 
+def test_missing_runtime_governor_delegate_is_deferred(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=MissingRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")  # type: ignore[arg-type]
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="restart_daemon",
+            authority_class=AuthorityClass.DAEMON_RESTART,
+            actor="healer",
+            target_subsystem="daemon-x",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"subject": "daemon-x"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor_unavailable" in decision.reason_codes
+
+
+def test_runtime_governor_exception_is_deferred(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=ExplodingRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")  # type: ignore[arg-type]
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="restart_daemon",
+            authority_class=AuthorityClass.DAEMON_RESTART,
+            actor="healer",
+            target_subsystem="daemon-x",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"subject": "daemon-x"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "runtime_governor_error" in decision.reason_codes
+
+
 def test_federated_control_denial(tmp_path):
     kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
     decision = kernel.admit(
@@ -138,15 +202,32 @@ def test_federated_control_denial(tmp_path):
     assert "federation_governance:digest_mismatch" in decision.reason_codes
 
 
+def test_federated_control_missing_origin_is_quarantined(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="federated_control",
+            authority_class=AuthorityClass.FEDERATED_CONTROL,
+            actor="peer-a",
+            target_subsystem="daemon-y",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"subject": "daemon-y", "scope": "federated"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.QUARANTINE
+    assert "federation_origin_missing" in decision.reason_codes
+
+
 def test_proof_budget_diagnostics_mode_defers(tmp_path):
     kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
     decision = kernel.admit(
         ControlActionRequest(
             action_kind="proposal_eval",
             authority_class=AuthorityClass.PROPOSAL_EVALUATION,
             actor="forge",
             target_subsystem="capability-z",
-            requested_phase=LifecyclePhase.RUNTIME,
+            requested_phase=LifecyclePhase.MAINTENANCE,
             metadata={"require_admissible": True},
             proof_budget_context={
                 "config": GovernorConfig(
@@ -166,3 +247,100 @@ def test_proof_budget_diagnostics_mode_defers(tmp_path):
     )
     assert decision.outcome == AdmissionOutcome.DEFER
     assert "proof_budget:diagnostics_only" in decision.reason_codes
+
+
+def test_malformed_action_request_is_quarantined(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind=" ",
+            authority_class=AuthorityClass.REPAIR,
+            actor="runtime",
+            target_subsystem="healer",
+            requested_phase=LifecyclePhase.RUNTIME,
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.QUARANTINE
+    assert "invalid_action_kind" in decision.reason_codes
+
+
+def test_duplicate_admission_attempt_in_same_phase_is_deferred(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    request = ControlActionRequest(
+        action_kind="restart_daemon",
+        authority_class=AuthorityClass.DAEMON_RESTART,
+        actor="healer",
+        target_subsystem="daemon-x",
+        requested_phase=LifecyclePhase.RUNTIME,
+        metadata={"correlation_id": "dup-1", "subject": "daemon-x"},
+    )
+    first = kernel.admit(request)
+    second = kernel.admit(request)
+    assert first.outcome == AdmissionOutcome.ALLOW
+    assert second.outcome == AdmissionOutcome.DEFER
+    assert "duplicate_admission_context" in second.reason_codes
+
+
+def test_proof_budget_delegate_unavailable_is_deferred(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    def _import_fail(name, *args, **kwargs):
+        if name == "codex.proof_budget_governor":
+            raise ImportError("no governor")
+        return _orig_import(name, *args, **kwargs)
+
+    import builtins
+
+    _orig_import = builtins.__import__
+    monkeypatch.setattr(builtins, "__import__", _import_fail)
+
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="proposal_eval",
+            authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+            actor="forge",
+            target_subsystem="capability-z",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            proof_budget_context={"config": object(), "pressure_state": object(), "run_context": {}},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "proof_budget_delegate_unavailable" in decision.reason_codes
+
+
+def test_decision_log_write_failure_does_not_abort(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+
+    def _boom(payload):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(kernel, "_append", _boom)
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="restart_daemon",
+            authority_class=AuthorityClass.DAEMON_RESTART,
+            actor="healer",
+            target_subsystem="daemon-x",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"subject": "daemon-x"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.ALLOW
+
+
+def test_decision_schema_contains_normalized_fields(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.admit(
+        ControlActionRequest(
+            action_kind="restart_daemon",
+            authority_class=AuthorityClass.DAEMON_RESTART,
+            actor="healer",
+            target_subsystem="daemon-x",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"subject": "daemon-x", "correlation_id": "schema-1"},
+        )
+    )
+    payload = (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").strip().splitlines()[-1]
+    assert '"final_disposition": "allow"' in payload
+    assert '"actor_source": "healer"' in payload
+    assert '"delegate_checks_consulted": [' in payload
