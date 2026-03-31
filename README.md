@@ -1,5 +1,6 @@
-# 🏛️ SentientOS
-A deterministic memory and affect relay (expression-only affect telemetry) for model-presence computing.
+# SentientOS
+
+**SentientOS is a deterministic governance-and-audit runtime for operator-directed automation.**
 
 > ⚠️ **Codex-first builds.** Do not run local host builds—use the Codex CI workflow or open the repository inside the provided VS Code Dev Container.
 
@@ -8,14 +9,39 @@ A deterministic memory and affect relay (expression-only affect telemetry) for m
 [![Autonomy Metrics](https://img.shields.io/badge/metrics-autonomy%20ready-5b73d8)](docs/METRICS.md)
 [![Rehearsal Status](https://img.shields.io/badge/rehearsal-ci%20verified-1f6feb)](docs/REHEARSAL.md)
 
-## 🌟 Overview
-SentientOS synchronizes memory, presence, and model output into a relay loop
-focused on deterministic state processing. Guardrails auto-align on boot,
-before each processing cycle, and after configuration amendments, keeping the
-runtime bounded without manual toggles. Embodiment, gaming, VR, and
-sensorimotor interfaces are external adapters only; the deterministic core
-does not ship or depend on them. See [EXTENSIONS.md](EXTENSIONS.md) and
-[docs/NON_CORE_EXTENSIONS.md](docs/NON_CORE_EXTENSIONS.md) for the boundary.
+## Runtime description
+
+SentientOS runs as a bounded control system that ingests telemetry, applies
+governance checks, enforces invariant contracts, and emits auditable outcomes.
+The core runtime is deterministic and policy-gated. VR, game-world, and other
+embodiment adapters are optional external integrations, not core dependencies.
+
+## What this is / what this is not
+
+### This is
+- A governance control plane (internal codename: `cathedral`) for safe, auditable automation.
+- A deterministic state-processing stack (internal codename: `consciousness layer`) with explicit guardrails.
+- A contract-first runtime with immutable integrity artifacts (`/vow`) and state ledger artifacts (`/glow`).
+
+### This is not
+- An autonomous agent with self-generated goals.
+- A hidden scheduler that bypasses approval or governance gates.
+- A bundled VR/game runtime; those adapters live outside the deterministic core.
+
+## Compact architecture sketch
+
+1. **Ingress and telemetry:** pulse event stream (internal codename: `pulse`) and adapter inputs.
+2. **Deterministic processing:** state-processing modules evaluate and transform inputs.
+3. **Governance and integrity:** policy gates, invariant checks, and approval enforcement.
+4. **Audit and artifacts:** append-only logs, immutable manifest verification, and operator-visible reports.
+
+## Public language bridge
+
+Public docs lead with engineering terms and dual-label internal codenames where
+needed. Use the canonical bridge here:
+
+- [docs/PUBLIC_LANGUAGE_BRIDGE.md](docs/PUBLIC_LANGUAGE_BRIDGE.md)
+- Tooling registry: `sentientos/public_language_map.py`
 
 For misconception filters and scope boundaries, see [WHAT_SENTIENTOS_IS_NOT.md](WHAT_SENTIENTOS_IS_NOT.md) and [NON_GOALS_AND_FREEZE.md](NON_GOALS_AND_FREEZE.md).
 Terminology is frozen and defined in SEMANTIC_GLOSSARY.md; reinterpretation without review is considered a breaking change.
@@ -47,9 +73,15 @@ This provides the `sentient-api` and `cathedral-gui` commands.
 
 ```bash
 python scripts/bootstrap_cathedral.py
+python -m sentientos --help
+python -m sentientos.ops --help
 ```
 
-### Consciousness Layer scaffolding
+The canonical public CLI guide is [`docs/USAGE.md`](docs/USAGE.md). Historical
+examples such as `sentientos cycle` or `sentientos ssa ...` are intentionally
+retired from the current argparse surface.
+
+### Deterministic state-processing layer (internal codename: Consciousness Layer)
 
 - Modules operate as state processors that transform inputs deterministically:
   arbitrator (priority resolution), kernel (bounded goal selection), narrator

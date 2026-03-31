@@ -1,58 +1,55 @@
 # SentientOS Final Architecture Overview
 
-This document summarizes the integrated SentientOS surfaces exposed by the
-orchestrator and CLI. No new subsystems are introduced; the goal is to present
-the stabilized, deterministic pathways for developers.
+This document summarizes the integrated SentientOS command and runtime surfaces.
+No new subsystem is introduced here; this is a stabilized view for engineers.
 
 ## Path A: Integrity envelope
 
 - **Canonical vow digest** anchors immutable resources via
   `vow_digest.canonical_vow_digest()`.
-- **Version consensus** compares local state with the canonical digest using
-  `version_consensus.VersionConsensus`.
-- **Drift reporting** remains deterministic and self-referential when invoked
-  via `compute_system_diagnostics()`.
-- **Cycle gate** reports readiness state without scheduling work.
+- **Version consensus** compares local state with canonical digest constraints.
+- **Drift reporting** is deterministic when invoked through diagnostics and ops
+  verification surfaces.
+- **Cycle gate** reports readiness state without hidden scheduling.
 
-## Path B: SSA Agent stages (0–6)
+## Path B: Runtime + operations surfaces
 
-- **Stage 0–2**: deterministic selector routing and dry-run planning.
-- **Stage 3–4**: screenshot planning and optional OracleRelay execution gated by
-  explicit approval.
-- **Stage 5–6**: review bundle assembly and export guarded by approval flags and
-  redaction routines.
+- **Runtime CLI:** `python -m sentientos` (status/doctor/diff/ois/summary/trace).
+- **Operations CLI:** `python -m sentientos.ops` (node, audit, lab, observatory/observability
+  surface, verify, forge).
+- **Service scripts:** `sentientosd`, `sentientos-chat`, `verify_audits`, and
+  related command entrypoints from `pyproject.toml`.
 
 ## Determinism and approval gates
 
-- No background scheduling or persistence occurs unless an approval flag is
-  provided.
-- CLI commands that modify or emit sensitive artifacts require `--approve`.
-- Orchestrator methods return deterministic status payloads when approval is
-  withheld.
+- Read-only surfaces remain non-mutating by design.
+- Privileged UI/demo entrypoints (`dashboard`, `avatar-demo`) require privilege
+  enforcement.
+- Governance and contract checks remain explicit; no new autonomous behavior is
+  implied by terminology.
 
-## CLI architecture
+## Current CLI architecture
 
-The `sentientos` CLI is argparse-based and prints JSON for every command. The
-entry point defers to `SentientOrchestrator` and helper utilities for profile
-loading, system diagnostics, and redacted bundle summaries.
+The public argparse surface is:
 
-```
-sentientos cycle
-sentientos ssa dry-run --profile PROFILE.json
-sentientos ssa execute --profile PROFILE.json --approve
-sentientos ssa prefill-827 --profile PROFILE.json --approve
-sentientos ssa review --bundle BUNDLE.json
-sentientos integrity
-sentientos version
+```bash
+python -m sentientos --help
+python -m sentientos.ops --help
 ```
 
-## Orchestrator flow
+Typical workflows:
 
-1. Optional profile + approval flag instantiate `SentientOrchestrator`.
-2. Consciousness cycles call directly into `run_consciousness_cycle` for a
-   deterministic report.
-3. SSA commands delegate to `SSADisabilityAgent` for dry-runs, execution,
-   prefill, and review bundle assembly.
-4. Approval gates block privileged actions and exports while still returning
-   deterministic payloads.
-5. CLI commands surface the same flows for developer-facing usage.
+```bash
+python -m sentientos status
+python -m sentientos doctor
+python -m sentientos ois overview
+python -m sentientos.ops node health --json
+python -m sentientos.ops observatory fleet --json
+python -m sentientos.ops verify formal --json
+```
+
+## Historical command note
+
+Older docs previously referenced `sentientos cycle`, `sentientos ssa ...`, and
+`sentientos integrity`. Those are historical examples and are not part of the
+current `python -m sentientos` command parser.

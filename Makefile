@@ -1,4 +1,4 @@
-.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-endurance federation-lab-wan federation-wan-remote-smoke federation-wan-remote-smoke-ci federation-wan-gate federation-lab-clean remote-preflight-report
+.PHONY: lock lock-install docs docs-live ci rehearse audit perf node-bootstrap node-health node-restore incident-bundle simulate-federation federation-lab federation-lab-scenario federation-lab-endurance federation-lab-wan federation-wan-remote-smoke federation-wan-remote-smoke-ci federation-wan-gate federation-lab-clean remote-preflight-report terminology-check
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
@@ -70,6 +70,9 @@ package-mac:
 ci:
 	./scripts/ci.sh
 	./scripts/verify_provenance.sh
+
+terminology-check:
+	$(PYTHON) scripts/check_public_terminology.py
 
 audit-baseline:
 	$(PYTHON) -m scripts.capture_audit_baseline logs $(if $(ACCEPT_MANUAL),--accept-manual,)

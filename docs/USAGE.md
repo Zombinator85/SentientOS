@@ -1,92 +1,112 @@
 # SentientOS Usage Guide
 
-This guide describes how to exercise the unified SentientOS orchestrator and
-CLI. All entry points are deterministic, approval-gated where appropriate, and
-avoid persistence unless an explicit approval flag is provided.
+This guide documents the **current** public CLI surface.
 
-## SentientOrchestrator overview
+SentientOS exposes two primary command surfaces:
 
-The `SentientOrchestrator` class exposes a stable API surface across the
-consciousness cycle, SSA agent, PDF prefill, and review bundle helpers.
+1. `python -m sentientos` for safe runtime introspection and privileged UI entrypoints.
+2. `python -m sentientos.ops` for operations workflows (node, audit, federation lab, observability, verification).
 
-```python
-from sentientos.orchestrator import SentientOrchestrator
+For terminology mapping between public engineering language and internal
+codenames, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).
 
-orchestrator = SentientOrchestrator(profile=my_profile, approval=True)
-cycle_report = orchestrator.run_consciousness_cycle()
+## 1) Core runtime CLI (`python -m sentientos`)
+
+Inspect available commands:
+
+```bash
+python -m sentientos --help
 ```
 
-## Running a consciousness cycle
+Current command groups:
 
-`run_consciousness_cycle()` executes a deterministic, side-effect-free cycle
-for debugging and introspection. It never schedules work or persists state.
+- Read-only/safe commands:
+  - `status`
+  - `doctor`
+  - `diff`
+  - `ois`
+  - `summary`
+  - `trace`
+  - `consent`
+  - `system`
+- Privileged commands:
+  - `dashboard`
+  - `avatar-demo`
 
-```python
-payload = orchestrator.run_consciousness_cycle()
+Examples:
+
+```bash
+python -m sentientos status
+python -m sentientos doctor
+python -m sentientos ois overview
+python -m sentientos diff
+python -m sentientos summary
+python -m sentientos system map
 ```
 
-## Preparing an SSA profile
+## 2) Unified operations CLI (`python -m sentientos.ops`)
 
-SSA operations expect a JSON profile that matches the schema in
-`agents/forms/schemas/ssa_claim_profile.schema.json`. Profiles are passed to
-`SentientOrchestrator(profile=...)` and remain in-memory only.
+Inspect available domains:
 
-## SSA workflows
-
-All SSA routines are available from the orchestrator and gated by the
-`approval` flag supplied at construction time.
-
-- **Dry-run**: build deterministic browser and screenshot plans.
-  ```python
-  orchestrator = SentientOrchestrator(profile=profile)
-  plan = orchestrator.ssa_dry_run()
-  ```
-- **Execute**: drive an OracleRelay session. Requires `approval=True`.
-  ```python
-  orchestrator = SentientOrchestrator(profile=profile, approval=True)
-  result = orchestrator.ssa_execute(relay)
-  ```
-- **Prefill SSA-827**: generate a redacted PDF preview and bytes. Requires
-  `approval=True`.
-  ```python
-  orchestrator = SentientOrchestrator(profile=profile, approval=True)
-  bundle = orchestrator.ssa_prefill_827()
-  ```
-- **Review bundle**: assemble and optionally export a redacted archive.
-  ```python
-  bundle = orchestrator.ssa_review_bundle(execution_result, pdf_bytes)
-  archive = orchestrator.export_review_bundle(bundle)
-  ```
-
-## Approval gating
-
-Privileged operations (SSA execution, PDF creation, bundle export) are blocked
-unless `approval=True` is provided when constructing the orchestrator. When the
-approval flag is absent these methods return `{ "status": "approval_required" }`
-or `{ "error": "no_profile_loaded" }` without performing any side effects.
-
-## Redaction behavior
-
-Review bundles and CLI summaries redact selectors, values, and bytes by
-default. Redacted previews are deterministic and safe to log. No persistence
-occurs unless an approval flag is explicitly provided during bundle export or
-file saves.
-
-## CLI quickstart
-
-Run the CLI via `python -m cli.sentientos_cli` or by adding it as an entry
-point in your environment.
-
-```
-sentientos cycle
-sentientos ssa dry-run --profile ./profile.json
-sentientos ssa execute --profile ./profile.json --approve
-sentientos ssa prefill-827 --profile ./profile.json --approve
-sentientos ssa review --bundle ./bundle.json
-sentientos integrity
-sentientos version
+```bash
+python -m sentientos.ops --help
 ```
 
-All CLI commands print JSON payloads. Approval-gated commands require the
-`--approve` flag; otherwise they return a deterministic `approval_required`
-message without performing privileged actions.
+Current domains:
+
+- `node`
+- `constitution`
+- `forge`
+- `incident`
+- `audit`
+- `simulate`
+- `lab`
+- `observatory` (public concept: observability)
+- `verify`
+
+Examples:
+
+```bash
+python -m sentientos.ops node health --json
+python -m sentientos.ops constitution verify --json
+python -m sentientos.ops audit verify -- --strict
+python -m sentientos.ops lab federation --scenario healthy_3node --json
+python -m sentientos.ops observatory fleet --json
+python -m sentientos.ops verify formal --json
+```
+
+## 3) Service entrypoints
+
+Installed script entrypoints include:
+
+- `sentientosd` (runtime daemon)
+- `sentientos-chat` (chat service)
+- `sentientos-updater` (git update helper)
+- `verify_audits` (audit-chain verification)
+- `audit_immutability_verifier` (immutability verifier)
+
+Examples:
+
+```bash
+sentientosd
+sentientos-chat
+verify_audits --strict
+```
+
+## 4) Historical command note (drift correction)
+
+Older docs referenced orchestrator commands such as:
+
+- `sentientos cycle`
+- `sentientos ssa ...`
+- `sentientos integrity`
+- `sentientos version`
+
+Those are **historical** and are not part of the current argparse surface for
+`python -m sentientos`.
+
+Use:
+
+- `python -m sentientos --version` for version reporting.
+- `python -m sentientos` + `python -m sentientos.ops` commands listed above for
+  current runtime and operations workflows.

@@ -1,14 +1,30 @@
 # Reviewer's Quickstart
 
-This one-page reference helps new reviewers gauge audit health and federation status.
+This one-page checklist gives reviewers a deterministic snapshot of audit and
+federation posture using the current command surface.
 
 1. Clone the repository and install dependencies (`bash setup_env.sh`).
-2. Run `python verify_audits.py logs/` to check log integrity.
-3. Execute `python collect_schema_integrity issues.py` to see current integrity issue counts.
-4. View `docs/AUDIT_HEALTH_DASHBOARD.md` for overall status and steward rotation dates.
-5. Review `docs/FEDERATION_HEALTH.md` to see active nodes and their health.
-6. Summaries of healing progress appear in `docs/CATHEDRAL_WOUNDS_DASHBOARD.md`.
+2. Verify audit chains:
+   ```bash
+   verify_audits --strict
+   ```
+3. Check read-only runtime diagnostics:
+   ```bash
+   python -m sentientos doctor
+   ```
+4. Check fleet observability rollups:
+   ```bash
+   python -m sentientos.ops observatory fleet --json
+   python -m sentientos.ops observatory artifacts --json
+   ```
+5. Check node and constitution posture:
+   ```bash
+   python -m sentientos.ops node health --json
+   python -m sentientos.ops constitution verify --json
+   ```
 
-These steps provide a snapshot of federation health at a glance.
+For terminology translation between public engineering language and internal
+codenames, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).
 
-SentientOS prioritizes operator accountability, auditability, and safe shutdown.
+SentientOS prioritizes operator accountability, auditability, and safe
+shutdown.
