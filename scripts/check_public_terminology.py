@@ -18,10 +18,14 @@ from sentientos.public_language_map import PUBLIC_LANGUAGE_MAP
 
 PUBLIC_DOC_PATHS = (
     Path("README.md"),
+    Path("CONTRIBUTING.md"),
+    Path("INSTALL.md"),
     Path("docs/USAGE.md"),
     Path("docs/ARCHITECTURE.md"),
     Path("docs/REVIEWER_QUICKSTART.md"),
     Path("docs/START_A_FEDERATION_NODE.md"),
+    Path("docs/ONBOARDING_WALKTHROUGH.md"),
+    Path("docs/FIRST_WOUND_ONBOARDING.md"),
 )
 
 ALLOWED_MARKERS = (
