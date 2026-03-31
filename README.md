@@ -61,7 +61,7 @@ cd SentientOS
 pip install .
 ```
 
-This provides the `sentient-api` and `cathedral-gui` commands.
+This provides the `sentient-api` and `cathedral-gui` commands (`cathedral-gui` is a legacy command label for the governance UI).
 
 ## 🧪 Codex-first CI flow
 
@@ -72,7 +72,7 @@ This provides the `sentient-api` and `cathedral-gui` commands.
 ## 🚀 Quickstart
 
 ```bash
-python scripts/bootstrap_cathedral.py
+python scripts/bootstrap_cathedral.py  # legacy bootstrap script name
 python -m sentientos --help
 python -m sentientos.ops --help
 ```
@@ -81,7 +81,7 @@ The canonical public CLI guide is [`docs/USAGE.md`](docs/USAGE.md). Historical
 examples such as `sentientos cycle` or `sentientos ssa ...` are intentionally
 retired from the current argparse surface.
 
-### Deterministic state-processing layer (internal codename: Consciousness Layer)
+### Deterministic state-processing layer
 
 - Modules operate as state processors that transform inputs deterministically:
   arbitrator (priority resolution), kernel (bounded goal selection), narrator
@@ -89,7 +89,7 @@ retired from the current argparse surface.
 - Pulse Bus 2.0 metadata (`focus`, `context`, `internal_priority`,
   `event_origin`) is documented in `docs/PULSE_BUS.md` and is validated on
   ingestion.
-- The alignment-contract self-model lives at `/glow/self.json` with schema and
+- The alignment-contract runtime identity contract (legacy term: self-model) lives at `/glow/self.json` with schema and
   write-back rules in `docs/SELF_MODEL.md`.
 - Cycle diagrams are available in `docs/diagrams/` for the current scaffold.
 
@@ -256,7 +256,7 @@ streamlit run cathedral_gui.py
 The new **● Record** button captures screen demos to `demos/YYYY-MM-DD-HHMM.mp4` with burned-in subtitles.
 
 ### ⚙️ CLI Launch
-Run the cross-platform launcher to start the full cathedral stack.
+Run the cross-platform launcher to start the full governance stack.
 
 #### Windows
 ```bat

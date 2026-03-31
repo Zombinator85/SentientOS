@@ -8,18 +8,18 @@ auditability, and safe shutdown. For public terminology conventions, see the
 
 When you add or modify runtime code, preserve these repository invariants:
 
-- Declare privilege requirements with the Sanctuary Privilege Procedure
+- Declare privilege requirements with the Privilege Access Procedure
   docstring.
 - Keep authorization gates explicit and auditable.
 - Route operational events through the logging helpers (no silent writes).
 - Keep audit-chain validation green in local checks and CI.
 
-All new scripts must start with the Sanctuary Privilege Procedure docstring,
+All new scripts must start with the Privilege Access Procedure docstring,
 followed by `require_admin_banner()` and `require_lumos_approval()`, before any
 imports. These calls are enforced by `privilege_lint.py`.
 
 ```python
-"""Sanctuary Privilege Procedure: Do not remove. See doctrine for details."""
+"""Privilege Access Procedure: Do not remove. See doctrine for details."""
 from __future__ import annotations
 require_admin_banner()
 require_lumos_approval()
@@ -32,7 +32,7 @@ copy the skeleton automatically.
 
 ## Reviewer Checklist
 
-- [ ] Docstring `"Sanctuary Privilege Procedure: Do not remove. See doctrine for details."` present at the top
+- [ ] Docstring `"Privilege Access Procedure: Do not remove. See doctrine for details."` present at the top
 - [ ] `require_admin_banner()` invoked before any other logic
 - [ ] `require_lumos_approval()` called immediately after `require_admin_banner()`
 - [ ] Logs created using `logging_config.get_log_path()`
@@ -56,7 +56,7 @@ First-time contributors can read
 ## Internal-language note
 
 Internal doctrine may refer to privileged approval (internal codename:
-blessing), operator procedure (internal codename: ritual), or governance
+blessing), operator procedure (legacy term: ritual), or governance
 control plane (internal codename: cathedral). Public contributor guidance should
 lead with the engineering terms above.
 

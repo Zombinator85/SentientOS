@@ -8,7 +8,7 @@ from wdm.runner import run_wdm
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Wild-Dialogue Mode runner")
+    ap = argparse.ArgumentParser(description="Exploratory Dialogue Mode runner (legacy label: Wild-Dialogue)")
     ap.add_argument("--seed", required=True)
     ap.add_argument("--context", default="{}")
     ap.add_argument("--config", default="config/wdm.yaml")
@@ -22,4 +22,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

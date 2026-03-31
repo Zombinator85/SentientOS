@@ -60,10 +60,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(prog="doctrine", description=ENTRY_BANNER)
     sub = ap.add_subparsers(dest="cmd")
 
-    sh = sub.add_parser("show", help="Display the SentientOS liturgy")
+    sh = sub.add_parser("show", help="Display the SentientOS operating policy text")
     sh.set_defaults(func=cmd_show)
 
-    ac = sub.add_parser("affirm", help="Affirm the liturgy")
+    ac = sub.add_parser("affirm", help="Acknowledge the operating policy text")
     ac.set_defaults(func=cmd_accept)
 
     hist = sub.add_parser("history", help="Show doctrine and consent history")
@@ -74,13 +74,13 @@ def main() -> None:
     rec.add_argument("--auto", action="store_true", help="Generate and log a recap")
     rec.set_defaults(func=cmd_recap)
 
-    feed = sub.add_parser("feed", help="Show public ritual feed")
+    feed = sub.add_parser("feed", help="Show public operator-procedure activity feed")
     feed.add_argument("--last", type=int, default=5)
     feed.add_argument("--event")
     feed.add_argument("--date")
     feed.set_defaults(func=cmd_feed)
 
-    pres = sub.add_parser("presence", help="Show cathedral presence")
+    pres = sub.add_parser("presence", help="Show governance activity telemetry")
     pres.add_argument("--user")
     pres.add_argument("--last", type=int, default=5)
     pres.set_defaults(func=cmd_presence)

@@ -1,44 +1,44 @@
-# Public Language Bridge (Engineering ↔ Internal Codename)
+# Public Terminology Standard (Normalized ↔ Legacy)
 
-This glossary is the canonical translation anchor for public-facing SentientOS
-documentation.
+This document is the canonical terminology contract for public-facing
+SentientOS material.
 
-- **Layer 1 (public):** lead with engineering terms.
-- **Layer 2 (bridge):** map to internal codenames for continuity.
-- **Layer 3 (internal):** symbolic/cultural language remains valid in internal,
-  doctrine, and culture documents.
+## Policy
 
-For deterministic mappings used by tooling, see
-`sentientos/public_language_map.py`.
+- Public docs, onboarding, and CLI help text must lead with normalized
+  engineering language.
+- Legacy symbolic wording is compatibility-only.
+- Legacy terms are allowed only for historical references, stable API/field
+  compatibility, or fixed filesystem namespaces.
 
-## Canonical term map
+Deterministic mappings for tooling live in `sentientos/public_language_map.py`.
 
-| Public engineering term | Internal codename / legacy term | Why this mapping exists |
-| --- | --- | --- |
-| deterministic state-processing layer | consciousness layer | Clarifies this is bounded processing, not agency. |
-| activity telemetry | presence | Runtime logs events and signals; it does not imply awareness. |
-| governance control plane | cathedral | The system enforces governance and audit controls. |
-| integrity contract | vow | `vow` remains the internal namespace for immutable integrity artifacts. |
-| state ledger | glow | `glow` remains the internal namespace for persisted state artifacts. |
-| pulse event stream | pulse | `pulse` is a stable internal channel name for event records. |
-| background worker | daemon | `daemon` is already standard engineering vocabulary. |
-| approval body / governance authority | council | Public docs should emphasize authority and review function. |
-| privileged approval | blessing | Approval is procedural and binary in runtime gates. |
-| operator procedure | ritual | Use procedural wording on public surfaces. |
-| runtime identity contract | self-model | Anchors explicit runtime identity data and constraints. |
-| observability surface | observatory | Public docs should describe status/index/report functions. |
-| change pipeline | forge | Public docs should describe queue/gate/replay/change operations. |
-| bounded automation | autonomy | Clarifies operator-scoped automation without self-generated goals. |
-| multi-node coordination | federation | Clarifies peer synchronization and control-plane behavior. |
-| telemetry reliability score | trust | Clarifies scoring/consensus reliability, not social meaning. |
+## Canonical mappings
 
-## Public writing rule
+| Legacy term | Normalized public term | Migration status | Compatibility rule |
+| --- | --- | --- | --- |
+| cathedral | governance control plane | Deprecated public term | Only use for historical references or legacy command names. |
+| council | governance authority | Deprecated public term | Keep only where external artifacts/log fields already use it. |
+| blessing | privileged approval | Deprecated public term | Keep as alias for compatibility on existing interfaces. |
+| ritual | operator procedure | Deprecated public term | Keep only for archival docs and legacy module names. |
+| consciousness layer | deterministic state-processing layer | Deprecated public term | Use legacy wording only in compatibility notes. |
+| consciousness cycle | deterministic state-processing cycle | Deprecated public term | Keep only where command/API compatibility requires it. |
+| presence | activity telemetry | Replace on public surfaces | Legacy wording allowed in historical event labels. |
+| observatory | observability | Replace on public surfaces | Keep as alias for existing command groups. |
+| forge | governed change pipeline | Replace on public surfaces | Keep namespace alias until major-version migration. |
+| self-model | runtime identity contract | Replace on public surfaces | Legacy schema keys may remain where required. |
+| vow | integrity contract artifact set | Retained internal codename | `/vow` path retained for compatibility. |
+| glow | state ledger artifact set | Retained internal codename | `/glow` path retained for compatibility. |
+| wild-dialogue | exploratory dialogue mode | Replace on public surfaces | Legacy name stays only where rename cost is high. |
 
-When an internal codename appears in public-facing docs, dual-label it on first
-use:
+## Writing rule for public surfaces
 
-- `public engineering term (internal codename: X)`
+1. Use normalized term by default.
+2. Mention legacy term only when compatibility context is necessary.
+3. If a legacy term is shown, mark it explicitly as **legacy** or
+   **internal codename**.
 
 Example:
 
-- `governance control plane (internal codename: cathedral)`
+- `governance authority (legacy term: council)`
+- `deterministic state-processing cycle (legacy CLI label: consciousness cycle)`

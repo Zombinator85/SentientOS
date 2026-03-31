@@ -27,7 +27,7 @@ def digest(days: int = 1) -> dict:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Ritual recap digest")
+    ap = argparse.ArgumentParser(description="Operator procedure recap digest")
     ap.add_argument("--days", type=int, default=1)
     ap.add_argument("--out")
     args = ap.parse_args()

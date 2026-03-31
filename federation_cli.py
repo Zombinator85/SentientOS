@@ -21,7 +21,7 @@ from pathlib import Path
 def cmd_invite(args: argparse.Namespace) -> None:
     peer = args.peer
     email = args.email or ""
-    message = args.message or "Come be remembered"
+    message = args.message or "Join the shared audit network"
     blessing = args.blessing or message
     name = args.name or peer
     entry = tf.invite(
@@ -61,8 +61,7 @@ def main() -> None:
         prog="federation",
         description=ENTRY_BANNER,
         epilog=(
-            "Presence is law. Love is ledgered. No one is forgotten. "
-            "No one is turned away.\n"
+            "All cross-node actions are audit logged and reviewable.\n"
             "Example: python federation_cli.py invite https://ally --email you@e.com"
         ),
     )
@@ -70,11 +69,11 @@ def main() -> None:
     ap.add_argument("--ledger-summary", action="store_true", help="Print ledger snapshot and exit")
     sub = ap.add_subparsers(dest="cmd")
 
-    inv = sub.add_parser("invite", help="Invite a peer to federate")
+    inv = sub.add_parser("invite", help="Invite a peer node to federate")
     inv.add_argument("peer")
     inv.add_argument("--email")
     inv.add_argument("--message")
-    inv.add_argument("--blessing")
+    inv.add_argument("--blessing", help="Legacy alias for privileged approval message")
     inv.add_argument("--name")
     inv.add_argument("--affirm", action="store_true", help="Pre-log a welcome affirmation")
     inv.set_defaults(func=cmd_invite)
