@@ -62,6 +62,14 @@ _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
     ),
 }
 _RUNTIME_MEDIATION_STACK: dict[str, int] = {}
+_RUNTIME_MEDIATION_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "CodexHealer",
+        "GenesisForge",
+        "IntegrityDaemon",
+        "SpecAmender",
+    }
+)
 
 
 @contextmanager
@@ -71,6 +79,8 @@ def codex_runtime_mediation(symbol: str | None) -> Iterator[None]:
     if not symbol:
         yield
         return
+    if symbol not in _RUNTIME_MEDIATION_ALLOWLIST:
+        raise CodexStartupViolation(symbol)
     count = _RUNTIME_MEDIATION_STACK.get(symbol, 0)
     _RUNTIME_MEDIATION_STACK[symbol] = count + 1
     try:
