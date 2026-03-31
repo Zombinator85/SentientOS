@@ -232,12 +232,14 @@ def _ensure_current_process_state() -> None:
         _STARTUP_ACTIVE = False
         _STARTUP_FINALIZED = True
         _STARTUP_OWNER_PID = current_pid
+        _RUNTIME_MEDIATION_STACK.clear()
 
 
 def _reset_startup_after_fork() -> None:
     global _STARTUP_ACTIVE, _STARTUP_FINALIZED, _STARTUP_OWNER_PID
     _STARTUP_OWNER_PID = os.getpid()
     _STARTUP_ACTIVE = False
+    _RUNTIME_MEDIATION_STACK.clear()
     _seal_startup_state()
 
 
@@ -283,3 +285,9 @@ def init_codex_runtime() -> None:
             pass
         _FORK_HANDLER_REGISTERED = True
     _STARTUP_INITIALIZED = True
+
+
+# Ensure parent process identity is stamped into environment at import time so
+# child processes deterministically observe finalized startup state unless they
+# are explicitly startup-authorized by clearing startup guard env markers.
+os.environ.setdefault(_ROOT_PID_ENV_VAR, str(os.getpid()))
