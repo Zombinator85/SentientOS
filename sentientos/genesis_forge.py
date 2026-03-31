@@ -22,9 +22,9 @@ from typing import Callable, Mapping, MutableMapping, Sequence
 
 from codex.integrity_daemon import IntegrityDaemon
 from codex.proof_budget_governor import (
+    BudgetDecision,
     PressureStateWriteResult,
     build_governor_event,
-    decide_budget,
     governor_config_from_env,
     load_pressure_state,
     save_pressure_state,
@@ -41,6 +41,12 @@ from codex.proposal_router import (
     top_violation_codes,
 )
 from sentientos.codex_healer import Anomaly, RecoveryLedger, RepairAction
+from sentientos.control_plane_kernel import (
+    AuthorityClass,
+    ControlActionRequest,
+    LifecyclePhase,
+    get_control_plane_kernel,
+)
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.integrity_pressure import compute_integrity_pressure
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
@@ -648,10 +654,28 @@ class GenesisForge:
                 "capability": need.capability,
                 "router_attempt": 1,
             }
-            governor_decision = decide_budget(
-                config=governor_config,
-                pressure_state=pressure_state,
-                run_context=run_context,
+            kernel = get_control_plane_kernel()
+            budget_request = ControlActionRequest(
+                action_kind="proof_budget",
+                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                actor="genesis_forge",
+                target_subsystem=need.capability,
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                metadata={"correlation_id": f"genesis:{need.capability}", "require_admissible": False},
+                proof_budget_context={
+                    "config": governor_config,
+                    "pressure_state": pressure_state,
+                    "run_context": run_context,
+                },
+            )
+            budget_gate = kernel.admit(budget_request)
+            budget_payload = budget_gate.delegated_outcomes.get("proof_budget_governor", {})
+            governor_decision = BudgetDecision(
+                k_effective=int(budget_payload.get("k_effective", configured_k)),
+                m_effective=int(budget_payload.get("m_effective", configured_m)),
+                allow_escalation=bool(budget_payload.get("allow_escalation", True)),
+                mode=str(budget_payload.get("mode", "normal")),
+                decision_reasons=[str(item) for item in budget_payload.get("decision_reasons", [])],
             )
             before_k = governor_decision.k_effective
             before_m = governor_decision.m_effective

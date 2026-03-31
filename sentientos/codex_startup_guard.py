@@ -40,23 +40,52 @@ _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
     # Keep this list minimal and auditable; include test namespace so fixtures remain valid.
     "CodexHealer": (
         "sentientos.codex_healer",
+        "sentientos.control_plane_kernel",
         "tests.",
     ),
     "GenesisForge": (
         "sentientos.genesis_forge",
+        "sentientos.control_plane_kernel",
         "tests.",
     ),
     "IntegrityDaemon": (
         "codex.amendments",
         "codex.integrity_daemon",
         "sentientos.genesis_forge",
+        "sentientos.control_plane_kernel",
         "tests.",
     ),
     "SpecAmender": (
         "codex.amendments",
+        "sentientos.control_plane_kernel",
         "tests.",
     ),
 }
+_RUNTIME_MEDIATION_STACK: dict[str, int] = {}
+
+
+@contextmanager
+def codex_runtime_mediation(symbol: str | None) -> Iterator[None]:
+    """Allow a specific startup-guarded symbol within a maintenance mediation envelope."""
+
+    if not symbol:
+        yield
+        return
+    count = _RUNTIME_MEDIATION_STACK.get(symbol, 0)
+    _RUNTIME_MEDIATION_STACK[symbol] = count + 1
+    try:
+        yield
+    finally:
+        remaining = _RUNTIME_MEDIATION_STACK.get(symbol, 0) - 1
+        if remaining <= 0:
+            _RUNTIME_MEDIATION_STACK.pop(symbol, None)
+        else:
+            _RUNTIME_MEDIATION_STACK[symbol] = remaining
+
+
+def _runtime_mediation_active(symbol: str) -> bool:
+    return _RUNTIME_MEDIATION_STACK.get(symbol, 0) > 0
+
 
 
 class CodexProvenanceViolation(RuntimeError):
@@ -79,7 +108,7 @@ def enforce_codex_startup(symbol: str) -> None:
     init_codex_runtime()
     _ensure_current_process_state()
 
-    if not _STARTUP_ACTIVE:
+    if not _STARTUP_ACTIVE and not _runtime_mediation_active(symbol):
         raise CodexStartupViolation(symbol)
     _enforce_codex_provenance(symbol)
 

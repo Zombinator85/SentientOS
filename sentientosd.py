@@ -16,6 +16,12 @@ from sentientos.boot_ceremony import (
 from sentientos.boot_chronicler import build_boot_ceremony_link
 from sentientos.codex import CodexHealer, GenesisForge, IntegrityDaemon, SpecAmender
 from sentientos.contract_sentinel import ContractSentinel
+from sentientos.control_plane_kernel import (
+    AuthorityClass,
+    ControlActionRequest,
+    LifecyclePhase,
+    get_control_plane_kernel,
+)
 from sentientos.forge_daemon import ForgeDaemon
 from sentientos.forge_merge_train import ForgeMergeTrain
 from sentientos.local_model import LocalModel
@@ -43,17 +49,61 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
     forge_daemon = ForgeDaemon()
     merge_train = ForgeMergeTrain(repo_root=forge_daemon.repo_root)
     contract_sentinel = ContractSentinel()
+    kernel = get_control_plane_kernel()
+    kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
     LOGGER.info("SentientOS daemon initialised with %s", model.describe())
 
     while not shutdown_event.is_set():
         LOGGER.debug("SentientOS daemon tick")
-        GenesisForge.expand()
-        SpecAmender.cycle()
-        IntegrityDaemon.guard()
+        kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="sentientosd")
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="expand",
+                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                actor="sentientosd",
+                target_subsystem="genesis_forge",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="GenesisForge",
+            ),
+            execute=GenesisForge.expand,
+        )
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="cycle",
+                authority_class=AuthorityClass.SPEC_AMENDMENT,
+                actor="sentientosd",
+                target_subsystem="spec_amender",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="SpecAmender",
+            ),
+            execute=SpecAmender.cycle,
+        )
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="guard",
+                authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+                actor="sentientosd",
+                target_subsystem="integrity_daemon",
+                requested_phase=LifecyclePhase.MAINTENANCE,
+                startup_symbol="IntegrityDaemon",
+            ),
+            execute=IntegrityDaemon.guard,
+        )
+        kernel.set_phase(LifecyclePhase.RUNTIME, actor="sentientosd")
         # Sentinel runs after integrity guard so contract artifacts are trustworthy, before forge daemon so queued repairs execute same tick.
         if os.getenv("SENTIENTOS_SENTINEL_ENABLED", "0") == "1":
             contract_sentinel.tick()
-        CodexHealer.monitor()
+        kernel.admit_and_execute(
+            ControlActionRequest(
+                action_kind="monitor",
+                authority_class=AuthorityClass.REPAIR,
+                actor="sentientosd",
+                target_subsystem="codex_healer",
+                requested_phase=LifecyclePhase.RUNTIME,
+                startup_symbol="CodexHealer",
+            ),
+            execute=CodexHealer.monitor,
+        )
         forge_daemon.run_tick()
         merge_train.tick()
 
@@ -68,6 +118,7 @@ async def run_loop(shutdown_event: asyncio.Event, interval_seconds: int = 60) ->
         except asyncio.TimeoutError:
             continue
 
+    kernel.set_phase(LifecyclePhase.SHUTDOWN, actor="sentientosd")
     LOGGER.info("SentientOS daemon shutting down")
 
 
