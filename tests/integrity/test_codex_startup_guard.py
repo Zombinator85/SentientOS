@@ -266,3 +266,37 @@ def test_child_process_observes_finalized_state() -> None:
     assert result.returncode == 0
     payload = json.loads(result.stdout.strip())
     assert payload == {"active": False, "finalized": True}
+
+
+def test_mediated_runtime_does_not_set_startup_active() -> None:
+    script = """
+    import json
+    from sentientos.codex_startup_guard import codex_runtime_mediation, codex_startup_state, enforce_codex_startup
+
+    __name__ = "tests.codex.mediation"
+    with codex_runtime_mediation("GenesisForge"):
+        enforce_codex_startup("GenesisForge")
+        state = codex_startup_state()
+        print(json.dumps({"active": state.active, "finalized": state.finalized}))
+    """
+
+    result = _run_python(script, authorize_startup=False)
+    assert result.returncode == 0
+    payload = json.loads(result.stdout.strip())
+    assert payload["active"] is False
+    assert payload["finalized"] is True
+
+
+def test_finalized_state_still_allows_explicit_mediation() -> None:
+    script = """
+    from sentientos.codex_startup_guard import codex_runtime_mediation, enforce_codex_startup
+
+    __name__ = "tests.codex.mediation"
+    with codex_runtime_mediation("IntegrityDaemon"):
+        enforce_codex_startup("IntegrityDaemon")
+    print("ok")
+    """
+
+    result = _run_python(script, authorize_startup=False)
+    assert result.returncode == 0
+    assert result.stdout.strip() == "ok"
