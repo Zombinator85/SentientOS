@@ -1,8 +1,8 @@
-"""Deterministic public-language translation map for external documentation.
+"""Canonical terminology registry for public SentientOS surfaces.
 
-This module does not change runtime behavior. It provides a single source of
-truth for translating symbolic terms into engineering-facing terms in docs,
-CLIs, and public presentations.
+This module provides the normalized vocabulary for documentation, CLI help text,
+and reviewer-facing materials. Legacy symbolic terms can remain as compatibility
+aliases while migration is in progress.
 """
 
 from __future__ import annotations
@@ -13,130 +13,123 @@ from typing import Final
 
 @dataclass(frozen=True)
 class PublicTerm:
-    current_term: str
-    public_term: str
-    classification: str
+    legacy_term: str
+    normalized_term: str
+    migration_status: str
+    compatibility_alias: bool
+    deprecation_note: str
     rationale: str
-    migration_recommendation: str
 
 
 PUBLIC_LANGUAGE_MAP: Final[dict[str, PublicTerm]] = {
     "cathedral": PublicTerm(
-        current_term="cathedral",
-        public_term="governance control plane",
-        classification="clarify",
-        rationale="The runtime enforces governance and audit constraints, not a religious substrate.",
-        migration_recommendation="alias in interfaces",
-    ),
-    "blessing": PublicTerm(
-        current_term="blessing",
-        public_term="privileged approval",
-        classification="replace",
-        rationale="Approval semantics are procedural and binary in code paths.",
-        migration_recommendation="docs-only translation",
-    ),
-    "ritual": PublicTerm(
-        current_term="ritual",
-        public_term="operator procedure",
-        classification="replace",
-        rationale="Most usage refers to fixed execution procedures and checklists.",
-        migration_recommendation="alias in interfaces",
-    ),
-    "presence": PublicTerm(
-        current_term="presence",
-        public_term="activity telemetry",
-        classification="clarify",
-        rationale="Usage maps to event detection and logging rather than awareness.",
-        migration_recommendation="docs-only translation",
-    ),
-    "glow": PublicTerm(
-        current_term="glow",
-        public_term="state ledger",
-        classification="contextualize",
-        rationale="In code this is primarily a storage namespace and artifact root.",
-        migration_recommendation="keep as internal codename",
-    ),
-    "vow": PublicTerm(
-        current_term="vow",
-        public_term="integrity contract",
-        classification="contextualize",
-        rationale="References canonical digest and immutable integrity anchors.",
-        migration_recommendation="keep as internal codename",
-    ),
-    "consciousness layer": PublicTerm(
-        current_term="consciousness layer",
-        public_term="deterministic state-processing layer",
-        classification="replace",
-        rationale="Documentation explicitly defines modules as non-autonomous state processors.",
-        migration_recommendation="docs-only translation",
-    ),
-    "daemon": PublicTerm(
-        current_term="daemon",
-        public_term="background worker",
-        classification="keep",
-        rationale="Daemon is standard engineering vocabulary when used literally.",
-        migration_recommendation="rename in code",
-    ),
-    "observatory": PublicTerm(
-        current_term="observatory",
-        public_term="observability",
-        classification="replace",
-        rationale="CLI surfaces expose status, trend, and index reporting functions.",
-        migration_recommendation="alias in interfaces",
-    ),
-    "forge": PublicTerm(
-        current_term="forge",
-        public_term="change pipeline",
-        classification="clarify",
-        rationale="Forge commands queue, gate, run, and record change operations.",
-        migration_recommendation="alias in interfaces",
+        legacy_term="cathedral",
+        normalized_term="governance control plane",
+        migration_status="deprecated_public_term",
+        compatibility_alias=True,
+        deprecation_note="Use only for historical references or compatibility labels.",
+        rationale="Public docs should describe governance and audit function directly.",
     ),
     "council": PublicTerm(
-        current_term="council",
-        public_term="governance authority",
-        classification="clarify",
-        rationale="Council references are governance and approval authority surfaces.",
-        migration_recommendation="docs-only translation",
+        legacy_term="council",
+        normalized_term="governance authority",
+        migration_status="deprecated_public_term",
+        compatibility_alias=True,
+        deprecation_note="Keep only when referring to historical command names or stored log fields.",
+        rationale="The semantics are authority, review, and approval—not ceremony.",
+    ),
+    "blessing": PublicTerm(
+        legacy_term="blessing",
+        normalized_term="privileged approval",
+        migration_status="deprecated_public_term",
+        compatibility_alias=True,
+        deprecation_note="Use only as a legacy alias in stable APIs or historical logs.",
+        rationale="Runtime behavior is procedural approval with explicit gates.",
+    ),
+    "ritual": PublicTerm(
+        legacy_term="ritual",
+        normalized_term="operator procedure",
+        migration_status="deprecated_public_term",
+        compatibility_alias=True,
+        deprecation_note="Use only for legacy filenames, commands, or archival docs.",
+        rationale="Most references are deterministic procedures and checklists.",
+    ),
+    "consciousness layer": PublicTerm(
+        legacy_term="consciousness layer",
+        normalized_term="deterministic state-processing layer",
+        migration_status="deprecated_public_term",
+        compatibility_alias=True,
+        deprecation_note="Avoid on public surfaces except in compatibility notes.",
+        rationale="The subsystem is deterministic processing, not agency.",
+    ),
+    "consciousness cycle": PublicTerm(
+        legacy_term="consciousness cycle",
+        normalized_term="deterministic state-processing cycle",
+        migration_status="deprecated_public_term",
+        compatibility_alias=True,
+        deprecation_note="Keep only where command or API compatibility requires the legacy wording.",
+        rationale="Cycle execution is deterministic and operator-invoked.",
+    ),
+    "presence": PublicTerm(
+        legacy_term="presence",
+        normalized_term="activity telemetry",
+        migration_status="replace_public_term",
+        compatibility_alias=True,
+        deprecation_note="Legacy wording may remain in historical event names.",
+        rationale="This refers to observability and event signal data.",
+    ),
+    "observatory": PublicTerm(
+        legacy_term="observatory",
+        normalized_term="observability",
+        migration_status="replace_public_term",
+        compatibility_alias=True,
+        deprecation_note="Keep as alias only for existing command groups.",
+        rationale="The surface provides telemetry/index views.",
+    ),
+    "forge": PublicTerm(
+        legacy_term="forge",
+        normalized_term="governed change pipeline",
+        migration_status="replace_public_term",
+        compatibility_alias=True,
+        deprecation_note="Legacy namespace may remain in module names until major-version migration.",
+        rationale="This subsystem stages, validates, and promotes changes.",
     ),
     "self-model": PublicTerm(
-        current_term="self-model",
-        public_term="runtime identity contract",
-        classification="clarify",
-        rationale="This artifact stores bounded runtime identity and policy constraints.",
-        migration_recommendation="keep as internal codename",
+        legacy_term="self-model",
+        normalized_term="runtime identity contract",
+        migration_status="replace_public_term",
+        compatibility_alias=True,
+        deprecation_note="Retain legacy label only where schema keys are externally fixed.",
+        rationale="Artifact content defines bounded runtime identity constraints.",
     ),
-    "pulse": PublicTerm(
-        current_term="pulse",
-        public_term="pulse event stream",
-        classification="contextualize",
-        rationale="Pulse names a deterministic event stream and telemetry channel.",
-        migration_recommendation="keep as internal codename",
+    "vow": PublicTerm(
+        legacy_term="vow",
+        normalized_term="integrity contract artifact set",
+        migration_status="retained_internal_codename",
+        compatibility_alias=True,
+        deprecation_note="Internal namespace retained for path compatibility (`/vow`).",
+        rationale="Filesystem namespace is stable and externally referenced.",
     ),
-    "autonomy": PublicTerm(
-        current_term="autonomy",
-        public_term="bounded automation",
-        classification="clarify",
-        rationale="Autonomy in SentientOS is operator-scoped scheduling and coordination.",
-        migration_recommendation="docs-only translation",
+    "glow": PublicTerm(
+        legacy_term="glow",
+        normalized_term="state ledger artifact set",
+        migration_status="retained_internal_codename",
+        compatibility_alias=True,
+        deprecation_note="Internal namespace retained for path compatibility (`/glow`).",
+        rationale="Filesystem namespace is stable and externally referenced.",
     ),
-    "federation": PublicTerm(
-        current_term="federation",
-        public_term="multi-node coordination",
-        classification="clarify",
-        rationale="Federation refers to cross-node synchronization and trust-plane exchange.",
-        migration_recommendation="docs-only translation",
-    ),
-    "trust": PublicTerm(
-        current_term="trust",
-        public_term="telemetry reliability score",
-        classification="clarify",
-        rationale="Trust values represent observed reliability and consensus posture.",
-        migration_recommendation="docs-only translation",
+    "wild-dialogue": PublicTerm(
+        legacy_term="wild-dialogue",
+        normalized_term="exploratory dialogue mode",
+        migration_status="replace_public_term",
+        compatibility_alias=True,
+        deprecation_note="Use legacy label only in module names pending migration.",
+        rationale="Behavior is bounded exploratory generation, not mystical interaction.",
     ),
 }
 
 
 def translate_public_term(term: str) -> PublicTerm | None:
-    """Return translation metadata for *term* if a deterministic mapping exists."""
+    """Return terminology metadata for *term* if present."""
 
     return PUBLIC_LANGUAGE_MAP.get(term.strip().lower())

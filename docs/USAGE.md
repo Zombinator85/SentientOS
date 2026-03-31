@@ -5,10 +5,9 @@ This guide documents the **current** public CLI surface.
 SentientOS exposes two primary command surfaces:
 
 1. `python -m sentientos` for safe runtime introspection and privileged UI entrypoints.
-2. `python -m sentientos.ops` for operations workflows (node, audit, federation lab, observability, verification).
+2. `python -m sentientos.ops` for operations workflows (node, audit, multi-node coordination, observability, verification, and governed change pipeline).
 
-For terminology mapping between public engineering language and internal
-codenames, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).
+For canonical terminology mapping, see [PUBLIC_LANGUAGE_BRIDGE.md](PUBLIC_LANGUAGE_BRIDGE.md).
 
 ## 1) Core runtime CLI (`python -m sentientos`)
 
@@ -33,17 +32,6 @@ Current command groups:
   - `dashboard`
   - `avatar-demo`
 
-Examples:
-
-```bash
-python -m sentientos status
-python -m sentientos doctor
-python -m sentientos ois overview
-python -m sentientos diff
-python -m sentientos summary
-python -m sentientos system map
-```
-
 ## 2) Unified operations CLI (`python -m sentientos.ops`)
 
 Inspect available domains:
@@ -56,12 +44,12 @@ Current domains:
 
 - `node`
 - `constitution`
-- `forge`
+- `forge` (legacy command label for governed change pipeline)
 - `incident`
 - `audit`
 - `simulate`
 - `lab`
-- `observatory` (public concept: observability)
+- `observatory` (legacy command label for observability)
 - `verify`
 
 Examples:
@@ -79,21 +67,13 @@ python -m sentientos.ops verify formal --json
 
 Installed script entrypoints include:
 
-- `sentientosd` (runtime daemon)
+- `sentientosd` (runtime background worker)
 - `sentientos-chat` (chat service)
 - `sentientos-updater` (git update helper)
 - `verify_audits` (audit-chain verification)
 - `audit_immutability_verifier` (immutability verifier)
 
-Examples:
-
-```bash
-sentientosd
-sentientos-chat
-verify_audits --strict
-```
-
-## 4) Historical command note (drift correction)
+## 4) Historical command note
 
 Older docs referenced orchestrator commands such as:
 
@@ -104,9 +84,3 @@ Older docs referenced orchestrator commands such as:
 
 Those are **historical** and are not part of the current argparse surface for
 `python -m sentientos`.
-
-Use:
-
-- `python -m sentientos --version` for version reporting.
-- `python -m sentientos` + `python -m sentientos.ops` commands listed above for
-  current runtime and operations workflows.

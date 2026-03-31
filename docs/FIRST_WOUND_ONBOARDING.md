@@ -17,7 +17,7 @@ A short walkthrough can be found in `docs/video_procedure_guide.md` (or the
 upcoming clip noted there).
 
 Internal/cultural prose may still use governance control plane (internal
-codename: cathedral) or operator procedure (internal codename: ritual), but
+codename: cathedral) or operator procedure (legacy term: ritual), but
 this onboarding guide keeps engineering terms primary for new contributors.
 
 SentientOS prioritizes operator accountability, auditability, and safe

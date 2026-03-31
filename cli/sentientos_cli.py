@@ -47,7 +47,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--trace", action="store_true", help="Show raw traceback for failures.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    subparsers.add_parser("cycle", help="Run a consciousness cycle")
+    subparsers.add_parser("cycle", help="Run a deterministic state-processing cycle (legacy label: consciousness cycle)")
 
     cognition_parser = subparsers.add_parser(
         "cognition", help="Cognitive state inspection commands"

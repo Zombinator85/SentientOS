@@ -1,11 +1,11 @@
-# SentientOS Final Architecture Overview
+# SentientOS Architecture Overview
 
 This document summarizes the integrated SentientOS command and runtime surfaces.
 No new subsystem is introduced here; this is a stabilized view for engineers.
 
 ## Path A: Integrity envelope
 
-- **Canonical vow digest** anchors immutable resources via
+- **Canonical integrity contract artifact digest** anchors immutable resources via
   `vow_digest.canonical_vow_digest()`.
 - **Version consensus** compares local state with canonical digest constraints.
 - **Drift reporting** is deterministic when invoked through diagnostics and ops
@@ -15,8 +15,8 @@ No new subsystem is introduced here; this is a stabilized view for engineers.
 ## Path B: Runtime + operations surfaces
 
 - **Runtime CLI:** `python -m sentientos` (status/doctor/diff/ois/summary/trace).
-- **Operations CLI:** `python -m sentientos.ops` (node, audit, lab, observatory/observability
-  surface, verify, forge).
+- **Operations CLI:** `python -m sentientos.ops` (node, audit, lab,
+  observatory/observability surface, verify, forge/governed change pipeline).
 - **Service scripts:** `sentientosd`, `sentientos-chat`, `verify_audits`, and
   related command entrypoints from `pyproject.toml`.
 

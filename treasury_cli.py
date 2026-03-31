@@ -99,11 +99,11 @@ def main() -> None:
 
     sub.add_parser("announce", help="Show federation announcement payload").set_defaults(func=cmd_announce)
 
-    sync = sub.add_parser("sync", help="Sync logs from a remote cathedral")
+    sync = sub.add_parser("sync", help="Sync logs from a remote governance node")
     sync.add_argument("url")
     sync.set_defaults(func=cmd_sync)
 
-    attest = sub.add_parser("attest", help="Attest or bless a log")
+    attest = sub.add_parser("attest", help="Attest or approve a log")
     attest.add_argument("id")
     attest.add_argument("--user", required=True)
     attest.add_argument("--origin", default="local")
@@ -112,7 +112,7 @@ def main() -> None:
 
     args = ap.parse_args()
     print_banner()
-    print("All support and federation is logged in the Living Ledger. No one is forgotten.")
+    print("All support and federation actions are logged in the shared state ledger.")
     if hasattr(args, "func"):
         args.func(args)
     else:
