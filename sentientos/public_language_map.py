@@ -91,6 +91,48 @@ PUBLIC_LANGUAGE_MAP: Final[dict[str, PublicTerm]] = {
         rationale="Forge commands queue, gate, run, and record change operations.",
         migration_recommendation="alias in interfaces",
     ),
+    "council": PublicTerm(
+        current_term="council",
+        public_term="governance authority",
+        classification="clarify",
+        rationale="Council references are governance and approval authority surfaces.",
+        migration_recommendation="docs-only translation",
+    ),
+    "self-model": PublicTerm(
+        current_term="self-model",
+        public_term="runtime identity contract",
+        classification="clarify",
+        rationale="This artifact stores bounded runtime identity and policy constraints.",
+        migration_recommendation="keep as internal codename",
+    ),
+    "pulse": PublicTerm(
+        current_term="pulse",
+        public_term="pulse event stream",
+        classification="contextualize",
+        rationale="Pulse names a deterministic event stream and telemetry channel.",
+        migration_recommendation="keep as internal codename",
+    ),
+    "autonomy": PublicTerm(
+        current_term="autonomy",
+        public_term="bounded automation",
+        classification="clarify",
+        rationale="Autonomy in SentientOS is operator-scoped scheduling and coordination.",
+        migration_recommendation="docs-only translation",
+    ),
+    "federation": PublicTerm(
+        current_term="federation",
+        public_term="multi-node coordination",
+        classification="clarify",
+        rationale="Federation refers to cross-node synchronization and trust-plane exchange.",
+        migration_recommendation="docs-only translation",
+    ),
+    "trust": PublicTerm(
+        current_term="trust",
+        public_term="telemetry reliability score",
+        classification="clarify",
+        rationale="Trust values represent observed reliability and consensus posture.",
+        migration_recommendation="docs-only translation",
+    ),
 }
 
 
