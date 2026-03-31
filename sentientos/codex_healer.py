@@ -14,7 +14,12 @@ from typing import Callable, Iterable, List, Mapping, Sequence
 from sentientos.audit_chain_gate import verify_audit_chain
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.immutability import read_manifest
-from sentientos.runtime_governor import get_runtime_governor
+from sentientos.control_plane_kernel import (
+    AuthorityClass,
+    ControlActionRequest,
+    LifecyclePhase,
+    get_control_plane_kernel,
+)
 from sentientos.repair_outcome import verify_repair_outcome
 
 
@@ -588,19 +593,24 @@ class CodexHealer:
                 quarantined=decision.quarantined,
                 correlation_id=correlation_id,
             )
-        governor = get_runtime_governor()
-        governor_decision = governor.admit_action(
-            "repair_action",
-            "codex_healer",
-            correlation_id,
+        kernel = get_control_plane_kernel()
+        request = ControlActionRequest(
+            action_kind=action.kind,
+            authority_class=AuthorityClass.REPAIR,
+            actor="codex_healer",
+            target_subsystem=anomaly.subject,
+            requested_phase=LifecyclePhase.RUNTIME,
             metadata={
+                "correlation_id": correlation_id,
                 "anomaly_kind": anomaly.kind,
                 "subject": anomaly.subject,
                 "action_kind": action.kind,
                 "auto_adopt": action.auto_adopt,
             },
         )
-        if not governor_decision.allowed:
+        kernel_decision = kernel.admit(request)
+        runtime_payload = kernel_decision.delegated_outcomes.get("runtime_governor", {})
+        if not kernel_decision.allowed:
             attempts = self._note_failure(key, now)
             if attempts < self._regenesis_threshold:
                 return self._ledger.log(
@@ -608,10 +618,10 @@ class CodexHealer:
                     anomaly=anomaly,
                     action=action,
                     details={
-                        "governor_reason": governor_decision.reason,
-                        "governor_mode": governor_decision.mode,
-                        "governor_reason_hash": governor_decision.reason_hash,
-                        "governor_correlation_id": governor_decision.correlation_id,
+                        "governor_reason": ",".join(kernel_decision.reason_codes),
+                        "governor_mode": str(runtime_payload.get("mode", "unknown")),
+                        "governor_reason_hash": str(runtime_payload.get("reason_hash", "unknown")),
+                        "governor_correlation_id": str(runtime_payload.get("correlation_id", correlation_id)),
                         "attempts": attempts,
                         "regenesis_threshold": self._regenesis_threshold,
                         "regenesis_deferred": True,
@@ -625,10 +635,10 @@ class CodexHealer:
                 anomaly=anomaly,
                 action=action,
                 details={
-                    "governor_reason": governor_decision.reason,
-                    "governor_mode": governor_decision.mode,
-                    "governor_reason_hash": governor_decision.reason_hash,
-                    "governor_correlation_id": governor_decision.correlation_id,
+                    "governor_reason": ",".join(kernel_decision.reason_codes),
+                    "governor_mode": str(runtime_payload.get("mode", "unknown")),
+                    "governor_reason_hash": str(runtime_payload.get("reason_hash", "unknown")),
+                    "governor_correlation_id": str(runtime_payload.get("correlation_id", correlation_id)),
                     "attempts": attempts,
                     "regenesis_threshold": self._regenesis_threshold,
                     "regenesis": regen_info,

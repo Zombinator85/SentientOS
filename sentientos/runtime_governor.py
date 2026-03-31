@@ -1816,3 +1816,11 @@ def get_runtime_governor() -> RuntimeGovernor:
 def reset_runtime_governor() -> None:
     global _GOVERNOR
     _GOVERNOR = None
+    try:
+        from sentientos.control_plane_kernel import reset_control_plane_kernel
+
+        reset_control_plane_kernel()
+    except Exception:
+        # Defensive: runtime governor reset must remain available even if the
+        # control-plane kernel is not importable in constrained environments.
+        pass
