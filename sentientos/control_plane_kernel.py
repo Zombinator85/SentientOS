@@ -26,11 +26,14 @@ class LifecyclePhase(str, Enum):
 class AuthorityClass(str, Enum):
     OBSERVATION = "observation"
     REPAIR = "repair"
+    ROLLBACK = "rollback"
     DAEMON_RESTART = "daemon_restart"
     PROPOSAL_EVALUATION = "proposal_evaluation"
     PROPOSAL_ADOPTION = "proposal_adoption"
+    MANIFEST_OR_IDENTITY_MUTATION = "manifest_or_identity_mutation"
     FEDERATED_CONTROL = "federated_control"
     SPEC_AMENDMENT = "spec_amendment"
+    PRIVILEGED_OPERATOR_CONTROL = "privileged_operator_control"
 
 
 class AdmissionOutcome(str, Enum):
@@ -238,6 +241,7 @@ class ControlPlaneKernel:
         startup_bound = request.authority_class in {
             AuthorityClass.PROPOSAL_EVALUATION,
             AuthorityClass.PROPOSAL_ADOPTION,
+            AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
             AuthorityClass.SPEC_AMENDMENT,
         }
         if startup_bound and not startup.active and self._phase == LifecyclePhase.RUNTIME:
@@ -247,11 +251,14 @@ class ControlPlaneKernel:
     def _delegate_runtime_governor(self, request: ControlActionRequest) -> tuple[GovernorDecision | None, str | None]:
         action_map = {
             AuthorityClass.REPAIR: "repair_action",
+            AuthorityClass.ROLLBACK: "repair_action",
             AuthorityClass.DAEMON_RESTART: "restart_daemon",
             AuthorityClass.FEDERATED_CONTROL: "federated_control",
             AuthorityClass.PROPOSAL_ADOPTION: "amendment_apply",
+            AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION: "amendment_apply",
             AuthorityClass.PROPOSAL_EVALUATION: "control_plane_task",
             AuthorityClass.SPEC_AMENDMENT: "control_plane_task",
+            AuthorityClass.PRIVILEGED_OPERATOR_CONTROL: "control_plane_task",
         }
         action_class = action_map.get(request.authority_class)
         if action_class is None:

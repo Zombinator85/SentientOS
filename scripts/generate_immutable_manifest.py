@@ -7,6 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
+
 DEFAULT_MANIFEST = Path("vow/immutable_manifest.json")
 DEFAULT_FILES = (
     Path("NEWLEGACY.txt"),
@@ -99,6 +101,31 @@ def main(argv: list[str] | None = None) -> int:
         help="allow degraded mode when one or more manifest input files are missing",
     )
     args = parser.parse_args(argv)
+    kernel = get_control_plane_kernel()
+    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="scripts.generate_immutable_manifest")
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="generate_immutable_manifest",
+            authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
+            actor="operator_cli",
+            target_subsystem=str(args.manifest),
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={"requested_by": "scripts/generate_immutable_manifest.py"},
+        )
+    )
+    if not decision.allowed:
+        print(
+            json.dumps(
+                {
+                    "tool": "generate_immutable_manifest",
+                    "status": "blocked",
+                    "reason_codes": list(decision.reason_codes),
+                    "correlation_id": decision.correlation_id,
+                },
+                sort_keys=True,
+            )
+        )
+        return 1
 
     payload = generate_manifest(
         output=Path(args.manifest),

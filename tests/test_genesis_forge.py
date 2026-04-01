@@ -10,6 +10,7 @@ import pytest
 from codex.integrity_daemon import IntegrityDaemon
 from codex.proposal_router import CandidateResult, choose_candidate, score_evaluation
 from sentientos.codex_healer import RecoveryLedger
+from sentientos.control_plane_kernel import AdmissionOutcome, AuthorityClass
 from sentientos.genesis_forge import (
     AdoptionRite,
     CovenantVow,
@@ -133,6 +134,68 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
 
     codex_payload = json.loads(codex_index.read_text())
     assert codex_payload[0]["provenance"] == "GenesisForge"
+
+
+def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class _TrustState:
+        degraded_audit_trust = False
+        history_state = "trusted"
+        checkpoint_id = "chk-1"
+
+    class _Decision:
+        def __init__(self, *, allowed: bool, reason_codes: list[str], outcome: AdmissionOutcome) -> None:
+            self.allowed = allowed
+            self.reason_codes = tuple(reason_codes)
+            self.delegated_outcomes: dict[str, object] = {}
+            self.correlation_id = "kernel-test"
+            self.outcome = outcome
+
+    class _Kernel:
+        def set_phase(self, phase, *, actor="control_plane_kernel") -> None:  # noqa: ANN001
+            return None
+
+        def admit(self, request):  # noqa: ANN001
+            if request.action_kind == "proof_budget":
+                decision = _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW)
+                decision.delegated_outcomes = {
+                    "proof_budget_governor": {
+                        "k_effective": 3,
+                        "m_effective": 2,
+                        "allow_escalation": True,
+                        "mode": "normal",
+                        "decision_reasons": ["ok"],
+                    }
+                }
+                return decision
+            return _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW)
+
+        def admit_and_execute(self, request, *, execute=None):  # noqa: ANN001
+            if request.authority_class == AuthorityClass.PROPOSAL_ADOPTION:
+                return (
+                    _Decision(
+                        allowed=False,
+                        reason_codes=["runtime_governor:degraded_audit_trust_amendment_deferred"],
+                        outcome=AdmissionOutcome.DENY,
+                    ),
+                    None,
+                )
+            return _Decision(allowed=True, reason_codes=["admitted"], outcome=AdmissionOutcome.ALLOW), execute()
+
+    monkeypatch.setattr("sentientos.genesis_forge.get_control_plane_kernel", lambda: _Kernel())
+    monkeypatch.setattr("sentientos.genesis_forge.evaluate_audit_trust", lambda *args, **kwargs: _TrustState())
+    monkeypatch.setattr("sentientos.genesis_forge.write_audit_trust_artifacts", lambda *args, **kwargs: {})
+    forge = _build_forge(tmp_path)
+
+    outcomes = forge.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+
+    assert outcomes[0].status == "failed"
+    assert "Kernel denied adoption promotion" in str(outcomes[0].details["error"])
+    assert not list((tmp_path / "live").glob("*.json"))
 
 
 def test_prevents_overwriting_existing_daemon(tmp_path: Path) -> None:
