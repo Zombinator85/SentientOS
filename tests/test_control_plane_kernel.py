@@ -88,6 +88,22 @@ def test_illegal_runtime_startup_bound_action_deferred(tmp_path):
     assert "startup_bound_requires_maintenance" in decision.reason_codes
 
 
+def test_manifest_mutation_requires_maintenance_phase(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.RUNTIME)
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="generate_immutable_manifest",
+            authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
+            actor="operator_cli",
+            target_subsystem="vow/immutable_manifest.json",
+            requested_phase=LifecyclePhase.RUNTIME,
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.DEFER
+    assert "startup_bound_requires_maintenance" in decision.reason_codes
+
+
 def test_runtime_maintenance_mediation_allows_startup_guarded_invocation(tmp_path):
     kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
     kernel.set_phase(LifecyclePhase.MAINTENANCE)
@@ -344,3 +360,20 @@ def test_decision_schema_contains_normalized_fields(tmp_path):
     assert '"final_disposition": "allow"' in payload
     assert '"actor_source": "healer"' in payload
     assert '"delegate_checks_consulted": [' in payload
+
+
+def test_privileged_operator_control_consults_runtime_governor(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="quarantine_clear",
+            authority_class=AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+            actor="operator_cli",
+            target_subsystem="integrity_quarantine",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={"correlation_id": "op-1"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.ALLOW
+    assert "runtime_governor" in decision.delegated_outcomes

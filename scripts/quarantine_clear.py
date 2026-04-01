@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
+from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
@@ -123,6 +124,43 @@ def main(argv: list[str] | None = None) -> int:
 
     if failures and not (override and "remediation_incomplete" in failures):
         print(json.dumps({"status": "blocked", "failures": sorted(set(failures)), "checks": checks}, indent=2, sort_keys=True))
+        return 1
+
+    kernel = get_control_plane_kernel()
+    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="scripts.quarantine_clear")
+    admission = kernel.admit(
+        ControlActionRequest(
+            action_kind="quarantine_clear",
+            authority_class=AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+            actor="operator_cli",
+            target_subsystem="integrity_quarantine",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={
+                "correlation_id": f"quarantine_clear:{quarantine.last_incident_id or 'none'}",
+                "incident_id": quarantine.last_incident_id,
+                "override": override,
+                "requested_by": "scripts/quarantine_clear.py",
+            },
+        )
+    )
+    if not admission.allowed:
+        print(
+            json.dumps(
+                {
+                    "status": "blocked",
+                    "failures": ["control_plane_denied"],
+                    "checks": checks,
+                    "control_plane": {
+                        "outcome": admission.outcome.value,
+                        "reason_codes": list(admission.reason_codes),
+                        "delegate_checks_consulted": sorted(admission.delegated_outcomes.keys()),
+                        "correlation_id": admission.correlation_id,
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
         return 1
 
     state = clear(root, args.note)

@@ -101,6 +101,34 @@ def test_quarantine_clear_override_records_docket(monkeypatch, tmp_path: Path) -
     assert payload["context"]["override_note"]
 
 
+def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    class _Decision:
+        allowed = False
+        reason_codes = ("runtime_governor:control_plane_budget_exceeded",)
+        delegated_outcomes = {"runtime_governor": {"reason": "control_plane_budget_exceeded"}}
+        correlation_id = "cp-1"
+
+        class outcome:
+            value = "deny"
+
+    class _Kernel:
+        def set_phase(self, phase, *, actor="control_plane_kernel") -> None:  # noqa: ANN001
+            return None
+
+        def admit(self, request):  # noqa: ANN001
+            return _Decision()
+
+    monkeypatch.chdir(tmp_path)
+    _setup_quarantine(tmp_path)
+    _setup_pack(tmp_path)
+    _monkeypatch_integrity_ok(monkeypatch)
+    monkeypatch.setattr("scripts.quarantine_clear.get_control_plane_kernel", lambda: _Kernel())
+
+    assert quarantine_clear.main(["--note", "blocked"]) == 1
+    payload = json.loads((tmp_path / "glow/forge/quarantine.json").read_text(encoding="utf-8"))
+    assert payload["active"] is True
+
+
 def test_incident_pack_linkage_deterministic(tmp_path: Path) -> None:
     from sentientos.integrity_incident import build_incident, write_incident
     from sentientos.remediation_pack import find_pack_for_incident_or_trace

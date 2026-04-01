@@ -905,8 +905,49 @@ class GenesisForge:
                     raise GenesisForgeError(
                         "Sandbox validation failed",
                     )
-                lineage_entry = self._spec_binder.integrate(proposal)
-                adoption = self._adoption_rite.promote(proposal, report, lineage_entry)
+                adoption_correlation = f"genesis:{proposal.proposal_id}:{proposal.spec_id}"
+                lineage_gate, lineage_entry = kernel.admit_and_execute(
+                    ControlActionRequest(
+                        action_kind="lineage_integrate",
+                        authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
+                        actor="genesis_forge",
+                        target_subsystem=proposal.spec_id,
+                        requested_phase=LifecyclePhase.MAINTENANCE,
+                        metadata={
+                            "correlation_id": adoption_correlation,
+                            "proposal_id": proposal.proposal_id,
+                            "spec_id": proposal.spec_id,
+                            "capability": need.capability,
+                        },
+                    ),
+                    execute=lambda: self._spec_binder.integrate(proposal),
+                )
+                if not lineage_gate.allowed or not isinstance(lineage_entry, Mapping):
+                    raise GenesisForgeError(
+                        "Kernel denied lineage integration "
+                        f"({','.join(lineage_gate.reason_codes)})"
+                    )
+                adoption_gate, adoption = kernel.admit_and_execute(
+                    ControlActionRequest(
+                        action_kind="proposal_adopt",
+                        authority_class=AuthorityClass.PROPOSAL_ADOPTION,
+                        actor="genesis_forge",
+                        target_subsystem=proposal.spec_id,
+                        requested_phase=LifecyclePhase.MAINTENANCE,
+                        metadata={
+                            "correlation_id": f"{adoption_correlation}:adopt",
+                            "proposal_id": proposal.proposal_id,
+                            "spec_id": proposal.spec_id,
+                            "capability": need.capability,
+                        },
+                    ),
+                    execute=lambda: self._adoption_rite.promote(proposal, report, lineage_entry),
+                )
+                if not adoption_gate.allowed or not isinstance(adoption, Mapping):
+                    raise GenesisForgeError(
+                        "Kernel denied adoption promotion "
+                        f"({','.join(adoption_gate.reason_codes)})"
+                    )
                 if adoption.get("status") != "adopted":
                     raise GenesisForgeError(
                         f"Review board rejected daemon ({adoption.get('reason', 'unknown')})"
