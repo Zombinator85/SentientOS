@@ -66,6 +66,13 @@ The verifier checks for:
 - malformed `admission_decision_ref` linkage
 - missing expected side effects for feasible covered allow decisions
 
+Verification modes:
+
+- baseline-aware (default): legacy covered artifacts are surfaced as `legacy_missing_admission_link` but are non-blocking
+- strict (`--strict`): any covered-scope issue fails
+
+See `docs/PROTECTED_MUTATION_BASELINE_POLICY.md` for baseline handling policy.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.

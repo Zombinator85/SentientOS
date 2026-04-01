@@ -16,9 +16,18 @@ from sentientos.protected_mutation_provenance import (
 class VerificationIssue:
     code: str
     detail: str
+    category: str
 
     def to_dict(self) -> dict[str, str]:
-        return {"code": self.code, "detail": self.detail}
+        return {"code": self.code, "detail": self.detail, "category": self.category}
+
+
+_COVERED_ALLOW_ACTIONS = {
+    "lineage_integrate",
+    "proposal_adopt",
+    "generate_immutable_manifest",
+    "quarantine_clear",
+}
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -56,6 +65,13 @@ def _validate_ref(correlation_id: str, admission_ref: str) -> bool:
     return bool(correlation_id) and admission_ref == f"kernel_decision:{correlation_id}"
 
 
+def _classify_missing_allow_link(*, decisions_by_correlation: Mapping[str, list[dict[str, Any]]], action_kind: str) -> str:
+    has_current_contract_decision = any(
+        action_kind == str(row.get("action_kind") or "") for rows in decisions_by_correlation.values() for row in rows
+    )
+    return "malformed_current_contract" if has_current_contract_decision else "legacy_missing_admission_link"
+
+
 def verify_kernel_admission_provenance(
     *,
     repo_root: Path,
@@ -64,6 +80,7 @@ def verify_kernel_admission_provenance(
     manifest_path: Path | None = None,
     forge_events_path: Path | None = None,
     repair_ledger_path: Path | None = None,
+    strict: bool = False,
 ) -> dict[str, object]:
     root = repo_root.resolve()
     decision_rows = _read_jsonl(decisions_path or (root / "glow/control_plane/kernel_decisions.jsonl"))
@@ -77,33 +94,30 @@ def verify_kernel_admission_provenance(
                 VerificationIssue(
                     code="correlation_action_kind_collision",
                     detail=f"{correlation_id}: {sorted(action_kinds)}",
+                    category="unexpected_collision",
                 )
             )
-        covered_mutation_allow_actions = {
-            "lineage_integrate",
-            "proposal_adopt",
-            "generate_immutable_manifest",
-            "quarantine_clear",
-        }
         for row in rows:
             action_kind = str(row.get("action_kind") or "")
             disposition = str(row.get("final_disposition") or "")
-            if action_kind in covered_mutation_allow_actions and disposition == "allow":
+            if action_kind in _COVERED_ALLOW_ACTIONS and disposition == "allow":
                 missing = _missing_fields(row, REQUIRED_ALLOW_FIELDS)
                 if missing:
                     issues.append(
                         VerificationIssue(
                             code="decision_missing_required_allow_fields",
                             detail=f"{correlation_id}: action_kind={action_kind} missing={','.join(sorted(missing))}",
+                            category="malformed_current_contract",
                         )
                     )
-            elif action_kind in covered_mutation_allow_actions and disposition in NON_EXECUTION_DISPOSITIONS:
+            elif action_kind in _COVERED_ALLOW_ACTIONS and disposition in NON_EXECUTION_DISPOSITIONS:
                 missing = _missing_fields(row, REQUIRED_NON_EXECUTION_FIELDS)
                 if missing:
                     issues.append(
                         VerificationIssue(
                             code="decision_missing_required_non_execution_fields",
                             detail=f"{correlation_id}: action_kind={action_kind} missing={','.join(sorted(missing))}",
+                            category="malformed_current_contract",
                         )
                     )
 
@@ -117,6 +131,7 @@ def verify_kernel_admission_provenance(
                 VerificationIssue(
                     code="missing_allow_admission",
                     detail=f"{source}: correlation_id={correlation_id} action_kind={action_kind}",
+                    category="malformed_current_contract",
                 )
             )
 
@@ -126,10 +141,22 @@ def verify_kernel_admission_provenance(
         admission_ref = str(row.get("admission_decision_ref") or "")
         missing = _missing_fields(row, REQUIRED_ALLOW_FIELDS)
         if missing:
-            issues.append(VerificationIssue(code="missing_lineage_admission_link", detail=json.dumps(row, sort_keys=True)))
+            issues.append(
+                VerificationIssue(
+                    code="missing_lineage_admission_link",
+                    detail=json.dumps(row, sort_keys=True),
+                    category=_classify_missing_allow_link(decisions_by_correlation=decisions_by_correlation, action_kind="lineage_integrate"),
+                )
+            )
             continue
         if not _validate_ref(correlation_id, admission_ref):
-            issues.append(VerificationIssue(code="invalid_lineage_admission_ref", detail=json.dumps(row, sort_keys=True)))
+            issues.append(
+                VerificationIssue(
+                    code="invalid_lineage_admission_ref",
+                    detail=json.dumps(row, sort_keys=True),
+                    category="malformed_current_contract",
+                )
+            )
         _require_allow_link(correlation_id=correlation_id, action_kind="lineage_integrate", source="lineage")
 
     resolved_manifest = manifest_path or (root / "vow/immutable_manifest.json")
@@ -138,16 +165,37 @@ def verify_kernel_admission_provenance(
         if isinstance(manifest_payload, dict):
             admission = manifest_payload.get("admission")
             if not isinstance(admission, Mapping):
-                issues.append(VerificationIssue(code="missing_manifest_admission_link", detail=str(resolved_manifest)))
+                issues.append(
+                    VerificationIssue(
+                        code="missing_manifest_admission_link",
+                        detail=str(resolved_manifest),
+                        category=_classify_missing_allow_link(
+                            decisions_by_correlation=decisions_by_correlation,
+                            action_kind="generate_immutable_manifest",
+                        ),
+                    )
+                )
             else:
                 correlation_id = str(admission.get("correlation_id") or "")
                 admission_ref = str(admission.get("admission_decision_ref") or "")
                 missing = _missing_fields(admission, REQUIRED_ALLOW_FIELDS)
                 if missing:
-                    issues.append(VerificationIssue(code="invalid_manifest_admission_link", detail=str(resolved_manifest)))
+                    issues.append(
+                        VerificationIssue(
+                            code="invalid_manifest_admission_link",
+                            detail=str(resolved_manifest),
+                            category="malformed_current_contract",
+                        )
+                    )
                 else:
                     if not _validate_ref(correlation_id, admission_ref):
-                        issues.append(VerificationIssue(code="invalid_manifest_admission_ref", detail=str(resolved_manifest)))
+                        issues.append(
+                            VerificationIssue(
+                                code="invalid_manifest_admission_ref",
+                                detail=str(resolved_manifest),
+                                category="malformed_current_contract",
+                            )
+                        )
                     _require_allow_link(
                         correlation_id=correlation_id,
                         action_kind="generate_immutable_manifest",
@@ -165,11 +213,23 @@ def verify_kernel_admission_provenance(
         else:
             missing = _missing_fields(row, REQUIRED_NON_EXECUTION_FIELDS)
         if missing:
-            issues.append(VerificationIssue(code="missing_quarantine_correlation", detail=json.dumps(row, sort_keys=True)))
+            issues.append(
+                VerificationIssue(
+                    code="missing_quarantine_correlation",
+                    detail=json.dumps(row, sort_keys=True),
+                    category=_classify_missing_allow_link(decisions_by_correlation=decisions_by_correlation, action_kind="quarantine_clear"),
+                )
+            )
             continue
         admission_ref = str(row.get("admission_decision_ref") or "")
         if not _validate_ref(correlation_id, admission_ref):
-            issues.append(VerificationIssue(code="invalid_quarantine_admission_ref", detail=json.dumps(row, sort_keys=True)))
+            issues.append(
+                VerificationIssue(
+                    code="invalid_quarantine_admission_ref",
+                    detail=json.dumps(row, sort_keys=True),
+                    category="malformed_current_contract",
+                )
+            )
         if event == "integrity_recovered":
             _require_allow_link(correlation_id=correlation_id, action_kind="quarantine_clear", source="quarantine_clear")
         else:
@@ -179,6 +239,7 @@ def verify_kernel_admission_provenance(
                     VerificationIssue(
                         code="denied_event_has_allow_decision",
                         detail=f"kernel_admission_denied with allow decision: {correlation_id}",
+                        category="unexpected_collision",
                     )
                 )
 
@@ -195,11 +256,26 @@ def verify_kernel_admission_provenance(
         required = REQUIRED_ALLOW_FIELDS if expect_execution else REQUIRED_NON_EXECUTION_FIELDS
         missing = _missing_fields(kernel_admission, required)
         if missing:
-            issues.append(VerificationIssue(code="missing_repair_admission_link", detail=json.dumps(row, sort_keys=True)))
+            issues.append(
+                VerificationIssue(
+                    code="missing_repair_admission_link",
+                    detail=json.dumps(row, sort_keys=True),
+                    category=_classify_missing_allow_link(
+                        decisions_by_correlation=decisions_by_correlation,
+                        action_kind=str(kernel_admission.get("action_kind") or ""),
+                    ),
+                )
+            )
             continue
         admission_ref = str(kernel_admission.get("admission_decision_ref") or "")
         if not _validate_ref(correlation_id, admission_ref):
-            issues.append(VerificationIssue(code="invalid_repair_admission_ref", detail=json.dumps(row, sort_keys=True)))
+            issues.append(
+                VerificationIssue(
+                    code="invalid_repair_admission_ref",
+                    detail=json.dumps(row, sort_keys=True),
+                    category="malformed_current_contract",
+                )
+            )
         disposition = str(kernel_admission.get("final_disposition") or "")
         if status == "auto-repair verified":
             _require_allow_link(correlation_id=correlation_id, action_kind=str(kernel_admission.get("action_kind") or ""), source="repair")
@@ -208,6 +284,7 @@ def verify_kernel_admission_provenance(
                 VerificationIssue(
                     code="repair_verified_without_allow",
                     detail=f"status=auto-repair verified correlation={correlation_id} disposition={disposition}",
+                    category="malformed_current_contract",
                 )
             )
         if status in {"auto-repair denied_by_governor", "auto-repair quarantined"} and disposition == "allow":
@@ -215,38 +292,74 @@ def verify_kernel_admission_provenance(
                 VerificationIssue(
                     code="repair_denied_with_allow",
                     detail=f"status=auto-repair denied_by_governor correlation={correlation_id}",
+                    category="unexpected_collision",
                 )
             )
 
     for correlation_id, rows in decisions_by_correlation.items():
         for row in rows:
             action_kind = str(row.get("action_kind") or "")
-            if action_kind not in {"lineage_integrate", "proposal_adopt", "generate_immutable_manifest", "quarantine_clear"}:
+            if action_kind not in _COVERED_ALLOW_ACTIONS:
                 continue
             if str(row.get("final_disposition") or "") != "allow":
                 continue
             if action_kind == "lineage_integrate" and not any(
                 str(item.get("correlation_id") or "") == correlation_id for item in lineage_rows
             ):
-                issues.append(VerificationIssue(code="missing_expected_lineage_side_effect", detail=correlation_id))
+                issues.append(
+                    VerificationIssue(
+                        code="missing_expected_lineage_side_effect",
+                        detail=correlation_id,
+                        category="missing_expected_side_effect",
+                    )
+                )
             if action_kind == "generate_immutable_manifest":
                 if not resolved_manifest.exists():
-                    issues.append(VerificationIssue(code="missing_expected_manifest_side_effect", detail=correlation_id))
+                    issues.append(
+                        VerificationIssue(
+                            code="missing_expected_manifest_side_effect",
+                            detail=correlation_id,
+                            category="missing_expected_side_effect",
+                        )
+                    )
                 else:
                     manifest_payload = json.loads(resolved_manifest.read_text(encoding="utf-8"))
                     admission = manifest_payload.get("admission") if isinstance(manifest_payload, Mapping) else None
                     if not isinstance(admission, Mapping) or str(admission.get("correlation_id") or "") != correlation_id:
-                        issues.append(VerificationIssue(code="missing_expected_manifest_side_effect", detail=correlation_id))
+                        issues.append(
+                            VerificationIssue(
+                                code="missing_expected_manifest_side_effect",
+                                detail=correlation_id,
+                                category="missing_expected_side_effect",
+                            )
+                        )
             if action_kind == "quarantine_clear" and not any(
                 str(item.get("event") or "") == "integrity_recovered" and str(item.get("correlation_id") or "") == correlation_id
                 for item in forge_rows
             ):
-                issues.append(VerificationIssue(code="missing_expected_quarantine_clear_side_effect", detail=correlation_id))
+                issues.append(
+                    VerificationIssue(
+                        code="missing_expected_quarantine_clear_side_effect",
+                        detail=correlation_id,
+                        category="missing_expected_side_effect",
+                    )
+                )
+
+    legacy_codes = {"legacy_missing_admission_link"}
+    blocking_issues = [issue for issue in issues if strict or issue.category not in legacy_codes]
+    category_counts: dict[str, int] = {}
+    for issue in issues:
+        category_counts[issue.category] = category_counts.get(issue.category, 0) + 1
 
     return {
-        "ok": not issues,
+        "ok": not blocking_issues,
+        "mode": "strict" if strict else "baseline-aware",
         "issue_count": len(issues),
+        "blocking_issue_count": len(blocking_issues),
+        "legacy_issue_count": len([issue for issue in issues if issue.category in legacy_codes]),
         "issues": [issue.to_dict() for issue in issues],
+        "blocking_issues": [issue.to_dict() for issue in blocking_issues],
+        "category_counts": category_counts,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),

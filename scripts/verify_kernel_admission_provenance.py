@@ -15,6 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest-path", type=Path, default=None)
     parser.add_argument("--forge-events-path", type=Path, default=None)
     parser.add_argument("--repair-ledger-path", type=Path, default=None)
+    parser.add_argument("--strict", action="store_true", help="fail on legacy covered artifacts as well")
     args = parser.parse_args(argv)
 
     payload = verify_kernel_admission_provenance(
@@ -24,6 +25,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path=args.manifest_path,
         forge_events_path=args.forge_events_path,
         repair_ledger_path=args.repair_ledger_path,
+        strict=args.strict,
     )
     print(json.dumps(payload, indent=2, sort_keys=True))
     return 0 if bool(payload.get("ok")) else 1
