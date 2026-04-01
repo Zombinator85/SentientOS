@@ -2,7 +2,7 @@
 .PHONY: package package-windows package-mac
 .PHONY: audit-baseline audit-drift audit-verify
 .PHONY: pulse-baseline pulse-drift perception-baseline perception-drift perception-audio perception-vision perception-gaze self-baseline self-drift federation-baseline federation-drift
-.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched mypy-report pulse-key-status pulse-key-rotate federated-hardening-status federation-quorum-status governance-digest-status repair-verify constitutional-status enforcement-profile-dev enforcement-profile-ci enforcement-profile-enforce enforcement-policy-status
+.PHONY: vow-manifest vow-verify vow-artifacts verify-audits-strict audit-repair audit-chain-doctor audit-accept contract-drift contract-baseline contract-status embodied-status forge-ci mypy-forge mypy-ratchet mypy-refresh-baseline mypy-touched mypy-report pulse-key-status pulse-key-rotate federated-hardening-status federation-quorum-status governance-digest-status repair-verify constitutional-status enforcement-profile-dev enforcement-profile-ci enforcement-profile-enforce enforcement-policy-status protected-mutation-check
 
 PYTHON ?= python3
 
@@ -183,6 +183,10 @@ vow-verify:
 	$(MAKE) vow-artifacts
 	@MANIFEST=$$( [ -f /vow/immutable_manifest.json ] && echo /vow/immutable_manifest.json || echo vow/immutable_manifest.json ); \
 	$(PYTHON) -m scripts.audit_immutability_verifier --manifest $$MANIFEST
+
+protected-mutation-check:
+	$(PYTHON) scripts/verify_kernel_admission_provenance.py --repo-root .
+	$(PYTHON) -m pytest -q sentientos/tests/test_kernel_admission_provenance.py sentientos/tests/test_generate_immutable_manifest_control_plane.py sentientos/tests/test_quarantine_remediation.py tests/test_codex_healer.py tests/test_genesis_forge.py
 
 contract-drift:
 	$(MAKE) vow-artifacts

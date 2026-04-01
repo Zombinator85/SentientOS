@@ -8,6 +8,7 @@ from pathlib import Path
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
 from sentientos.doctrine_identity import verify_doctrine_identity
+from sentientos.protected_mutation_provenance import build_admission_provenance
 from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.integrity_incident import build_base_context, build_incident
@@ -144,18 +145,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     if not admission.allowed:
+        denied_admission = build_admission_provenance(admission)
         record_forge_event(
             {
                 "event": "kernel_admission_denied",
                 "level": "warning",
-                "action_kind": "quarantine_clear",
-                "authority_class": AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,
-                "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
-                "final_disposition": admission.outcome.value,
-                "delegate_checks_consulted": sorted(admission.delegated_outcomes.keys()),
-                "correlation_id": admission.correlation_id,
-                "admission_decision_ref": admission.admission_decision_ref,
-                "execution_owner": "operator_cli",
+                **denied_admission,
             }
         )
         print(
@@ -202,14 +197,7 @@ def main(argv: list[str] | None = None) -> int:
             "incident_id": recovery.incident_id,
             "docket": str(docket_path.relative_to(root)),
             "remediation_override": override and "remediation_incomplete" in failures,
-            "action_kind": "quarantine_clear",
-            "authority_class": AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,
-            "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
-            "final_disposition": admission.outcome.value,
-            "delegate_checks_consulted": sorted(admission.delegated_outcomes.keys()),
-            "correlation_id": admission.correlation_id,
-            "admission_decision_ref": admission.admission_decision_ref,
-            "execution_owner": "operator_cli",
+            **build_admission_provenance(admission),
         }
     )
     print(

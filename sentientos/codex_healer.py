@@ -20,6 +20,7 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
     get_control_plane_kernel,
 )
+from sentientos.protected_mutation_provenance import build_admission_provenance
 from sentientos.repair_outcome import verify_repair_outcome
 
 
@@ -610,16 +611,7 @@ class CodexHealer:
         )
         kernel_decision = kernel.admit(request)
         runtime_payload = kernel_decision.delegated_outcomes.get("runtime_governor", {})
-        kernel_provenance = {
-            "correlation_id": kernel_decision.correlation_id,
-            "admission_decision_ref": kernel_decision.admission_decision_ref,
-            "action_kind": kernel_decision.action_kind,
-            "authority_class": kernel_decision.authority_class.value,
-            "lifecycle_phase": kernel_decision.current_phase.value,
-            "final_disposition": kernel_decision.outcome.value,
-            "delegate_checks_consulted": sorted(kernel_decision.delegated_outcomes.keys()),
-            "execution_owner": kernel_decision.actor,
-        }
+        kernel_provenance = build_admission_provenance(kernel_decision)
         if not kernel_decision.allowed:
             attempts = self._note_failure(key, now)
             if attempts < self._regenesis_threshold:

@@ -529,3 +529,29 @@ def test_genesis_diagnostics_only_mode_skips_stage_b_and_refuses(
     assert scorecard["stage_a"]
     governor_events = [entry for entry in ledger_lines if entry["status"] == "proof_budget_governor"]
     assert governor_events
+
+
+def test_spec_binder_rejects_missing_admission_provenance(tmp_path: Path) -> None:
+    proposal = ForgeEngine().draft(
+        NeedSeer().scan(
+            [TelemetryStream("vision", "vision_input", "camera", frozenset())],
+            [CovenantVow("vision_input", "camera vow")],
+        )[0]
+    )
+    binder = SpecBinder(lineage_root=tmp_path / "lineage", covenant_root=tmp_path / "covenant")
+    with pytest.raises(Exception, match="admission provenance"):
+        binder.integrate(proposal, admission_provenance=None)
+
+
+def test_adoption_rite_rejects_missing_admission_provenance(tmp_path: Path) -> None:
+    proposal = ForgeEngine().draft(
+        NeedSeer().scan(
+            [TelemetryStream("vision", "vision_input", "camera", frozenset())],
+            [CovenantVow("vision_input", "camera vow")],
+        )[0]
+    )
+    report = TrialRun().execute(proposal.blueprint)
+    lineage_entry = {"correlation_id": "x", "admission_decision_ref": "kernel_decision:x"}
+    rite = AdoptionRite(live_mount=tmp_path / "live", codex_index=tmp_path / "codex.json", review_board=_review_board)
+    with pytest.raises(Exception, match="admission provenance"):
+        rite.promote(proposal, report, lineage_entry, admission_provenance=None)
