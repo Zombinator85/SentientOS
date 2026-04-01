@@ -70,6 +70,10 @@ class ControlActionDecision:
     correlation_id: str
 
     @property
+    def admission_decision_ref(self) -> str:
+        return f"kernel_decision:{self.correlation_id}"
+
+    @property
     def allowed(self) -> bool:
         return self.outcome == AdmissionOutcome.ALLOW
 
@@ -90,11 +94,13 @@ class ControlActionDecision:
             "action_kind": self.action_kind,
             "actor_source": self.actor,
             "actor": self.actor,
+            "execution_owner": self.actor,
             "target_subsystem": self.target_subsystem,
             "delegated_outcomes": dict(self.delegated_outcomes),
             "federation_context": dict(federation_context) if isinstance(federation_context, Mapping) else None,
             "proof_budget_context": dict(proof_budget_context) if isinstance(proof_budget_context, Mapping) else None,
             "correlation_id": self.correlation_id,
+            "admission_decision_ref": self.admission_decision_ref,
         }
 
 

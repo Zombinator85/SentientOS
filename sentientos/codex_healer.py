@@ -610,6 +610,16 @@ class CodexHealer:
         )
         kernel_decision = kernel.admit(request)
         runtime_payload = kernel_decision.delegated_outcomes.get("runtime_governor", {})
+        kernel_provenance = {
+            "correlation_id": kernel_decision.correlation_id,
+            "admission_decision_ref": kernel_decision.admission_decision_ref,
+            "action_kind": kernel_decision.action_kind,
+            "authority_class": kernel_decision.authority_class.value,
+            "lifecycle_phase": kernel_decision.current_phase.value,
+            "final_disposition": kernel_decision.outcome.value,
+            "delegate_checks_consulted": sorted(kernel_decision.delegated_outcomes.keys()),
+            "execution_owner": kernel_decision.actor,
+        }
         if not kernel_decision.allowed:
             attempts = self._note_failure(key, now)
             if attempts < self._regenesis_threshold:
@@ -625,6 +635,7 @@ class CodexHealer:
                         "attempts": attempts,
                         "regenesis_threshold": self._regenesis_threshold,
                         "regenesis_deferred": True,
+                        "kernel_admission": kernel_provenance,
                     },
                     quarantined=True,
                     correlation_id=correlation_id,
@@ -642,6 +653,7 @@ class CodexHealer:
                     "attempts": attempts,
                     "regenesis_threshold": self._regenesis_threshold,
                     "regenesis": regen_info,
+                    "kernel_admission": kernel_provenance,
                 },
                 quarantined=True,
                 correlation_id=correlation_id,
@@ -655,7 +667,7 @@ class CodexHealer:
                 anomaly=anomaly,
                 action=action,
                 correlation_id=correlation_id,
-                details={"repair_verification": verification},
+                details={"repair_verification": verification, "kernel_admission": kernel_provenance},
             )
         attempts = self._note_failure(key, now)
         if attempts < self._regenesis_threshold:

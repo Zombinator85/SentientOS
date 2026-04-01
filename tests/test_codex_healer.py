@@ -78,6 +78,8 @@ def test_daemon_crash_triggers_restart(tmp_path: Path) -> None:
     assert isinstance(entry["correlation_id"], str) and len(entry["correlation_id"]) == 64
     verification = entry["details"]["repair_verification"]
     assert verification["status"] in {"verified", "unverified", "skipped verification", "verification blocked/degraded"}
+    assert entry["details"]["kernel_admission"]["final_disposition"] == "allow"
+    assert entry["details"]["kernel_admission"]["admission_decision_ref"].startswith("kernel_decision:")
     assert "CodexHealer event: auto-repair verified" == entry["narrative"]
 
     # Updated heartbeat should clear anomalies and mounts remain intact
@@ -183,6 +185,7 @@ def test_runtime_governor_blocks_repair_in_enforce_mode(tmp_path: Path, monkeypa
     }
     if ledger.entries[-1]["status"] == "auto-repair denied_by_governor":
         assert "governor_reason" in ledger.entries[-1]["details"]
+        assert ledger.entries[-1]["details"]["kernel_admission"]["final_disposition"] in {"deny", "defer", "quarantine"}
     assert ledger.entries[-1]["details"].get("regenesis_deferred") is True or environment.regenesis_restores
 
 

@@ -125,6 +125,8 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
 
     lineage_entries = [json.loads(line) for line in (lineage_root / "lineage.jsonl").read_text().splitlines()]
     assert lineage_entries[0]["provenance"] == "GenesisForge"
+    assert lineage_entries[0]["admission_decision_ref"].startswith("kernel_decision:genesis:")
+    assert lineage_entries[0]["execution_owner"] == "genesis_forge"
 
     ledger_lines = [json.loads(line) for line in ledger_path.read_text().splitlines()]
     assert any(entry["status"] == "GenesisForge event" for entry in ledger_lines)
@@ -134,6 +136,12 @@ def test_lineage_records_provenance(tmp_path: Path) -> None:
 
     codex_payload = json.loads(codex_index.read_text())
     assert codex_payload[0]["provenance"] == "GenesisForge"
+    assert codex_payload[0]["admission"]["action_kind"] == "proposal_adopt"
+
+    live_entries = list((live_mount).glob("*.json"))
+    assert live_entries
+    live_payload = json.loads(live_entries[0].read_text(encoding="utf-8"))
+    assert live_payload["admission"]["admission_decision_ref"].startswith("kernel_decision:genesis:")
 
 
 def test_genesis_denied_proposal_adoption_does_not_write_live_mount(
