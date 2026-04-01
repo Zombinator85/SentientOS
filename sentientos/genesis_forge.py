@@ -42,6 +42,7 @@ from codex.proposal_router import (
 )
 from sentientos.codex_healer import Anomaly, RecoveryLedger, RepairAction
 from sentientos.control_plane_kernel import (
+    AdmissionOutcome,
     AuthorityClass,
     ControlActionRequest,
     LifecyclePhase,
@@ -478,7 +479,12 @@ class SpecBinder:
         self._daemon_dir.mkdir(parents=True, exist_ok=True)
         self._lineage_log = self._lineage_root / "lineage.jsonl"
 
-    def integrate(self, proposal: ForgeProposal) -> Mapping[str, object]:
+    def integrate(
+        self,
+        proposal: ForgeProposal,
+        *,
+        admission_provenance: Mapping[str, object] | None = None,
+    ) -> Mapping[str, object]:
         spec_path = self._daemon_dir / f"{proposal.blueprint.name}.json"
         if spec_path.exists():
             raise GenesisForgeError(
@@ -500,6 +506,8 @@ class SpecBinder:
             "spec_id": proposal.spec_id,
             "capability": proposal.need.capability,
         }
+        if isinstance(admission_provenance, Mapping):
+            entry.update(dict(admission_provenance))
         with self._lineage_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, sort_keys=True) + "\n")
         return entry
@@ -529,6 +537,8 @@ class AdoptionRite:
         proposal: ForgeProposal,
         report: TrialReport,
         lineage_entry: Mapping[str, object],
+        *,
+        admission_provenance: Mapping[str, object] | None = None,
     ) -> Mapping[str, object]:
         if not report.passed:
             raise GenesisForgeError("Cannot promote daemon with failing sandbox trials")
@@ -546,6 +556,8 @@ class AdoptionRite:
             "lineage": dict(lineage_entry),
             "objective": proposal.blueprint.objective,
         }
+        if isinstance(admission_provenance, Mapping):
+            live_payload["admission"] = dict(admission_provenance)
         live_path.write_text(json.dumps(live_payload, indent=2, sort_keys=True), encoding="utf-8")
 
         index_payload: list[dict[str, object]] = []
@@ -558,14 +570,15 @@ class AdoptionRite:
             raise GenesisForgeError(
                 f"Codex index already tracks daemon '{proposal.spec_id}'"
             )
-        index_payload.append(
-            {
-                "spec_id": proposal.spec_id,
-                "proposal_id": proposal.proposal_id,
-                "capability": proposal.need.capability,
-                "provenance": "GenesisForge",
-            }
-        )
+        index_entry = {
+            "spec_id": proposal.spec_id,
+            "proposal_id": proposal.proposal_id,
+            "capability": proposal.need.capability,
+            "provenance": "GenesisForge",
+        }
+        if isinstance(admission_provenance, Mapping):
+            index_entry["admission"] = dict(admission_provenance)
+        index_payload.append(index_entry)
         self._codex_index.write_text(json.dumps(index_payload, indent=2, sort_keys=True), encoding="utf-8")
         return {"status": "adopted", "path": str(live_path)}
 
@@ -906,6 +919,7 @@ class GenesisForge:
                         "Sandbox validation failed",
                     )
                 adoption_correlation = f"genesis:{proposal.proposal_id}:{proposal.spec_id}"
+                lineage_correlation = adoption_correlation
                 lineage_gate, lineage_entry = kernel.admit_and_execute(
                     ControlActionRequest(
                         action_kind="lineage_integrate",
@@ -920,13 +934,25 @@ class GenesisForge:
                             "capability": need.capability,
                         },
                     ),
-                    execute=lambda: self._spec_binder.integrate(proposal),
+                    execute=lambda: self._spec_binder.integrate(
+                        proposal,
+                        admission_provenance={
+                            "correlation_id": lineage_correlation,
+                            "admission_decision_ref": f"kernel_decision:{lineage_correlation}",
+                            "action_kind": "lineage_integrate",
+                            "authority_class": AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,
+                            "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
+                            "final_disposition": AdmissionOutcome.ALLOW.value,
+                            "execution_owner": "genesis_forge",
+                        },
+                    ),
                 )
                 if not lineage_gate.allowed or not isinstance(lineage_entry, Mapping):
                     raise GenesisForgeError(
                         "Kernel denied lineage integration "
                         f"({','.join(lineage_gate.reason_codes)})"
                     )
+                adoption_correlation_ref = f"{adoption_correlation}:adopt"
                 adoption_gate, adoption = kernel.admit_and_execute(
                     ControlActionRequest(
                         action_kind="proposal_adopt",
@@ -935,13 +961,26 @@ class GenesisForge:
                         target_subsystem=proposal.spec_id,
                         requested_phase=LifecyclePhase.MAINTENANCE,
                         metadata={
-                            "correlation_id": f"{adoption_correlation}:adopt",
+                            "correlation_id": adoption_correlation_ref,
                             "proposal_id": proposal.proposal_id,
                             "spec_id": proposal.spec_id,
                             "capability": need.capability,
                         },
                     ),
-                    execute=lambda: self._adoption_rite.promote(proposal, report, lineage_entry),
+                    execute=lambda: self._adoption_rite.promote(
+                        proposal,
+                        report,
+                        lineage_entry,
+                        admission_provenance={
+                            "correlation_id": adoption_correlation_ref,
+                            "admission_decision_ref": f"kernel_decision:{adoption_correlation_ref}",
+                            "action_kind": "proposal_adopt",
+                            "authority_class": AuthorityClass.PROPOSAL_ADOPTION.value,
+                            "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
+                            "final_disposition": AdmissionOutcome.ALLOW.value,
+                            "execution_owner": "genesis_forge",
+                        },
+                    ),
                 )
                 if not adoption_gate.allowed or not isinstance(adoption, Mapping):
                     raise GenesisForgeError(

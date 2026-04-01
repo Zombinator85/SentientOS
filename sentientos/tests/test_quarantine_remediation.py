@@ -84,6 +84,12 @@ def test_quarantine_clear_succeeds_with_completed_run(monkeypatch, tmp_path: Pat
     run_path.write_text(json.dumps({"run_id": "run_1", "pack_id": "pack-1", "status": "completed"}, sort_keys=True) + "\n", encoding="utf-8")
 
     assert quarantine_clear.main(["--note", "remediated"]) == 0
+    payload = json.loads((tmp_path / "glow/forge/quarantine.json").read_text(encoding="utf-8"))
+    assert any("correlation_id=quarantine_clear:inc-1" in note for note in payload["notes"])
+    events = [json.loads(line) for line in (tmp_path / "pulse/forge_events.jsonl").read_text(encoding="utf-8").splitlines()]
+    recovered = [event for event in events if event.get("event") == "integrity_recovered"]
+    assert recovered
+    assert recovered[-1]["admission_decision_ref"] == "kernel_decision:quarantine_clear:inc-1"
 
 
 def test_quarantine_clear_override_records_docket(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
@@ -127,6 +133,10 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
     assert quarantine_clear.main(["--note", "blocked"]) == 1
     payload = json.loads((tmp_path / "glow/forge/quarantine.json").read_text(encoding="utf-8"))
     assert payload["active"] is True
+    events = [json.loads(line) for line in (tmp_path / "pulse/forge_events.jsonl").read_text(encoding="utf-8").splitlines()]
+    denied = [event for event in events if event.get("event") == "kernel_admission_denied"]
+    assert denied
+    assert denied[-1]["correlation_id"] == "cp-1"
 
 
 def test_incident_pack_linkage_deterministic(tmp_path: Path) -> None:

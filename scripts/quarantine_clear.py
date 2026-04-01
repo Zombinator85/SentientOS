@@ -144,6 +144,20 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     if not admission.allowed:
+        record_forge_event(
+            {
+                "event": "kernel_admission_denied",
+                "level": "warning",
+                "action_kind": "quarantine_clear",
+                "authority_class": AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,
+                "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
+                "final_disposition": admission.outcome.value,
+                "delegate_checks_consulted": sorted(admission.delegated_outcomes.keys()),
+                "correlation_id": admission.correlation_id,
+                "admission_decision_ref": admission.admission_decision_ref,
+                "execution_owner": "operator_cli",
+            }
+        )
         print(
             json.dumps(
                 {
@@ -163,7 +177,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    state = clear(root, args.note)
+    clear_note = f"{args.note} [correlation_id={admission.correlation_id}]"
+    state = clear(root, clear_note)
     override_note = ""
     if override and "remediation_incomplete" in failures:
         override_note = " remediation override used"
@@ -187,6 +202,14 @@ def main(argv: list[str] | None = None) -> int:
             "incident_id": recovery.incident_id,
             "docket": str(docket_path.relative_to(root)),
             "remediation_override": override and "remediation_incomplete" in failures,
+            "action_kind": "quarantine_clear",
+            "authority_class": AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,
+            "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
+            "final_disposition": admission.outcome.value,
+            "delegate_checks_consulted": sorted(admission.delegated_outcomes.keys()),
+            "correlation_id": admission.correlation_id,
+            "admission_decision_ref": admission.admission_decision_ref,
+            "execution_owner": "operator_cli",
         }
     )
     print(

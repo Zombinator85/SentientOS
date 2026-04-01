@@ -48,6 +48,7 @@ def generate_manifest(
     output: Path,
     files: tuple[Path, ...] = DEFAULT_FILES,
     allow_missing_files: bool = False,
+    admission_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     manifest_files: dict[str, dict[str, Any]] = {}
     missing: list[str] = []
@@ -86,6 +87,8 @@ def generate_manifest(
             "reason": "manifest_inputs_missing",
             "missing_files": missing,
         }
+    if isinstance(admission_context, dict):
+        payload["admission"] = dict(admission_context)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -110,7 +113,10 @@ def main(argv: list[str] | None = None) -> int:
             actor="operator_cli",
             target_subsystem=str(args.manifest),
             requested_phase=LifecyclePhase.MAINTENANCE,
-            metadata={"requested_by": "scripts/generate_immutable_manifest.py"},
+            metadata={
+                "requested_by": "scripts/generate_immutable_manifest.py",
+                "correlation_id": f"manifest:{Path(args.manifest).as_posix()}",
+            },
         )
     )
     if not decision.allowed:
@@ -130,6 +136,16 @@ def main(argv: list[str] | None = None) -> int:
     payload = generate_manifest(
         output=Path(args.manifest),
         allow_missing_files=args.allow_missing_files,
+        admission_context={
+            "correlation_id": decision.correlation_id,
+            "admission_decision_ref": decision.admission_decision_ref,
+            "action_kind": decision.action_kind,
+            "authority_class": decision.authority_class.value,
+            "lifecycle_phase": decision.current_phase.value,
+            "final_disposition": decision.outcome.value,
+            "delegate_checks_consulted": sorted(decision.delegated_outcomes.keys()),
+            "execution_owner": decision.actor,
+        },
     )
     print(
         json.dumps(
@@ -137,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
                 "tool": "generate_immutable_manifest",
                 "output": args.manifest,
                 "degraded": bool(payload.get("degraded_mode", {}).get("active", False)),
+                "correlation_id": decision.correlation_id,
             },
             sort_keys=True,
         )
