@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
+from sentientos.protected_mutation_provenance import build_admission_provenance, validate_admission_provenance
 
 DEFAULT_MANIFEST = Path("vow/immutable_manifest.json")
 DEFAULT_FILES = (
@@ -88,6 +89,7 @@ def generate_manifest(
             "missing_files": missing,
         }
     if isinstance(admission_context, dict):
+        validate_admission_provenance(admission_context, expect_execution=True)
         payload["admission"] = dict(admission_context)
 
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -133,19 +135,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    admission_context = build_admission_provenance(decision)
     payload = generate_manifest(
         output=Path(args.manifest),
         allow_missing_files=args.allow_missing_files,
-        admission_context={
-            "correlation_id": decision.correlation_id,
-            "admission_decision_ref": decision.admission_decision_ref,
-            "action_kind": decision.action_kind,
-            "authority_class": decision.authority_class.value,
-            "lifecycle_phase": decision.current_phase.value,
-            "final_disposition": decision.outcome.value,
-            "delegate_checks_consulted": sorted(decision.delegated_outcomes.keys()),
-            "execution_owner": decision.actor,
-        },
+        admission_context=admission_context,
     )
     print(
         json.dumps(

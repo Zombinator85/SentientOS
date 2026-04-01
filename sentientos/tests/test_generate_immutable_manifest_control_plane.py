@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts import generate_immutable_manifest
 
 
@@ -69,3 +71,14 @@ def test_manifest_generation_blocked_when_kernel_denies(monkeypatch, tmp_path: P
     manifest_path = tmp_path / "vow/immutable_manifest.json"
     assert generate_immutable_manifest.main(["--manifest", str(manifest_path)]) == 1
     assert not manifest_path.exists()
+
+
+def test_generate_manifest_rejects_missing_required_provenance_before_write(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="missing_required_provenance_fields"):
+        generate_immutable_manifest.generate_manifest(
+            output=tmp_path / "vow/immutable_manifest.json",
+            files=(),
+            allow_missing_files=True,
+            admission_context={"correlation_id": "manifest-x"},
+        )
+    assert not (tmp_path / "vow/immutable_manifest.json").exists()

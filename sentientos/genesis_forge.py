@@ -48,6 +48,7 @@ from sentientos.control_plane_kernel import (
     LifecyclePhase,
     get_control_plane_kernel,
 )
+from sentientos.protected_mutation_provenance import validate_admission_provenance
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.integrity_pressure import compute_integrity_pressure
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
@@ -507,7 +508,10 @@ class SpecBinder:
             "capability": proposal.need.capability,
         }
         if isinstance(admission_provenance, Mapping):
+            validate_admission_provenance(admission_provenance, expect_execution=True)
             entry.update(dict(admission_provenance))
+        else:
+            raise GenesisForgeError("Protected lineage integration requires admission provenance")
         with self._lineage_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, sort_keys=True) + "\n")
         return entry
@@ -557,7 +561,10 @@ class AdoptionRite:
             "objective": proposal.blueprint.objective,
         }
         if isinstance(admission_provenance, Mapping):
+            validate_admission_provenance(admission_provenance, expect_execution=True)
             live_payload["admission"] = dict(admission_provenance)
+        else:
+            raise GenesisForgeError("Protected proposal adoption requires admission provenance")
         live_path.write_text(json.dumps(live_payload, indent=2, sort_keys=True), encoding="utf-8")
 
         index_payload: list[dict[str, object]] = []
@@ -577,6 +584,7 @@ class AdoptionRite:
             "provenance": "GenesisForge",
         }
         if isinstance(admission_provenance, Mapping):
+            validate_admission_provenance(admission_provenance, expect_execution=True)
             index_entry["admission"] = dict(admission_provenance)
         index_payload.append(index_entry)
         self._codex_index.write_text(json.dumps(index_payload, indent=2, sort_keys=True), encoding="utf-8")

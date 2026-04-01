@@ -113,6 +113,11 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
         reason_codes = ("runtime_governor:control_plane_budget_exceeded",)
         delegated_outcomes = {"runtime_governor": {"reason": "control_plane_budget_exceeded"}}
         correlation_id = "cp-1"
+        admission_decision_ref = "kernel_decision:cp-1"
+        action_kind = "quarantine_clear"
+        actor = "operator_cli"
+        authority_class = type("Authority", (), {"value": "privileged_operator_control"})()
+        current_phase = type("Phase", (), {"value": "maintenance"})()
 
         class outcome:
             value = "deny"
