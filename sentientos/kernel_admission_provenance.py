@@ -28,6 +28,8 @@ _COVERED_ALLOW_ACTIONS = {
     "generate_immutable_manifest",
     "quarantine_clear",
 }
+_LEGACY_ISSUE_CATEGORIES = frozenset({"legacy_missing_admission_link"})
+_COVERED_SCOPE = "protected_mutation_proof:v1:kernel_admission"
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -345,18 +347,39 @@ def verify_kernel_admission_provenance(
                     )
                 )
 
-    legacy_codes = {"legacy_missing_admission_link"}
-    blocking_issues = [issue for issue in issues if strict or issue.category not in legacy_codes]
+    blocking_issues = [issue for issue in issues if strict or issue.category not in _LEGACY_ISSUE_CATEGORIES]
     category_counts: dict[str, int] = {}
     for issue in issues:
         category_counts[issue.category] = category_counts.get(issue.category, 0) + 1
+    has_current_contract_violations = any(issue.category not in _LEGACY_ISSUE_CATEGORIES for issue in issues)
+    has_only_legacy_issues = bool(issues) and not has_current_contract_violations
+    if not issues:
+        overall_status = "healthy"
+    elif has_only_legacy_issues:
+        overall_status = "legacy_only"
+    else:
+        overall_status = "current_violation_present"
+    summary = {
+        "covered_scope": _COVERED_SCOPE,
+        "mode": "strict" if strict else "baseline-aware",
+        "counts": {
+            "issue_count": len(issues),
+            "blocking_issue_count": len(blocking_issues),
+            "legacy_issue_count": len([issue for issue in issues if issue.category in _LEGACY_ISSUE_CATEGORIES]),
+            "classification": category_counts,
+        },
+        "overall_status": overall_status,
+        "has_current_contract_violations": has_current_contract_violations,
+        "has_only_legacy_issues": has_only_legacy_issues,
+        "ok": not blocking_issues,
+    }
 
     return {
         "ok": not blocking_issues,
         "mode": "strict" if strict else "baseline-aware",
         "issue_count": len(issues),
         "blocking_issue_count": len(blocking_issues),
-        "legacy_issue_count": len([issue for issue in issues if issue.category in legacy_codes]),
+        "legacy_issue_count": len([issue for issue in issues if issue.category in _LEGACY_ISSUE_CATEGORIES]),
         "issues": [issue.to_dict() for issue in issues],
         "blocking_issues": [issue.to_dict() for issue in blocking_issues],
         "category_counts": category_counts,
@@ -365,4 +388,5 @@ def verify_kernel_admission_provenance(
             "lineage_entries": len(lineage_rows),
             "forge_events": len(forge_rows),
         },
+        "summary": summary,
     }

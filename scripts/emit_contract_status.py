@@ -10,8 +10,10 @@ from sentientos.ci_baseline import evaluate_ci_baseline_drift
 from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_progress_contract import emit_forge_progress_contract
+from sentientos.kernel_admission_provenance import verify_kernel_admission_provenance
 
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
+DEFAULT_PROTECTED_MUTATION_PROOF_OUTPUT = Path("glow/contracts/protected_mutation_proof_status.json")
 
 
 def _iso_now() -> str:
@@ -162,6 +164,8 @@ def _artifact_status(*, domain_name: str, artifact_path: Path, git_sha: str, str
 def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
     git_sha = _git_sha()
     previous_payload = _read_json(output_path) if output_path.exists() else None
+    repo_root = _resolve_repo_root(output_path)
+    protected_mutation_status = _protected_mutation_proof_status(git_sha=git_sha, repo_root=repo_root)
     contracts = [
         _domain_status(
             domain_name="audits",
@@ -232,6 +236,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         _artifact_status(domain_name="broad_lane_latest_summary", artifact_path=Path("glow/observatory/broad_lane/broad_lane_latest_summary.json"), git_sha=git_sha),
         _artifact_status(domain_name="fleet_health_summary", artifact_path=Path("glow/observatory/fleet_health_summary.json"), git_sha=git_sha),
         _artifact_status(domain_name="strict_audit_status", artifact_path=Path("glow/contracts/strict_audit_status.json"), git_sha=git_sha),
+        protected_mutation_status,
     ]
 
     vow_manifest = next((entry for entry in contracts if entry.get("domain_name") == "vow_manifest"), None)
@@ -261,6 +266,74 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return payload
+
+
+def _resolve_repo_root(output_path: Path) -> Path:
+    try:
+        if output_path.name == "contract_status.json" and output_path.parent.name == "contracts" and output_path.parent.parent.name == "glow":
+            return output_path.parent.parent.parent.resolve()
+    except IndexError:
+        return Path.cwd()
+    return Path.cwd()
+
+
+def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[str, Any]:
+    baseline_payload = verify_kernel_admission_provenance(repo_root=repo_root, strict=False)
+    strict_payload = verify_kernel_admission_provenance(repo_root=repo_root, strict=True)
+    baseline_summary = baseline_payload.get("summary") if isinstance(baseline_payload.get("summary"), dict) else {}
+    strict_summary = strict_payload.get("summary") if isinstance(strict_payload.get("summary"), dict) else {}
+    report_payload = {
+        "schema_version": 1,
+        "generated_at": _iso_now(),
+        "git_sha": git_sha,
+        "baseline_aware": baseline_summary,
+        "strict": strict_summary,
+        "scope_note": "Narrow protected-mutation proof surface only; not full-repo audit-chain coverage.",
+    }
+    proof_output = repo_root / DEFAULT_PROTECTED_MUTATION_PROOF_OUTPUT
+    proof_output.parent.mkdir(parents=True, exist_ok=True)
+    proof_output.write_text(json.dumps(report_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    has_current = bool(baseline_summary.get("has_current_contract_violations", False))
+    has_only_legacy = bool(baseline_summary.get("has_only_legacy_issues", False))
+    if has_current:
+        drift_type = "current_violation_present"
+    elif has_only_legacy:
+        drift_type = "legacy_only"
+    else:
+        drift_type = "none"
+
+    return {
+        "domain_name": "protected_mutation_proof",
+        "baseline_present": True,
+        "last_baseline_path": str(proof_output.relative_to(repo_root)),
+        "drift_report_path": str(proof_output.relative_to(repo_root)),
+        "drifted": has_current,
+        "drift_type": drift_type,
+        "drift_explanation": (
+            "current protected-mutation contract violation present"
+            if has_current
+            else ("legacy covered artifacts remain" if has_only_legacy else "covered protected-mutation surface healthy")
+        ),
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "SENTIENTOS_PROTECTED_MUTATION_STRICT",
+        "captured_by": None,
+        "captured_at": report_payload["generated_at"],
+        "tool_version": None,
+        "git_sha": git_sha,
+        "covered_scope": baseline_summary.get("covered_scope"),
+        "mode": baseline_summary.get("mode"),
+        "classification_counts": (
+            baseline_summary.get("counts", {}).get("classification", {})
+            if isinstance(baseline_summary.get("counts"), dict)
+            else {}
+        ),
+        "has_current_contract_violations": has_current,
+        "has_only_legacy_issues": has_only_legacy,
+        "strict_ok": bool(strict_summary.get("ok", False)),
+    }
 
 
 def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:

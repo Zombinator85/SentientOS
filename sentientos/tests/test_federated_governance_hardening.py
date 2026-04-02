@@ -135,6 +135,15 @@ def test_contract_status_includes_digest_and_quorum_artifacts(tmp_path: Path) ->
     assert "governance_digest_status" in domain_names
     assert "federation_quorum_policy" in domain_names
     assert "peer_governance_digests" in domain_names
+    assert "protected_mutation_proof" in domain_names
 
     loaded = json.loads(output.read_text(encoding="utf-8"))
     assert loaded["schema_version"] == 1
+    protected = next(
+        (item for item in loaded.get("contracts", []) if isinstance(item, dict) and item.get("domain_name") == "protected_mutation_proof"),
+        None,
+    )
+    assert isinstance(protected, dict)
+    assert protected["mode"] == "baseline-aware"
+    assert protected["covered_scope"] == "protected_mutation_proof:v1:kernel_admission"
+    assert (repo / "glow/contracts/protected_mutation_proof_status.json").exists()

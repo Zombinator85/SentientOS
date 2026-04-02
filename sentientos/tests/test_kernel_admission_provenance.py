@@ -66,7 +66,15 @@ def test_verify_kernel_admission_provenance_happy_path(tmp_path: Path) -> None:
 
     _append_jsonl(
         tmp_path / "lineage/lineage.jsonl",
-        {"correlation_id": "lineage-1", "admission_decision_ref": "kernel_decision:lineage-1"},
+        {
+            "correlation_id": "lineage-1",
+            "admission_decision_ref": "kernel_decision:lineage-1",
+            "action_kind": "lineage_integrate",
+            "authority_class": "manifest_or_identity_mutation",
+            "lifecycle_phase": "maintenance",
+            "final_disposition": "allow",
+            "execution_owner": "operator_cli",
+        },
     )
     _write_json(
         tmp_path / "vow/immutable_manifest.json",
@@ -165,3 +173,53 @@ def test_verify_kernel_admission_provenance_detects_malformed_linkage(tmp_path: 
     payload = verify_kernel_admission_provenance(repo_root=tmp_path)
     issue_codes = {item["code"] for item in payload["issues"]}  # type: ignore[index]
     assert "invalid_quarantine_admission_ref" in issue_codes
+
+
+def test_verify_kernel_admission_provenance_summary_legacy_only_in_baseline_aware_mode(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "lineage/lineage.jsonl",
+        {"proposal_id": "legacy-lineage-entry-without-admission"},
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, strict=False)
+    summary = payload["summary"]  # type: ignore[index]
+    assert summary["mode"] == "baseline-aware"
+    assert summary["overall_status"] == "legacy_only"
+    assert summary["has_only_legacy_issues"] is True
+    assert summary["has_current_contract_violations"] is False
+    assert summary["ok"] is True
+    assert summary["counts"]["classification"]["legacy_missing_admission_link"] == 1
+
+
+def test_verify_kernel_admission_provenance_summary_legacy_only_is_blocking_in_strict_mode(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "lineage/lineage.jsonl",
+        {"proposal_id": "legacy-lineage-entry-without-admission"},
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, strict=True)
+    summary = payload["summary"]  # type: ignore[index]
+    assert summary["mode"] == "strict"
+    assert summary["overall_status"] == "legacy_only"
+    assert summary["has_only_legacy_issues"] is True
+    assert summary["ok"] is False
+    assert summary["counts"]["blocking_issue_count"] == 1
+
+
+def test_verify_kernel_admission_provenance_summary_current_violation_present(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            "correlation_id": "manifest-1",
+            "admission_decision_ref": "kernel_decision:manifest-1",
+            "action_kind": "generate_immutable_manifest",
+            "authority_class": "manifest_or_identity_mutation",
+            "lifecycle_phase": "maintenance",
+            "final_disposition": "allow",
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, strict=False)
+    summary = payload["summary"]  # type: ignore[index]
+    assert summary["overall_status"] == "current_violation_present"
+    assert summary["has_current_contract_violations"] is True
+    assert summary["has_only_legacy_issues"] is False
+    assert summary["ok"] is False
+    assert summary["counts"]["classification"]["malformed_current_contract"] == 1
