@@ -154,3 +154,66 @@ def test_classifies_missing_command_as_environment_unavailable() -> None:
         output="command unavailable in environment: [Errno 2] No such file or directory: 'python'",
     )
     assert result.bucket == "command_unavailable_in_environment"
+
+
+def test_protected_mutation_forward_violation_blocks_when_relevant() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "protected_mutation_forward_enforcement")
+    result = protected_corridor.classify_result(
+        check,
+        profile="ci-advisory",
+        returncode=1,
+        output=json.dumps({"mode": "forward-enforcement", "overall_status": "current_violation_present"}),
+        protected_mutation_relevance={"intersects_corridor": True, "implicated_domains": ["immutable_manifest_identity_writes"]},
+    )
+    assert result.bucket == "blocking_release_corridor_failure"
+    assert result.relevance is not None
+    assert result.relevance["forward_enforcement_status"] == "forward_violation_present"
+
+
+def test_protected_mutation_legacy_only_is_not_applicable_outside_corridor() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "protected_mutation_forward_enforcement")
+    result = protected_corridor.classify_result(
+        check,
+        profile="ci-advisory",
+        returncode=0,
+        output=json.dumps({"mode": "forward-enforcement", "overall_status": "legacy_only"}),
+        protected_mutation_relevance={"intersects_corridor": False, "implicated_domains": []},
+    )
+    assert result.bucket == "corridor_not_applicable"
+    assert result.blocking is False
+    assert result.relevance is not None
+    assert result.relevance["forward_enforcement_status"] == "not_applicable"
+
+
+def test_run_validation_emits_corridor_relevance_and_status_vocab(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(protected_corridor, "_iso_now", lambda: "2026-01-01T00:00:00Z")
+    monkeypatch.setattr(
+        protected_corridor,
+        "check_prerequisites",
+        lambda *args, **kwargs: protected_corridor.PrerequisiteStatus(ready=True, checks={}, diagnostics=[]),
+    )
+
+    def fake_run(command: tuple[str, ...], env: dict[str, str]) -> tuple[int, str]:
+        if "verify_kernel_admission_provenance.py" in command:
+            return 0, json.dumps({"mode": "forward-enforcement", "overall_status": "legacy_only"})
+        return 0, ""
+
+    monkeypatch.setattr(protected_corridor, "_run_command", fake_run)
+
+    output = tmp_path / "corridor_relevance.json"
+    report = protected_corridor.run_validation(
+        profiles=["ci-advisory"],
+        output_path=output,
+        touched_paths=["vow/immutable_manifest.json", "README.md"],
+    )
+    assert report["corridor_relevance"]["intersects_corridor"] is True
+    assert report["corridor_relevance"]["implicated_domains"] == ["immutable_manifest_identity_writes"]
+    assert report["corridor_relevance"]["status_vocabulary"] == [
+        "not_applicable",
+        "legacy_only",
+        "forward_clean",
+        "forward_violation_present",
+        "strict_violation_present",
+    ]
+    check = next(item for item in report["profiles"][0]["checks"] if item["name"] == "protected_mutation_forward_enforcement")
+    assert check["relevance"]["forward_enforcement_status"] == "legacy_only"

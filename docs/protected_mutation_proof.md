@@ -93,6 +93,18 @@ Interpretation:
 
 Scope reminder: this status covers only the protected mutation surfaces listed above, not full-repo mutation completeness or unrelated audit-chain failures.
 
+## Covered corridor relevance
+
+- The explicit covered corridor mapping is emitted in machine-readable form via:
+  - `glow/contracts/protected_corridor_report.json` (`covered_protected_mutation_corridor`)
+  - `glow/contracts/protected_mutation_proof_status.json` (`covered_corridor`)
+- Relevance is determined by explicit path-glob matching against touched paths (explicit paths or git diff paths), not semantic whole-repo impact inference.
+- `not_applicable` means the current touched surface does not intersect currently covered protected-mutation domains; covered-scope global health is still reported separately.
+- Ladder interaction:
+  - baseline-aware: always reports covered-scope health (`healthy` / `legacy_only` / `current_violation_present`).
+  - forward-enforcement: blocks fresh/current covered violations when the touched surface intersects the covered corridor.
+  - strict mode: still enforces all covered-scope debt/violations when invoked; corridor relevance does not weaken strict semantics.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.
