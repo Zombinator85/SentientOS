@@ -767,3 +767,80 @@ def test_trust_posture_multi_domain_counts_remain_stable(tmp_path: Path) -> None
     assert counts["forward_risk_present"] >= 1
     assert domains["genesisforge_lineage_proposal_adoption"]["evidence"]["issue_count"] >= 1  # type: ignore[index]
     assert domains["immutable_manifest_identity_writes"]["evidence"]["issue_count"] >= 1  # type: ignore[index]
+
+
+def test_trust_degradation_ledger_omits_trusted_and_not_applicable(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    payload = verify_kernel_admission_provenance(
+        repo_root=tmp_path,
+        mode="forward-enforcement",
+        change_relevant_domains={"genesisforge_lineage_proposal_adoption"},
+        non_bypass_model=_non_bypass_model(),
+    )
+    summary = payload["summary"]["trust_degradation_ledger"]  # type: ignore[index]
+    records = payload["trust_degradation_records"]  # type: ignore[index]
+    assert summary["records_emitted"] is False
+    assert summary["emitted_record_count"] == 0
+    assert records == []
+
+
+def test_trust_degradation_ledger_classifies_legacy_forward_and_strict(tmp_path: Path) -> None:
+    _append_jsonl(tmp_path / "lineage/lineage.jsonl", {"proposal_id": "legacy"})
+    forward = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    strict = verify_kernel_admission_provenance(repo_root=tmp_path, strict=True)
+    forward_record = next(
+        row
+        for row in forward["trust_degradation_records"]  # type: ignore[index]
+        if row["covered_domain_id"] == "genesisforge_lineage_proposal_adoption" and row["posture_view"] == "global_covered_scope"
+    )
+    strict_record = next(
+        row
+        for row in strict["trust_degradation_records"]  # type: ignore[index]
+        if row["covered_domain_id"] == "genesisforge_lineage_proposal_adoption" and row["posture_view"] == "global_covered_scope"
+    )
+    assert forward_record["posture"] == "legacy_only"
+    assert forward_record["blocking_state"] == "none"
+    assert strict_record["posture"] == "strict_failure_present"
+    assert strict_record["blocking_state"] == "strict"
+
+
+def test_trust_degradation_ledger_classifies_forward_and_evidence_incomplete(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="lineage-1", action_kind="lineage_integrate"),
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    records = payload["trust_degradation_records"]  # type: ignore[index]
+    lineage_record = next(
+        row
+        for row in records
+        if row["covered_domain_id"] == "genesisforge_lineage_proposal_adoption" and row["posture_view"] == "global_covered_scope"
+    )
+    assert lineage_record["posture"] == "evidence_incomplete"
+    assert lineage_record["blocking_state"] == "forward_enforcement"
+    assert "kernel_admission_issues" in lineage_record["contributing_evidence_classes"]
+
+
+def test_trust_degradation_ledger_multi_domain_records_are_stable_and_schema_fixed(tmp_path: Path) -> None:
+    _append_jsonl(tmp_path / "lineage/lineage.jsonl", {"proposal_id": "legacy"})
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    records = payload["trust_degradation_records"]  # type: ignore[index]
+    domains = [row["covered_domain_id"] for row in records if row["posture_view"] == "global_covered_scope"]
+    assert domains == [
+        "genesisforge_lineage_proposal_adoption",
+        "immutable_manifest_identity_writes",
+    ]
+    schema_row = records[0]
+    assert schema_row["schema"] == "protected_mutation_trust_degradation_record"
+    assert schema_row["schema_version"] == 1
+    assert schema_row["covered_scope_id"] == "protected_mutation_proof:v1:kernel_admission"
+    summary = payload["summary"]["trust_degradation_ledger"]  # type: ignore[index]
+    assert summary["blocking_state_vocabulary"] == ["none", "forward_enforcement", "strict"]

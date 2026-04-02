@@ -274,6 +274,14 @@ def test_run_validation_emits_global_and_change_local_trust_posture(monkeypatch,
                             },
                         },
                     },
+                    "trust_degradation_ledger": {
+                        "schema": "protected_mutation_trust_degradation_record",
+                        "schema_version": 1,
+                        "ledger_path": "glow/contracts/protected_mutation_trust_degradation_ledger.jsonl",
+                        "records_emitted": True,
+                        "counts_by_posture": {"legacy_only": 1},
+                        "counts_by_evidence_class": {"kernel_admission_issues": 1},
+                    },
                 }
             ),
         )
@@ -288,3 +296,11 @@ def test_run_validation_emits_global_and_change_local_trust_posture(monkeypatch,
     assert trust["global_covered_scope"]["domains"]["genesisforge_lineage_proposal_adoption"]["posture"] == "legacy_only"
     assert trust["current_change_surface"]["domains"]["genesisforge_lineage_proposal_adoption"]["posture"] == "not_applicable"
     assert trust["current_change_surface"]["domains"]["immutable_manifest_identity_writes"]["applicable"] is True
+    degradation = report["global_summary"]["trust_degradation_ledger"]
+    assert degradation["records_emitted"] is True
+    assert degradation["counts_by_posture"]["legacy_only"] == 1
+    assert degradation["counts_by_evidence_class"]["kernel_admission_issues"] == 1
+    assert (
+        degradation["ledger_path_by_profile"]["ci-advisory"]
+        == "glow/contracts/protected_mutation_trust_degradation_ledger.jsonl"
+    )
