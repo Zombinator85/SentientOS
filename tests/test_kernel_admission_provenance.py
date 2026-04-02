@@ -147,3 +147,20 @@ def test_correlation_collision_fails_in_both_modes(tmp_path: Path) -> None:
     assert strict_payload["ok"] is False
     assert "correlation_action_kind_collision" in _codes(payload)
     assert "unexpected_collision" in _categories(payload)
+
+
+def test_forward_enforcement_classifies_legacy_as_debt_without_blocking(tmp_path: Path) -> None:
+    _write_jsonl(tmp_path / "lineage/lineage.jsonl", [{"proposal_id": "legacy"}])
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    assert payload["ok"] is True
+    assert payload["enforcement_class_counts"]["legacy_debt"] == 1  # type: ignore[index]
+    first_issue = payload["issues"][0]  # type: ignore[index]
+    assert first_issue["enforcement_class"] == "legacy_debt"
+
+
+def test_strict_mode_is_stricter_than_forward_for_legacy_only_state(tmp_path: Path) -> None:
+    _write_jsonl(tmp_path / "lineage/lineage.jsonl", [{"proposal_id": "legacy"}])
+    forward_payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    strict_payload = verify_kernel_admission_provenance(repo_root=tmp_path, strict=True)
+    assert forward_payload["ok"] is True
+    assert strict_payload["ok"] is False

@@ -145,5 +145,10 @@ def test_contract_status_includes_digest_and_quorum_artifacts(tmp_path: Path) ->
     )
     assert isinstance(protected, dict)
     assert protected["mode"] == "baseline-aware"
+    assert protected["forward_enforcement_mode"] == "forward-enforcement"
+    assert "forward_enforcement_ok" in protected
     assert protected["covered_scope"] == "protected_mutation_proof:v1:kernel_admission"
     assert (repo / "glow/contracts/protected_mutation_proof_status.json").exists()
+    proof = json.loads((repo / "glow/contracts/protected_mutation_proof_status.json").read_text(encoding="utf-8"))
+    assert "enforcement_ladder" in proof
+    assert "forward_enforcement" in proof

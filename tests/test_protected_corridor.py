@@ -138,6 +138,13 @@ def test_contract_status_rollup_surface_is_in_protected_corridor() -> None:
     assert check.command == ("python", "-m", "scripts.run_tests", "-q", "tests/test_contract_status_rollup.py")
 
 
+def test_protected_mutation_forward_enforcement_surface_is_in_corridor() -> None:
+    check = next(item for item in protected_corridor.CHECKS if item.name == "protected_mutation_forward_enforcement")
+
+    assert check.blocking is True
+    assert check.command == ("python", "scripts/verify_kernel_admission_provenance.py", "--mode", "forward-enforcement", "--summary-only")
+
+
 def test_classifies_missing_command_as_environment_unavailable() -> None:
     check = next(item for item in protected_corridor.CHECKS if item.name == "contract_status")
     result = protected_corridor.classify_result(
