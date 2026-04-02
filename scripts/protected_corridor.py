@@ -19,12 +19,13 @@ from sentientos.protected_mutation_corridor import (
     classify_touched_paths,
     corridor_definition,
     discover_touched_paths,
+    non_bypass_model_definition,
 )
 
 PROFILES = ("local-dev-relaxed", "ci-advisory", "federation-enforce")
 DEFAULT_OUTPUT = Path("glow/contracts/protected_corridor_report.json")
 INSTALL_EXTRAS = ".[dev,test]"
-CORRIDOR_VERSION = "2026-03-20.1"
+CORRIDOR_VERSION = "2026-04-02.1"
 
 PREREQUISITE_LABELS: dict[str, str] = {
     "editable_install": "Repository is installed as editable package from this repo root.",
@@ -303,6 +304,14 @@ def classify_result(
             "verifier_overall_status": overall,
             "protected_intent": summary.get("protected_intent", {}),
             "protected_intent_status_counts": summary.get("counts", {}).get("intent_status_classification", {}),
+            "execution_consistency": summary.get("execution_consistency", {}),
+            "non_bypass": summary.get("non_bypass", {}),
+            "fresh_bypass_candidate_present": bool(
+                (summary.get("non_bypass") or {}).get("fresh_violation_count", 0)
+            ),
+            "bypass_blocking_in_mode": bool(
+                (summary.get("non_bypass") or {}).get("fresh_violation_blocking_in_mode", False)
+            ),
         }
         if not is_relevant:
             note = "Forward-enforcement remains visible but is non-blocking when touched paths do not intersect the covered protected-mutation corridor."
@@ -570,6 +579,7 @@ def run_validation(
             ],
         },
         "covered_protected_mutation_corridor": corridor_definition(),
+        "covered_protected_mutation_corridor_non_bypass_model": non_bypass_model_definition(),
         "corridor_relevance": {
             **corridor_relevance,
             "path_discovery": touched,
@@ -584,6 +594,11 @@ def run_validation(
                 "declared_but_mismatched",
                 "undeclared_but_protected_action",
                 "declared_but_not_applicable",
+                "no_obvious_bypass_detected",
+                "alternate_writer_detected",
+                "unadmitted_operator_path_detected",
+                "uncovered_mutation_entrypoint_detected",
+                "canonical_boundary_missing",
             ],
         },
         "profiles": profile_reports,

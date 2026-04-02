@@ -148,6 +148,38 @@ Outcome rollups stay narrow (`declared_and_consistent`, `declared_but_mismatched
 - strict mode still blocks all covered-scope violations (legacy + current),
 - execution consistency augments reporting and does **not** replace admission or fail-closed write boundaries.
 
+## Scoped non-bypass verification (covered corridor only)
+
+The verifier now includes a bounded non-bypass pass for the currently covered protected-mutation corridor domains only. It uses explicit model mapping (canonical boundary, expected admitted action/authority, protected artifact domain, and allowed writer surfaces) and narrow source scanning to detect **obvious** alternate mutation paths.
+
+Machine-readable statuses:
+
+- `no_obvious_bypass_detected`
+- `alternate_writer_detected`
+- `unadmitted_operator_path_detected`
+- `uncovered_mutation_entrypoint_detected`
+- `canonical_boundary_missing`
+
+What counts as obvious bypass in this pass:
+
+- direct covered-artifact writes from non-canonical writer surfaces,
+- operator-facing script paths that write covered artifacts without visible admission/provenance discipline,
+- missing canonical boundary mapping for a covered side-effect class.
+
+What this does **not** prove:
+
+- not whole-repo control-flow non-bypass proof,
+- not semantic equivalence checking for all possible mutation paths,
+- not coverage beyond currently covered protected-mutation domains.
+
+Interaction rules remain strict:
+
+- protected intent declaration remains required where integrated,
+- execution consistency remains separately reported,
+- forward-enforcement blocks fresh covered-scope bypass findings,
+- strict mode remains at least as strict as forward-enforcement,
+- kernel admission + fail-closed provenance boundaries are not replaced.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.

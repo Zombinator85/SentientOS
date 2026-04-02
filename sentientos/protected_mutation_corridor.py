@@ -8,6 +8,14 @@ from typing import Any, Iterable, Sequence
 
 CORRIDOR_SCOPE_ID = "protected_mutation_proof:v1:covered_corridor"
 CORRIDOR_VERSION = "2026-04-02.1"
+NON_BYPASS_MODEL_VERSION = "2026-04-02.1"
+NON_BYPASS_STATUS_VOCABULARY: tuple[str, ...] = (
+    "no_obvious_bypass_detected",
+    "alternate_writer_detected",
+    "unadmitted_operator_path_detected",
+    "uncovered_mutation_entrypoint_detected",
+    "canonical_boundary_missing",
+)
 
 
 @dataclass(frozen=True)
@@ -87,6 +95,57 @@ def corridor_definition() -> dict[str, Any]:
             for domain in CORRIDOR_DOMAINS
         ],
         "scope_note": "Narrow covered protected-mutation corridor only; explicit mapping, no whole-repo change-impact inference.",
+    }
+
+
+def non_bypass_model_definition() -> dict[str, Any]:
+    return {
+        "scope_id": CORRIDOR_SCOPE_ID,
+        "model_version": NON_BYPASS_MODEL_VERSION,
+        "status_vocabulary": list(NON_BYPASS_STATUS_VOCABULARY),
+        "domains": [
+            {
+                "name": "genesisforge_lineage_proposal_adoption",
+                "canonical_boundary": "sentientos/genesis_forge.py",
+                "expected_kernel_action_kinds": ["lineage_integrate", "proposal_adopt"],
+                "expected_authority_classes": ["manifest_or_identity_mutation", "proposal_adoption"],
+                "protected_artifact_domains": ["lineage/lineage.jsonl", "live/*.json", "codex_index.json"],
+                "allowed_writer_surfaces": ["sentientos/genesis_forge.py"],
+                "allowed_invocation_surfaces": ["sentientos/genesis_forge.py"],
+                "obvious_bypass_definition": "Direct lineage/adoption artifact writes outside canonical GenesisForge boundary or operator-facing mutation path without admission discipline.",
+            },
+            {
+                "name": "immutable_manifest_identity_writes",
+                "canonical_boundary": "scripts/generate_immutable_manifest.py",
+                "expected_kernel_action_kinds": ["generate_immutable_manifest"],
+                "expected_authority_classes": ["manifest_or_identity_mutation"],
+                "protected_artifact_domains": ["vow/immutable_manifest.json"],
+                "allowed_writer_surfaces": ["scripts/generate_immutable_manifest.py"],
+                "allowed_invocation_surfaces": ["scripts/generate_immutable_manifest.py"],
+                "obvious_bypass_definition": "Direct immutable manifest write outside canonical generator or operator-facing mutation path without admission discipline.",
+            },
+            {
+                "name": "quarantine_clear_privileged_operator_action",
+                "canonical_boundary": "scripts/quarantine_clear.py",
+                "expected_kernel_action_kinds": ["quarantine_clear"],
+                "expected_authority_classes": ["privileged_operator_control"],
+                "protected_artifact_domains": ["pulse/forge_events.jsonl"],
+                "allowed_writer_surfaces": ["scripts/quarantine_clear.py"],
+                "allowed_invocation_surfaces": ["scripts/quarantine_clear.py"],
+                "obvious_bypass_definition": "Direct integrity_recovered/kernel_admission_denied forge-event write outside canonical quarantine-clear boundary or unadmitted operator path.",
+            },
+            {
+                "name": "codexhealer_repair_regenesis_linkage",
+                "canonical_boundary": "sentientos/codex_healer.py",
+                "expected_kernel_action_kinds": ["repair_action"],
+                "expected_authority_classes": ["repair"],
+                "protected_artifact_domains": ["glow/forge/recovery_ledger.jsonl"],
+                "allowed_writer_surfaces": ["sentientos/codex_healer.py"],
+                "allowed_invocation_surfaces": ["sentientos/codex_healer.py"],
+                "obvious_bypass_definition": "Direct recovery-ledger kernel-admission linkage write outside canonical CodexHealer repair boundary.",
+            },
+        ],
+        "scope_note": "Bounded obvious-bypass detection only for currently covered protected-mutation corridor domains; not whole-repo control-flow proof.",
     }
 
 
