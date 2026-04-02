@@ -39,6 +39,35 @@ _LEGACY_ISSUE_CATEGORIES = frozenset({"legacy_missing_admission_link"})
 _COVERED_SCOPE = "protected_mutation_proof:v1:kernel_admission"
 _FORWARD_BLOCKING_CLASSES = frozenset({"fresh_regression", "malformed_current_contract", "active_contradiction"})
 _INTENT_MISMATCH_STATUSES = frozenset({"declared_but_mismatched", "undeclared_but_protected_action"})
+_EXECUTION_CONSISTENCY_STATUSES = (
+    "consistent",
+    "declared_domain_mismatch",
+    "declared_authority_mismatch",
+    "side_effect_domain_mismatch",
+    "admitted_but_missing_expected_side_effect",
+    "undeclared_side_effect",
+    "not_applicable",
+)
+_EXECUTION_CONSISTENCY_OUTCOMES = (
+    "not_applicable",
+    "declared_and_consistent",
+    "declared_but_mismatched",
+    "undeclared_but_protected_action",
+    "execution_drift_detected",
+    "admitted_but_missing_expected_side_effect",
+)
+
+
+def _consistency_outcome_for_status(*, declared: bool, status: str) -> str:
+    if status == "not_applicable":
+        return "not_applicable"
+    if status == "consistent":
+        return "declared_and_consistent" if declared else "undeclared_but_protected_action"
+    if status == "admitted_but_missing_expected_side_effect":
+        return "admitted_but_missing_expected_side_effect"
+    if status in {"side_effect_domain_mismatch", "undeclared_side_effect"}:
+        return "execution_drift_detected"
+    return "declared_but_mismatched"
 
 
 def _enforcement_class_for_category(category: str) -> str:
@@ -101,6 +130,8 @@ def verify_kernel_admission_provenance(
     manifest_path: Path | None = None,
     forge_events_path: Path | None = None,
     repair_ledger_path: Path | None = None,
+    adoption_live_mount_path: Path | None = None,
+    adoption_codex_index_path: Path | None = None,
     strict: bool = False,
     mode: str | None = None,
 ) -> dict[str, object]:
@@ -198,6 +229,8 @@ def verify_kernel_admission_provenance(
             )
 
     lineage_rows = _read_jsonl(lineage_path or (root / "lineage/lineage.jsonl"))
+    adoption_live_mount = adoption_live_mount_path or (root / "live")
+    adoption_codex_index = adoption_codex_index_path or (root / "codex_index.json")
     for row in lineage_rows:
         correlation_id = str(row.get("correlation_id") or "")
         admission_ref = str(row.get("admission_decision_ref") or "")
@@ -277,6 +310,29 @@ def verify_kernel_admission_provenance(
                     )
 
     forge_rows = _read_jsonl(forge_events_path or (root / "pulse/forge_events.jsonl"))
+    adoption_live_rows: list[dict[str, Any]] = []
+    if adoption_live_mount.exists() and adoption_live_mount.is_dir():
+        for candidate in sorted(adoption_live_mount.glob("*.json")):
+            try:
+                payload = json.loads(candidate.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                admission = payload.get("admission")
+                if isinstance(admission, Mapping):
+                    adoption_live_rows.append({"path": str(candidate), "admission": dict(admission)})
+    adoption_codex_rows: list[dict[str, Any]] = []
+    if adoption_codex_index.exists():
+        try:
+            index_payload = json.loads(adoption_codex_index.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            index_payload = []
+        if isinstance(index_payload, list):
+            for item in index_payload:
+                if isinstance(item, dict):
+                    admission = item.get("admission")
+                    if isinstance(admission, Mapping):
+                        adoption_codex_rows.append({"admission": dict(admission)})
     for row in forge_rows:
         event = str(row.get("event") or "")
         if event not in {"integrity_recovered", "kernel_admission_denied"}:
@@ -322,7 +378,8 @@ def verify_kernel_admission_provenance(
                     )
                 )
 
-    for row in _read_jsonl(repair_ledger_path or (root / "glow/forge/recovery_ledger.jsonl")):
+    repair_rows = _read_jsonl(repair_ledger_path or (root / "glow/forge/recovery_ledger.jsonl"))
+    for row in repair_rows:
         details = row.get("details")
         if not isinstance(details, Mapping):
             continue
@@ -384,6 +441,45 @@ def verify_kernel_admission_provenance(
                 )
             )
 
+    side_effect_domains_by_correlation: dict[str, set[str]] = {}
+
+    def _record_side_effect(correlation_id: str, domain: str) -> None:
+        if not correlation_id or not domain:
+            return
+        side_effect_domains_by_correlation.setdefault(correlation_id, set()).add(domain)
+
+    for item in lineage_rows:
+        _record_side_effect(str(item.get("correlation_id") or ""), "genesisforge_lineage_proposal_adoption")
+    if resolved_manifest.exists():
+        manifest_payload = json.loads(resolved_manifest.read_text(encoding="utf-8"))
+        if isinstance(manifest_payload, Mapping):
+            admission = manifest_payload.get("admission")
+            if isinstance(admission, Mapping):
+                _record_side_effect(str(admission.get("correlation_id") or ""), "immutable_manifest_identity_writes")
+    for item in forge_rows:
+        if str(item.get("event") or "") == "integrity_recovered":
+            _record_side_effect(str(item.get("correlation_id") or ""), "quarantine_clear_privileged_operator_action")
+    for item in adoption_live_rows:
+        admission = item.get("admission")
+        if isinstance(admission, Mapping):
+            _record_side_effect(str(admission.get("correlation_id") or ""), "genesisforge_lineage_proposal_adoption")
+    for item in adoption_codex_rows:
+        admission = item.get("admission")
+        if isinstance(admission, Mapping):
+            _record_side_effect(str(admission.get("correlation_id") or ""), "genesisforge_lineage_proposal_adoption")
+    for item in repair_rows:
+        details = item.get("details")
+        if not isinstance(details, Mapping):
+            continue
+        kernel_admission = details.get("kernel_admission")
+        if not isinstance(kernel_admission, Mapping):
+            continue
+        if str(item.get("status") or "") != "auto-repair verified":
+            continue
+        correlation_id = str(kernel_admission.get("correlation_id") or "")
+        _record_side_effect(correlation_id, "codexhealer_repair_regenesis_linkage")
+
+    execution_consistency_checks: list[dict[str, object]] = []
     for correlation_id, rows in decisions_by_correlation.items():
         for row in rows:
             action_kind = str(row.get("action_kind") or "")
@@ -391,6 +487,60 @@ def verify_kernel_admission_provenance(
                 continue
             if str(row.get("final_disposition") or "") != "allow":
                 continue
+            eval_result = evaluate_declared_intent_for_decision(row)
+            expected_domains = set(eval_result.expected_domains)
+            observed_domains = set(side_effect_domains_by_correlation.get(correlation_id, set()))
+            status = "consistent"
+            if not eval_result.declared and observed_domains:
+                status = "undeclared_side_effect"
+            elif eval_result.declared and not expected_domains.intersection(set(eval_result.declared_domains)):
+                status = "declared_domain_mismatch"
+            elif eval_result.declared and not eval_result.authority_match:
+                status = "declared_authority_mismatch"
+            elif expected_domains and not observed_domains:
+                status = "admitted_but_missing_expected_side_effect"
+            elif observed_domains and not observed_domains.issubset(expected_domains):
+                status = "side_effect_domain_mismatch"
+            execution_consistency_checks.append(
+                {
+                    "correlation_id": correlation_id,
+                    "action_kind": action_kind,
+                    "authority_class": str(row.get("authority_class") or ""),
+                    "status": status,
+                    "declared": eval_result.declared,
+                    "declared_domains": list(eval_result.declared_domains),
+                    "expected_domains": list(expected_domains),
+                    "observed_side_effect_domains": sorted(observed_domains),
+                    "consistency_outcome": _consistency_outcome_for_status(declared=eval_result.declared, status=status),
+                }
+            )
+            if status in {"declared_domain_mismatch", "declared_authority_mismatch"}:
+                issues.append(
+                    VerificationIssue(
+                        code=f"execution_consistency_{status}",
+                        detail=correlation_id,
+                        category="malformed_current_contract",
+                        enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
+                    )
+                )
+            if status in {"side_effect_domain_mismatch", "undeclared_side_effect"}:
+                issues.append(
+                    VerificationIssue(
+                        code=f"execution_consistency_{status}",
+                        detail=correlation_id,
+                        category="unexpected_collision",
+                        enforcement_class=_enforcement_class_for_category("unexpected_collision"),
+                    )
+                )
+            if status == "admitted_but_missing_expected_side_effect":
+                issues.append(
+                    VerificationIssue(
+                        code="execution_consistency_admitted_but_missing_expected_side_effect",
+                        detail=correlation_id,
+                        category="missing_expected_side_effect",
+                        enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
+                    )
+                )
             if action_kind == "lineage_integrate" and not any(
                 str(item.get("correlation_id") or "") == correlation_id for item in lineage_rows
             ):
@@ -436,6 +586,26 @@ def verify_kernel_admission_provenance(
                         enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
                     )
                 )
+            if action_kind == "proposal_adopt":
+                has_live = any(
+                    isinstance(item.get("admission"), Mapping)
+                    and str((item.get("admission") or {}).get("correlation_id") or "") == correlation_id
+                    for item in adoption_live_rows
+                )
+                has_index = any(
+                    isinstance(item.get("admission"), Mapping)
+                    and str((item.get("admission") or {}).get("correlation_id") or "") == correlation_id
+                    for item in adoption_codex_rows
+                )
+                if not (has_live and has_index):
+                    issues.append(
+                        VerificationIssue(
+                            code="missing_expected_proposal_adopt_side_effect",
+                            detail=correlation_id,
+                            category="missing_expected_side_effect",
+                            enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
+                        )
+                    )
 
     if strict_mode:
         blocking_issues = list(issues)
@@ -450,6 +620,25 @@ def verify_kernel_admission_provenance(
     for check in intent_checks:
         status = str(check.get("status") or "unknown")
         intent_status_counts[status] = intent_status_counts.get(status, 0) + 1
+    consistency_status_counts: dict[str, int] = {}
+    consistency_outcome_counts: dict[str, int] = {}
+    for check in execution_consistency_checks:
+        status = str(check.get("status") or "not_applicable")
+        outcome = str(check.get("consistency_outcome") or "not_applicable")
+        consistency_status_counts[status] = consistency_status_counts.get(status, 0) + 1
+        consistency_outcome_counts[outcome] = consistency_outcome_counts.get(outcome, 0) + 1
+    fresh_consistency_violation_count = sum(
+        1
+        for check in execution_consistency_checks
+        if str(check.get("status") or "")
+        in {
+            "declared_domain_mismatch",
+            "declared_authority_mismatch",
+            "side_effect_domain_mismatch",
+            "admitted_but_missing_expected_side_effect",
+            "undeclared_side_effect",
+        }
+    )
     requires_forward = any(bool(item.get("expect_forward_enforcement")) for item in intent_checks if bool(item.get("declared")))
     forward_expectation_met = (resolved_mode in {"forward-enforcement", "strict"}) if requires_forward else True
     has_current_contract_violations = any(issue.category not in _LEGACY_ISSUE_CATEGORIES for issue in issues)
@@ -491,6 +680,16 @@ def verify_kernel_admission_provenance(
                 "not_applicable",
             ],
         },
+        "execution_consistency": {
+            "status_vocabulary": list(_EXECUTION_CONSISTENCY_STATUSES),
+            "outcome_vocabulary": list(_EXECUTION_CONSISTENCY_OUTCOMES),
+            "status_counts": consistency_status_counts,
+            "outcome_counts": consistency_outcome_counts,
+            "fresh_violation_count": fresh_consistency_violation_count,
+            "fresh_violation_blocking_in_mode": bool(
+                fresh_consistency_violation_count and resolved_mode in {"forward-enforcement", "strict"}
+            ),
+        },
     }
 
     return {
@@ -505,10 +704,16 @@ def verify_kernel_admission_provenance(
         "enforcement_class_counts": enforcement_counts,
         "protected_intent_checks": intent_checks,
         "protected_intent_status_counts": intent_status_counts,
+        "execution_consistency_checks": execution_consistency_checks,
+        "execution_consistency_status_counts": consistency_status_counts,
+        "execution_consistency_outcome_counts": consistency_outcome_counts,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),
             "forge_events": len(forge_rows),
+            "repair_rows": len(repair_rows),
+            "adoption_live_rows": len(adoption_live_rows),
+            "adoption_codex_rows": len(adoption_codex_rows),
         },
         "summary": summary,
     }

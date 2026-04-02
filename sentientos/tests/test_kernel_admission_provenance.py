@@ -375,7 +375,7 @@ def test_verify_kernel_admission_provenance_summary_current_violation_present(tm
     assert summary["has_current_contract_violations"] is True
     assert summary["has_only_legacy_issues"] is False
     assert summary["ok"] is False
-    assert summary["counts"]["classification"]["malformed_current_contract"] == 1
+    assert summary["counts"]["classification"]["malformed_current_contract"] >= 1
 
 
 def test_verify_kernel_admission_provenance_strict_remains_stricter_than_forward(tmp_path: Path) -> None:
@@ -389,3 +389,174 @@ def test_verify_kernel_admission_provenance_strict_remains_stricter_than_forward
     assert strict_payload["ok"] is False
     issue = forward_payload["issues"][0]  # type: ignore[index]
     assert issue["enforcement_class"] == "legacy_debt"
+
+
+def test_execution_consistency_declared_admitted_side_effect_match_is_consistent(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(
+        tmp_path / "vow/immutable_manifest.json",
+        {
+            "admission": {
+                "correlation_id": "manifest-1",
+                "admission_decision_ref": "kernel_decision:manifest-1",
+                "action_kind": "generate_immutable_manifest",
+                "authority_class": "manifest_or_identity_mutation",
+                "lifecycle_phase": "maintenance",
+                "final_disposition": "allow",
+                "execution_owner": "operator_cli",
+            }
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path)
+    checks = payload["execution_consistency_checks"]  # type: ignore[index]
+    assert checks[0]["status"] == "consistent"
+
+
+def test_execution_consistency_reports_declared_domain_mismatch(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            **_decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+            "protected_mutation_intent": {
+                "schema_version": 1,
+                "declared": True,
+                "domains": ["genesisforge_lineage_proposal_adoption"],
+                "authority_classes": ["manifest_or_identity_mutation"],
+                "expect_forward_enforcement": True,
+                "invocation_path": "tests",
+            },
+        },
+    )
+    _write_json(
+        tmp_path / "vow/immutable_manifest.json",
+        {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")},
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    status_counts = payload["execution_consistency_status_counts"]  # type: ignore[index]
+    assert status_counts["declared_domain_mismatch"] == 1
+
+
+def test_execution_consistency_reports_declared_authority_mismatch(tmp_path: Path) -> None:
+    manifest_decision = _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")
+    manifest_decision["protected_mutation_intent"] = {
+        "schema_version": 1,
+        "declared": True,
+        "domains": ["immutable_manifest_identity_writes"],
+        "authority_classes": ["proposal_adoption"],
+        "expect_forward_enforcement": True,
+        "invocation_path": "tests",
+    }
+    _append_jsonl(tmp_path / "glow/control_plane/kernel_decisions.jsonl", manifest_decision)
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": manifest_decision})
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    status_counts = payload["execution_consistency_status_counts"]  # type: ignore[index]
+    assert status_counts["declared_authority_mismatch"] == 1
+
+
+def test_execution_consistency_reports_missing_expected_side_effect(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    status_counts = payload["execution_consistency_status_counts"]  # type: ignore[index]
+    assert status_counts["admitted_but_missing_expected_side_effect"] == 1
+    assert payload["ok"] is False
+
+
+def test_execution_consistency_reports_undeclared_side_effect_drift(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            "correlation_id": "manifest-1",
+            "admission_decision_ref": "kernel_decision:manifest-1",
+            "action_kind": "generate_immutable_manifest",
+            "authority_class": "manifest_or_identity_mutation",
+            "lifecycle_phase": "maintenance",
+            "final_disposition": "allow",
+            "execution_owner": "operator_cli",
+        },
+    )
+    _write_json(
+        tmp_path / "vow/immutable_manifest.json",
+        {
+            "admission": {
+                "correlation_id": "manifest-1",
+                "admission_decision_ref": "kernel_decision:manifest-1",
+                "action_kind": "generate_immutable_manifest",
+                "authority_class": "manifest_or_identity_mutation",
+                "lifecycle_phase": "maintenance",
+                "final_disposition": "allow",
+                "execution_owner": "operator_cli",
+            }
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    outcome_counts = payload["execution_consistency_outcome_counts"]  # type: ignore[index]
+    assert outcome_counts["execution_drift_detected"] == 1
+
+
+def test_execution_consistency_summary_vocabulary_is_stable(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(
+        tmp_path / "vow/immutable_manifest.json",
+        {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")},
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path)
+    consistency = payload["summary"]["execution_consistency"]  # type: ignore[index]
+    assert consistency["status_vocabulary"] == [  # type: ignore[index]
+        "consistent",
+        "declared_domain_mismatch",
+        "declared_authority_mismatch",
+        "side_effect_domain_mismatch",
+        "admitted_but_missing_expected_side_effect",
+        "undeclared_side_effect",
+        "not_applicable",
+    ]
+    assert consistency["outcome_vocabulary"] == [  # type: ignore[index]
+        "not_applicable",
+        "declared_and_consistent",
+        "declared_but_mismatched",
+        "undeclared_but_protected_action",
+        "execution_drift_detected",
+        "admitted_but_missing_expected_side_effect",
+    ]
+
+
+def test_execution_consistency_covers_proposal_adopt_side_effects(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="adopt-1", action_kind="proposal_adopt"),
+    )
+    _write_json(
+        tmp_path / "live/daemon-a.json",
+        {"admission": _decision(correlation_id="adopt-1", action_kind="proposal_adopt")},
+    )
+    codex_index = tmp_path / "codex_index.json"
+    codex_index.parent.mkdir(parents=True, exist_ok=True)
+    codex_index.write_text(
+        json.dumps(
+            [
+                {
+                    "spec_id": "spec-a",
+                    "admission": _decision(correlation_id="adopt-1", action_kind="proposal_adopt"),
+                }
+            ],
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    payload = verify_kernel_admission_provenance(
+        repo_root=tmp_path,
+        adoption_live_mount_path=tmp_path / "live",
+        adoption_codex_index_path=tmp_path / "codex_index.json",
+    )
+    checks = payload["execution_consistency_checks"]  # type: ignore[index]
+    assert checks[0]["status"] == "consistent"

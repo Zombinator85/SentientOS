@@ -15,6 +15,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest-path", type=Path, default=None)
     parser.add_argument("--forge-events-path", type=Path, default=None)
     parser.add_argument("--repair-ledger-path", type=Path, default=None)
+    parser.add_argument("--adoption-live-mount-path", type=Path, default=None)
+    parser.add_argument("--adoption-codex-index-path", type=Path, default=None)
     parser.add_argument(
         "--mode",
         choices=("baseline-aware", "forward-enforcement", "strict"),
@@ -39,6 +41,8 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path=args.manifest_path,
         forge_events_path=args.forge_events_path,
         repair_ledger_path=args.repair_ledger_path,
+        adoption_live_mount_path=args.adoption_live_mount_path,
+        adoption_codex_index_path=args.adoption_codex_index_path,
         strict=args.strict,
         mode=mode,
     )

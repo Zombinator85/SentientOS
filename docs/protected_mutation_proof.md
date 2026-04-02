@@ -123,6 +123,31 @@ Scope reminder: this status covers only the protected mutation surfaces listed a
   - does **not** widen protected coverage beyond current corridor domains,
   - does **not** weaken forward-enforcement or strict mode.
 
+## Execution consistency (covered corridor only)
+
+Execution consistency is a narrow comparison between three machine-readable facts for covered protected actions:
+
+1. declared protected intent (`domains` + `authority_classes`),
+2. admitted kernel decision (`action_kind` + `authority_class` + disposition),
+3. observed protected side effect domain (artifact/ledger row tied by `correlation_id`).
+
+Statuses are explicit and corridor-scoped:
+
+- `consistent`
+- `declared_domain_mismatch`
+- `declared_authority_mismatch`
+- `side_effect_domain_mismatch`
+- `admitted_but_missing_expected_side_effect`
+- `undeclared_side_effect`
+- `not_applicable`
+
+Outcome rollups stay narrow (`declared_and_consistent`, `declared_but_mismatched`, `execution_drift_detected`, etc.) and integrate with corridor relevance + enforcement ladder:
+
+- corridor `not_applicable` remains non-blocking for untouched surfaces,
+- forward-enforcement blocks fresh consistency violations on relevant touched corridor surfaces,
+- strict mode still blocks all covered-scope violations (legacy + current),
+- execution consistency augments reporting and does **not** replace admission or fail-closed write boundaries.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.
