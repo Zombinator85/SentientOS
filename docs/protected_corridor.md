@@ -83,6 +83,8 @@ The corridor report includes:
 - `protected_corridor.failure_taxonomy`: explicit bucket vocabulary for failures/warnings.
 - `profiles[*].summary`: per-profile pass/blocking/advisory/debt counts.
 - `profiles[*].deferred_debt`: known non-blocking debt items per profile.
+- `corridor_relevance`: explicit touched-surface relevance for currently covered protected-mutation domains.
+- `covered_protected_mutation_corridor`: machine-readable definition of the currently covered protected-mutation corridor.
 - `global_summary`: cross-profile status with:
   - `status` (`green` / `amber` / `red`)
   - `blocking_profiles`

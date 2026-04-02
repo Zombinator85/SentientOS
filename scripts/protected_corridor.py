@@ -15,6 +15,11 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.editable_install import get_editable_install_status
+from sentientos.protected_mutation_corridor import (
+    classify_touched_paths,
+    corridor_definition,
+    discover_touched_paths,
+)
 
 PROFILES = ("local-dev-relaxed", "ci-advisory", "federation-enforce")
 DEFAULT_OUTPUT = Path("glow/contracts/protected_corridor_report.json")
@@ -55,6 +60,7 @@ class CheckResult:
     expected_in_profile: str
     note: str
     output_excerpt: str
+    relevance: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -256,9 +262,61 @@ def _expected_for_profile(check: CorridorCheck, profile: str) -> str:
     return "pass"
 
 
-def classify_result(check: CorridorCheck, *, profile: str, returncode: int, output: str) -> CheckResult:
+def classify_result(
+    check: CorridorCheck,
+    *,
+    profile: str,
+    returncode: int,
+    output: str,
+    protected_mutation_relevance: dict[str, Any] | None = None,
+) -> CheckResult:
     expected = _expected_for_profile(check, profile)
     outcome = "pass" if returncode == 0 else "warn"
+    relevance_payload: dict[str, Any] | None = None
+    if check.name == "protected_mutation_forward_enforcement":
+        summary: dict[str, Any] = {}
+        try:
+            parsed = json.loads(output) if output.strip() else {}
+            if isinstance(parsed, dict):
+                summary = parsed
+        except json.JSONDecodeError:
+            summary = {}
+        is_relevant = bool((protected_mutation_relevance or {}).get("intersects_corridor", False))
+        mode = str(summary.get("mode") or "forward-enforcement")
+        overall = str(summary.get("overall_status") or "unknown")
+        if overall == "current_violation_present":
+            proof_status = "forward_violation_present" if mode == "forward-enforcement" else "strict_violation_present"
+        elif overall == "legacy_only":
+            proof_status = "legacy_only"
+        elif overall == "healthy":
+            proof_status = "forward_clean"
+        else:
+            proof_status = "unknown"
+        if not is_relevant:
+            proof_status = "not_applicable"
+        relevance_payload = {
+            "corridor_intersects_change_surface": is_relevant,
+            "implicated_domains": list((protected_mutation_relevance or {}).get("implicated_domains", [])),
+            "forward_enforcement_relevant": is_relevant,
+            "forward_enforcement_ran": True,
+            "forward_enforcement_status": proof_status,
+            "verifier_overall_status": overall,
+        }
+        if not is_relevant:
+            note = "Forward-enforcement remains visible but is non-blocking when touched paths do not intersect the covered protected-mutation corridor."
+            return CheckResult(
+                name=check.name,
+                command=check.command,
+                returncode=returncode,
+                outcome="warn" if returncode != 0 else "pass",
+                bucket="corridor_not_applicable",
+                blocking=False,
+                expected_in_profile=expected,
+                note=note,
+                output_excerpt=" | ".join([line.strip() for line in output.splitlines() if line.strip()][:3]),
+                relevance=relevance_payload,
+            )
+
     if returncode != 0 and "command unavailable in environment" in output:
         bucket = "command_unavailable_in_environment"
     elif returncode != 0 and (
@@ -301,10 +359,16 @@ def classify_result(check: CorridorCheck, *, profile: str, returncode: int, outp
         expected_in_profile=expected,
         note=note,
         output_excerpt=excerpt,
+        relevance=relevance_payload,
     )
 
 
-def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> dict[str, Any]:
+def run_profile(
+    profile: str,
+    *,
+    checks: Sequence[CorridorCheck] = CHECKS,
+    protected_mutation_relevance: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     env = os.environ.copy()
     env["SENTIENTOS_ENFORCEMENT_PROFILE"] = profile
     env.setdefault("PYTHONPATH", ".")
@@ -312,7 +376,15 @@ def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> di
     results: list[CheckResult] = []
     for check in checks:
         rc, output = _run_command(check.command, env)
-        results.append(classify_result(check, profile=profile, returncode=rc, output=output))
+        results.append(
+            classify_result(
+                check,
+                profile=profile,
+                returncode=rc,
+                output=output,
+                protected_mutation_relevance=protected_mutation_relevance,
+            )
+        )
 
     blocking_failures = [asdict(item) for item in results if item.bucket.startswith("blocking_")]
     provisioning_failures = [asdict(item) for item in results if item.bucket == "environment_unprovisioned"]
@@ -320,12 +392,13 @@ def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> di
     doctrine_skips = [asdict(item) for item in results if item.bucket == "policy_doctrine_skipped"]
     advisory_warnings = [asdict(item) for item in results if item.bucket == "advisory_mismatch_or_expected_warning"]
     non_blocking_failures = [asdict(item) for item in results if item.bucket in {"legacy_deferred_debt", "non_blocking_optional_historical_runtime_state"}]
+    not_applicable = [asdict(item) for item in results if item.bucket == "corridor_not_applicable"]
     passed = [asdict(item) for item in results if item.bucket == "pass"]
 
     health = "green"
     if blocking_failures or provisioning_failures or unavailable_commands:
         health = "red"
-    elif non_blocking_failures or advisory_warnings or doctrine_skips:
+    elif non_blocking_failures or advisory_warnings or doctrine_skips or not_applicable:
         health = "amber"
 
     return {
@@ -341,6 +414,7 @@ def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> di
             "policy_skip_count": len(doctrine_skips),
             "advisory_warning_count": len(advisory_warnings),
             "non_blocking_failure_count": len(non_blocking_failures),
+            "not_applicable_count": len(not_applicable),
             "repo_health": health,
         },
         "blocking_failures": blocking_failures,
@@ -349,6 +423,7 @@ def run_profile(profile: str, *, checks: Sequence[CorridorCheck] = CHECKS) -> di
         "policy_skips": doctrine_skips,
         "advisory_warnings": advisory_warnings,
         "non_blocking_failures": non_blocking_failures,
+        "not_applicable": not_applicable,
         "deferred_debt": [entry for entry in non_blocking_failures if entry["bucket"] == "legacy_deferred_debt"],
     }
 
@@ -361,13 +436,16 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
             "blocking_profiles": [],
             "advisory_profiles": [],
             "debt_profiles": [],
+            "not_applicable_profiles": [],
             "corridor_blocking": True,
         }
 
     blocking_profiles: list[str] = []
     advisory_profiles: list[str] = []
     debt_profiles: list[str] = []
+    not_applicable_profiles: list[str] = []
     deferred_debt: dict[str, dict[str, Any]] = {}
+    protected_mutation_status: dict[str, str] = {}
     for profile in profiles:
         summary = profile.get("summary") if isinstance(profile, dict) else {}
         profile_name = str(profile.get("profile"))
@@ -395,10 +473,21 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                     },
                 )
                 deferred_debt[name]["profiles"].append(profile_name)
+        if int(summary.get("not_applicable_count", 0)) > 0:
+            not_applicable_profiles.append(profile_name)
+        for check in profile.get("checks", []):
+            if not isinstance(check, dict) or check.get("name") != "protected_mutation_forward_enforcement":
+                continue
+            relevance = check.get("relevance")
+            if isinstance(relevance, dict):
+                state = relevance.get("forward_enforcement_status")
+                if isinstance(state, str):
+                    protected_mutation_status[profile_name] = state
 
     blocking_profiles = sorted(set(blocking_profiles))
     advisory_profiles = sorted(set(advisory_profiles))
     debt_profiles = sorted(set(debt_profiles))
+    not_applicable_profiles = sorted(set(not_applicable_profiles))
     if blocking_profiles:
         status = "red"
         repo_health = "red"
@@ -415,14 +504,27 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "blocking_profiles": blocking_profiles,
         "advisory_profiles": advisory_profiles,
         "debt_profiles": debt_profiles,
+        "not_applicable_profiles": not_applicable_profiles,
         "corridor_blocking": bool(blocking_profiles),
         "deferred_debt_outside_corridor": sorted(deferred_debt.values(), key=lambda item: item["name"]),
+        "protected_mutation_forward_enforcement_status_by_profile": protected_mutation_status,
     }
 
 
-def run_validation(*, profiles: Sequence[str], output_path: Path, prerequisite_status: PrerequisiteStatus | None = None) -> dict[str, Any]:
+def run_validation(
+    *,
+    profiles: Sequence[str],
+    output_path: Path,
+    prerequisite_status: PrerequisiteStatus | None = None,
+    touched_paths: Sequence[str] | None = None,
+    diff_base: str | None = None,
+) -> dict[str, Any]:
     status = prerequisite_status or check_prerequisites()
-    profile_reports = [run_profile(profile) for profile in profiles] if status.ready else []
+    touched = discover_touched_paths(repo_root=Path("."), diff_base=diff_base, explicit_paths=touched_paths)
+    corridor_relevance = classify_touched_paths(touched.get("paths", [])) if isinstance(touched.get("paths"), list) else classify_touched_paths([])
+    profile_reports = (
+        [run_profile(profile, protected_mutation_relevance=corridor_relevance) for profile in profiles] if status.ready else []
+    )
     report = {
         "schema_version": 1,
         "corridor_version": CORRIDOR_VERSION,
@@ -451,8 +553,22 @@ def run_validation(*, profiles: Sequence[str], output_path: Path, prerequisite_s
                 "environment_unprovisioned",
                 "non_blocking_optional_historical_runtime_state",
                 "legacy_deferred_debt",
+                "corridor_not_applicable",
                 "audit_chain_local_state_outside_corridor",
                 "command_unavailable_in_environment",
+            ],
+        },
+        "covered_protected_mutation_corridor": corridor_definition(),
+        "corridor_relevance": {
+            **corridor_relevance,
+            "path_discovery": touched,
+            "forward_enforcement_relevant": bool(corridor_relevance.get("intersects_corridor", False)),
+            "status_vocabulary": [
+                "not_applicable",
+                "legacy_only",
+                "forward_clean",
+                "forward_violation_present",
+                "strict_violation_present",
             ],
         },
         "profiles": profile_reports,
@@ -470,6 +586,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output artifact path")
     parser.add_argument("--check-prereqs", action="store_true", help="verify protected corridor environment prerequisites and exit")
     parser.add_argument("--bootstrap", action="store_true", help="attempt deterministic dependency bootstrap before running corridor")
+    parser.add_argument("--diff-base", default=None, help="optional git diff base for touched-path corridor relevance")
+    parser.add_argument("--touched-path", action="append", default=None, help="explicit touched path for corridor relevance (repeatable)")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     selected_profiles = args.profile or list(PROFILES)
@@ -484,7 +602,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(asdict(prereq_status), sort_keys=True))
         return 0 if prereq_status.ready else 2
 
-    report = run_validation(profiles=selected_profiles, output_path=Path(args.output), prerequisite_status=prereq_status)
+    report = run_validation(
+        profiles=selected_profiles,
+        output_path=Path(args.output),
+        prerequisite_status=prereq_status,
+        touched_paths=args.touched_path,
+        diff_base=args.diff_base,
+    )
     print(json.dumps({"output": str(Path(args.output)), "profile_count": len(selected_profiles)}, sort_keys=True))
     if not prereq_status.ready:
         return 2
