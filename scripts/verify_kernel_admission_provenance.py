@@ -16,6 +16,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--forge-events-path", type=Path, default=None)
     parser.add_argument("--repair-ledger-path", type=Path, default=None)
     parser.add_argument("--strict", action="store_true", help="fail on legacy covered artifacts as well")
+    parser.add_argument("--summary-json-out", type=Path, default=None, help="write compact machine-readable summary JSON")
+    parser.add_argument("--summary-only", action="store_true", help="print only compact summary JSON")
     args = parser.parse_args(argv)
 
     payload = verify_kernel_admission_provenance(
@@ -27,7 +29,12 @@ def main(argv: list[str] | None = None) -> int:
         repair_ledger_path=args.repair_ledger_path,
         strict=args.strict,
     )
-    print(json.dumps(payload, indent=2, sort_keys=True))
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    if args.summary_json_out is not None:
+        args.summary_json_out.parent.mkdir(parents=True, exist_ok=True)
+        args.summary_json_out.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    to_print = summary if args.summary_only else payload
+    print(json.dumps(to_print, indent=2, sort_keys=True))
     return 0 if bool(payload.get("ok")) else 1
 
 

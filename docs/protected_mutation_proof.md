@@ -54,7 +54,10 @@ Run targeted verification:
 
 ```bash
 python scripts/verify_kernel_admission_provenance.py
+python scripts/verify_kernel_admission_provenance.py --summary-only
+python scripts/verify_kernel_admission_provenance.py --strict --summary-only
 make protected-mutation-check
+make contract-status
 ```
 
 The verifier checks for:
@@ -72,6 +75,23 @@ Verification modes:
 - strict (`--strict`): any covered-scope issue fails
 
 See `docs/PROTECTED_MUTATION_BASELINE_POLICY.md` for baseline handling policy.
+
+## Where status now appears in normal repo flow
+
+- `scripts.emit_contract_status` now includes a `protected_mutation_proof` domain in `glow/contracts/contract_status.json`.
+- A compact status artifact is written to `glow/contracts/protected_mutation_proof_status.json` with:
+  - covered scope id
+  - baseline-aware and strict summaries
+  - classification counts
+  - overall status (`healthy`, `legacy_only`, `current_violation_present`)
+
+Interpretation:
+
+- `legacy_only`: currently covered surfaces have only pre-contract debt; baseline-aware mode is non-blocking.
+- `current_violation_present`: current contract expectations are broken in covered scope; treat as active regression.
+- Strict mode is for enforcement/cleanup passes and fails on legacy plus current issues.
+
+Scope reminder: this status covers only the protected mutation surfaces listed above, not full-repo mutation completeness or unrelated audit-chain failures.
 
 ## Current limits
 

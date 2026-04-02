@@ -264,6 +264,10 @@ jobs:
         if: always()
         run: python -m scripts.emit_contract_status || true
 
+      - name: Protected mutation proof summary (informational)
+        if: always()
+        run: python scripts/verify_kernel_admission_provenance.py --summary-only || true
+
 
       - name: Emit doctrine contract bundle
         if: always()
@@ -297,6 +301,7 @@ jobs:
           name: sentientos-contracts-${{ github.sha }}
           path: |
             glow/contracts/contract_status.json
+            glow/contracts/protected_mutation_proof_status.json
             glow/contracts/stability_doctrine.json
             glow/contracts/ci_baseline.json
             glow/contracts/forge_progress_baseline.json
@@ -314,7 +319,7 @@ jobs:
             exit 0
           fi
           mkdir -p glow/contracts
-          zip -j "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip"             glow/contracts/contract_status.json             glow/contracts/stability_doctrine.json             glow/contracts/ci_baseline.json             glow/contracts/forge_progress_baseline.json             glow/contracts/artifact_metadata.json             glow/contracts/contract_manifest.json || true
+          zip -j "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip"             glow/contracts/contract_status.json             glow/contracts/protected_mutation_proof_status.json             glow/contracts/stability_doctrine.json             glow/contracts/ci_baseline.json             glow/contracts/forge_progress_baseline.json             glow/contracts/artifact_metadata.json             glow/contracts/contract_manifest.json || true
           if gh release view "contracts-${GITHUB_SHA}" >/dev/null 2>&1; then
             gh release upload "contracts-${GITHUB_SHA}" "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip" --clobber
           else
@@ -481,6 +486,10 @@ jobs:
         if: always()
         run: python -m scripts.emit_contract_status || true
 
+      - name: Protected mutation proof summary (informational)
+        if: always()
+        run: python scripts/verify_kernel_admission_provenance.py --summary-only || true
+
 
       - name: Emit doctrine contract bundle
         if: always()
@@ -514,6 +523,7 @@ jobs:
           name: sentientos-contracts-${{ github.sha }}
           path: |
             glow/contracts/contract_status.json
+            glow/contracts/protected_mutation_proof_status.json
             glow/contracts/stability_doctrine.json
             glow/contracts/ci_baseline.json
             glow/contracts/forge_progress_baseline.json
@@ -531,7 +541,7 @@ jobs:
             exit 0
           fi
           mkdir -p glow/contracts
-          zip -j "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip"             glow/contracts/contract_status.json             glow/contracts/stability_doctrine.json             glow/contracts/ci_baseline.json             glow/contracts/forge_progress_baseline.json             glow/contracts/artifact_metadata.json             glow/contracts/contract_manifest.json || true
+          zip -j "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip"             glow/contracts/contract_status.json             glow/contracts/protected_mutation_proof_status.json             glow/contracts/stability_doctrine.json             glow/contracts/ci_baseline.json             glow/contracts/forge_progress_baseline.json             glow/contracts/artifact_metadata.json             glow/contracts/contract_manifest.json || true
           if gh release view "contracts-${GITHUB_SHA}" >/dev/null 2>&1; then
             gh release upload "contracts-${GITHUB_SHA}" "glow/contracts/sentientos-contracts-${GITHUB_SHA}.zip" --clobber
           else
