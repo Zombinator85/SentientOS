@@ -206,6 +206,35 @@ Two posture views are emitted and must be interpreted separately:
 
 Trust posture does **not** replace detailed verifier output. It preserves domain evidence counts and references so operators can move from summary posture back to underlying evidence for audit/debug.
 
+## Trust degradation ledger (covered corridor only)
+
+Protected-mutation proof now appends machine-readable degradation events to:
+
+- `glow/contracts/protected_mutation_trust_degradation_ledger.jsonl`
+
+Each record is intentionally narrow and includes:
+
+- schema/version,
+- covered scope + covered domain ids,
+- derived posture and posture view (`global_covered_scope` or `current_change_surface`),
+- contributing evidence classes,
+- explicit blocking state (`none`, `forward_enforcement`, `strict`),
+- applicability/relevance bit,
+- evaluation run id + timestamp.
+
+Emission rules:
+
+- records are emitted only when posture is **not** `trusted` and **not** `not_applicable`,
+- `legacy_only` is recorded as degradation with `blocking_state=none`,
+- `forward_risk_present` and `evidence_incomplete` are recorded as forward-enforcement risk,
+- `strict_failure_present` is recorded distinctly with `blocking_state=strict`.
+
+This ledger is recording/classification only:
+
+- no auto-remediation,
+- no replacement of detailed verifier evidence,
+- no claim of whole-repo trust history beyond the covered protected-mutation corridor.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.

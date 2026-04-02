@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -81,6 +82,11 @@ _TRUST_POSTURE_STATUS_VOCABULARY = (
     "not_applicable",
     "evidence_incomplete",
 )
+_TRUST_DEGRADATION_SCHEMA = "protected_mutation_trust_degradation_record"
+_TRUST_DEGRADATION_SCHEMA_VERSION = 1
+_TRUST_DEGRADATION_POSTURE_VIEWS = ("global_covered_scope", "current_change_surface")
+_TRUST_DEGRADATION_BLOCKING_STATES = ("none", "forward_enforcement", "strict")
+_TRUST_DEGRADATION_LEDGER_RELATIVE_PATH = Path("glow/contracts/protected_mutation_trust_degradation_ledger.jsonl")
 _EVIDENCE_INCOMPLETE_CODES = frozenset(
     {
         "missing_allow_admission",
@@ -468,6 +474,143 @@ def _compose_trust_posture(
     }
 
 
+def _iso_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _run_identity(mode: str, generated_at: str) -> str:
+    compact_mode = mode.replace("-", "_")
+    compact_time = generated_at.replace(":", "").replace("-", "")
+    return f"kernel_admission_provenance:{compact_mode}:{compact_time}"
+
+
+def _derive_blocking_state(*, posture: str) -> str:
+    if posture == "strict_failure_present":
+        return "strict"
+    if posture in {"forward_risk_present", "evidence_incomplete"}:
+        return "forward_enforcement"
+    return "none"
+
+
+def _contributing_evidence_classes(domain_payload: Mapping[str, Any]) -> list[str]:
+    evidence = domain_payload.get("evidence")
+    if not isinstance(evidence, Mapping):
+        return []
+    classes: list[str] = []
+    if int(evidence.get("issue_count", 0)) > 0:
+        classes.append("kernel_admission_issues")
+    intent_counts = evidence.get("intent_status_counts")
+    if isinstance(intent_counts, Mapping):
+        interesting = sum(
+            int(value)
+            for key, value in intent_counts.items()
+            if isinstance(key, str) and key != "not_applicable" and isinstance(value, int)
+        )
+        if interesting > 0:
+            classes.append("protected_intent_checks")
+    consistency_counts = evidence.get("execution_consistency_status_counts")
+    if isinstance(consistency_counts, Mapping):
+        interesting = sum(
+            int(value)
+            for key, value in consistency_counts.items()
+            if isinstance(key, str) and key in set(_EXECUTION_CONSISTENCY_STATUSES) - {"consistent", "not_applicable"} and isinstance(value, int)
+        )
+        if interesting > 0:
+            classes.append("execution_consistency_checks")
+    bypass_counts = evidence.get("non_bypass_status_counts")
+    if isinstance(bypass_counts, Mapping):
+        interesting = sum(
+            int(value)
+            for key, value in bypass_counts.items()
+            if isinstance(key, str) and key in _NON_BYPASS_BLOCKING_STATUSES and isinstance(value, int)
+        )
+        if interesting > 0:
+            classes.append("non_bypass_checks")
+    return classes
+
+
+def _trust_degradation_records(
+    *,
+    trust_posture: Mapping[str, Any],
+    scope_id: str,
+    mode: str,
+    generated_at: str,
+    run_id: str,
+) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for posture_view in _TRUST_DEGRADATION_POSTURE_VIEWS:
+        view_payload = trust_posture.get(posture_view)
+        if not isinstance(view_payload, Mapping):
+            continue
+        domains = view_payload.get("domains")
+        if not isinstance(domains, Mapping):
+            continue
+        for domain_id in _COVERED_DOMAIN_ORDER:
+            domain_payload = domains.get(domain_id)
+            if not isinstance(domain_payload, Mapping):
+                continue
+            posture = str(domain_payload.get("posture") or "not_applicable")
+            if posture in {"trusted", "not_applicable"}:
+                continue
+            evidence_classes = _contributing_evidence_classes(domain_payload)
+            record = {
+                "schema": _TRUST_DEGRADATION_SCHEMA,
+                "schema_version": _TRUST_DEGRADATION_SCHEMA_VERSION,
+                "covered_scope_id": scope_id,
+                "covered_domain_id": domain_id,
+                "posture": posture,
+                "posture_view": posture_view,
+                "blocking_state": _derive_blocking_state(posture=posture),
+                "mode": mode,
+                "contributing_evidence_classes": evidence_classes,
+                "correlation_relevance": {
+                    "applicable": bool(domain_payload.get("applicable", False)),
+                },
+                "evaluation_run_id": run_id,
+                "evaluated_at": generated_at,
+            }
+            records.append(record)
+    return records
+
+
+def _append_trust_degradation_ledger(*, ledger_path: Path, records: list[dict[str, Any]]) -> None:
+    if not records:
+        return
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def _summarize_trust_degradation(*, ledger_path: Path, records: list[dict[str, Any]]) -> dict[str, Any]:
+    by_posture: dict[str, int] = {}
+    by_evidence_class: dict[str, int] = {}
+    by_blocking_state: dict[str, int] = {state: 0 for state in _TRUST_DEGRADATION_BLOCKING_STATES}
+    for record in records:
+        posture = str(record.get("posture") or "")
+        if posture:
+            by_posture[posture] = by_posture.get(posture, 0) + 1
+        blocking_state = str(record.get("blocking_state") or "none")
+        by_blocking_state[blocking_state] = by_blocking_state.get(blocking_state, 0) + 1
+        evidence_classes = record.get("contributing_evidence_classes")
+        if isinstance(evidence_classes, list):
+            for cls in evidence_classes:
+                if isinstance(cls, str):
+                    by_evidence_class[cls] = by_evidence_class.get(cls, 0) + 1
+    return {
+        "schema": _TRUST_DEGRADATION_SCHEMA,
+        "schema_version": _TRUST_DEGRADATION_SCHEMA_VERSION,
+        "ledger_path": str(ledger_path),
+        "posture_view_vocabulary": list(_TRUST_DEGRADATION_POSTURE_VIEWS),
+        "blocking_state_vocabulary": list(_TRUST_DEGRADATION_BLOCKING_STATES),
+        "emitted_record_count": len(records),
+        "records_emitted": bool(records),
+        "counts_by_posture": by_posture,
+        "counts_by_evidence_class": by_evidence_class,
+        "counts_by_blocking_state": by_blocking_state,
+    }
+
+
 def verify_kernel_admission_provenance(
     *,
     repo_root: Path,
@@ -482,6 +625,7 @@ def verify_kernel_admission_provenance(
     mode: str | None = None,
     non_bypass_model: Mapping[str, Any] | None = None,
     change_relevant_domains: set[str] | None = None,
+    trust_degradation_ledger_path: Path | None = None,
 ) -> dict[str, object]:
     resolved_mode = "strict" if strict else (mode or "baseline-aware")
     if resolved_mode not in {"baseline-aware", "forward-enforcement", "strict"}:
@@ -1006,6 +1150,18 @@ def verify_kernel_admission_provenance(
         covered_relevance_domains=relevant_domains,
         change_relevant_domains=change_relevant_domains,
     )
+    generated_at = _iso_now()
+    run_id = _run_identity(resolved_mode, generated_at)
+    ledger_path = (trust_degradation_ledger_path or (root / _TRUST_DEGRADATION_LEDGER_RELATIVE_PATH)).resolve()
+    degradation_records = _trust_degradation_records(
+        trust_posture=trust_posture,
+        scope_id=_COVERED_SCOPE,
+        mode=resolved_mode,
+        generated_at=generated_at,
+        run_id=run_id,
+    )
+    _append_trust_degradation_ledger(ledger_path=ledger_path, records=degradation_records)
+    degradation_summary = _summarize_trust_degradation(ledger_path=ledger_path, records=degradation_records)
 
     if strict_mode:
         blocking_issues = list(issues)
@@ -1101,6 +1257,7 @@ def verify_kernel_admission_provenance(
             "model_version": str(resolved_non_bypass_model.get("model_version") or ""),
         },
         "trust_posture": trust_posture,
+        "trust_degradation_ledger": degradation_summary,
     }
 
     return {
@@ -1121,6 +1278,8 @@ def verify_kernel_admission_provenance(
         "non_bypass_checks": non_bypass_checks,
         "non_bypass_status_counts": non_bypass_status_counts,
         "trust_posture": trust_posture,
+        "trust_degradation_records": degradation_records,
+        "trust_degradation_ledger": degradation_summary,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),

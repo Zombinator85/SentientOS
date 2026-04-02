@@ -307,6 +307,7 @@ def classify_result(
             "execution_consistency": summary.get("execution_consistency", {}),
             "non_bypass": summary.get("non_bypass", {}),
             "trust_posture": summary.get("trust_posture", {}),
+            "trust_degradation_ledger": summary.get("trust_degradation_ledger", {}),
             "fresh_bypass_candidate_present": bool(
                 (summary.get("non_bypass") or {}).get("fresh_violation_count", 0)
             ),
@@ -499,6 +500,10 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
     protected_mutation_status: dict[str, str] = {}
     protected_intent_status_by_profile: dict[str, dict[str, int]] = {}
     protected_mutation_trust_posture_by_profile: dict[str, dict[str, Any]] = {}
+    trust_degradation_by_profile: dict[str, dict[str, Any]] = {}
+    trust_degradation_counts_by_posture: dict[str, int] = {}
+    trust_degradation_counts_by_evidence_class: dict[str, int] = {}
+    trust_degradation_ledger_paths: dict[str, str] = {}
     for profile in profiles:
         summary = profile.get("summary") if isinstance(profile, dict) else {}
         profile_name = str(profile.get("profile"))
@@ -546,6 +551,26 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                 trust = relevance.get("trust_posture")
                 if isinstance(trust, dict):
                     protected_mutation_trust_posture_by_profile[profile_name] = trust
+                degradation = relevance.get("trust_degradation_ledger")
+                if isinstance(degradation, dict):
+                    trust_degradation_by_profile[profile_name] = degradation
+                    ledger_path = degradation.get("ledger_path")
+                    if isinstance(ledger_path, str) and ledger_path:
+                        trust_degradation_ledger_paths[profile_name] = ledger_path
+                    posture_counts = degradation.get("counts_by_posture")
+                    if isinstance(posture_counts, dict):
+                        for key, value in posture_counts.items():
+                            if isinstance(key, str) and isinstance(value, int):
+                                trust_degradation_counts_by_posture[key] = (
+                                    trust_degradation_counts_by_posture.get(key, 0) + value
+                                )
+                    evidence_counts = degradation.get("counts_by_evidence_class")
+                    if isinstance(evidence_counts, dict):
+                        for key, value in evidence_counts.items():
+                            if isinstance(key, str) and isinstance(value, int):
+                                trust_degradation_counts_by_evidence_class[key] = (
+                                    trust_degradation_counts_by_evidence_class.get(key, 0) + value
+                                )
 
     blocking_profiles = sorted(set(blocking_profiles))
     advisory_profiles = sorted(set(advisory_profiles))
@@ -573,6 +598,15 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "protected_mutation_forward_enforcement_status_by_profile": protected_mutation_status,
         "protected_intent_status_by_profile": protected_intent_status_by_profile,
         "protected_mutation_trust_posture_by_profile": protected_mutation_trust_posture_by_profile,
+        "trust_degradation_ledger": {
+            "records_emitted": any(
+                bool(item.get("records_emitted", False)) for item in trust_degradation_by_profile.values() if isinstance(item, dict)
+            ),
+            "by_profile": trust_degradation_by_profile,
+            "counts_by_posture": trust_degradation_counts_by_posture,
+            "counts_by_evidence_class": trust_degradation_counts_by_evidence_class,
+            "ledger_path_by_profile": trust_degradation_ledger_paths,
+        },
     }
 
 
