@@ -9,6 +9,7 @@ from sentientos.audit_chain_gate import maybe_verify_audit_chain
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
 from sentientos.doctrine_identity import verify_doctrine_identity
 from sentientos.protected_mutation_provenance import build_admission_provenance
+from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.integrity_incident import build_base_context, build_incident
@@ -141,6 +142,12 @@ def main(argv: list[str] | None = None) -> int:
                 "incident_id": quarantine.last_incident_id,
                 "override": override,
                 "requested_by": "scripts/quarantine_clear.py",
+                "protected_mutation_intent": declare_protected_mutation_intent(
+                    domains=("quarantine_clear_privileged_operator_action",),
+                    authority_classes=(AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,),
+                    invocation_path="scripts.quarantine_clear.main",
+                    expect_forward_enforcement=True,
+                ),
             },
         )
     )

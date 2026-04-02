@@ -10,6 +10,7 @@ from sentientos.protected_mutation_provenance import (
     REQUIRED_ALLOW_FIELDS,
     REQUIRED_NON_EXECUTION_FIELDS,
 )
+from sentientos.protected_mutation_intent import evaluate_declared_intent_for_decision
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ _COVERED_ALLOW_ACTIONS = {
 _LEGACY_ISSUE_CATEGORIES = frozenset({"legacy_missing_admission_link"})
 _COVERED_SCOPE = "protected_mutation_proof:v1:kernel_admission"
 _FORWARD_BLOCKING_CLASSES = frozenset({"fresh_regression", "malformed_current_contract", "active_contradiction"})
+_INTENT_MISMATCH_STATUSES = frozenset({"declared_but_mismatched", "undeclared_but_protected_action"})
 
 
 def _enforcement_class_for_category(category: str) -> str:
@@ -148,6 +150,37 @@ def verify_kernel_admission_provenance(
                             enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                         )
                     )
+
+    intent_checks: list[dict[str, object]] = []
+    for row in decision_rows:
+        if not isinstance(row, Mapping):
+            continue
+        eval_result = evaluate_declared_intent_for_decision(row)
+        item = {
+            "correlation_id": str(row.get("correlation_id") or ""),
+            "action_kind": str(row.get("action_kind") or ""),
+            "authority_class": str(row.get("authority_class") or ""),
+            "actor": str(row.get("actor") or row.get("execution_owner") or ""),
+            **eval_result.to_dict(),
+        }
+        intent_checks.append(item)
+        if eval_result.status in _INTENT_MISMATCH_STATUSES:
+            issues.append(
+                VerificationIssue(
+                    code=f"protected_intent_{eval_result.status}",
+                    detail=json.dumps(
+                        {
+                            "correlation_id": item["correlation_id"],
+                            "action_kind": item["action_kind"],
+                            "declared_domains": item["declared_domains"],
+                            "expected_domains": item["expected_domains"],
+                        },
+                        sort_keys=True,
+                    ),
+                    category="malformed_current_contract",
+                    enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
+                )
+            )
 
     def _require_allow_link(*, correlation_id: str, action_kind: str, source: str) -> None:
         candidates = decisions_by_correlation.get(correlation_id, [])
@@ -410,9 +443,15 @@ def verify_kernel_admission_provenance(
         blocking_issues = [issue for issue in issues if issue.enforcement_class in _FORWARD_BLOCKING_CLASSES]
     category_counts: dict[str, int] = {}
     enforcement_counts: dict[str, int] = {}
+    intent_status_counts: dict[str, int] = {}
     for issue in issues:
         category_counts[issue.category] = category_counts.get(issue.category, 0) + 1
         enforcement_counts[issue.enforcement_class] = enforcement_counts.get(issue.enforcement_class, 0) + 1
+    for check in intent_checks:
+        status = str(check.get("status") or "unknown")
+        intent_status_counts[status] = intent_status_counts.get(status, 0) + 1
+    requires_forward = any(bool(item.get("expect_forward_enforcement")) for item in intent_checks if bool(item.get("declared")))
+    forward_expectation_met = (resolved_mode in {"forward-enforcement", "strict"}) if requires_forward else True
     has_current_contract_violations = any(issue.category not in _LEGACY_ISSUE_CATEGORIES for issue in issues)
     has_only_legacy_issues = bool(issues) and not has_current_contract_violations
     if not issues:
@@ -430,6 +469,7 @@ def verify_kernel_admission_provenance(
             "legacy_issue_count": len([issue for issue in issues if issue.category in _LEGACY_ISSUE_CATEGORIES]),
             "classification": category_counts,
             "enforcement_classification": enforcement_counts,
+            "intent_status_classification": intent_status_counts,
         },
         "overall_status": overall_status,
         "has_current_contract_violations": has_current_contract_violations,
@@ -439,6 +479,18 @@ def verify_kernel_admission_provenance(
         "malformed_current_contract_count": enforcement_counts.get("malformed_current_contract", 0),
         "active_contradiction_count": enforcement_counts.get("active_contradiction", 0),
         "ok": not blocking_issues,
+        "protected_intent": {
+            "declared_count": len([item for item in intent_checks if bool(item.get("declared"))]),
+            "requires_forward_enforcement": requires_forward,
+            "forward_enforcement_expectation_met": forward_expectation_met,
+            "status_vocabulary": [
+                "declared_and_consistent",
+                "declared_but_mismatched",
+                "undeclared_but_protected_action",
+                "declared_but_not_applicable",
+                "not_applicable",
+            ],
+        },
     }
 
     return {
@@ -451,6 +503,8 @@ def verify_kernel_admission_provenance(
         "blocking_issues": [issue.to_dict() for issue in blocking_issues],
         "category_counts": category_counts,
         "enforcement_class_counts": enforcement_counts,
+        "protected_intent_checks": intent_checks,
+        "protected_intent_status_counts": intent_status_counts,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),

@@ -9,6 +9,8 @@ from scripts import generate_immutable_manifest
 
 
 def test_manifest_generation_records_admission_linkage(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    captured_request = {}
+
     class _Decision:
         allowed = True
         reason_codes = ("admitted",)
@@ -31,6 +33,7 @@ def test_manifest_generation_records_admission_linkage(monkeypatch, tmp_path: Pa
             return None
 
         def admit(self, request):  # noqa: ANN001
+            captured_request["request"] = request
             return _Decision()
 
     monkeypatch.chdir(tmp_path)
@@ -50,6 +53,10 @@ def test_manifest_generation_records_admission_linkage(monkeypatch, tmp_path: Pa
     assert payload["admission"]["correlation_id"] == "manifest-allow"
     assert payload["admission"]["admission_decision_ref"] == "kernel_decision:manifest-allow"
     assert payload["admission"]["execution_owner"] == "operator_cli"
+    request = captured_request["request"]
+    intent = request.metadata["protected_mutation_intent"]
+    assert intent["domains"] == ["immutable_manifest_identity_writes"]
+    assert intent["authority_classes"] == ["manifest_or_identity_mutation"]
 
 
 def test_manifest_generation_blocked_when_kernel_denies(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]

@@ -195,7 +195,18 @@ def test_run_validation_emits_corridor_relevance_and_status_vocab(monkeypatch, t
 
     def fake_run(command: tuple[str, ...], env: dict[str, str]) -> tuple[int, str]:
         if "verify_kernel_admission_provenance.py" in command:
-            return 0, json.dumps({"mode": "forward-enforcement", "overall_status": "legacy_only"})
+            return 0, json.dumps(
+                {
+                    "mode": "forward-enforcement",
+                    "overall_status": "legacy_only",
+                    "protected_intent": {
+                        "declared_count": 1,
+                        "requires_forward_enforcement": True,
+                        "forward_enforcement_expectation_met": True,
+                    },
+                    "counts": {"intent_status_classification": {"declared_and_consistent": 1}},
+                }
+            )
         return 0, ""
 
     monkeypatch.setattr(protected_corridor, "_run_command", fake_run)
@@ -214,6 +225,11 @@ def test_run_validation_emits_corridor_relevance_and_status_vocab(monkeypatch, t
         "forward_clean",
         "forward_violation_present",
         "strict_violation_present",
+        "declared_and_consistent",
+        "declared_but_mismatched",
+        "undeclared_but_protected_action",
+        "declared_but_not_applicable",
     ]
     check = next(item for item in report["profiles"][0]["checks"] if item["name"] == "protected_mutation_forward_enforcement")
     assert check["relevance"]["forward_enforcement_status"] == "legacy_only"
+    assert check["relevance"]["protected_intent_status_counts"]["declared_and_consistent"] == 1

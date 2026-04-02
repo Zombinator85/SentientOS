@@ -108,6 +108,8 @@ def test_quarantine_clear_override_records_docket(monkeypatch, tmp_path: Path) -
 
 
 def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
+    captured_request = {}
+
     class _Decision:
         allowed = False
         reason_codes = ("runtime_governor:control_plane_budget_exceeded",)
@@ -127,6 +129,7 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
             return None
 
         def admit(self, request):  # noqa: ANN001
+            captured_request["request"] = request
             return _Decision()
 
     monkeypatch.chdir(tmp_path)
@@ -142,6 +145,10 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
     denied = [event for event in events if event.get("event") == "kernel_admission_denied"]
     assert denied
     assert denied[-1]["correlation_id"] == "cp-1"
+    request = captured_request["request"]
+    intent = request.metadata["protected_mutation_intent"]
+    assert intent["domains"] == ["quarantine_clear_privileged_operator_action"]
+    assert intent["authority_classes"] == ["privileged_operator_control"]
 
 
 def test_incident_pack_linkage_deterministic(tmp_path: Path) -> None:

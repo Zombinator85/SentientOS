@@ -49,6 +49,7 @@ from sentientos.control_plane_kernel import (
     get_control_plane_kernel,
 )
 from sentientos.protected_mutation_provenance import validate_admission_provenance
+from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.integrity_pressure import compute_integrity_pressure
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
@@ -940,6 +941,12 @@ class GenesisForge:
                             "proposal_id": proposal.proposal_id,
                             "spec_id": proposal.spec_id,
                             "capability": need.capability,
+                            "protected_mutation_intent": declare_protected_mutation_intent(
+                                domains=("genesisforge_lineage_proposal_adoption",),
+                                authority_classes=(AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,),
+                                invocation_path="sentientos.genesis_forge.GenesisForge.birth",
+                                expect_forward_enforcement=True,
+                            ),
                         },
                     ),
                     execute=lambda: self._spec_binder.integrate(
@@ -973,6 +980,12 @@ class GenesisForge:
                             "proposal_id": proposal.proposal_id,
                             "spec_id": proposal.spec_id,
                             "capability": need.capability,
+                            "protected_mutation_intent": declare_protected_mutation_intent(
+                                domains=("genesisforge_lineage_proposal_adoption",),
+                                authority_classes=(AuthorityClass.PROPOSAL_ADOPTION.value,),
+                                invocation_path="sentientos.genesis_forge.GenesisForge.birth",
+                                expect_forward_enforcement=True,
+                            ),
                         },
                     ),
                     execute=lambda: self._adoption_rite.promote(

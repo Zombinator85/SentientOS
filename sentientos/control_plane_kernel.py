@@ -80,6 +80,7 @@ class ControlActionDecision:
     def to_dict(self) -> dict[str, Any]:
         federation_context = self.delegated_outcomes.get("federation_context")
         proof_budget_context = self.delegated_outcomes.get("proof_budget_context")
+        protected_intent = self.delegated_outcomes.get("protected_mutation_intent")
         return {
             "event_type": "control_plane_decision",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -99,6 +100,7 @@ class ControlActionDecision:
             "delegated_outcomes": dict(self.delegated_outcomes),
             "federation_context": dict(federation_context) if isinstance(federation_context, Mapping) else None,
             "proof_budget_context": dict(proof_budget_context) if isinstance(proof_budget_context, Mapping) else None,
+            "protected_mutation_intent": dict(protected_intent) if isinstance(protected_intent, Mapping) else None,
             "correlation_id": self.correlation_id,
             "admission_decision_ref": self.admission_decision_ref,
         }
@@ -200,6 +202,9 @@ class ControlPlaneKernel:
                 return self._finalize(request, AdmissionOutcome.DEFER, reasons, delegated, correlation_id=correlation_id)
 
         denial = str(request.metadata.get("federated_denial_cause") or "")
+        protected_intent = request.metadata.get("protected_mutation_intent")
+        if isinstance(protected_intent, Mapping):
+            delegated["protected_mutation_intent"] = dict(protected_intent)
         if request.authority_class == AuthorityClass.FEDERATED_CONTROL:
             delegated["federation_context"] = {
                 "federation_origin": request.federation_origin,

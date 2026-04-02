@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
+from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.protected_mutation_provenance import build_admission_provenance, validate_admission_provenance
 
 DEFAULT_MANIFEST = Path("vow/immutable_manifest.json")
@@ -118,6 +119,12 @@ def main(argv: list[str] | None = None) -> int:
             metadata={
                 "requested_by": "scripts/generate_immutable_manifest.py",
                 "correlation_id": f"manifest:{Path(args.manifest).as_posix()}",
+                "protected_mutation_intent": declare_protected_mutation_intent(
+                    domains=("immutable_manifest_identity_writes",),
+                    authority_classes=(AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,),
+                    invocation_path="scripts.generate_immutable_manifest.main",
+                    expect_forward_enforcement=True,
+                ),
             },
         )
     )
