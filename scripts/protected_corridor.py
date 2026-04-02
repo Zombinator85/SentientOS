@@ -301,6 +301,8 @@ def classify_result(
             "forward_enforcement_ran": True,
             "forward_enforcement_status": proof_status,
             "verifier_overall_status": overall,
+            "protected_intent": summary.get("protected_intent", {}),
+            "protected_intent_status_counts": summary.get("counts", {}).get("intent_status_classification", {}),
         }
         if not is_relevant:
             note = "Forward-enforcement remains visible but is non-blocking when touched paths do not intersect the covered protected-mutation corridor."
@@ -446,6 +448,7 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
     not_applicable_profiles: list[str] = []
     deferred_debt: dict[str, dict[str, Any]] = {}
     protected_mutation_status: dict[str, str] = {}
+    protected_intent_status_by_profile: dict[str, dict[str, int]] = {}
     for profile in profiles:
         summary = profile.get("summary") if isinstance(profile, dict) else {}
         profile_name = str(profile.get("profile"))
@@ -483,6 +486,13 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                 state = relevance.get("forward_enforcement_status")
                 if isinstance(state, str):
                     protected_mutation_status[profile_name] = state
+                status_counts = relevance.get("protected_intent_status_counts")
+                if isinstance(status_counts, dict):
+                    protected_intent_status_by_profile[profile_name] = {
+                        str(key): int(value)
+                        for key, value in status_counts.items()
+                        if isinstance(key, str) and isinstance(value, int)
+                    }
 
     blocking_profiles = sorted(set(blocking_profiles))
     advisory_profiles = sorted(set(advisory_profiles))
@@ -508,6 +518,7 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "corridor_blocking": bool(blocking_profiles),
         "deferred_debt_outside_corridor": sorted(deferred_debt.values(), key=lambda item: item["name"]),
         "protected_mutation_forward_enforcement_status_by_profile": protected_mutation_status,
+        "protected_intent_status_by_profile": protected_intent_status_by_profile,
     }
 
 
@@ -569,6 +580,10 @@ def run_validation(
                 "forward_clean",
                 "forward_violation_present",
                 "strict_violation_present",
+                "declared_and_consistent",
+                "declared_but_mismatched",
+                "undeclared_but_protected_action",
+                "declared_but_not_applicable",
             ],
         },
         "profiles": profile_reports,

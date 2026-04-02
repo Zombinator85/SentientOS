@@ -21,6 +21,7 @@ from sentientos.control_plane_kernel import (
     get_control_plane_kernel,
 )
 from sentientos.protected_mutation_provenance import build_admission_provenance
+from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.repair_outcome import verify_repair_outcome
 
 
@@ -607,6 +608,12 @@ class CodexHealer:
                 "subject": anomaly.subject,
                 "action_kind": action.kind,
                 "auto_adopt": action.auto_adopt,
+                "protected_mutation_intent": declare_protected_mutation_intent(
+                    domains=("codexhealer_repair_regenesis_linkage",),
+                    authority_classes=(AuthorityClass.REPAIR.value,),
+                    invocation_path="sentientos.codex_healer.CodexHealer.auto_repair",
+                    expect_forward_enforcement=True,
+                ),
             },
         )
         kernel_decision = kernel.admit(request)

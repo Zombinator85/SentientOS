@@ -7,14 +7,48 @@ from sentientos.kernel_admission_provenance import verify_kernel_admission_prove
 
 
 def _decision(*, correlation_id: str, action_kind: str, final_disposition: str = "allow") -> dict[str, object]:
+    intent_by_action = {
+        "lineage_integrate": {
+            "domains": ["genesisforge_lineage_proposal_adoption"],
+            "authority_classes": ["manifest_or_identity_mutation"],
+        },
+        "proposal_adopt": {
+            "domains": ["genesisforge_lineage_proposal_adoption"],
+            "authority_classes": ["proposal_adoption"],
+        },
+        "generate_immutable_manifest": {
+            "domains": ["immutable_manifest_identity_writes"],
+            "authority_classes": ["manifest_or_identity_mutation"],
+        },
+        "quarantine_clear": {
+            "domains": ["quarantine_clear_privileged_operator_action"],
+            "authority_classes": ["privileged_operator_control"],
+        },
+    }
+    authority_by_action = {
+        "lineage_integrate": "manifest_or_identity_mutation",
+        "proposal_adopt": "proposal_adoption",
+        "generate_immutable_manifest": "manifest_or_identity_mutation",
+        "quarantine_clear": "privileged_operator_control",
+    }
     payload: dict[str, object] = {
         "correlation_id": correlation_id,
         "admission_decision_ref": f"kernel_decision:{correlation_id}",
         "action_kind": action_kind,
-        "authority_class": "test_authority",
+        "authority_class": authority_by_action.get(action_kind, "test_authority"),
         "lifecycle_phase": "maintenance",
         "final_disposition": final_disposition,
     }
+    intent = intent_by_action.get(action_kind)
+    if intent is not None:
+        payload["protected_mutation_intent"] = {
+            "schema_version": 1,
+            "declared": True,
+            "domains": intent["domains"],
+            "authority_classes": intent["authority_classes"],
+            "expect_forward_enforcement": True,
+            "invocation_path": "tests",
+        }
     if final_disposition == "allow":
         payload["execution_owner"] = "tester"
     return payload
@@ -123,6 +157,8 @@ def test_verify_kernel_admission_provenance_happy_path(tmp_path: Path) -> None:
 
     payload = verify_kernel_admission_provenance(repo_root=tmp_path)
     assert payload["ok"] is True
+    status_counts = payload["protected_intent_status_counts"]  # type: ignore[index]
+    assert status_counts["declared_and_consistent"] >= 3
 
 
 def test_verify_kernel_admission_provenance_detects_correlation_collision(tmp_path: Path) -> None:
@@ -152,6 +188,78 @@ def test_verify_kernel_admission_provenance_detects_missing_required_allow_field
     payload = verify_kernel_admission_provenance(repo_root=tmp_path)
     issue_codes = {item["code"] for item in payload["issues"]}  # type: ignore[index]
     assert "decision_missing_required_allow_fields" in issue_codes
+
+
+def test_verify_kernel_admission_provenance_reports_undeclared_protected_action(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            "correlation_id": "manifest-1",
+            "admission_decision_ref": "kernel_decision:manifest-1",
+            "action_kind": "generate_immutable_manifest",
+            "authority_class": "manifest_or_identity_mutation",
+            "lifecycle_phase": "maintenance",
+            "final_disposition": "allow",
+            "execution_owner": "operator_cli",
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    statuses = payload["protected_intent_status_counts"]  # type: ignore[index]
+    assert statuses["undeclared_but_protected_action"] == 1
+    issue_codes = {item["code"] for item in payload["issues"]}  # type: ignore[index]
+    assert "protected_intent_undeclared_but_protected_action" in issue_codes
+
+
+def test_verify_kernel_admission_provenance_reports_mismatched_declared_domain(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            "correlation_id": "manifest-1",
+            "admission_decision_ref": "kernel_decision:manifest-1",
+            "action_kind": "generate_immutable_manifest",
+            "authority_class": "manifest_or_identity_mutation",
+            "lifecycle_phase": "maintenance",
+            "final_disposition": "allow",
+            "execution_owner": "operator_cli",
+            "protected_mutation_intent": {
+                "schema_version": 1,
+                "declared": True,
+                "domains": ["genesisforge_lineage_proposal_adoption"],
+                "authority_classes": ["manifest_or_identity_mutation"],
+                "expect_forward_enforcement": True,
+                "invocation_path": "tests",
+            },
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    statuses = payload["protected_intent_status_counts"]  # type: ignore[index]
+    assert statuses["declared_but_mismatched"] == 1
+
+
+def test_verify_kernel_admission_provenance_reports_declared_not_applicable(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            "correlation_id": "obs-1",
+            "admission_decision_ref": "kernel_decision:obs-1",
+            "action_kind": "view_status",
+            "authority_class": "observation",
+            "lifecycle_phase": "runtime",
+            "final_disposition": "allow",
+            "execution_owner": "operator_cli",
+            "protected_mutation_intent": {
+                "schema_version": 1,
+                "declared": True,
+                "domains": ["immutable_manifest_identity_writes"],
+                "authority_classes": ["observation"],
+                "expect_forward_enforcement": True,
+                "invocation_path": "tests",
+            },
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path)
+    statuses = payload["protected_intent_status_counts"]  # type: ignore[index]
+    assert statuses["declared_but_not_applicable"] == 1
 
 
 def test_verify_kernel_admission_provenance_detects_malformed_linkage(tmp_path: Path) -> None:

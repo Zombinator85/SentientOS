@@ -105,6 +105,24 @@ Scope reminder: this status covers only the protected mutation surfaces listed a
   - forward-enforcement: blocks fresh/current covered violations when the touched surface intersects the covered corridor.
   - strict mode: still enforces all covered-scope debt/violations when invoked; corridor relevance does not weaken strict semantics.
 
+## Protected intent declaration (covered corridor only)
+
+- Covered invocation paths now declare `protected_mutation_intent` at request time (not after-the-fact only):
+  - `scripts/generate_immutable_manifest.py` (`generate_immutable_manifest`)
+  - `scripts/quarantine_clear.py` (`quarantine_clear`)
+  - `sentientos/genesis_forge.py` (`lineage_integrate` / `proposal_adopt`)
+  - `sentientos/codex_healer.py` (repair/regenesis-linked `AuthorityClass.REPAIR` control path)
+- Verifier intent statuses are machine-readable and narrow:
+  - `declared_and_consistent`
+  - `declared_but_mismatched`
+  - `undeclared_but_protected_action`
+  - `declared_but_not_applicable`
+  - `not_applicable`
+- Intent declaration is invocation discipline only:
+  - does **not** replace kernel admission or fail-closed boundaries,
+  - does **not** widen protected coverage beyond current corridor domains,
+  - does **not** weaken forward-enforcement or strict mode.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.
