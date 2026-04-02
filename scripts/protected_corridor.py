@@ -306,6 +306,7 @@ def classify_result(
             "protected_intent_status_counts": summary.get("counts", {}).get("intent_status_classification", {}),
             "execution_consistency": summary.get("execution_consistency", {}),
             "non_bypass": summary.get("non_bypass", {}),
+            "trust_posture": summary.get("trust_posture", {}),
             "fresh_bypass_candidate_present": bool(
                 (summary.get("non_bypass") or {}).get("fresh_violation_count", 0)
             ),
@@ -313,6 +314,45 @@ def classify_result(
                 (summary.get("non_bypass") or {}).get("fresh_violation_blocking_in_mode", False)
             ),
         }
+        trust = relevance_payload.get("trust_posture")
+        if isinstance(trust, dict):
+            current_surface = trust.get("current_change_surface")
+            if not isinstance(current_surface, dict):
+                global_scope = trust.get("global_covered_scope")
+                if isinstance(global_scope, dict):
+                    implicated = set((protected_mutation_relevance or {}).get("implicated_domains", []))
+                    domains = global_scope.get("domains")
+                    if isinstance(domains, dict):
+                        change_domains: dict[str, Any] = {}
+                        posture_counts: dict[str, int] = {}
+                        for domain_name, domain_payload in domains.items():
+                            if not isinstance(domain_payload, dict):
+                                continue
+                            applicable = domain_name in implicated
+                            entry = dict(domain_payload)
+                            entry["applicable"] = applicable
+                            if not applicable:
+                                entry["posture"] = "not_applicable"
+                            posture = str(entry.get("posture") or "not_applicable")
+                            posture_counts[posture] = posture_counts.get(posture, 0) + 1
+                            change_domains[str(domain_name)] = entry
+                        if posture_counts.get("forward_risk_present", 0):
+                            overall_posture = "forward_risk_present"
+                        elif posture_counts.get("strict_failure_present", 0):
+                            overall_posture = "strict_failure_present"
+                        elif posture_counts.get("evidence_incomplete", 0):
+                            overall_posture = "evidence_incomplete"
+                        elif posture_counts.get("legacy_only", 0):
+                            overall_posture = "legacy_only"
+                        elif posture_counts.get("trusted", 0):
+                            overall_posture = "trusted"
+                        else:
+                            overall_posture = "not_applicable"
+                        trust["current_change_surface"] = {
+                            "overall_posture": overall_posture,
+                            "posture_counts": posture_counts,
+                            "domains": change_domains,
+                        }
         if not is_relevant:
             note = "Forward-enforcement remains visible but is non-blocking when touched paths do not intersect the covered protected-mutation corridor."
             return CheckResult(
@@ -458,6 +498,7 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
     deferred_debt: dict[str, dict[str, Any]] = {}
     protected_mutation_status: dict[str, str] = {}
     protected_intent_status_by_profile: dict[str, dict[str, int]] = {}
+    protected_mutation_trust_posture_by_profile: dict[str, dict[str, Any]] = {}
     for profile in profiles:
         summary = profile.get("summary") if isinstance(profile, dict) else {}
         profile_name = str(profile.get("profile"))
@@ -502,6 +543,9 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                         for key, value in status_counts.items()
                         if isinstance(key, str) and isinstance(value, int)
                     }
+                trust = relevance.get("trust_posture")
+                if isinstance(trust, dict):
+                    protected_mutation_trust_posture_by_profile[profile_name] = trust
 
     blocking_profiles = sorted(set(blocking_profiles))
     advisory_profiles = sorted(set(advisory_profiles))
@@ -528,6 +572,7 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "deferred_debt_outside_corridor": sorted(deferred_debt.values(), key=lambda item: item["name"]),
         "protected_mutation_forward_enforcement_status_by_profile": protected_mutation_status,
         "protected_intent_status_by_profile": protected_intent_status_by_profile,
+        "protected_mutation_trust_posture_by_profile": protected_mutation_trust_posture_by_profile,
     }
 
 

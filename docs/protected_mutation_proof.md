@@ -180,6 +180,32 @@ Interaction rules remain strict:
 - strict mode remains at least as strict as forward-enforcement,
 - kernel admission + fail-closed provenance boundaries are not replaced.
 
+## Covered corridor trust posture (derived summary)
+
+Protected-mutation proof now emits a machine-readable **trust posture** per covered corridor domain. This is a derived summary layer built from existing evidence classes:
+
+- kernel-admission/provenance issue classifications,
+- protected-intent statuses,
+- execution-consistency statuses/outcomes,
+- scoped non-bypass statuses,
+- mode semantics (baseline-aware / forward-enforcement / strict).
+
+Status vocabulary is intentionally narrow and deterministic:
+
+- `trusted`
+- `legacy_only`
+- `forward_risk_present`
+- `strict_failure_present`
+- `not_applicable`
+- `evidence_incomplete`
+
+Two posture views are emitted and must be interpreted separately:
+
+- `global_covered_scope`: covered-scope health posture independent of current touched-path relevance.
+- `current_change_surface`: touched-path-local posture (`not_applicable` outside currently implicated covered domains).
+
+Trust posture does **not** replace detailed verifier output. It preserves domain evidence counts and references so operators can move from summary posture back to underlying evidence for audit/debug.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.
