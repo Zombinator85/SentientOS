@@ -102,6 +102,13 @@ CHECKS: tuple[CorridorCheck, ...] = (
         prerequisites=("editable_install", "test_runtime_imports"),
     ),
     CorridorCheck(
+        name="protected_mutation_forward_enforcement",
+        command=("python", "scripts/verify_kernel_admission_provenance.py", "--mode", "forward-enforcement", "--summary-only"),
+        blocking=True,
+        expected_relaxed="pass",
+        notes="Forward-enforcement for currently covered protected-mutation surfaces blocks fresh regressions without turning legacy debt into a global blocker.",
+    ),
+    CorridorCheck(
         name="contract_drift",
         command=("python", "scripts/contract_drift.py"),
         blocking=False,

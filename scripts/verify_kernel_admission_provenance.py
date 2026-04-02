@@ -15,11 +15,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--manifest-path", type=Path, default=None)
     parser.add_argument("--forge-events-path", type=Path, default=None)
     parser.add_argument("--repair-ledger-path", type=Path, default=None)
+    parser.add_argument(
+        "--mode",
+        choices=("baseline-aware", "forward-enforcement", "strict"),
+        default="baseline-aware",
+        help="enforcement mode (forward-enforcement blocks fresh regressions but not recognized legacy debt)",
+    )
+    parser.add_argument(
+        "--forward-enforcement",
+        action="store_true",
+        help="shorthand for --mode forward-enforcement",
+    )
     parser.add_argument("--strict", action="store_true", help="fail on legacy covered artifacts as well")
     parser.add_argument("--summary-json-out", type=Path, default=None, help="write compact machine-readable summary JSON")
     parser.add_argument("--summary-only", action="store_true", help="print only compact summary JSON")
     args = parser.parse_args(argv)
 
+    mode = "forward-enforcement" if args.forward_enforcement else args.mode
     payload = verify_kernel_admission_provenance(
         repo_root=args.repo_root,
         decisions_path=args.decisions_path,
@@ -28,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
         forge_events_path=args.forge_events_path,
         repair_ledger_path=args.repair_ledger_path,
         strict=args.strict,
+        mode=mode,
     )
     summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
     if args.summary_json_out is not None:

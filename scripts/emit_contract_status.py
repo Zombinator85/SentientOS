@@ -279,16 +279,34 @@ def _resolve_repo_root(output_path: Path) -> Path:
 
 def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[str, Any]:
     baseline_payload = verify_kernel_admission_provenance(repo_root=repo_root, strict=False)
+    forward_payload = verify_kernel_admission_provenance(repo_root=repo_root, mode="forward-enforcement")
     strict_payload = verify_kernel_admission_provenance(repo_root=repo_root, strict=True)
     baseline_summary = baseline_payload.get("summary") if isinstance(baseline_payload.get("summary"), dict) else {}
+    forward_summary = forward_payload.get("summary") if isinstance(forward_payload.get("summary"), dict) else {}
     strict_summary = strict_payload.get("summary") if isinstance(strict_payload.get("summary"), dict) else {}
     report_payload = {
         "schema_version": 1,
         "generated_at": _iso_now(),
         "git_sha": git_sha,
         "baseline_aware": baseline_summary,
+        "forward_enforcement": forward_summary,
         "strict": strict_summary,
         "scope_note": "Narrow protected-mutation proof surface only; not full-repo audit-chain coverage.",
+        "enforcement_ladder": {
+            "baseline_aware_reporting": {
+                "purpose": "operational visibility of current state for covered protected-mutation surfaces",
+                "blocks": "fresh regressions, malformed current-contract artifacts, and contradictions; does not block on recognized legacy debt",
+            },
+            "forward_enforcement": {
+                "purpose": "development/CI gate for covered-scope mutation paths",
+                "blocks": "fresh regressions, malformed linkage, and contradiction/collision signals in covered scope",
+            },
+            "strict": {
+                "purpose": "full covered-scope provenance enforcement",
+                "blocks": "all covered-scope issues including recognized legacy baseline debt",
+            },
+            "scope_limit": "limited to currently covered surfaces: lineage/proposal adoption, immutable manifest identity writes, quarantine clear, and integrated CodexHealer linkage",
+        },
     }
     proof_output = repo_root / DEFAULT_PROTECTED_MUTATION_PROOF_OUTPUT
     proof_output.parent.mkdir(parents=True, exist_ok=True)
@@ -325,11 +343,13 @@ def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[s
         "git_sha": git_sha,
         "covered_scope": baseline_summary.get("covered_scope"),
         "mode": baseline_summary.get("mode"),
+        "forward_enforcement_mode": forward_summary.get("mode"),
         "classification_counts": (
             baseline_summary.get("counts", {}).get("classification", {})
             if isinstance(baseline_summary.get("counts"), dict)
             else {}
         ),
+        "forward_enforcement_ok": bool(forward_summary.get("ok", False)),
         "has_current_contract_violations": has_current,
         "has_only_legacy_issues": has_only_legacy,
         "strict_ok": bool(strict_summary.get("ok", False)),

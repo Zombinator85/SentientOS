@@ -190,6 +190,21 @@ def test_verify_kernel_admission_provenance_summary_legacy_only_in_baseline_awar
     assert summary["counts"]["classification"]["legacy_missing_admission_link"] == 1
 
 
+def test_verify_kernel_admission_provenance_summary_legacy_only_in_forward_enforcement_mode(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "lineage/lineage.jsonl",
+        {"proposal_id": "legacy-lineage-entry-without-admission"},
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    summary = payload["summary"]  # type: ignore[index]
+    assert summary["mode"] == "forward-enforcement"
+    assert summary["overall_status"] == "legacy_only"
+    assert summary["has_only_legacy_issues"] is True
+    assert summary["ok"] is True
+    assert summary["legacy_debt_count"] == 1
+    assert summary["fresh_regression_count"] == 0
+
+
 def test_verify_kernel_admission_provenance_summary_legacy_only_is_blocking_in_strict_mode(tmp_path: Path) -> None:
     _append_jsonl(
         tmp_path / "lineage/lineage.jsonl",
@@ -202,6 +217,36 @@ def test_verify_kernel_admission_provenance_summary_legacy_only_is_blocking_in_s
     assert summary["has_only_legacy_issues"] is True
     assert summary["ok"] is False
     assert summary["counts"]["blocking_issue_count"] == 1
+
+
+def test_verify_kernel_admission_provenance_forward_enforcement_blocks_current_malformed(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        {
+            "correlation_id": "manifest-1",
+            "admission_decision_ref": "kernel_decision:manifest-1",
+            "action_kind": "generate_immutable_manifest",
+            "authority_class": "manifest_or_identity_mutation",
+            "lifecycle_phase": "maintenance",
+            "final_disposition": "allow",
+        },
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    summary = payload["summary"]  # type: ignore[index]
+    assert summary["mode"] == "forward-enforcement"
+    assert summary["ok"] is False
+    assert summary["malformed_current_contract_count"] >= 1
+    assert summary["active_contradiction_count"] == 0
+
+
+def test_verify_kernel_admission_provenance_forward_enforcement_blocks_active_contradictions(tmp_path: Path) -> None:
+    decisions = tmp_path / "glow/control_plane/kernel_decisions.jsonl"
+    _append_jsonl(decisions, _decision(correlation_id="dup", action_kind="lineage_integrate"))
+    _append_jsonl(decisions, _decision(correlation_id="dup", action_kind="proposal_adopt"))
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    summary = payload["summary"]  # type: ignore[index]
+    assert summary["ok"] is False
+    assert summary["active_contradiction_count"] == 1
 
 
 def test_verify_kernel_admission_provenance_summary_current_violation_present(tmp_path: Path) -> None:
@@ -223,3 +268,16 @@ def test_verify_kernel_admission_provenance_summary_current_violation_present(tm
     assert summary["has_only_legacy_issues"] is False
     assert summary["ok"] is False
     assert summary["counts"]["classification"]["malformed_current_contract"] == 1
+
+
+def test_verify_kernel_admission_provenance_strict_remains_stricter_than_forward(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "lineage/lineage.jsonl",
+        {"proposal_id": "legacy-lineage-entry-without-admission"},
+    )
+    forward_payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    strict_payload = verify_kernel_admission_provenance(repo_root=tmp_path, strict=True)
+    assert forward_payload["ok"] is True
+    assert strict_payload["ok"] is False
+    issue = forward_payload["issues"][0]  # type: ignore[index]
+    assert issue["enforcement_class"] == "legacy_debt"

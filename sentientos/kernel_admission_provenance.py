@@ -17,9 +17,15 @@ class VerificationIssue:
     code: str
     detail: str
     category: str
+    enforcement_class: str
 
     def to_dict(self) -> dict[str, str]:
-        return {"code": self.code, "detail": self.detail, "category": self.category}
+        return {
+            "code": self.code,
+            "detail": self.detail,
+            "category": self.category,
+            "enforcement_class": self.enforcement_class,
+        }
 
 
 _COVERED_ALLOW_ACTIONS = {
@@ -30,6 +36,17 @@ _COVERED_ALLOW_ACTIONS = {
 }
 _LEGACY_ISSUE_CATEGORIES = frozenset({"legacy_missing_admission_link"})
 _COVERED_SCOPE = "protected_mutation_proof:v1:kernel_admission"
+_FORWARD_BLOCKING_CLASSES = frozenset({"fresh_regression", "malformed_current_contract", "active_contradiction"})
+
+
+def _enforcement_class_for_category(category: str) -> str:
+    if category == "legacy_missing_admission_link":
+        return "legacy_debt"
+    if category == "malformed_current_contract":
+        return "malformed_current_contract"
+    if category == "unexpected_collision":
+        return "active_contradiction"
+    return "fresh_regression"
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -83,7 +100,13 @@ def verify_kernel_admission_provenance(
     forge_events_path: Path | None = None,
     repair_ledger_path: Path | None = None,
     strict: bool = False,
+    mode: str | None = None,
 ) -> dict[str, object]:
+    resolved_mode = "strict" if strict else (mode or "baseline-aware")
+    if resolved_mode not in {"baseline-aware", "forward-enforcement", "strict"}:
+        raise ValueError(f"unsupported mode: {resolved_mode}")
+    strict_mode = resolved_mode == "strict"
+
     root = repo_root.resolve()
     decision_rows = _read_jsonl(decisions_path or (root / "glow/control_plane/kernel_decisions.jsonl"))
     decisions_by_correlation = _decision_index(decision_rows)
@@ -97,6 +120,7 @@ def verify_kernel_admission_provenance(
                     code="correlation_action_kind_collision",
                     detail=f"{correlation_id}: {sorted(action_kinds)}",
                     category="unexpected_collision",
+                    enforcement_class=_enforcement_class_for_category("unexpected_collision"),
                 )
             )
         for row in rows:
@@ -110,6 +134,7 @@ def verify_kernel_admission_provenance(
                             code="decision_missing_required_allow_fields",
                             detail=f"{correlation_id}: action_kind={action_kind} missing={','.join(sorted(missing))}",
                             category="malformed_current_contract",
+                            enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                         )
                     )
             elif action_kind in _COVERED_ALLOW_ACTIONS and disposition in NON_EXECUTION_DISPOSITIONS:
@@ -120,6 +145,7 @@ def verify_kernel_admission_provenance(
                             code="decision_missing_required_non_execution_fields",
                             detail=f"{correlation_id}: action_kind={action_kind} missing={','.join(sorted(missing))}",
                             category="malformed_current_contract",
+                            enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                         )
                     )
 
@@ -134,6 +160,7 @@ def verify_kernel_admission_provenance(
                     code="missing_allow_admission",
                     detail=f"{source}: correlation_id={correlation_id} action_kind={action_kind}",
                     category="malformed_current_contract",
+                    enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                 )
             )
 
@@ -148,6 +175,9 @@ def verify_kernel_admission_provenance(
                     code="missing_lineage_admission_link",
                     detail=json.dumps(row, sort_keys=True),
                     category=_classify_missing_allow_link(decisions_by_correlation=decisions_by_correlation, action_kind="lineage_integrate"),
+                    enforcement_class=_enforcement_class_for_category(
+                        _classify_missing_allow_link(decisions_by_correlation=decisions_by_correlation, action_kind="lineage_integrate")
+                    ),
                 )
             )
             continue
@@ -157,6 +187,7 @@ def verify_kernel_admission_provenance(
                     code="invalid_lineage_admission_ref",
                     detail=json.dumps(row, sort_keys=True),
                     category="malformed_current_contract",
+                    enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                 )
             )
         _require_allow_link(correlation_id=correlation_id, action_kind="lineage_integrate", source="lineage")
@@ -175,6 +206,12 @@ def verify_kernel_admission_provenance(
                             decisions_by_correlation=decisions_by_correlation,
                             action_kind="generate_immutable_manifest",
                         ),
+                        enforcement_class=_enforcement_class_for_category(
+                            _classify_missing_allow_link(
+                                decisions_by_correlation=decisions_by_correlation,
+                                action_kind="generate_immutable_manifest",
+                            )
+                        ),
                     )
                 )
             else:
@@ -187,6 +224,7 @@ def verify_kernel_admission_provenance(
                             code="invalid_manifest_admission_link",
                             detail=str(resolved_manifest),
                             category="malformed_current_contract",
+                            enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                         )
                     )
                 else:
@@ -196,6 +234,7 @@ def verify_kernel_admission_provenance(
                                 code="invalid_manifest_admission_ref",
                                 detail=str(resolved_manifest),
                                 category="malformed_current_contract",
+                                enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                             )
                         )
                     _require_allow_link(
@@ -220,6 +259,9 @@ def verify_kernel_admission_provenance(
                     code="missing_quarantine_correlation",
                     detail=json.dumps(row, sort_keys=True),
                     category=_classify_missing_allow_link(decisions_by_correlation=decisions_by_correlation, action_kind="quarantine_clear"),
+                    enforcement_class=_enforcement_class_for_category(
+                        _classify_missing_allow_link(decisions_by_correlation=decisions_by_correlation, action_kind="quarantine_clear")
+                    ),
                 )
             )
             continue
@@ -230,6 +272,7 @@ def verify_kernel_admission_provenance(
                     code="invalid_quarantine_admission_ref",
                     detail=json.dumps(row, sort_keys=True),
                     category="malformed_current_contract",
+                    enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                 )
             )
         if event == "integrity_recovered":
@@ -242,6 +285,7 @@ def verify_kernel_admission_provenance(
                         code="denied_event_has_allow_decision",
                         detail=f"kernel_admission_denied with allow decision: {correlation_id}",
                         category="unexpected_collision",
+                        enforcement_class=_enforcement_class_for_category("unexpected_collision"),
                     )
                 )
 
@@ -266,6 +310,12 @@ def verify_kernel_admission_provenance(
                         decisions_by_correlation=decisions_by_correlation,
                         action_kind=str(kernel_admission.get("action_kind") or ""),
                     ),
+                    enforcement_class=_enforcement_class_for_category(
+                        _classify_missing_allow_link(
+                            decisions_by_correlation=decisions_by_correlation,
+                            action_kind=str(kernel_admission.get("action_kind") or ""),
+                        )
+                    ),
                 )
             )
             continue
@@ -276,6 +326,7 @@ def verify_kernel_admission_provenance(
                     code="invalid_repair_admission_ref",
                     detail=json.dumps(row, sort_keys=True),
                     category="malformed_current_contract",
+                    enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                 )
             )
         disposition = str(kernel_admission.get("final_disposition") or "")
@@ -287,6 +338,7 @@ def verify_kernel_admission_provenance(
                     code="repair_verified_without_allow",
                     detail=f"status=auto-repair verified correlation={correlation_id} disposition={disposition}",
                     category="malformed_current_contract",
+                    enforcement_class=_enforcement_class_for_category("malformed_current_contract"),
                 )
             )
         if status in {"auto-repair denied_by_governor", "auto-repair quarantined"} and disposition == "allow":
@@ -295,6 +347,7 @@ def verify_kernel_admission_provenance(
                     code="repair_denied_with_allow",
                     detail=f"status=auto-repair denied_by_governor correlation={correlation_id}",
                     category="unexpected_collision",
+                    enforcement_class=_enforcement_class_for_category("unexpected_collision"),
                 )
             )
 
@@ -313,6 +366,7 @@ def verify_kernel_admission_provenance(
                         code="missing_expected_lineage_side_effect",
                         detail=correlation_id,
                         category="missing_expected_side_effect",
+                        enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
                     )
                 )
             if action_kind == "generate_immutable_manifest":
@@ -322,6 +376,7 @@ def verify_kernel_admission_provenance(
                             code="missing_expected_manifest_side_effect",
                             detail=correlation_id,
                             category="missing_expected_side_effect",
+                            enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
                         )
                     )
                 else:
@@ -333,6 +388,7 @@ def verify_kernel_admission_provenance(
                                 code="missing_expected_manifest_side_effect",
                                 detail=correlation_id,
                                 category="missing_expected_side_effect",
+                                enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
                             )
                         )
             if action_kind == "quarantine_clear" and not any(
@@ -344,13 +400,19 @@ def verify_kernel_admission_provenance(
                         code="missing_expected_quarantine_clear_side_effect",
                         detail=correlation_id,
                         category="missing_expected_side_effect",
+                        enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
                     )
                 )
 
-    blocking_issues = [issue for issue in issues if strict or issue.category not in _LEGACY_ISSUE_CATEGORIES]
+    if strict_mode:
+        blocking_issues = list(issues)
+    else:
+        blocking_issues = [issue for issue in issues if issue.enforcement_class in _FORWARD_BLOCKING_CLASSES]
     category_counts: dict[str, int] = {}
+    enforcement_counts: dict[str, int] = {}
     for issue in issues:
         category_counts[issue.category] = category_counts.get(issue.category, 0) + 1
+        enforcement_counts[issue.enforcement_class] = enforcement_counts.get(issue.enforcement_class, 0) + 1
     has_current_contract_violations = any(issue.category not in _LEGACY_ISSUE_CATEGORIES for issue in issues)
     has_only_legacy_issues = bool(issues) and not has_current_contract_violations
     if not issues:
@@ -361,28 +423,34 @@ def verify_kernel_admission_provenance(
         overall_status = "current_violation_present"
     summary = {
         "covered_scope": _COVERED_SCOPE,
-        "mode": "strict" if strict else "baseline-aware",
+        "mode": resolved_mode,
         "counts": {
             "issue_count": len(issues),
             "blocking_issue_count": len(blocking_issues),
             "legacy_issue_count": len([issue for issue in issues if issue.category in _LEGACY_ISSUE_CATEGORIES]),
             "classification": category_counts,
+            "enforcement_classification": enforcement_counts,
         },
         "overall_status": overall_status,
         "has_current_contract_violations": has_current_contract_violations,
         "has_only_legacy_issues": has_only_legacy_issues,
+        "fresh_regression_count": enforcement_counts.get("fresh_regression", 0),
+        "legacy_debt_count": enforcement_counts.get("legacy_debt", 0),
+        "malformed_current_contract_count": enforcement_counts.get("malformed_current_contract", 0),
+        "active_contradiction_count": enforcement_counts.get("active_contradiction", 0),
         "ok": not blocking_issues,
     }
 
     return {
         "ok": not blocking_issues,
-        "mode": "strict" if strict else "baseline-aware",
+        "mode": resolved_mode,
         "issue_count": len(issues),
         "blocking_issue_count": len(blocking_issues),
         "legacy_issue_count": len([issue for issue in issues if issue.category in _LEGACY_ISSUE_CATEGORIES]),
         "issues": [issue.to_dict() for issue in issues],
         "blocking_issues": [issue.to_dict() for issue in blocking_issues],
         "category_counts": category_counts,
+        "enforcement_class_counts": enforcement_counts,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),
