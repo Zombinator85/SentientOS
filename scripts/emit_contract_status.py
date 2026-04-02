@@ -11,7 +11,7 @@ from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.forge_index import rebuild_index
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.kernel_admission_provenance import verify_kernel_admission_provenance
-from sentientos.protected_mutation_corridor import corridor_definition
+from sentientos.protected_mutation_corridor import corridor_definition, non_bypass_model_definition
 
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
 DEFAULT_PROTECTED_MUTATION_PROOF_OUTPUT = Path("glow/contracts/protected_mutation_proof_status.json")
@@ -294,6 +294,7 @@ def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[s
         "strict": strict_summary,
         "scope_note": "Narrow protected-mutation proof surface only; not full-repo audit-chain coverage.",
         "covered_corridor": corridor_definition(),
+        "covered_corridor_non_bypass_model": non_bypass_model_definition(),
         "report_scope": {
             "kind": "global_covered_scope_health",
             "change_relevance": "not_evaluated_in_this_artifact",

@@ -229,6 +229,11 @@ def test_run_validation_emits_corridor_relevance_and_status_vocab(monkeypatch, t
         "declared_but_mismatched",
         "undeclared_but_protected_action",
         "declared_but_not_applicable",
+        "no_obvious_bypass_detected",
+        "alternate_writer_detected",
+        "unadmitted_operator_path_detected",
+        "uncovered_mutation_entrypoint_detected",
+        "canonical_boundary_missing",
     ]
     check = next(item for item in report["profiles"][0]["checks"] if item["name"] == "protected_mutation_forward_enforcement")
     assert check["relevance"]["forward_enforcement_status"] == "legacy_only"

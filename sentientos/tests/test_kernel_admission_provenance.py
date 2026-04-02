@@ -560,3 +560,130 @@ def test_execution_consistency_covers_proposal_adopt_side_effects(tmp_path: Path
     )
     checks = payload["execution_consistency_checks"]  # type: ignore[index]
     assert checks[0]["status"] == "consistent"
+
+
+def _non_bypass_model(*, canonical_boundary: str = "scripts/generate_immutable_manifest.py") -> dict[str, object]:
+    return {
+        "scope_id": "protected_mutation_proof:v1:covered_corridor",
+        "model_version": "test",
+        "status_vocabulary": [
+            "no_obvious_bypass_detected",
+            "alternate_writer_detected",
+            "unadmitted_operator_path_detected",
+            "uncovered_mutation_entrypoint_detected",
+            "canonical_boundary_missing",
+        ],
+        "domains": [
+            {
+                "name": "immutable_manifest_identity_writes",
+                "canonical_boundary": canonical_boundary,
+                "expected_kernel_action_kinds": ["generate_immutable_manifest"],
+                "expected_authority_classes": ["manifest_or_identity_mutation"],
+                "protected_artifact_domains": ["vow/immutable_manifest.json"],
+                "allowed_writer_surfaces": [canonical_boundary],
+            }
+        ],
+    }
+
+
+def test_non_bypass_no_alternate_writer_detected_for_canonical_path(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    _write_json(tmp_path / "scripts/generate_immutable_manifest.py", {"placeholder": "admit_action('generate_immutable_manifest')"})
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, non_bypass_model=_non_bypass_model())
+    checks = payload["non_bypass_checks"]  # type: ignore[index]
+    assert checks[0]["status"] == "no_obvious_bypass_detected"
+
+
+def test_non_bypass_detects_alternate_writer(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    canonical = tmp_path / "scripts/generate_immutable_manifest.py"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text("def run():\n    pass\n", encoding="utf-8")
+    bypass = tmp_path / "sentientos/manifest_writer.py"
+    bypass.parent.mkdir(parents=True, exist_ok=True)
+    bypass.write_text("from pathlib import Path\nPath('vow/immutable_manifest.json').write_text('{}')\n", encoding="utf-8")
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement", non_bypass_model=_non_bypass_model())
+    checks = payload["non_bypass_checks"]  # type: ignore[index]
+    assert checks[0]["status"] == "alternate_writer_detected"
+    assert payload["ok"] is False
+
+
+def test_non_bypass_detects_unadmitted_operator_path(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    canonical = tmp_path / "scripts/generate_immutable_manifest.py"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text("def run():\n    pass\n", encoding="utf-8")
+    bypass = tmp_path / "scripts/manual_manifest_override.py"
+    bypass.parent.mkdir(parents=True, exist_ok=True)
+    bypass.write_text("from pathlib import Path\nPath('vow/immutable_manifest.json').write_text('{}')\n", encoding="utf-8")
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement", non_bypass_model=_non_bypass_model())
+    checks = payload["non_bypass_checks"]  # type: ignore[index]
+    assert checks[0]["status"] == "unadmitted_operator_path_detected"
+
+
+def test_non_bypass_detects_missing_canonical_boundary_mapping(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    payload = verify_kernel_admission_provenance(
+        repo_root=tmp_path,
+        non_bypass_model=_non_bypass_model(canonical_boundary=""),
+    )
+    checks = payload["non_bypass_checks"]  # type: ignore[index]
+    assert checks[0]["status"] == "canonical_boundary_missing"
+
+
+def test_non_bypass_forward_blocks_fresh_and_strict_at_least_as_strict(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    canonical = tmp_path / "scripts/generate_immutable_manifest.py"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text("def run():\n    pass\n", encoding="utf-8")
+    bypass = tmp_path / "scripts/manual_manifest_override.py"
+    bypass.parent.mkdir(parents=True, exist_ok=True)
+    bypass.write_text("from pathlib import Path\nPath('vow/immutable_manifest.json').write_text('{}')\n", encoding="utf-8")
+    forward = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement", non_bypass_model=_non_bypass_model())
+    strict = verify_kernel_admission_provenance(repo_root=tmp_path, strict=True, non_bypass_model=_non_bypass_model())
+    assert forward["ok"] is False
+    assert strict["ok"] is False
+    forward_summary = forward["summary"]["non_bypass"]  # type: ignore[index]
+    strict_summary = strict["summary"]["non_bypass"]  # type: ignore[index]
+    assert forward_summary["fresh_violation_blocking_in_mode"] is True
+    assert strict_summary["fresh_violation_blocking_in_mode"] is True
+
+
+def test_non_bypass_status_vocabulary_is_stable(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    canonical = tmp_path / "scripts/generate_immutable_manifest.py"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text("def run():\n    pass\n", encoding="utf-8")
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, non_bypass_model=_non_bypass_model())
+    non_bypass = payload["summary"]["non_bypass"]  # type: ignore[index]
+    assert non_bypass["status_vocabulary"] == [  # type: ignore[index]
+        "no_obvious_bypass_detected",
+        "alternate_writer_detected",
+        "unadmitted_operator_path_detected",
+        "uncovered_mutation_entrypoint_detected",
+        "canonical_boundary_missing",
+    ]

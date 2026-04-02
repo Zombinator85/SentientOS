@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
+from sentientos.protected_mutation_corridor import non_bypass_model_definition
 from sentientos.protected_mutation_provenance import (
     NON_EXECUTION_DISPOSITIONS,
     REQUIRED_ALLOW_FIELDS,
@@ -56,6 +57,16 @@ _EXECUTION_CONSISTENCY_OUTCOMES = (
     "execution_drift_detected",
     "admitted_but_missing_expected_side_effect",
 )
+_NON_BYPASS_BLOCKING_STATUSES = frozenset(
+    {
+        "alternate_writer_detected",
+        "unadmitted_operator_path_detected",
+        "uncovered_mutation_entrypoint_detected",
+        "canonical_boundary_missing",
+    }
+)
+_DEFAULT_NON_BYPASS_STATUS = "no_obvious_bypass_detected"
+_WRITE_MARKERS = ("write_text(", ".write(", "open(", "json.dump(", "json.dumps(", "append_jsonl(", "write_json(")
 
 
 def _consistency_outcome_for_status(*, declared: bool, status: str) -> str:
@@ -122,6 +133,110 @@ def _classify_missing_allow_link(*, decisions_by_correlation: Mapping[str, list[
     return "malformed_current_contract" if has_current_contract_decision else "legacy_missing_admission_link"
 
 
+def _candidate_source_files(repo_root: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for prefix in ("scripts", "sentientos"):
+        root = repo_root / prefix
+        if root.exists():
+            candidates.extend(path for path in root.rglob("*.py") if path.is_file())
+    candidates.extend(path for path in repo_root.glob("*.py") if path.is_file())
+    candidates.extend(path for path in repo_root.glob("*.bat") if path.is_file())
+    return sorted(set(candidates))
+
+
+def _first_match_line(content: str, token: str) -> int:
+    for idx, line in enumerate(content.splitlines(), start=1):
+        if token in line:
+            return idx
+    return 1
+
+
+def _verify_non_bypass(repo_root: Path, model: Mapping[str, Any], *, relevant_domains: set[str]) -> list[dict[str, Any]]:
+    domains = model.get("domains")
+    if not isinstance(domains, list):
+        return []
+    files = _candidate_source_files(repo_root)
+    checks: list[dict[str, Any]] = []
+    for item in domains:
+        if not isinstance(item, Mapping):
+            continue
+        name = str(item.get("name") or "")
+        canonical_boundary = str(item.get("canonical_boundary") or "")
+        protected_artifacts = [str(value) for value in item.get("protected_artifact_domains", []) if isinstance(value, str)]
+        allowed_writers = {str(value) for value in item.get("allowed_writer_surfaces", []) if isinstance(value, str)}
+        status = _DEFAULT_NON_BYPASS_STATUS
+        findings: list[dict[str, Any]] = []
+        if name not in relevant_domains:
+            checks.append(
+                {
+                    "domain": name,
+                    "status": _DEFAULT_NON_BYPASS_STATUS,
+                    "canonical_boundary": canonical_boundary,
+                    "expected_kernel_action_kinds": list(item.get("expected_kernel_action_kinds", [])),
+                    "expected_authority_classes": list(item.get("expected_authority_classes", [])),
+                    "protected_artifact_domains": protected_artifacts,
+                    "allowed_writer_surfaces": sorted(allowed_writers),
+                    "findings": [{"kind": "out_of_scope_for_current_evidence"}],
+                }
+            )
+            continue
+        if not canonical_boundary:
+            status = "canonical_boundary_missing"
+            findings.append({"kind": "missing_mapping", "detail": "canonical_boundary is empty"})
+        elif not (repo_root / canonical_boundary).exists():
+            status = "canonical_boundary_missing"
+            findings.append({"kind": "missing_file", "path": canonical_boundary})
+        elif canonical_boundary not in allowed_writers:
+            status = "canonical_boundary_missing"
+            findings.append({"kind": "mapping_invalid", "detail": "canonical boundary not listed as allowed writer"})
+
+        token_candidates = [token for token in protected_artifacts if token and "*" not in token]
+        bypass_hits: list[dict[str, Any]] = []
+        operator_hits: list[dict[str, Any]] = []
+        for source in files:
+            rel = source.relative_to(repo_root).as_posix()
+            if rel in allowed_writers:
+                continue
+            content = source.read_text(encoding="utf-8", errors="ignore")
+            if not any(token in content for token in token_candidates):
+                continue
+            if not any(marker in content for marker in _WRITE_MARKERS):
+                continue
+            matched_token = next((token for token in token_candidates if token in content), "")
+            hit = {
+                "path": rel,
+                "line": _first_match_line(content, matched_token or token_candidates[0]),
+                "artifact_token": matched_token,
+            }
+            bypass_hits.append(hit)
+            if rel.startswith("scripts/"):
+                has_admission = "admit_action(" in content or "admission_decision_ref" in content or "protected_mutation_intent" in content
+                if not has_admission:
+                    operator_hits.append(hit)
+
+        if status != "canonical_boundary_missing":
+            if operator_hits:
+                status = "unadmitted_operator_path_detected"
+                findings.extend({"kind": "operator_path", **hit} for hit in operator_hits)
+            elif bypass_hits:
+                status = "alternate_writer_detected"
+                findings.extend({"kind": "alternate_writer", **hit} for hit in bypass_hits)
+
+        checks.append(
+            {
+                "domain": name,
+                "status": status,
+                "canonical_boundary": canonical_boundary,
+                "expected_kernel_action_kinds": list(item.get("expected_kernel_action_kinds", [])),
+                "expected_authority_classes": list(item.get("expected_authority_classes", [])),
+                "protected_artifact_domains": protected_artifacts,
+                "allowed_writer_surfaces": sorted(allowed_writers),
+                "findings": findings,
+            }
+        )
+    return checks
+
+
 def verify_kernel_admission_provenance(
     *,
     repo_root: Path,
@@ -134,11 +249,13 @@ def verify_kernel_admission_provenance(
     adoption_codex_index_path: Path | None = None,
     strict: bool = False,
     mode: str | None = None,
+    non_bypass_model: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     resolved_mode = "strict" if strict else (mode or "baseline-aware")
     if resolved_mode not in {"baseline-aware", "forward-enforcement", "strict"}:
         raise ValueError(f"unsupported mode: {resolved_mode}")
     strict_mode = resolved_mode == "strict"
+    resolved_non_bypass_model = non_bypass_model or non_bypass_model_definition()
 
     root = repo_root.resolve()
     decision_rows = _read_jsonl(decisions_path or (root / "glow/control_plane/kernel_decisions.jsonl"))
@@ -605,7 +722,48 @@ def verify_kernel_admission_provenance(
                             category="missing_expected_side_effect",
                             enforcement_class=_enforcement_class_for_category("missing_expected_side_effect"),
                         )
-                    )
+                        )
+
+    relevant_domains: set[str] = set()
+    for domains in side_effect_domains_by_correlation.values():
+        relevant_domains.update(domains)
+    action_to_domain = {
+        "lineage_integrate": "genesisforge_lineage_proposal_adoption",
+        "proposal_adopt": "genesisforge_lineage_proposal_adoption",
+        "generate_immutable_manifest": "immutable_manifest_identity_writes",
+        "quarantine_clear": "quarantine_clear_privileged_operator_action",
+    }
+    for row in decision_rows:
+        action_kind = str(row.get("action_kind") or "")
+        mapped = action_to_domain.get(action_kind)
+        if mapped:
+            relevant_domains.add(mapped)
+    if repair_rows:
+        relevant_domains.add("codexhealer_repair_regenesis_linkage")
+
+    non_bypass_checks = _verify_non_bypass(root, resolved_non_bypass_model, relevant_domains=relevant_domains)
+    non_bypass_status_counts: dict[str, int] = {}
+    fresh_non_bypass_violation_count = 0
+    for check in non_bypass_checks:
+        status = str(check.get("status") or _DEFAULT_NON_BYPASS_STATUS)
+        non_bypass_status_counts[status] = non_bypass_status_counts.get(status, 0) + 1
+        if status in _NON_BYPASS_BLOCKING_STATUSES:
+            fresh_non_bypass_violation_count += 1
+            issues.append(
+                VerificationIssue(
+                    code=f"non_bypass_{status}",
+                    detail=json.dumps(
+                        {
+                            "domain": check.get("domain"),
+                            "canonical_boundary": check.get("canonical_boundary"),
+                            "findings": check.get("findings", []),
+                        },
+                        sort_keys=True,
+                    ),
+                    category="fresh_regression",
+                    enforcement_class=_enforcement_class_for_category("fresh_regression"),
+                )
+            )
 
     if strict_mode:
         blocking_issues = list(issues)
@@ -690,6 +848,16 @@ def verify_kernel_admission_provenance(
                 fresh_consistency_violation_count and resolved_mode in {"forward-enforcement", "strict"}
             ),
         },
+        "non_bypass": {
+            "status_vocabulary": list(resolved_non_bypass_model.get("status_vocabulary", [])),
+            "status_counts": non_bypass_status_counts,
+            "fresh_violation_count": fresh_non_bypass_violation_count,
+            "fresh_violation_blocking_in_mode": bool(
+                fresh_non_bypass_violation_count and resolved_mode in {"forward-enforcement", "strict"}
+            ),
+            "model_scope_id": str(resolved_non_bypass_model.get("scope_id") or ""),
+            "model_version": str(resolved_non_bypass_model.get("model_version") or ""),
+        },
     }
 
     return {
@@ -707,6 +875,8 @@ def verify_kernel_admission_provenance(
         "execution_consistency_checks": execution_consistency_checks,
         "execution_consistency_status_counts": consistency_status_counts,
         "execution_consistency_outcome_counts": consistency_outcome_counts,
+        "non_bypass_checks": non_bypass_checks,
+        "non_bypass_status_counts": non_bypass_status_counts,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),
