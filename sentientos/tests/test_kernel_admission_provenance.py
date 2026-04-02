@@ -687,3 +687,83 @@ def test_non_bypass_status_vocabulary_is_stable(tmp_path: Path) -> None:
         "uncovered_mutation_entrypoint_detected",
         "canonical_boundary_missing",
     ]
+
+
+def test_trust_posture_trusted_for_fully_aligned_domain(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    _write_json(tmp_path / "vow/immutable_manifest.json", {"admission": _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest")})
+    canonical = tmp_path / "scripts/generate_immutable_manifest.py"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text("def run():\n    pass\n", encoding="utf-8")
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement", non_bypass_model=_non_bypass_model())
+    trust = payload["summary"]["trust_posture"]["global_covered_scope"]["domains"]  # type: ignore[index]
+    manifest_posture = trust["immutable_manifest_identity_writes"]["posture"]  # type: ignore[index]
+    assert manifest_posture == "trusted"
+    assert trust["immutable_manifest_identity_writes"]["evidence"]["issue_count"] == 0  # type: ignore[index]
+
+
+def test_trust_posture_legacy_only_and_strict_failure(tmp_path: Path) -> None:
+    _append_jsonl(tmp_path / "lineage/lineage.jsonl", {"proposal_id": "legacy"})
+    forward_payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    strict_payload = verify_kernel_admission_provenance(repo_root=tmp_path, strict=True)
+    forward_trust = forward_payload["summary"]["trust_posture"]["global_covered_scope"]["domains"]  # type: ignore[index]
+    strict_trust = strict_payload["summary"]["trust_posture"]["global_covered_scope"]["domains"]  # type: ignore[index]
+    assert forward_trust["genesisforge_lineage_proposal_adoption"]["posture"] == "legacy_only"  # type: ignore[index]
+    assert strict_trust["genesisforge_lineage_proposal_adoption"]["posture"] == "strict_failure_present"  # type: ignore[index]
+
+
+def test_trust_posture_forward_risk_for_fresh_consistency_or_non_bypass_issue(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    canonical = tmp_path / "scripts/generate_immutable_manifest.py"
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text("def run():\n    pass\n", encoding="utf-8")
+    bypass = tmp_path / "scripts/manual_manifest_override.py"
+    bypass.parent.mkdir(parents=True, exist_ok=True)
+    bypass.write_text("from pathlib import Path\nPath('vow/immutable_manifest.json').write_text('{}')\n", encoding="utf-8")
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement", non_bypass_model=_non_bypass_model())
+    trust = payload["summary"]["trust_posture"]["global_covered_scope"]["domains"]  # type: ignore[index]
+    evidence = trust["immutable_manifest_identity_writes"]["evidence"]  # type: ignore[index]
+    assert trust["immutable_manifest_identity_writes"]["posture"] == "forward_risk_present"  # type: ignore[index]
+    assert evidence["fresh_forward_signals"] >= 1
+    assert evidence["issue_count"] >= 1
+
+
+def test_trust_posture_not_applicable_and_evidence_incomplete(tmp_path: Path) -> None:
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="lineage-1", action_kind="lineage_integrate"),
+    )
+    payload = verify_kernel_admission_provenance(
+        repo_root=tmp_path,
+        mode="forward-enforcement",
+        change_relevant_domains={"immutable_manifest_identity_writes"},
+    )
+    trust = payload["summary"]["trust_posture"]  # type: ignore[index]
+    global_domains = trust["global_covered_scope"]["domains"]  # type: ignore[index]
+    change_domains = trust["current_change_surface"]["domains"]  # type: ignore[index]
+    assert global_domains["genesisforge_lineage_proposal_adoption"]["posture"] == "evidence_incomplete"  # type: ignore[index]
+    assert change_domains["genesisforge_lineage_proposal_adoption"]["posture"] == "not_applicable"  # type: ignore[index]
+    assert global_domains["genesisforge_lineage_proposal_adoption"]["evidence"]["issue_count"] >= 1  # type: ignore[index]
+    assert global_domains["genesisforge_lineage_proposal_adoption"]["evidence"]["evidence_incomplete_signals"] >= 1  # type: ignore[index]
+
+
+def test_trust_posture_multi_domain_counts_remain_stable(tmp_path: Path) -> None:
+    _append_jsonl(tmp_path / "lineage/lineage.jsonl", {"proposal_id": "legacy"})
+    _append_jsonl(
+        tmp_path / "glow/control_plane/kernel_decisions.jsonl",
+        _decision(correlation_id="manifest-1", action_kind="generate_immutable_manifest"),
+    )
+    payload = verify_kernel_admission_provenance(repo_root=tmp_path, mode="forward-enforcement")
+    trust = payload["summary"]["trust_posture"]  # type: ignore[index]
+    counts = trust["global_covered_scope"]["posture_counts"]  # type: ignore[index]
+    domains = trust["global_covered_scope"]["domains"]  # type: ignore[index]
+    assert counts["legacy_only"] >= 1
+    assert counts["forward_risk_present"] >= 1
+    assert domains["genesisforge_lineage_proposal_adoption"]["evidence"]["issue_count"] >= 1  # type: ignore[index]
+    assert domains["immutable_manifest_identity_writes"]["evidence"]["issue_count"] >= 1  # type: ignore[index]

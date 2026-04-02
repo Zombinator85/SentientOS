@@ -67,6 +67,34 @@ _NON_BYPASS_BLOCKING_STATUSES = frozenset(
 )
 _DEFAULT_NON_BYPASS_STATUS = "no_obvious_bypass_detected"
 _WRITE_MARKERS = ("write_text(", ".write(", "open(", "json.dump(", "json.dumps(", "append_jsonl(", "write_json(")
+_COVERED_DOMAIN_ORDER = (
+    "genesisforge_lineage_proposal_adoption",
+    "immutable_manifest_identity_writes",
+    "quarantine_clear_privileged_operator_action",
+    "codexhealer_repair_regenesis_linkage",
+)
+_TRUST_POSTURE_STATUS_VOCABULARY = (
+    "trusted",
+    "legacy_only",
+    "forward_risk_present",
+    "strict_failure_present",
+    "not_applicable",
+    "evidence_incomplete",
+)
+_EVIDENCE_INCOMPLETE_CODES = frozenset(
+    {
+        "missing_allow_admission",
+        "missing_lineage_admission_link",
+        "missing_manifest_admission_link",
+        "missing_quarantine_correlation",
+        "missing_repair_admission_link",
+        "missing_expected_lineage_side_effect",
+        "missing_expected_manifest_side_effect",
+        "missing_expected_quarantine_clear_side_effect",
+        "missing_expected_proposal_adopt_side_effect",
+        "execution_consistency_admitted_but_missing_expected_side_effect",
+    }
+)
 
 
 def _consistency_outcome_for_status(*, declared: bool, status: str) -> str:
@@ -237,6 +265,209 @@ def _verify_non_bypass(repo_root: Path, model: Mapping[str, Any], *, relevant_do
     return checks
 
 
+def _domain_for_issue(issue: VerificationIssue) -> str | None:
+    code = issue.code
+    detail = issue.detail
+    if "lineage" in code or "proposal_adopt" in code or "lineage_integrate" in detail:
+        return "genesisforge_lineage_proposal_adoption"
+    if "manifest" in code:
+        return "immutable_manifest_identity_writes"
+    if "quarantine" in code:
+        return "quarantine_clear_privileged_operator_action"
+    if "repair" in code:
+        return "codexhealer_repair_regenesis_linkage"
+    if code.startswith("protected_intent_") or code.startswith("execution_consistency_"):
+        if "proposal_adopt" in detail or "lineage_integrate" in detail:
+            return "genesisforge_lineage_proposal_adoption"
+        if "generate_immutable_manifest" in detail:
+            return "immutable_manifest_identity_writes"
+        if "quarantine_clear" in detail:
+            return "quarantine_clear_privileged_operator_action"
+    return None
+
+
+def _derive_domain_posture(*, evidence: Mapping[str, Any], mode: str, applicable: bool) -> str:
+    if not applicable:
+        return "not_applicable"
+    forward_risk = bool(evidence.get("forward_risk_present", False))
+    evidence_incomplete = bool(evidence.get("evidence_incomplete", False))
+    legacy_only = bool(evidence.get("legacy_only", False))
+    strict_blocking = bool(evidence.get("strict_blocking_present", False))
+    if forward_risk:
+        return "forward_risk_present"
+    if mode == "strict" and strict_blocking:
+        return "strict_failure_present"
+    if evidence_incomplete:
+        return "evidence_incomplete"
+    if legacy_only:
+        return "legacy_only"
+    return "trusted"
+
+
+def _compose_trust_posture(
+    *,
+    mode: str,
+    issues: list[VerificationIssue],
+    intent_checks: list[dict[str, object]],
+    execution_consistency_checks: list[dict[str, object]],
+    non_bypass_checks: list[dict[str, Any]],
+    covered_relevance_domains: set[str],
+    change_relevant_domains: set[str] | None = None,
+) -> dict[str, object]:
+    domain_evidence: dict[str, dict[str, Any]] = {
+        domain: {
+            "issue_count": 0,
+            "issue_codes": {},
+            "issue_categories": {},
+            "enforcement_classes": {},
+            "intent_status_counts": {},
+            "execution_consistency_status_counts": {},
+            "execution_consistency_outcome_counts": {},
+            "non_bypass_status_counts": {},
+            "non_bypass_blocking_count": 0,
+            "evidence_incomplete_signals": 0,
+            "fresh_forward_signals": 0,
+            "legacy_signals": 0,
+            "strict_blocking_signals": 0,
+        }
+        for domain in _COVERED_DOMAIN_ORDER
+    }
+    action_to_domain = {
+        "lineage_integrate": "genesisforge_lineage_proposal_adoption",
+        "proposal_adopt": "genesisforge_lineage_proposal_adoption",
+        "generate_immutable_manifest": "immutable_manifest_identity_writes",
+        "quarantine_clear": "quarantine_clear_privileged_operator_action",
+    }
+    for issue in issues:
+        domain = _domain_for_issue(issue)
+        if domain is None:
+            continue
+        bucket = domain_evidence[domain]
+        bucket["issue_count"] = int(bucket["issue_count"]) + 1
+        codes = bucket["issue_codes"]
+        if isinstance(codes, dict):
+            codes[issue.code] = int(codes.get(issue.code, 0)) + 1
+        categories = bucket["issue_categories"]
+        if isinstance(categories, dict):
+            categories[issue.category] = int(categories.get(issue.category, 0)) + 1
+        enforcement = bucket["enforcement_classes"]
+        if isinstance(enforcement, dict):
+            enforcement[issue.enforcement_class] = int(enforcement.get(issue.enforcement_class, 0)) + 1
+        if issue.code in _EVIDENCE_INCOMPLETE_CODES:
+            bucket["evidence_incomplete_signals"] = int(bucket["evidence_incomplete_signals"]) + 1
+        if issue.enforcement_class in _FORWARD_BLOCKING_CLASSES:
+            bucket["fresh_forward_signals"] = int(bucket["fresh_forward_signals"]) + 1
+        if issue.enforcement_class == "legacy_debt":
+            bucket["legacy_signals"] = int(bucket["legacy_signals"]) + 1
+            bucket["strict_blocking_signals"] = int(bucket["strict_blocking_signals"]) + 1
+
+    for check in intent_checks:
+        domain_candidates = [str(item) for item in check.get("expected_domains", []) if isinstance(item, str)]
+        if not domain_candidates:
+            mapped = action_to_domain.get(str(check.get("action_kind") or ""))
+            if mapped:
+                domain_candidates = [mapped]
+        status = str(check.get("status") or "not_applicable")
+        for domain in domain_candidates:
+            if domain not in domain_evidence:
+                continue
+            counts = domain_evidence[domain]["intent_status_counts"]
+            if isinstance(counts, dict):
+                counts[status] = int(counts.get(status, 0)) + 1
+
+    for check in execution_consistency_checks:
+        status = str(check.get("status") or "not_applicable")
+        outcome = str(check.get("consistency_outcome") or "not_applicable")
+        domains = [str(item) for item in check.get("expected_domains", []) if isinstance(item, str)]
+        observed = [str(item) for item in check.get("observed_side_effect_domains", []) if isinstance(item, str)]
+        domains = sorted(set(domains + observed))
+        if not domains:
+            mapped = action_to_domain.get(str(check.get("action_kind") or ""))
+            if mapped:
+                domains = [mapped]
+        for domain in domains:
+            if domain not in domain_evidence:
+                continue
+            status_counts = domain_evidence[domain]["execution_consistency_status_counts"]
+            if isinstance(status_counts, dict):
+                status_counts[status] = int(status_counts.get(status, 0)) + 1
+            outcome_counts = domain_evidence[domain]["execution_consistency_outcome_counts"]
+            if isinstance(outcome_counts, dict):
+                outcome_counts[outcome] = int(outcome_counts.get(outcome, 0)) + 1
+            if status in {
+                "declared_domain_mismatch",
+                "declared_authority_mismatch",
+                "side_effect_domain_mismatch",
+                "admitted_but_missing_expected_side_effect",
+                "undeclared_side_effect",
+            }:
+                domain_evidence[domain]["fresh_forward_signals"] = int(domain_evidence[domain]["fresh_forward_signals"]) + 1
+            if status == "admitted_but_missing_expected_side_effect":
+                domain_evidence[domain]["evidence_incomplete_signals"] = int(domain_evidence[domain]["evidence_incomplete_signals"]) + 1
+
+    for check in non_bypass_checks:
+        domain = str(check.get("domain") or "")
+        if domain not in domain_evidence:
+            continue
+        status = str(check.get("status") or _DEFAULT_NON_BYPASS_STATUS)
+        status_counts = domain_evidence[domain]["non_bypass_status_counts"]
+        if isinstance(status_counts, dict):
+            status_counts[status] = int(status_counts.get(status, 0)) + 1
+        if status in _NON_BYPASS_BLOCKING_STATUSES:
+            domain_evidence[domain]["non_bypass_blocking_count"] = int(domain_evidence[domain]["non_bypass_blocking_count"]) + 1
+            domain_evidence[domain]["fresh_forward_signals"] = int(domain_evidence[domain]["fresh_forward_signals"]) + 1
+
+    def _view(change_set: set[str] | None) -> dict[str, object]:
+        posture_counts: dict[str, int] = {status: 0 for status in _TRUST_POSTURE_STATUS_VOCABULARY}
+        domain_posture: dict[str, Any] = {}
+        for domain in _COVERED_DOMAIN_ORDER:
+            evidence = domain_evidence[domain]
+            applicable = domain in covered_relevance_domains
+            if change_set is not None:
+                applicable = applicable and domain in change_set
+            derived = {
+                **evidence,
+                "forward_risk_present": int(evidence["fresh_forward_signals"]) > 0,
+                "evidence_incomplete": int(evidence["evidence_incomplete_signals"]) > 0,
+                "legacy_only": int(evidence["legacy_signals"]) > 0 and int(evidence["fresh_forward_signals"]) == 0,
+                "strict_blocking_present": int(evidence["strict_blocking_signals"]) > 0,
+                "applicable": applicable,
+            }
+            posture = _derive_domain_posture(evidence=derived, mode=mode, applicable=applicable)
+            posture_counts[posture] = posture_counts.get(posture, 0) + 1
+            domain_posture[domain] = {
+                "posture": posture,
+                "applicable": applicable,
+                "evidence": derived,
+                "evidence_classes": [
+                    "kernel_admission_issues",
+                    "protected_intent_checks",
+                    "execution_consistency_checks",
+                    "non_bypass_checks",
+                ],
+            }
+        if posture_counts.get("forward_risk_present", 0):
+            overall = "forward_risk_present"
+        elif posture_counts.get("strict_failure_present", 0):
+            overall = "strict_failure_present"
+        elif posture_counts.get("evidence_incomplete", 0):
+            overall = "evidence_incomplete"
+        elif posture_counts.get("legacy_only", 0):
+            overall = "legacy_only"
+        elif posture_counts.get("trusted", 0):
+            overall = "trusted"
+        else:
+            overall = "not_applicable"
+        return {"overall_posture": overall, "posture_counts": posture_counts, "domains": domain_posture}
+
+    return {
+        "scope": "covered_protected_mutation_corridor",
+        "status_vocabulary": list(_TRUST_POSTURE_STATUS_VOCABULARY),
+        "global_covered_scope": _view(None),
+        "current_change_surface": _view(change_relevant_domains),
+    }
+
+
 def verify_kernel_admission_provenance(
     *,
     repo_root: Path,
@@ -250,6 +481,7 @@ def verify_kernel_admission_provenance(
     strict: bool = False,
     mode: str | None = None,
     non_bypass_model: Mapping[str, Any] | None = None,
+    change_relevant_domains: set[str] | None = None,
 ) -> dict[str, object]:
     resolved_mode = "strict" if strict else (mode or "baseline-aware")
     if resolved_mode not in {"baseline-aware", "forward-enforcement", "strict"}:
@@ -765,6 +997,16 @@ def verify_kernel_admission_provenance(
                 )
             )
 
+    trust_posture = _compose_trust_posture(
+        mode=resolved_mode,
+        issues=issues,
+        intent_checks=intent_checks,
+        execution_consistency_checks=execution_consistency_checks,
+        non_bypass_checks=non_bypass_checks,
+        covered_relevance_domains=relevant_domains,
+        change_relevant_domains=change_relevant_domains,
+    )
+
     if strict_mode:
         blocking_issues = list(issues)
     else:
@@ -858,6 +1100,7 @@ def verify_kernel_admission_provenance(
             "model_scope_id": str(resolved_non_bypass_model.get("scope_id") or ""),
             "model_version": str(resolved_non_bypass_model.get("model_version") or ""),
         },
+        "trust_posture": trust_posture,
     }
 
     return {
@@ -877,6 +1120,7 @@ def verify_kernel_admission_provenance(
         "execution_consistency_outcome_counts": consistency_outcome_counts,
         "non_bypass_checks": non_bypass_checks,
         "non_bypass_status_counts": non_bypass_status_counts,
+        "trust_posture": trust_posture,
         "checked": {
             "kernel_decisions": len(decision_rows),
             "lineage_entries": len(lineage_rows),

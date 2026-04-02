@@ -238,3 +238,53 @@ def test_run_validation_emits_corridor_relevance_and_status_vocab(monkeypatch, t
     check = next(item for item in report["profiles"][0]["checks"] if item["name"] == "protected_mutation_forward_enforcement")
     assert check["relevance"]["forward_enforcement_status"] == "legacy_only"
     assert check["relevance"]["protected_intent_status_counts"]["declared_and_consistent"] == 1
+
+
+def test_run_validation_emits_global_and_change_local_trust_posture(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(
+        protected_corridor,
+        "check_prerequisites",
+        lambda *args, **kwargs: protected_corridor.PrerequisiteStatus(ready=True, checks={}, diagnostics=[]),
+    )
+
+    def fake_run(command: tuple[str, ...], env: dict[str, str]) -> tuple[int, str]:
+        if "verify_kernel_admission_provenance.py" not in command:
+            return 0, ""
+        return (
+            0,
+            json.dumps(
+                {
+                    "mode": "forward-enforcement",
+                    "overall_status": "legacy_only",
+                    "trust_posture": {
+                        "status_vocabulary": [
+                            "trusted",
+                            "legacy_only",
+                            "forward_risk_present",
+                            "strict_failure_present",
+                            "not_applicable",
+                            "evidence_incomplete",
+                        ],
+                        "global_covered_scope": {
+                            "overall_posture": "legacy_only",
+                            "posture_counts": {"legacy_only": 1},
+                            "domains": {
+                                "genesisforge_lineage_proposal_adoption": {"posture": "legacy_only", "applicable": True},
+                                "immutable_manifest_identity_writes": {"posture": "trusted", "applicable": True},
+                            },
+                        },
+                    },
+                }
+            ),
+        )
+
+    monkeypatch.setattr(protected_corridor, "_run_command", fake_run)
+    report = protected_corridor.run_validation(
+        profiles=["ci-advisory"],
+        output_path=tmp_path / "corridor_trust_posture.json",
+        touched_paths=["vow/immutable_manifest.json"],
+    )
+    trust = report["global_summary"]["protected_mutation_trust_posture_by_profile"]["ci-advisory"]
+    assert trust["global_covered_scope"]["domains"]["genesisforge_lineage_proposal_adoption"]["posture"] == "legacy_only"
+    assert trust["current_change_surface"]["domains"]["genesisforge_lineage_proposal_adoption"]["posture"] == "not_applicable"
+    assert trust["current_change_surface"]["domains"]["immutable_manifest_identity_writes"]["applicable"] is True
