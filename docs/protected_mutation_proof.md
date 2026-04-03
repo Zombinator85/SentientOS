@@ -235,6 +235,43 @@ This ledger is recording/classification only:
 - no replacement of detailed verifier evidence,
 - no claim of whole-repo trust history beyond the covered protected-mutation corridor.
 
+## Review contract (covered corridor only)
+
+Protected-mutation proof now emits a narrow, machine-readable **review contract**
+derived deterministically from escalation posture. This is a review expectation
+classification only (not remediation, not approvals/workflow automation).
+
+Review contract vocabulary:
+
+- `none`
+- `observe_on_touch`
+- `explicit_review_before_protected_change`
+- `strict_review_required`
+- `proof_review_required`
+
+Deterministic mapping from escalation posture:
+
+- `none` -> `none`
+- `observe` -> `observe_on_touch`
+- `forward_block` -> `explicit_review_before_protected_change`
+- `strict_block` -> `strict_review_required`
+- `verification_attention` -> `proof_review_required`
+
+Interpretation:
+
+- `observe_on_touch`: legacy-only degradation remains visible, but does not
+  masquerade as fresh high-severity blocking review demand.
+- `explicit_review_before_protected_change`: forward-blocking posture; explicit
+  review is expected before additional protected mutation in that covered domain.
+- `strict_review_required`: strict blocking posture; highest review posture.
+- `proof_review_required`: verification/proof/integrity attention posture; this is
+  not mutation-remediation automation.
+
+As with trust and escalation posture, `global_covered_scope` and
+`current_change_surface` review views remain separate and machine-readable.
+`not_applicable` stays non-degrading with review contract `none` in change-local
+view outside currently implicated covered domains.
+
 ## Current limits
 
 - Verification only covers the linked protected mutation surfaces above.

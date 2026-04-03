@@ -93,6 +93,13 @@ _ESCALATION_POSTURE_VOCABULARY = (
     "strict_block",
     "verification_attention",
 )
+_REVIEW_CONTRACT_VOCABULARY = (
+    "none",
+    "observe_on_touch",
+    "explicit_review_before_protected_change",
+    "strict_review_required",
+    "proof_review_required",
+)
 _TRUST_DEGRADATION_LEDGER_RELATIVE_PATH = Path("glow/contracts/protected_mutation_trust_degradation_ledger.jsonl")
 _EVIDENCE_INCOMPLETE_CODES = frozenset(
     {
@@ -433,6 +440,7 @@ def _compose_trust_posture(
     def _view(change_set: set[str] | None) -> dict[str, object]:
         posture_counts: dict[str, int] = {status: 0 for status in _TRUST_POSTURE_STATUS_VOCABULARY}
         escalation_posture_counts: dict[str, int] = {status: 0 for status in _ESCALATION_POSTURE_VOCABULARY}
+        review_contract_counts: dict[str, int] = {status: 0 for status in _REVIEW_CONTRACT_VOCABULARY}
         domain_posture: dict[str, Any] = {}
         for domain in _COVERED_DOMAIN_ORDER:
             evidence = domain_evidence[domain]
@@ -449,11 +457,14 @@ def _compose_trust_posture(
             }
             posture = _derive_domain_posture(evidence=derived, mode=mode, applicable=applicable)
             escalation_posture = _derive_escalation_posture(posture=posture)
+            review_contract = _derive_review_contract(escalation_posture=escalation_posture)
             posture_counts[posture] = posture_counts.get(posture, 0) + 1
             escalation_posture_counts[escalation_posture] = escalation_posture_counts.get(escalation_posture, 0) + 1
+            review_contract_counts[review_contract] = review_contract_counts.get(review_contract, 0) + 1
             domain_posture[domain] = {
                 "posture": posture,
                 "escalation_posture": escalation_posture,
+                "review_contract": review_contract,
                 "applicable": applicable,
                 "blocking_state": _derive_blocking_state(posture=posture),
                 "evidence": derived,
@@ -479,8 +490,12 @@ def _compose_trust_posture(
         return {
             "overall_posture": overall,
             "overall_escalation_posture": _derive_escalation_posture(posture=overall),
+            "overall_review_contract": _derive_review_contract(
+                escalation_posture=_derive_escalation_posture(posture=overall)
+            ),
             "posture_counts": posture_counts,
             "escalation_posture_counts": escalation_posture_counts,
+            "review_contract_counts": review_contract_counts,
             "domains": domain_posture,
         }
 
@@ -488,6 +503,7 @@ def _compose_trust_posture(
         "scope": "covered_protected_mutation_corridor",
         "status_vocabulary": list(_TRUST_POSTURE_STATUS_VOCABULARY),
         "escalation_posture_vocabulary": list(_ESCALATION_POSTURE_VOCABULARY),
+        "review_contract_vocabulary": list(_REVIEW_CONTRACT_VOCABULARY),
         "global_covered_scope": _view(None),
         "current_change_surface": _view(change_relevant_domains),
     }
@@ -520,6 +536,18 @@ def _derive_escalation_posture(*, posture: str) -> str:
         return "strict_block"
     if posture == "evidence_incomplete":
         return "verification_attention"
+    return "none"
+
+
+def _derive_review_contract(*, escalation_posture: str) -> str:
+    if escalation_posture == "observe":
+        return "observe_on_touch"
+    if escalation_posture == "forward_block":
+        return "explicit_review_before_protected_change"
+    if escalation_posture == "strict_block":
+        return "strict_review_required"
+    if escalation_posture == "verification_attention":
+        return "proof_review_required"
     return "none"
 
 
@@ -592,6 +620,9 @@ def _trust_degradation_records(
                 "posture": posture,
                 "posture_view": posture_view,
                 "escalation_posture": _derive_escalation_posture(posture=posture),
+                "review_contract": _derive_review_contract(
+                    escalation_posture=_derive_escalation_posture(posture=posture)
+                ),
                 "blocking_state": _derive_blocking_state(posture=posture),
                 "mode": mode,
                 "contributing_evidence_classes": evidence_classes,
@@ -617,6 +648,7 @@ def _append_trust_degradation_ledger(*, ledger_path: Path, records: list[dict[st
 def _summarize_trust_degradation(*, ledger_path: Path, records: list[dict[str, Any]]) -> dict[str, Any]:
     by_posture: dict[str, int] = {}
     by_escalation_posture: dict[str, int] = {status: 0 for status in _ESCALATION_POSTURE_VOCABULARY}
+    by_review_contract: dict[str, int] = {status: 0 for status in _REVIEW_CONTRACT_VOCABULARY}
     by_evidence_class: dict[str, int] = {}
     by_blocking_state: dict[str, int] = {state: 0 for state in _TRUST_DEGRADATION_BLOCKING_STATES}
     for record in records:
@@ -625,6 +657,8 @@ def _summarize_trust_degradation(*, ledger_path: Path, records: list[dict[str, A
             by_posture[posture] = by_posture.get(posture, 0) + 1
         escalation_posture = str(record.get("escalation_posture") or _derive_escalation_posture(posture=posture))
         by_escalation_posture[escalation_posture] = by_escalation_posture.get(escalation_posture, 0) + 1
+        review_contract = str(record.get("review_contract") or _derive_review_contract(escalation_posture=escalation_posture))
+        by_review_contract[review_contract] = by_review_contract.get(review_contract, 0) + 1
         blocking_state = str(record.get("blocking_state") or "none")
         by_blocking_state[blocking_state] = by_blocking_state.get(blocking_state, 0) + 1
         evidence_classes = record.get("contributing_evidence_classes")
@@ -639,10 +673,12 @@ def _summarize_trust_degradation(*, ledger_path: Path, records: list[dict[str, A
         "posture_view_vocabulary": list(_TRUST_DEGRADATION_POSTURE_VIEWS),
         "blocking_state_vocabulary": list(_TRUST_DEGRADATION_BLOCKING_STATES),
         "escalation_posture_vocabulary": list(_ESCALATION_POSTURE_VOCABULARY),
+        "review_contract_vocabulary": list(_REVIEW_CONTRACT_VOCABULARY),
         "emitted_record_count": len(records),
         "records_emitted": bool(records),
         "counts_by_posture": by_posture,
         "counts_by_escalation_posture": by_escalation_posture,
+        "counts_by_review_contract": by_review_contract,
         "counts_by_evidence_class": by_evidence_class,
         "counts_by_blocking_state": by_blocking_state,
     }
