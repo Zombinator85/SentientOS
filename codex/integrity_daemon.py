@@ -545,3 +545,15 @@ class IntegrityDaemon:
             "proposed_spec": getattr(proposal, "proposed_spec", None),
         }
         return {key: value for key, value in data.items() if value is not None}
+
+
+_RUNTIME_DAEMON: IntegrityDaemon | None = None
+
+
+def runtime_guard(root: Path | str = Path("integration")) -> Dict[str, Any]:
+    """Runtime-mediated guard surface used by sentientosd maintenance ticks."""
+
+    global _RUNTIME_DAEMON
+    if _RUNTIME_DAEMON is None:
+        _RUNTIME_DAEMON = IntegrityDaemon(root)
+    return _RUNTIME_DAEMON.health()

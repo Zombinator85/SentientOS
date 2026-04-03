@@ -730,3 +730,31 @@ class CodexHealer:
     def _note_success(self, key: str) -> None:
         self._attempts.pop(key, None)
         self._next_allowed.pop(key, None)
+
+
+_RUNTIME_HEALER: CodexHealer | None = None
+
+
+def runtime_monitor(root: Path | str = Path("integration")) -> list[dict[str, object]]:
+    """Runtime-mediated CodexHealer observation surface used by sentientosd."""
+
+    global _RUNTIME_HEALER
+    if _RUNTIME_HEALER is None:
+        integration_root = Path(root)
+        lineage_pointer = integration_root / "lineage" / "active.txt"
+        environment = HealingEnvironment(
+            lineage_pointer=lineage_pointer,
+            archive_root=lineage_pointer.parent,
+        )
+        _RUNTIME_HEALER = CodexHealer(
+            watcher=PulseWatcher(required_mounts=[]),
+            synthesizer=RepairSynthesizer(environment),
+            review_board=ReviewBoard(),
+            regenesis=ReGenesisProtocol(environment),
+            ledger=RecoveryLedger(path=integration_root / "healer_runtime.log.jsonl"),
+        )
+    heartbeat_now = datetime.now(timezone.utc)
+    return _RUNTIME_HEALER.run(
+        [DaemonHeartbeat("IntegrityDaemon", heartbeat_now)],
+        now=heartbeat_now,
+    )
