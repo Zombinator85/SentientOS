@@ -25,23 +25,34 @@ def test_global_summary_includes_escalation_posture_views() -> None:
                             "global_covered_scope": {
                                 "overall_escalation_posture": "forward_block",
                                 "escalation_posture_counts": {"none": 2, "forward_block": 1},
+                                "overall_review_contract": "explicit_review_before_protected_change",
+                                "review_contract_counts": {"none": 2, "explicit_review_before_protected_change": 1},
                                 "domains": {
-                                    "immutable_manifest_identity_writes": {"escalation_posture": "forward_block"},
-                                    "genesisforge_lineage_proposal_adoption": {"escalation_posture": "none"},
+                                    "immutable_manifest_identity_writes": {
+                                        "escalation_posture": "forward_block",
+                                        "review_contract": "explicit_review_before_protected_change",
+                                    },
+                                    "genesisforge_lineage_proposal_adoption": {"escalation_posture": "none", "review_contract": "none"},
                                 },
                             },
                             "current_change_surface": {
                                 "overall_escalation_posture": "verification_attention",
                                 "escalation_posture_counts": {"none": 3, "verification_attention": 1},
+                                "overall_review_contract": "proof_review_required",
+                                "review_contract_counts": {"none": 3, "proof_review_required": 1},
                                 "domains": {
-                                    "immutable_manifest_identity_writes": {"escalation_posture": "verification_attention"},
-                                    "genesisforge_lineage_proposal_adoption": {"escalation_posture": "none"},
+                                    "immutable_manifest_identity_writes": {
+                                        "escalation_posture": "verification_attention",
+                                        "review_contract": "proof_review_required",
+                                    },
+                                    "genesisforge_lineage_proposal_adoption": {"escalation_posture": "none", "review_contract": "none"},
                                 },
                             },
                         },
                         "trust_degradation_ledger": {
                             "counts_by_posture": {"evidence_incomplete": 1},
                             "counts_by_escalation_posture": {"verification_attention": 1},
+                            "counts_by_review_contract": {"proof_review_required": 1},
                             "counts_by_evidence_class": {"kernel_admission_issues": 1},
                             "records_emitted": True,
                             "ledger_path": "glow/contracts/protected_mutation_trust_degradation_ledger.jsonl",
@@ -59,7 +70,18 @@ def test_global_summary_includes_escalation_posture_views() -> None:
     assert escalation["counts_by_view"]["current_change_surface"]["verification_attention"] == 1
     assert escalation["any_attention_by_view"]["global_covered_scope"]["has_forward_block"] is True
     assert escalation["any_attention_by_view"]["current_change_surface"]["has_verification_attention"] is True
+    review = summary["protected_mutation_review_contract"]
+    assert review["by_profile"]["ci-advisory"]["global_covered_scope"]["overall_review_contract"] == "explicit_review_before_protected_change"
+    assert review["by_profile"]["ci-advisory"]["current_change_surface"]["overall_review_contract"] == "proof_review_required"
+    assert review["counts_by_view"]["global_covered_scope"]["explicit_review_before_protected_change"] == 1
+    assert review["counts_by_view"]["current_change_surface"]["proof_review_required"] == 1
+    assert review["any_required_by_view"]["global_covered_scope"]["has_explicit_review_before_protected_change"] is True
+    assert review["any_required_by_view"]["current_change_surface"]["has_proof_review_required"] is True
+    trust_posture = summary["protected_mutation_trust_posture_by_profile"]["ci-advisory"]
+    assert trust_posture["global_covered_scope"]["domains"]["immutable_manifest_identity_writes"]["escalation_posture"] == "forward_block"
+    assert trust_posture["global_covered_scope"]["domains"]["immutable_manifest_identity_writes"]["review_contract"] == "explicit_review_before_protected_change"
     trust_ledger = summary["trust_degradation_ledger"]
     assert trust_ledger["counts_by_escalation_posture"]["verification_attention"] == 1
+    assert trust_ledger["counts_by_review_contract"]["proof_review_required"] == 1
     assert trust_ledger["counts_by_posture"]["evidence_incomplete"] == 1
     assert trust_ledger["counts_by_evidence_class"]["kernel_admission_issues"] == 1
