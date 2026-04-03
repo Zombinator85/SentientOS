@@ -706,6 +706,7 @@ def test_trust_posture_trusted_for_fully_aligned_domain(tmp_path: Path) -> None:
     trust = payload["summary"]["trust_posture"]["global_covered_scope"]["domains"]  # type: ignore[index]
     manifest_posture = trust["immutable_manifest_identity_writes"]["posture"]  # type: ignore[index]
     assert manifest_posture == "trusted"
+    assert trust["immutable_manifest_identity_writes"]["review_contract"] == "none"  # type: ignore[index]
     assert trust["immutable_manifest_identity_writes"]["evidence"]["issue_count"] == 0  # type: ignore[index]
 
 
@@ -808,9 +809,11 @@ def test_trust_degradation_ledger_classifies_legacy_forward_and_strict(tmp_path:
     )
     assert forward_record["posture"] == "legacy_only"
     assert forward_record["escalation_posture"] == "observe"
+    assert forward_record["review_contract"] == "observe_on_touch"
     assert forward_record["blocking_state"] == "none"
     assert strict_record["posture"] == "strict_failure_present"
     assert strict_record["escalation_posture"] == "strict_block"
+    assert strict_record["review_contract"] == "strict_review_required"
     assert strict_record["blocking_state"] == "strict"
 
 
@@ -828,6 +831,7 @@ def test_trust_degradation_ledger_classifies_forward_and_evidence_incomplete(tmp
     )
     assert lineage_record["posture"] == "evidence_incomplete"
     assert lineage_record["escalation_posture"] == "verification_attention"
+    assert lineage_record["review_contract"] == "proof_review_required"
     assert lineage_record["blocking_state"] == "forward_enforcement"
     assert "kernel_admission_issues" in lineage_record["contributing_evidence_classes"]
 
@@ -857,6 +861,13 @@ def test_trust_degradation_ledger_multi_domain_records_are_stable_and_schema_fix
         "forward_block",
         "strict_block",
         "verification_attention",
+    ]
+    assert summary["review_contract_vocabulary"] == [
+        "none",
+        "observe_on_touch",
+        "explicit_review_before_protected_change",
+        "strict_review_required",
+        "proof_review_required",
     ]
 
 
@@ -900,9 +911,13 @@ def test_trust_escalation_posture_mappings_and_view_separation(tmp_path: Path) -
     )
     by_domain_and_view = {(row["covered_domain_id"], row["posture_view"]): row for row in records}
     assert by_domain_and_view[("genesisforge_lineage_proposal_adoption", "global_covered_scope")]["escalation_posture"] == "observe"
+    assert by_domain_and_view[("genesisforge_lineage_proposal_adoption", "global_covered_scope")]["review_contract"] == "observe_on_touch"
     assert by_domain_and_view[("immutable_manifest_identity_writes", "global_covered_scope")]["escalation_posture"] == "forward_block"
+    assert by_domain_and_view[("immutable_manifest_identity_writes", "global_covered_scope")]["review_contract"] == "explicit_review_before_protected_change"
     assert by_domain_and_view[("quarantine_clear_privileged_operator_action", "global_covered_scope")]["escalation_posture"] == "strict_block"
+    assert by_domain_and_view[("quarantine_clear_privileged_operator_action", "global_covered_scope")]["review_contract"] == "strict_review_required"
     assert by_domain_and_view[("codexhealer_repair_regenesis_linkage", "global_covered_scope")]["escalation_posture"] == "verification_attention"
+    assert by_domain_and_view[("codexhealer_repair_regenesis_linkage", "global_covered_scope")]["review_contract"] == "proof_review_required"
     assert ("genesisforge_lineage_proposal_adoption", "current_change_surface") not in by_domain_and_view
     assert ("immutable_manifest_identity_writes", "current_change_surface") not in by_domain_and_view
 
@@ -914,6 +929,7 @@ def test_trust_degradation_summary_keeps_evidence_and_adds_escalation_counts(tmp
             "posture_view": "global_covered_scope",
             "posture": "evidence_incomplete",
             "escalation_posture": "verification_attention",
+            "review_contract": "proof_review_required",
             "blocking_state": "forward_enforcement",
             "contributing_evidence_classes": ["kernel_admission_issues"],
         },
@@ -922,6 +938,7 @@ def test_trust_degradation_summary_keeps_evidence_and_adds_escalation_counts(tmp
             "posture_view": "global_covered_scope",
             "posture": "legacy_only",
             "escalation_posture": "observe",
+            "review_contract": "observe_on_touch",
             "blocking_state": "none",
             "contributing_evidence_classes": ["execution_consistency_checks"],
         },
@@ -930,5 +947,7 @@ def test_trust_degradation_summary_keeps_evidence_and_adds_escalation_counts(tmp
     assert summary["counts_by_posture"]["evidence_incomplete"] == 1
     assert summary["counts_by_escalation_posture"]["verification_attention"] == 1
     assert summary["counts_by_escalation_posture"]["observe"] == 1
+    assert summary["counts_by_review_contract"]["proof_review_required"] == 1
+    assert summary["counts_by_review_contract"]["observe_on_touch"] == 1
     assert summary["counts_by_evidence_class"]["kernel_admission_issues"] == 1
     assert summary["counts_by_evidence_class"]["execution_consistency_checks"] == 1

@@ -503,11 +503,15 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
     trust_degradation_by_profile: dict[str, dict[str, Any]] = {}
     trust_degradation_counts_by_posture: dict[str, int] = {}
     trust_degradation_counts_by_escalation_posture: dict[str, int] = {}
+    trust_degradation_counts_by_review_contract: dict[str, int] = {}
     trust_degradation_counts_by_evidence_class: dict[str, int] = {}
     trust_degradation_ledger_paths: dict[str, str] = {}
     trust_escalation_by_profile: dict[str, dict[str, Any]] = {}
     trust_escalation_counts_by_view: dict[str, dict[str, int]] = {}
     trust_escalation_any_attention_by_view: dict[str, dict[str, bool]] = {}
+    trust_review_contract_by_profile: dict[str, dict[str, Any]] = {}
+    trust_review_contract_counts_by_view: dict[str, dict[str, int]] = {}
+    trust_review_contract_any_required_by_view: dict[str, dict[str, bool]] = {}
     for profile in profiles:
         summary = profile.get("summary") if isinstance(profile, dict) else {}
         profile_name = str(profile.get("profile"))
@@ -587,6 +591,51 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                             "counts_by_escalation_posture": counts,
                             "attention_flags": attention,
                         }
+                        review_counts_payload = view_payload.get("review_contract_counts")
+                        review_counts: dict[str, int] = {}
+                        if isinstance(review_counts_payload, dict):
+                            review_counts = {
+                                str(key): int(value)
+                                for key, value in review_counts_payload.items()
+                                if isinstance(key, str) and isinstance(value, int)
+                            }
+                        review_by_domain: dict[str, str] = {}
+                        if isinstance(domains_payload, dict):
+                            for domain_name, domain_payload in domains_payload.items():
+                                if isinstance(domain_name, str) and isinstance(domain_payload, dict):
+                                    review_by_domain[domain_name] = str(domain_payload.get("review_contract") or "none")
+                        review_overall = str(view_payload.get("overall_review_contract") or "none")
+                        review_required = {
+                            "has_explicit_review_before_protected_change": bool(
+                                review_counts.get("explicit_review_before_protected_change", 0) > 0
+                            ),
+                            "has_strict_review_required": bool(review_counts.get("strict_review_required", 0) > 0),
+                            "has_proof_review_required": bool(review_counts.get("proof_review_required", 0) > 0),
+                        }
+                        trust_review_contract_by_profile.setdefault(profile_name, {})
+                        trust_review_contract_by_profile[profile_name][posture_view] = {
+                            "overall_review_contract": review_overall,
+                            "domain_review_contract": review_by_domain,
+                            "counts_by_review_contract": review_counts,
+                            "required_flags": review_required,
+                        }
+                        trust_review_contract_counts_by_view.setdefault(posture_view, {})
+                        trust_review_contract_any_required_by_view.setdefault(
+                            posture_view,
+                            {
+                                "has_explicit_review_before_protected_change": False,
+                                "has_strict_review_required": False,
+                                "has_proof_review_required": False,
+                            },
+                        )
+                        for key, value in review_counts.items():
+                            trust_review_contract_counts_by_view[posture_view][key] = (
+                                trust_review_contract_counts_by_view[posture_view].get(key, 0) + value
+                            )
+                        for required_key, active in review_required.items():
+                            trust_review_contract_any_required_by_view[posture_view][required_key] = bool(
+                                trust_review_contract_any_required_by_view[posture_view][required_key] or active
+                            )
                         trust_escalation_counts_by_view.setdefault(posture_view, {})
                         trust_escalation_any_attention_by_view.setdefault(
                             posture_view,
@@ -621,6 +670,13 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                             if isinstance(key, str) and isinstance(value, int):
                                 trust_degradation_counts_by_escalation_posture[key] = (
                                     trust_degradation_counts_by_escalation_posture.get(key, 0) + value
+                                )
+                    review_counts = degradation.get("counts_by_review_contract")
+                    if isinstance(review_counts, dict):
+                        for key, value in review_counts.items():
+                            if isinstance(key, str) and isinstance(value, int):
+                                trust_degradation_counts_by_review_contract[key] = (
+                                    trust_degradation_counts_by_review_contract.get(key, 0) + value
                                 )
                     evidence_counts = degradation.get("counts_by_evidence_class")
                     if isinstance(evidence_counts, dict):
@@ -661,6 +717,11 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
             "counts_by_view": trust_escalation_counts_by_view,
             "any_attention_by_view": trust_escalation_any_attention_by_view,
         },
+        "protected_mutation_review_contract": {
+            "by_profile": trust_review_contract_by_profile,
+            "counts_by_view": trust_review_contract_counts_by_view,
+            "any_required_by_view": trust_review_contract_any_required_by_view,
+        },
         "trust_degradation_ledger": {
             "records_emitted": any(
                 bool(item.get("records_emitted", False)) for item in trust_degradation_by_profile.values() if isinstance(item, dict)
@@ -668,6 +729,7 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
             "by_profile": trust_degradation_by_profile,
             "counts_by_posture": trust_degradation_counts_by_posture,
             "counts_by_escalation_posture": trust_degradation_counts_by_escalation_posture,
+            "counts_by_review_contract": trust_degradation_counts_by_review_contract,
             "counts_by_evidence_class": trust_degradation_counts_by_evidence_class,
             "ledger_path_by_profile": trust_degradation_ledger_paths,
         },
