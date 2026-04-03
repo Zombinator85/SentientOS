@@ -201,7 +201,7 @@ def test_runtime_governor_exception_is_deferred(tmp_path):
     assert "runtime_governor_error" in decision.reason_codes
 
 
-def test_federated_control_denial(tmp_path):
+def test_federated_control_metadata_denial_is_advisory_when_runtime_allows(tmp_path):
     kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
     decision = kernel.admit(
         ControlActionRequest(
@@ -214,8 +214,17 @@ def test_federated_control_denial(tmp_path):
             metadata={"federated_denial_cause": "digest_mismatch", "subject": "daemon-y", "scope": "federated"},
         )
     )
-    assert decision.outcome == AdmissionOutcome.DENY
-    assert "federation_governance:digest_mismatch" in decision.reason_codes
+    assert decision.outcome == AdmissionOutcome.ALLOW
+    assert "authority_reconciliation:federated_control_runtime_governor_authoritative" in decision.reason_codes
+    assert "federation_governance_advisory:digest_mismatch" in decision.reason_codes
+    authority = decision.delegated_outcomes.get("authority_of_judgment")
+    assert isinstance(authority, dict)
+    assert authority.get("authoritative_surface") == "runtime_governor"
+    assert authority.get("surface_disagreement") is True
+    reconciliation = authority.get("reconciliation")
+    assert isinstance(reconciliation, dict)
+    assert reconciliation.get("state") == "reconciled"
+    assert reconciliation.get("rule") == "runtime_governor_authoritative_for_federated_control"
 
 
 def test_federated_control_missing_origin_is_quarantined(tmp_path):
@@ -232,6 +241,23 @@ def test_federated_control_missing_origin_is_quarantined(tmp_path):
     )
     assert decision.outcome == AdmissionOutcome.QUARANTINE
     assert "federation_origin_missing" in decision.reason_codes
+
+
+def test_unresolved_non_federated_governance_ambiguity_is_not_marked_reconciled(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="restart_daemon",
+            authority_class=AuthorityClass.DAEMON_RESTART,
+            actor="healer",
+            target_subsystem="daemon-x",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"federated_denial_cause": "digest_mismatch", "subject": "daemon-x"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.ALLOW
+    assert decision.delegated_outcomes.get("authority_of_judgment") is None
+    assert not any("authority_reconciliation:" in reason for reason in decision.reason_codes)
 
 
 def test_proof_budget_diagnostics_mode_defers(tmp_path):
