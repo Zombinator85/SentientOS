@@ -7,6 +7,7 @@ from sentientos.forge_merge_train import ForgeMergeTrain, TrainEntry, TrainState
 from sentientos.github_artifacts import ArtifactRef, ContractBundle
 from sentientos.forge_queue import ForgeQueue, ForgeRequest
 from sentientos.github_merge import MergeResult, RebaseResult
+from scripts.emit_stability_doctrine import emit_stability_doctrine
 
 
 class _Ops:
@@ -239,6 +240,61 @@ def test_merge_train_holds_when_audit_integrity_red(tmp_path: Path, monkeypatch)
 
     assert result["status"] == "held"
     assert result["reason"] == "audit_integrity_failed"
+
+
+def test_runtime_feedback_degradation_bridges_into_merge_train_gating(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/governor").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "vow").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "vow/immutable_manifest.json").write_text('{"files":{}}\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    class Done:
+        def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(command, check=False, capture_output=False, text=False):  # type: ignore[no-untyped-def]
+        _ = check, capture_output, text
+        cmd = tuple(command)
+        if cmd[:3] == ("python", "-m", "sentientos.verify_audits") and "--strict" in cmd:
+            strict_payload = {"baseline_status": "ok", "runtime_status": "ok", "baseline_path": "a", "runtime_path": "b"}
+            return Done(0, stdout=json.dumps(strict_payload) + "\n")
+        if cmd[:2] == ("make", "mypy-forge"):
+            return Done(0, stdout="ok")
+        if cmd[:2] == ("make", "forge-ci"):
+            return Done(0, stdout="ok")
+        if cmd[:3] == ("git", "rev-parse", "--verify"):
+            return Done(0, stdout="abc123\n")
+        return Done(0)
+
+    monkeypatch.setattr("scripts.emit_stability_doctrine.subprocess.run", fake_run)
+
+    (tmp_path / "glow/governor/rollup.json").write_text(
+        json.dumps({"reason_counts": {"runtime_feedback_degraded_maintenance": 1}}) + "\n",
+        encoding="utf-8",
+    )
+    emit_stability_doctrine()
+    train.save_state(TrainState(entries=[_entry("ready")]))
+    held = train.tick()
+
+    assert held["status"] == "held"
+    assert held["reason"] == "audit_integrity_failed"
+
+    (tmp_path / "glow/governor/rollup.json").write_text(
+        json.dumps({"reason_counts": {"runtime_feedback_degraded_maintenance": 0}}) + "\n",
+        encoding="utf-8",
+    )
+    emit_stability_doctrine()
+    train.save_state(TrainState(entries=[_entry("ready")]))
+    mergeable = train.tick()
+
+    assert mergeable["status"] == "mergeable"
 
 
 def test_merge_train_holds_when_remote_doctrine_red(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
