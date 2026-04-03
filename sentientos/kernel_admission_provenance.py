@@ -86,6 +86,13 @@ _TRUST_DEGRADATION_SCHEMA = "protected_mutation_trust_degradation_record"
 _TRUST_DEGRADATION_SCHEMA_VERSION = 1
 _TRUST_DEGRADATION_POSTURE_VIEWS = ("global_covered_scope", "current_change_surface")
 _TRUST_DEGRADATION_BLOCKING_STATES = ("none", "forward_enforcement", "strict")
+_ESCALATION_POSTURE_VOCABULARY = (
+    "none",
+    "observe",
+    "forward_block",
+    "strict_block",
+    "verification_attention",
+)
 _TRUST_DEGRADATION_LEDGER_RELATIVE_PATH = Path("glow/contracts/protected_mutation_trust_degradation_ledger.jsonl")
 _EVIDENCE_INCOMPLETE_CODES = frozenset(
     {
@@ -425,6 +432,7 @@ def _compose_trust_posture(
 
     def _view(change_set: set[str] | None) -> dict[str, object]:
         posture_counts: dict[str, int] = {status: 0 for status in _TRUST_POSTURE_STATUS_VOCABULARY}
+        escalation_posture_counts: dict[str, int] = {status: 0 for status in _ESCALATION_POSTURE_VOCABULARY}
         domain_posture: dict[str, Any] = {}
         for domain in _COVERED_DOMAIN_ORDER:
             evidence = domain_evidence[domain]
@@ -440,10 +448,14 @@ def _compose_trust_posture(
                 "applicable": applicable,
             }
             posture = _derive_domain_posture(evidence=derived, mode=mode, applicable=applicable)
+            escalation_posture = _derive_escalation_posture(posture=posture)
             posture_counts[posture] = posture_counts.get(posture, 0) + 1
+            escalation_posture_counts[escalation_posture] = escalation_posture_counts.get(escalation_posture, 0) + 1
             domain_posture[domain] = {
                 "posture": posture,
+                "escalation_posture": escalation_posture,
                 "applicable": applicable,
+                "blocking_state": _derive_blocking_state(posture=posture),
                 "evidence": derived,
                 "evidence_classes": [
                     "kernel_admission_issues",
@@ -464,11 +476,18 @@ def _compose_trust_posture(
             overall = "trusted"
         else:
             overall = "not_applicable"
-        return {"overall_posture": overall, "posture_counts": posture_counts, "domains": domain_posture}
+        return {
+            "overall_posture": overall,
+            "overall_escalation_posture": _derive_escalation_posture(posture=overall),
+            "posture_counts": posture_counts,
+            "escalation_posture_counts": escalation_posture_counts,
+            "domains": domain_posture,
+        }
 
     return {
         "scope": "covered_protected_mutation_corridor",
         "status_vocabulary": list(_TRUST_POSTURE_STATUS_VOCABULARY),
+        "escalation_posture_vocabulary": list(_ESCALATION_POSTURE_VOCABULARY),
         "global_covered_scope": _view(None),
         "current_change_surface": _view(change_relevant_domains),
     }
@@ -489,6 +508,18 @@ def _derive_blocking_state(*, posture: str) -> str:
         return "strict"
     if posture in {"forward_risk_present", "evidence_incomplete"}:
         return "forward_enforcement"
+    return "none"
+
+
+def _derive_escalation_posture(*, posture: str) -> str:
+    if posture == "legacy_only":
+        return "observe"
+    if posture == "forward_risk_present":
+        return "forward_block"
+    if posture == "strict_failure_present":
+        return "strict_block"
+    if posture == "evidence_incomplete":
+        return "verification_attention"
     return "none"
 
 
@@ -560,6 +591,7 @@ def _trust_degradation_records(
                 "covered_domain_id": domain_id,
                 "posture": posture,
                 "posture_view": posture_view,
+                "escalation_posture": _derive_escalation_posture(posture=posture),
                 "blocking_state": _derive_blocking_state(posture=posture),
                 "mode": mode,
                 "contributing_evidence_classes": evidence_classes,
@@ -584,12 +616,15 @@ def _append_trust_degradation_ledger(*, ledger_path: Path, records: list[dict[st
 
 def _summarize_trust_degradation(*, ledger_path: Path, records: list[dict[str, Any]]) -> dict[str, Any]:
     by_posture: dict[str, int] = {}
+    by_escalation_posture: dict[str, int] = {status: 0 for status in _ESCALATION_POSTURE_VOCABULARY}
     by_evidence_class: dict[str, int] = {}
     by_blocking_state: dict[str, int] = {state: 0 for state in _TRUST_DEGRADATION_BLOCKING_STATES}
     for record in records:
         posture = str(record.get("posture") or "")
         if posture:
             by_posture[posture] = by_posture.get(posture, 0) + 1
+        escalation_posture = str(record.get("escalation_posture") or _derive_escalation_posture(posture=posture))
+        by_escalation_posture[escalation_posture] = by_escalation_posture.get(escalation_posture, 0) + 1
         blocking_state = str(record.get("blocking_state") or "none")
         by_blocking_state[blocking_state] = by_blocking_state.get(blocking_state, 0) + 1
         evidence_classes = record.get("contributing_evidence_classes")
@@ -603,9 +638,11 @@ def _summarize_trust_degradation(*, ledger_path: Path, records: list[dict[str, A
         "ledger_path": str(ledger_path),
         "posture_view_vocabulary": list(_TRUST_DEGRADATION_POSTURE_VIEWS),
         "blocking_state_vocabulary": list(_TRUST_DEGRADATION_BLOCKING_STATES),
+        "escalation_posture_vocabulary": list(_ESCALATION_POSTURE_VOCABULARY),
         "emitted_record_count": len(records),
         "records_emitted": bool(records),
         "counts_by_posture": by_posture,
+        "counts_by_escalation_posture": by_escalation_posture,
         "counts_by_evidence_class": by_evidence_class,
         "counts_by_blocking_state": by_blocking_state,
     }
