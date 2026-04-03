@@ -9,6 +9,7 @@ from __future__ import annotations
 """
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,7 @@ from sentientos.control_plane_kernel import (
     ControlPlaneKernel,
     LifecyclePhase,
 )
+from sentientos.runtime_governor import PostureRuleEvaluation, RuntimeGovernor
 from sentientosd import RuntimeMaintenanceSurfaces, _run_maintenance_tick
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -102,6 +104,9 @@ class _RuntimeSurfaceSpy:
 
     def mark_committed(self, _plan) -> None:
         raise AssertionError("should not commit in this test")
+
+    def governance_feedback(self) -> dict[str, object]:
+        return {"schema": "runtime_maintenance_feedback:v1", "degraded": False, "surfaces": {}}
 
 
 def test_maintenance_tick_invokes_all_runtime_surfaces(tmp_path: Path) -> None:
@@ -243,3 +248,84 @@ def test_governor_denial_prevents_daemon_loop_side_effects(tmp_path: Path) -> No
     assert surfaces.monitor_calls == 0
     assert forge.calls == 1
     assert merge.calls == 1
+
+
+def test_runtime_feedback_degradation_is_reused_for_later_maintenance_gating(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("SENTIENTOS_GOVERNOR_ROOT", str(tmp_path / "governor"))
+    monkeypatch.setenv("SENTIENTOS_REPO_ROOT", str(tmp_path))
+    monkeypatch.setenv("SENTIENTOS_ENFORCEMENT_RUNTIME_GOVERNOR", "enforce")
+
+    def _nominal_eval(self, *, action_class: str, metadata: dict[str, object] | None):
+        del self, action_class, metadata
+        return (
+            PostureRuleEvaluation(
+                dimension="test_nominal",
+                reason="allowed",
+                restriction_class="none",
+                blocks=False,
+                precedence=1,
+                details={},
+            ),
+            {},
+        )
+
+    monkeypatch.setattr(RuntimeGovernor, "_evaluate_audit_trust_posture", _nominal_eval)
+    monkeypatch.setattr(RuntimeGovernor, "_evaluate_pulse_epoch_posture", _nominal_eval)
+
+    call_counts = {"expand": 0, "cycle": 0, "guard": 0, "monitor": 0}
+
+    def _fake_expand(_root):
+        call_counts["expand"] += 1
+        return []
+
+    def _fake_cycle(_root):
+        call_counts["cycle"] += 1
+        return {"panel": "Spec Amendments", "pending": [], "approved": [], "items": []}
+
+    def _fake_guard(_root):
+        call_counts["guard"] += 1
+        return {"daemon": "IntegrityDaemon", "status": "alert", "quarantined": 1, "passed": 0}
+
+    def _fake_monitor(_root):
+        call_counts["monitor"] += 1
+        return []
+
+    monkeypatch.setattr("sentientosd.runtime_genesis_expand", _fake_expand)
+    monkeypatch.setattr("sentientosd.runtime_spec_cycle", _fake_cycle)
+    monkeypatch.setattr("sentientosd.runtime_integrity_guard", _fake_guard)
+    monkeypatch.setattr("sentientosd.runtime_healer_monitor", _fake_monitor)
+
+    kernel = ControlPlaneKernel(runtime_governor=RuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path)
+    forge = _ForgeDaemonStub()
+    merge = _MergeTrainStub()
+    sentinel = _SentinelStub()
+
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,
+        contract_sentinel=sentinel,  # type: ignore[arg-type]
+        forge_daemon=forge,  # type: ignore[arg-type]
+        merge_train=merge,  # type: ignore[arg-type]
+    )
+    assert call_counts == {"expand": 1, "cycle": 1, "guard": 1, "monitor": 1}
+
+    _run_maintenance_tick(
+        kernel=kernel,
+        runtime_surfaces=surfaces,
+        contract_sentinel=sentinel,  # type: ignore[arg-type]
+        forge_daemon=forge,  # type: ignore[arg-type]
+        merge_train=merge,  # type: ignore[arg-type]
+    )
+    assert call_counts["expand"] == 1
+    assert call_counts["cycle"] == 1
+    assert call_counts["guard"] == 1
+    assert call_counts["monitor"] == 2
+
+    rows = [json.loads(line) for line in (tmp_path / "decisions.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert any(
+        row.get("action_kind") == "expand"
+        and row.get("final_disposition") == "deny"
+        and any("runtime_governor:runtime_feedback_degraded_maintenance" in reason for reason in row.get("reason_codes", []))
+        for row in rows
+    )
