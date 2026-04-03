@@ -278,6 +278,7 @@ class RuntimeGovernor:
     ) -> tuple[PostureRuleEvaluation, dict[str, object]]:
         provided_feedback = (metadata or {}).get("runtime_feedback")
         feedback = dict(provided_feedback) if isinstance(provided_feedback, Mapping) else {}
+        runtime_local_degraded = bool(feedback.get("degraded", False))
         evolution_feedback = self._load_evolution_feedback_signal()
         if evolution_feedback["degraded"]:
             feedback["degraded"] = True
@@ -290,9 +291,16 @@ class RuntimeGovernor:
                 restriction_class="none",
                 blocks=False,
                 precedence=20,
-                details={"present": False},
+                details={
+                    "present": False,
+                    "evolution_signal_degraded": bool(evolution_feedback["degraded"]),
+                    "evolution_signal_reason": evolution_feedback["reason"],
+                    "surface_disagreement": False,
+                    "runtime_local_degraded": runtime_local_degraded,
+                    "reconciliation": evolution_feedback.get("reconciliation", {}),
+                },
             )
-            return evaluation, {"runtime_feedback": {"present": False}}
+            return evaluation, {"runtime_feedback": {"present": False}, "evolution_feedback_signal": evolution_feedback}
 
         degraded = bool(feedback.get("degraded", False))
         reason = "runtime_feedback_nominal"
@@ -312,6 +320,9 @@ class RuntimeGovernor:
                 "source": "runtime_or_evolution_feedback",
                 "evolution_signal_degraded": bool(evolution_feedback["degraded"]),
                 "evolution_signal_reason": evolution_feedback["reason"],
+                "surface_disagreement": runtime_local_degraded != bool(evolution_feedback["degraded"]),
+                "runtime_local_degraded": runtime_local_degraded,
+                "reconciliation": evolution_feedback.get("reconciliation", {}),
             },
         )
         return evaluation, {"runtime_feedback": dict(feedback), "evolution_feedback_signal": evolution_feedback}
@@ -347,29 +358,74 @@ class RuntimeGovernor:
             "checks_failed",
             "merge_failed",
         }
-        last_error: str | None = None
-        for item in reversed(entries):
-            if not isinstance(item, dict):
-                continue
-            status = str(item.get("status") or "")
-            error = str(item.get("last_error") or "")
-            if status in {"held", "failed"} and error in degraded_errors:
-                last_error = error
-                break
-        if last_error is None:
+        typed_entries = [item for item in entries if isinstance(item, dict)]
+        latest = typed_entries[-1] if typed_entries else {}
+        latest_status = str(latest.get("status") or "")
+        latest_error = str(latest.get("last_error") or "")
+        stale_integrity_failures = 0
+        if typed_entries:
+            history = typed_entries[:-1]
+            for item in history:
+                status = str(item.get("status") or "")
+                error = str(item.get("last_error") or "")
+                if status in {"held", "failed"} and error in degraded_errors:
+                    stale_integrity_failures += 1
+
+        if latest_status in {"held", "failed"} and latest_error in degraded_errors:
+            return {
+                "present": True,
+                "degraded": True,
+                "reason": "merge_train_integrity_failure",
+                "path": str(state_path),
+                "last_error": latest_error,
+                "latest_entry_status": latest_status,
+                "reconciliation": {
+                    "state": "none",
+                    "rule": "latest_entry_authoritative",
+                    "disagreement_kind": "none",
+                },
+            }
+        if stale_integrity_failures > 0:
             return {
                 "present": True,
                 "degraded": False,
-                "reason": "merge_train_nominal",
+                "reason": "merge_train_recovered_latest_entry",
                 "path": str(state_path),
                 "last_error": None,
+                "latest_entry_status": latest_status or "unknown",
+                "reconciliation": {
+                    "state": "reconciled",
+                    "rule": "latest_entry_authoritative",
+                    "disagreement_kind": "stale_evolution_failure_cleared",
+                    "stale_integrity_failure_count": stale_integrity_failures,
+                },
+            }
+        if not typed_entries:
+            return {
+                "present": True,
+                "degraded": False,
+                "reason": "merge_train_state_empty",
+                "path": str(state_path),
+                "last_error": None,
+                "latest_entry_status": "none",
+                "reconciliation": {
+                    "state": "none",
+                    "rule": "latest_entry_authoritative",
+                    "disagreement_kind": "none",
+                },
             }
         return {
             "present": True,
-            "degraded": True,
-            "reason": "merge_train_integrity_failure",
+            "degraded": False,
+            "reason": "merge_train_nominal",
             "path": str(state_path),
-            "last_error": last_error,
+            "last_error": None,
+            "latest_entry_status": latest_status or "unknown",
+            "reconciliation": {
+                "state": "none",
+                "rule": "latest_entry_authoritative",
+                "disagreement_kind": "none",
+            },
         }
 
     def _evaluate_federated_governance_posture(

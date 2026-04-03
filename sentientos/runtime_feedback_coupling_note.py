@@ -28,10 +28,31 @@ Reverse-coupling matrix (evidence source -> runtime consumer -> causal impact):
    - Contract/status observatory aggregates not consumed by RuntimeGovernor.
    - Constitution digest and corridor dashboards that report posture only.
 
-Bidirectional closure assessment (this pass):
-- Cross-loop coupling is now bidirectional for one narrow bridge:
-  runtime feedback can hold merge-train, and merge-train integrity failures can
-  now tighten runtime maintenance admission.
-- Closure is still asymmetric overall: most doctrine/observatory outputs remain
-  descriptive and do not yet alter runtime scheduling or admission.
+Disagreement map (compact):
+- Runtime-causal surfaces: RuntimeGovernor pressure/budget, audit_trust posture.
+- Evolution-causal surfaces: merge_train held/failed integrity reasons,
+  stability_doctrine audit/runtime_integrity gate.
+- Descriptive-only surfaces: contract_status rollups, fleet health summaries,
+  corridor dashboards.
+- Material split-brain classes:
+  1) runtime nominal vs merge-train held integrity failure.
+  2) runtime degraded vs doctrine healthy (stale governor/degraded count race).
+  3) protected-corridor trust posture trusted locally while body-scale doctrine
+     remains degraded.
+  4) rollback/deploy warning while maintenance admission remains open.
+
+Reconciled disagreement path (this pass):
+- Reconciliation point: RuntimeGovernor evolution feedback ingestion
+  (``_load_evolution_feedback_signal``).
+- Mechanical rule: merge-train *latest entry* is authoritative for runtime
+  admission; stale historical held/failed integrity entries no longer poison
+  maintenance admission after a newer nominal entry is present.
+- Machine-readable observability: runtime_feedback posture details include
+  ``surface_disagreement`` and ``reconciliation`` payload with state/rule.
+
+Still-unreconciled split-brain risks:
+- Contract status and broader doctrine rollups remain descriptive-only for
+  RuntimeGovernor admission.
+- Corridor trust posture disagreements remain visible but are not yet folded
+  into maintenance admission arbitration.
 """
