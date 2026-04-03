@@ -5,6 +5,7 @@ import logging
 import os
 import signal
 from contextlib import suppress
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -45,24 +46,77 @@ class RuntimeMaintenanceSurfaces:
 
     def __init__(self, repo_root: Path) -> None:
         self._repo_root = Path(repo_root)
+        self._feedback: dict[str, Any] = {
+            "schema": "runtime_maintenance_feedback:v1",
+            "degraded": False,
+            "surfaces": {},
+        }
 
     def expand(self) -> list[Any]:
-        return runtime_genesis_expand(self._repo_root)
+        outcomes = runtime_genesis_expand(self._repo_root)
+        failed = sum(1 for item in outcomes if str(getattr(item, "status", "")).lower() in {"failed", "deferred_degraded_audit_trust"})
+        self._feedback["surfaces"]["genesis_forge"] = {
+            "status": "degraded" if failed else "ok",
+            "failed_or_deferred": failed,
+            "outcome_count": len(outcomes),
+        }
+        self._refresh_feedback()
+        return outcomes
 
     def cycle(self) -> dict[str, Any]:
-        return runtime_spec_cycle(self._repo_root / "integration")
+        state = runtime_spec_cycle(self._repo_root / "integration")
+        pending = len(state.get("pending", [])) if isinstance(state.get("pending"), list) else 0
+        self._feedback["surfaces"]["spec_amender"] = {
+            "status": "ok",
+            "pending": pending,
+            "approved": len(state.get("approved", [])) if isinstance(state.get("approved"), list) else 0,
+        }
+        self._refresh_feedback()
+        return state
 
     def guard(self) -> dict[str, Any]:
-        return runtime_integrity_guard(self._repo_root / "integration")
+        health = runtime_integrity_guard(self._repo_root / "integration")
+        status = str(health.get("status", "unknown")).lower()
+        quarantined = int(health.get("quarantined", 0) or 0)
+        degraded = status in {"alert", "quarantined"} or quarantined > 0
+        self._feedback["surfaces"]["integrity_daemon"] = {
+            "status": "degraded" if degraded else "ok",
+            "health_status": status,
+            "quarantined": quarantined,
+            "passed": int(health.get("passed", 0) or 0),
+        }
+        self._refresh_feedback()
+        return health
 
     def monitor(self) -> list[dict[str, Any]]:
-        return runtime_healer_monitor(self._repo_root / "integration")
+        events = runtime_healer_monitor(self._repo_root / "integration")
+        quarantined = sum(1 for event in events if bool(event.get("quarantined")))
+        statuses = sorted({str(event.get("status", "unknown")) for event in events})
+        self._feedback["surfaces"]["codex_healer"] = {
+            "status": "degraded" if quarantined else "ok",
+            "events": len(events),
+            "quarantined_events": quarantined,
+            "statuses": statuses,
+        }
+        self._refresh_feedback()
+        return events
 
     def next_commit(self) -> AmendmentCommitPlan | None:
         return runtime_next_commit(self._repo_root / "integration")
 
     def mark_committed(self, plan: AmendmentCommitPlan) -> None:
         runtime_mark_committed(plan, operator="sentientosd", root=self._repo_root / "integration")
+
+    def governance_feedback(self) -> dict[str, Any]:
+        return dict(self._feedback)
+
+    def _refresh_feedback(self) -> None:
+        surfaces = self._feedback.get("surfaces", {})
+        degraded = any(
+            isinstance(surface, dict) and str(surface.get("status", "ok")) == "degraded"
+            for surface in surfaces.values()
+        )
+        self._feedback["degraded"] = degraded
 
 
 def _run_maintenance_tick(
@@ -75,6 +129,8 @@ def _run_maintenance_tick(
 ) -> None:
     LOGGER.debug("SentientOS daemon tick")
     kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="sentientosd")
+    tick_id = datetime.now(timezone.utc).isoformat()
+    feedback = runtime_surfaces.governance_feedback()
     kernel.admit_and_execute(
         ControlActionRequest(
             action_kind="expand",
@@ -83,9 +139,11 @@ def _run_maintenance_tick(
             target_subsystem="genesis_forge",
             requested_phase=LifecyclePhase.MAINTENANCE,
             startup_symbol="GenesisForge",
+            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:expand"},
         ),
         execute=runtime_surfaces.expand,
     )
+    feedback = runtime_surfaces.governance_feedback()
     kernel.admit_and_execute(
         ControlActionRequest(
             action_kind="cycle",
@@ -94,9 +152,11 @@ def _run_maintenance_tick(
             target_subsystem="spec_amender",
             requested_phase=LifecyclePhase.MAINTENANCE,
             startup_symbol="SpecAmender",
+            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:cycle"},
         ),
         execute=runtime_surfaces.cycle,
     )
+    feedback = runtime_surfaces.governance_feedback()
     kernel.admit_and_execute(
         ControlActionRequest(
             action_kind="guard",
@@ -105,9 +165,11 @@ def _run_maintenance_tick(
             target_subsystem="integrity_daemon",
             requested_phase=LifecyclePhase.MAINTENANCE,
             startup_symbol="IntegrityDaemon",
+            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:guard"},
         ),
         execute=runtime_surfaces.guard,
     )
+    feedback = runtime_surfaces.governance_feedback()
     kernel.admit_and_execute(
         ControlActionRequest(
             action_kind="monitor",
@@ -116,6 +178,7 @@ def _run_maintenance_tick(
             target_subsystem="codex_healer",
             requested_phase=LifecyclePhase.MAINTENANCE,
             startup_symbol="CodexHealer",
+            metadata={"runtime_feedback": feedback, "correlation_id": f"{tick_id}:monitor"},
         ),
         execute=runtime_surfaces.monitor,
     )
