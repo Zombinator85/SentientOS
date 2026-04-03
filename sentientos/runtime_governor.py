@@ -276,8 +276,14 @@ class RuntimeGovernor:
         action_class: str,
         metadata: dict[str, object] | None,
     ) -> tuple[PostureRuleEvaluation, dict[str, object]]:
-        feedback = (metadata or {}).get("runtime_feedback")
-        if not isinstance(feedback, Mapping):
+        provided_feedback = (metadata or {}).get("runtime_feedback")
+        feedback = dict(provided_feedback) if isinstance(provided_feedback, Mapping) else {}
+        evolution_feedback = self._load_evolution_feedback_signal()
+        if evolution_feedback["degraded"]:
+            feedback["degraded"] = True
+            feedback["evolution_signal"] = evolution_feedback
+
+        if not feedback:
             evaluation = PostureRuleEvaluation(
                 dimension="runtime_feedback",
                 reason="runtime_feedback_missing",
@@ -301,9 +307,70 @@ class RuntimeGovernor:
             restriction_class=self._restriction_class_for_reason(reason),
             blocks=blocks,
             precedence=85,
-            details={"degraded": degraded},
+            details={
+                "degraded": degraded,
+                "source": "runtime_or_evolution_feedback",
+                "evolution_signal_degraded": bool(evolution_feedback["degraded"]),
+                "evolution_signal_reason": evolution_feedback["reason"],
+            },
         )
-        return evaluation, {"runtime_feedback": dict(feedback)}
+        return evaluation, {"runtime_feedback": dict(feedback), "evolution_feedback_signal": evolution_feedback}
+
+    def _load_evolution_feedback_signal(self) -> dict[str, object]:
+        state_path = self._repo_root / "glow/forge/merge_train.json"
+        if not state_path.exists():
+            return {
+                "present": False,
+                "degraded": False,
+                "reason": "merge_train_state_missing",
+                "path": str(state_path),
+                "last_error": None,
+            }
+        try:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {
+                "present": True,
+                "degraded": False,
+                "reason": "merge_train_state_unreadable",
+                "path": str(state_path),
+                "last_error": None,
+            }
+        entries = payload.get("entries") if isinstance(payload, dict) and isinstance(payload.get("entries"), list) else []
+        degraded_errors = {
+            "audit_integrity_failed",
+            "remote_doctrine_failed",
+            "remote_doctrine_corrupt_bundle",
+            "remote_doctrine_metadata_mismatch",
+            "remote_doctrine_manifest_missing",
+            "remote_doctrine_manifest_mismatch",
+            "checks_failed",
+            "merge_failed",
+        }
+        last_error: str | None = None
+        for item in reversed(entries):
+            if not isinstance(item, dict):
+                continue
+            status = str(item.get("status") or "")
+            error = str(item.get("last_error") or "")
+            if status in {"held", "failed"} and error in degraded_errors:
+                last_error = error
+                break
+        if last_error is None:
+            return {
+                "present": True,
+                "degraded": False,
+                "reason": "merge_train_nominal",
+                "path": str(state_path),
+                "last_error": None,
+            }
+        return {
+            "present": True,
+            "degraded": True,
+            "reason": "merge_train_integrity_failure",
+            "path": str(state_path),
+            "last_error": last_error,
+        }
 
     def _evaluate_federated_governance_posture(
         self,
