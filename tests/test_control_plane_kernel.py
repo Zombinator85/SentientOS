@@ -289,6 +289,78 @@ def test_proof_budget_diagnostics_mode_defers(tmp_path):
     )
     assert decision.outcome == AdmissionOutcome.DEFER
     assert "proof_budget:diagnostics_only" in decision.reason_codes
+    assert "authority_reconciliation:maintenance_proof_budget_authoritative" in decision.reason_codes
+    authority = decision.delegated_outcomes.get("authority_of_judgment")
+    assert isinstance(authority, dict)
+    assert authority.get("decision_class") == "maintenance_admission_proof_budget"
+    assert authority.get("authoritative_surface") == "proof_budget_governor.mode"
+    assert authority.get("surface_disagreement") is True
+    reconciliation = authority.get("reconciliation")
+    assert isinstance(reconciliation, dict)
+    assert reconciliation.get("rule") == "proof_budget_diagnostics_only_authoritative_for_maintenance_admission"
+
+
+def test_maintenance_proof_authority_clears_when_diagnostics_only_clears(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    kernel.set_phase(LifecyclePhase.MAINTENANCE)
+    base_context = {
+        "pressure_state": PressureState(consecutive_no_admissible=0, recent_runs=[]),
+        "run_context": {"pipeline": "genesis", "capability": "capability-z", "router_attempt": 1},
+    }
+    deferred = kernel.admit(
+        ControlActionRequest(
+            action_kind="proposal_eval",
+            authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+            actor="forge",
+            target_subsystem="capability-z",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={"require_admissible": True, "correlation_id": "proof-clear-1"},
+            proof_budget_context={
+                "config": GovernorConfig(
+                    configured_k=3,
+                    configured_m=2,
+                    max_k=9,
+                    escalation_enabled=True,
+                    mode="diagnostics_only",
+                    admissible_collapse_runs=2,
+                    min_m=1,
+                    diagnostics_k=4,
+                ),
+                **base_context,
+            },
+        )
+    )
+    assert deferred.outcome == AdmissionOutcome.DEFER
+    admitted = kernel.admit(
+        ControlActionRequest(
+            action_kind="proposal_eval",
+            authority_class=AuthorityClass.PROPOSAL_EVALUATION,
+            actor="forge",
+            target_subsystem="capability-z",
+            requested_phase=LifecyclePhase.MAINTENANCE,
+            metadata={"require_admissible": True, "correlation_id": "proof-clear-2"},
+            proof_budget_context={
+                "config": GovernorConfig(
+                    configured_k=3,
+                    configured_m=2,
+                    max_k=9,
+                    escalation_enabled=True,
+                    mode="normal",
+                    admissible_collapse_runs=2,
+                    min_m=1,
+                    diagnostics_k=4,
+                ),
+                **base_context,
+            },
+        )
+    )
+    assert admitted.outcome == AdmissionOutcome.ALLOW
+    authority = admitted.delegated_outcomes.get("authority_of_judgment")
+    assert isinstance(authority, dict)
+    assert authority.get("decision_class") == "maintenance_admission_proof_budget"
+    assert authority.get("surface_disagreement") is False
+    assert "proof_budget:diagnostics_only" not in admitted.reason_codes
+    assert "authority_reconciliation:maintenance_proof_budget_authoritative" not in admitted.reason_codes
 
 
 def test_malformed_action_request_is_quarantined(tmp_path):
@@ -403,3 +475,20 @@ def test_privileged_operator_control_consults_runtime_governor(tmp_path):
     )
     assert decision.outcome == AdmissionOutcome.ALLOW
     assert "runtime_governor" in decision.delegated_outcomes
+
+
+def test_non_maintenance_restart_remains_unresolved_for_authority_reconciliation(tmp_path):
+    kernel = ControlPlaneKernel(runtime_governor=FakeRuntimeGovernor(), decisions_path=tmp_path / "decisions.jsonl")
+    decision = kernel.admit(
+        ControlActionRequest(
+            action_kind="restart_daemon",
+            authority_class=AuthorityClass.DAEMON_RESTART,
+            actor="healer",
+            target_subsystem="daemon-x",
+            requested_phase=LifecyclePhase.RUNTIME,
+            metadata={"subject": "daemon-x"},
+        )
+    )
+    assert decision.outcome == AdmissionOutcome.ALLOW
+    assert decision.delegated_outcomes.get("authority_of_judgment") is None
+    assert "authority_reconciliation:maintenance_proof_budget_authoritative" not in decision.reason_codes

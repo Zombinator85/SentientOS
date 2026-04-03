@@ -197,6 +197,21 @@ class ControlPlaneKernel:
                 "allow_escalation": budget_decision.allow_escalation,
                 "decision_reasons": list(budget_decision.decision_reasons),
             }
+            if request.authority_class in {
+                AuthorityClass.PROPOSAL_EVALUATION,
+                AuthorityClass.PROPOSAL_ADOPTION,
+                AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
+                AuthorityClass.SPEC_AMENDMENT,
+                AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+            }:
+                proof_rule = self._authority_rule_for_maintenance_proof_budget(
+                    runtime=runtime,
+                    budget_decision=budget_decision,
+                )
+                delegated["authority_of_judgment"] = proof_rule
+                if bool(proof_rule.get("surface_disagreement", False)):
+                    reasons.append("authority_reconciliation:maintenance_proof_budget_authoritative")
+                    reasons.append("runtime_governor_advisory:allowed")
             if budget_decision.mode == "diagnostics_only" and bool(request.metadata.get("require_admissible", True)):
                 reasons.append("proof_budget:diagnostics_only")
                 return self._finalize(request, AdmissionOutcome.DEFER, reasons, delegated, correlation_id=correlation_id)
@@ -252,6 +267,29 @@ class ControlPlaneKernel:
                 "state": resolution_state,
                 "rule": "runtime_governor_authoritative_for_federated_control",
                 "disagreement_kind": "runtime_allow_vs_metadata_denial" if disagreement else "none",
+            },
+        }
+
+    @staticmethod
+    def _authority_rule_for_maintenance_proof_budget(
+        *,
+        runtime: GovernorDecision | None,
+        budget_decision: "BudgetDecision",
+    ) -> dict[str, Any]:
+        disagreement = bool(runtime is not None and runtime.allowed and budget_decision.mode == "diagnostics_only")
+        resolution_state = "reconciled" if disagreement else "none"
+        return {
+            "decision_class": "maintenance_admission_proof_budget",
+            "authoritative_surface": "proof_budget_governor.mode",
+            "advisory_surfaces": ["runtime_governor.allowed"],
+            "descriptive_surfaces": ["proof_budget_context"],
+            "surface_disagreement": disagreement,
+            "authoritative_outcome": "defer" if budget_decision.mode == "diagnostics_only" else "none",
+            "advisory_signal": "runtime_governor_allow" if runtime is not None and runtime.allowed else "none",
+            "reconciliation": {
+                "state": resolution_state,
+                "rule": "proof_budget_diagnostics_only_authoritative_for_maintenance_admission",
+                "disagreement_kind": "runtime_allow_vs_proof_budget_diagnostics_only" if disagreement else "none",
             },
         }
 

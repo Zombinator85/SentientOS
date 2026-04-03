@@ -51,14 +51,20 @@ Decision classes (current code paths):
    - Reconciliation: bounded per-corridor checks only; no broad synthesis.
 
 8) strict proof failure handling (implemented delegates):
-   - Authoritative: proof budget governor mode in kernel delegate.
-   - Advisory: runtime governor and metadata context.
-   - Descriptive-only: operator/status summaries.
-   - Reconciliation: unresolved with runtime-governor posture beyond existing order.
+   - Authoritative: proof budget governor mode for maintenance admission classes
+     (`proposal_evaluation`, `proposal_adoption`, `manifest_or_identity_mutation`,
+     `spec_amendment`, `privileged_operator_control`).
+   - Advisory: runtime governor allow signal.
+   - Descriptive-only: proof budget run context payload.
+   - Reconciliation: explicit in ControlPlaneKernel
+     ``proof_budget_diagnostics_only_authoritative_for_maintenance_admission``
+     when runtime allow disagrees with diagnostics-only proof posture.
 
 Operational ambiguity still unresolved (visible, not hidden):
-- proof-budget diagnostics-only defer vs runtime-governor allow remains an
-  order-of-operations convention in ControlPlaneKernel, not a dedicated
-  disagreement reconciler.
+- restart admission: runtime pressure/budget vs adjacent corridor trust/proof
+  artifacts has no dedicated reconciliation rule.
+- merge/deploy readiness: forge gate stack vs corridor-local trust/proof posture
+  is still resolved by local gate ordering, not an explicit authority map.
+- forward-enforcement/strict proof handling outside maintenance admission delegates
+  remains intentionally unresolved in this pass.
 """
-
