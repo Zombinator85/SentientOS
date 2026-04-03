@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sentientos.kernel_admission_provenance import verify_kernel_admission_provenance
+from sentientos.kernel_admission_provenance import (
+    _summarize_trust_degradation,
+    _trust_degradation_records,
+    verify_kernel_admission_provenance,
+)
 
 
 def _decision(*, correlation_id: str, action_kind: str, final_disposition: str = "allow") -> dict[str, object]:
@@ -803,8 +807,10 @@ def test_trust_degradation_ledger_classifies_legacy_forward_and_strict(tmp_path:
         if row["covered_domain_id"] == "genesisforge_lineage_proposal_adoption" and row["posture_view"] == "global_covered_scope"
     )
     assert forward_record["posture"] == "legacy_only"
+    assert forward_record["escalation_posture"] == "observe"
     assert forward_record["blocking_state"] == "none"
     assert strict_record["posture"] == "strict_failure_present"
+    assert strict_record["escalation_posture"] == "strict_block"
     assert strict_record["blocking_state"] == "strict"
 
 
@@ -821,6 +827,7 @@ def test_trust_degradation_ledger_classifies_forward_and_evidence_incomplete(tmp
         if row["covered_domain_id"] == "genesisforge_lineage_proposal_adoption" and row["posture_view"] == "global_covered_scope"
     )
     assert lineage_record["posture"] == "evidence_incomplete"
+    assert lineage_record["escalation_posture"] == "verification_attention"
     assert lineage_record["blocking_state"] == "forward_enforcement"
     assert "kernel_admission_issues" in lineage_record["contributing_evidence_classes"]
 
@@ -844,3 +851,84 @@ def test_trust_degradation_ledger_multi_domain_records_are_stable_and_schema_fix
     assert schema_row["covered_scope_id"] == "protected_mutation_proof:v1:kernel_admission"
     summary = payload["summary"]["trust_degradation_ledger"]  # type: ignore[index]
     assert summary["blocking_state_vocabulary"] == ["none", "forward_enforcement", "strict"]
+    assert summary["escalation_posture_vocabulary"] == [
+        "none",
+        "observe",
+        "forward_block",
+        "strict_block",
+        "verification_attention",
+    ]
+
+
+def test_trust_escalation_posture_mappings_and_view_separation(tmp_path: Path) -> None:
+    trust_posture = {
+        "global_covered_scope": {
+            "domains": {
+                "genesisforge_lineage_proposal_adoption": {"posture": "legacy_only", "applicable": True, "evidence": {"issue_count": 1}},
+                "immutable_manifest_identity_writes": {
+                    "posture": "forward_risk_present",
+                    "applicable": True,
+                    "evidence": {"issue_count": 1, "execution_consistency_status_counts": {"declared_domain_mismatch": 1}},
+                },
+                "quarantine_clear_privileged_operator_action": {
+                    "posture": "strict_failure_present",
+                    "applicable": True,
+                    "evidence": {"issue_count": 1, "issue_categories": {"legacy_missing_admission_link": 1}},
+                },
+                "codexhealer_repair_regenesis_linkage": {
+                    "posture": "evidence_incomplete",
+                    "applicable": True,
+                    "evidence": {"issue_count": 1},
+                },
+            }
+        },
+        "current_change_surface": {
+            "domains": {
+                "genesisforge_lineage_proposal_adoption": {"posture": "not_applicable", "applicable": False, "evidence": {"issue_count": 0}},
+                "immutable_manifest_identity_writes": {"posture": "trusted", "applicable": True, "evidence": {"issue_count": 0}},
+                "quarantine_clear_privileged_operator_action": {"posture": "trusted", "applicable": True, "evidence": {"issue_count": 0}},
+                "codexhealer_repair_regenesis_linkage": {"posture": "trusted", "applicable": True, "evidence": {"issue_count": 0}},
+            }
+        },
+    }
+    records = _trust_degradation_records(
+        trust_posture=trust_posture,
+        scope_id="protected_mutation_proof:v1:kernel_admission",
+        mode="forward-enforcement",
+        generated_at="2026-04-03T00:00:00Z",
+        run_id="run:test",
+    )
+    by_domain_and_view = {(row["covered_domain_id"], row["posture_view"]): row for row in records}
+    assert by_domain_and_view[("genesisforge_lineage_proposal_adoption", "global_covered_scope")]["escalation_posture"] == "observe"
+    assert by_domain_and_view[("immutable_manifest_identity_writes", "global_covered_scope")]["escalation_posture"] == "forward_block"
+    assert by_domain_and_view[("quarantine_clear_privileged_operator_action", "global_covered_scope")]["escalation_posture"] == "strict_block"
+    assert by_domain_and_view[("codexhealer_repair_regenesis_linkage", "global_covered_scope")]["escalation_posture"] == "verification_attention"
+    assert ("genesisforge_lineage_proposal_adoption", "current_change_surface") not in by_domain_and_view
+    assert ("immutable_manifest_identity_writes", "current_change_surface") not in by_domain_and_view
+
+
+def test_trust_degradation_summary_keeps_evidence_and_adds_escalation_counts(tmp_path: Path) -> None:
+    records = [
+        {
+            "covered_domain_id": "genesisforge_lineage_proposal_adoption",
+            "posture_view": "global_covered_scope",
+            "posture": "evidence_incomplete",
+            "escalation_posture": "verification_attention",
+            "blocking_state": "forward_enforcement",
+            "contributing_evidence_classes": ["kernel_admission_issues"],
+        },
+        {
+            "covered_domain_id": "immutable_manifest_identity_writes",
+            "posture_view": "global_covered_scope",
+            "posture": "legacy_only",
+            "escalation_posture": "observe",
+            "blocking_state": "none",
+            "contributing_evidence_classes": ["execution_consistency_checks"],
+        },
+    ]
+    summary = _summarize_trust_degradation(ledger_path=tmp_path / "glow/contracts/protected_mutation_trust_degradation_ledger.jsonl", records=records)
+    assert summary["counts_by_posture"]["evidence_incomplete"] == 1
+    assert summary["counts_by_escalation_posture"]["verification_attention"] == 1
+    assert summary["counts_by_escalation_posture"]["observe"] == 1
+    assert summary["counts_by_evidence_class"]["kernel_admission_issues"] == 1
+    assert summary["counts_by_evidence_class"]["execution_consistency_checks"] == 1

@@ -502,8 +502,12 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
     protected_mutation_trust_posture_by_profile: dict[str, dict[str, Any]] = {}
     trust_degradation_by_profile: dict[str, dict[str, Any]] = {}
     trust_degradation_counts_by_posture: dict[str, int] = {}
+    trust_degradation_counts_by_escalation_posture: dict[str, int] = {}
     trust_degradation_counts_by_evidence_class: dict[str, int] = {}
     trust_degradation_ledger_paths: dict[str, str] = {}
+    trust_escalation_by_profile: dict[str, dict[str, Any]] = {}
+    trust_escalation_counts_by_view: dict[str, dict[str, int]] = {}
+    trust_escalation_any_attention_by_view: dict[str, dict[str, bool]] = {}
     for profile in profiles:
         summary = profile.get("summary") if isinstance(profile, dict) else {}
         profile_name = str(profile.get("profile"))
@@ -551,6 +555,53 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                 trust = relevance.get("trust_posture")
                 if isinstance(trust, dict):
                     protected_mutation_trust_posture_by_profile[profile_name] = trust
+                    by_view: dict[str, Any] = {}
+                    for posture_view in ("global_covered_scope", "current_change_surface"):
+                        view_payload = trust.get(posture_view)
+                        if not isinstance(view_payload, dict):
+                            continue
+                        domains_payload = view_payload.get("domains")
+                        domain_escalation: dict[str, str] = {}
+                        if isinstance(domains_payload, dict):
+                            for domain_name, domain_payload in domains_payload.items():
+                                if isinstance(domain_name, str) and isinstance(domain_payload, dict):
+                                    posture = str(domain_payload.get("escalation_posture") or "none")
+                                    domain_escalation[domain_name] = posture
+                        escalation_counts = view_payload.get("escalation_posture_counts")
+                        counts: dict[str, int] = {}
+                        if isinstance(escalation_counts, dict):
+                            counts = {
+                                str(key): int(value)
+                                for key, value in escalation_counts.items()
+                                if isinstance(key, str) and isinstance(value, int)
+                            }
+                        overall_escalation = str(view_payload.get("overall_escalation_posture") or "none")
+                        attention = {
+                            "has_forward_block": bool(counts.get("forward_block", 0) > 0),
+                            "has_strict_block": bool(counts.get("strict_block", 0) > 0),
+                            "has_verification_attention": bool(counts.get("verification_attention", 0) > 0),
+                        }
+                        by_view[posture_view] = {
+                            "overall_escalation_posture": overall_escalation,
+                            "domain_escalation_posture": domain_escalation,
+                            "counts_by_escalation_posture": counts,
+                            "attention_flags": attention,
+                        }
+                        trust_escalation_counts_by_view.setdefault(posture_view, {})
+                        trust_escalation_any_attention_by_view.setdefault(
+                            posture_view,
+                            {"has_forward_block": False, "has_strict_block": False, "has_verification_attention": False},
+                        )
+                        for key, value in counts.items():
+                            trust_escalation_counts_by_view[posture_view][key] = (
+                                trust_escalation_counts_by_view[posture_view].get(key, 0) + value
+                            )
+                        for attention_key, active in attention.items():
+                            trust_escalation_any_attention_by_view[posture_view][attention_key] = bool(
+                                trust_escalation_any_attention_by_view[posture_view][attention_key] or active
+                            )
+                    if by_view:
+                        trust_escalation_by_profile[profile_name] = by_view
                 degradation = relevance.get("trust_degradation_ledger")
                 if isinstance(degradation, dict):
                     trust_degradation_by_profile[profile_name] = degradation
@@ -563,6 +614,13 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
                             if isinstance(key, str) and isinstance(value, int):
                                 trust_degradation_counts_by_posture[key] = (
                                     trust_degradation_counts_by_posture.get(key, 0) + value
+                                )
+                    escalation_counts = degradation.get("counts_by_escalation_posture")
+                    if isinstance(escalation_counts, dict):
+                        for key, value in escalation_counts.items():
+                            if isinstance(key, str) and isinstance(value, int):
+                                trust_degradation_counts_by_escalation_posture[key] = (
+                                    trust_degradation_counts_by_escalation_posture.get(key, 0) + value
                                 )
                     evidence_counts = degradation.get("counts_by_evidence_class")
                     if isinstance(evidence_counts, dict):
@@ -598,12 +656,18 @@ def _global_summary(profiles: Sequence[dict[str, Any]]) -> dict[str, Any]:
         "protected_mutation_forward_enforcement_status_by_profile": protected_mutation_status,
         "protected_intent_status_by_profile": protected_intent_status_by_profile,
         "protected_mutation_trust_posture_by_profile": protected_mutation_trust_posture_by_profile,
+        "protected_mutation_escalation_posture": {
+            "by_profile": trust_escalation_by_profile,
+            "counts_by_view": trust_escalation_counts_by_view,
+            "any_attention_by_view": trust_escalation_any_attention_by_view,
+        },
         "trust_degradation_ledger": {
             "records_emitted": any(
                 bool(item.get("records_emitted", False)) for item in trust_degradation_by_profile.values() if isinstance(item, dict)
             ),
             "by_profile": trust_degradation_by_profile,
             "counts_by_posture": trust_degradation_counts_by_posture,
+            "counts_by_escalation_posture": trust_degradation_counts_by_escalation_posture,
             "counts_by_evidence_class": trust_degradation_counts_by_evidence_class,
             "ledger_path_by_profile": trust_degradation_ledger_paths,
         },
