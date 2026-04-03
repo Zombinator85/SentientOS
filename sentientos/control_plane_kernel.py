@@ -214,11 +214,46 @@ class ControlPlaneKernel:
                 reasons.append("federation_origin_missing")
                 return self._finalize(request, AdmissionOutcome.QUARANTINE, reasons, delegated, correlation_id=correlation_id)
         if request.authority_class == AuthorityClass.FEDERATED_CONTROL and denial and denial not in {"none", ""}:
-            reasons.append(f"federation_governance:{denial}")
-            return self._finalize(request, AdmissionOutcome.DENY, reasons, delegated, correlation_id=correlation_id)
+            federation_rule = self._authority_rule_for_federated_control(runtime=runtime, advisory_denial=denial)
+            delegated["authority_of_judgment"] = federation_rule
+            if bool(federation_rule.get("surface_disagreement", False)):
+                reasons.append("authority_reconciliation:federated_control_runtime_governor_authoritative")
+                reasons.append(f"federation_governance_advisory:{denial}")
+            else:
+                reasons.append(f"federation_governance:{denial}")
+                return self._finalize(request, AdmissionOutcome.DENY, reasons, delegated, correlation_id=correlation_id)
+        elif request.authority_class == AuthorityClass.FEDERATED_CONTROL:
+            delegated["authority_of_judgment"] = self._authority_rule_for_federated_control(
+                runtime=runtime,
+                advisory_denial=denial if denial not in {"", "none"} else None,
+            )
 
         reasons.append("admitted")
         return self._finalize(request, AdmissionOutcome.ALLOW, reasons, delegated, correlation_id=correlation_id)
+
+    @staticmethod
+    def _authority_rule_for_federated_control(
+        *,
+        runtime: GovernorDecision | None,
+        advisory_denial: str | None,
+    ) -> dict[str, Any]:
+        denial = str(advisory_denial or "")
+        disagreement = bool(runtime is not None and runtime.allowed and denial and denial not in {"none", ""})
+        resolution_state = "reconciled" if disagreement else "none"
+        return {
+            "decision_class": "federated_control_admission",
+            "authoritative_surface": "runtime_governor",
+            "advisory_surfaces": ["request_metadata.federated_denial_cause"],
+            "descriptive_surfaces": ["federation_context"],
+            "surface_disagreement": disagreement,
+            "authoritative_outcome": "allow" if runtime is not None and runtime.allowed else "none",
+            "advisory_signal": denial or "none",
+            "reconciliation": {
+                "state": resolution_state,
+                "rule": "runtime_governor_authoritative_for_federated_control",
+                "disagreement_kind": "runtime_allow_vs_metadata_denial" if disagreement else "none",
+            },
+        }
 
     def admit_and_execute(
         self,

@@ -129,6 +129,10 @@ def test_runtime_and_evolution_disagreement_is_legible(_governor_env: Path) -> N
     assert details.get("surface_disagreement") is True
     assert details.get("runtime_local_degraded") is False
     assert details.get("evolution_signal_degraded") is True
+    reconciliation = details.get("reconciliation")
+    assert isinstance(reconciliation, dict)
+    assert reconciliation.get("state") == "none"
+    assert reconciliation.get("rule") == "latest_entry_authoritative"
 
 
 def test_stale_merge_train_failure_no_longer_poisons_runtime_admission(_governor_env: Path) -> None:
