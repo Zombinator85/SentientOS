@@ -69,10 +69,37 @@ def _strict_audit_status() -> dict[str, Any]:
     return status
 
 
+def _runtime_feedback_status() -> dict[str, Any]:
+    rollup_path = Path("glow/governor/rollup.json")
+    if not rollup_path.exists():
+        return {
+            "governor_rollup_path": str(rollup_path),
+            "governor_rollup_present": False,
+            "degraded_runtime_feedback_count": 0,
+            "degraded_runtime_feedback": False,
+            "reason": "governor_rollup_missing",
+        }
+
+    try:
+        payload = json.loads(rollup_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+    reason_counts = payload.get("reason_counts") if isinstance(payload, dict) and isinstance(payload.get("reason_counts"), dict) else {}
+    degraded_count = int(reason_counts.get("runtime_feedback_degraded_maintenance", 0) or 0)
+    return {
+        "governor_rollup_path": str(rollup_path),
+        "governor_rollup_present": True,
+        "degraded_runtime_feedback_count": degraded_count,
+        "degraded_runtime_feedback": degraded_count > 0,
+        "reason": "runtime_feedback_degraded_maintenance" if degraded_count > 0 else "runtime_feedback_nominal",
+    }
+
+
 def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
     audit_module_ok, audit_module_info = _run(["python", "-m", "sentientos.verify_audits", "--help"])
     audit_console_ok, audit_console_info = _run(["python", "scripts/verify_audits_shim.py", "--help"])
     strict = _strict_audit_status()
+    runtime_feedback = _runtime_feedback_status()
 
     manifest_path = _resolve_manifest_path()
     manifest_present = manifest_path.exists()
@@ -99,7 +126,8 @@ def emit_stability_doctrine(output: Path = OUTPUT_PATH) -> dict[str, Any]:
         "audit_drift_detected": strict["baseline_status"] == "drift",
         "baseline_unexpected_change_detected": strict["baseline_status"] == "drift",
         "baseline_integrity_ok": strict["baseline_status"] == "ok",
-        "runtime_integrity_ok": strict["runtime_status"] == "ok",
+        "runtime_integrity_ok": strict["runtime_status"] == "ok" and not bool(runtime_feedback["degraded_runtime_feedback"]),
+        "runtime_feedback": runtime_feedback,
         "audit_baseline_path": str(resolved.baseline_path),
         "audit_runtime_path": str(resolved.runtime_path),
         "last_audit_docket": _latest_audit_docket(),

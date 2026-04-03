@@ -35,9 +35,17 @@ Coupling matrix (runtime surface -> emitted evidence -> downstream consumer):
 
 Remaining descriptive-only layers after this pass:
 - protected mutation trust posture summaries in corridor reports.
-- trust degradation ledger/rollup aggregation fields.
+- trust degradation ledger/rollup aggregation fields outside merge-train
+  doctrine gating.
 - escalation posture and review-contract rollup counts.
 - system constitution digest surfaces that summarize, but do not gate, runtime
   maintenance actions directly.
-"""
 
+Body-scale bridge made causal in this pass:
+- Runtime governor rollup reason ``runtime_feedback_degraded_maintenance`` is
+  consumed by ``scripts.emit_stability_doctrine`` and folded into
+  ``runtime_integrity_ok``.
+- ``ForgeMergeTrain`` already enforces ``runtime_integrity_ok`` inside doctrine
+  integrity gating, so degraded runtime feedback can now hold merge readiness
+  on the code-evolution/deploy path.
+"""

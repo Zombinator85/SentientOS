@@ -82,6 +82,46 @@ def test_emit_stability_doctrine_and_contract_rollup(tmp_path: Path, monkeypatch
     assert "stability_doctrine" in domains
 
 
+def test_emit_stability_doctrine_runtime_feedback_degradation_flips_runtime_integrity(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/governor").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "vow").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "vow/immutable_manifest.json").write_text('{"files":{}}\n', encoding="utf-8")
+    (tmp_path / "glow/governor/rollup.json").write_text(
+        json.dumps({"reason_counts": {"runtime_feedback_degraded_maintenance": 3}}) + "\n",
+        encoding="utf-8",
+    )
+
+    class Done:
+        def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = stderr
+
+    def fake_run(command, check=False, capture_output=False, text=False):  # type: ignore[no-untyped-def]
+        _ = check, capture_output, text
+        cmd = tuple(command)
+        if cmd[:3] == ("python", "-m", "sentientos.verify_audits") and "--strict" in cmd:
+            strict_payload = {"baseline_status": "ok", "runtime_status": "ok", "baseline_path": "a", "runtime_path": "b"}
+            return Done(0, stdout=json.dumps(strict_payload) + "\n")
+        if cmd[:2] == ("make", "mypy-forge"):
+            return Done(0, stdout="ok")
+        if cmd[:2] == ("make", "forge-ci"):
+            return Done(0, stdout="ok")
+        if cmd[:3] == ("git", "rev-parse", "--verify"):
+            return Done(0, stdout="abc123\n")
+        return Done(0)
+
+    monkeypatch.setattr("scripts.emit_stability_doctrine.subprocess.run", fake_run)
+
+    doctrine = emit_stability_doctrine()
+
+    assert doctrine["runtime_feedback"]["degraded_runtime_feedback"] is True
+    assert doctrine["runtime_feedback"]["degraded_runtime_feedback_count"] == 3
+    assert doctrine["runtime_integrity_ok"] is False
+
+
 def test_sentinel_stability_mapping_triggers_repair(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.chdir(tmp_path)
     (tmp_path / "glow/forge").mkdir(parents=True, exist_ok=True)
