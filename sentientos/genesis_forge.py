@@ -51,6 +51,7 @@ from sentientos.control_plane_kernel import (
 from sentientos.protected_mutation_provenance import validate_admission_provenance
 from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.codex_startup_guard import enforce_codex_startup
+from sentientos.codex_startup_guard import codex_runtime_mediation
 from sentientos.integrity_pressure import compute_integrity_pressure
 from sentientos.integrity_quarantine import load_state as load_quarantine_state
 from sentientos.risk_budget import compute_risk_budget
@@ -1087,3 +1088,34 @@ class GenesisForge:
                     )
                 )
         return outcomes
+
+
+_RUNTIME_FORGE: GenesisForge | None = None
+
+
+def runtime_expand(repo_root: Path | str = Path.cwd()) -> list[GenesisOutcome]:
+    """Runtime-mediated GenesisForge expansion surface used by sentientosd."""
+
+    global _RUNTIME_FORGE
+    if _RUNTIME_FORGE is None:
+        root = Path(repo_root)
+        integration_root = root / "integration"
+        with codex_runtime_mediation("IntegrityDaemon"):
+            integrity_daemon = IntegrityDaemon(integration_root)
+        _RUNTIME_FORGE = GenesisForge(
+            need_seer=NeedSeer(),
+            forge_engine=ForgeEngine(),
+            integrity_daemon=integrity_daemon,
+            trial_run=TrialRun(),
+            spec_binder=SpecBinder(
+                lineage_root=integration_root / "lineage",
+                covenant_root=integration_root / "covenant",
+            ),
+            adoption_rite=AdoptionRite(
+                live_mount=integration_root / "live",
+                codex_index=integration_root / "codex_index.json",
+                review_board=lambda _proposal, _report: True,
+            ),
+            ledger=RecoveryLedger(path=integration_root / "healer_runtime.log.jsonl"),
+        )
+    return _RUNTIME_FORGE.expand([], [])

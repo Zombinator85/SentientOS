@@ -41,11 +41,13 @@ _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
     "CodexHealer": (
         "sentientos.codex_healer",
         "sentientos.control_plane_kernel",
+        "sentientosd",
         "tests.",
     ),
     "GenesisForge": (
         "sentientos.genesis_forge",
         "sentientos.control_plane_kernel",
+        "sentientosd",
         "tests.",
     ),
     "IntegrityDaemon": (
@@ -53,11 +55,13 @@ _PROVENANCE_ALLOWLIST: dict[str, tuple[str, ...]] = {
         "codex.integrity_daemon",
         "sentientos.genesis_forge",
         "sentientos.control_plane_kernel",
+        "sentientosd",
         "tests.",
     ),
     "SpecAmender": (
         "codex.amendments",
         "sentientos.control_plane_kernel",
+        "sentientosd",
         "tests.",
     ),
 }

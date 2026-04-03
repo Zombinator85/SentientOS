@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional
 import json
 
 from sentientos.codex_startup_guard import enforce_codex_startup
+from sentientos.codex_startup_guard import codex_runtime_mediation
 
 
 # Boundary assertion:
@@ -1162,3 +1163,64 @@ def _update_preferences(self: SpecAmender, proposal: AmendmentProposal, *, outco
 
 
 SpecAmender._update_preferences = _update_preferences  # type: ignore[attr-defined]
+
+
+@dataclass(frozen=True)
+class AmendmentCommitPlan:
+    proposal_id: str
+    message: str
+    ledger_entry: str
+
+
+_RUNTIME_AMENDER: SpecAmender | None = None
+_RUNTIME_REVIEW_BOARD: AmendmentReviewBoard | None = None
+
+
+def _runtime_amender(root: Path | str = Path("integration")) -> SpecAmender:
+    global _RUNTIME_AMENDER
+    if _RUNTIME_AMENDER is None:
+        with codex_runtime_mediation("IntegrityDaemon"):
+            _RUNTIME_AMENDER = SpecAmender(root=root)
+    return _RUNTIME_AMENDER
+
+
+def runtime_cycle(root: Path | str = Path("integration")) -> Dict[str, Any]:
+    """Runtime-mediated SpecAmender surface used by sentientosd maintenance ticks."""
+
+    return _runtime_amender(root).dashboard_state()
+
+
+def runtime_next_commit(root: Path | str = Path("integration")) -> AmendmentCommitPlan | None:
+    engine = _runtime_amender(root)
+    for proposal in engine.list_pending():
+        proposal_id = str(proposal.get("proposal_id") or "").strip()
+        ledger_entry = str(proposal.get("ledger_entry") or "").strip()
+        if not proposal_id or not ledger_entry:
+            continue
+        summary = str(proposal.get("summary") or proposal_id)
+        return AmendmentCommitPlan(
+            proposal_id=proposal_id,
+            message=f"Approve amendment {proposal_id}: {summary}",
+            ledger_entry=ledger_entry,
+        )
+    return None
+
+
+def runtime_mark_committed(
+    plan: AmendmentCommitPlan,
+    *,
+    operator: str = "sentientosd",
+    root: Path | str = Path("integration"),
+) -> AmendmentProposal:
+    global _RUNTIME_REVIEW_BOARD
+    if _RUNTIME_REVIEW_BOARD is None:
+        _RUNTIME_REVIEW_BOARD = AmendmentReviewBoard(_runtime_amender(root))
+    return _RUNTIME_REVIEW_BOARD.approve(
+        plan.proposal_id,
+        operator=operator,
+        ledger_entry=plan.ledger_entry,
+    )
+
+
+def runtime_integrity_health(root: Path | str = Path("integration")) -> Dict[str, Any]:
+    return _runtime_amender(root).integrity_endpoint()
