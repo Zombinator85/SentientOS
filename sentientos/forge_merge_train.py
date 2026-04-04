@@ -73,6 +73,7 @@ class TrainEntry:
     governance_trace_id: str | None = None
     governance_primary_reason: str | None = None
     governance_reason_stack: list[str] = field(default_factory=list)
+    mergeability_authority: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -695,11 +696,22 @@ class ForgeMergeTrain:
         gate_context = self._doctrine_context(entry)
         doctrine = gate_context.get("doctrine") if isinstance(gate_context.get("doctrine"), dict) else {}
         contract_status = gate_context.get("contract_status") if isinstance(gate_context.get("contract_status"), dict) else {}
-        failures = _audit_integrity_failures(doctrine)
-        failures.extend(_contract_doctrine_failures(contract_status))
+        body_scale_failures = _audit_integrity_failures(doctrine)
+        body_scale_failures.extend(_contract_doctrine_failures(contract_status))
+        corridor_signal = _corridor_protected_mutation_signal(gate_context)
+        strict_corridor_failure = bool(corridor_signal.get("strict_failure_authoritative", False))
+        failures = list(body_scale_failures)
+        if strict_corridor_failure:
+            failures.append("protected_mutation_proof.strict_violation_present")
         reason = _as_str(gate_context.get("reason"))
         if reason in {"remote_doctrine_corrupt_bundle", "remote_doctrine_metadata_mismatch", "remote_doctrine_manifest_missing", "remote_doctrine_manifest_mismatch"}:
             failures.append(reason)
+        authority = _mergeability_authority_of_judgment(
+            body_scale_failures=body_scale_failures,
+            corridor_signal=corridor_signal,
+            strict_corridor_failure=strict_corridor_failure,
+        )
+        entry.mergeability_authority = dict(authority)
         entry.doctrine_source = str(gate_context.get("source") or "local")
         entry.doctrine_gate_reason = reason
         doctrine_identity = gate_context.get("doctrine_identity") if isinstance(gate_context.get("doctrine_identity"), dict) else {}
@@ -715,6 +727,11 @@ class ForgeMergeTrain:
             "source": gate_context.get("source"),
             "reason": gate_context.get("reason"),
             "last_error": gate_context.get("last_error") or "audit_integrity_failed",
+            "authority_of_judgment": authority,
+            "advisory_surfaces": {
+                "corridor_protected_mutation": corridor_signal,
+                "body_scale_doctrine_failures": body_scale_failures,
+            },
         }
 
     def _load_doctrine_for_entry(self, entry: TrainEntry) -> dict[str, object]:
@@ -744,6 +761,7 @@ class ForgeMergeTrain:
             )
             doctrine = bundle.parsed.get("stability_doctrine.json", {})
             status = bundle.parsed.get("contract_status.json", {})
+            corridor_report = bundle.parsed.get("protected_corridor_report.json", {})
             corrupt = _bundle_corruption_errors(bundle)
             metadata_mismatch = _bundle_metadata_mismatch(bundle)
             manifest_missing = _bundle_manifest_missing(bundle)
@@ -796,6 +814,7 @@ class ForgeMergeTrain:
                 "reason": reason,
                 "last_error": last_error,
                 "doctrine_identity": doctrine_identity.to_dict(),
+                "protected_corridor_report": corridor_report if isinstance(corridor_report, dict) else {},
             }
         local_identity = local_doctrine_identity(self.repo_root, fallback_head_sha=entry.head_sha)
         expected_bundle = expected_bundle_sha256_from_receipts(self.repo_root)
@@ -838,6 +857,7 @@ class ForgeMergeTrain:
             "reason": fallback_reason,
             "last_error": fallback_error,
             "doctrine_identity": local_identity.to_dict(),
+            "protected_corridor_report": _load_json(self.repo_root / "glow/contracts/protected_corridor_report.json"),
         }
 
     def _write_merge_receipt(self, *, entry: TrainEntry) -> tuple[str | None, str | None]:
@@ -861,6 +881,7 @@ class ForgeMergeTrain:
             "gating_result": "merged",
             "gating_reason": entry.doctrine_gate_reason,
             "doctrine_source": entry.doctrine_source,
+            "mergeability_authority": entry.mergeability_authority,
             "merged_at": created_at,
         }
         try:
@@ -926,6 +947,8 @@ class ForgeMergeTrain:
             "failing_fields": gate.get("failing_fields", []),
             "doctor_report_path": gate.get("doctor_report_path"),
             "audit_docket_path": gate.get("audit_docket_path"),
+            "authority_of_judgment": gate.get("authority_of_judgment", {}),
+            "advisory_surfaces": gate.get("advisory_surfaces", {}),
             "suggested_fix": "run audit_integrity_repair",
             "generated_at": _iso_now(),
         }
@@ -1132,6 +1155,79 @@ def _contract_doctrine_failures(status: dict[str, object]) -> list[str]:
         if drifted is True:
             return ["contract_status.stability_doctrine_drifted"]
     return []
+
+
+def _corridor_protected_mutation_signal(gate_context: dict[str, object]) -> dict[str, object]:
+    corridor_report = (
+        gate_context.get("protected_corridor_report")
+        if isinstance(gate_context.get("protected_corridor_report"), dict)
+        else {}
+    )
+    corridor_relevance = (
+        corridor_report.get("corridor_relevance")
+        if isinstance(corridor_report.get("corridor_relevance"), dict)
+        else {}
+    )
+    status = str(corridor_relevance.get("protected_mutation_proof_status") or "unknown")
+    intersects = bool(corridor_relevance.get("intersects_corridor", False))
+    trust_ledger = (
+        (corridor_report.get("global_summary") if isinstance(corridor_report.get("global_summary"), dict) else {}).get("trust_degradation_ledger")
+        if isinstance(corridor_report.get("global_summary"), dict)
+        else {}
+    )
+    counts = trust_ledger.get("counts_by_escalation_posture") if isinstance(trust_ledger, dict) else {}
+    strict_count = int(counts.get("strict_block", 0)) if isinstance(counts, dict) and isinstance(counts.get("strict_block"), int) else 0
+    strict_failure_authoritative = intersects and status == "strict_violation_present"
+    return {
+        "present": bool(corridor_report),
+        "intersects_corridor": intersects,
+        "protected_mutation_proof_status": status,
+        "strict_block_count": strict_count,
+        "strict_failure_authoritative": strict_failure_authoritative,
+    }
+
+
+def _mergeability_authority_of_judgment(
+    *,
+    body_scale_failures: list[str],
+    corridor_signal: dict[str, object],
+    strict_corridor_failure: bool,
+) -> dict[str, object]:
+    body_blocking = bool(body_scale_failures)
+    disagreement = strict_corridor_failure != body_blocking
+    if strict_corridor_failure:
+        authoritative_surface = "protected_corridor.corridor_relevance.protected_mutation_proof_status"
+        authoritative_reason = "strict_corridor_failure_present"
+    else:
+        authoritative_surface = "stability_doctrine_and_contract_status"
+        authoritative_reason = "body_scale_doctrine_gate"
+    return {
+        "decision_class": "merge_train_mergeability_protected_mutation",
+        "authoritative_surface": authoritative_surface,
+        "advisory_surfaces": [
+            "stability_doctrine_and_contract_status",
+            "protected_corridor.corridor_relevance",
+            "protected_corridor.global_summary.trust_degradation_ledger",
+        ],
+        "surface_disagreement": disagreement,
+        "reconciliation": {
+            "state": "reconciled" if disagreement else "none",
+            "rule": "strict_corridor_failure_authoritative_when_corridor_intersects",
+            "disagreement_kind": (
+                "body_scale_ready_but_strict_corridor_failure"
+                if strict_corridor_failure and not body_blocking
+                else "body_scale_blocked_but_corridor_not_strict"
+                if body_blocking and not strict_corridor_failure
+                else "none"
+            ),
+            "authoritative_reason": authoritative_reason,
+            "authoritative_result": "hold" if (strict_corridor_failure or body_blocking) else "allow",
+        },
+        "authoritative_result": "hold" if (strict_corridor_failure or body_blocking) else "allow",
+        "body_scale_blocking": body_blocking,
+        "body_scale_failures": body_scale_failures,
+        "corridor_signal": dict(corridor_signal),
+    }
 
 
 def _bundle_corruption_errors(bundle: ContractBundle) -> list[str]:

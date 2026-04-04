@@ -41,7 +41,7 @@ Disagreement map (compact):
      remains degraded.
   4) rollback/deploy warning while maintenance admission remains open.
 
-Reconciled disagreement path (this pass):
+Reconciled disagreement paths:
 - Reconciliation point: RuntimeGovernor evolution feedback ingestion
   (``_load_evolution_feedback_signal``).
 - Mechanical rule: merge-train *latest entry* is authoritative for runtime
@@ -49,10 +49,22 @@ Reconciled disagreement path (this pass):
   maintenance admission after a newer nominal entry is present.
 - Machine-readable observability: runtime_feedback posture details include
   ``surface_disagreement`` and ``reconciliation`` payload with state/rule.
+- Reconciliation point: ForgeMergeTrain mergeability gate
+  (``_audit_integrity_gate``).
+- Mechanical rule: when protected corridor relevance intersects covered
+  protected-mutation surfaces and status is ``strict_violation_present``, that
+  strict corridor surface is authoritative for merge/deploy readiness hold;
+  body-scale doctrine/contract status remain visible as advisory surfaces in the
+  disagreement payload.
+- Machine-readable observability: merge-train gate/docket payload emits
+  ``authority_of_judgment`` with authoritative/advisory surfaces,
+  disagreement/reconciliation state, and authoritative result.
 
 Still-unreconciled split-brain risks:
 - Contract status and broader doctrine rollups remain descriptive-only for
   RuntimeGovernor admission.
-- Corridor trust posture disagreements remain visible but are not yet folded
-  into maintenance admission arbitration.
+- Non-strict corridor outcomes (legacy-only, not_applicable, forward-clean) are
+  still advisory for mergeability unless body-scale doctrine gates fail.
+- Updater/deploy runtime admission classes outside merge-train mergeability are
+  not reconciled in this pass.
 """
