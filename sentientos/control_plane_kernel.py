@@ -432,6 +432,7 @@ class ControlPlaneKernel:
         return decision
 
     def _append(self, payload: Mapping[str, Any]) -> None:
+        self._decisions_path.parent.mkdir(parents=True, exist_ok=True)
         with self._decisions_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(dict(payload), sort_keys=True) + "\n")
 

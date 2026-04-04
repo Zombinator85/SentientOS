@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "scope": "constitutional_execution_fabric_scoped_slice",
+  "actions": [
+    {
+      "action_id": "sentientos.manifest.generate",
+      "domain": "immutable_manifest_identity_writes",
+      "authority_class": "manifest_or_identity_mutation",
+      "lifecycle_phase": "maintenance",
+      "canonical_handler": "scripts.generate_immutable_manifest.generate_manifest",
+      "canonical_artifact_boundary": "vow/immutable_manifest.json",
+      "provenance_expectation": "kernel_admission + manifest admission block",
+      "authority_of_judgment_applies": true
+    },
+    {
+      "action_id": "sentientos.quarantine.clear",
+      "domain": "quarantine_clear_privileged_operator_action",
+      "authority_class": "privileged_operator_control",
+      "lifecycle_phase": "maintenance",
+      "canonical_handler": "scripts.quarantine_clear.clear",
+      "canonical_artifact_boundary": "glow/forge/quarantine.json",
+      "provenance_expectation": "kernel_admission + integrity_recovered forge event",
+      "authority_of_judgment_applies": true
+    },
+    {
+      "action_id": "sentientos.genesis.lineage_integrate",
+      "domain": "genesisforge_lineage_proposal_adoption",
+      "authority_class": "manifest_or_identity_mutation",
+      "lifecycle_phase": "maintenance",
+      "canonical_handler": "sentientos.genesis_forge.SpecBinder.integrate",
+      "canonical_artifact_boundary": "integration/lineage/**",
+      "provenance_expectation": "kernel_admission + lineage entry",
+      "authority_of_judgment_applies": true
+    },
+    {
+      "action_id": "sentientos.genesis.proposal_adopt",
+      "domain": "genesisforge_lineage_proposal_adoption",
+      "authority_class": "proposal_adoption",
+      "lifecycle_phase": "maintenance",
+      "canonical_handler": "sentientos.genesis_forge.AdoptionRite.promote",
+      "canonical_artifact_boundary": "integration/lineage/*.amendments.jsonl",
+      "provenance_expectation": "kernel_admission + proposal adoption ledger entry",
+      "authority_of_judgment_applies": true
+    },
+    {
+      "action_id": "sentientos.codexhealer.repair",
+      "domain": "codexhealer_repair_regenesis_linkage",
+      "authority_class": "repair",
+      "lifecycle_phase": "runtime",
+      "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+      "canonical_artifact_boundary": "integration/healer_runtime.log.jsonl + lineage pointer",
+      "provenance_expectation": "kernel_admission + recovery ledger linkage",
+      "authority_of_judgment_applies": false
+    },
+    {
+      "action_id": "sentientos.merge_train.hold",
+      "domain": "merge_train_protected_mutation_hold_release",
+      "authority_class": "privileged_operator_control",
+      "lifecycle_phase": "maintenance",
+      "canonical_handler": "sentientos.forge_merge_train.ForgeMergeTrain.hold",
+      "canonical_artifact_boundary": "glow/forge/merge_train.json",
+      "provenance_expectation": "kernel_admission + train_held event",
+      "authority_of_judgment_applies": true
+    },
+    {
+      "action_id": "sentientos.merge_train.release",
+      "domain": "merge_train_protected_mutation_hold_release",
+      "authority_class": "privileged_operator_control",
+      "lifecycle_phase": "maintenance",
+      "canonical_handler": "sentientos.forge_merge_train.ForgeMergeTrain.release",
+      "canonical_artifact_boundary": "glow/forge/merge_train.json",
+      "provenance_expectation": "kernel_admission + train_released event",
+      "authority_of_judgment_applies": true
+    }
+  ]
+}

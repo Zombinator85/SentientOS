@@ -108,35 +108,30 @@ def test_quarantine_clear_override_records_docket(monkeypatch, tmp_path: Path) -
 
 
 def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
-    captured_request = {}
+    captured_action: dict[str, object] = {}
 
-    class _Decision:
-        allowed = False
-        reason_codes = ("runtime_governor:control_plane_budget_exceeded",)
-        delegated_outcomes = {"runtime_governor": {"reason": "control_plane_budget_exceeded"}}
-        correlation_id = "cp-1"
-        admission_decision_ref = "kernel_decision:cp-1"
-        action_kind = "quarantine_clear"
-        actor = "operator_cli"
-        authority_class = type("Authority", (), {"value": "privileged_operator_control"})()
-        current_phase = type("Phase", (), {"value": "maintenance"})()
+    class _Router:
+        def register_handler(self, action_id: str, handler):  # noqa: ANN001
+            _ = (action_id, handler)
 
-        class outcome:
-            value = "deny"
-
-    class _Kernel:
-        def set_phase(self, phase, *, actor="control_plane_kernel") -> None:  # noqa: ANN001
-            return None
-
-        def admit(self, request):  # noqa: ANN001
-            captured_request["request"] = request
-            return _Decision()
+        def execute(self, action):  # noqa: ANN001
+            captured_action["action"] = action
+            return type(
+                "Denied",
+                (),
+                {
+                    "executed": False,
+                    "admission": None,
+                    "correlation_id": "cp-1",
+                    "decision_reason_codes": ("runtime_governor:control_plane_budget_exceeded",),
+                },
+            )()
 
     monkeypatch.chdir(tmp_path)
     _setup_quarantine(tmp_path)
     _setup_pack(tmp_path)
     _monkeypatch_integrity_ok(monkeypatch)
-    monkeypatch.setattr("scripts.quarantine_clear.get_control_plane_kernel", lambda: _Kernel())
+    monkeypatch.setattr("scripts.quarantine_clear.get_constitutional_mutation_router", lambda: _Router())
 
     assert quarantine_clear.main(["--note", "blocked"]) == 1
     payload = json.loads((tmp_path / "glow/forge/quarantine.json").read_text(encoding="utf-8"))
@@ -145,8 +140,8 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
     denied = [event for event in events if event.get("event") == "kernel_admission_denied"]
     assert denied
     assert denied[-1]["correlation_id"] == "cp-1"
-    request = captured_request["request"]
-    intent = request.metadata["protected_mutation_intent"]
+    action = captured_action["action"]
+    intent = action.provenance_intent.to_kernel_metadata()
     assert intent["domains"] == ["quarantine_clear_privileged_operator_action"]
     assert intent["authority_classes"] == ["privileged_operator_control"]
 
