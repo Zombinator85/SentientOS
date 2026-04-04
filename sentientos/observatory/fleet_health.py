@@ -474,6 +474,50 @@ def _contract_drift_health(root: Path, *, contract_rows: list[dict[str, Any]]) -
     }
 
 
+def _jurisprudence_interpretive_signal(contract_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    domain = "authority_of_judgment_jurisprudence"
+    row = next((item for item in contract_rows if str(item.get("domain") or "") == domain), None)
+    if not isinstance(row, dict):
+        return {
+            "domain": domain,
+            "status": "missing_from_contract_rollup",
+            "interpretive_state": "constitutional_judgment_layer_not_legible",
+            "degrades_readiness_interpretation": True,
+            "readiness_reason": "authority-of-judgment jurisprudence row missing from contract status rollup",
+            "sovereignty_boundary": "observability_only_support_signal",
+            "non_sovereign": True,
+            "adjudication_authority": "none",
+        }
+
+    drift_type = str(row.get("drift_type") or "")
+    row_status = str(row.get("status") or "")
+    if drift_type == "none" and row_status == "healthy":
+        interpretive_state = "explicit_classes_consumable"
+        degrades = False
+        reason = "explicit authority-of-judgment classes mapped and consumable"
+    elif drift_type == "jurisprudence_mapping_gap":
+        interpretive_state = "partial_explicit_coverage"
+        degrades = True
+        reason = "authority-of-judgment jurisprudence mapping gap remains for emitted classes"
+    else:
+        interpretive_state = "constitutional_judgment_layer_not_legible"
+        degrades = True
+        reason = "authority-of-judgment jurisprudence mapping absent or unresolved in contract rollup"
+
+    return {
+        "domain": domain,
+        "status": row_status or "indeterminate",
+        "drift_type": drift_type or None,
+        "interpretive_state": interpretive_state,
+        "degrades_readiness_interpretation": degrades,
+        "readiness_reason": reason,
+        "sovereignty_boundary": "observability_only_support_signal",
+        "non_sovereign": True,
+        "adjudication_authority": "none",
+        "class_scope": "explicit_classes_only",
+    }
+
+
 def _incident_snapshot(root: Path) -> dict[str, Any]:
     bundles = sorted((root / "glow/incidents").glob("bundle_*.json")) if (root / "glow/incidents").exists() else []
     latest = bundles[-1] if bundles else None
@@ -539,7 +583,6 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
     }
 
     readiness, readiness_reasons = _release_readiness(dimensions)
-    dimensions["release_readiness"] = "healthy" if readiness == "ready" else "degraded" if readiness == "ready_with_degradation" else "blocking" if readiness in {"not_ready", "blocked_by_policy"} else "missing_evidence"
 
     degradations: list[dict[str, Any]] = [
         *constitution_degradations,
@@ -595,7 +638,19 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
     contract_surface = _as_mapping(_as_mapping(latest_pointers_payload.get("surfaces")).get("contract_status"))
     contract_rows = _as_rows(_as_mapping(contract_surface.get("metadata")).get("summary_rows"))
     contract_drift = _contract_drift_health(root, contract_rows=contract_rows)
+    jurisprudence_signal = _jurisprudence_interpretive_signal(contract_rows)
+    if bool(jurisprudence_signal.get("degrades_readiness_interpretation")):
+        reason = str(jurisprudence_signal.get("readiness_reason") or "jurisprudence interpretive signal degraded")
+        if reason not in readiness_reasons:
+            readiness_reasons.append(reason)
+        if readiness == "ready":
+            readiness = "ready_with_degradation"
     incidents = _incident_snapshot(root)
+    dimensions["release_readiness"] = "healthy" if readiness == "ready" else "degraded" if readiness == "ready_with_degradation" else "blocking" if readiness in {"not_ready", "blocked_by_policy"} else "missing_evidence"
+    summary["release_readiness"] = readiness
+    summary["release_readiness_reasons"] = readiness_reasons
+    release["status"] = readiness
+    release["reasons"] = readiness_reasons
 
     dashboard = {
         "schema_version": 1,
@@ -617,10 +672,12 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
             },
         },
         "contract_drift_rollup": contract_drift,
+        "jurisprudence_interpretive_signal": jurisprudence_signal,
         "incident_rollup": incidents,
     }
 
     summary["contract_row_summary"] = _as_mapping(contract_drift.get("contract_row_summary"))
+    summary["jurisprudence_interpretive_signal"] = jurisprudence_signal
     write_json(out_root / "fleet_health_summary.json", summary)
     links_payload = read_json(root / "glow/observatory/artifact_provenance_links.json")
     broad_lane_payload = read_json(root / "glow/observatory/broad_lane/broad_lane_latest_summary.json")
