@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
+from sentientos.authority_of_judgment_schema import build_authority_of_judgment
 from sentientos.codex_startup_guard import codex_runtime_mediation, codex_startup_state
 from sentientos.runtime_governor import GovernorDecision, RuntimeGovernor, get_runtime_governor
 
@@ -255,20 +256,24 @@ class ControlPlaneKernel:
         denial = str(advisory_denial or "")
         disagreement = bool(runtime is not None and runtime.allowed and denial and denial not in {"none", ""})
         resolution_state = "reconciled" if disagreement else "none"
-        return {
-            "decision_class": "federated_control_admission",
-            "authoritative_surface": "runtime_governor",
-            "advisory_surfaces": ["request_metadata.federated_denial_cause"],
-            "descriptive_surfaces": ["federation_context"],
-            "surface_disagreement": disagreement,
-            "authoritative_outcome": "allow" if runtime is not None and runtime.allowed else "none",
-            "advisory_signal": denial or "none",
-            "reconciliation": {
+        return build_authority_of_judgment(
+            decision_class="federated_control_admission",
+            authoritative_surface="runtime_governor",
+            advisory_surfaces=["request_metadata.federated_denial_cause"],
+            descriptive_surfaces=["federation_context"],
+            disagreement_present=disagreement,
+            reconciliation_rule="runtime_governor_authoritative_for_federated_control",
+            authority_of_judgment="runtime_governor_is_authoritative_for_federated_control",
+            reconciliation={
                 "state": resolution_state,
                 "rule": "runtime_governor_authoritative_for_federated_control",
                 "disagreement_kind": "runtime_allow_vs_metadata_denial" if disagreement else "none",
             },
-        }
+            extra_fields={
+                "authoritative_outcome": "allow" if runtime is not None and runtime.allowed else "none",
+                "advisory_signal": denial or "none",
+            },
+        )
 
     @staticmethod
     def _authority_rule_for_maintenance_proof_budget(
@@ -278,20 +283,24 @@ class ControlPlaneKernel:
     ) -> dict[str, Any]:
         disagreement = bool(runtime is not None and runtime.allowed and budget_decision.mode == "diagnostics_only")
         resolution_state = "reconciled" if disagreement else "none"
-        return {
-            "decision_class": "maintenance_admission_proof_budget",
-            "authoritative_surface": "proof_budget_governor.mode",
-            "advisory_surfaces": ["runtime_governor.allowed"],
-            "descriptive_surfaces": ["proof_budget_context"],
-            "surface_disagreement": disagreement,
-            "authoritative_outcome": "defer" if budget_decision.mode == "diagnostics_only" else "none",
-            "advisory_signal": "runtime_governor_allow" if runtime is not None and runtime.allowed else "none",
-            "reconciliation": {
+        return build_authority_of_judgment(
+            decision_class="maintenance_admission_proof_budget",
+            authoritative_surface="proof_budget_governor.mode",
+            advisory_surfaces=["runtime_governor.allowed"],
+            descriptive_surfaces=["proof_budget_context"],
+            disagreement_present=disagreement,
+            reconciliation_rule="proof_budget_diagnostics_only_authoritative_for_maintenance_admission",
+            authority_of_judgment="proof_budget_governor_mode_is_authoritative_for_maintenance_admission",
+            reconciliation={
                 "state": resolution_state,
                 "rule": "proof_budget_diagnostics_only_authoritative_for_maintenance_admission",
                 "disagreement_kind": "runtime_allow_vs_proof_budget_diagnostics_only" if disagreement else "none",
             },
-        }
+            extra_fields={
+                "authoritative_outcome": "defer" if budget_decision.mode == "diagnostics_only" else "none",
+                "advisory_signal": "runtime_governor_allow" if runtime is not None and runtime.allowed else "none",
+            },
+        )
 
     def admit_and_execute(
         self,

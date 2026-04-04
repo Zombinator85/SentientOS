@@ -221,6 +221,9 @@ def test_federated_control_metadata_denial_is_advisory_when_runtime_allows(tmp_p
     assert isinstance(authority, dict)
     assert authority.get("authoritative_surface") == "runtime_governor"
     assert authority.get("surface_disagreement") is True
+    assert authority.get("disagreement_present") is True
+    assert authority.get("reconciliation_rule") == "runtime_governor_authoritative_for_federated_control"
+    assert authority.get("authority_of_judgment") == "runtime_governor_is_authoritative_for_federated_control"
     reconciliation = authority.get("reconciliation")
     assert isinstance(reconciliation, dict)
     assert reconciliation.get("state") == "reconciled"
@@ -295,6 +298,9 @@ def test_proof_budget_diagnostics_mode_defers(tmp_path):
     assert authority.get("decision_class") == "maintenance_admission_proof_budget"
     assert authority.get("authoritative_surface") == "proof_budget_governor.mode"
     assert authority.get("surface_disagreement") is True
+    assert authority.get("disagreement_present") is True
+    assert authority.get("reconciliation_rule") == "proof_budget_diagnostics_only_authoritative_for_maintenance_admission"
+    assert authority.get("authority_of_judgment") == "proof_budget_governor_mode_is_authoritative_for_maintenance_admission"
     reconciliation = authority.get("reconciliation")
     assert isinstance(reconciliation, dict)
     assert reconciliation.get("rule") == "proof_budget_diagnostics_only_authoritative_for_maintenance_admission"
@@ -359,6 +365,7 @@ def test_maintenance_proof_authority_clears_when_diagnostics_only_clears(tmp_pat
     assert isinstance(authority, dict)
     assert authority.get("decision_class") == "maintenance_admission_proof_budget"
     assert authority.get("surface_disagreement") is False
+    assert authority.get("disagreement_present") is False
     assert "proof_budget:diagnostics_only" not in admitted.reason_codes
     assert "authority_reconciliation:maintenance_proof_budget_authoritative" not in admitted.reason_codes
 
