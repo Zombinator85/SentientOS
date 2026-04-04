@@ -68,6 +68,9 @@ class MutationExecutionResult:
     admission: dict[str, object] | None
     handler_result: Any | None
     registry: MutationActionRegistration
+    canonical_router: str
+    handler_identity: str
+    path_status: str
 
 
 CanonicalMutationHandler = Callable[[TypedMutationAction, dict[str, object]], Any]
@@ -75,6 +78,7 @@ CanonicalMutationHandler = Callable[[TypedMutationAction, dict[str, object]], An
 
 class ConstitutionalMutationRouter:
     """Shared typed mutation router for the scoped constitutional mutation slice."""
+    ROUTER_ID = "constitutional_mutation_router.v1"
 
     def __init__(self, *, registry_path: Path | None = None) -> None:
         self._handlers: dict[str, CanonicalMutationHandler] = {}
@@ -150,21 +154,35 @@ class ConstitutionalMutationRouter:
         )
         handler_result = None
         if decision.allowed:
-            admission = build_admission_provenance(decision)
+            admission = {
+                **build_admission_provenance(decision),
+                "typed_action_id": action.action_id,
+                "canonical_router": self.ROUTER_ID,
+                "canonical_handler": registration.canonical_handler,
+                "path_status": "canonical_router",
+            }
             handler_result = self._handlers[action.action_id](action, admission)
         else:
             admission = None
+        final_disposition = (
+            getattr(getattr(decision, "outcome", None), "value", None)
+            or ("allow" if decision.allowed else "deny")
+        )
+        admission_decision_ref = getattr(decision, "admission_decision_ref", f"kernel_decision:{decision.correlation_id}")
         record_forge_event(
             {
                 "event": "constitutional_mutation_router_execution",
                 "typed_action_id": action.action_id,
                 "mutation_domain": action.mutation_domain,
                 "correlation_id": action.correlation_id,
-                "final_disposition": decision.outcome.value,
+                "final_disposition": final_disposition,
                 "reason_codes": list(decision.reason_codes),
                 "canonical": True,
                 "executed": decision.allowed,
-                "admission_decision_ref": decision.admission_decision_ref,
+                "canonical_router": self.ROUTER_ID,
+                "canonical_handler": registration.canonical_handler,
+                "path_status": "canonical_router",
+                "admission_decision_ref": admission_decision_ref,
             }
         )
         return MutationExecutionResult(
@@ -174,6 +192,9 @@ class ConstitutionalMutationRouter:
             admission=admission,
             handler_result=handler_result,
             registry=registration,
+            canonical_router=self.ROUTER_ID,
+            handler_identity=registration.canonical_handler,
+            path_status="canonical_router",
         )
 
 

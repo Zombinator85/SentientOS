@@ -286,7 +286,12 @@ class ForgeMergeTrain:
         router = get_constitutional_mutation_router()
         router.register_handler(
             "sentientos.merge_train.hold",
-            lambda _action, _admission: self._apply_hold_transition(state=state, entry=entry, pr_number=pr_number),
+            lambda _action, _admission: self._apply_hold_transition(
+                state=state,
+                entry=entry,
+                pr_number=pr_number,
+                canonical_execution=True,
+            ),
         )
         result = router.execute(
             TypedMutationAction(
@@ -317,7 +322,12 @@ class ForgeMergeTrain:
         router = get_constitutional_mutation_router()
         router.register_handler(
             "sentientos.merge_train.release",
-            lambda _action, _admission: self._apply_release_transition(state=state, entry=entry, pr_number=pr_number),
+            lambda _action, _admission: self._apply_release_transition(
+                state=state,
+                entry=entry,
+                pr_number=pr_number,
+                canonical_execution=True,
+            ),
         )
         result = router.execute(
             TypedMutationAction(
@@ -340,7 +350,9 @@ class ForgeMergeTrain:
         )
         return result.executed and bool(result.handler_result)
 
-    def _apply_hold_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int) -> bool:
+    def _apply_hold_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int, canonical_execution: bool = False) -> bool:
+        if not canonical_execution:
+            raise RuntimeError("non_canonical_mutation_path:sentientos.merge_train.hold")
         entry.status = "held"
         entry.updated_at = _iso_now()
         entry.last_error = "manually_held"
@@ -348,7 +360,9 @@ class ForgeMergeTrain:
         self._emit_event("train_held", {"pr_number": pr_number, "canonical_path": "constitutional_router"})
         return True
 
-    def _apply_release_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int) -> bool:
+    def _apply_release_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int, canonical_execution: bool = False) -> bool:
+        if not canonical_execution:
+            raise RuntimeError("non_canonical_mutation_path:sentientos.merge_train.release")
         entry.status = "ready"
         entry.updated_at = _iso_now()
         entry.last_error = None

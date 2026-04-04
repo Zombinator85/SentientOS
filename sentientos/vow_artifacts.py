@@ -53,7 +53,12 @@ def ensure_vow_artifacts(*, manifest_path: Path | None = None) -> dict[str, Any]
     target = manifest_path or _resolve_manifest_path()
     existed = target.exists()
     if not existed:
-        manifest_module.generate_manifest(output=target)
+        manifest_module.execute_manifest_generation_action(
+            output=target,
+            allow_missing_files=False,
+            execution_source="sentientos.vow_artifacts.ensure_vow_artifacts",
+            execution_owner="vow_artifacts",
+        )
 
     inputs = [item.as_posix() for item in sorted(manifest_module.DEFAULT_FILES, key=lambda p: p.as_posix())]
     payload: dict[str, Any] = {

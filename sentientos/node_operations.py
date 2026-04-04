@@ -194,9 +194,14 @@ def run_bootstrap(root: Path, *, reason: str, seed_minimal: bool, allow_restore:
     seed_actions: list[str] = []
     manifest_path = root / "vow/immutable_manifest.json"
     if seed_minimal and not manifest_path.exists():
-        from scripts.generate_immutable_manifest import generate_manifest
+        from scripts.generate_immutable_manifest import execute_manifest_generation_action
 
-        generate_manifest(output=manifest_path, allow_missing_files=True)
+        execute_manifest_generation_action(
+            output=manifest_path,
+            allow_missing_files=True,
+            execution_source="sentientos.node_operations.run_bootstrap",
+            execution_owner="node_operations",
+        )
         seed_actions.append("vow/immutable_manifest.json")
     phases.append({"phase": "seed_minimal_state", "status": "ok", "seeded": seed_actions})
 
