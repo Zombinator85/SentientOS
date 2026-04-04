@@ -1,16 +1,21 @@
 """Bounded jurisprudence note for explicit authority-of-judgment rules.
 
 An authority-of-judgment rule is a class-local reconciliation contract that
-declares which decision surface is authoritative when advisory signals disagree.
+states which decision surface is authoritative when advisory signals disagree.
 
 Implemented explicit classes in this repository:
 - federated_control_admission
 - maintenance_admission_proof_budget
 - merge_train_mergeability_protected_mutation
 
-This is a bounded implemented jurisprudence surface, not a universal precedence
-engine. Unresolved classes remain unresolved until they receive their own
-explicit class-local rule and tests.
+Consumption (observability-only):
+- ``scripts.emit_contract_status`` now reads ``sentientos.bounded_jurisprudence``
+  via ``sentientos.jurisprudence_consumption`` and emits an
+  ``authority_of_judgment_jurisprudence`` domain row in ``contract_status``.
+- The consumer reports emitted-vs-consumed mapping for explicit classes and
+  unresolved-class visibility; it does not adjudicate, mutate admission, or
+  introduce cross-class precedence.
 
-See ``sentientos.bounded_jurisprudence`` for the machine-readable map.
+This remains a bounded implemented jurisprudence surface, not a universal
+precedence engine. Authority-of-judgment stays class-local and non-universal.
 """

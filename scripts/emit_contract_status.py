@@ -12,6 +12,7 @@ from sentientos.forge_index import rebuild_index
 from sentientos.forge_progress_contract import emit_forge_progress_contract
 from sentientos.kernel_admission_provenance import verify_kernel_admission_provenance
 from sentientos.protected_mutation_corridor import corridor_definition, non_bypass_model_definition
+from sentientos.jurisprudence_consumption import build_jurisprudence_consumption_summary
 
 DEFAULT_OUTPUT = Path("glow/contracts/contract_status.json")
 DEFAULT_PROTECTED_MUTATION_PROOF_OUTPUT = Path("glow/contracts/protected_mutation_proof_status.json")
@@ -237,6 +238,7 @@ def emit_contract_status(output_path: Path = DEFAULT_OUTPUT) -> dict[str, Any]:
         _artifact_status(domain_name="broad_lane_latest_summary", artifact_path=Path("glow/observatory/broad_lane/broad_lane_latest_summary.json"), git_sha=git_sha),
         _artifact_status(domain_name="fleet_health_summary", artifact_path=Path("glow/observatory/fleet_health_summary.json"), git_sha=git_sha),
         _artifact_status(domain_name="strict_audit_status", artifact_path=Path("glow/contracts/strict_audit_status.json"), git_sha=git_sha),
+        _jurisprudence_consumption_status(git_sha=git_sha),
         protected_mutation_status,
     ]
 
@@ -363,6 +365,50 @@ def _protected_mutation_proof_status(*, git_sha: str, repo_root: Path) -> dict[s
         "strict_ok": bool(strict_summary.get("ok", False)),
     }
 
+
+
+def _jurisprudence_consumption_status(*, git_sha: str) -> dict[str, Any]:
+    summary = build_jurisprudence_consumption_summary(consumer_surface="contract_status")
+    mapping_gap_count = int(summary.get("mapping_gap_count", 0) or 0)
+    explicit_rule_count = int(summary.get("explicit_rule_count", 0) or 0)
+
+    if explicit_rule_count == 0:
+        drift_type = "jurisprudence_mapping_missing"
+        drifted = None
+        explanation = "bounded jurisprudence artifact missing explicit class mapping"
+    elif mapping_gap_count > 0:
+        drift_type = "jurisprudence_mapping_gap"
+        drifted = True
+        explanation = f"{mapping_gap_count} emitted decision class(es) unresolved in jurisprudence mapping"
+    else:
+        drift_type = "none"
+        drifted = False
+        explanation = "all emitted authority-of-judgment classes are explicitly mapped"
+
+    return {
+        "domain_name": "authority_of_judgment_jurisprudence",
+        "baseline_present": explicit_rule_count > 0,
+        "last_baseline_path": "sentientos/bounded_jurisprudence.py",
+        "drift_report_path": None,
+        "drifted": drifted,
+        "drift_type": drift_type,
+        "drift_explanation": explanation,
+        "drift_provenance": None,
+        "fingerprint_changed": None,
+        "tuple_diff_detected": None,
+        "strict_gate_envvar": "",
+        "captured_by": "scripts.emit_contract_status",
+        "captured_at": _iso_now(),
+        "tool_version": "jurisprudence_consumer_v1",
+        "git_sha": git_sha,
+        "consumer_surface": summary.get("consumer_surface"),
+        "explicit_rule_count": explicit_rule_count,
+        "emitted_class_count": summary.get("emitted_class_count"),
+        "mapping_gap_count": mapping_gap_count,
+        "emitted_vs_consumed": summary.get("emitted_vs_consumed"),
+        "unresolved_classes": summary.get("unresolved_classes"),
+        "implementation_note": summary.get("implementation_note"),
+    }
 
 def _ci_baseline_status(*, git_sha: str) -> dict[str, Any]:
     baseline_path = Path("glow/contracts/ci_baseline.json")
