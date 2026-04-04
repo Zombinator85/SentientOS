@@ -6,10 +6,9 @@ import os
 from pathlib import Path
 
 from sentientos.audit_chain_gate import maybe_verify_audit_chain
-from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
+from sentientos.control_plane_kernel import AuthorityClass, LifecyclePhase, reset_control_plane_kernel
+from sentientos.constitutional_mutation_fabric import TypedMutationAction, MutationProvenanceIntent, get_constitutional_mutation_router
 from sentientos.doctrine_identity import verify_doctrine_identity
-from sentientos.protected_mutation_provenance import build_admission_provenance
-from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.event_stream import record_forge_event
 from sentientos.federation_integrity import federation_integrity_gate
 from sentientos.integrity_incident import build_base_context, build_incident
@@ -128,36 +127,49 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "blocked", "failures": sorted(set(failures)), "checks": checks}, indent=2, sort_keys=True))
         return 1
 
-    kernel = get_control_plane_kernel()
-    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="scripts.quarantine_clear")
-    admission = kernel.admit(
-        ControlActionRequest(
-            action_kind="quarantine_clear",
-            authority_class=AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
-            actor="operator_cli",
-            target_subsystem="integrity_quarantine",
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            metadata={
-                "correlation_id": f"quarantine_clear:{quarantine.last_incident_id or 'none'}",
-                "incident_id": quarantine.last_incident_id,
-                "override": override,
-                "requested_by": "scripts/quarantine_clear.py",
-                "protected_mutation_intent": declare_protected_mutation_intent(
-                    domains=("quarantine_clear_privileged_operator_action",),
-                    authority_classes=(AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,),
-                    invocation_path="scripts.quarantine_clear.main",
-                    expect_forward_enforcement=True,
-                ),
-            },
-        )
+    reset_control_plane_kernel()
+    router = get_constitutional_mutation_router()
+    router.register_handler(
+        "sentientos.quarantine.clear",
+        lambda _action, _admission: clear(
+            root,
+            f"{args.note} [correlation_id={_admission['correlation_id']}]",
+        ),
     )
-    if not admission.allowed:
-        denied_admission = build_admission_provenance(admission)
+    action = TypedMutationAction(
+        action_id="sentientos.quarantine.clear",
+        mutation_domain="quarantine_clear_privileged_operator_action",
+        authority_class=AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+        lifecycle_phase=LifecyclePhase.MAINTENANCE,
+        correlation_id=f"quarantine_clear:{quarantine.last_incident_id or 'none'}",
+        execution_owner="operator_cli",
+        execution_source="scripts.quarantine_clear.main",
+        target_subsystem="integrity_quarantine",
+        action_kind="quarantine_clear",
+        provenance_intent=MutationProvenanceIntent(
+            domains=("quarantine_clear_privileged_operator_action",),
+            authority_classes=(AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,),
+            invocation_path="scripts.quarantine_clear.main",
+            expect_forward_enforcement=True,
+        ),
+        payload={
+            "incident_id": quarantine.last_incident_id,
+            "override": override,
+            "requested_by": "scripts/quarantine_clear.py",
+        },
+    )
+    admission = router.execute(action)
+    if not admission.executed or admission.admission is None:
         record_forge_event(
             {
                 "event": "kernel_admission_denied",
                 "level": "warning",
-                **denied_admission,
+                "correlation_id": admission.correlation_id,
+                "admission_decision_ref": f"kernel_decision:{admission.correlation_id}",
+                "action_kind": "quarantine_clear",
+                "authority_class": AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,
+                "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
+                "final_disposition": "deny",
             }
         )
         print(
@@ -167,9 +179,9 @@ def main(argv: list[str] | None = None) -> int:
                     "failures": ["control_plane_denied"],
                     "checks": checks,
                     "control_plane": {
-                        "outcome": admission.outcome.value,
-                        "reason_codes": list(admission.reason_codes),
-                        "delegate_checks_consulted": sorted(admission.delegated_outcomes.keys()),
+                        "outcome": "deny",
+                        "reason_codes": list(admission.decision_reason_codes),
+                        "delegate_checks_consulted": [],
                         "correlation_id": admission.correlation_id,
                     },
                 },
@@ -179,8 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    clear_note = f"{args.note} [correlation_id={admission.correlation_id}]"
-    state = clear(root, clear_note)
+    state = admission.handler_result
     override_note = ""
     if override and "remediation_incomplete" in failures:
         override_note = " remediation override used"
@@ -204,7 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             "incident_id": recovery.incident_id,
             "docket": str(docket_path.relative_to(root)),
             "remediation_override": override and "remediation_incomplete" in failures,
-            **build_admission_provenance(admission),
+            **admission.admission,
         }
     )
     print(

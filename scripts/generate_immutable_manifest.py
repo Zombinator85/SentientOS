@@ -7,9 +7,13 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
-from sentientos.protected_mutation_intent import declare_protected_mutation_intent
-from sentientos.protected_mutation_provenance import build_admission_provenance, validate_admission_provenance
+from sentientos.control_plane_kernel import AuthorityClass, LifecyclePhase
+from sentientos.constitutional_mutation_fabric import (
+    TypedMutationAction,
+    MutationProvenanceIntent,
+    get_constitutional_mutation_router,
+)
+from sentientos.protected_mutation_provenance import validate_admission_provenance
 
 DEFAULT_MANIFEST = Path("vow/immutable_manifest.json")
 DEFAULT_FILES = (
@@ -107,54 +111,60 @@ def main(argv: list[str] | None = None) -> int:
         help="allow degraded mode when one or more manifest input files are missing",
     )
     args = parser.parse_args(argv)
-    kernel = get_control_plane_kernel()
-    kernel.set_phase(LifecyclePhase.MAINTENANCE, actor="scripts.generate_immutable_manifest")
-    decision = kernel.admit(
-        ControlActionRequest(
-            action_kind="generate_immutable_manifest",
-            authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
-            actor="operator_cli",
-            target_subsystem=str(args.manifest),
-            requested_phase=LifecyclePhase.MAINTENANCE,
-            metadata={
-                "requested_by": "scripts/generate_immutable_manifest.py",
-                "correlation_id": f"manifest:{Path(args.manifest).as_posix()}",
-                "protected_mutation_intent": declare_protected_mutation_intent(
-                    domains=("immutable_manifest_identity_writes",),
-                    authority_classes=(AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,),
-                    invocation_path="scripts.generate_immutable_manifest.main",
-                    expect_forward_enforcement=True,
-                ),
-            },
-        )
+    router = get_constitutional_mutation_router()
+    router.register_handler(
+        "sentientos.manifest.generate",
+        lambda _action, _admission: generate_manifest(
+            output=Path(args.manifest),
+            allow_missing_files=args.allow_missing_files,
+            admission_context=_admission,
+        ),
     )
-    if not decision.allowed:
+    action = TypedMutationAction(
+        action_id="sentientos.manifest.generate",
+        mutation_domain="immutable_manifest_identity_writes",
+        authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
+        lifecycle_phase=LifecyclePhase.MAINTENANCE,
+        correlation_id=f"manifest:{Path(args.manifest).as_posix()}",
+        execution_owner="operator_cli",
+        execution_source="scripts.generate_immutable_manifest.main",
+        target_subsystem=str(args.manifest),
+        action_kind="generate_immutable_manifest",
+        provenance_intent=MutationProvenanceIntent(
+            domains=("immutable_manifest_identity_writes",),
+            authority_classes=(AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,),
+            invocation_path="scripts.generate_immutable_manifest.main",
+            expect_forward_enforcement=True,
+        ),
+        payload={
+            "requested_by": "scripts/generate_immutable_manifest.py",
+        },
+    )
+    result = router.execute(
+        action,
+    )
+    if not result.executed or result.admission is None:
         print(
             json.dumps(
                 {
                     "tool": "generate_immutable_manifest",
                     "status": "blocked",
-                    "reason_codes": list(decision.reason_codes),
-                    "correlation_id": decision.correlation_id,
+                    "reason_codes": list(result.decision_reason_codes),
+                    "correlation_id": result.correlation_id,
                 },
                 sort_keys=True,
             )
         )
         return 1
 
-    admission_context = build_admission_provenance(decision)
-    payload = generate_manifest(
-        output=Path(args.manifest),
-        allow_missing_files=args.allow_missing_files,
-        admission_context=admission_context,
-    )
+    payload = result.handler_result
     print(
         json.dumps(
             {
                 "tool": "generate_immutable_manifest",
                 "output": args.manifest,
                 "degraded": bool(payload.get("degraded_mode", {}).get("active", False)),
-                "correlation_id": decision.correlation_id,
+                "correlation_id": result.correlation_id,
             },
             sort_keys=True,
         )

@@ -49,6 +49,7 @@ from sentientos.control_plane_kernel import (
     get_control_plane_kernel,
 )
 from sentientos.protected_mutation_provenance import validate_admission_provenance
+from sentientos.constitutional_mutation_fabric import TypedMutationAction, MutationProvenanceIntent, get_constitutional_mutation_router
 from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.codex_startup_guard import codex_runtime_mediation
@@ -928,86 +929,85 @@ class GenesisForge:
                     raise GenesisForgeError(
                         "Sandbox validation failed",
                     )
+                router = get_constitutional_mutation_router()
                 adoption_correlation = f"genesis:{proposal.proposal_id}:{proposal.spec_id}"
                 lineage_correlation = adoption_correlation
-                lineage_gate, lineage_entry = kernel.admit_and_execute(
-                    ControlActionRequest(
-                        action_kind="lineage_integrate",
-                        authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
-                        actor="genesis_forge",
-                        target_subsystem=proposal.spec_id,
-                        requested_phase=LifecyclePhase.MAINTENANCE,
-                        metadata={
-                            "correlation_id": adoption_correlation,
-                            "proposal_id": proposal.proposal_id,
-                            "spec_id": proposal.spec_id,
-                            "capability": need.capability,
-                            "protected_mutation_intent": declare_protected_mutation_intent(
-                                domains=("genesisforge_lineage_proposal_adoption",),
-                                authority_classes=(AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,),
-                                invocation_path="sentientos.genesis_forge.GenesisForge.birth",
-                                expect_forward_enforcement=True,
-                            ),
-                        },
-                    ),
-                    execute=lambda: self._spec_binder.integrate(
+                router.register_handler(
+                    "sentientos.genesis.lineage_integrate",
+                    lambda _action, admission: self._spec_binder.integrate(
                         proposal,
-                        admission_provenance={
-                            "correlation_id": lineage_correlation,
-                            "admission_decision_ref": f"kernel_decision:{lineage_correlation}",
-                            "action_kind": "lineage_integrate",
-                            "authority_class": AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,
-                            "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
-                            "final_disposition": AdmissionOutcome.ALLOW.value,
-                            "execution_owner": "genesis_forge",
-                        },
+                        admission_provenance=admission,
                     ),
                 )
-                if not lineage_gate.allowed or not isinstance(lineage_entry, Mapping):
-                    raise GenesisForgeError(
-                        "Kernel denied lineage integration "
-                        f"({','.join(lineage_gate.reason_codes)})"
-                    )
-                adoption_correlation_ref = f"{adoption_correlation}:adopt"
-                adoption_gate, adoption = kernel.admit_and_execute(
-                    ControlActionRequest(
-                        action_kind="proposal_adopt",
-                        authority_class=AuthorityClass.PROPOSAL_ADOPTION,
-                        actor="genesis_forge",
+                lineage_result = router.execute(
+                    TypedMutationAction(
+                        action_id="sentientos.genesis.lineage_integrate",
+                        mutation_domain="genesisforge_lineage_proposal_adoption",
+                        authority_class=AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION,
+                        lifecycle_phase=LifecyclePhase.MAINTENANCE,
+                        correlation_id=lineage_correlation,
+                        execution_owner="genesis_forge",
+                        execution_source="sentientos.genesis_forge.GenesisForge.expand",
                         target_subsystem=proposal.spec_id,
-                        requested_phase=LifecyclePhase.MAINTENANCE,
-                        metadata={
-                            "correlation_id": adoption_correlation_ref,
+                        action_kind="lineage_integrate",
+                        provenance_intent=MutationProvenanceIntent(
+                            domains=("genesisforge_lineage_proposal_adoption",),
+                            authority_classes=(AuthorityClass.MANIFEST_OR_IDENTITY_MUTATION.value,),
+                            invocation_path="sentientos.genesis_forge.GenesisForge.expand",
+                            expect_forward_enforcement=True,
+                        ),
+                        payload={
                             "proposal_id": proposal.proposal_id,
                             "spec_id": proposal.spec_id,
                             "capability": need.capability,
-                            "protected_mutation_intent": declare_protected_mutation_intent(
-                                domains=("genesisforge_lineage_proposal_adoption",),
-                                authority_classes=(AuthorityClass.PROPOSAL_ADOPTION.value,),
-                                invocation_path="sentientos.genesis_forge.GenesisForge.birth",
-                                expect_forward_enforcement=True,
-                            ),
                         },
-                    ),
-                    execute=lambda: self._adoption_rite.promote(
+                    )
+                )
+                lineage_entry = lineage_result.handler_result
+                if not lineage_result.executed or not isinstance(lineage_entry, Mapping):
+                    raise GenesisForgeError(
+                        "Kernel denied lineage integration "
+                        f"({','.join(lineage_result.decision_reason_codes)})"
+                    )
+                adoption_correlation_ref = f"{adoption_correlation}:adopt"
+                router.register_handler(
+                    "sentientos.genesis.proposal_adopt",
+                    lambda _action, admission: self._adoption_rite.promote(
                         proposal,
                         report,
                         lineage_entry,
-                        admission_provenance={
-                            "correlation_id": adoption_correlation_ref,
-                            "admission_decision_ref": f"kernel_decision:{adoption_correlation_ref}",
-                            "action_kind": "proposal_adopt",
-                            "authority_class": AuthorityClass.PROPOSAL_ADOPTION.value,
-                            "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
-                            "final_disposition": AdmissionOutcome.ALLOW.value,
-                            "execution_owner": "genesis_forge",
-                        },
+                        admission_provenance=admission,
                     ),
                 )
-                if not adoption_gate.allowed or not isinstance(adoption, Mapping):
+                adoption_result = router.execute(
+                    TypedMutationAction(
+                        action_id="sentientos.genesis.proposal_adopt",
+                        mutation_domain="genesisforge_lineage_proposal_adoption",
+                        authority_class=AuthorityClass.PROPOSAL_ADOPTION,
+                        lifecycle_phase=LifecyclePhase.MAINTENANCE,
+                        correlation_id=adoption_correlation_ref,
+                        execution_owner="genesis_forge",
+                        execution_source="sentientos.genesis_forge.GenesisForge.expand",
+                        target_subsystem=proposal.spec_id,
+                        action_kind="proposal_adopt",
+                        provenance_intent=MutationProvenanceIntent(
+                            domains=("genesisforge_lineage_proposal_adoption",),
+                            authority_classes=(AuthorityClass.PROPOSAL_ADOPTION.value,),
+                            invocation_path="sentientos.genesis_forge.GenesisForge.expand",
+                            expect_forward_enforcement=True,
+                        ),
+                        payload={
+                            "proposal_id": proposal.proposal_id,
+                            "spec_id": proposal.spec_id,
+                            "capability": need.capability,
+                        },
+                    )
+                )
+                adoption = adoption_result.handler_result
+                if not adoption_result.executed or not isinstance(adoption, Mapping):
                     raise GenesisForgeError(
                         "Kernel denied adoption promotion "
-                        f"({','.join(adoption_gate.reason_codes)})"
+                        f"({','.join(adoption_result.decision_reason_codes)})"
                     )
                 if adoption.get("status") != "adopted":
                     raise GenesisForgeError(

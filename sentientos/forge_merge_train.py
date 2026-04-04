@@ -29,6 +29,8 @@ from sentientos.strategic_posture import gate_enforce_default, resolve_posture
 from sentientos.github_artifacts import ContractBundle, DoctrineIdentity, download_contract_bundle, find_contract_artifact_for_sha
 from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
+from sentientos.control_plane_kernel import AuthorityClass, LifecyclePhase
+from sentientos.constitutional_mutation_fabric import TypedMutationAction, MutationProvenanceIntent, get_constitutional_mutation_router
 
 
 STATE_PATH = Path("glow/forge/merge_train.json")
@@ -281,23 +283,77 @@ class ForgeMergeTrain:
         entry = next((item for item in state.entries if item.pr_number == pr_number), None)
         if entry is None:
             return False
-        entry.status = "held"
-        entry.updated_at = _iso_now()
-        entry.last_error = "manually_held"
-        self.save_state(state)
-        self._emit_event("train_held", {"pr_number": pr_number})
-        return True
+        router = get_constitutional_mutation_router()
+        router.register_handler(
+            "sentientos.merge_train.hold",
+            lambda _action, _admission: self._apply_hold_transition(state=state, entry=entry, pr_number=pr_number),
+        )
+        result = router.execute(
+            TypedMutationAction(
+                action_id="sentientos.merge_train.hold",
+                mutation_domain="merge_train_protected_mutation_hold_release",
+                authority_class=AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+                lifecycle_phase=LifecyclePhase.MAINTENANCE,
+                correlation_id=f"merge_train:hold:{pr_number}",
+                execution_owner="forge_merge_train",
+                execution_source="sentientos.forge_merge_train.ForgeMergeTrain.hold",
+                target_subsystem="glow/forge/merge_train.json",
+                action_kind="merge_train_hold",
+                provenance_intent=MutationProvenanceIntent(
+                    domains=("merge_train_protected_mutation_hold_release",),
+                    authority_classes=(AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,),
+                    invocation_path="sentientos.forge_merge_train.ForgeMergeTrain.hold",
+                ),
+                payload={"pr_number": pr_number},
+            )
+        )
+        return result.executed and bool(result.handler_result)
 
     def release(self, pr_number: int) -> bool:
         state = self.load_state()
         entry = next((item for item in state.entries if item.pr_number == pr_number), None)
         if entry is None:
             return False
+        router = get_constitutional_mutation_router()
+        router.register_handler(
+            "sentientos.merge_train.release",
+            lambda _action, _admission: self._apply_release_transition(state=state, entry=entry, pr_number=pr_number),
+        )
+        result = router.execute(
+            TypedMutationAction(
+                action_id="sentientos.merge_train.release",
+                mutation_domain="merge_train_protected_mutation_hold_release",
+                authority_class=AuthorityClass.PRIVILEGED_OPERATOR_CONTROL,
+                lifecycle_phase=LifecyclePhase.MAINTENANCE,
+                correlation_id=f"merge_train:release:{pr_number}",
+                execution_owner="forge_merge_train",
+                execution_source="sentientos.forge_merge_train.ForgeMergeTrain.release",
+                target_subsystem="glow/forge/merge_train.json",
+                action_kind="merge_train_release",
+                provenance_intent=MutationProvenanceIntent(
+                    domains=("merge_train_protected_mutation_hold_release",),
+                    authority_classes=(AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,),
+                    invocation_path="sentientos.forge_merge_train.ForgeMergeTrain.release",
+                ),
+                payload={"pr_number": pr_number},
+            )
+        )
+        return result.executed and bool(result.handler_result)
+
+    def _apply_hold_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int) -> bool:
+        entry.status = "held"
+        entry.updated_at = _iso_now()
+        entry.last_error = "manually_held"
+        self.save_state(state)
+        self._emit_event("train_held", {"pr_number": pr_number, "canonical_path": "constitutional_router"})
+        return True
+
+    def _apply_release_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int) -> bool:
         entry.status = "ready"
         entry.updated_at = _iso_now()
         entry.last_error = None
         self.save_state(state)
-        self._emit_event("train_released", {"pr_number": pr_number})
+        self._emit_event("train_released", {"pr_number": pr_number, "canonical_path": "constitutional_router"})
         return True
 
     def _ingest_receipts(self, state: TrainState) -> TrainState:

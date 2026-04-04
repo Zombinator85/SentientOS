@@ -14,13 +14,8 @@ from typing import Callable, Iterable, List, Mapping, Sequence
 from sentientos.audit_chain_gate import verify_audit_chain
 from sentientos.codex_startup_guard import enforce_codex_startup
 from sentientos.immutability import read_manifest
-from sentientos.control_plane_kernel import (
-    AuthorityClass,
-    ControlActionRequest,
-    LifecyclePhase,
-    get_control_plane_kernel,
-)
-from sentientos.protected_mutation_provenance import build_admission_provenance
+from sentientos.control_plane_kernel import AuthorityClass, LifecyclePhase
+from sentientos.constitutional_mutation_fabric import TypedMutationAction, MutationProvenanceIntent, get_constitutional_mutation_router
 from sentientos.protected_mutation_intent import declare_protected_mutation_intent
 from sentientos.repair_outcome import verify_repair_outcome
 
@@ -595,31 +590,48 @@ class CodexHealer:
                 quarantined=decision.quarantined,
                 correlation_id=correlation_id,
             )
-        kernel = get_control_plane_kernel()
-        request = ControlActionRequest(
-            action_kind=action.kind,
-            authority_class=AuthorityClass.REPAIR,
-            actor="codex_healer",
-            target_subsystem=anomaly.subject,
-            requested_phase=LifecyclePhase.RUNTIME,
-            metadata={
-                "correlation_id": correlation_id,
-                "anomaly_kind": anomaly.kind,
-                "subject": anomaly.subject,
-                "action_kind": action.kind,
-                "auto_adopt": action.auto_adopt,
-                "protected_mutation_intent": declare_protected_mutation_intent(
+        router = get_constitutional_mutation_router()
+        router.register_handler("sentientos.codexhealer.repair", lambda _action, _admission: self._synth.apply(action))
+        execution = router.execute(
+            TypedMutationAction(
+                action_id="sentientos.codexhealer.repair",
+                mutation_domain="codexhealer_repair_regenesis_linkage",
+                authority_class=AuthorityClass.REPAIR,
+                lifecycle_phase=LifecyclePhase.RUNTIME,
+                correlation_id=correlation_id,
+                execution_owner="codex_healer",
+                execution_source="sentientos.codex_healer.CodexHealer.auto_repair",
+                target_subsystem=anomaly.subject,
+                action_kind=action.kind,
+                provenance_intent=MutationProvenanceIntent(
                     domains=("codexhealer_repair_regenesis_linkage",),
                     authority_classes=(AuthorityClass.REPAIR.value,),
                     invocation_path="sentientos.codex_healer.CodexHealer.auto_repair",
                     expect_forward_enforcement=True,
                 ),
-            },
+                payload={
+                    "anomaly_kind": anomaly.kind,
+                    "subject": anomaly.subject,
+                    "action_kind": action.kind,
+                    "auto_adopt": action.auto_adopt,
+                    "protected_mutation_intent": declare_protected_mutation_intent(
+                        domains=("codexhealer_repair_regenesis_linkage",),
+                        authority_classes=(AuthorityClass.REPAIR.value,),
+                        invocation_path="sentientos.codex_healer.CodexHealer.auto_repair",
+                        expect_forward_enforcement=True,
+                    ),
+                },
+            )
         )
-        kernel_decision = kernel.admit(request)
-        runtime_payload = kernel_decision.delegated_outcomes.get("runtime_governor", {})
-        kernel_provenance = build_admission_provenance(kernel_decision)
-        if not kernel_decision.allowed:
+        kernel_provenance = execution.admission or {
+            "correlation_id": execution.correlation_id,
+            "admission_decision_ref": f"kernel_decision:{execution.correlation_id}",
+            "action_kind": action.kind,
+            "authority_class": AuthorityClass.REPAIR.value,
+            "lifecycle_phase": LifecyclePhase.RUNTIME.value,
+            "final_disposition": "deny",
+        }
+        if not execution.executed:
             attempts = self._note_failure(key, now)
             if attempts < self._regenesis_threshold:
                 return self._ledger.log(
@@ -627,10 +639,10 @@ class CodexHealer:
                     anomaly=anomaly,
                     action=action,
                     details={
-                        "governor_reason": ",".join(kernel_decision.reason_codes),
+                        "governor_reason": ",".join(execution.decision_reason_codes),
                         "governor_mode": str(runtime_payload.get("mode", "unknown")),
                         "governor_reason_hash": str(runtime_payload.get("reason_hash", "unknown")),
-                        "governor_correlation_id": str(runtime_payload.get("correlation_id", correlation_id)),
+                        "governor_correlation_id": str(correlation_id),
                         "attempts": attempts,
                         "regenesis_threshold": self._regenesis_threshold,
                         "regenesis_deferred": True,
@@ -645,10 +657,10 @@ class CodexHealer:
                 anomaly=anomaly,
                 action=action,
                 details={
-                    "governor_reason": ",".join(kernel_decision.reason_codes),
+                    "governor_reason": ",".join(execution.decision_reason_codes),
                     "governor_mode": str(runtime_payload.get("mode", "unknown")),
                     "governor_reason_hash": str(runtime_payload.get("reason_hash", "unknown")),
-                    "governor_correlation_id": str(runtime_payload.get("correlation_id", correlation_id)),
+                    "governor_correlation_id": str(correlation_id),
                     "attempts": attempts,
                     "regenesis_threshold": self._regenesis_threshold,
                     "regenesis": regen_info,
@@ -657,7 +669,7 @@ class CodexHealer:
                 quarantined=True,
                 correlation_id=correlation_id,
             )
-        success = self._synth.apply(action)
+        success = bool(execution.handler_result)
         if success:
             self._note_success(key)
             verification = self._repair_verification(action=action, correlation_id=correlation_id)
