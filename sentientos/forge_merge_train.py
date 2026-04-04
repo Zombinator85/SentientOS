@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from typing import Iterator, Protocol
 
+from sentientos.authority_of_judgment_schema import build_authority_of_judgment
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
 from sentientos.event_stream import record_forge_event
 from sentientos.receipt_anchors import maybe_create_anchor_on_merge, maybe_verify_receipt_anchors
@@ -1201,16 +1202,18 @@ def _mergeability_authority_of_judgment(
     else:
         authoritative_surface = "stability_doctrine_and_contract_status"
         authoritative_reason = "body_scale_doctrine_gate"
-    return {
-        "decision_class": "merge_train_mergeability_protected_mutation",
-        "authoritative_surface": authoritative_surface,
-        "advisory_surfaces": [
+    return build_authority_of_judgment(
+        decision_class="merge_train_mergeability_protected_mutation",
+        authoritative_surface=authoritative_surface,
+        advisory_surfaces=[
             "stability_doctrine_and_contract_status",
             "protected_corridor.corridor_relevance",
             "protected_corridor.global_summary.trust_degradation_ledger",
         ],
-        "surface_disagreement": disagreement,
-        "reconciliation": {
+        disagreement_present=disagreement,
+        reconciliation_rule="strict_corridor_failure_authoritative_when_corridor_intersects",
+        authority_of_judgment="corridor_local_strict_signal_is_authoritative_for_mergeability_hold",
+        reconciliation={
             "state": "reconciled" if disagreement else "none",
             "rule": "strict_corridor_failure_authoritative_when_corridor_intersects",
             "disagreement_kind": (
@@ -1223,11 +1226,13 @@ def _mergeability_authority_of_judgment(
             "authoritative_reason": authoritative_reason,
             "authoritative_result": "hold" if (strict_corridor_failure or body_blocking) else "allow",
         },
-        "authoritative_result": "hold" if (strict_corridor_failure or body_blocking) else "allow",
-        "body_scale_blocking": body_blocking,
-        "body_scale_failures": body_scale_failures,
-        "corridor_signal": dict(corridor_signal),
-    }
+        extra_fields={
+            "authoritative_result": "hold" if (strict_corridor_failure or body_blocking) else "allow",
+            "body_scale_blocking": body_blocking,
+            "body_scale_failures": body_scale_failures,
+            "corridor_signal": dict(corridor_signal),
+        },
+    )
 
 
 def _bundle_corruption_errors(bundle: ContractBundle) -> list[str]:

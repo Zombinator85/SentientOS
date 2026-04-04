@@ -307,6 +307,9 @@ def test_strict_corridor_failure_is_authoritative_for_mergeability(tmp_path: Pat
     authority = payload["authority_of_judgment"]
     assert authority["authoritative_surface"] == "protected_corridor.corridor_relevance.protected_mutation_proof_status"
     assert authority["surface_disagreement"] is True
+    assert authority["disagreement_present"] is True
+    assert authority["reconciliation_rule"] == "strict_corridor_failure_authoritative_when_corridor_intersects"
+    assert authority["authority_of_judgment"] == "corridor_local_strict_signal_is_authoritative_for_mergeability_hold"
     assert authority["reconciliation"]["rule"] == "strict_corridor_failure_authoritative_when_corridor_intersects"
     assert payload["advisory_surfaces"]["corridor_protected_mutation"]["protected_mutation_proof_status"] == "strict_violation_present"
 
@@ -341,6 +344,7 @@ def test_cleared_strict_corridor_signal_no_longer_poisons_mergeability(tmp_path:
     state = train.load_state()
     assert state.entries[0].mergeability_authority["authoritative_result"] == "allow"
     assert state.entries[0].mergeability_authority["surface_disagreement"] is False
+    assert state.entries[0].mergeability_authority["disagreement_present"] is False
 
 
 def test_runtime_feedback_degradation_bridges_into_merge_train_gating(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
