@@ -29,7 +29,21 @@ def _seed_minimal_sources(root: Path) -> None:
             ],
         },
     )
-    _write_json(root / "glow/contracts/contract_status.json", {"schema_version": 1, "contracts": []})
+    _write_json(
+        root / "glow/contracts/contract_status.json",
+        {
+            "schema_version": 1,
+            "contracts": [
+                {
+                    "domain_name": "authority_of_judgment_jurisprudence",
+                    "baseline_present": True,
+                    "drifted": False,
+                    "drift_type": "none",
+                    "drift_explanation": "all emitted authority-of-judgment classes are explicitly mapped",
+                }
+            ],
+        },
+    )
     _write_json(
         root / "glow/contracts/strict_audit_status.json",
         {
@@ -214,7 +228,7 @@ def test_observatory_broad_lane_rows_show_pointer_and_lane_state_together(tmp_pa
     by_lane = {row["lane"]: row for row in payload["broad_lane_rows"]}
     assert by_lane["run_tests"]["pointer_state"] == "stale"
     assert by_lane["run_tests"]["lane_state"] == "lane_completed_with_advisories"
-    assert by_lane["mypy"]["pointer_state"] == "current"
+    assert by_lane["mypy"]["pointer_state"] == "stale"
     assert by_lane["mypy"]["lane_state"] == "lane_completed_with_deferred_debt"
 
 
@@ -290,3 +304,49 @@ def test_observatory_contract_rollup_keeps_freshness_and_drift_distinct(tmp_path
     assert summary["alert_counts"]["baseline_absent"] == 1
     assert rollup["contract_alert_badge"] == "domain_drift"
     assert rollup["contract_alert_reason"] == "domain_drift_rows_present"
+
+
+def test_observatory_jurisprudence_signal_reflects_explicit_coverage(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+
+    payload = build_fleet_health_observatory(tmp_path)
+    assert payload["release_readiness"] == "ready"
+
+    summary = json.loads((tmp_path / "glow/observatory/fleet_health_summary.json").read_text(encoding="utf-8"))
+    signal = summary["jurisprudence_interpretive_signal"]
+    assert signal["interpretive_state"] == "explicit_classes_consumable"
+    assert signal["degrades_readiness_interpretation"] is False
+    assert signal["non_sovereign"] is True
+    assert signal["adjudication_authority"] == "none"
+
+
+def test_observatory_jurisprudence_gap_degrades_readiness_interpretation_only(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_json(
+        tmp_path / "glow/contracts/contract_status.json",
+        {
+            "schema_version": 1,
+            "contracts": [
+                {
+                    "domain_name": "authority_of_judgment_jurisprudence",
+                    "baseline_present": True,
+                    "drifted": True,
+                    "drift_type": "jurisprudence_mapping_gap",
+                    "drift_explanation": "1 emitted decision class unresolved in jurisprudence mapping",
+                }
+            ],
+        },
+    )
+
+    payload = build_fleet_health_observatory(tmp_path)
+    assert payload["release_readiness"] == "ready_with_degradation"
+
+    dashboard = json.loads((tmp_path / "glow/observatory/fleet_health_dashboard.json").read_text(encoding="utf-8"))
+    signal = dashboard["jurisprudence_interpretive_signal"]
+    assert signal["interpretive_state"] == "partial_explicit_coverage"
+    assert signal["degrades_readiness_interpretation"] is True
+    assert signal["non_sovereign"] is True
+    assert signal["adjudication_authority"] == "none"
+
+    summary = json.loads((tmp_path / "glow/observatory/fleet_health_summary.json").read_text(encoding="utf-8"))
+    assert any("jurisprudence mapping gap remains" in reason for reason in summary["release_readiness_reasons"])
