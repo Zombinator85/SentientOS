@@ -55,6 +55,46 @@ def _entry(status: str = "ready") -> TrainEntry:
     )
 
 
+def _write_local_readiness_surfaces(
+    root: Path,
+    *,
+    baseline_integrity_ok: bool = True,
+    runtime_integrity_ok: bool = True,
+    corridor_intersects: bool = False,
+    protected_status: str = "not_applicable",
+    strict_block_count: int = 0,
+) -> None:
+    (root / "glow/contracts").mkdir(parents=True, exist_ok=True)
+    (root / "glow/contracts/stability_doctrine.json").write_text(
+        json.dumps(
+            {
+                "baseline_integrity_ok": baseline_integrity_ok,
+                "runtime_integrity_ok": runtime_integrity_ok,
+                "baseline_unexpected_change_detected": False,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (root / "glow/contracts/protected_corridor_report.json").write_text(
+        json.dumps(
+            {
+                "corridor_relevance": {
+                    "intersects_corridor": corridor_intersects,
+                    "protected_mutation_proof_status": protected_status,
+                },
+                "global_summary": {
+                    "trust_degradation_ledger": {
+                        "counts_by_escalation_posture": {"strict_block": strict_block_count}
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_state_persistence_roundtrip(tmp_path: Path) -> None:
     train = ForgeMergeTrain(repo_root=tmp_path)
     state = TrainState(entries=[_entry()], last_merged_pr=None, last_failure_at=None)
@@ -240,6 +280,67 @@ def test_merge_train_holds_when_audit_integrity_red(tmp_path: Path, monkeypatch)
 
     assert result["status"] == "held"
     assert result["reason"] == "audit_integrity_failed"
+
+
+def test_strict_corridor_failure_is_authoritative_for_mergeability(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    _write_local_readiness_surfaces(
+        tmp_path,
+        baseline_integrity_ok=True,
+        runtime_integrity_ok=True,
+        corridor_intersects=True,
+        protected_status="strict_violation_present",
+        strict_block_count=1,
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+
+    result = train.tick()
+
+    assert result["status"] == "held"
+    assert result["reason"] == "audit_integrity_failed"
+    dockets = sorted((tmp_path / "glow/forge").glob("merge_train_docket_*.json"), key=lambda p: p.name)
+    assert dockets
+    payload = json.loads(dockets[-1].read_text(encoding="utf-8"))
+    authority = payload["authority_of_judgment"]
+    assert authority["authoritative_surface"] == "protected_corridor.corridor_relevance.protected_mutation_proof_status"
+    assert authority["surface_disagreement"] is True
+    assert authority["reconciliation"]["rule"] == "strict_corridor_failure_authoritative_when_corridor_intersects"
+    assert payload["advisory_surfaces"]["corridor_protected_mutation"]["protected_mutation_proof_status"] == "strict_violation_present"
+
+
+def test_cleared_strict_corridor_signal_no_longer_poisons_mergeability(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("SENTIENTOS_FORGE_TRAIN_ENABLED", "1")
+    monkeypatch.setenv("SENTIENTOS_FORGE_AUTOMERGE", "0")
+    ops = _Ops()
+    train = ForgeMergeTrain(repo_root=tmp_path, github_ops=ops)
+    _write_local_readiness_surfaces(
+        tmp_path,
+        baseline_integrity_ok=True,
+        runtime_integrity_ok=True,
+        corridor_intersects=True,
+        protected_status="strict_violation_present",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+    held = train.tick()
+    assert held["status"] == "held"
+
+    _write_local_readiness_surfaces(
+        tmp_path,
+        baseline_integrity_ok=True,
+        runtime_integrity_ok=True,
+        corridor_intersects=True,
+        protected_status="forward_clean",
+    )
+    train.save_state(TrainState(entries=[_entry("ready")]))
+    cleared = train.tick()
+
+    assert cleared["status"] == "mergeable"
+    state = train.load_state()
+    assert state.entries[0].mergeability_authority["authoritative_result"] == "allow"
+    assert state.entries[0].mergeability_authority["surface_disagreement"] is False
 
 
 def test_runtime_feedback_degradation_bridges_into_merge_train_gating(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
