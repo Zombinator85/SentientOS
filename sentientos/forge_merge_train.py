@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
-from typing import Iterator, Protocol
+from typing import Iterator, Mapping, Protocol
 
 from sentientos.authority_of_judgment_schema import build_authority_of_judgment
 from sentientos.doctrine_identity import expected_bundle_sha256_from_receipts, local_doctrine_identity
@@ -31,6 +31,7 @@ from sentientos.github_checks import PRRef, fetch_pr_checks, wait_for_pr_checks
 from sentientos.github_merge import GitHubMergeOps, MergeResult, RebaseResult
 from sentientos.control_plane_kernel import AuthorityClass, LifecyclePhase
 from sentientos.constitutional_mutation_fabric import TypedMutationAction, MutationProvenanceIntent, get_constitutional_mutation_router
+from sentientos.protected_mutation_provenance import validate_admission_provenance
 
 
 STATE_PATH = Path("glow/forge/merge_train.json")
@@ -290,6 +291,7 @@ class ForgeMergeTrain:
                 state=state,
                 entry=entry,
                 pr_number=pr_number,
+                admission_provenance=_admission,
                 canonical_execution=True,
             ),
         )
@@ -326,6 +328,7 @@ class ForgeMergeTrain:
                 state=state,
                 entry=entry,
                 pr_number=pr_number,
+                admission_provenance=_admission,
                 canonical_execution=True,
             ),
         )
@@ -350,24 +353,60 @@ class ForgeMergeTrain:
         )
         return result.executed and bool(result.handler_result)
 
-    def _apply_hold_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int, canonical_execution: bool = False) -> bool:
+    def _apply_hold_transition(
+        self,
+        *,
+        state: TrainState,
+        entry: TrainEntry,
+        pr_number: int,
+        admission_provenance: Mapping[str, object] | None = None,
+        canonical_execution: bool = False,
+    ) -> bool:
         if not canonical_execution:
             raise RuntimeError("non_canonical_mutation_path:sentientos.merge_train.hold")
+        if not isinstance(admission_provenance, Mapping):
+            raise RuntimeError("missing_canonical_admission:sentientos.merge_train.hold")
+        validate_admission_provenance(admission_provenance, expect_execution=True)
         entry.status = "held"
         entry.updated_at = _iso_now()
         entry.last_error = "manually_held"
         self.save_state(state)
-        self._emit_event("train_held", {"pr_number": pr_number, "canonical_path": "constitutional_router"})
+        self._emit_event(
+            "train_held",
+            {
+                "pr_number": pr_number,
+                "canonical_path": "constitutional_router",
+                **dict(admission_provenance),
+            },
+        )
         return True
 
-    def _apply_release_transition(self, *, state: TrainState, entry: TrainEntry, pr_number: int, canonical_execution: bool = False) -> bool:
+    def _apply_release_transition(
+        self,
+        *,
+        state: TrainState,
+        entry: TrainEntry,
+        pr_number: int,
+        admission_provenance: Mapping[str, object] | None = None,
+        canonical_execution: bool = False,
+    ) -> bool:
         if not canonical_execution:
             raise RuntimeError("non_canonical_mutation_path:sentientos.merge_train.release")
+        if not isinstance(admission_provenance, Mapping):
+            raise RuntimeError("missing_canonical_admission:sentientos.merge_train.release")
+        validate_admission_provenance(admission_provenance, expect_execution=True)
         entry.status = "ready"
         entry.updated_at = _iso_now()
         entry.last_error = None
         self.save_state(state)
-        self._emit_event("train_released", {"pr_number": pr_number, "canonical_path": "constitutional_router"})
+        self._emit_event(
+            "train_released",
+            {
+                "pr_number": pr_number,
+                "canonical_path": "constitutional_router",
+                **dict(admission_provenance),
+            },
+        )
         return True
 
     def _ingest_receipts(self, state: TrainState) -> TrainState:
