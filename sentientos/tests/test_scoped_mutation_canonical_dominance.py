@@ -301,6 +301,116 @@ def test_non_canonical_healer_helper_activity_cannot_fabricate_trace(tmp_path: P
     assert any(item.get("kind") == "kernel_decision_missing" for item in row["linkage_findings"])
 
 
+def test_healer_denied_trace_is_canonical_when_denial_record_is_present(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "integration").mkdir(parents=True, exist_ok=True)
+    correlation_id = "cid-healer-denied"
+    (tmp_path / "pulse/forge_events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.codexhealer.repair",
+                "correlation_id": correlation_id,
+                "canonical_router": "constitutional_mutation_router.v1",
+                "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+                "path_status": "canonical_router",
+                "executed": False,
+                "final_disposition": "deny",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "control_plane_decision",
+                "correlation_id": correlation_id,
+                "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                "final_disposition": "deny",
+                "reason_codes": ["runtime_governor:deferred_reserved_for_recovery"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "integration/healer_runtime.log.jsonl").write_text(
+        json.dumps(
+            {
+                "status": "auto-repair denied_by_governor",
+                "correlation_id": correlation_id,
+                "details": {
+                    "kernel_admission": {
+                        "typed_action_id": "sentientos.codexhealer.repair",
+                        "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                        "final_disposition": "deny",
+                    }
+                },
+                "canonical_admission": {
+                    "typed_action_id": "sentientos.codexhealer.repair",
+                    "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                    "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+                    "canonical_router": "constitutional_mutation_router.v1",
+                    "path_status": "canonical_router",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.codexhealer.repair")
+    assert row["status"] == "trace_denied_canonical", json.dumps(row, indent=2, sort_keys=True)
+
+
+def test_denied_trace_flags_erroneous_success_side_effect_leak(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pulse/forge_train_events.jsonl").write_text("", encoding="utf-8")
+    correlation_id = "cid-hold-denied-leak"
+    (tmp_path / "pulse/forge_events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.merge_train.hold",
+                "correlation_id": correlation_id,
+                "canonical_router": "constitutional_mutation_router.v1",
+                "canonical_handler": "sentientos.forge_merge_train.ForgeMergeTrain._apply_hold_transition",
+                "path_status": "canonical_router",
+                "executed": False,
+                "final_disposition": "deny",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "control_plane_decision",
+                "correlation_id": correlation_id,
+                "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                "final_disposition": "deny",
+                "reason_codes": ["runtime_governor:deferred_reserved_for_recovery"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    # Simulate a bad/misleading side effect despite denied admission.
+    (tmp_path / "pulse/forge_train_events.jsonl").write_text(
+        json.dumps({"event": "train_held", "correlation_id": correlation_id}) + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.merge_train.hold")
+    assert row["status"] == "trace_denied_erroneous", json.dumps(row, indent=2, sort_keys=True)
+    assert any(item.get("kind") == "denied_path_merge_train_side_effect_leak" for item in row["linkage_findings"])
+
+
 def test_scoped_slice_core_paths_complete_after_healer_closure(tmp_path: Path) -> None:
     (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)

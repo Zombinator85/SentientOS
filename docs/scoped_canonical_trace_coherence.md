@@ -64,8 +64,18 @@ This removes inference where healer history previously depended on reading only 
 
 ## Remaining scoped fragmentation
 
-- `sentientos.quarantine.clear` remains scoped to event-level side-effect linkage (no expanded artifact-level proof linkage in this pass).
+- Denied-path semantics are now scoped explicitly:
+  - `trace_denied_canonical`: canonical router+kernel denial linkage is present, no success side-effect leak, and denial evidence is machine-readable (healer/quarantine include explicit denial records).
+  - `trace_denied_fragmented`: denial happened but canonical denial evidence is incomplete (missing denial record, missing linkage, or mismatched denial metadata).
+  - `trace_denied_erroneous`: denial happened but success-path side effects still appeared for the same correlation/action.
+- Clean canonical denial semantics in this slice are now enforced for:
+  - `sentientos.codexhealer.repair` (denied governor path must emit ledger denial with canonical admission linkage).
+  - `sentientos.quarantine.clear` (denied event uses the kernel disposition instead of hardcoded deny).
+- Still unresolved/fragile:
+  - non-healer denied paths remain mostly router/kernel-event scoped; they are legible but not yet backed by richer denial-specific artifact proof layers.
 - The scoped evaluator intentionally does not universalize to unrelated action families.
+
+Canonical success history (`trace_complete`) and canonical denied history (`trace_denied_canonical`) are intentionally distinct classes: success requires side-effect completion linkage, while denied requires explicit non-execution plus honest denial evidence and no success leakage.
 
 ## How to extend without re-fragmenting
 

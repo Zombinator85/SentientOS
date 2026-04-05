@@ -259,6 +259,125 @@ def _codexhealer_repair_side_effect_status(repo_root: Path, correlation_id: str)
     return "unresolved_side_effect_link", [{"kind": "missing_healer_recovery_entry", "surface": "integration/healer_runtime.log.jsonl"}]
 
 
+def _has_denied_side_effect_leak(
+    *,
+    repo_root: Path,
+    action_id: str,
+    correlation_id: str,
+    router_rows: list[dict[str, Any]],
+    train_event_rows: list[dict[str, Any]],
+) -> tuple[bool, dict[str, str] | None]:
+    if action_id == "sentientos.manifest.generate":
+        payload = _read_json(repo_root / "vow/immutable_manifest.json")
+        if isinstance(payload, dict):
+            admission = payload.get("admission")
+            if isinstance(admission, dict) and str(admission.get("correlation_id") or "") == correlation_id:
+                return True, {"kind": "denied_path_manifest_side_effect_leak", "surface": "vow/immutable_manifest.json:admission"}
+    elif action_id in {"sentientos.merge_train.hold", "sentientos.merge_train.release"}:
+        expected_event = "train_held" if action_id.endswith(".hold") else "train_released"
+        if any(
+            row.get("event") == expected_event and str(row.get("correlation_id") or "") == correlation_id
+            for row in train_event_rows
+        ):
+            return True, {"kind": "denied_path_merge_train_side_effect_leak", "surface": f"pulse/forge_train_events.jsonl:{expected_event}"}
+    elif action_id == "sentientos.quarantine.clear":
+        if any(
+            row.get("event") == "integrity_recovered" and str(row.get("correlation_id") or "") == correlation_id
+            for row in router_rows
+        ):
+            return True, {"kind": "denied_path_quarantine_side_effect_leak", "surface": "pulse/forge_events.jsonl:integrity_recovered"}
+    elif action_id == "sentientos.genesis.lineage_integrate":
+        lineage_rows = _read_jsonl(repo_root / "lineage/lineage.jsonl")
+        if any(str(row.get("correlation_id") or "") == correlation_id for row in lineage_rows):
+            return True, {"kind": "denied_path_lineage_side_effect_leak", "surface": "lineage/lineage.jsonl"}
+    elif action_id == "sentientos.genesis.proposal_adopt":
+        live_mount = repo_root / "live"
+        live_candidates = sorted(live_mount.glob("*.json")) if live_mount.exists() else []
+        for path in live_candidates:
+            payload = _read_json(path)
+            if not isinstance(payload, dict):
+                continue
+            admission = payload.get("admission")
+            if isinstance(admission, dict) and str(admission.get("correlation_id") or "") == correlation_id:
+                return True, {"kind": "denied_path_adoption_side_effect_leak", "surface": f"{path.as_posix()}:admission"}
+    elif action_id == "sentientos.codexhealer.repair":
+        ledger_rows = _read_jsonl(repo_root / "integration/healer_runtime.log.jsonl")
+        for row in ledger_rows:
+            if str(row.get("correlation_id") or "") != correlation_id:
+                continue
+            if str(row.get("status") or "") == "auto-repair verified":
+                return True, {"kind": "denied_path_healer_success_leak", "surface": "integration/healer_runtime.log.jsonl:status"}
+    return False, None
+
+
+def _denied_trace_status(
+    *,
+    repo_root: Path,
+    action_id: str,
+    correlation_id: str,
+    router_event: dict[str, Any],
+    kernel_row: dict[str, Any],
+    router_rows: list[dict[str, Any]],
+    train_event_rows: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, str]]]:
+    findings: list[dict[str, str]] = []
+    leaked, leak_finding = _has_denied_side_effect_leak(
+        repo_root=repo_root,
+        action_id=action_id,
+        correlation_id=correlation_id,
+        router_rows=router_rows,
+        train_event_rows=train_event_rows,
+    )
+    if leaked:
+        if leak_finding is not None:
+            findings.append(leak_finding)
+        return "trace_denied_erroneous", findings
+
+    if action_id == "sentientos.codexhealer.repair":
+        ledger_rows = _read_jsonl(repo_root / "integration/healer_runtime.log.jsonl")
+        denied_row = next(
+            (
+                row
+                for row in reversed(ledger_rows)
+                if str(row.get("correlation_id") or "") == correlation_id
+                and str(row.get("status") or "") in {"auto-repair denied_by_governor", "auto-repair quarantined"}
+            ),
+            None,
+        )
+        if denied_row is None:
+            return "trace_denied_fragmented", [{"kind": "missing_healer_denial_record", "surface": "integration/healer_runtime.log.jsonl"}]
+        details = denied_row.get("details")
+        kernel_admission = details.get("kernel_admission") if isinstance(details, dict) else None
+        if not isinstance(kernel_admission, dict):
+            return "trace_denied_fragmented", [{"kind": "healer_denial_kernel_admission_missing", "surface": "integration/healer_runtime.log.jsonl"}]
+        if str(kernel_admission.get("final_disposition") or "") == "allow":
+            return "trace_denied_erroneous", [{"kind": "healer_denial_mislabeled_allow", "surface": "integration/healer_runtime.log.jsonl"}]
+
+    if action_id == "sentientos.quarantine.clear":
+        denied_event = next(
+            (
+                row
+                for row in reversed(router_rows)
+                if row.get("event") == "kernel_admission_denied" and str(row.get("correlation_id") or "") == correlation_id
+            ),
+            None,
+        )
+        if denied_event is None:
+            findings.append({"kind": "missing_kernel_admission_denied_event", "surface": "pulse/forge_events.jsonl"})
+            return "trace_denied_fragmented", findings
+        if str(denied_event.get("final_disposition") or "") not in {"deny", "defer", "quarantine"}:
+            findings.append({"kind": "kernel_admission_denied_event_misclassified", "surface": "pulse/forge_events.jsonl"})
+            return "trace_denied_fragmented", findings
+
+    if bool(router_event.get("executed")):
+        findings.append({"kind": "router_denied_execution_flag_mismatch", "surface": "pulse/forge_events.jsonl:constitutional_mutation_router_execution"})
+        return "trace_denied_fragmented", findings
+    if str(kernel_row.get("final_disposition") or "") not in {"deny", "defer", "quarantine"}:
+        findings.append({"kind": "kernel_denied_disposition_missing", "surface": "glow/control_plane/kernel_decisions.jsonl"})
+        return "trace_denied_fragmented", findings
+    return "trace_denied_canonical", findings
+
+
 def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     router_rows = _read_jsonl(root / "pulse/forge_events.jsonl")
@@ -312,33 +431,46 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
 
         status = "trace_partially_fragmented"
         findings: list[dict[str, str]] = []
-        if action_id == "sentientos.manifest.generate":
-            status, findings = _manifest_side_effect_status(root, correlation_id)
-        elif action_id in {"sentientos.merge_train.hold", "sentientos.merge_train.release"}:
-            status, findings = _merge_train_side_effect_status(
+        final_disposition = str(kernel_row.get("final_disposition") or router_event.get("final_disposition") or "").strip().lower()
+        denied_trace = final_disposition in {"deny", "defer", "quarantine"}
+        if denied_trace:
+            status, findings = _denied_trace_status(
+                repo_root=root,
                 action_id=action_id,
                 correlation_id=correlation_id,
+                router_event=router_event,
+                kernel_row=kernel_row,
+                router_rows=router_rows,
                 train_event_rows=merge_train_rows,
             )
-        elif action_id == "sentientos.quarantine.clear":
-            matched = any(
-                str(row.get("correlation_id") or "") == correlation_id and row.get("event") == "integrity_recovered"
-                for row in router_rows
-            )
-            if matched:
-                status = "trace_complete"
-            else:
-                status = "unresolved_side_effect_link"
-                findings = [{"kind": "missing_integrity_recovered_event"}]
-        elif action_id == "sentientos.genesis.proposal_adopt":
-            status, findings = _genesis_proposal_adopt_side_effect_status(root, correlation_id)
-        elif action_id == "sentientos.genesis.lineage_integrate":
-            status, findings = _genesis_lineage_integrate_side_effect_status(root, correlation_id)
-        elif action_id == "sentientos.codexhealer.repair":
-            status, findings = _codexhealer_repair_side_effect_status(root, correlation_id)
         else:
-            status = "trace_partially_fragmented"
-            findings = [{"kind": "side_effect_resolution_not_yet_scoped"}]
+            if action_id == "sentientos.manifest.generate":
+                status, findings = _manifest_side_effect_status(root, correlation_id)
+            elif action_id in {"sentientos.merge_train.hold", "sentientos.merge_train.release"}:
+                status, findings = _merge_train_side_effect_status(
+                    action_id=action_id,
+                    correlation_id=correlation_id,
+                    train_event_rows=merge_train_rows,
+                )
+            elif action_id == "sentientos.quarantine.clear":
+                matched = any(
+                    str(row.get("correlation_id") or "") == correlation_id and row.get("event") == "integrity_recovered"
+                    for row in router_rows
+                )
+                if matched:
+                    status = "trace_complete"
+                else:
+                    status = "unresolved_side_effect_link"
+                    findings = [{"kind": "missing_integrity_recovered_event"}]
+            elif action_id == "sentientos.genesis.proposal_adopt":
+                status, findings = _genesis_proposal_adopt_side_effect_status(root, correlation_id)
+            elif action_id == "sentientos.genesis.lineage_integrate":
+                status, findings = _genesis_lineage_integrate_side_effect_status(root, correlation_id)
+            elif action_id == "sentientos.codexhealer.repair":
+                status, findings = _codexhealer_repair_side_effect_status(root, correlation_id)
+            else:
+                status = "trace_partially_fragmented"
+                findings = [{"kind": "side_effect_resolution_not_yet_scoped"}]
 
         action_rows.append(
             {
@@ -363,9 +495,12 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
 
     status_order = {
         "trace_complete": 0,
-        "trace_partially_fragmented": 1,
-        "unresolved_side_effect_link": 2,
-        "missing_canonical_linkage": 3,
+        "trace_denied_canonical": 1,
+        "trace_partially_fragmented": 2,
+        "unresolved_side_effect_link": 3,
+        "trace_denied_fragmented": 4,
+        "missing_canonical_linkage": 5,
+        "trace_denied_erroneous": 6,
     }
     overall = max((row.get("status", "trace_partially_fragmented") for row in action_rows), key=lambda item: status_order.get(str(item), 99))
     return {

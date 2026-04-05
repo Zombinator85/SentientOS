@@ -184,8 +184,16 @@ def test_runtime_governor_blocks_repair_in_enforce_mode(tmp_path: Path, monkeypa
         "auto-repair quarantined",
     }
     if ledger.entries[-1]["status"] == "auto-repair denied_by_governor":
-        assert "governor_reason" in ledger.entries[-1]["details"]
-        assert ledger.entries[-1]["details"]["kernel_admission"]["final_disposition"] in {"deny", "defer", "quarantine"}
+        denied_entry = ledger.entries[-1]
+        details = denied_entry["details"]
+        assert "governor_reason" in details
+        assert details["governor_mode"] in {"advisory", "enforce", "unknown"}
+        assert details["kernel_admission"]["final_disposition"] in {"deny", "defer", "quarantine"}
+        assert details["kernel_admission"]["typed_action_id"] == "sentientos.codexhealer.repair"
+        assert details["kernel_admission"]["admission_decision_ref"] == f"kernel_decision:{denied_entry['correlation_id']}"
+        assert denied_entry["canonical_admission"]["typed_action_id"] == "sentientos.codexhealer.repair"
+        assert denied_entry["canonical_admission"]["path_status"] == "canonical_router"
+        assert len(environment.restart_requests) == 1
     assert ledger.entries[-1]["details"].get("regenesis_deferred") is True or environment.regenesis_restores
 
 
