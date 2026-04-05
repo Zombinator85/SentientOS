@@ -585,6 +585,9 @@ class AdoptionRite:
             "proposal_id": proposal.proposal_id,
             "capability": proposal.need.capability,
             "provenance": "GenesisForge",
+            "lineage_correlation_id": str(lineage_entry.get("correlation_id") or ""),
+            "lineage_admission_decision_ref": str(lineage_entry.get("admission_decision_ref") or ""),
+            "lineage_typed_action_id": str(lineage_entry.get("typed_action_id") or ""),
         }
         if isinstance(admission_provenance, Mapping):
             validate_admission_provenance(admission_provenance, expect_execution=True)

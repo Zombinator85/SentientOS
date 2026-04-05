@@ -50,8 +50,8 @@ _TRACE_CATALOG: dict[str, dict[str, str]] = {
         "router_execution_surface": "pulse/forge_events.jsonl:event=constitutional_mutation_router_execution",
         "kernel_admission_surface": "glow/control_plane/kernel_decisions.jsonl:event_type=control_plane_decision",
         "canonical_handler": "sentientos.genesis_forge.AdoptionRite.promote",
-        "side_effect_surface": "live mount json + codex index entry",
-        "proof_surface": "live mount json admission + codex index admission",
+        "side_effect_surface": "live mount json + codex index entry (with lineage linkage fields)",
+        "proof_surface": "live mount json admission + codex index admission + codex lineage_* linkage",
         "corridor_surface": "sentientos/protected_mutation_corridor.py:genesisforge_lineage_proposal_adoption",
         "trust_surfaces": "runtime_governor/proof_budget(authority_of_judgment when present)",
     },
@@ -165,6 +165,50 @@ def _merge_train_side_effect_status(
     return "unresolved_side_effect_link", [{"kind": "missing_merge_train_event", "surface": f"pulse/forge_train_events.jsonl:{expected_event}"}]
 
 
+def _genesis_proposal_adopt_side_effect_status(repo_root: Path, correlation_id: str) -> tuple[str, list[dict[str, str]]]:
+    live_mount = repo_root / "live"
+    live_candidates = sorted(live_mount.glob("*.json")) if live_mount.exists() else []
+    for path in live_candidates:
+        payload = _read_json(path)
+        if not isinstance(payload, dict):
+            continue
+        admission = payload.get("admission")
+        if not isinstance(admission, dict):
+            continue
+        if str(admission.get("correlation_id") or "") != correlation_id:
+            continue
+        if str(admission.get("admission_decision_ref") or "") != f"kernel_decision:{correlation_id}":
+            return "missing_canonical_linkage", [{"kind": "missing_admission_ref", "surface": f"{path.as_posix()}:admission"}]
+        if str(admission.get("typed_action_id") or "") != "sentientos.genesis.proposal_adopt":
+            return "missing_canonical_linkage", [{"kind": "missing_typed_action", "surface": f"{path.as_posix()}:admission"}]
+        codex_payload = _read_json(repo_root / "codex.json")
+        if not isinstance(codex_payload, list):
+            return "unresolved_side_effect_link", [{"kind": "missing_codex_index", "surface": "codex.json"}]
+        for row in codex_payload:
+            if not isinstance(row, dict):
+                continue
+            row_admission = row.get("admission")
+            if not isinstance(row_admission, dict):
+                continue
+            if str(row_admission.get("correlation_id") or "") != correlation_id:
+                continue
+            if str(row_admission.get("admission_decision_ref") or "") != f"kernel_decision:{correlation_id}":
+                return "missing_canonical_linkage", [{"kind": "codex_missing_admission_ref", "surface": "codex.json:admission"}]
+            if str(row_admission.get("typed_action_id") or "") != "sentientos.genesis.proposal_adopt":
+                return "missing_canonical_linkage", [{"kind": "codex_missing_typed_action", "surface": "codex.json:admission"}]
+            if str(row.get("lineage_typed_action_id") or "") != "sentientos.genesis.lineage_integrate":
+                return "missing_canonical_linkage", [{"kind": "codex_missing_lineage_typed_action", "surface": "codex.json:lineage_typed_action_id"}]
+            if str(row.get("lineage_correlation_id") or "") == "":
+                return "missing_canonical_linkage", [{"kind": "codex_missing_lineage_correlation_id", "surface": "codex.json:lineage_correlation_id"}]
+            if str(row.get("lineage_admission_decision_ref") or "") == "":
+                return "missing_canonical_linkage", [
+                    {"kind": "codex_missing_lineage_admission_decision_ref", "surface": "codex.json:lineage_admission_decision_ref"}
+                ]
+            return "trace_complete", []
+        return "unresolved_side_effect_link", [{"kind": "missing_codex_adoption_entry", "surface": "codex.json"}]
+    return "unresolved_side_effect_link", [{"kind": "missing_live_adoption_artifact", "surface": "live/*.json"}]
+
+
 def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     router_rows = _read_jsonl(root / "pulse/forge_events.jsonl")
@@ -236,6 +280,8 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
             else:
                 status = "unresolved_side_effect_link"
                 findings = [{"kind": "missing_integrity_recovered_event"}]
+        elif action_id == "sentientos.genesis.proposal_adopt":
+            status, findings = _genesis_proposal_adopt_side_effect_status(root, correlation_id)
         else:
             status = "trace_partially_fragmented"
             findings = [{"kind": "side_effect_resolution_not_yet_scoped"}]
