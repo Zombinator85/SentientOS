@@ -33,7 +33,9 @@ A scoped mutation is **trace coherent** when one stable `correlation_id` can be 
 For this pass, merge-train hold/release include canonical admission linkage in
 `pulse/forge_train_events.jsonl` (`train_held`/`train_released`) so side effects and proof events can be joined directly.
 
-Genesis update in this pass: `sentientos.genesis.proposal_adopt` now closes as trace-complete when:
+Genesis update in this pass:
+
+- `sentientos.genesis.proposal_adopt` closes as trace-complete when:
 
 - live mount artifact admission (`live/*.json:admission`) carries `correlation_id`, `typed_action_id=sentientos.genesis.proposal_adopt`, `admission_decision_ref`
 - codex index admission (`codex.json[].admission`) carries the same tuple
@@ -42,11 +44,15 @@ Genesis update in this pass: `sentientos.genesis.proposal_adopt` now closes as t
   - `lineage_correlation_id`
   - `lineage_admission_decision_ref`
 
-This removes inference through disconnected proposal/spec joins by making lineage→adoption canonical linkage explicit in the codex-side proof surface.
+- `sentientos.genesis.lineage_integrate` closes as trace-complete when:
+  - lineage artifact (`lineage/lineage.jsonl`) carries `correlation_id`, `typed_action_id=sentientos.genesis.lineage_integrate`, `admission_decision_ref`
+  - lineage row carries `daemon_spec_path`
+  - `daemon_spec_path` resolves to the written daemon spec artifact
+
+This removes inference through disconnected proposal/spec joins by making lineage→spec and lineage→adoption canonical linkage explicit in proof-visible fields.
 
 ## Remaining scoped fragmentation
 
-- `sentientos.genesis.lineage_integrate` remains partial in the scoped checker for this pass.
 - codex-healer side-effect resolution remains partially fragmented in the scoped checker.
 - The scoped evaluator intentionally does not universalize to unrelated action families.
 

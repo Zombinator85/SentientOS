@@ -105,7 +105,9 @@ def test_genesis_proposal_adopt_trace_is_coherent_end_to_end(monkeypatch: pytest
     assert adopt_row["status"] == "trace_complete", json.dumps(adopt_row, indent=2, sort_keys=True)
     assert adopt_row["router_event"]["path_status"] == "canonical_router"
     assert adopt_row["kernel_decision"]["final_disposition"] == "allow"
-    assert lineage_row["status"] == "trace_partially_fragmented", json.dumps(lineage_row, indent=2, sort_keys=True)
+    assert lineage_row["status"] == "trace_complete", json.dumps(lineage_row, indent=2, sort_keys=True)
+    assert lineage_row["router_event"]["path_status"] == "canonical_router"
+    assert lineage_row["kernel_decision"]["final_disposition"] == "allow"
 
 
 def test_genesis_trace_detects_missing_adoption_lineage_linkage(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -144,3 +146,77 @@ def test_non_canonical_genesis_helper_activity_does_not_fabricate_canonical_trac
     adopt_row = next(row for row in trace["actions"] if row["typed_action_identity"] == "sentientos.genesis.proposal_adopt")
     assert lineage_row["status"] == "trace_partially_fragmented"
     assert adopt_row["status"] == "trace_partially_fragmented"
+
+
+def test_genesis_trace_detects_missing_lineage_linkage_field(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _patch_trusted_kernel(monkeypatch)
+    forge = _build_forge(tmp_path)
+    outcomes = forge.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+    assert outcomes and outcomes[0].status == "adopted"
+    lineage_log = tmp_path / "lineage/lineage.jsonl"
+    rows = [json.loads(line) for line in lineage_log.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows[0].pop("daemon_spec_path", None)
+    lineage_log.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    lineage_row = next(row for row in trace["actions"] if row["typed_action_identity"] == "sentientos.genesis.lineage_integrate")
+    assert lineage_row["status"] == "missing_canonical_linkage", json.dumps(lineage_row, indent=2, sort_keys=True)
+    assert any(item.get("kind") == "lineage_missing_daemon_spec_path" for item in lineage_row["linkage_findings"])
+
+
+def test_direct_lineage_helper_write_cannot_fabricate_canonical_lineage_trace(tmp_path: Path) -> None:
+    binder = SpecBinder(lineage_root=tmp_path / "lineage", covenant_root=tmp_path / "covenant")
+    proposal = ForgeEngine().draft(
+        NeedSeer().scan(
+            [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+            [CovenantVow("vision_input", "camera vow")],
+        )[0]
+    )
+    forged_admission = {
+        "correlation_id": "forged-lineage-correlation",
+        "admission_decision_ref": "kernel_decision:forged-lineage-correlation",
+        "action_kind": "lineage_integrate",
+        "authority_class": "manifest_or_identity_mutation",
+        "lifecycle_phase": "maintenance",
+        "final_disposition": "allow",
+        "execution_owner": "manual_test",
+        "typed_action_id": "sentientos.genesis.lineage_integrate",
+        "canonical_router": "constitutional_mutation_router.v1",
+        "canonical_handler": "sentientos.genesis_forge.SpecBinder.integrate",
+        "path_status": "canonical_router",
+    }
+    binder.integrate(proposal, admission_provenance=forged_admission)
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    lineage_row = next(row for row in trace["actions"] if row["typed_action_identity"] == "sentientos.genesis.lineage_integrate")
+    assert lineage_row["status"] == "trace_partially_fragmented"
+
+
+def test_genesis_pair_is_jointly_trace_complete_after_lineage_closure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    _patch_trusted_kernel(monkeypatch)
+    forge = _build_forge(tmp_path)
+    outcomes = forge.expand(
+        [TelemetryStream("vision_stream", "vision_input", "Camera frames", frozenset())],
+        [CovenantVow("vision_input", "camera vow")],
+    )
+    assert outcomes and outcomes[0].status == "adopted"
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    by_action = {row["typed_action_identity"]: row for row in trace["actions"]}
+    lineage_row = by_action["sentientos.genesis.lineage_integrate"]
+    adopt_row = by_action["sentientos.genesis.proposal_adopt"]
+    assert lineage_row["status"] == "trace_complete", json.dumps(lineage_row, indent=2, sort_keys=True)
+    assert adopt_row["status"] == "trace_complete", json.dumps(adopt_row, indent=2, sort_keys=True)
+    assert adopt_row["correlation_id"].endswith(":adopt")
+    codex_payload = json.loads((tmp_path / "codex.json").read_text(encoding="utf-8"))
+    assert codex_payload[0]["lineage_correlation_id"] == lineage_row["correlation_id"]
+    assert codex_payload[0]["lineage_typed_action_id"] == "sentientos.genesis.lineage_integrate"

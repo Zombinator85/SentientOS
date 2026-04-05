@@ -509,6 +509,7 @@ class SpecBinder:
             "proposal_id": proposal.proposal_id,
             "spec_id": proposal.spec_id,
             "capability": proposal.need.capability,
+            "daemon_spec_path": spec_path.as_posix(),
         }
         if isinstance(admission_provenance, Mapping):
             validate_admission_provenance(admission_provenance, expect_execution=True)

@@ -40,8 +40,8 @@ _TRACE_CATALOG: dict[str, dict[str, str]] = {
         "router_execution_surface": "pulse/forge_events.jsonl:event=constitutional_mutation_router_execution",
         "kernel_admission_surface": "glow/control_plane/kernel_decisions.jsonl:event_type=control_plane_decision",
         "canonical_handler": "sentientos.genesis_forge.SpecBinder.integrate",
-        "side_effect_surface": "lineage.jsonl entry + daemon spec write",
-        "proof_surface": "lineage.jsonl",
+        "side_effect_surface": "lineage/lineage.jsonl entry + daemon spec write",
+        "proof_surface": "lineage/lineage.jsonl (canonical tuple + daemon_spec_path)",
         "corridor_surface": "sentientos/protected_mutation_corridor.py:genesisforge_lineage_proposal_adoption",
         "trust_surfaces": "runtime_governor/proof_budget(authority_of_judgment when present)",
     },
@@ -209,6 +209,24 @@ def _genesis_proposal_adopt_side_effect_status(repo_root: Path, correlation_id: 
     return "unresolved_side_effect_link", [{"kind": "missing_live_adoption_artifact", "surface": "live/*.json"}]
 
 
+def _genesis_lineage_integrate_side_effect_status(repo_root: Path, correlation_id: str) -> tuple[str, list[dict[str, str]]]:
+    lineage_rows = _read_jsonl(repo_root / "lineage/lineage.jsonl")
+    for row in reversed(lineage_rows):
+        if str(row.get("correlation_id") or "") != correlation_id:
+            continue
+        if str(row.get("admission_decision_ref") or "") != f"kernel_decision:{correlation_id}":
+            return "missing_canonical_linkage", [{"kind": "lineage_missing_admission_ref", "surface": "lineage/lineage.jsonl"}]
+        if str(row.get("typed_action_id") or "") != "sentientos.genesis.lineage_integrate":
+            return "missing_canonical_linkage", [{"kind": "lineage_missing_typed_action", "surface": "lineage/lineage.jsonl"}]
+        daemon_spec_path = str(row.get("daemon_spec_path") or "").strip()
+        if not daemon_spec_path:
+            return "missing_canonical_linkage", [{"kind": "lineage_missing_daemon_spec_path", "surface": "lineage/lineage.jsonl"}]
+        if not (repo_root / daemon_spec_path).exists():
+            return "unresolved_side_effect_link", [{"kind": "lineage_daemon_spec_missing", "surface": daemon_spec_path}]
+        return "trace_complete", []
+    return "unresolved_side_effect_link", [{"kind": "missing_lineage_artifact", "surface": "lineage/lineage.jsonl"}]
+
+
 def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     router_rows = _read_jsonl(root / "pulse/forge_events.jsonl")
@@ -282,6 +300,8 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
                 findings = [{"kind": "missing_integrity_recovered_event"}]
         elif action_id == "sentientos.genesis.proposal_adopt":
             status, findings = _genesis_proposal_adopt_side_effect_status(root, correlation_id)
+        elif action_id == "sentientos.genesis.lineage_integrate":
+            status, findings = _genesis_lineage_integrate_side_effect_status(root, correlation_id)
         else:
             status = "trace_partially_fragmented"
             findings = [{"kind": "side_effect_resolution_not_yet_scoped"}]
