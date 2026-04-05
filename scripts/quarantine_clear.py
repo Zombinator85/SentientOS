@@ -159,7 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         },
     )
     admission = router.execute(action)
-    if not admission.executed or admission.admission is None:
+    if not admission.executed:
+        final_disposition = str(admission.final_disposition or "deny")
         record_forge_event(
             {
                 "event": "kernel_admission_denied",
@@ -169,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
                 "action_kind": "quarantine_clear",
                 "authority_class": AuthorityClass.PRIVILEGED_OPERATOR_CONTROL.value,
                 "lifecycle_phase": LifecyclePhase.MAINTENANCE.value,
-                "final_disposition": "deny",
+                "final_disposition": final_disposition,
             }
         )
         print(
@@ -179,9 +180,9 @@ def main(argv: list[str] | None = None) -> int:
                     "failures": ["control_plane_denied"],
                     "checks": checks,
                     "control_plane": {
-                        "outcome": "deny",
+                        "outcome": final_disposition,
                         "reason_codes": list(admission.decision_reason_codes),
-                        "delegate_checks_consulted": [],
+                        "delegate_checks_consulted": list(admission.delegate_checks_consulted),
                         "correlation_id": admission.correlation_id,
                     },
                 },

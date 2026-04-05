@@ -126,5 +126,7 @@ def test_kernel_denial_prevents_side_effect(tmp_path: Path, monkeypatch) -> None
 
     result = router.execute(_action())
     assert result.executed is False
-    assert result.admission is None
+    assert result.final_disposition == "deny"
+    assert result.admission["typed_action_id"] == "sentientos.test.slice"
+    assert result.admission["admission_decision_ref"] == "kernel_decision:test:1"
     assert not side_effect.exists()

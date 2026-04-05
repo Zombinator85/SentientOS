@@ -65,7 +65,10 @@ class MutationExecutionResult:
     executed: bool
     decision_reason_codes: tuple[str, ...]
     correlation_id: str
-    admission: dict[str, object] | None
+    admission: dict[str, object]
+    final_disposition: str
+    delegate_checks_consulted: tuple[str, ...]
+    delegated_outcomes: dict[str, Any]
     handler_result: Any | None
     registry: MutationActionRegistration
     canonical_router: str
@@ -152,18 +155,16 @@ class ConstitutionalMutationRouter:
                 },
             ),
         )
+        admission = {
+            **build_admission_provenance(decision),
+            "typed_action_id": action.action_id,
+            "canonical_router": self.ROUTER_ID,
+            "canonical_handler": registration.canonical_handler,
+            "path_status": "canonical_router",
+        }
         handler_result = None
         if decision.allowed:
-            admission = {
-                **build_admission_provenance(decision),
-                "typed_action_id": action.action_id,
-                "canonical_router": self.ROUTER_ID,
-                "canonical_handler": registration.canonical_handler,
-                "path_status": "canonical_router",
-            }
             handler_result = self._handlers[action.action_id](action, admission)
-        else:
-            admission = None
         final_disposition = (
             getattr(getattr(decision, "outcome", None), "value", None)
             or ("allow" if decision.allowed else "deny")
@@ -190,6 +191,9 @@ class ConstitutionalMutationRouter:
             decision_reason_codes=decision.reason_codes,
             correlation_id=decision.correlation_id,
             admission=admission,
+            final_disposition=final_disposition,
+            delegate_checks_consulted=tuple(sorted(decision.delegated_outcomes.keys())),
+            delegated_outcomes=dict(decision.delegated_outcomes),
             handler_result=handler_result,
             registry=registration,
             canonical_router=self.ROUTER_ID,

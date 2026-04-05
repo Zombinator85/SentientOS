@@ -121,9 +121,16 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
                 (),
                 {
                     "executed": False,
-                    "admission": None,
+                    "admission": {
+                        "correlation_id": "cp-1",
+                        "admission_decision_ref": "kernel_decision:cp-1",
+                        "final_disposition": "defer",
+                        "typed_action_id": "sentientos.quarantine.clear",
+                    },
                     "correlation_id": "cp-1",
                     "decision_reason_codes": ("runtime_governor:control_plane_budget_exceeded",),
+                    "final_disposition": "defer",
+                    "delegate_checks_consulted": ("runtime_governor",),
                 },
             )()
 
@@ -140,6 +147,7 @@ def test_quarantine_clear_blocked_when_control_plane_denies(monkeypatch, tmp_pat
     denied = [event for event in events if event.get("event") == "kernel_admission_denied"]
     assert denied
     assert denied[-1]["correlation_id"] == "cp-1"
+    assert denied[-1]["final_disposition"] == "defer"
     action = captured_action["action"]
     intent = action.provenance_intent.to_kernel_metadata()
     assert intent["domains"] == ["quarantine_clear_privileged_operator_action"]

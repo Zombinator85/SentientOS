@@ -646,14 +646,10 @@ class CodexHealer:
                 },
             )
         )
-        kernel_provenance = execution.admission or {
-            "correlation_id": execution.correlation_id,
-            "admission_decision_ref": f"kernel_decision:{execution.correlation_id}",
-            "action_kind": action.kind,
-            "authority_class": AuthorityClass.REPAIR.value,
-            "lifecycle_phase": LifecyclePhase.RUNTIME.value,
-            "final_disposition": "deny",
-        }
+        kernel_provenance = dict(execution.admission)
+        runtime_payload = execution.delegated_outcomes.get("runtime_governor", {})
+        if not isinstance(runtime_payload, Mapping):
+            runtime_payload = {}
         if not execution.executed:
             attempts = self._note_failure(key, now)
             if attempts < self._regenesis_threshold:
