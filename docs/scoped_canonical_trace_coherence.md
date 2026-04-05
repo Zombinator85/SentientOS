@@ -97,6 +97,25 @@ The scoped evaluator now treats post-admission execution failure as a first-clas
 
 Incomplete side effects and clean failure are intentionally distinct: clean admitted failure now means explicit canonical failure evidence with typed action + admission linkage, while side-effect completeness remains independently classified and must not be inferred as success.
 
+## Scoped lifecycle resolution (this pass)
+
+`sentientos.scoped_mutation_lifecycle.resolve_scoped_mutation_lifecycle(...)` resolves one action/correlation pair into one machine-readable lifecycle row using existing artifacts only.
+
+Artifacts read:
+
+- `pulse/forge_events.jsonl` (`constitutional_mutation_router_execution`)
+- `glow/control_plane/kernel_decisions.jsonl` (kernel disposition + decision ref)
+- action-local side-effect/proof artifacts already used by this slice (`vow/immutable_manifest.json`, `pulse/forge_train_events.jsonl`, `lineage/lineage.jsonl`, `live/*.json`, `codex.json`, `integration/healer_runtime.log.jsonl`)
+
+Resolver outcome classes:
+
+- `success`
+- `denied`
+- `failed_after_admission`
+- `fragmented_unresolved`
+
+The resolver intentionally remains non-sovereign: it does not decide admissions, execute mutations, or normalize repo-wide policy. It only reconstructs one scoped lifecycle and preserves unresolved/fragmented states when linkage is incomplete or contradictory.
+
 ## How to extend without re-fragmenting
 
 When extending this scoped slice, require each new side-effect artifact/event to record the same stable linkage tuple (`correlation_id`, `admission_decision_ref`, `typed_action_id`) emitted by the canonical router path. Keep the check narrow and action-explicit instead of introducing global trace taxonomies.
