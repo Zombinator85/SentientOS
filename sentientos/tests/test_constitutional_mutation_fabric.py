@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sentientos.constitutional_mutation_fabric import (
+    CanonicalMutationExecutionError,
     ConstitutionalMutationRouter,
     MutationProvenanceIntent,
     TypedMutationAction,
@@ -130,3 +131,48 @@ def test_kernel_denial_prevents_side_effect(tmp_path: Path, monkeypatch) -> None
     assert result.admission["typed_action_id"] == "sentientos.test.slice"
     assert result.admission["admission_decision_ref"] == "kernel_decision:test:1"
     assert not side_effect.exists()
+
+
+def test_admitted_handler_failure_emits_canonical_failure_record(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    registry = _registry(tmp_path / "registry.json")
+    decisions_path = tmp_path / "glow/control_plane/kernel_decisions.jsonl"
+    kernel = ControlPlaneKernel(decisions_path=decisions_path)
+    monkeypatch.setattr("sentientos.constitutional_mutation_fabric.get_control_plane_kernel", lambda: kernel)
+    events: list[dict[str, object]] = []
+    monkeypatch.setattr("sentientos.constitutional_mutation_fabric.record_forge_event", lambda payload: events.append(dict(payload)))
+
+    side_effect = tmp_path / "partial.txt"
+    router = ConstitutionalMutationRouter(registry_path=registry)
+
+    def _failing_handler(_action, _admission):  # type: ignore[no-untyped-def]
+        side_effect.write_text("partial", encoding="utf-8")
+        raise RuntimeError("simulated_midflight_failure")
+
+    router.register_handler("sentientos.test.slice", _failing_handler)
+
+    try:
+        router.execute(_action())
+    except CanonicalMutationExecutionError as exc:
+        assert exc.action_id == "sentientos.test.slice"
+        assert exc.correlation_id == "test:1"
+        assert exc.admission["typed_action_id"] == "sentientos.test.slice"
+        assert exc.admission["admission_decision_ref"] == "kernel_decision:test:1"
+        assert exc.cause_type == "RuntimeError"
+        assert exc.cause_message == "simulated_midflight_failure"
+    else:
+        raise AssertionError("expected canonical mutation execution error")
+
+    assert side_effect.exists()
+    assert len(events) == 1
+    event = events[0]
+    assert event["event"] == "constitutional_mutation_router_execution"
+    assert event["typed_action_id"] == "sentientos.test.slice"
+    assert event["correlation_id"] == "test:1"
+    assert event["final_disposition"] == "allow"
+    assert event["executed"] is True
+    assert event["execution_status"] == "failed"
+    assert event["partial_side_effect_state"] == "unknown_partial_side_effects_possible"
+    failure = event["failure"]
+    assert isinstance(failure, dict)
+    assert failure["exception_type"] == "RuntimeError"
+    assert failure["message"] == "simulated_midflight_failure"

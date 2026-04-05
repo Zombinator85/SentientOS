@@ -378,6 +378,52 @@ def _denied_trace_status(
     return "trace_denied_canonical", findings
 
 
+def _admitted_failed_trace_status(
+    *,
+    repo_root: Path,
+    action_id: str,
+    correlation_id: str,
+    router_event: dict[str, Any],
+    kernel_row: dict[str, Any],
+    router_rows: list[dict[str, Any]],
+    train_event_rows: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, str]]]:
+    findings: list[dict[str, str]] = []
+    if not bool(router_event.get("executed")):
+        findings.append({"kind": "failed_trace_execution_flag_missing", "surface": "pulse/forge_events.jsonl:constitutional_mutation_router_execution"})
+        return "trace_failed_fragmented", findings
+    failure = router_event.get("failure")
+    if not isinstance(failure, dict):
+        findings.append({"kind": "failed_trace_missing_failure_payload", "surface": "pulse/forge_events.jsonl:constitutional_mutation_router_execution.failure"})
+        return "trace_failed_fragmented", findings
+    if str(failure.get("exception_type") or "").strip() == "":
+        findings.append({"kind": "failed_trace_missing_exception_type", "surface": "pulse/forge_events.jsonl:constitutional_mutation_router_execution.failure.exception_type"})
+        return "trace_failed_fragmented", findings
+    if str(kernel_row.get("final_disposition") or "") != "allow":
+        findings.append({"kind": "failed_trace_kernel_disposition_mismatch", "surface": "glow/control_plane/kernel_decisions.jsonl"})
+        return "trace_failed_fragmented", findings
+    if str(router_event.get("partial_side_effect_state") or "") != "unknown_partial_side_effects_possible":
+        findings.append({"kind": "failed_trace_partial_side_effect_state_missing", "surface": "pulse/forge_events.jsonl:constitutional_mutation_router_execution.partial_side_effect_state"})
+        return "trace_failed_fragmented", findings
+
+    leaked_success, leak_finding = _has_denied_side_effect_leak(
+        repo_root=repo_root,
+        action_id=action_id,
+        correlation_id=correlation_id,
+        router_rows=router_rows,
+        train_event_rows=train_event_rows,
+    )
+    if leaked_success:
+        if leak_finding is not None:
+            leak_finding = {
+                "kind": str(leak_finding.get("kind") or "").replace("denied_path_", "failed_path_"),
+                "surface": str(leak_finding.get("surface") or ""),
+            }
+            findings.append(leak_finding)
+        return "trace_failed_erroneous", findings
+    return "trace_failed_canonical", findings
+
+
 def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     router_rows = _read_jsonl(root / "pulse/forge_events.jsonl")
@@ -433,8 +479,22 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
         findings: list[dict[str, str]] = []
         final_disposition = str(kernel_row.get("final_disposition") or router_event.get("final_disposition") or "").strip().lower()
         denied_trace = final_disposition in {"deny", "defer", "quarantine"}
+        admitted_failed_trace = (
+            final_disposition == "allow"
+            and str(router_event.get("execution_status") or "").strip().lower() == "failed"
+        )
         if denied_trace:
             status, findings = _denied_trace_status(
+                repo_root=root,
+                action_id=action_id,
+                correlation_id=correlation_id,
+                router_event=router_event,
+                kernel_row=kernel_row,
+                router_rows=router_rows,
+                train_event_rows=merge_train_rows,
+            )
+        elif admitted_failed_trace:
+            status, findings = _admitted_failed_trace_status(
                 repo_root=root,
                 action_id=action_id,
                 correlation_id=correlation_id,
@@ -496,11 +556,14 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
     status_order = {
         "trace_complete": 0,
         "trace_denied_canonical": 1,
-        "trace_partially_fragmented": 2,
-        "unresolved_side_effect_link": 3,
-        "trace_denied_fragmented": 4,
-        "missing_canonical_linkage": 5,
-        "trace_denied_erroneous": 6,
+        "trace_failed_canonical": 2,
+        "trace_partially_fragmented": 3,
+        "unresolved_side_effect_link": 4,
+        "trace_denied_fragmented": 5,
+        "trace_failed_fragmented": 6,
+        "missing_canonical_linkage": 7,
+        "trace_denied_erroneous": 8,
+        "trace_failed_erroneous": 9,
     }
     overall = max((row.get("status", "trace_partially_fragmented") for row in action_rows), key=lambda item: status_order.get(str(item), 99))
     return {

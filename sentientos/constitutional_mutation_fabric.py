@@ -76,6 +76,22 @@ class MutationExecutionResult:
     path_status: str
 
 
+@dataclass(frozen=True, slots=True)
+class CanonicalMutationExecutionError(RuntimeError):
+    action_id: str
+    correlation_id: str
+    admission: dict[str, object]
+    handler_identity: str
+    cause_type: str
+    cause_message: str
+
+    def __str__(self) -> str:
+        return (
+            "canonical_mutation_handler_failed:"
+            f"{self.action_id}:{self.correlation_id}:{self.cause_type}:{self.cause_message}"
+        )
+
+
 CanonicalMutationHandler = Callable[[TypedMutationAction, dict[str, object]], Any]
 
 
@@ -163,8 +179,19 @@ class ConstitutionalMutationRouter:
             "path_status": "canonical_router",
         }
         handler_result = None
+        execution_status = "denied"
+        failure_payload: dict[str, str] | None = None
         if decision.allowed:
-            handler_result = self._handlers[action.action_id](action, admission)
+            execution_status = "started"
+            try:
+                handler_result = self._handlers[action.action_id](action, admission)
+                execution_status = "succeeded"
+            except Exception as exc:
+                execution_status = "failed"
+                failure_payload = {
+                    "exception_type": exc.__class__.__name__,
+                    "message": str(exc),
+                }
         final_disposition = (
             getattr(getattr(decision, "outcome", None), "value", None)
             or ("allow" if decision.allowed else "deny")
@@ -184,8 +211,24 @@ class ConstitutionalMutationRouter:
                 "canonical_handler": registration.canonical_handler,
                 "path_status": "canonical_router",
                 "admission_decision_ref": admission_decision_ref,
+                "execution_status": execution_status,
+                "partial_side_effect_state": (
+                    "none"
+                    if execution_status != "failed"
+                    else "unknown_partial_side_effects_possible"
+                ),
+                "failure": failure_payload,
             }
         )
+        if execution_status == "failed" and failure_payload is not None:
+            raise CanonicalMutationExecutionError(
+                action_id=action.action_id,
+                correlation_id=action.correlation_id,
+                admission=admission,
+                handler_identity=registration.canonical_handler,
+                cause_type=failure_payload["exception_type"],
+                cause_message=failure_payload["message"],
+            )
         return MutationExecutionResult(
             executed=decision.allowed,
             decision_reason_codes=decision.reason_codes,
