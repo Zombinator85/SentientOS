@@ -411,6 +411,90 @@ def test_denied_trace_flags_erroneous_success_side_effect_leak(tmp_path: Path) -
     assert any(item.get("kind") == "denied_path_merge_train_side_effect_leak" for item in row["linkage_findings"])
 
 
+def test_admitted_failed_trace_is_canonical_when_failure_record_is_present(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    correlation_id = "cid-manifest-failed"
+    (tmp_path / "pulse/forge_events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": correlation_id,
+                "canonical_router": "constitutional_mutation_router.v1",
+                "canonical_handler": "scripts.generate_immutable_manifest.generate_manifest",
+                "path_status": "canonical_router",
+                "executed": True,
+                "final_disposition": "allow",
+                "execution_status": "failed",
+                "partial_side_effect_state": "unknown_partial_side_effects_possible",
+                "failure": {"exception_type": "RuntimeError", "message": "simulated_midflight_failure"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "control_plane_decision",
+                "correlation_id": correlation_id,
+                "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                "final_disposition": "allow",
+                "reason_codes": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.manifest.generate")
+    assert row["status"] == "trace_failed_canonical", json.dumps(row, indent=2, sort_keys=True)
+    assert row["kernel_decision"]["final_disposition"] == "allow"
+
+
+def test_admitted_failed_trace_is_fragmented_when_failure_payload_missing(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    correlation_id = "cid-manifest-failed-fragmented"
+    (tmp_path / "pulse/forge_events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": correlation_id,
+                "canonical_router": "constitutional_mutation_router.v1",
+                "canonical_handler": "scripts.generate_immutable_manifest.generate_manifest",
+                "path_status": "canonical_router",
+                "executed": True,
+                "final_disposition": "allow",
+                "execution_status": "failed",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "control_plane_decision",
+                "correlation_id": correlation_id,
+                "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                "final_disposition": "allow",
+                "reason_codes": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.manifest.generate")
+    assert row["status"] == "trace_failed_fragmented", json.dumps(row, indent=2, sort_keys=True)
+    assert any(item.get("kind") == "failed_trace_missing_failure_payload" for item in row["linkage_findings"])
+
+
 def test_scoped_slice_core_paths_complete_after_healer_closure(tmp_path: Path) -> None:
     (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
     (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)

@@ -77,6 +77,26 @@ This removes inference where healer history previously depended on reading only 
 
 Canonical success history (`trace_complete`) and canonical denied history (`trace_denied_canonical`) are intentionally distinct classes: success requires side-effect completion linkage, while denied requires explicit non-execution plus honest denial evidence and no success leakage.
 
+## Admitted-after-admission failure semantics (this pass)
+
+The scoped evaluator now treats post-admission execution failure as a first-class trace state separate from success and denial:
+
+- `trace_failed_canonical`: admitted (`final_disposition=allow`), handler started and failed, canonical failure payload present (`failure.exception_type`), and explicit partial-side-effect state present (`partial_side_effect_state=unknown_partial_side_effects_possible`).
+- `trace_failed_fragmented`: admitted failure is indicated but canonical failure linkage is incomplete (for example missing `failure` payload or missing partial-side-effect state).
+- `trace_failed_erroneous`: admitted failure is recorded, but success-side effects still appear for the same correlation in scoped proof surfaces.
+
+### Compact admitted-failure map for the current scoped slice
+
+- `sentientos.manifest.generate`: **clean** — canonical router now emits machine-readable failure metadata on admitted handler exceptions.
+- `sentientos.quarantine.clear`: **fragile** — router-level admitted failures are now legible, but domain-specific failed-clear artifact semantics are still sparse.
+- `sentientos.genesis.lineage_integrate`: **fragile** — router-level failure legibility is present; lineage/artifact partial-write reconciliation remains domain-local.
+- `sentientos.genesis.proposal_adopt`: **fragile** — router-level failure legibility is present; live/codex partial-write interpretation remains action-specific.
+- `sentientos.codexhealer.repair`: **clean** — denial and success already had canonical linkage; admitted handler exceptions now preserve canonical failure evidence.
+- `sentientos.merge_train.hold`: **fragile** — admitted failure is now visible at router level, but side-effect split (state write vs event emit) can still produce partial artifacts.
+- `sentientos.merge_train.release`: **fragile** — same as hold.
+
+Incomplete side effects and clean failure are intentionally distinct: clean admitted failure now means explicit canonical failure evidence with typed action + admission linkage, while side-effect completeness remains independently classified and must not be inferred as success.
+
 ## How to extend without re-fragmenting
 
 When extending this scoped slice, require each new side-effect artifact/event to record the same stable linkage tuple (`correlation_id`, `admission_decision_ref`, `typed_action_id`) emitted by the canonical router path. Keep the check narrow and action-explicit instead of introducing global trace taxonomies.
