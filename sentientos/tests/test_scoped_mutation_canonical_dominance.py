@@ -152,3 +152,311 @@ def test_non_canonical_merge_train_path_does_not_fabricate_canonical_trace(monke
     train_events_path = tmp_path / "pulse/forge_train_events.jsonl"
     if train_events_path.exists():
         assert "kernel_decision:" not in train_events_path.read_text(encoding="utf-8")
+
+
+def test_codexhealer_trace_is_coherent_end_to_end(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "integration").mkdir(parents=True, exist_ok=True)
+    correlation_id = "cid-healer"
+    (tmp_path / "pulse/forge_events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.codexhealer.repair",
+                "correlation_id": correlation_id,
+                "canonical_router": "constitutional_mutation_router.v1",
+                "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+                "path_status": "canonical_router",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "control_plane_decision",
+                "correlation_id": correlation_id,
+                "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                "final_disposition": "allow",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "integration/healer_runtime.log.jsonl").write_text(
+        json.dumps(
+            {
+                "status": "auto-repair verified",
+                "correlation_id": correlation_id,
+                "canonical_admission": {
+                    "typed_action_id": "sentientos.codexhealer.repair",
+                    "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                    "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+                    "canonical_router": "constitutional_mutation_router.v1",
+                    "path_status": "canonical_router",
+                },
+                "details": {
+                    "kernel_admission": {
+                        "typed_action_id": "sentientos.codexhealer.repair",
+                        "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.codexhealer.repair")
+    assert row["status"] == "trace_complete", json.dumps(row, indent=2, sort_keys=True)
+    assert row["router_event"]["canonical_handler"] == "sentientos.codex_healer.RepairSynthesizer.apply"
+
+
+def test_codexhealer_missing_recovery_linkage_is_detected(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "integration").mkdir(parents=True, exist_ok=True)
+    correlation_id = "cid-healer-fragmented"
+    (tmp_path / "pulse/forge_events.jsonl").write_text(
+        json.dumps(
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.codexhealer.repair",
+                "correlation_id": correlation_id,
+                "canonical_router": "constitutional_mutation_router.v1",
+                "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+                "path_status": "canonical_router",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        json.dumps(
+            {
+                "event_type": "control_plane_decision",
+                "correlation_id": correlation_id,
+                "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                "final_disposition": "allow",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "integration/healer_runtime.log.jsonl").write_text(
+        json.dumps(
+            {
+                "status": "auto-repair verified",
+                "correlation_id": correlation_id,
+                "details": {
+                    "kernel_admission": {
+                        "typed_action_id": "sentientos.codexhealer.repair",
+                        "admission_decision_ref": f"kernel_decision:{correlation_id}",
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.codexhealer.repair")
+    assert row["status"] == "missing_canonical_linkage", json.dumps(row, indent=2, sort_keys=True)
+    assert any(item.get("kind") == "healer_canonical_admission_missing" for item in row["linkage_findings"])
+
+
+def test_non_canonical_healer_helper_activity_cannot_fabricate_trace(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "integration").mkdir(parents=True, exist_ok=True)
+    fake_correlation = "deadbeef"
+    fake_router = {
+        "event": "constitutional_mutation_router_execution",
+        "typed_action_id": "sentientos.codexhealer.repair",
+        "correlation_id": fake_correlation,
+        "canonical_router": "constitutional_mutation_router.v1",
+        "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+        "path_status": "canonical_router",
+    }
+    (tmp_path / "pulse/forge_events.jsonl").write_text(json.dumps(fake_router) + "\n", encoding="utf-8")
+    fake_ledger = {
+        "status": "auto-repair verified",
+        "correlation_id": fake_correlation,
+        "details": {"kernel_admission": {"typed_action_id": "sentientos.codexhealer.repair"}},
+        "canonical_admission": {
+            "typed_action_id": "sentientos.codexhealer.repair",
+            "admission_decision_ref": f"kernel_decision:{fake_correlation}",
+            "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+            "canonical_router": "constitutional_mutation_router.v1",
+            "path_status": "canonical_router",
+        },
+    }
+    (tmp_path / "integration/healer_runtime.log.jsonl").write_text(json.dumps(fake_ledger) + "\n", encoding="utf-8")
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    row = next(item for item in trace["actions"] if item["typed_action_identity"] == "sentientos.codexhealer.repair")
+    assert row["status"] == "missing_canonical_linkage", json.dumps(row, indent=2, sort_keys=True)
+    assert any(item.get("kind") == "kernel_decision_missing" for item in row["linkage_findings"])
+
+
+def test_scoped_slice_core_paths_complete_after_healer_closure(tmp_path: Path) -> None:
+    (tmp_path / "pulse").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "glow/control_plane").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "integration").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "vow").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "lineage").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "live").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "daemon/specs").mkdir(parents=True, exist_ok=True)
+
+    action_ids = {
+        "sentientos.manifest.generate": "cid-manifest",
+        "sentientos.merge_train.hold": "cid-hold",
+        "sentientos.merge_train.release": "cid-release",
+        "sentientos.genesis.lineage_integrate": "cid-lineage",
+        "sentientos.genesis.proposal_adopt": "cid-adopt",
+        "sentientos.codexhealer.repair": "cid-healer",
+    }
+
+    router_rows = [
+        {
+            "event": "constitutional_mutation_router_execution",
+            "typed_action_id": action_id,
+            "correlation_id": corr,
+            "canonical_router": "constitutional_mutation_router.v1",
+            "canonical_handler": "handler",
+            "path_status": "canonical_router",
+            "final_disposition": "allow",
+        }
+        for action_id, corr in action_ids.items()
+    ]
+    (tmp_path / "pulse/forge_events.jsonl").write_text("".join(json.dumps(row) + "\n" for row in router_rows), encoding="utf-8")
+
+    kernel_rows = [
+        {
+            "event_type": "control_plane_decision",
+            "correlation_id": corr,
+            "admission_decision_ref": f"kernel_decision:{corr}",
+            "final_disposition": "allow",
+            "reason_codes": [],
+            "delegate_checks_consulted": [],
+        }
+        for corr in action_ids.values()
+    ]
+    (tmp_path / "glow/control_plane/kernel_decisions.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in kernel_rows), encoding="utf-8"
+    )
+
+    (tmp_path / "vow/immutable_manifest.json").write_text(
+        json.dumps(
+            {
+                "admission": {
+                    "correlation_id": action_ids["sentientos.manifest.generate"],
+                    "typed_action_id": "sentientos.manifest.generate",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pulse/forge_train_events.jsonl").write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "event": "train_held",
+                        "correlation_id": action_ids["sentientos.merge_train.hold"],
+                        "typed_action_id": "sentientos.merge_train.hold",
+                        "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.merge_train.hold']}",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "event": "train_released",
+                        "correlation_id": action_ids["sentientos.merge_train.release"],
+                        "typed_action_id": "sentientos.merge_train.release",
+                        "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.merge_train.release']}",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "lineage/lineage.jsonl").write_text(
+        json.dumps(
+            {
+                "correlation_id": action_ids["sentientos.genesis.lineage_integrate"],
+                "typed_action_id": "sentientos.genesis.lineage_integrate",
+                "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.genesis.lineage_integrate']}",
+                "daemon_spec_path": "daemon/specs/canonical_daemon.yaml",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "daemon/specs/canonical_daemon.yaml").write_text("kind: daemon\n", encoding="utf-8")
+    (tmp_path / "live/adoption.json").write_text(
+        json.dumps(
+            {
+                "admission": {
+                    "correlation_id": action_ids["sentientos.genesis.proposal_adopt"],
+                    "typed_action_id": "sentientos.genesis.proposal_adopt",
+                    "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.genesis.proposal_adopt']}",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "codex.json").write_text(
+        json.dumps(
+            [
+                {
+                    "admission": {
+                        "correlation_id": action_ids["sentientos.genesis.proposal_adopt"],
+                        "typed_action_id": "sentientos.genesis.proposal_adopt",
+                        "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.genesis.proposal_adopt']}",
+                    },
+                    "lineage_typed_action_id": "sentientos.genesis.lineage_integrate",
+                    "lineage_correlation_id": action_ids["sentientos.genesis.lineage_integrate"],
+                    "lineage_admission_decision_ref": f"kernel_decision:{action_ids['sentientos.genesis.lineage_integrate']}",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "integration/healer_runtime.log.jsonl").write_text(
+        json.dumps(
+            {
+                "status": "auto-repair verified",
+                "correlation_id": action_ids["sentientos.codexhealer.repair"],
+                "canonical_admission": {
+                    "typed_action_id": "sentientos.codexhealer.repair",
+                    "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.codexhealer.repair']}",
+                    "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
+                    "canonical_router": "constitutional_mutation_router.v1",
+                    "path_status": "canonical_router",
+                },
+                "details": {
+                    "kernel_admission": {
+                        "typed_action_id": "sentientos.codexhealer.repair",
+                        "admission_decision_ref": f"kernel_decision:{action_ids['sentientos.codexhealer.repair']}",
+                    }
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    trace = evaluate_scoped_trace_completeness(tmp_path)
+    by_action = {row["typed_action_identity"]: row["status"] for row in trace["actions"]}
+    for action_id in (
+        "sentientos.manifest.generate",
+        "sentientos.merge_train.hold",
+        "sentientos.merge_train.release",
+        "sentientos.genesis.lineage_integrate",
+        "sentientos.genesis.proposal_adopt",
+        "sentientos.codexhealer.repair",
+    ):
+        assert by_action[action_id] == "trace_complete", json.dumps(trace, indent=2, sort_keys=True)
