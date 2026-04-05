@@ -60,8 +60,8 @@ _TRACE_CATALOG: dict[str, dict[str, str]] = {
         "router_execution_surface": "pulse/forge_events.jsonl:event=constitutional_mutation_router_execution",
         "kernel_admission_surface": "glow/control_plane/kernel_decisions.jsonl:event_type=control_plane_decision",
         "canonical_handler": "sentientos.codex_healer.RepairSynthesizer.apply",
-        "side_effect_surface": "healer_runtime.log.jsonl entries",
-        "proof_surface": "healer_runtime.log.jsonl details.kernel_admission",
+        "side_effect_surface": "integration/healer_runtime.log.jsonl entries",
+        "proof_surface": "integration/healer_runtime.log.jsonl canonical_admission + details.kernel_admission",
         "corridor_surface": "sentientos/protected_mutation_corridor.py:codexhealer_repair_regenesis_linkage",
         "trust_surfaces": "review_board + runtime_governor + regenesis threshold",
     },
@@ -227,6 +227,38 @@ def _genesis_lineage_integrate_side_effect_status(repo_root: Path, correlation_i
     return "unresolved_side_effect_link", [{"kind": "missing_lineage_artifact", "surface": "lineage/lineage.jsonl"}]
 
 
+def _codexhealer_repair_side_effect_status(repo_root: Path, correlation_id: str) -> tuple[str, list[dict[str, str]]]:
+    ledger_rows = _read_jsonl(repo_root / "integration/healer_runtime.log.jsonl")
+    for row in reversed(ledger_rows):
+        if str(row.get("correlation_id") or "") != correlation_id:
+            continue
+        details = row.get("details")
+        kernel_admission = details.get("kernel_admission") if isinstance(details, dict) else None
+        if not isinstance(kernel_admission, dict):
+            return "missing_canonical_linkage", [{"kind": "healer_kernel_admission_missing", "surface": "integration/healer_runtime.log.jsonl:details.kernel_admission"}]
+        admission = row.get("canonical_admission")
+        if not isinstance(admission, dict):
+            return "missing_canonical_linkage", [{"kind": "healer_canonical_admission_missing", "surface": "integration/healer_runtime.log.jsonl:canonical_admission"}]
+        if str(admission.get("typed_action_id") or "") != "sentientos.codexhealer.repair":
+            return "missing_canonical_linkage", [{"kind": "healer_missing_typed_action", "surface": "integration/healer_runtime.log.jsonl:canonical_admission.typed_action_id"}]
+        if str(admission.get("admission_decision_ref") or "") != f"kernel_decision:{correlation_id}":
+            return "missing_canonical_linkage", [{"kind": "healer_missing_admission_ref", "surface": "integration/healer_runtime.log.jsonl:canonical_admission.admission_decision_ref"}]
+        if str(kernel_admission.get("typed_action_id") or "") != "sentientos.codexhealer.repair":
+            return "missing_canonical_linkage", [
+                {"kind": "healer_kernel_typed_action_mismatch", "surface": "integration/healer_runtime.log.jsonl:details.kernel_admission.typed_action_id"}
+            ]
+        if str(kernel_admission.get("admission_decision_ref") or "") != f"kernel_decision:{correlation_id}":
+            return "missing_canonical_linkage", [
+                {"kind": "healer_kernel_admission_ref_mismatch", "surface": "integration/healer_runtime.log.jsonl:details.kernel_admission.admission_decision_ref"}
+            ]
+        if str(admission.get("canonical_handler") or "") == "":
+            return "missing_canonical_linkage", [{"kind": "healer_missing_canonical_handler", "surface": "integration/healer_runtime.log.jsonl:canonical_admission.canonical_handler"}]
+        if str(admission.get("path_status") or "") != "canonical_router":
+            return "missing_canonical_linkage", [{"kind": "healer_path_status_not_canonical_router", "surface": "integration/healer_runtime.log.jsonl:canonical_admission.path_status"}]
+        return "trace_complete", []
+    return "unresolved_side_effect_link", [{"kind": "missing_healer_recovery_entry", "surface": "integration/healer_runtime.log.jsonl"}]
+
+
 def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
     root = repo_root.resolve()
     router_rows = _read_jsonl(root / "pulse/forge_events.jsonl")
@@ -302,6 +334,8 @@ def evaluate_scoped_trace_completeness(repo_root: Path) -> dict[str, Any]:
             status, findings = _genesis_proposal_adopt_side_effect_status(root, correlation_id)
         elif action_id == "sentientos.genesis.lineage_integrate":
             status, findings = _genesis_lineage_integrate_side_effect_status(root, correlation_id)
+        elif action_id == "sentientos.codexhealer.repair":
+            status, findings = _codexhealer_repair_side_effect_status(root, correlation_id)
         else:
             status = "trace_partially_fragmented"
             findings = [{"kind": "side_effect_resolution_not_yet_scoped"}]

@@ -51,9 +51,20 @@ Genesis update in this pass:
 
 This removes inference through disconnected proposal/spec joins by making lineage→spec and lineage→adoption canonical linkage explicit in proof-visible fields.
 
+Healer update in this pass:
+
+- `sentientos.codexhealer.repair` closes as trace-complete when the recovery ledger row (`integration/healer_runtime.log.jsonl`) contains:
+  - `canonical_admission.typed_action_id=sentientos.codexhealer.repair`
+  - `canonical_admission.admission_decision_ref=kernel_decision:<correlation_id>`
+  - `canonical_admission.canonical_handler`
+  - `canonical_admission.path_status=canonical_router`
+  - plus `details.kernel_admission` carrying the same typed action and admission decision reference.
+
+This removes inference where healer history previously depended on reading only nested `details.kernel_admission` fields without a stable proof-visible canonical tuple on the recovery ledger row itself.
+
 ## Remaining scoped fragmentation
 
-- codex-healer side-effect resolution remains partially fragmented in the scoped checker.
+- `sentientos.quarantine.clear` remains scoped to event-level side-effect linkage (no expanded artifact-level proof linkage in this pass).
 - The scoped evaluator intentionally does not universalize to unrelated action families.
 
 ## How to extend without re-fragmenting

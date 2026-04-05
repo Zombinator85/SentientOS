@@ -114,6 +114,9 @@ class RecoveryLedger:
         if details:
             entry["details"] = copy.deepcopy(details)
             proof_summary = self._extract_proof_summary(details.get("proof_report"))
+            canonical_admission = self._extract_canonical_admission_linkage(details.get("kernel_admission"))
+            if canonical_admission is not None:
+                entry["canonical_admission"] = canonical_admission
         if proof_summary:
             entry["proof_summary"] = proof_summary
             entry["narrative"] = (
@@ -151,6 +154,26 @@ class RecoveryLedger:
             "status": status,
             "passed": passed,
             "violations": violation_count,
+        }
+
+    def _extract_canonical_admission_linkage(
+        self, kernel_admission: Mapping[str, object] | None
+    ) -> dict[str, str] | None:
+        if not isinstance(kernel_admission, Mapping):
+            return None
+        typed_action_id = str(kernel_admission.get("typed_action_id") or "").strip()
+        admission_decision_ref = str(kernel_admission.get("admission_decision_ref") or "").strip()
+        canonical_handler = str(kernel_admission.get("canonical_handler") or "").strip()
+        canonical_router = str(kernel_admission.get("canonical_router") or "").strip()
+        path_status = str(kernel_admission.get("path_status") or "").strip()
+        if not typed_action_id or not admission_decision_ref:
+            return None
+        return {
+            "typed_action_id": typed_action_id,
+            "admission_decision_ref": admission_decision_ref,
+            "canonical_handler": canonical_handler,
+            "canonical_router": canonical_router,
+            "path_status": path_status,
         }
 
 
