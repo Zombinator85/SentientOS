@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from sentientos.scoped_mutation_lifecycle import SCOPED_ACTION_IDS, resolve_scoped_mutation_lifecycle
+from sentientos.scoped_slice_health import synthesize_scoped_slice_health
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -51,5 +52,6 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
+        "slice_health": synthesize_scoped_slice_health(rows),
         "actions": rows,
     }

@@ -116,6 +116,26 @@ Resolver outcome classes:
 
 The resolver intentionally remains non-sovereign: it does not decide admissions, execute mutations, or normalize repo-wide policy. It only reconstructs one scoped lifecycle and preserves unresolved/fragmented states when linkage is incomplete or contradictory.
 
+
+## Scoped slice-health synthesis (this pass)
+
+`sentientos.scoped_slice_health.synthesize_scoped_slice_health(...)` produces one bounded health summary for the same seven-action constitutional mutation slice, derived only from the resolver output rows.
+
+Lifecycle outcomes consumed:
+
+- `success`
+- `denied`
+- `failed_after_admission`
+- `fragmented_unresolved`
+
+Returned slice statuses:
+
+- `healthy` (no admitted failure, no fragmentation)
+- `degraded` (admitted failure present, no fragmentation)
+- `fragmented` (any fragmented/unresolved action present)
+
+This synthesis is explicitly diagnostic and non-sovereign (`diagnostic_only`, `non_authoritative`, `decision_power=none`): it does not block mutations, does not override kernel/governor decisions, and does not replace corridor proof or jurisprudence.
+
 ## How to extend without re-fragmenting
 
 When extending this scoped slice, require each new side-effect artifact/event to record the same stable linkage tuple (`correlation_id`, `admission_decision_ref`, `typed_action_id`) emitted by the canonical router path. Keep the check narrow and action-explicit instead of introducing global trace taxonomies.
