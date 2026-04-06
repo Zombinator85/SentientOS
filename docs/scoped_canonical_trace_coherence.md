@@ -178,6 +178,28 @@ Signals used are only existing slice signals (`outcome_counts`, `slice_health_st
 
 Consumer scope is narrow: `sentientos.scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic(...)` now includes `slice_retrospective_integrity_review` as a support-only retrospective field. It is explicitly non-sovereign (`diagnostic_only`, `non_authoritative`, `decision_power=none`, `retrospective_support_signal_only`) and does **not** change readiness, admissions, or authority.
 
+## Scoped operator attention recommendation (this pass)
+
+`sentientos.scoped_slice_attention_recommendation.derive_scoped_slice_attention_recommendation(...)` adds one bounded operator-facing recommendation for this same slice.
+
+Meaning in this slice: a small machine-readable hint about likely **human attention type** based on existing diagnostics only.
+
+Inputs are only existing derived slice signals: `slice_health`, `slice_health_history`, `slice_stability`, and `slice_retrospective_integrity_review`. No new truth source, no new governance layer, and no workflow engine are introduced.
+
+Allowed recommendation values are fixed and explicit:
+
+- `none`
+- `observe`
+- `inspect_recent_failures`
+- `inspect_fragmentation`
+- `watch_for_oscillation`
+- `review_mixed_stress`
+- `insufficient_context`
+
+Consumer scope remains narrow: `sentientos.scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic(...)` now exposes `slice_operator_attention_recommendation` as diagnostic metadata only.
+
+Explicit non-meaning: this recommendation does **not** become authority or automation, does **not** change runtime/mergeability/readiness, does **not** alter admissions, and does **not** create a sovereign.
+
 ## Higher-order interpretive bridge (this pass)
 
 One existing higher-order, non-sovereign surface now carries this scoped reading: `sentientos.observatory.fleet_health.build_fleet_health_observatory(...)`. It emits `scoped_slice_stability_support_signal` in fleet summary/dashboard payloads as a bounded support signal (`stability_classification`, window/records used, basis, recent status/transition window).
