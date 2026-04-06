@@ -8,6 +8,7 @@ from sentientos.scoped_mutation_lifecycle import SCOPED_ACTION_IDS, resolve_scop
 from sentientos.scoped_slice_health import synthesize_scoped_slice_health
 from sentientos.scoped_slice_health_history import persist_scoped_slice_health_history
 from sentientos.scoped_slice_stability import derive_scoped_slice_stability
+from sentientos.scoped_slice_retrospective_integrity import derive_scoped_slice_retrospective_integrity_review
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -53,12 +54,18 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     overall = max((str(item.get("outcome_class") or "fragmented_unresolved") for item in rows), key=lambda val: order.get(val, 99))
     slice_health = synthesize_scoped_slice_health(rows)
     slice_health_history = persist_scoped_slice_health_history(root, slice_health=slice_health)
-    slice_stability = derive_scoped_slice_stability(slice_health_history.get("recent_history") or [])
+    recent_history = slice_health_history.get("recent_history") or []
+    slice_stability = derive_scoped_slice_stability(recent_history)
+    retrospective_integrity_review = derive_scoped_slice_retrospective_integrity_review(
+        recent_history,
+        slice_stability=slice_stability,
+    )
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
         "slice_health": slice_health,
         "slice_health_history": slice_health_history,
         "slice_stability": slice_stability,
+        "slice_retrospective_integrity_review": retrospective_integrity_review,
         "actions": rows,
     }

@@ -159,6 +159,25 @@ The classifier is conservative:
 - repeated same status / no meaningful churn -> `stable`
 - too few records or unknown status content -> `insufficient_history`
 
+
+## Scoped retrospective integrity review (this pass)
+
+`sentientos.scoped_slice_retrospective_integrity.derive_scoped_slice_retrospective_integrity_review(...)` emits one bounded retrospective review for this same slice from recent lifecycle/health history + derived stability only.
+
+Returned classifications are intentionally small and fixed:
+
+- `clean_recent_history`
+- `denial_heavy`
+- `failure_heavy`
+- `fragmentation_heavy`
+- `oscillatory_instability`
+- `mixed_stress_pattern`
+- `insufficient_history`
+
+Signals used are only existing slice signals (`outcome_counts`, `slice_health_status`, history transition rows, and `slice_stability` classification). No second health model and no additional truth source are introduced.
+
+Consumer scope is narrow: `sentientos.scoped_lifecycle_diagnostic.build_scoped_lifecycle_diagnostic(...)` now includes `slice_retrospective_integrity_review` as a support-only retrospective field. It is explicitly non-sovereign (`diagnostic_only`, `non_authoritative`, `decision_power=none`, `retrospective_support_signal_only`) and does **not** change readiness, admissions, or authority.
+
 ## Higher-order interpretive bridge (this pass)
 
 One existing higher-order, non-sovereign surface now carries this scoped reading: `sentientos.observatory.fleet_health.build_fleet_health_observatory(...)`. It emits `scoped_slice_stability_support_signal` in fleet summary/dashboard payloads as a bounded support signal (`stability_classification`, window/records used, basis, recent status/transition window).
