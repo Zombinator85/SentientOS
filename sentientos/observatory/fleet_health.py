@@ -9,6 +9,7 @@ from sentientos.attestation import iso_now, read_json, read_jsonl, write_json
 from sentientos.broad_lane_rows import rows_from_broad_lane_summary
 from sentientos.observatory.contract_status_consumer import summarize_contract_alert_badge, summarize_contract_alerts
 from sentientos.observatory.artifact_index import build_artifact_provenance_index
+from sentientos.scoped_slice_stability import derive_scoped_slice_stability
 
 FleetDimensionStatus = Literal[
     "healthy",
@@ -529,6 +530,29 @@ def _incident_snapshot(root: Path) -> dict[str, Any]:
     }
 
 
+def _scoped_slice_stability_support_signal(root: Path) -> dict[str, Any]:
+    history_rel = "glow/contracts/constitutional_execution_fabric_scoped_slice_health_history.jsonl"
+    history_rows = [row for row in read_jsonl(root / history_rel) if isinstance(row, dict)]
+    derived = derive_scoped_slice_stability(history_rows)
+    return {
+        "scope": "constitutional_execution_fabric_scoped_slice",
+        "consumer_surface": "fleet_health_observatory",
+        "signal_kind": "slice_stability_support_signal",
+        "stability_classification": derived.get("stability_classification"),
+        "window_size": derived.get("window_size"),
+        "records_considered": derived.get("records_considered"),
+        "basis": derived.get("basis"),
+        "recent_status_window": derived.get("recent_status_window"),
+        "recent_transition_window": derived.get("recent_transition_window"),
+        "history_source": history_rel,
+        "diagnostic_only": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "support_signal_only": True,
+        "does_not_change_release_readiness": True,
+    }
+
+
 def _release_readiness(dimensions: dict[str, FleetDimensionStatus]) -> tuple[ReleaseReadiness, list[str]]:
     reasons: list[str] = []
     blocking_dims = [name for name, status in dimensions.items() if status == "blocking"]
@@ -639,6 +663,7 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
     contract_rows = _as_rows(_as_mapping(contract_surface.get("metadata")).get("summary_rows"))
     contract_drift = _contract_drift_health(root, contract_rows=contract_rows)
     jurisprudence_signal = _jurisprudence_interpretive_signal(contract_rows)
+    scoped_slice_stability_signal = _scoped_slice_stability_support_signal(root)
     if bool(jurisprudence_signal.get("degrades_readiness_interpretation")):
         reason = str(jurisprudence_signal.get("readiness_reason") or "jurisprudence interpretive signal degraded")
         if reason not in readiness_reasons:
@@ -673,11 +698,13 @@ def build_fleet_health_observatory(repo_root: Path) -> dict[str, Any]:
         },
         "contract_drift_rollup": contract_drift,
         "jurisprudence_interpretive_signal": jurisprudence_signal,
+        "scoped_slice_stability_support_signal": scoped_slice_stability_signal,
         "incident_rollup": incidents,
     }
 
     summary["contract_row_summary"] = _as_mapping(contract_drift.get("contract_row_summary"))
     summary["jurisprudence_interpretive_signal"] = jurisprudence_signal
+    summary["scoped_slice_stability_support_signal"] = scoped_slice_stability_signal
     write_json(out_root / "fleet_health_summary.json", summary)
     links_payload = read_json(root / "glow/observatory/artifact_provenance_links.json")
     broad_lane_payload = read_json(root / "glow/observatory/broad_lane/broad_lane_latest_summary.json")

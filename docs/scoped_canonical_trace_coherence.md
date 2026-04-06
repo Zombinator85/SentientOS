@@ -159,6 +159,14 @@ The classifier is conservative:
 - repeated same status / no meaningful churn -> `stable`
 - too few records or unknown status content -> `insufficient_history`
 
+## Higher-order interpretive bridge (this pass)
+
+One existing higher-order, non-sovereign surface now carries this scoped reading: `sentientos.observatory.fleet_health.build_fleet_health_observatory(...)`. It emits `scoped_slice_stability_support_signal` in fleet summary/dashboard payloads as a bounded support signal (`stability_classification`, window/records used, basis, recent status/transition window).
+
+Meaning: organism-level observability can now *see* whether this constitutional mutation slice is stabilizing or oscillating.
+
+Non-meaning: this signal does **not** gate releases, does **not** alter admissions, and does **not** add authority. It stays explicitly non-sovereign (`diagnostic_only`, `non_authoritative`, `decision_power=none`, `support_signal_only`).
+
 ## How to extend without re-fragmenting
 
 When extending this scoped slice, require each new side-effect artifact/event to record the same stable linkage tuple (`correlation_id`, `admission_decision_ref`, `typed_action_id`) emitted by the canonical router path. Keep the check narrow and action-explicit instead of introducing global trace taxonomies.
