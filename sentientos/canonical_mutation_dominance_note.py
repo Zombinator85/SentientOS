@@ -20,4 +20,11 @@ Known residual scoped risk:
 Extension guidance:
 - add new scoped actions by extending the scoped registry, binding exactly one canonical handler, and preserving typed-action -> router -> handler provenance markers.
 - avoid adding parallel public mutators that bypass typed action registration.
+
+Scoped slice-health temporal coherence (diagnostic-only):
+- the scoped lifecycle health view writes a bounded derived history at glow/contracts/constitutional_execution_fabric_scoped_slice_health_history.jsonl.
+- transition classes are intentionally narrow: initial_observation, unchanged, improving, degrading, recovered_from_failure, recovered_from_fragmentation.
+- history rows remain non-sovereign and non-authoritative: they summarize observed lifecycle outcomes for legibility only.
+- this history does not widen slice scope, does not add action families, does not decide admissions, and does not override kernel/corridor/jurisprudence protections.
+
 """.strip()

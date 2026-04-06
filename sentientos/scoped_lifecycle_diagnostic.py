@@ -6,6 +6,7 @@ from typing import Any
 
 from sentientos.scoped_mutation_lifecycle import SCOPED_ACTION_IDS, resolve_scoped_mutation_lifecycle
 from sentientos.scoped_slice_health import synthesize_scoped_slice_health
+from sentientos.scoped_slice_health_history import persist_scoped_slice_health_history
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -49,9 +50,12 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
 
     order = {"success": 0, "denied": 1, "failed_after_admission": 2, "fragmented_unresolved": 3}
     overall = max((str(item.get("outcome_class") or "fragmented_unresolved") for item in rows), key=lambda val: order.get(val, 99))
+    slice_health = synthesize_scoped_slice_health(rows)
+    slice_health_history = persist_scoped_slice_health_history(root, slice_health=slice_health)
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
-        "slice_health": synthesize_scoped_slice_health(rows),
+        "slice_health": slice_health,
+        "slice_health_history": slice_health_history,
         "actions": rows,
     }
