@@ -136,6 +136,29 @@ Returned slice statuses:
 
 This synthesis is explicitly diagnostic and non-sovereign (`diagnostic_only`, `non_authoritative`, `decision_power=none`): it does not block mutations, does not override kernel/governor decisions, and does not replace corridor proof or jurisprudence.
 
+
+## Scoped slice-stability reading (this pass)
+
+`sentientos.scoped_slice_stability.derive_scoped_slice_stability(...)` derives one bounded stability reading from recent scoped slice-health history only (`glow/contracts/constitutional_execution_fabric_scoped_slice_health_history.jsonl`).
+
+Current classifications are intentionally narrow:
+
+- `stable`
+- `improving`
+- `degrading`
+- `oscillating`
+- `insufficient_history`
+
+Windowing is bounded (`window_size`, default 6 records) and diagnostic-only. The reading is non-sovereign: it does not decide admissions, does not gate mutation execution, and does not introduce any repo-wide trend/governance layer.
+
+The classifier is conservative:
+
+- mixed improving/degrading steps in the window -> `oscillating`
+- monotonic movement toward healthier states -> `improving`
+- monotonic movement toward worse states -> `degrading`
+- repeated same status / no meaningful churn -> `stable`
+- too few records or unknown status content -> `insufficient_history`
+
 ## How to extend without re-fragmenting
 
 When extending this scoped slice, require each new side-effect artifact/event to record the same stable linkage tuple (`correlation_id`, `admission_decision_ref`, `typed_action_id`) emitted by the canonical router path. Keep the check narrow and action-explicit instead of introducing global trace taxonomies.
