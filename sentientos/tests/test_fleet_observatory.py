@@ -350,3 +350,65 @@ def test_observatory_jurisprudence_gap_degrades_readiness_interpretation_only(tm
 
     summary = json.loads((tmp_path / "glow/observatory/fleet_health_summary.json").read_text(encoding="utf-8"))
     assert any("jurisprudence mapping gap remains" in reason for reason in summary["release_readiness_reasons"])
+
+
+def _write_slice_health_history(root: Path, statuses: list[str]) -> None:
+    path = root / "glow/contracts/constitutional_execution_fabric_scoped_slice_health_history.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "scope": "constitutional_execution_fabric_scoped_slice",
+            "slice_health_status": status,
+            "transition_classification": "steady_state" if index == 0 else "changed",
+        }
+        for index, status in enumerate(statuses)
+    ]
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows), encoding="utf-8")
+
+
+def test_observatory_scoped_slice_stability_signal_surfaces_oscillation(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+    _write_slice_health_history(tmp_path, ["healthy", "degraded", "healthy"])
+
+    payload = build_fleet_health_observatory(tmp_path)
+    assert payload["release_readiness"] == "ready"
+
+    dashboard = json.loads((tmp_path / "glow/observatory/fleet_health_dashboard.json").read_text(encoding="utf-8"))
+    signal = dashboard["scoped_slice_stability_support_signal"]
+    assert signal["stability_classification"] == "oscillating"
+    assert signal["basis"] == "mixed_improving_and_degrading_steps"
+    assert signal["diagnostic_only"] is True
+    assert signal["non_authoritative"] is True
+    assert signal["decision_power"] == "none"
+    assert signal["support_signal_only"] is True
+
+
+def test_observatory_scoped_slice_stability_signal_surfaces_classifications(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+
+    cases = {
+        "stable": ["healthy", "healthy", "healthy"],
+        "improving": ["fragmented", "degraded", "healthy"],
+        "degrading": ["healthy", "degraded", "fragmented"],
+        "insufficient_history": ["healthy", "degraded"],
+    }
+
+    for expected, statuses in cases.items():
+        _write_slice_health_history(tmp_path, statuses)
+        build_fleet_health_observatory(tmp_path)
+        summary = json.loads((tmp_path / "glow/observatory/fleet_health_summary.json").read_text(encoding="utf-8"))
+        signal = summary["scoped_slice_stability_support_signal"]
+        assert signal["stability_classification"] == expected
+        assert signal["consumer_surface"] == "fleet_health_observatory"
+        assert signal["does_not_change_release_readiness"] is True
+
+
+def test_observatory_scoped_slice_stability_signal_defaults_to_insufficient_history(tmp_path: Path) -> None:
+    _seed_minimal_sources(tmp_path)
+
+    build_fleet_health_observatory(tmp_path)
+
+    summary = json.loads((tmp_path / "glow/observatory/fleet_health_summary.json").read_text(encoding="utf-8"))
+    signal = summary["scoped_slice_stability_support_signal"]
+    assert signal["stability_classification"] == "insufficient_history"
+    assert signal["history_source"] == "glow/contracts/constitutional_execution_fabric_scoped_slice_health_history.jsonl"
