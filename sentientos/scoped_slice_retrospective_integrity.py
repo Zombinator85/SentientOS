@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+
 _RETROSPECTIVE_WINDOW = 6
 _MIN_HISTORY_FOR_REVIEW = 3
 _DOMINANCE_RATIO = 0.6
@@ -72,16 +74,15 @@ def derive_scoped_slice_retrospective_integrity_review(
         "window_size": bounded_window_size,
         "records_considered": len(recent_history),
         "stability_classification": stability_classification,
-        "diagnostic_only": True,
-        "non_authoritative": True,
-        "decision_power": "none",
         "retrospective_support_signal_only": True,
         "does_not_change_release_readiness": True,
         "does_not_change_admission_or_authority": True,
-        "derived_from": [
-            "scoped_mutation_lifecycle_resolution",
-            "scoped_slice_health_synthesis",
-            "scoped_slice_health_history",
-            "scoped_slice_stability",
-        ],
+        **non_sovereign_diagnostic_boundaries(
+            derived_from=[
+                "scoped_mutation_lifecycle_resolution",
+                "scoped_slice_health_synthesis",
+                "scoped_slice_health_history",
+                "scoped_slice_stability",
+            ]
+        ),
     }

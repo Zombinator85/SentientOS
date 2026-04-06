@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
 from sentientos.scoped_mutation_lifecycle import SCOPED_ACTION_IDS
 
 _OUTCOME_CLASSES: tuple[str, ...] = (
@@ -47,12 +48,5 @@ def synthesize_scoped_slice_health(resolved_rows: list[dict[str, Any]]) -> dict[
         "outcome_counts": outcome_counts,
         "has_fragmentation": has_fragmentation,
         "has_admitted_failure": has_admitted_failure,
-        "diagnostic_only": True,
-        "non_authoritative": True,
-        "derived_from": "scoped_mutation_lifecycle_resolution",
-        "decision_power": "none",
-        "does_not_block_mutations": True,
-        "does_not_override_kernel_or_governor": True,
-        "does_not_replace_corridor_proof": True,
-        "does_not_replace_jurisprudence": True,
+        **non_sovereign_diagnostic_boundaries(derived_from="scoped_mutation_lifecycle_resolution"),
     }
