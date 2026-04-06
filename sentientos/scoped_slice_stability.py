@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+
 _STATUS_ORDER: dict[str, int] = {"healthy": 0, "degraded": 1, "fragmented": 2}
 _STABILITY_WINDOW = 6
 _MIN_HISTORY_FOR_CLASSIFICATION = 3
@@ -55,12 +57,5 @@ def derive_scoped_slice_stability(
         "basis": basis,
         "recent_status_window": statuses,
         "recent_transition_window": transitions,
-        "diagnostic_only": True,
-        "non_authoritative": True,
-        "derived_from": "scoped_slice_health_history",
-        "decision_power": "none",
-        "does_not_block_mutations": True,
-        "does_not_override_kernel_or_governor": True,
-        "does_not_replace_corridor_proof": True,
-        "does_not_replace_jurisprudence": True,
+        **non_sovereign_diagnostic_boundaries(derived_from="scoped_slice_health_history"),
     }

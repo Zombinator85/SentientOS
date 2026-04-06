@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+
 _ATTENTION_RECOMMENDATIONS = {
     "none",
     "observe",
@@ -65,19 +67,18 @@ def derive_scoped_slice_attention_recommendation(
         "slice_health_status": slice_health_status,
         "stability_classification": stability_classification,
         "records_considered": records_considered,
-        "diagnostic_only": True,
         "recommendation_only": True,
-        "non_authoritative": True,
-        "decision_power": "none",
         "does_not_change_runtime_or_mergeability": True,
         "does_not_change_release_readiness": True,
         "does_not_change_admission_or_authority": True,
-        "derived_from": [
-            "scoped_slice_health_synthesis",
-            "scoped_slice_health_history",
-            "scoped_slice_stability",
-            "scoped_slice_retrospective_integrity_review",
-        ],
         "allowed_recommendations": sorted(_ATTENTION_RECOMMENDATIONS),
         "history_source": slice_health_history.get("history_path"),
+        **non_sovereign_diagnostic_boundaries(
+            derived_from=[
+                "scoped_slice_health_synthesis",
+                "scoped_slice_health_history",
+                "scoped_slice_stability",
+                "scoped_slice_retrospective_integrity_review",
+            ]
+        ),
     }
