@@ -9,6 +9,7 @@ from sentientos.scoped_slice_health import synthesize_scoped_slice_health
 from sentientos.scoped_slice_health_history import persist_scoped_slice_health_history
 from sentientos.scoped_slice_stability import derive_scoped_slice_stability
 from sentientos.scoped_slice_retrospective_integrity import derive_scoped_slice_retrospective_integrity_review
+from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice_attention_recommendation
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -60,6 +61,12 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         recent_history,
         slice_stability=slice_stability,
     )
+    operator_attention_recommendation = derive_scoped_slice_attention_recommendation(
+        slice_health=slice_health,
+        slice_health_history=slice_health_history,
+        slice_stability=slice_stability,
+        retrospective_integrity_review=retrospective_integrity_review,
+    )
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -67,5 +74,6 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "slice_health_history": slice_health_history,
         "slice_stability": slice_stability,
         "slice_retrospective_integrity_review": retrospective_integrity_review,
+        "slice_operator_attention_recommendation": operator_attention_recommendation,
         "actions": rows,
     }
