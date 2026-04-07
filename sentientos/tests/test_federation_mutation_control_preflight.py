@@ -11,7 +11,7 @@ def test_preflight_reports_required_layer_presence_and_absence() -> None:
     required = report["required_layer_comparison"]
 
     assert set(REQUIRED_READINESS_LAYERS).issubset(required.keys())
-    assert required["typed_action_model"] == "missing"
+    assert required["typed_action_model"] == "present"
     assert required["trace_requirements"] == "present"
 
 
@@ -19,8 +19,9 @@ def test_preflight_detects_single_critical_missing_prerequisite() -> None:
     report = build_federation_mutation_control_preflight()
     blocker = report["single_most_important_blocking_prerequisite"]
 
-    assert blocker["requirement"] == "typed_action_model"
-    assert "typed federation action catalog" in report["recommended_next_move_before_onboarding"]
+    assert blocker["requirement"] == "none"
+    assert report["typed_onboarding_pass_note"]["cleared_prerequisite"] == "typed_action_model"
+    assert "router/provenance linkage" in report["recommended_next_move_before_onboarding"]
 
 
 def test_readiness_verdict_changes_when_required_fields_change() -> None:
