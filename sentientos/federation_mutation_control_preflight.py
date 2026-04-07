@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+from sentientos.federation_typed_actions import federation_typed_action_diagnostic
 
 
 REQUIRED_READINESS_LAYERS: tuple[str, ...] = (
@@ -18,7 +19,7 @@ REQUIRED_READINESS_LAYERS: tuple[str, ...] = (
 
 
 DEFAULT_REQUIRED_LAYER_CLASSIFICATION: dict[str, str] = {
-    "typed_action_model": "missing",
+    "typed_action_model": "present",
     "canonical_router_handler_viability": "partially_present",
     "success_denial_admitted_failure_clarity": "partially_present",
     "proof_visible_artifact_boundaries": "partially_present",
@@ -69,9 +70,8 @@ def build_federation_mutation_control_preflight(
     """Diagnostic-only preflight for federation constitutional onboarding readiness."""
 
     required_layers = _resolve_required_layer_classification(fixture)
-    blocker = "typed_action_model"
-    if required_layers.get("typed_action_model") == "present":
-        blocker = ""
+    blocker = "typed_action_model" if required_layers.get("typed_action_model") != "present" else ""
+    typed_action_diag = federation_typed_action_diagnostic()
 
     return {
         "slice_id": "federation_mutation_control_slice",
@@ -159,10 +159,18 @@ def build_federation_mutation_control_preflight(
             "why": "federation control intents are currently inferred from event payload fields/reason codes, not from a stable typed action catalog bound one-to-one with canonical handlers.",
         },
         "readiness_verdict": _readiness_verdict(required_layers, blocker),
+        "typed_onboarding_pass_note": {
+            "chosen_for_initial_typed_onboarding": [row["intent"] for row in typed_action_diag["chosen_intents"]],
+            "remaining_out_of_scope": list(typed_action_diag["untyped_out_of_scope_intents"]),
+            "scope_statement": "typed identity registration and emission only; no full federation router migration in this pass",
+            "cleared_prerequisite": "typed_action_model",
+            "next_prerequisite_unlocked": "future router/provenance onboarding can bind canonical execution linkage to stable typed federation action IDs",
+        },
         "recommended_next_move_before_onboarding": (
-            "define a minimal typed federation action catalog (restart_request, governance_denial_gate, epoch_trust_gate) "
-            "and bind each intent to exactly one canonical handler boundary before wiring slice onboarding artifacts."
+            "typed identity baseline is established for a bounded federation control subset; "
+            "next move is canonical router/provenance linkage for this same bounded subset without widening scope."
         ),
+        "typed_action_diagnostic": typed_action_diag,
         "non_sovereign_boundaries": non_sovereign_diagnostic_boundaries(
             derived_from=[
                 "sentientos.daemons.pulse_federation",

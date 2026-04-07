@@ -23,6 +23,7 @@ from nacl.signing import VerifyKey
 from . import pulse_bus
 from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
+from sentientos.federation_typed_actions import resolve_federation_typed_action_id
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.runtime_governor import get_runtime_governor
 from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
@@ -507,6 +508,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     if isinstance(event_payload, dict):
         payload_action = str(event_payload.get("action") or "").lower()
     requires_control_gate = payload_action == "restart_daemon"
+    typed_from_payload = resolve_federation_typed_action_id(payload_action=payload_action)
 
     if not trust.trusted:
         get_trust_ledger().record_epoch_classification(
@@ -527,6 +529,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                         "correlation_id": str(event.get("correlation_id") or pulse_bus.compute_event_hash(event)),
                         "subject": f"{peer_name}:epoch",
                         "scope": "federated",
+                        "typed_action_id": resolve_federation_typed_action_id(
+                            trust_epoch_classification=trust.classification
+                        ),
                         "event_type": str(event.get("event_type", "")),
                         "trust_epoch_classification": trust.classification,
                         "trust_epoch_id": trust.epoch_id,
@@ -541,6 +546,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     decision="deny",
                     reason=f"epoch:{trust.classification}",
                     correlation_id=correlation_id,
+                    typed_action_id=resolve_federation_typed_action_id(
+                        trust_epoch_classification=trust.classification
+                    ),
                 )
                 raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     protocol_claim = payload.get("pulse_protocol")
@@ -652,6 +660,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     "correlation_id": str(payload.get("correlation_id") or pulse_bus.compute_event_hash(payload)),
                     "subject": f"{peer_name}:federation",
                     "scope": "federated",
+                    "typed_action_id": resolve_federation_typed_action_id(
+                        denial_cause=evaluation.denial_cause
+                    ),
                     "event_type": str(payload.get("event_type", "")),
                     "federated_governance": evaluation.to_dict(),
                     "federated_denial_cause": evaluation.denial_cause,
@@ -676,6 +687,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 decision="deny",
                 reason=denial_reason,
                 correlation_id=correlation_id,
+                typed_action_id=resolve_federation_typed_action_id(
+                    denial_cause=evaluation.denial_cause
+                ),
             )
             raise ValueError(
                 f"Federated action denied for {peer_name}: "
@@ -693,6 +707,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             decision="drop",
             reason="duplicate_event_hash",
             correlation_id=correlation_id,
+            typed_action_id=typed_from_payload,
         )
         return payload
     if isinstance(event_payload, dict):
@@ -720,6 +735,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                         "peer_subject": f"{peer_name}:{daemon_subject}",
                         "event_type": str(payload.get("event_type", "")),
                         "scope": "federated",
+                        "typed_action_id": typed_from_payload,
                         "federated_governance": evaluation.to_dict(),
                         "federated_denial_cause": evaluation.denial_cause,
                         "protocol_compatibility": protocol_compatibility,
@@ -742,6 +758,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     decision="deny",
                     reason=";".join(kernel_decision.reason_codes),
                     correlation_id=correlation_id,
+                    typed_action_id=typed_from_payload,
                 )
                 denied_reason = ";".join(kernel_decision.reason_codes)
                 raise ValueError(
@@ -762,6 +779,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         decision="allow",
         reason=f"verified_ingest/{protocol_compatibility}/{replay_classification}/{equivocation_classification}",
         correlation_id=correlation_id,
+        typed_action_id=typed_from_payload,
     )
     _remember_event_hash(candidate_hash)
     return ingested
@@ -789,6 +807,7 @@ def _record_federation_ingest(
     decision: str,
     reason: str,
     correlation_id: str,
+    typed_action_id: str | None = None,
 ) -> None:
     runtime_root = _federation_runtime_root()
     runtime_root.mkdir(parents=True, exist_ok=True)
@@ -802,6 +821,7 @@ def _record_federation_ingest(
         "event_hash": event_hash,
         "event_type": str(event.get("event_type", "")),
         "correlation_id": correlation_id or event_hash,
+        "typed_action_id": str(typed_action_id or ""),
     }
     with (runtime_root / "ingest_classifications.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, sort_keys=True) + "\n")
