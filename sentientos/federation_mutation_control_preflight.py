@@ -12,6 +12,7 @@ from sentientos.federation_bounded_lifecycle import (
     build_bounded_federation_trace_coherence_map,
 )
 from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONICAL_ACTIONS
+from sentientos.federation_seed_health_history import persist_bounded_federation_seed_health_history
 from sentientos.federation_slice_health import synthesize_bounded_federation_seed_health
 from sentientos.federation_typed_actions import federation_typed_action_diagnostic
 
@@ -123,18 +124,28 @@ def _canonical_execution_diagnostic(typed_intents: list[dict[str, str]]) -> dict
     }
 
 
-def _bounded_federation_lifecycle_diagnostic() -> dict[str, object]:
-    root = Path(".").resolve()
+def _bounded_federation_lifecycle_diagnostic(repo_root: Path | None = None) -> dict[str, object]:
+    root = repo_root.resolve() if repo_root is not None else Path(".").resolve()
     coherence = build_bounded_federation_trace_coherence_map(root)
     latest_rows = build_bounded_federation_latest_lifecycle_rows(root)
     seed_health = synthesize_bounded_federation_seed_health(latest_rows)
+    seed_health_history = persist_bounded_federation_seed_health_history(root, seed_health=seed_health)
     unresolved = sum(
         int(intent.get("lifecycle_fragmented_count") or 0)
         for intent in coherence.get("trace_coherence_map", [])
         if isinstance(intent, Mapping)
     )
+    temporal_view = {
+        "current_health_status": seed_health_history["current_record"]["health_status"],
+        "previous_health_status": seed_health_history["current_record"]["previous_health_status"],
+        "transition_classification": seed_health_history["current_record"]["transition_classification"],
+        "history_path": seed_health_history["history_path"],
+        "recent_history": seed_health_history["recent_history"],
+    }
     return {
         "bounded_federation_seed_health": seed_health,
+        "bounded_federation_seed_health_history": seed_health_history,
+        "bounded_federation_seed_temporal_view": temporal_view,
         "latest_lifecycle_by_intent": latest_rows,
         "lifecycle_trace_coherence": coherence,
         "canonical_lifecycle_resolved": unresolved == 0,
@@ -151,7 +162,10 @@ def build_federation_mutation_control_preflight(
     blocker = "typed_action_model" if required_layers.get("typed_action_model") != "present" else ""
     typed_action_diag = federation_typed_action_diagnostic()
     canonical_diag = _canonical_execution_diagnostic(typed_action_diag["chosen_intents"])
-    lifecycle_diag = _bounded_federation_lifecycle_diagnostic()
+    repo_root = None
+    if isinstance(fixture, Mapping) and fixture.get("repo_root"):
+        repo_root = Path(str(fixture["repo_root"]))
+    lifecycle_diag = _bounded_federation_lifecycle_diagnostic(repo_root)
 
     return {
         "slice_id": "federation_mutation_control_slice",
@@ -267,8 +281,22 @@ def build_federation_mutation_control_preflight(
             "next_prerequisite_unlocked": "next bounded federation expansion can reuse canonical proof-visible admission/outcome linkage and lifecycle resolution checks",
             "bounded_seed_health_note": {
                 "meaning": "bounded federation seed health is a diagnostic synthesis over latest resolved lifecycle outcomes for the three in-scope typed federation intents.",
+                "history_meaning": "bounded temporal history records the current health snapshot with previous status and one conservative transition classification per evaluation.",
                 "fed_by_outcomes": ["success", "denied", "failed_after_admission", "fragmented_unresolved"],
                 "statuses": ["healthy", "degraded", "fragmented"],
+                "transition_classes": [
+                    "initial_observation",
+                    "unchanged",
+                    "improving",
+                    "degrading",
+                    "recovered_from_fragmentation",
+                    "recovered_from_failure",
+                ],
+                "does_not_do": [
+                    "does not widen the federation intent slice",
+                    "does not create a new governance or sovereign decision layer",
+                    "does not build repo-wide history/trend governance",
+                ],
                 "explicit_non_authority": "support-only observability signal; does not alter admission, mergeability, runtime governor behavior, or federation adjudication authority.",
             },
         },
