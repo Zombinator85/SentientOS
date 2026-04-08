@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import json
+import os
+from collections import Counter
+from pathlib import Path
 from typing import Any, Mapping
 
 from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONICAL_ACTIONS
 from sentientos.federation_typed_actions import federation_typed_action_diagnostic
 
 
@@ -20,9 +25,9 @@ REQUIRED_READINESS_LAYERS: tuple[str, ...] = (
 
 DEFAULT_REQUIRED_LAYER_CLASSIFICATION: dict[str, str] = {
     "typed_action_model": "present",
-    "canonical_router_handler_viability": "partially_present",
-    "success_denial_admitted_failure_clarity": "partially_present",
-    "proof_visible_artifact_boundaries": "partially_present",
+    "canonical_router_handler_viability": "present",
+    "success_denial_admitted_failure_clarity": "present",
+    "proof_visible_artifact_boundaries": "present",
     "trace_requirements": "present",
     "diagnostic_layer_prerequisites": "present",
     "authority_of_judgment_clarity": "present",
@@ -64,6 +69,55 @@ def _readiness_verdict(required_layers: Mapping[str, str], blocker: str) -> str:
     return "ready_for_initial_slice_onboarding"
 
 
+def _canonical_execution_rows() -> list[dict[str, object]]:
+    root = Path(os.getenv("SENTIENTOS_FEDERATION_ROOT", "/glow/federation"))
+    path = root / "canonical_execution.jsonl"
+    if not path.exists():
+        return []
+    rows: list[dict[str, object]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        text = line.strip()
+        if not text:
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            rows.append(payload)
+    return rows
+
+
+def _canonical_execution_diagnostic(typed_intents: list[dict[str, str]]) -> dict[str, object]:
+    rows = _canonical_execution_rows()
+    by_action: dict[str, list[dict[str, object]]] = {}
+    for row in rows:
+        action_id = str(row.get("typed_action_id") or "")
+        by_action.setdefault(action_id, []).append(row)
+    per_intent: list[dict[str, object]] = []
+    for intent in typed_intents:
+        action_id = str(intent.get("action_id") or "")
+        action_rows = by_action.get(action_id, [])
+        outcome_counts = Counter(str(row.get("canonical_outcome") or "unknown") for row in action_rows)
+        proof_visible_count = sum(1 for row in action_rows if bool(row.get("proof_linkage_present")))
+        per_intent.append(
+            {
+                "action_id": action_id,
+                "intent": str(intent.get("intent") or ""),
+                "execution_state": "canonical_execution_observed" if action_rows else "typed_not_yet_canonical_observed",
+                "canonical_observation_count": len(action_rows),
+                "outcome_visibility": dict(sorted(outcome_counts.items())),
+                "proof_linkage_present_count": proof_visible_count,
+                "proof_linkage_missing_count": max(0, len(action_rows) - proof_visible_count),
+            }
+        )
+    return {
+        "bounded_canonical_action_ids": list(BOUNDED_FEDERATION_CANONICAL_ACTIONS),
+        "typed_vs_canonical_by_intent": per_intent,
+        "canonical_rows_seen": len(rows),
+    }
+
+
 def build_federation_mutation_control_preflight(
     fixture: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
@@ -72,6 +126,7 @@ def build_federation_mutation_control_preflight(
     required_layers = _resolve_required_layer_classification(fixture)
     blocker = "typed_action_model" if required_layers.get("typed_action_model") != "present" else ""
     typed_action_diag = federation_typed_action_diagnostic()
+    canonical_diag = _canonical_execution_diagnostic(typed_action_diag["chosen_intents"])
 
     return {
         "slice_id": "federation_mutation_control_slice",
@@ -161,16 +216,23 @@ def build_federation_mutation_control_preflight(
         "readiness_verdict": _readiness_verdict(required_layers, blocker),
         "typed_onboarding_pass_note": {
             "chosen_for_initial_typed_onboarding": [row["intent"] for row in typed_action_diag["chosen_intents"]],
+            "canonically_onboarded_now": list(BOUNDED_FEDERATION_CANONICAL_ACTIONS),
+            "typed_but_not_yet_canonical_observed": [
+                row["action_id"]
+                for row in canonical_diag["typed_vs_canonical_by_intent"]
+                if row["execution_state"] == "typed_not_yet_canonical_observed"
+            ],
             "remaining_out_of_scope": list(typed_action_diag["untyped_out_of_scope_intents"]),
-            "scope_statement": "typed identity registration and emission only; no full federation router migration in this pass",
-            "cleared_prerequisite": "typed_action_model",
-            "next_prerequisite_unlocked": "future router/provenance onboarding can bind canonical execution linkage to stable typed federation action IDs",
+            "scope_statement": "bounded federation typed intents are now wired to canonical execution outcomes without widening beyond this initial set",
+            "cleared_prerequisite": "canonical_execution_seed_for_bounded_federation_intents",
+            "next_prerequisite_unlocked": "next bounded federation expansion can reuse canonical proof-visible admission/outcome linkage",
         },
         "recommended_next_move_before_onboarding": (
-            "typed identity baseline is established for a bounded federation control subset; "
-            "next move is canonical router/provenance linkage for this same bounded subset without widening scope."
+            "canonical seed now exists for the bounded federation subset; "
+            "next move is bounded expansion to adjacent federation intents using this same canonical proof-bearing path."
         ),
         "typed_action_diagnostic": typed_action_diag,
+        "canonical_execution_diagnostic": canonical_diag,
         "non_sovereign_boundaries": non_sovereign_diagnostic_boundaries(
             derived_from=[
                 "sentientos.daemons.pulse_federation",

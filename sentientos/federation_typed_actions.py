@@ -116,7 +116,7 @@ def federation_typed_action_diagnostic() -> dict[str, Any]:
             "cross-node replay synthesis beyond control admission decisions",
         ],
         "non_sovereign": True,
-        "execution_router_migration": "not_included_in_this_pass",
+        "execution_router_migration": "bounded_canonical_execution_enabled_for_initial_intent_set",
         "registry_validation_errors": validate_federation_typed_action_registry(),
     }
 
