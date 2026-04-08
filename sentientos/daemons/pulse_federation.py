@@ -561,6 +561,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     reason=f"epoch:{trust.classification}",
                     correlation_id=correlation_id,
                     typed_action_id=typed_epoch_gate,
+                    canonical_outcome=epoch_gate_result.canonical_outcome,
+                    admission_decision_ref=epoch_gate_result.admission_decision_ref,
+                    canonical_handler=epoch_gate_result.canonical_handler,
                 )
                 raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     protocol_claim = payload.get("pulse_protocol")
@@ -714,6 +717,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 reason=denial_reason,
                 correlation_id=correlation_id,
                 typed_action_id=typed_governance_gate,
+                canonical_outcome=governance_gate_result.canonical_outcome,
+                admission_decision_ref=governance_gate_result.admission_decision_ref,
+                canonical_handler=governance_gate_result.canonical_handler,
             )
             raise ValueError(
                 f"Federated action denied for {peer_name}: "
@@ -807,6 +813,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     reason=";".join(restart_result.decision_reason_codes),
                     correlation_id=correlation_id,
                     typed_action_id=typed_from_payload,
+                    canonical_outcome=restart_result.canonical_outcome,
+                    admission_decision_ref=restart_result.admission_decision_ref,
+                    canonical_handler=restart_result.canonical_handler,
                 )
                 denied_reason = ";".join(restart_result.decision_reason_codes)
                 raise ValueError(
@@ -828,6 +837,9 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 reason=f"verified_ingest/{protocol_compatibility}/{replay_classification}/{equivocation_classification}",
                 correlation_id=correlation_id,
                 typed_action_id=typed_from_payload,
+                canonical_outcome=restart_result.canonical_outcome,
+                admission_decision_ref=restart_result.admission_decision_ref,
+                canonical_handler=restart_result.canonical_handler,
             )
             _remember_event_hash(candidate_hash)
             return ingested
@@ -875,6 +887,9 @@ def _record_federation_ingest(
     reason: str,
     correlation_id: str,
     typed_action_id: str | None = None,
+    canonical_outcome: str | None = None,
+    admission_decision_ref: str | None = None,
+    canonical_handler: str | None = None,
 ) -> None:
     runtime_root = _federation_runtime_root()
     runtime_root.mkdir(parents=True, exist_ok=True)
@@ -889,6 +904,14 @@ def _record_federation_ingest(
         "event_type": str(event.get("event_type", "")),
         "correlation_id": correlation_id or event_hash,
         "typed_action_id": str(typed_action_id or ""),
+        "canonical_outcome": str(canonical_outcome or ""),
+        "admission_decision_ref": str(admission_decision_ref or ""),
+        "canonical_handler": str(canonical_handler or ""),
+        "canonical_linkage_present": bool(
+            str(typed_action_id or "").strip()
+            and str(admission_decision_ref or "").strip()
+            and str(canonical_outcome or "").strip()
+        ),
     }
     with (runtime_root / "ingest_classifications.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, sort_keys=True) + "\n")

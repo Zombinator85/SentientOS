@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+from sentientos.federation_bounded_lifecycle import build_bounded_federation_trace_coherence_map
 from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONICAL_ACTIONS
 from sentientos.federation_typed_actions import federation_typed_action_diagnostic
 
@@ -118,6 +119,21 @@ def _canonical_execution_diagnostic(typed_intents: list[dict[str, str]]) -> dict
     }
 
 
+def _bounded_federation_lifecycle_diagnostic() -> dict[str, object]:
+    root = Path(".").resolve()
+    coherence = build_bounded_federation_trace_coherence_map(root)
+    unresolved = sum(
+        int(intent.get("lifecycle_fragmented_count") or 0)
+        for intent in coherence.get("trace_coherence_map", [])
+        if isinstance(intent, Mapping)
+    )
+    return {
+        "lifecycle_trace_coherence": coherence,
+        "canonical_lifecycle_resolved": unresolved == 0,
+        "unresolved_traces_marked": unresolved,
+    }
+
+
 def build_federation_mutation_control_preflight(
     fixture: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
@@ -127,6 +143,7 @@ def build_federation_mutation_control_preflight(
     blocker = "typed_action_model" if required_layers.get("typed_action_model") != "present" else ""
     typed_action_diag = federation_typed_action_diagnostic()
     canonical_diag = _canonical_execution_diagnostic(typed_action_diag["chosen_intents"])
+    lifecycle_diag = _bounded_federation_lifecycle_diagnostic()
 
     return {
         "slice_id": "federation_mutation_control_slice",
@@ -217,6 +234,20 @@ def build_federation_mutation_control_preflight(
         "typed_onboarding_pass_note": {
             "chosen_for_initial_typed_onboarding": [row["intent"] for row in typed_action_diag["chosen_intents"]],
             "canonically_onboarded_now": list(BOUNDED_FEDERATION_CANONICAL_ACTIONS),
+            "coherent_lifecycle_intents": [
+                intent.get("typed_action_id")
+                for intent in lifecycle_diag["lifecycle_trace_coherence"]["trace_coherence_map"]
+                if intent.get("trace_state") == "coherent_end_to_end"
+            ],
+            "linkage_fields_enabling_resolution": [
+                "typed_action_id",
+                "correlation_id",
+                "admission_decision_ref",
+                "canonical_outcome",
+                "canonical_handler",
+                "side_effect_status",
+            ],
+            "remaining_partial_seed_gaps": "intents with no observed canonical rows remain unresolved until first live correlation is present",
             "typed_but_not_yet_canonical_observed": [
                 row["action_id"]
                 for row in canonical_diag["typed_vs_canonical_by_intent"]
@@ -225,7 +256,7 @@ def build_federation_mutation_control_preflight(
             "remaining_out_of_scope": list(typed_action_diag["untyped_out_of_scope_intents"]),
             "scope_statement": "bounded federation typed intents are now wired to canonical execution outcomes without widening beyond this initial set",
             "cleared_prerequisite": "canonical_execution_seed_for_bounded_federation_intents",
-            "next_prerequisite_unlocked": "next bounded federation expansion can reuse canonical proof-visible admission/outcome linkage",
+            "next_prerequisite_unlocked": "next bounded federation expansion can reuse canonical proof-visible admission/outcome linkage and lifecycle resolution checks",
         },
         "recommended_next_move_before_onboarding": (
             "canonical seed now exists for the bounded federation subset; "
@@ -233,6 +264,7 @@ def build_federation_mutation_control_preflight(
         ),
         "typed_action_diagnostic": typed_action_diag,
         "canonical_execution_diagnostic": canonical_diag,
+        "bounded_federation_lifecycle_diagnostic": lifecycle_diag,
         "non_sovereign_boundaries": non_sovereign_diagnostic_boundaries(
             derived_from=[
                 "sentientos.daemons.pulse_federation",
