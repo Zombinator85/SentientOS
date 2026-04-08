@@ -7,8 +7,12 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
-from sentientos.federation_bounded_lifecycle import build_bounded_federation_trace_coherence_map
+from sentientos.federation_bounded_lifecycle import (
+    build_bounded_federation_latest_lifecycle_rows,
+    build_bounded_federation_trace_coherence_map,
+)
 from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONICAL_ACTIONS
+from sentientos.federation_slice_health import synthesize_bounded_federation_seed_health
 from sentientos.federation_typed_actions import federation_typed_action_diagnostic
 
 
@@ -122,12 +126,16 @@ def _canonical_execution_diagnostic(typed_intents: list[dict[str, str]]) -> dict
 def _bounded_federation_lifecycle_diagnostic() -> dict[str, object]:
     root = Path(".").resolve()
     coherence = build_bounded_federation_trace_coherence_map(root)
+    latest_rows = build_bounded_federation_latest_lifecycle_rows(root)
+    seed_health = synthesize_bounded_federation_seed_health(latest_rows)
     unresolved = sum(
         int(intent.get("lifecycle_fragmented_count") or 0)
         for intent in coherence.get("trace_coherence_map", [])
         if isinstance(intent, Mapping)
     )
     return {
+        "bounded_federation_seed_health": seed_health,
+        "latest_lifecycle_by_intent": latest_rows,
         "lifecycle_trace_coherence": coherence,
         "canonical_lifecycle_resolved": unresolved == 0,
         "unresolved_traces_marked": unresolved,
@@ -257,6 +265,12 @@ def build_federation_mutation_control_preflight(
             "scope_statement": "bounded federation typed intents are now wired to canonical execution outcomes without widening beyond this initial set",
             "cleared_prerequisite": "canonical_execution_seed_for_bounded_federation_intents",
             "next_prerequisite_unlocked": "next bounded federation expansion can reuse canonical proof-visible admission/outcome linkage and lifecycle resolution checks",
+            "bounded_seed_health_note": {
+                "meaning": "bounded federation seed health is a diagnostic synthesis over latest resolved lifecycle outcomes for the three in-scope typed federation intents.",
+                "fed_by_outcomes": ["success", "denied", "failed_after_admission", "fragmented_unresolved"],
+                "statuses": ["healthy", "degraded", "fragmented"],
+                "explicit_non_authority": "support-only observability signal; does not alter admission, mergeability, runtime governor behavior, or federation adjudication authority.",
+            },
         },
         "recommended_next_move_before_onboarding": (
             "canonical seed now exists for the bounded federation subset; "

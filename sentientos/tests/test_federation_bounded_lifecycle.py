@@ -14,6 +14,7 @@ from sentientos.control_plane_kernel import (
 )
 from sentientos.daemons import pulse_federation
 from sentientos.federation_bounded_lifecycle import (
+    build_bounded_federation_latest_lifecycle_rows,
     build_bounded_federation_trace_coherence_map,
     resolve_bounded_federation_lifecycle,
 )
@@ -258,3 +259,48 @@ def test_trace_coherence_map_exposes_counts(tmp_path: Path) -> None:
 
     coherence = build_bounded_federation_trace_coherence_map(tmp_path)
     assert coherence["outcome_class_counts"]["success"] == 1
+
+
+def test_latest_lifecycle_rows_use_latest_observed_correlation(tmp_path: Path) -> None:
+    root = tmp_path / "glow/federation"
+    root.mkdir(parents=True, exist_ok=True)
+    rows = [
+        {
+            "typed_action_id": "sentientos.federation.restart_daemon_request",
+            "correlation_id": "corr-old",
+            "canonical_outcome": "admitted_succeeded",
+            "side_effect_status": "side_effect_committed",
+            "admission_decision_ref": "kernel_decision:corr-old",
+            "proof_linkage_present": True,
+        },
+        {
+            "typed_action_id": "sentientos.federation.restart_daemon_request",
+            "correlation_id": "corr-new",
+            "canonical_outcome": "denied_pre_execution",
+            "side_effect_status": "no_side_effect",
+            "admission_decision_ref": "kernel_decision:corr-new",
+            "proof_linkage_present": True,
+        },
+    ]
+    (root / "canonical_execution.jsonl").write_text(
+        "\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+    (root / "ingest_classifications.jsonl").write_text(
+        json.dumps(
+            {
+                "typed_action_id": "sentientos.federation.restart_daemon_request",
+                "correlation_id": "corr-new",
+                "admission_decision_ref": "kernel_decision:corr-new",
+                "canonical_outcome": "denied_pre_execution",
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    latest_rows = build_bounded_federation_latest_lifecycle_rows(tmp_path)
+    restart_row = next(row for row in latest_rows if row["typed_action_identity"] == "sentientos.federation.restart_daemon_request")
+    assert restart_row["correlation_id"] == "corr-new"
+    assert restart_row["outcome_class"] == "denied"
