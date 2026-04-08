@@ -23,10 +23,10 @@ from nacl.signing import VerifyKey
 from . import pulse_bus
 from sentientos.federated_enforcement_policy import resolve_policy
 from sentientos.federated_governance import get_controller as get_federated_governance_controller
+from sentientos.federation_canonical_execution import get_federation_canonical_execution_router
 from sentientos.federation_typed_actions import resolve_federation_typed_action_id
 from sentientos.pulse_trust_epoch import get_manager as get_trust_epoch_manager
 from sentientos.runtime_governor import get_runtime_governor
-from sentientos.control_plane_kernel import AuthorityClass, ControlActionRequest, LifecyclePhase, get_control_plane_kernel
 from sentientos.trust_ledger import get_trust_ledger
 
 logger = logging.getLogger(__name__)
@@ -517,28 +517,42 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             actor="pulse_federation_ingest",
         )
         if requires_control_gate:
-            kernel_decision = get_control_plane_kernel().admit(
-                ControlActionRequest(
+            typed_epoch_gate = resolve_federation_typed_action_id(
+                trust_epoch_classification=trust.classification
+            )
+            try:
+                epoch_gate_result = get_federation_canonical_execution_router().execute(
+                    typed_action_id=str(typed_epoch_gate or ""),
+                    peer_name=peer_name,
                     action_kind="federated_control",
-                    authority_class=AuthorityClass.FEDERATED_CONTROL,
-                    actor=peer_name,
                     target_subsystem=f"{peer_name}:epoch",
-                    requested_phase=LifecyclePhase.RUNTIME,
-                    federation_origin=peer_name,
+                    correlation_id=correlation_id,
                     metadata={
                         "correlation_id": str(event.get("correlation_id") or pulse_bus.compute_event_hash(event)),
                         "subject": f"{peer_name}:epoch",
                         "scope": "federated",
-                        "typed_action_id": resolve_federation_typed_action_id(
-                            trust_epoch_classification=trust.classification
-                        ),
                         "event_type": str(event.get("event_type", "")),
                         "trust_epoch_classification": trust.classification,
                         "trust_epoch_id": trust.epoch_id,
                     },
+                    handler=lambda: {
+                        "gate": "epoch_or_trust_posture_gate",
+                        "trusted": trust.trusted,
+                        "classification": trust.classification,
+                    },
                 )
-            )
-            if resolve_policy().pulse_trust_epoch == "enforce" and not kernel_decision.allowed:
+            except ValueError as exc:
+                _record_federation_ingest(
+                    peer_name=peer_name,
+                    event=event,
+                    classification="failed_closed_epoch",
+                    decision="deny",
+                    reason=str(exc),
+                    correlation_id=correlation_id,
+                    typed_action_id=typed_epoch_gate,
+                )
+                raise ValueError(f"Federated epoch gate failed closed for {peer_name}: {exc}") from exc
+            if resolve_policy().pulse_trust_epoch == "enforce" and epoch_gate_result.canonical_outcome != "admitted_succeeded":
                 _record_federation_ingest(
                     peer_name=peer_name,
                     event=event,
@@ -546,9 +560,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     decision="deny",
                     reason=f"epoch:{trust.classification}",
                     correlation_id=correlation_id,
-                    typed_action_id=resolve_federation_typed_action_id(
-                        trust_epoch_classification=trust.classification
-                    ),
+                    typed_action_id=typed_epoch_gate,
                 )
                 raise ValueError(f"Federated epoch denied for {peer_name}: {trust.classification}")
     protocol_claim = payload.get("pulse_protocol")
@@ -648,21 +660,20 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         "trust_epoch_advisory",
         "trust_epoch_observed",
     }:
-        kernel_decision = get_control_plane_kernel().admit(
-            ControlActionRequest(
+        typed_governance_gate = resolve_federation_typed_action_id(
+            denial_cause=evaluation.denial_cause
+        )
+        try:
+            governance_gate_result = get_federation_canonical_execution_router().execute(
+                typed_action_id=str(typed_governance_gate or ""),
+                peer_name=peer_name,
                 action_kind="federated_control",
-                authority_class=AuthorityClass.FEDERATED_CONTROL,
-                actor=peer_name,
                 target_subsystem=f"{peer_name}:federation",
-                requested_phase=LifecyclePhase.RUNTIME,
-                federation_origin=peer_name,
+                correlation_id=correlation_id,
                 metadata={
                     "correlation_id": str(payload.get("correlation_id") or pulse_bus.compute_event_hash(payload)),
                     "subject": f"{peer_name}:federation",
                     "scope": "federated",
-                    "typed_action_id": resolve_federation_typed_action_id(
-                        denial_cause=evaluation.denial_cause
-                    ),
                     "event_type": str(payload.get("event_type", "")),
                     "federated_governance": evaluation.to_dict(),
                     "federated_denial_cause": evaluation.denial_cause,
@@ -670,10 +681,25 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     "replay_horizon_classification": replay_classification,
                     "equivocation_classification": equivocation_classification,
                 },
+                handler=lambda: (
+                    {"gate": "governance_digest_or_quorum_denial_gate"}
+                    if evaluation.calibration_action != "deny"
+                    else (_ for _ in ()).throw(ValueError(f"governance_calibration:{evaluation.denial_cause}"))
+                ),
             )
-        )
-        if not kernel_decision.allowed or evaluation.calibration_action == "deny":
-            denial_reason = f"{evaluation.denial_cause}/{';'.join(kernel_decision.reason_codes)}"
+        except ValueError as exc:
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_governance",
+                decision="deny",
+                reason=str(exc),
+                correlation_id=correlation_id,
+                typed_action_id=typed_governance_gate,
+            )
+            raise ValueError(f"Federated governance gate failed closed for {peer_name}: {exc}") from exc
+        if governance_gate_result.canonical_outcome != "admitted_succeeded":
+            denial_reason = f"{evaluation.denial_cause}/{';'.join(governance_gate_result.decision_reason_codes)}"
             trust_ledger.record_control_attempt(
                 peer_name,
                 allowed=False,
@@ -687,9 +713,7 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 decision="deny",
                 reason=denial_reason,
                 correlation_id=correlation_id,
-                typed_action_id=resolve_federation_typed_action_id(
-                    denial_cause=evaluation.denial_cause
-                ),
+                typed_action_id=typed_governance_gate,
             )
             raise ValueError(
                 f"Federated action denied for {peer_name}: "
@@ -719,14 +743,26 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                 or event_payload.get("target")
                 or "unknown"
             )
-            kernel_decision = get_control_plane_kernel().admit(
-                ControlActionRequest(
+            if daemon_subject == "unknown":
+                _record_federation_ingest(
+                    peer_name=peer_name,
+                    event=payload,
+                    classification="failed_closed_restart",
+                    decision="deny",
+                    reason="missing_required_metadata:subject",
+                    correlation_id=correlation_id,
+                    typed_action_id=typed_from_payload,
+                )
+                raise ValueError(
+                    f"Federated restart missing required daemon subject from {peer_name}"
+                )
+            try:
+                restart_result = get_federation_canonical_execution_router().execute(
+                    typed_action_id=str(typed_from_payload or ""),
+                    peer_name=peer_name,
                     action_kind="restart_daemon",
-                    authority_class=AuthorityClass.FEDERATED_CONTROL,
-                    actor=peer_name,
                     target_subsystem=daemon_subject,
-                    requested_phase=LifecyclePhase.RUNTIME,
-                    federation_origin=peer_name,
+                    correlation_id=correlation_id,
                     metadata={
                         "correlation_id": correlation_id,
                         "subject": daemon_subject,
@@ -735,20 +771,32 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                         "peer_subject": f"{peer_name}:{daemon_subject}",
                         "event_type": str(payload.get("event_type", "")),
                         "scope": "federated",
-                        "typed_action_id": typed_from_payload,
                         "federated_governance": evaluation.to_dict(),
                         "federated_denial_cause": evaluation.denial_cause,
                         "protocol_compatibility": protocol_compatibility,
                         "replay_horizon_classification": replay_classification,
                         "equivocation_classification": equivocation_classification,
                     },
+                    handler=lambda: pulse_bus.ingest_verified(payload, source_peer=peer_name),
                 )
-            )
-            if not kernel_decision.allowed:
+            except ValueError as exc:
+                _record_federation_ingest(
+                    peer_name=peer_name,
+                    event=payload,
+                    classification="failed_closed_restart",
+                    decision="deny",
+                    reason=str(exc),
+                    correlation_id=correlation_id,
+                    typed_action_id=typed_from_payload,
+                )
+                raise ValueError(
+                    f"Federated restart canonical path failed closed for {peer_name}: {exc}"
+                ) from exc
+            if restart_result.canonical_outcome != "admitted_succeeded":
                 trust_ledger.record_control_attempt(
                     peer_name,
                     allowed=False,
-                    reason=";".join(kernel_decision.reason_codes),
+                    reason=";".join(restart_result.decision_reason_codes),
                     actor="pulse_federation_ingest",
                 )
                 _record_federation_ingest(
@@ -756,14 +804,33 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
                     event=payload,
                     classification="denied_governor",
                     decision="deny",
-                    reason=";".join(kernel_decision.reason_codes),
+                    reason=";".join(restart_result.decision_reason_codes),
                     correlation_id=correlation_id,
                     typed_action_id=typed_from_payload,
                 )
-                denied_reason = ";".join(kernel_decision.reason_codes)
+                denied_reason = ";".join(restart_result.decision_reason_codes)
                 raise ValueError(
                     f"Runtime governor denied federated control event from {peer_name}: {denied_reason}"
                 )
+            ingested = restart_result.handler_result if isinstance(restart_result.handler_result, dict) else payload
+            get_runtime_governor().observe_pulse_event(ingested)
+            trust_ledger.record_control_attempt(
+                peer_name,
+                allowed=True,
+                reason="ingested",
+                actor="pulse_federation_ingest",
+            )
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=ingested,
+                classification="accepted_verified",
+                decision="allow",
+                reason=f"verified_ingest/{protocol_compatibility}/{replay_classification}/{equivocation_classification}",
+                correlation_id=correlation_id,
+                typed_action_id=typed_from_payload,
+            )
+            _remember_event_hash(candidate_hash)
+            return ingested
     ingested = pulse_bus.ingest_verified(payload, source_peer=peer_name)
     get_runtime_governor().observe_pulse_event(ingested)
     trust_ledger.record_control_attempt(

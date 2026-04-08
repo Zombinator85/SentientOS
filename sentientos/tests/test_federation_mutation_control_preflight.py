@@ -20,8 +20,9 @@ def test_preflight_detects_single_critical_missing_prerequisite() -> None:
     blocker = report["single_most_important_blocking_prerequisite"]
 
     assert blocker["requirement"] == "none"
-    assert report["typed_onboarding_pass_note"]["cleared_prerequisite"] == "typed_action_model"
-    assert "router/provenance linkage" in report["recommended_next_move_before_onboarding"]
+    assert report["typed_onboarding_pass_note"]["cleared_prerequisite"] == "canonical_execution_seed_for_bounded_federation_intents"
+    assert "canonical seed now exists" in report["recommended_next_move_before_onboarding"]
+    assert "canonical_execution_diagnostic" in report
 
 
 def test_readiness_verdict_changes_when_required_fields_change() -> None:
