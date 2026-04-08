@@ -141,6 +141,7 @@ def _bounded_federation_lifecycle_diagnostic(repo_root: Path | None = None) -> d
         "transition_classification": seed_health_history["current_record"]["transition_classification"],
         "history_path": seed_health_history["history_path"],
         "recent_history": seed_health_history["recent_history"],
+        "stability": seed_health_history["stability"],
     }
     return {
         "bounded_federation_seed_health": seed_health,
@@ -282,6 +283,8 @@ def build_federation_mutation_control_preflight(
             "bounded_seed_health_note": {
                 "meaning": "bounded federation seed health is a diagnostic synthesis over latest resolved lifecycle outcomes for the three in-scope typed federation intents.",
                 "history_meaning": "bounded temporal history records the current health snapshot with previous status and one conservative transition classification per evaluation.",
+                "stability_meaning": "bounded stability is a derived, windowed diagnostic over recent seed-health history transitions and existing fragmentation/admitted-failure markers.",
+                "stability_window": "latest six bounded history records",
                 "fed_by_outcomes": ["success", "denied", "failed_after_admission", "fragmented_unresolved"],
                 "statuses": ["healthy", "degraded", "fragmented"],
                 "transition_classes": [
@@ -292,10 +295,12 @@ def build_federation_mutation_control_preflight(
                     "recovered_from_fragmentation",
                     "recovered_from_failure",
                 ],
+                "stability_classes": ["stable", "improving", "degrading", "oscillating", "insufficient_history"],
                 "does_not_do": [
                     "does not widen the federation intent slice",
                     "does not create a new governance or sovereign decision layer",
                     "does not build repo-wide history/trend governance",
+                    "does not change admission, readiness verdicts, or runtime governor decisions",
                 ],
                 "explicit_non_authority": "support-only observability signal; does not alter admission, mergeability, runtime governor behavior, or federation adjudication authority.",
             },
