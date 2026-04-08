@@ -6,6 +6,7 @@ from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONIC
 from sentientos.federation_mutation_control_preflight import build_federation_mutation_control_preflight
 from sentientos.federation_seed_health_history import (
     build_bounded_federation_seed_health_history_record,
+    derive_bounded_federation_seed_stability,
     persist_bounded_federation_seed_health_history,
 )
 from sentientos.federation_slice_health import synthesize_bounded_federation_seed_health
@@ -141,3 +142,73 @@ def test_preflight_consumer_exposes_temporal_health_view(tmp_path: Path) -> None
     assert second_temporal["transition_classification"] == "unchanged"
     assert second_temporal["history_path"].endswith("bounded_seed_health_history.jsonl")
     assert isinstance(second_temporal["recent_history"], list)
+    assert second_temporal["stability"]["classification"] in {
+        "stable",
+        "improving",
+        "degrading",
+        "oscillating",
+        "insufficient_history",
+    }
+    assert second_temporal["stability"]["diagnostic_only"] is True
+    assert second_temporal["stability"]["decision_power"] == "none"
+    assert second_temporal["stability"]["does_not_change_admission_or_readiness"] is True
+
+
+def _persist_health_sequence(tmp_path: Path, statuses: list[str]) -> dict[str, object]:
+    outcome_by_status = {
+        "healthy": _health("success"),
+        "degraded": _health("success", first_outcome="failed_after_admission"),
+        "fragmented": _health("success", first_outcome="fragmented_unresolved"),
+    }
+    snapshot: dict[str, object] = {}
+    for idx, status in enumerate(statuses):
+        snapshot = persist_bounded_federation_seed_health_history(
+            tmp_path,
+            seed_health=outcome_by_status[status],
+            evaluated_at=f"2026-04-08T00:{idx:02d}:00Z",
+        )
+    return snapshot
+
+
+def test_stability_is_insufficient_with_too_few_records(tmp_path: Path) -> None:
+    snapshot = _persist_health_sequence(tmp_path, ["healthy", "healthy"])
+    assert snapshot["stability"]["classification"] == "insufficient_history"
+
+
+def test_steady_healthy_history_classifies_as_stable(tmp_path: Path) -> None:
+    snapshot = _persist_health_sequence(tmp_path, ["healthy", "healthy", "healthy", "healthy"])
+    assert snapshot["stability"]["classification"] == "stable"
+
+
+def test_alternating_health_history_classifies_as_oscillating(tmp_path: Path) -> None:
+    snapshot = _persist_health_sequence(tmp_path, ["healthy", "degraded", "healthy", "degraded", "healthy"])
+    assert snapshot["stability"]["classification"] == "oscillating"
+
+
+def test_monotonic_improvement_classifies_as_improving(tmp_path: Path) -> None:
+    snapshot = _persist_health_sequence(tmp_path, ["fragmented", "degraded", "healthy", "healthy"])
+    assert snapshot["stability"]["classification"] == "improving"
+
+
+def test_monotonic_worsening_classifies_as_degrading(tmp_path: Path) -> None:
+    snapshot = _persist_health_sequence(tmp_path, ["healthy", "degraded", "fragmented", "fragmented"])
+    assert snapshot["stability"]["classification"] == "degrading"
+
+
+def test_denied_only_behavior_remains_stable_under_existing_semantics() -> None:
+    denied_health = _health("denied")
+    history_rows = [
+        build_bounded_federation_seed_health_history_record(seed_health=denied_health, previous_record=None, evaluated_at="2026-04-08T00:00:00Z"),
+        build_bounded_federation_seed_health_history_record(
+            seed_health=denied_health,
+            previous_record={"health_status": "healthy", "has_fragmentation": False, "has_admitted_failure": False},
+            evaluated_at="2026-04-08T00:01:00Z",
+        ),
+        build_bounded_federation_seed_health_history_record(
+            seed_health=denied_health,
+            previous_record={"health_status": "healthy", "has_fragmentation": False, "has_admitted_failure": False},
+            evaluated_at="2026-04-08T00:02:00Z",
+        ),
+    ]
+    stability = derive_bounded_federation_seed_stability(history_rows)
+    assert stability["classification"] == "stable"
