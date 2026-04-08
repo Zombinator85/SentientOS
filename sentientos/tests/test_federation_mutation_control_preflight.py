@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import pytest
+
 from sentientos.federation_mutation_control_preflight import (
     REQUIRED_READINESS_LAYERS,
     build_federation_mutation_control_preflight,
 )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_preflight_history_artifacts(tmp_path, monkeypatch):  # type: ignore[no-untyped-def]
+    monkeypatch.chdir(tmp_path)
+
 
 
 def test_preflight_reports_required_layer_presence_and_absence() -> None:
@@ -26,6 +34,8 @@ def test_preflight_detects_single_critical_missing_prerequisite() -> None:
     assert "bounded_federation_lifecycle_diagnostic" in report
     onboarding_note = report["typed_onboarding_pass_note"]["bounded_seed_health_note"]
     assert onboarding_note["statuses"] == ["healthy", "degraded", "fragmented"]
+    assert "recovered_from_failure" in onboarding_note["transition_classes"]
+    assert "does not widen the federation intent slice" in onboarding_note["does_not_do"]
     assert "support-only observability signal" in onboarding_note["explicit_non_authority"]
 
 
@@ -99,3 +109,6 @@ def test_preflight_exposes_bounded_seed_health_summary() -> None:
     assert isinstance(seed_health["has_fragmentation"], bool)
     assert isinstance(seed_health["has_admitted_failure"], bool)
     assert seed_health["support_signal_only"] is True
+    temporal_view = lifecycle_diag["bounded_federation_seed_temporal_view"]
+    assert temporal_view["history_path"].endswith("bounded_seed_health_history.jsonl")
+    assert temporal_view["current_health_status"] in {"healthy", "degraded", "fragmented"}
