@@ -127,6 +127,11 @@ def test_restart_intent_e2e_routes_to_canonical(monkeypatch, tmp_path) -> None:
     assert rows[-1]["typed_action_id"] == "sentientos.federation.restart_daemon_request"
     assert rows[-1]["canonical_outcome"] == "admitted_succeeded"
     assert rows[-1]["proof_linkage_present"] is True
+    ingest_rows = [json.loads(line) for line in (tmp_path / "glow/federation/ingest_classifications.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert ingest_rows[-1]["typed_action_id"] == "sentientos.federation.restart_daemon_request"
+    assert ingest_rows[-1]["canonical_outcome"] == "admitted_succeeded"
+    assert ingest_rows[-1]["admission_decision_ref"] == "kernel_decision:corr-1"
+    assert ingest_rows[-1]["canonical_linkage_present"] is True
 
 
 def test_governance_denial_emits_canonical_denied_semantics(monkeypatch, tmp_path) -> None:
