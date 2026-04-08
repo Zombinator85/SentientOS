@@ -24,6 +24,9 @@ def test_preflight_detects_single_critical_missing_prerequisite() -> None:
     assert "canonical seed now exists" in report["recommended_next_move_before_onboarding"]
     assert "canonical_execution_diagnostic" in report
     assert "bounded_federation_lifecycle_diagnostic" in report
+    onboarding_note = report["typed_onboarding_pass_note"]["bounded_seed_health_note"]
+    assert onboarding_note["statuses"] == ["healthy", "degraded", "fragmented"]
+    assert "support-only observability signal" in onboarding_note["explicit_non_authority"]
 
 
 def test_readiness_verdict_changes_when_required_fields_change() -> None:
@@ -78,3 +81,21 @@ def test_preflight_stays_non_sovereign_and_non_executing() -> None:
     assert boundaries["decision_power"] == "none"
     assert boundaries["new_authority"] is False
     assert boundaries["automatic_execution"] is False
+
+
+def test_preflight_exposes_bounded_seed_health_summary() -> None:
+    report = build_federation_mutation_control_preflight()
+    lifecycle_diag = report["bounded_federation_lifecycle_diagnostic"]
+    seed_health = lifecycle_diag["bounded_federation_seed_health"]
+    latest = lifecycle_diag["latest_lifecycle_by_intent"]
+
+    assert len(latest) == 3
+    assert set(seed_health["outcome_counts"]) == {
+        "success",
+        "denied",
+        "failed_after_admission",
+        "fragmented_unresolved",
+    }
+    assert isinstance(seed_health["has_fragmentation"], bool)
+    assert isinstance(seed_health["has_admitted_failure"], bool)
+    assert seed_health["support_signal_only"] is True

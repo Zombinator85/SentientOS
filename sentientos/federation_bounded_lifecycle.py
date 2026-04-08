@@ -181,7 +181,49 @@ def build_bounded_federation_trace_coherence_map(repo_root: Path) -> dict[str, A
     }
 
 
+def build_bounded_federation_latest_lifecycle_rows(repo_root: Path) -> list[dict[str, Any]]:
+    """Resolve one latest lifecycle row per in-scope bounded federation intent."""
+
+    root = repo_root.resolve()
+    canonical_rows = _read_jsonl(root / "glow/federation/canonical_execution.jsonl")
+    latest_by_action: dict[str, str] = {}
+    for row in canonical_rows:
+        action_id = str(row.get("typed_action_id") or "")
+        correlation_id = str(row.get("correlation_id") or "")
+        if action_id not in BOUNDED_FEDERATION_CANONICAL_ACTIONS or not correlation_id:
+            continue
+        latest_by_action[action_id] = correlation_id
+
+    resolved_rows: list[dict[str, Any]] = []
+    for action_id in BOUNDED_FEDERATION_CANONICAL_ACTIONS:
+        correlation_id = latest_by_action.get(action_id, "")
+        if correlation_id:
+            resolved_rows.append(
+                resolve_bounded_federation_lifecycle(
+                    root,
+                    typed_action_id=action_id,
+                    correlation_id=correlation_id,
+                )
+            )
+            continue
+        resolved_rows.append(
+            {
+                "typed_action_identity": action_id,
+                "correlation_id": None,
+                "admission_disposition": "unknown",
+                "execution_outcome": "unknown",
+                "proof_linkage": "missing",
+                "side_effect_semantics": "unknown",
+                "canonical_lifecycle_state": "fragmented",
+                "outcome_class": "fragmented_unresolved",
+                "findings": [{"kind": "canonical_execution_row_missing", "surface": "glow/federation/canonical_execution.jsonl"}],
+            }
+        )
+    return resolved_rows
+
+
 __all__ = [
+    "build_bounded_federation_latest_lifecycle_rows",
     "build_bounded_federation_trace_coherence_map",
     "resolve_bounded_federation_lifecycle",
 ]
