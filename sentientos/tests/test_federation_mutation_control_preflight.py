@@ -128,6 +128,23 @@ def test_preflight_exposes_bounded_seed_health_summary() -> None:
     assert retrospective["decision_power"] == "none"
     assert retrospective["retrospective_support_signal_only"] is True
     assert retrospective["does_not_change_admission_or_readiness"] is True
+    recommendation = temporal_view["operator_attention_recommendation"]
+    assert recommendation["recommendation_kind"] == "operator_attention_recommendation"
+    assert recommendation["recommended_attention"] in {
+        "none",
+        "observe",
+        "inspect_recent_failures",
+        "inspect_fragmentation",
+        "watch_for_oscillation",
+        "review_mixed_stress",
+        "insufficient_context",
+    }
+    assert recommendation["diagnostic_only"] is True
+    assert recommendation["recommendation_only"] is True
+    assert recommendation["non_authoritative"] is True
+    assert recommendation["decision_power"] == "none"
+    assert recommendation["does_not_change_admission_or_readiness"] is True
+    assert recommendation["does_not_change_authority_or_execution"] is True
 
 
 def test_retrospective_review_does_not_change_readiness_or_authority_surfaces() -> None:
@@ -150,5 +167,10 @@ def test_retrospective_review_does_not_change_readiness_or_authority_surfaces() 
     assert baseline["readiness_verdict"] == "ready_for_initial_slice_onboarding"
     assert stressed["readiness_verdict"] == "ready_for_initial_slice_onboarding"
     retro = stressed["bounded_federation_lifecycle_diagnostic"]["bounded_federation_seed_temporal_view"]["retrospective_integrity_review"]
+    recommendation = stressed["bounded_federation_lifecycle_diagnostic"]["bounded_federation_seed_temporal_view"][
+        "operator_attention_recommendation"
+    ]
     assert retro["does_not_change_admission_or_readiness"] is True
     assert retro["decision_power"] == "none"
+    assert recommendation["does_not_change_admission_or_readiness"] is True
+    assert recommendation["decision_power"] == "none"
