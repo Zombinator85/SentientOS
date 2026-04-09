@@ -13,6 +13,7 @@ from sentientos.federation_bounded_lifecycle import (
 )
 from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONICAL_ACTIONS
 from sentientos.federation_seed_health_history import persist_bounded_federation_seed_health_history
+from sentientos.federation_seed_retrospective_integrity import derive_bounded_federation_seed_retrospective_integrity_review
 from sentientos.federation_slice_health import synthesize_bounded_federation_seed_health
 from sentientos.federation_typed_actions import federation_typed_action_diagnostic
 
@@ -135,6 +136,10 @@ def _bounded_federation_lifecycle_diagnostic(repo_root: Path | None = None) -> d
         for intent in coherence.get("trace_coherence_map", [])
         if isinstance(intent, Mapping)
     )
+    retrospective_review = derive_bounded_federation_seed_retrospective_integrity_review(
+        seed_health_history["recent_history"],
+        seed_stability=seed_health_history["stability"],
+    )
     temporal_view = {
         "current_health_status": seed_health_history["current_record"]["health_status"],
         "previous_health_status": seed_health_history["current_record"]["previous_health_status"],
@@ -142,6 +147,7 @@ def _bounded_federation_lifecycle_diagnostic(repo_root: Path | None = None) -> d
         "history_path": seed_health_history["history_path"],
         "recent_history": seed_health_history["recent_history"],
         "stability": seed_health_history["stability"],
+        "retrospective_integrity_review": retrospective_review,
     }
     return {
         "bounded_federation_seed_health": seed_health,
@@ -296,6 +302,22 @@ def build_federation_mutation_control_preflight(
                     "recovered_from_failure",
                 ],
                 "stability_classes": ["stable", "improving", "degrading", "oscillating", "insufficient_history"],
+                "retrospective_integrity_review_meaning": "bounded retrospective integrity review summarizes the dominant recent constitutional stress pattern from existing bounded lifecycle/health/stability signals.",
+                "retrospective_inputs": [
+                    "bounded federation lifecycle resolution",
+                    "bounded federation health synthesis",
+                    "bounded federation health history",
+                    "bounded federation stability/oscillation diagnostics",
+                ],
+                "retrospective_classes": [
+                    "clean_recent_history",
+                    "denial_heavy",
+                    "failure_heavy",
+                    "fragmentation_heavy",
+                    "oscillatory_instability",
+                    "mixed_stress_pattern",
+                    "insufficient_history",
+                ],
                 "does_not_do": [
                     "does not widen the federation intent slice",
                     "does not create a new governance or sovereign decision layer",

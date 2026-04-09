@@ -112,3 +112,43 @@ def test_preflight_exposes_bounded_seed_health_summary() -> None:
     temporal_view = lifecycle_diag["bounded_federation_seed_temporal_view"]
     assert temporal_view["history_path"].endswith("bounded_seed_health_history.jsonl")
     assert temporal_view["current_health_status"] in {"healthy", "degraded", "fragmented"}
+    retrospective = temporal_view["retrospective_integrity_review"]
+    assert retrospective["review_kind"] == "retrospective_integrity_review"
+    assert retrospective["review_classification"] in {
+        "clean_recent_history",
+        "denial_heavy",
+        "failure_heavy",
+        "fragmentation_heavy",
+        "oscillatory_instability",
+        "mixed_stress_pattern",
+        "insufficient_history",
+    }
+    assert retrospective["diagnostic_only"] is True
+    assert retrospective["non_authoritative"] is True
+    assert retrospective["decision_power"] == "none"
+    assert retrospective["retrospective_support_signal_only"] is True
+    assert retrospective["does_not_change_admission_or_readiness"] is True
+
+
+def test_retrospective_review_does_not_change_readiness_or_authority_surfaces() -> None:
+    baseline = build_federation_mutation_control_preflight()
+    stressed = build_federation_mutation_control_preflight(
+        {
+            "required_layer_classification": {
+                "typed_action_model": "present",
+                "canonical_router_handler_viability": "present",
+                "success_denial_admitted_failure_clarity": "present",
+                "proof_visible_artifact_boundaries": "present",
+                "trace_requirements": "present",
+                "diagnostic_layer_prerequisites": "present",
+                "authority_of_judgment_clarity": "present",
+                "non_sovereign_boundary_compatibility": "present",
+            }
+        }
+    )
+
+    assert baseline["readiness_verdict"] == "ready_for_initial_slice_onboarding"
+    assert stressed["readiness_verdict"] == "ready_for_initial_slice_onboarding"
+    retro = stressed["bounded_federation_lifecycle_diagnostic"]["bounded_federation_seed_temporal_view"]["retrospective_integrity_review"]
+    assert retro["does_not_change_admission_or_readiness"] is True
+    assert retro["decision_power"] == "none"
