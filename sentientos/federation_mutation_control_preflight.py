@@ -12,6 +12,7 @@ from sentientos.federation_bounded_lifecycle import (
     build_bounded_federation_trace_coherence_map,
 )
 from sentientos.federation_canonical_execution import BOUNDED_FEDERATION_CANONICAL_ACTIONS
+from sentientos.federation_seed_attention_recommendation import derive_bounded_federation_seed_attention_recommendation
 from sentientos.federation_seed_health_history import persist_bounded_federation_seed_health_history
 from sentientos.federation_seed_retrospective_integrity import derive_bounded_federation_seed_retrospective_integrity_review
 from sentientos.federation_slice_health import synthesize_bounded_federation_seed_health
@@ -140,6 +141,12 @@ def _bounded_federation_lifecycle_diagnostic(repo_root: Path | None = None) -> d
         seed_health_history["recent_history"],
         seed_stability=seed_health_history["stability"],
     )
+    attention_recommendation = derive_bounded_federation_seed_attention_recommendation(
+        seed_health=seed_health,
+        seed_health_history=seed_health_history,
+        seed_stability=seed_health_history["stability"],
+        retrospective_integrity_review=retrospective_review,
+    )
     temporal_view = {
         "current_health_status": seed_health_history["current_record"]["health_status"],
         "previous_health_status": seed_health_history["current_record"]["previous_health_status"],
@@ -148,6 +155,7 @@ def _bounded_federation_lifecycle_diagnostic(repo_root: Path | None = None) -> d
         "recent_history": seed_health_history["recent_history"],
         "stability": seed_health_history["stability"],
         "retrospective_integrity_review": retrospective_review,
+        "operator_attention_recommendation": attention_recommendation,
     }
     return {
         "bounded_federation_seed_health": seed_health,
@@ -318,11 +326,28 @@ def build_federation_mutation_control_preflight(
                     "mixed_stress_pattern",
                     "insufficient_history",
                 ],
+                "operator_attention_recommendation_meaning": "bounded operator-facing recommendation summarizes what human attention class is likely useful now, based only on existing retrospective review plus current bounded seed health/stability signals.",
+                "operator_attention_recommendation_inputs": [
+                    "bounded federation health synthesis",
+                    "bounded federation health history",
+                    "bounded federation stability/oscillation diagnostics",
+                    "bounded federation retrospective integrity review",
+                ],
+                "operator_attention_recommendation_values": [
+                    "none",
+                    "observe",
+                    "inspect_recent_failures",
+                    "inspect_fragmentation",
+                    "watch_for_oscillation",
+                    "review_mixed_stress",
+                    "insufficient_context",
+                ],
                 "does_not_do": [
                     "does not widen the federation intent slice",
                     "does not create a new governance or sovereign decision layer",
                     "does not build repo-wide history/trend governance",
                     "does not change admission, readiness verdicts, or runtime governor decisions",
+                    "does not create approval workflow, authority, or automation",
                 ],
                 "explicit_non_authority": "support-only observability signal; does not alter admission, mergeability, runtime governor behavior, or federation adjudication authority.",
             },
