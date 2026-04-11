@@ -21,6 +21,7 @@ def test_preflight_reports_required_layer_presence_and_absence() -> None:
     assert set(REQUIRED_READINESS_LAYERS).issubset(required.keys())
     assert required["typed_action_model"] == "present"
     assert required["trace_requirements"] == "present"
+    assert "federation.governance_digest_or_quorum_denial_gate" in report["candidate_slice_boundary"]["candidate_action_intents"]
 
 
 def test_preflight_detects_single_critical_missing_prerequisite() -> None:

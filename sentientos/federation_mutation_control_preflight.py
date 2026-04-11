@@ -188,7 +188,7 @@ def build_federation_mutation_control_preflight(
             "capability": "mutation_and_control",
             "candidate_action_intents": [
                 "federation.restart_daemon_request",
-                "federation.governance_digest_or_quorum_denial",
+                "federation.governance_digest_or_quorum_denial_gate",
                 "federation.epoch_or_trust_posture_gate",
             ],
             "candidate_canonical_entry_surfaces": [
