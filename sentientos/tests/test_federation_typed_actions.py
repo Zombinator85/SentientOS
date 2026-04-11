@@ -49,6 +49,8 @@ def test_bounded_federation_actions_have_stable_ids() -> None:
         "sentientos.federation.restart_daemon_request",
         "sentientos.federation.governance_digest_or_quorum_denial_gate",
         "sentientos.federation.epoch_or_trust_posture_gate",
+        "sentientos.federation.replay_or_receipt_consistency_gate",
+        "sentientos.federation.ingest_replay_admission_gate",
     }
 
 
@@ -64,6 +66,14 @@ def test_entry_surface_resolution_emits_expected_typed_action_ids() -> None:
     assert (
         resolve_federation_typed_action_id(trust_epoch_classification="revoked_epoch")
         == "sentientos.federation.epoch_or_trust_posture_gate"
+    )
+    assert (
+        resolve_federation_typed_action_id(replay_classification="incompatible_replay_policy")
+        == "sentientos.federation.ingest_replay_admission_gate"
+    )
+    assert (
+        resolve_federation_typed_action_id(receipt_consistency_classification="protocol_claim_conflict")
+        == "sentientos.federation.replay_or_receipt_consistency_gate"
     )
 
 
@@ -122,5 +132,5 @@ def test_typed_identity_does_not_change_admission_behavior(tmp_path) -> None:
 def test_diagnostic_surfaces_chosen_and_out_of_scope_sets() -> None:
     diagnostic = federation_typed_action_diagnostic()
     assert diagnostic["typed_identity_status"] == "bounded_initial_registration"
-    assert len(diagnostic["chosen_intents"]) == 3
+    assert len(diagnostic["chosen_intents"]) == 5
     assert diagnostic["untyped_out_of_scope_intents"]

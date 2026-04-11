@@ -160,3 +160,57 @@ def test_governance_denial_emits_canonical_denied_semantics(monkeypatch, tmp_pat
     rows = [json.loads(line) for line in (tmp_path / "glow/federation/canonical_execution.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     assert rows[-1]["typed_action_id"] == "sentientos.federation.governance_digest_or_quorum_denial_gate"
     assert rows[-1]["canonical_outcome"] == "denied_pre_execution"
+
+
+def test_replay_admission_gate_is_canonical_and_proof_visible(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(pulse_federation, "get_trust_epoch_manager", lambda: type("M", (), {"classify_epoch": lambda *a, **k: _Trust(True)})())
+    monkeypatch.setattr(pulse_federation, "get_federated_governance_controller", lambda: _Governance(_Evaluation("none", "observe")))
+    monkeypatch.setattr(
+        pulse_federation,
+        "_classify_replay_horizon",
+        lambda event, claim: ("incompatible_replay_policy", {"age_seconds": 9999}),
+    )
+
+    event = {
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "event_type": "restart_request",
+        "correlation_id": "corr-replay-gate",
+        "payload": {"action": "restart_daemon", "daemon_name": "alpha", "scope": "federated"},
+        "pulse_protocol": {"schema_family": "pulse", "protocol_version": "2.2.0", "protocol_fingerprint": "x", "replay_policy": {"policy_version": "federation_replay_v1", "window_seconds": 1200, "tolerance_seconds": 120}},
+    }
+
+    with pytest.raises(ValueError, match="Federated replay policy/horizon denied"):
+        pulse_federation.ingest_remote_event(event, "peer-a")
+
+    rows = [json.loads(line) for line in (tmp_path / "glow/federation/canonical_execution.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert rows[-1]["typed_action_id"] == "sentientos.federation.ingest_replay_admission_gate"
+    assert rows[-1]["canonical_outcome"] == "admitted_succeeded"
+    ingest_rows = [json.loads(line) for line in (tmp_path / "glow/federation/ingest_classifications.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert ingest_rows[-1]["typed_action_id"] == "sentientos.federation.ingest_replay_admission_gate"
+    assert ingest_rows[-1]["canonical_linkage_present"] is True
+
+
+def test_receipt_consistency_confirmed_equivocation_is_machine_readable_failure(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(pulse_federation, "get_trust_epoch_manager", lambda: type("M", (), {"classify_epoch": lambda *a, **k: _Trust(True)})())
+    monkeypatch.setattr(pulse_federation, "get_federated_governance_controller", lambda: _Governance(_Evaluation("none", "observe")))
+    monkeypatch.setattr(
+        pulse_federation,
+        "_classify_equivocation",
+        lambda **kwargs: ("confirmed_equivocation", [{"kind": "double_send"}]),
+    )
+
+    event = {
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "event_type": "restart_request",
+        "correlation_id": "corr-receipt-fail",
+        "payload": {"action": "restart_daemon", "daemon_name": "alpha", "scope": "federated"},
+        "pulse_protocol": {"schema_family": "pulse", "protocol_version": "2.2.0", "protocol_fingerprint": "x", "replay_policy": {"policy_version": "federation_replay_v1", "window_seconds": 1200, "tolerance_seconds": 120}},
+    }
+
+    with pytest.raises(ValueError, match="Federated equivocation denied"):
+        pulse_federation.ingest_remote_event(event, "peer-a")
+
+    rows = [json.loads(line) for line in (tmp_path / "glow/federation/canonical_execution.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert rows[-1]["typed_action_id"] == "sentientos.federation.replay_or_receipt_consistency_gate"
+    assert rows[-1]["canonical_outcome"] == "admitted_failed"
+    assert rows[-1]["failure"]["exception_type"] == "ValueError"

@@ -20,11 +20,13 @@ def test_all_success_latest_lifecycles_report_healthy() -> None:
                 "sentientos.federation.restart_daemon_request": "success",
                 "sentientos.federation.governance_digest_or_quorum_denial_gate": "success",
                 "sentientos.federation.epoch_or_trust_posture_gate": "success",
+                "sentientos.federation.replay_or_receipt_consistency_gate": "success",
+                "sentientos.federation.ingest_replay_admission_gate": "success",
             }
         )
     )
     assert health["health_status"] == "healthy"
-    assert health["outcome_counts"]["success"] == 3
+    assert health["outcome_counts"]["success"] == 5
     assert health["has_fragmentation"] is False
     assert health["has_admitted_failure"] is False
 
@@ -36,6 +38,8 @@ def test_admitted_failure_presence_reports_degraded() -> None:
                 "sentientos.federation.restart_daemon_request": "success",
                 "sentientos.federation.governance_digest_or_quorum_denial_gate": "failed_after_admission",
                 "sentientos.federation.epoch_or_trust_posture_gate": "denied",
+                "sentientos.federation.replay_or_receipt_consistency_gate": "success",
+                "sentientos.federation.ingest_replay_admission_gate": "denied",
             }
         )
     )
@@ -51,6 +55,8 @@ def test_fragmentation_presence_reports_fragmented() -> None:
                 "sentientos.federation.restart_daemon_request": "success",
                 "sentientos.federation.governance_digest_or_quorum_denial_gate": "fragmented_unresolved",
                 "sentientos.federation.epoch_or_trust_posture_gate": "success",
+                "sentientos.federation.replay_or_receipt_consistency_gate": "success",
+                "sentientos.federation.ingest_replay_admission_gate": "success",
             }
         )
     )
@@ -66,11 +72,13 @@ def test_denied_only_stays_healthy_in_bounded_model() -> None:
                 "sentientos.federation.restart_daemon_request": "denied",
                 "sentientos.federation.governance_digest_or_quorum_denial_gate": "denied",
                 "sentientos.federation.epoch_or_trust_posture_gate": "denied",
+                "sentientos.federation.replay_or_receipt_consistency_gate": "denied",
+                "sentientos.federation.ingest_replay_admission_gate": "denied",
             }
         )
     )
     assert health["health_status"] == "healthy"
-    assert health["outcome_counts"]["denied"] == 3
+    assert health["outcome_counts"]["denied"] == 5
 
 
 def test_health_signal_is_explicitly_non_sovereign() -> None:

@@ -603,6 +603,50 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         )
         raise ValueError(f"Federated protocol incompatible for {peer_name}")
     if replay_classification in {"incompatible_replay_policy", "peer_too_stale_for_replay_horizon"}:
+        typed_replay_gate = resolve_federation_typed_action_id(replay_classification=replay_classification)
+        try:
+            replay_gate_result = get_federation_canonical_execution_router().execute(
+                typed_action_id=str(typed_replay_gate or ""),
+                peer_name=peer_name,
+                action_kind="federated_control",
+                target_subsystem=f"{peer_name}:replay",
+                correlation_id=correlation_id,
+                metadata={
+                    "correlation_id": correlation_id,
+                    "subject": f"{peer_name}:replay",
+                    "scope": "federated",
+                    "event_type": str(payload.get("event_type", "")),
+                    "replay_horizon_classification": replay_classification,
+                    "replay_horizon_detail": dict(replay_detail),
+                    "protocol_compatibility": protocol_compatibility,
+                },
+                handler=lambda: {"gate": "ingest_replay_admission_gate", "classification": replay_classification},
+            )
+        except ValueError as exc:
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_replay_admission_gate",
+                decision="deny",
+                reason=str(exc),
+                correlation_id=correlation_id,
+                typed_action_id=typed_replay_gate,
+            )
+            raise ValueError(f"Federated replay admission gate failed closed for {peer_name}: {exc}") from exc
+        if replay_gate_result.canonical_outcome != "admitted_succeeded":
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="denied_replay_horizon",
+                decision="deny",
+                reason=f"replay:{replay_classification}",
+                correlation_id=correlation_id,
+                typed_action_id=typed_replay_gate,
+                canonical_outcome=replay_gate_result.canonical_outcome,
+                admission_decision_ref=replay_gate_result.admission_decision_ref,
+                canonical_handler=replay_gate_result.canonical_handler,
+            )
+            raise ValueError(f"Federated replay policy/horizon denied for {peer_name}: {replay_classification}")
         _record_federation_ingest(
             peer_name=peer_name,
             event=payload,
@@ -610,9 +654,57 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             decision="deny",
             reason=f"replay:{replay_classification}",
             correlation_id=correlation_id,
+            typed_action_id=typed_replay_gate,
+            canonical_outcome=replay_gate_result.canonical_outcome,
+            admission_decision_ref=replay_gate_result.admission_decision_ref,
+            canonical_handler=replay_gate_result.canonical_handler,
         )
         raise ValueError(f"Federated replay policy/horizon denied for {peer_name}: {replay_classification}")
     if replay_classification == "peer_outside_accepted_replay_horizon":
+        typed_replay_gate = resolve_federation_typed_action_id(replay_classification=replay_classification)
+        try:
+            replay_gate_result = get_federation_canonical_execution_router().execute(
+                typed_action_id=str(typed_replay_gate or ""),
+                peer_name=peer_name,
+                action_kind="federated_control",
+                target_subsystem=f"{peer_name}:replay",
+                correlation_id=correlation_id,
+                metadata={
+                    "correlation_id": correlation_id,
+                    "subject": f"{peer_name}:replay",
+                    "scope": "federated",
+                    "event_type": str(payload.get("event_type", "")),
+                    "replay_horizon_classification": replay_classification,
+                    "replay_horizon_detail": dict(replay_detail),
+                    "protocol_compatibility": protocol_compatibility,
+                },
+                handler=lambda: {"gate": "ingest_replay_admission_gate", "classification": replay_classification},
+            )
+        except ValueError as exc:
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_replay_admission_gate",
+                decision="deny",
+                reason=str(exc),
+                correlation_id=correlation_id,
+                typed_action_id=typed_replay_gate,
+            )
+            raise ValueError(f"Federated replay admission gate failed closed for {peer_name}: {exc}") from exc
+        if replay_gate_result.canonical_outcome != "admitted_succeeded":
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_replay_admission_gate",
+                decision="deny",
+                reason=f"replay:{replay_classification}",
+                correlation_id=correlation_id,
+                typed_action_id=typed_replay_gate,
+                canonical_outcome=replay_gate_result.canonical_outcome,
+                admission_decision_ref=replay_gate_result.admission_decision_ref,
+                canonical_handler=replay_gate_result.canonical_handler,
+            )
+            raise ValueError(f"Federated replay admission gate failed closed for {peer_name}: {replay_classification}")
         _record_federation_ingest(
             peer_name=peer_name,
             event=payload,
@@ -620,6 +712,10 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             decision="drop",
             reason="signed_but_outside_control_horizon",
             correlation_id=correlation_id,
+            typed_action_id=typed_replay_gate,
+            canonical_outcome=replay_gate_result.canonical_outcome,
+            admission_decision_ref=replay_gate_result.admission_decision_ref,
+            canonical_handler=replay_gate_result.canonical_handler,
         )
         return payload
     if equivocation_classification in {
@@ -627,6 +723,57 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
         "protocol_claim_conflict",
         "replay_claim_conflict",
     }:
+        typed_receipt_gate = resolve_federation_typed_action_id(
+            receipt_consistency_classification=equivocation_classification
+        )
+        try:
+            consistency_gate_result = get_federation_canonical_execution_router().execute(
+                typed_action_id=str(typed_receipt_gate or ""),
+                peer_name=peer_name,
+                action_kind="federated_control",
+                target_subsystem=f"{peer_name}:receipt",
+                correlation_id=correlation_id,
+                metadata={
+                    "correlation_id": correlation_id,
+                    "subject": f"{peer_name}:receipt",
+                    "scope": "federated",
+                    "event_type": str(payload.get("event_type", "")),
+                    "equivocation_classification": equivocation_classification,
+                    "evidence_count": len(equivocation_rows),
+                    "protocol_compatibility": protocol_compatibility,
+                    "replay_horizon_classification": replay_classification,
+                },
+                handler=lambda: (
+                    {"gate": "replay_or_receipt_consistency_gate", "classification": equivocation_classification}
+                    if equivocation_classification != "confirmed_equivocation"
+                    else (_ for _ in ()).throw(ValueError(f"receipt_consistency:{equivocation_classification}"))
+                ),
+            )
+        except ValueError as exc:
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_receipt_consistency",
+                decision="deny",
+                reason=str(exc),
+                correlation_id=correlation_id,
+                typed_action_id=typed_receipt_gate,
+            )
+            raise ValueError(f"Federated receipt consistency gate failed closed for {peer_name}: {exc}") from exc
+        if consistency_gate_result.canonical_outcome != "admitted_succeeded":
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="denied_equivocation",
+                decision="deny",
+                reason=f"equivocation:{equivocation_classification}",
+                correlation_id=correlation_id,
+                typed_action_id=typed_receipt_gate,
+                canonical_outcome=consistency_gate_result.canonical_outcome,
+                admission_decision_ref=consistency_gate_result.admission_decision_ref,
+                canonical_handler=consistency_gate_result.canonical_handler,
+            )
+            raise ValueError(f"Federated equivocation denied for {peer_name}: {equivocation_classification}")
         _record_federation_ingest(
             peer_name=peer_name,
             event=payload,
@@ -634,6 +781,10 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             decision="deny",
             reason=f"equivocation:{equivocation_classification}",
             correlation_id=correlation_id,
+            typed_action_id=typed_receipt_gate,
+            canonical_outcome=consistency_gate_result.canonical_outcome,
+            admission_decision_ref=consistency_gate_result.admission_decision_ref,
+            canonical_handler=consistency_gate_result.canonical_handler,
         )
         get_trust_ledger().record_control_attempt(
             peer_name,
@@ -729,6 +880,50 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
     correlation_id = str(payload.get("correlation_id") or candidate_hash)
     if _is_duplicate_event_hash(candidate_hash):
         logger.info("Suppressed duplicate federated pulse event hash=%s peer=%s", candidate_hash, peer_name)
+        typed_replay_gate = resolve_federation_typed_action_id(replay_classification="duplicate_event_hash")
+        try:
+            replay_gate_result = get_federation_canonical_execution_router().execute(
+                typed_action_id=str(typed_replay_gate or ""),
+                peer_name=peer_name,
+                action_kind="federated_control",
+                target_subsystem=f"{peer_name}:replay",
+                correlation_id=correlation_id,
+                metadata={
+                    "correlation_id": correlation_id,
+                    "subject": f"{peer_name}:replay",
+                    "scope": "federated",
+                    "event_type": str(payload.get("event_type", "")),
+                    "replay_horizon_classification": "duplicate_event_hash",
+                    "event_hash": candidate_hash,
+                    "protocol_compatibility": protocol_compatibility,
+                },
+                handler=lambda: {"gate": "ingest_replay_admission_gate", "classification": "duplicate_event_hash"},
+            )
+        except ValueError as exc:
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_replay_admission_gate",
+                decision="deny",
+                reason=str(exc),
+                correlation_id=correlation_id,
+                typed_action_id=typed_replay_gate,
+            )
+            raise ValueError(f"Federated replay admission gate failed closed for {peer_name}: {exc}") from exc
+        if replay_gate_result.canonical_outcome != "admitted_succeeded":
+            _record_federation_ingest(
+                peer_name=peer_name,
+                event=payload,
+                classification="failed_closed_replay_admission_gate",
+                decision="deny",
+                reason="duplicate_event_hash",
+                correlation_id=correlation_id,
+                typed_action_id=typed_replay_gate,
+                canonical_outcome=replay_gate_result.canonical_outcome,
+                admission_decision_ref=replay_gate_result.admission_decision_ref,
+                canonical_handler=replay_gate_result.canonical_handler,
+            )
+            raise ValueError(f"Federated replay admission gate denied duplicate from {peer_name}")
         trust_ledger.record_replay_signal(peer_name, actor="pulse_federation_ingest", event_hash=candidate_hash)
         _record_federation_ingest(
             peer_name=peer_name,
@@ -737,7 +932,10 @@ def ingest_remote_event(event: pulse_bus.PulseEvent, peer_name: str) -> pulse_bu
             decision="drop",
             reason="duplicate_event_hash",
             correlation_id=correlation_id,
-            typed_action_id=typed_from_payload,
+            typed_action_id=typed_replay_gate,
+            canonical_outcome=replay_gate_result.canonical_outcome,
+            admission_decision_ref=replay_gate_result.admission_decision_ref,
+            canonical_handler=replay_gate_result.canonical_handler,
         )
         return payload
     if isinstance(event_payload, dict):

@@ -18,6 +18,7 @@ from sentientos.federation_bounded_lifecycle import (
     build_bounded_federation_trace_coherence_map,
     resolve_bounded_federation_lifecycle,
 )
+from sentientos.federation_slice_health import synthesize_bounded_federation_seed_health
 
 
 @dataclass(frozen=True)
@@ -304,3 +305,28 @@ def test_latest_lifecycle_rows_use_latest_observed_correlation(tmp_path: Path) -
     restart_row = next(row for row in latest_rows if row["typed_action_identity"] == "sentientos.federation.restart_daemon_request")
     assert restart_row["correlation_id"] == "corr-new"
     assert restart_row["outcome_class"] == "denied"
+
+
+def test_replay_gate_e2e_lifecycle_and_health_inclusion(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(pulse_federation, "get_trust_epoch_manager", lambda: type("M", (), {"classify_epoch": lambda *a, **k: _Trust(True)})())
+    monkeypatch.setattr(pulse_federation, "get_federated_governance_controller", lambda: _Governance(_Evaluation("none", "observe")))
+    monkeypatch.setattr(
+        pulse_federation,
+        "_classify_replay_horizon",
+        lambda event, claim: ("incompatible_replay_policy", {"age_seconds": 7200}),
+    )
+
+    with pytest.raises(ValueError):
+        pulse_federation.ingest_remote_event(_event("corr-replay-health"), "peer-a")
+
+    lifecycle = resolve_bounded_federation_lifecycle(
+        tmp_path,
+        typed_action_id="sentientos.federation.ingest_replay_admission_gate",
+        correlation_id="corr-replay-health",
+    )
+    assert lifecycle["outcome_class"] == "success"
+    assert lifecycle["proof_linkage"] == "present"
+    latest = build_bounded_federation_latest_lifecycle_rows(tmp_path)
+    assert any(row["typed_action_identity"] == "sentientos.federation.ingest_replay_admission_gate" for row in latest)
+    health = synthesize_bounded_federation_seed_health(latest)
+    assert "sentientos.federation.ingest_replay_admission_gate" in health["per_intent_latest_outcome"]
