@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from sentientos.constitutional_slice_pattern import non_sovereign_diagnostic_boundaries
+from sentientos.federation_typed_actions import FEDERATION_TYPED_ACTION_REGISTRY
 
 REQUIRED_FEDERATION_PATTERN_LAYERS: tuple[str, ...] = (
     "typed_federation_action_identity",
@@ -345,6 +347,108 @@ def bounded_federation_slice_onboarding_note() -> dict[str, Any]:
                 "auto-execution framework expansion",
             ],
         },
+        "post_expansion_coherence": {
+            "current_in_scope_intent_ids": list(build_bounded_federation_seed_scaffold().in_scope_intent_ids),
+            "slice_coherence_assessment": "remains_one_bounded_constitutional_subsystem",
+            "single_biggest_remaining_gap": (
+                "health and temporal diagnostics include every in-scope intent uniformly by outcome class, "
+                "but do not yet preserve intent-specific semantic richness for stress attribution."
+            ),
+            "next_move_recommendation": "consolidation_first_before_next_increment",
+        },
+    }
+
+
+def build_post_expansion_bounded_federation_coherence_artifact() -> dict[str, Any]:
+    """Return a compact post-expansion coherence snapshot for the bounded federation slice."""
+
+    scaffold = build_bounded_federation_seed_scaffold()
+    in_scope = list(scaffold.in_scope_intent_ids)
+    typed_ids = list(scaffold.typed_action_ids)
+
+    maturity: list[dict[str, Any]] = []
+    maturity_labels: dict[str, int] = {"fully_integrated": 0, "mostly_integrated": 0, "partially_integrated": 0, "uneven_or_special_cased": 0}
+    for intent_id, typed_action_id in zip(in_scope, typed_ids, strict=True):
+        typed_entry = FEDERATION_TYPED_ACTION_REGISTRY.get(typed_action_id)
+        checks = {
+            "typed_identity": typed_entry is not None and typed_entry.intent == intent_id,
+            "canonical_execution": typed_action_id in scaffold.canonical_handlers,
+            "explicit_outcome_semantics": all(
+                bucket in scaffold.success_denial_admitted_failure_expectations for bucket in ("success", "denial", "admitted_failure")
+            ),
+            "proof_visible_linkage": typed_action_id in scaffold.proof_visible_artifact_boundaries,
+            "lifecycle_resolution": bool(scaffold.lifecycle_trace_requirements.get("bounded_lifecycle_resolver")),
+            "bounded_health_synthesis": bool(scaffold.diagnostic_capabilities_enabled.get("bounded_health_synthesis")),
+            "temporal_stability_retrospective_attention": all(
+                bool(scaffold.diagnostic_capabilities_enabled.get(flag))
+                for flag in (
+                    "bounded_temporal_health_history",
+                    "bounded_stability_oscillation_diagnostics",
+                    "bounded_retrospective_integrity_review",
+                    "bounded_operator_attention_recommendation",
+                )
+            ),
+        }
+        score = sum(1 for value in checks.values() if value)
+        if score == len(checks):
+            classification = "fully_integrated"
+        elif score >= len(checks) - 1:
+            classification = "mostly_integrated"
+        elif score >= 4:
+            classification = "partially_integrated"
+        else:
+            classification = "uneven_or_special_cased"
+        maturity_labels[classification] += 1
+        maturity.append(
+            {
+                "intent_id": intent_id,
+                "typed_action_id": typed_action_id,
+                "classification": classification,
+                "integration_checks": checks,
+                "canonical_ingress_surface": typed_entry.canonical_entry_surface if typed_entry is not None else "missing",
+                "canonical_execution_handler": scaffold.canonical_handlers.get(typed_action_id, "missing"),
+                "proof_visible_boundaries": list(scaffold.proof_visible_artifact_boundaries.get(typed_action_id, ())),
+                "authority_of_judgment_or_reconciliation_semantics": (
+                    "control_plane_kernel_admission_authoritative_for_federated_control"
+                    if "control_plane_kernel" in (typed_entry.canonical_entry_surface if typed_entry is not None else "")
+                    else "ingest_classification_and_canonical_router_linkage_authoritative_for_trace_resolution"
+                ),
+            }
+        )
+
+    coherent = all(row["classification"] == "fully_integrated" for row in maturity)
+    return {
+        "artifact_kind": "bounded_federation_post_expansion_coherence_audit",
+        "slice_id": scaffold.slice_id,
+        "in_scope_intent_count": len(in_scope),
+        "in_scope_intent_ids": in_scope,
+        "per_intent_maturity": maturity,
+        "maturity_counts": maturity_labels,
+        "coherence_verdict": (
+            "coherent_bounded_constitutional_subsystem"
+            if coherent
+            else "fragmenting_or_uneven_sub_slices_detected"
+        ),
+        "single_biggest_remaining_gap": {
+            "gap_id": "diagnostic_semantic_richness_parity",
+            "statement": (
+                "All in-scope intents are included in health/temporal/stability/retrospective/attention layers, "
+                "but those layers currently aggregate by outcome class only and lose intent-specific stress semantics."
+            ),
+            "impact": "can hide uneven stress semantics across intents while still reporting aggregate bounded health.",
+            "fix_scope": "consolidation_before_next_increment",
+        },
+        **non_sovereign_diagnostic_boundaries(
+            derived_from=[
+                "sentientos.federation_slice_pattern.build_bounded_federation_seed_scaffold",
+                "sentientos.federation_typed_actions.FEDERATION_TYPED_ACTION_REGISTRY",
+            ],
+            extra={
+                "support_signal_only": True,
+                "acts_as_federation_adjudicator": False,
+                "does_not_create_new_authority": True,
+            },
+        ),
     }
 
 
@@ -354,6 +458,7 @@ __all__ = [
     "REQUIRED_FEDERATION_PATTERN_LAYERS",
     "FederationSliceScaffold",
     "bounded_federation_slice_onboarding_note",
+    "build_post_expansion_bounded_federation_coherence_artifact",
     "build_bounded_diagnostic_capability_flags",
     "build_bounded_federation_seed_scaffold",
     "validate_federation_slice_scaffold",

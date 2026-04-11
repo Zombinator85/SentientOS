@@ -38,7 +38,7 @@ FEDERATION_TYPED_ACTIONS: tuple[FederationTypedAction, ...] = (
     ),
     FederationTypedAction(
         action_id="sentientos.federation.governance_digest_or_quorum_denial_gate",
-        intent="federation.governance_digest_or_quorum_denial",
+        intent="federation.governance_digest_or_quorum_denial_gate",
         mutation_control_domain="federation_mutation_control_slice",
         authority_class="federated_control",
         lifecycle_context="runtime.control_mediation",
