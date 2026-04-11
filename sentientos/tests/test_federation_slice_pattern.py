@@ -69,3 +69,4 @@ def test_note_captures_reusable_pattern_and_next_candidate_without_rollout() -> 
 
     candidate = note["recommended_next_bounded_candidate"]
     assert candidate["relative_difficulty"].startswith("slightly_harder")
+    assert note["onboarded_increment"]["status"] == "implemented_bounded_increment_v1"

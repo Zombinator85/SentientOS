@@ -99,7 +99,7 @@ def test_preflight_exposes_bounded_seed_health_summary() -> None:
     seed_health = lifecycle_diag["bounded_federation_seed_health"]
     latest = lifecycle_diag["latest_lifecycle_by_intent"]
 
-    assert len(latest) == 3
+    assert len(latest) == 5
     assert set(seed_health["outcome_counts"]) == {
         "success",
         "denied",

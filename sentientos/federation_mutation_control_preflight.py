@@ -295,7 +295,7 @@ def build_federation_mutation_control_preflight(
             "cleared_prerequisite": "canonical_execution_seed_for_bounded_federation_intents",
             "next_prerequisite_unlocked": "next bounded federation expansion can reuse canonical proof-visible admission/outcome linkage and lifecycle resolution checks",
             "bounded_seed_health_note": {
-                "meaning": "bounded federation seed health is a diagnostic synthesis over latest resolved lifecycle outcomes for the three in-scope typed federation intents.",
+                "meaning": "bounded federation seed health is a diagnostic synthesis over latest resolved lifecycle outcomes for the current in-scope typed federation intents.",
                 "history_meaning": "bounded temporal history records the current health snapshot with previous status and one conservative transition classification per evaluation.",
                 "stability_meaning": "bounded stability is a derived, windowed diagnostic over recent seed-health history transitions and existing fragmentation/admitted-failure markers.",
                 "stability_window": "latest six bounded history records",

@@ -19,6 +19,8 @@ BOUNDED_FEDERATION_CANONICAL_ACTIONS: tuple[str, ...] = (
     "sentientos.federation.restart_daemon_request",
     "sentientos.federation.governance_digest_or_quorum_denial_gate",
     "sentientos.federation.epoch_or_trust_posture_gate",
+    "sentientos.federation.replay_or_receipt_consistency_gate",
+    "sentientos.federation.ingest_replay_admission_gate",
 )
 
 
@@ -26,6 +28,8 @@ _CANONICAL_HANDLER_REGISTRY: dict[str, str] = {
     "sentientos.federation.restart_daemon_request": "sentientos.daemons.pulse_federation._canonical_restart_daemon_handler.v1",
     "sentientos.federation.governance_digest_or_quorum_denial_gate": "sentientos.daemons.pulse_federation._canonical_governance_gate_handler.v1",
     "sentientos.federation.epoch_or_trust_posture_gate": "sentientos.daemons.pulse_federation._canonical_epoch_trust_gate_handler.v1",
+    "sentientos.federation.replay_or_receipt_consistency_gate": "sentientos.daemons.pulse_federation._canonical_replay_receipt_consistency_gate_handler.v1",
+    "sentientos.federation.ingest_replay_admission_gate": "sentientos.daemons.pulse_federation._canonical_ingest_replay_admission_gate_handler.v1",
 }
 
 

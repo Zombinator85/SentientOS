@@ -26,6 +26,8 @@ CURRENT_SEED_SPECIFIC_FEDERATION_PATTERN_LAYERS: tuple[str, ...] = (
     "restart_daemon_request_intent",
     "governance_digest_or_quorum_denial_gate_intent",
     "epoch_or_trust_posture_gate_intent",
+    "replay_or_receipt_consistency_gate_intent",
+    "ingest_replay_admission_gate_intent",
 )
 
 
@@ -85,6 +87,8 @@ def build_bounded_federation_seed_scaffold() -> FederationSliceScaffold:
         "sentientos.federation.restart_daemon_request",
         "sentientos.federation.governance_digest_or_quorum_denial_gate",
         "sentientos.federation.epoch_or_trust_posture_gate",
+        "sentientos.federation.replay_or_receipt_consistency_gate",
+        "sentientos.federation.ingest_replay_admission_gate",
     )
     return FederationSliceScaffold(
         slice_id="bounded_federation_seed",
@@ -92,6 +96,8 @@ def build_bounded_federation_seed_scaffold() -> FederationSliceScaffold:
             "federation.restart_daemon_request",
             "federation.governance_digest_or_quorum_denial_gate",
             "federation.epoch_or_trust_posture_gate",
+            "federation.replay_or_receipt_consistency_gate",
+            "federation.ingest_replay_admission_gate",
         ),
         typed_action_ids=typed_action_ids,
         canonical_ingress_surfaces=(
@@ -102,6 +108,8 @@ def build_bounded_federation_seed_scaffold() -> FederationSliceScaffold:
             "sentientos.federation.restart_daemon_request": "sentientos.daemons.pulse_federation._canonical_restart_daemon_handler.v1",
             "sentientos.federation.governance_digest_or_quorum_denial_gate": "sentientos.daemons.pulse_federation._canonical_governance_gate_handler.v1",
             "sentientos.federation.epoch_or_trust_posture_gate": "sentientos.daemons.pulse_federation._canonical_epoch_trust_gate_handler.v1",
+            "sentientos.federation.replay_or_receipt_consistency_gate": "sentientos.daemons.pulse_federation._canonical_replay_receipt_consistency_gate_handler.v1",
+            "sentientos.federation.ingest_replay_admission_gate": "sentientos.daemons.pulse_federation._canonical_ingest_replay_admission_gate_handler.v1",
         },
         proof_visible_artifact_boundaries={
             "sentientos.federation.restart_daemon_request": (
@@ -114,6 +122,14 @@ def build_bounded_federation_seed_scaffold() -> FederationSliceScaffold:
             ),
             "sentientos.federation.epoch_or_trust_posture_gate": (
                 "glow/control_plane/kernel_decisions.jsonl:reason_codes+delegated_outcomes.federation_context",
+                "glow/federation/canonical_execution.jsonl:canonical_handler+admission_decision_ref",
+            ),
+            "sentientos.federation.replay_or_receipt_consistency_gate": (
+                "glow/federation/ingest_classifications.jsonl:event_type+typed_action_id",
+                "glow/federation/canonical_execution.jsonl:canonical_handler+admission_decision_ref",
+            ),
+            "sentientos.federation.ingest_replay_admission_gate": (
+                "glow/federation/ingest_classifications.jsonl:event_type+typed_action_id",
                 "glow/federation/canonical_execution.jsonl:canonical_handler+admission_decision_ref",
             ),
         },
@@ -307,6 +323,27 @@ def bounded_federation_slice_onboarding_note() -> dict[str, Any]:
                 "explicit proof-visible boundary declarations for replay/receipt artifacts",
             ],
             "relative_difficulty": "slightly_harder_than_current_seed_due_to_multi_artifact_replay_coherence_checks",
+        },
+        "onboarded_increment": {
+            "intent_set": [
+                "federation.replay_or_receipt_consistency_gate",
+                "federation.ingest_replay_admission_gate",
+            ],
+            "status": "implemented_bounded_increment_v1",
+            "scaffold_requirements_satisfied": [
+                "typed_federation_action_identity",
+                "bounded_canonical_execution_path",
+                "explicit_success_denial_admitted_failure_semantics",
+                "proof_visible_execution_history",
+                "bounded_lifecycle_resolution",
+                "bounded_health_synthesis",
+            ],
+            "next_after_this_increment": "promote replay receipt artifact redundancy checks as optional hardening only",
+            "still_out_of_scope": [
+                "whole-federation intent onboarding",
+                "new sovereignty or governance layer introduction",
+                "auto-execution framework expansion",
+            ],
         },
     }
 

@@ -54,6 +54,24 @@ FEDERATION_TYPED_ACTIONS: tuple[FederationTypedAction, ...] = (
         canonical_entry_surface="sentientos.control_plane_kernel.ControlPlaneKernel.admit(authority_class=FEDERATED_CONTROL)",
         proof_visible_boundary="glow/control_plane/kernel_decisions.jsonl:reason_codes+delegated_outcomes.federation_context",
     ),
+    FederationTypedAction(
+        action_id="sentientos.federation.replay_or_receipt_consistency_gate",
+        intent="federation.replay_or_receipt_consistency_gate",
+        mutation_control_domain="federation_mutation_control_slice",
+        authority_class="federated_control",
+        lifecycle_context="runtime.replay_receipt_consistency_gate",
+        canonical_entry_surface="sentientos.control_plane_kernel.ControlPlaneKernel.admit(authority_class=FEDERATED_CONTROL)",
+        proof_visible_boundary="glow/federation/canonical_execution.jsonl:canonical_handler+admission_decision_ref",
+    ),
+    FederationTypedAction(
+        action_id="sentientos.federation.ingest_replay_admission_gate",
+        intent="federation.ingest_replay_admission_gate",
+        mutation_control_domain="federation_mutation_control_slice",
+        authority_class="federated_control",
+        lifecycle_context="runtime.ingest_replay_admission_gate",
+        canonical_entry_surface="sentientos.daemons.pulse_federation.ingest_remote_event",
+        proof_visible_boundary="glow/federation/ingest_classifications.jsonl:event_type+typed_action_id",
+    ),
 )
 
 FEDERATION_TYPED_ACTION_REGISTRY: dict[str, FederationTypedAction] = {
@@ -78,6 +96,8 @@ def resolve_federation_typed_action_id(
     payload_action: str = "",
     denial_cause: str = "",
     trust_epoch_classification: str = "",
+    replay_classification: str = "",
+    receipt_consistency_classification: str = "",
 ) -> str | None:
     action = payload_action.strip().lower()
     if action == "restart_daemon":
@@ -88,6 +108,21 @@ def resolve_federation_typed_action_id(
     trust = trust_epoch_classification.strip().lower()
     if trust and trust not in {"trusted", "ok", "allow"}:
         return "sentientos.federation.epoch_or_trust_posture_gate"
+    replay = replay_classification.strip().lower()
+    if replay in {
+        "incompatible_replay_policy",
+        "peer_too_stale_for_replay_horizon",
+        "peer_outside_accepted_replay_horizon",
+        "duplicate_event_hash",
+    }:
+        return "sentientos.federation.ingest_replay_admission_gate"
+    receipt = receipt_consistency_classification.strip().lower()
+    if receipt in {
+        "confirmed_equivocation",
+        "protocol_claim_conflict",
+        "replay_claim_conflict",
+    }:
+        return "sentientos.federation.replay_or_receipt_consistency_gate"
     return None
 
 
@@ -107,7 +142,12 @@ def federation_typed_action_diagnostic() -> dict[str, Any]:
                 "emits_action_ids": [
                     "sentientos.federation.governance_digest_or_quorum_denial_gate",
                     "sentientos.federation.epoch_or_trust_posture_gate",
+                    "sentientos.federation.replay_or_receipt_consistency_gate",
                 ],
+            },
+            {
+                "surface": "sentientos.daemons.pulse_federation.ingest_remote_event(replay/duplicate gate)",
+                "emits_action_ids": ["sentientos.federation.ingest_replay_admission_gate"],
             },
         ],
         "untyped_out_of_scope_intents": [
