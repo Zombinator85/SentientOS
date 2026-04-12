@@ -11,7 +11,12 @@ from sentientos.scoped_slice_stability import derive_scoped_slice_stability
 from sentientos.scoped_slice_retrospective_integrity import derive_scoped_slice_retrospective_integrity_review
 from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice_attention_recommendation
 from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
-from sentientos.orchestration_intent_fabric import append_orchestration_intent_ledger, synthesize_orchestration_intent
+from sentientos.orchestration_intent_fabric import (
+    admit_orchestration_intent,
+    append_orchestration_intent_ledger,
+    executable_handoff_map,
+    synthesize_orchestration_intent,
+)
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -80,6 +85,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     delegated_judgment = synthesize_delegated_judgment(delegated_judgment_evidence)
     orchestration_intent = synthesize_orchestration_intent(delegated_judgment)
     orchestration_ledger_path = append_orchestration_intent_ledger(root, orchestration_intent)
+    handoff_result = admit_orchestration_intent(root, orchestration_intent)
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -90,8 +96,10 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "slice_operator_attention_recommendation": operator_attention_recommendation,
         "delegated_judgment": delegated_judgment,
         "orchestration_handoff": {
+            "executable_handoff_map": executable_handoff_map(),
             "intent": orchestration_intent,
-            "ledger_path": str(orchestration_ledger_path.relative_to(root)),
+            "intent_ledger_path": str(orchestration_ledger_path.relative_to(root)),
+            "handoff_result": handoff_result,
         },
         "actions": rows,
     }
