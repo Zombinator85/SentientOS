@@ -10,6 +10,7 @@ from sentientos.scoped_slice_health_history import persist_scoped_slice_health_h
 from sentientos.scoped_slice_stability import derive_scoped_slice_stability
 from sentientos.scoped_slice_retrospective_integrity import derive_scoped_slice_retrospective_integrity_review
 from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice_attention_recommendation
+from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -67,6 +68,15 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         slice_stability=slice_stability,
         retrospective_integrity_review=retrospective_integrity_review,
     )
+    delegated_judgment_evidence = collect_delegated_judgment_evidence(
+        root,
+        scoped_lifecycle={
+            "slice_health": slice_health,
+            "slice_stability": slice_stability,
+            "slice_retrospective_integrity_review": retrospective_integrity_review,
+        },
+    )
+    delegated_judgment = synthesize_delegated_judgment(delegated_judgment_evidence)
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -75,5 +85,6 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "slice_stability": slice_stability,
         "slice_retrospective_integrity_review": retrospective_integrity_review,
         "slice_operator_attention_recommendation": operator_attention_recommendation,
+        "delegated_judgment": delegated_judgment,
         "actions": rows,
     }
