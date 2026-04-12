@@ -19,8 +19,22 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
         "how_it_differs_from_execution": [
             "it does not execute external tools, browser, keyboard, or mouse actions",
             "it does not bypass task admission, kernel, or governor decisions",
-            "it stages executable internal intents for admission; all execution remains downstream",
+            "it can hand internal_maintenance_execution intents into task_admission for bounded admission only",
+            "handoff admission is not execution completion; execution remains downstream",
         ],
+        "internal_handoff_now_operational": {
+            "intent_kind": "internal_maintenance_execution",
+            "execution_target": "task_admission_executor",
+            "admission_surface": "task_admission.admit",
+            "handoff_outcomes": [
+                "admitted_to_execution_substrate",
+                "blocked_by_admission",
+                "blocked_by_operator_requirement",
+                "blocked_by_insufficient_context",
+                "execution_target_unavailable",
+                "staged_only",
+            ],
+        },
         "venue_to_executability": {
             "internal_direct_execution": "executable_now via task admission staging",
             "codex_implementation": "stageable_external_work_order",
@@ -29,10 +43,17 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             "insufficient_context": "blocked_insufficient_context",
         },
         "proof_visible_artifact": "glow/orchestration/orchestration_intents.jsonl",
+        "handoff_artifact": "glow/orchestration/orchestration_handoffs.jsonl",
+        "venues_still_staged_only": [
+            "codex_implementation",
+            "deep_research_audit",
+            "operator_decision_required",
+        ],
         "not_in_scope_yet": [
             "direct Codex invocation",
             "direct Deep Research invocation",
             "direct external adapter actuation",
             "direct browser/mouse/keyboard tool control",
+            "external tool delegation with real execution authority",
         ],
     }

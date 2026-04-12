@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+import task_admission
+import task_executor
+
 _INTENT_KINDS = {
     "internal_maintenance_execution",
     "codex_work_order",
@@ -44,6 +47,15 @@ _ADMISSION_STATES = {
     "deferred_insufficient_context",
     "staged_non_executable_work_order",
     "no_action",
+}
+
+_HANDOFF_OUTCOMES = {
+    "staged_only",
+    "admitted_to_execution_substrate",
+    "blocked_by_admission",
+    "blocked_by_operator_requirement",
+    "blocked_by_insufficient_context",
+    "execution_target_unavailable",
 }
 
 
@@ -203,3 +215,195 @@ def append_orchestration_intent_ledger(repo_root: Path, intent: Mapping[str, Any
     with ledger_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(intent), sort_keys=True) + "\n")
     return ledger_path
+
+
+def _validate_handoff_minimum_fields(intent: Mapping[str, Any]) -> list[str]:
+    missing: list[str] = []
+    if not str(intent.get("intent_id") or "").strip():
+        missing.append("intent_id")
+    if not str(intent.get("intent_kind") or "").strip():
+        missing.append("intent_kind")
+    if not str(intent.get("execution_target") or "").strip():
+        missing.append("execution_target")
+    if not str(intent.get("executability_classification") or "").strip():
+        missing.append("executability_classification")
+    source = intent.get("source_delegated_judgment")
+    if not isinstance(source, Mapping):
+        missing.append("source_delegated_judgment")
+        return missing
+    if not str(source.get("recommended_venue") or "").strip():
+        missing.append("source_delegated_judgment.recommended_venue")
+    if not str(source.get("work_class") or "").strip():
+        missing.append("source_delegated_judgment.work_class")
+    if not str(source.get("escalation_classification") or "").strip():
+        missing.append("source_delegated_judgment.escalation_classification")
+    return missing
+
+
+def _build_internal_maintenance_task(intent: Mapping[str, Any]) -> task_executor.Task:
+    source = intent.get("source_delegated_judgment")
+    source_mapping = source if isinstance(source, Mapping) else {}
+    return task_executor.Task(
+        task_id=f"orh-{str(intent.get('intent_id') or 'missing')}",
+        objective="orchestration_intent_internal_maintenance_handoff",
+        constraints=(
+            "bounded_orchestration_handoff_only",
+            "no_external_tool_direct_invocation",
+            "admission_required_before_execution",
+        ),
+        steps=(
+            task_executor.Step(
+                step_id=1,
+                kind="noop",
+                payload=task_executor.NoopPayload(
+                    note=json.dumps(
+                        {
+                            "intent_kind": intent.get("intent_kind"),
+                            "recommended_venue": source_mapping.get("recommended_venue"),
+                            "executability_classification": intent.get("executability_classification"),
+                        },
+                        sort_keys=True,
+                    ),
+                ),
+            ),
+        ),
+        allow_epr=False,
+        required_privileges=("orchestration_intent_handoff",),
+    )
+
+
+def _default_admission_context() -> task_admission.AdmissionContext:
+    return task_admission.AdmissionContext(
+        actor="orchestration_intent_fabric",
+        mode="autonomous",
+        node_id="sentientos_orchestration_handoff",
+        vow_digest=None,
+        doctrine_digest=None,
+        now_utc_iso=_iso_utc_now(),
+    )
+
+
+def _default_admission_policy() -> task_admission.AdmissionPolicy:
+    return task_admission.AdmissionPolicy(policy_version="orchestration_intent_handoff.v1")
+
+
+def append_orchestration_handoff_ledger(repo_root: Path, handoff: Mapping[str, Any]) -> Path:
+    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_handoffs.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(handoff), sort_keys=True) + "\n")
+    return ledger_path
+
+
+def executable_handoff_map() -> dict[str, Any]:
+    return {
+        "intent_kind_to_handoff": {
+            "internal_maintenance_execution": {
+                "execution_target": "task_admission_executor",
+                "executability_classification": "executable_now",
+                "admission_surface": "task_admission.admit",
+                "handoff_path_status": "operational",
+            },
+            "codex_work_order": {
+                "execution_target": "no_execution_target_yet",
+                "executability_classification": "stageable_external_work_order",
+                "admission_surface": "none",
+                "handoff_path_status": "staged_only",
+            },
+            "deep_research_work_order": {
+                "execution_target": "no_execution_target_yet",
+                "executability_classification": "stageable_external_work_order",
+                "admission_surface": "none",
+                "handoff_path_status": "staged_only",
+            },
+            "operator_review_request": {
+                "execution_target": "no_execution_target_yet",
+                "executability_classification": "blocked_operator_required",
+                "admission_surface": "operator-only",
+                "handoff_path_status": "blocked_or_staged",
+            },
+            "hold_no_action": {
+                "execution_target": "no_execution_target_yet",
+                "executability_classification": "no_action_recommended",
+                "admission_surface": "none",
+                "handoff_path_status": "not_applicable",
+            },
+        },
+        "known_named_targets_without_handoff_path": [
+            "mutation_router",
+            "federation_canonical_execution",
+            "external_tool_placeholder",
+        ],
+    }
+
+
+def admit_orchestration_intent(
+    repo_root: Path,
+    intent: Mapping[str, Any],
+    *,
+    admission_context: task_admission.AdmissionContext | None = None,
+    admission_policy: task_admission.AdmissionPolicy | None = None,
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    missing_fields = _validate_handoff_minimum_fields(intent)
+    execution_target = str(intent.get("execution_target") or "")
+    executability = str(intent.get("executability_classification") or "")
+    authority_posture = str(intent.get("required_authority_posture") or "")
+
+    outcome = "staged_only"
+    details: dict[str, Any] = {
+        "intent_id": str(intent.get("intent_id") or ""),
+        "intent_kind": str(intent.get("intent_kind") or ""),
+        "execution_target": execution_target,
+        "executability_classification": executability,
+    }
+
+    if missing_fields:
+        outcome = "blocked_by_insufficient_context"
+        details["missing_required_fields"] = missing_fields
+    elif executability != "executable_now":
+        outcome = "staged_only"
+    elif authority_posture != "no_additional_operator_approval_required":
+        outcome = "blocked_by_operator_requirement"
+        details["required_authority_posture"] = authority_posture
+    elif execution_target != "task_admission_executor":
+        outcome = "execution_target_unavailable"
+    else:
+        ctx = admission_context or _default_admission_context()
+        policy = admission_policy or _default_admission_policy()
+        task = _build_internal_maintenance_task(intent)
+        decision = task_admission.admit(task, ctx, policy)
+        task_admission._log_admission_event(decision, task, ctx, policy)
+        details["task_admission"] = {
+            "task_id": task.task_id,
+            "allowed": decision.allowed,
+            "reason": decision.reason,
+            "policy_version": decision.policy_version,
+            "constraints": decision.constraints,
+            "log_path": str(task_admission._resolve_admission_log_path().relative_to(root))
+            if task_admission._resolve_admission_log_path().is_relative_to(root)
+            else str(task_admission._resolve_admission_log_path()),
+        }
+        outcome = "admitted_to_execution_substrate" if decision.allowed else "blocked_by_admission"
+
+    if outcome not in _HANDOFF_OUTCOMES:
+        outcome = "blocked_by_insufficient_context"
+
+    handoff_record = {
+        "schema_version": "orchestration_handoff.v1",
+        "recorded_at": _iso_utc_now(),
+        "handoff_outcome": outcome,
+        "intent_ref": {
+            "intent_id": str(intent.get("intent_id") or ""),
+            "intent_kind": str(intent.get("intent_kind") or ""),
+        },
+        "details": details,
+        "non_authoritative": True,
+        "does_not_execute_task_directly": True,
+        "does_not_invoke_external_tools": True,
+    }
+    handoff_ledger_path = append_orchestration_handoff_ledger(root, handoff_record)
+    return {
+        **handoff_record,
+        "ledger_path": str(handoff_ledger_path.relative_to(root)),
+    }
