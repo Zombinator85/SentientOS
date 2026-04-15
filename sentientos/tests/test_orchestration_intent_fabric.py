@@ -12,6 +12,7 @@ from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
+    derive_orchestration_outcome_review,
     executable_handoff_map,
     resolve_orchestration_result,
     synthesize_orchestration_intent,
@@ -462,3 +463,181 @@ def test_end_to_end_closed_loop_judgment_to_handoff_to_execution_result(monkeypa
     assert resolution["loop_closed"] is True
     gap_map = build_handoff_execution_gap_map(tmp_path)
     assert gap_map["minimal_missing_linkage"].startswith("resolve admitted handoff task_id")
+
+
+def _seed_orchestration_history(
+    tmp_path: Path,
+    *,
+    outcomes: list[str],
+    executor_statuses: list[str | None],
+) -> Path:
+    intent_rows: list[dict[str, object]] = []
+    handoff_rows: list[dict[str, object]] = []
+    executor_rows: list[dict[str, object]] = []
+    for idx, handoff_outcome in enumerate(outcomes):
+        intent_id = f"orh-seed-{idx}"
+        intent_rows.append(
+            {
+                "schema_version": "orchestration_intent.v1",
+                "intent_id": intent_id,
+            }
+        )
+        details: dict[str, object] = {}
+        status = executor_statuses[idx]
+        if handoff_outcome == "admitted_to_execution_substrate":
+            task_id = f"task-{idx}"
+            details["task_admission"] = {"task_id": task_id}
+            if status is not None:
+                executor_rows.append({"task_id": task_id, "event": "task_result", "status": status})
+        handoff_rows.append(
+            {
+                "schema_version": "orchestration_handoff.v1",
+                "handoff_outcome": handoff_outcome,
+                "intent_ref": {"intent_id": intent_id, "intent_kind": "internal_maintenance_execution"},
+                "details": details,
+            }
+        )
+
+    intent_path = tmp_path / "glow/orchestration/orchestration_intents.jsonl"
+    handoff_path = tmp_path / "glow/orchestration/orchestration_handoffs.jsonl"
+    executor_path = tmp_path / "logs/task_executor.jsonl"
+    _write_jsonl(intent_path, intent_rows)
+    _write_jsonl(handoff_path, handoff_rows)
+    _write_jsonl(executor_path, executor_rows)
+    return executor_path
+
+
+def test_outcome_review_success_dominant_classifies_clean(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "blocked_by_admission",
+            "admitted_to_execution_substrate",
+        ],
+        executor_statuses=["completed", "completed", "completed", None, "failed"],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "clean_recent_orchestration"
+    assert review["summary"]["recent_pattern"] == "healthy_bounded_orchestration"
+
+
+def test_outcome_review_block_heavy_classifies_blocked_pattern(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "blocked_by_admission",
+            "blocked_by_admission",
+            "blocked_by_operator_requirement",
+            "admitted_to_execution_substrate",
+            "staged_only",
+        ],
+        executor_statuses=[None, None, None, "completed", None],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "handoff_block_heavy"
+    assert review["condition_flags"]["blocked_heavy"] is True
+
+
+def test_outcome_review_failure_heavy_classifies_execution_failure_pattern(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+        ],
+        executor_statuses=["failed", "failed", "completed", "failed"],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "execution_failure_heavy"
+    assert review["condition_flags"]["failure_heavy"] is True
+
+
+def test_outcome_review_pending_heavy_classifies_stall_pattern(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+        ],
+        executor_statuses=[None, None, "completed", None],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "pending_stall_pattern"
+    assert review["condition_flags"]["stall_heavy"] is True
+
+
+def test_outcome_review_mixed_classifies_stress_pattern(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "blocked_by_admission",
+            "staged_only",
+            "admitted_to_execution_substrate",
+        ],
+        executor_statuses=["completed", "failed", None, None, None],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "mixed_orchestration_stress"
+    assert review["summary"]["recent_pattern"] == "orchestration_stress_or_uncertainty"
+
+
+def test_outcome_review_insufficient_history_when_too_few_records(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=["admitted_to_execution_substrate", "blocked_by_admission"],
+        executor_statuses=["completed", None],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    assert review["review_classification"] == "insufficient_history"
+    assert review["records_considered"] == 2
+
+
+def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritative(
+    monkeypatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+
+    def _fake_resolver(_repo_root: Path, *, action_id: str, correlation_id: str) -> dict[str, object]:
+        return {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        }
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle", _fake_resolver)
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-orh-review",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    review = diagnostic["orchestration_handoff"]["outcome_review"]
+
+    assert "review_classification" in review
+    assert "recent_outcome_counts" in review
+    assert review["diagnostic_only"] is True
+    assert review["non_authoritative"] is True
+    assert review["decision_power"] == "none"
+    assert review["does_not_change_admission_or_execution_authority"] is True
