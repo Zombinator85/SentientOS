@@ -76,6 +76,16 @@ _ORCHESTRATION_REVIEW_CLASSES = {
     "insufficient_history",
 }
 
+_ORCHESTRATION_ATTENTION_RECOMMENDATIONS = {
+    "none",
+    "observe",
+    "inspect_handoff_blocks",
+    "inspect_execution_failures",
+    "inspect_pending_stall",
+    "review_mixed_orchestration_stress",
+    "insufficient_context",
+}
+
 
 def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -549,6 +559,100 @@ def derive_orchestration_outcome_review(
         "review_only": True,
         "recommendation_only": True,
         "does_not_change_admission_or_execution_authority": True,
+    }
+
+
+def derive_orchestration_attention_recommendation(
+    outcome_review: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive bounded operator-attention recommendation from orchestration outcome review only."""
+
+    review_classification = str(outcome_review.get("review_classification") or "insufficient_history")
+    records_considered = int(outcome_review.get("records_considered") or 0)
+    condition_flags_raw = outcome_review.get("condition_flags")
+    condition_flags = condition_flags_raw if isinstance(condition_flags_raw, Mapping) else {}
+    blocked_heavy = bool(condition_flags.get("blocked_heavy"))
+    failure_heavy = bool(condition_flags.get("failure_heavy"))
+    stall_heavy = bool(condition_flags.get("stall_heavy"))
+    recent_counts_raw = outcome_review.get("recent_outcome_counts")
+    recent_outcome_counts = recent_counts_raw if isinstance(recent_counts_raw, Mapping) else {}
+    handoff_not_admitted = int(recent_outcome_counts.get("handoff_not_admitted") or 0)
+    light_block_pattern = handoff_not_admitted >= 1 and not blocked_heavy
+
+    recommendation = "insufficient_context"
+    rationale = "insufficient_orchestration_history_for_confident_attention_guidance"
+
+    if review_classification == "clean_recent_orchestration":
+        recommendation = "none"
+        rationale = "recent_internal_orchestration_outcomes_are_clean_and_loop_closure_is_healthy"
+    elif review_classification == "handoff_block_heavy" or blocked_heavy:
+        recommendation = "inspect_handoff_blocks"
+        rationale = "recent_history_shows_block_heavy_internal_handoff_behavior"
+    elif review_classification == "execution_failure_heavy" or failure_heavy:
+        recommendation = "inspect_execution_failures"
+        rationale = "recent_history_shows_execution_failure_heavy_pattern_after_admission"
+    elif review_classification == "pending_stall_pattern" or stall_heavy:
+        recommendation = "inspect_pending_stall"
+        rationale = "recent_history_shows_pending_or_missing_result_stall_pattern"
+    elif review_classification == "mixed_orchestration_stress":
+        recommendation = "review_mixed_orchestration_stress"
+        rationale = "recent_history_shows_mixed_orchestration_stress_needing_human_interpretation"
+    elif review_classification == "insufficient_history":
+        recommendation = "insufficient_context"
+        rationale = "insufficient_recent_orchestration_history_for_specific_attention_recommendation"
+    elif light_block_pattern and records_considered >= 3 and review_classification not in {"clean_recent_orchestration"}:
+        recommendation = "observe"
+        rationale = "light_non_failure_handoff_block_pattern_detected_observe_before_deeper_intervention"
+
+    if (
+        light_block_pattern
+        and review_classification == "mixed_orchestration_stress"
+        and recommendation == "review_mixed_orchestration_stress"
+    ):
+        recommendation = "observe"
+        rationale = "light_non_failure_handoff_block_pattern_detected_observe_before_deeper_intervention"
+
+    if recommendation not in _ORCHESTRATION_ATTENTION_RECOMMENDATIONS:
+        recommendation = "insufficient_context"
+        rationale = "unrecognized_review_pattern_defaulted_to_insufficient_context"
+
+    return {
+        "schema_version": "orchestration_attention_recommendation.v1",
+        "source": "orchestration_outcome_review",
+        "review_ref": {
+            "schema_version": str(outcome_review.get("schema_version") or ""),
+            "review_kind": str(outcome_review.get("review_kind") or ""),
+            "review_classification": review_classification,
+        },
+        "operator_attention_recommendation": recommendation,
+        "basis": {
+            "records_considered": records_considered,
+            "condition_flags": {
+                "blocked_heavy": blocked_heavy,
+                "failure_heavy": failure_heavy,
+                "stall_heavy": stall_heavy,
+                "light_block_pattern": light_block_pattern,
+            },
+            "recent_outcome_counts": {
+                "execution_succeeded": int(recent_outcome_counts.get("execution_succeeded") or 0),
+                "execution_failed": int(recent_outcome_counts.get("execution_failed") or 0),
+                "handoff_admitted_pending_result": int(recent_outcome_counts.get("handoff_admitted_pending_result") or 0),
+                "execution_still_pending": int(recent_outcome_counts.get("execution_still_pending") or 0),
+                "execution_result_missing": int(recent_outcome_counts.get("execution_result_missing") or 0),
+                "handoff_not_admitted": handoff_not_admitted,
+            },
+            "rationale": rationale,
+            "derived_from_existing_signals_only": [
+                "orchestration_outcome_review.review_classification",
+                "orchestration_outcome_review.condition_flags",
+                "orchestration_outcome_review.recent_outcome_counts",
+            ],
+        },
+        "diagnostic_only": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "recommendation_only": True,
+        "does_not_change_admission_or_execution": True,
     }
 
 
