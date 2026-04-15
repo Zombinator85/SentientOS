@@ -79,6 +79,29 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "a new execution venue",
             ],
         },
+        "operator_attention_recommendation": {
+            "meaning": "bounded diagnostic recommendation about what operator attention internal orchestration behavior likely needs.",
+            "derived_from": [
+                "orchestration_outcome_review.review_classification",
+                "orchestration_outcome_review.condition_flags",
+                "orchestration_outcome_review.recent_outcome_counts",
+            ],
+            "values": [
+                "none",
+                "observe",
+                "inspect_handoff_blocks",
+                "inspect_execution_failures",
+                "inspect_pending_stall",
+                "review_mixed_orchestration_stress",
+                "insufficient_context",
+            ],
+            "explicitly_not": [
+                "workflow automation authority",
+                "admission policy mutation",
+                "execution control",
+                "a sovereign decision surface",
+            ],
+        },
         "venues_still_staged_only": [
             "codex_implementation",
             "deep_research_audit",

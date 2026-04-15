@@ -12,6 +12,7 @@ from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
+    derive_orchestration_attention_recommendation,
     derive_orchestration_outcome_review,
     executable_handoff_map,
     resolve_orchestration_result,
@@ -523,6 +524,8 @@ def test_outcome_review_success_dominant_classifies_clean(tmp_path: Path) -> Non
     review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
     assert review["review_classification"] == "clean_recent_orchestration"
     assert review["summary"]["recent_pattern"] == "healthy_bounded_orchestration"
+    attention = derive_orchestration_attention_recommendation(review)
+    assert attention["operator_attention_recommendation"] == "none"
 
 
 def test_outcome_review_block_heavy_classifies_blocked_pattern(tmp_path: Path) -> None:
@@ -541,6 +544,8 @@ def test_outcome_review_block_heavy_classifies_blocked_pattern(tmp_path: Path) -
     review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
     assert review["review_classification"] == "handoff_block_heavy"
     assert review["condition_flags"]["blocked_heavy"] is True
+    attention = derive_orchestration_attention_recommendation(review)
+    assert attention["operator_attention_recommendation"] == "inspect_handoff_blocks"
 
 
 def test_outcome_review_failure_heavy_classifies_execution_failure_pattern(tmp_path: Path) -> None:
@@ -558,6 +563,8 @@ def test_outcome_review_failure_heavy_classifies_execution_failure_pattern(tmp_p
     review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
     assert review["review_classification"] == "execution_failure_heavy"
     assert review["condition_flags"]["failure_heavy"] is True
+    attention = derive_orchestration_attention_recommendation(review)
+    assert attention["operator_attention_recommendation"] == "inspect_execution_failures"
 
 
 def test_outcome_review_pending_heavy_classifies_stall_pattern(tmp_path: Path) -> None:
@@ -575,6 +582,8 @@ def test_outcome_review_pending_heavy_classifies_stall_pattern(tmp_path: Path) -
     review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
     assert review["review_classification"] == "pending_stall_pattern"
     assert review["condition_flags"]["stall_heavy"] is True
+    attention = derive_orchestration_attention_recommendation(review)
+    assert attention["operator_attention_recommendation"] == "inspect_pending_stall"
 
 
 def test_outcome_review_mixed_classifies_stress_pattern(tmp_path: Path) -> None:
@@ -593,6 +602,11 @@ def test_outcome_review_mixed_classifies_stress_pattern(tmp_path: Path) -> None:
     review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
     assert review["review_classification"] == "mixed_orchestration_stress"
     assert review["summary"]["recent_pattern"] == "orchestration_stress_or_uncertainty"
+    attention = derive_orchestration_attention_recommendation(review)
+    assert attention["operator_attention_recommendation"] in {
+        "review_mixed_orchestration_stress",
+        "observe",
+    }
 
 
 def test_outcome_review_insufficient_history_when_too_few_records(tmp_path: Path) -> None:
@@ -605,6 +619,27 @@ def test_outcome_review_insufficient_history_when_too_few_records(tmp_path: Path
     review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
     assert review["review_classification"] == "insufficient_history"
     assert review["records_considered"] == 2
+    attention = derive_orchestration_attention_recommendation(review)
+    assert attention["operator_attention_recommendation"] == "insufficient_context"
+
+
+def test_attention_recommendation_light_block_pattern_prefers_observe(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "blocked_by_admission",
+            "admitted_to_execution_substrate",
+            "staged_only",
+        ],
+        executor_statuses=["completed", "completed", None, "completed", None],
+    )
+
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    attention = derive_orchestration_attention_recommendation(review)
+    assert review["review_classification"] in {"clean_recent_orchestration", "mixed_orchestration_stress"}
+    assert attention["operator_attention_recommendation"] in {"none", "observe"}
 
 
 def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritative(
@@ -634,6 +669,7 @@ def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritati
 
     diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
     review = diagnostic["orchestration_handoff"]["outcome_review"]
+    attention = diagnostic["orchestration_handoff"]["attention_recommendation"]
 
     assert "review_classification" in review
     assert "recent_outcome_counts" in review
@@ -641,3 +677,62 @@ def test_diagnostic_consumer_surfaces_outcome_review_and_remains_non_authoritati
     assert review["non_authoritative"] is True
     assert review["decision_power"] == "none"
     assert review["does_not_change_admission_or_execution_authority"] is True
+    assert attention["operator_attention_recommendation"] in {
+        "none",
+        "observe",
+        "inspect_handoff_blocks",
+        "inspect_execution_failures",
+        "inspect_pending_stall",
+        "review_mixed_orchestration_stress",
+        "insufficient_context",
+    }
+    assert attention["diagnostic_only"] is True
+    assert attention["non_authoritative"] is True
+    assert attention["decision_power"] == "none"
+    assert attention["recommendation_only"] is True
+    assert attention["does_not_change_admission_or_execution"] is True
+
+
+def test_recent_history_review_to_attention_to_consumer_stays_non_authoritative(tmp_path: Path) -> None:
+    executor_log = _seed_orchestration_history(
+        tmp_path,
+        outcomes=[
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+            "admitted_to_execution_substrate",
+        ],
+        executor_statuses=["failed", "failed", "completed", "failed"],
+    )
+    review = derive_orchestration_outcome_review(tmp_path, executor_log_path=executor_log)
+    attention = derive_orchestration_attention_recommendation(review)
+
+    assert review["review_classification"] == "execution_failure_heavy"
+    assert attention["operator_attention_recommendation"] == "inspect_execution_failures"
+    assert attention["review_ref"]["review_classification"] == review["review_classification"]
+    assert attention["non_authoritative"] is True
+    assert attention["decision_power"] == "none"
+    assert attention["does_not_change_admission_or_execution"] is True
+
+
+def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    review = derive_orchestration_outcome_review(tmp_path)
+    attention = derive_orchestration_attention_recommendation(review)
+    after = admit_orchestration_intent(tmp_path, intent)
+
+    assert attention["does_not_change_admission_or_execution"] is True
+    assert before["handoff_outcome"] == "admitted_to_execution_substrate"
+    assert after["handoff_outcome"] == "admitted_to_execution_substrate"
