@@ -87,6 +87,29 @@ _ORCHESTRATION_ATTENTION_RECOMMENDATIONS = {
 }
 
 
+def _anti_sovereignty_payload(
+    *,
+    recommendation_only: bool,
+    diagnostic_only: bool,
+    does_not_invoke_external_tools: bool | None = None,
+    does_not_change_admission_or_execution: bool | None = None,
+    additional_fields: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "non_authoritative": True,
+        "decision_power": "none",
+        "recommendation_only": recommendation_only,
+        "diagnostic_only": diagnostic_only,
+    }
+    if does_not_invoke_external_tools is not None:
+        payload["does_not_invoke_external_tools"] = does_not_invoke_external_tools
+    if does_not_change_admission_or_execution is not None:
+        payload["does_not_change_admission_or_execution"] = does_not_change_admission_or_execution
+    if additional_fields:
+        payload.update(dict(additional_fields))
+    return payload
+
+
 def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -224,11 +247,12 @@ def synthesize_orchestration_intent(
         "work_order": work_order,
         "requires_admission": execution_target in {"task_admission_executor", "mutation_router", "federation_canonical_execution"},
         "requires_operator_approval": requires_operator_approval,
-        "non_authoritative": True,
-        "recommendation_only": False,
-        "diagnostic_only": False,
+        **_anti_sovereignty_payload(
+            recommendation_only=False,
+            diagnostic_only=False,
+            does_not_invoke_external_tools=True,
+        ),
         "staged_handoff_only": executability != "executable_now",
-        "does_not_invoke_external_tools": True,
         "does_not_override_existing_admission": True,
         "does_not_override_kernel_or_governor": True,
         "does_not_replace_operator_authority": True,
@@ -553,12 +577,15 @@ def derive_orchestration_outcome_review(
             if (executor_log_path or Path(task_executor.LOG_PATH)).is_relative_to(root)
             else str(executor_log_path or Path(task_executor.LOG_PATH)),
         },
-        "diagnostic_only": True,
-        "non_authoritative": True,
-        "decision_power": "none",
-        "review_only": True,
-        "recommendation_only": True,
-        "does_not_change_admission_or_execution_authority": True,
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "review_only": True,
+                "does_not_change_admission_or_execution_authority": True,
+            },
+        ),
     }
 
 
@@ -648,11 +675,11 @@ def derive_orchestration_attention_recommendation(
                 "orchestration_outcome_review.recent_outcome_counts",
             ],
         },
-        "diagnostic_only": True,
-        "non_authoritative": True,
-        "decision_power": "none",
-        "recommendation_only": True,
-        "does_not_change_admission_or_execution": True,
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+        ),
     }
 
 
@@ -759,9 +786,12 @@ def admit_orchestration_intent(
             "intent_kind": str(intent.get("intent_kind") or ""),
         },
         "details": details,
-        "non_authoritative": True,
+        **_anti_sovereignty_payload(
+            recommendation_only=False,
+            diagnostic_only=False,
+            does_not_invoke_external_tools=True,
+        ),
         "does_not_execute_task_directly": True,
-        "does_not_invoke_external_tools": True,
     }
     handoff_ledger_path = append_orchestration_handoff_ledger(root, handoff_record)
     return {
