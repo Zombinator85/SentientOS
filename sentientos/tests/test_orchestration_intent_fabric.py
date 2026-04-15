@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+from importlib import reload
 import json
 from pathlib import Path
 
+import control_plane
 import task_admission
+import task_executor
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_orchestration_intent_ledger,
+    build_handoff_execution_gap_map,
     executable_handoff_map,
+    resolve_orchestration_result,
     synthesize_orchestration_intent,
 )
 from sentientos.scoped_lifecycle_diagnostic import build_scoped_lifecycle_diagnostic
@@ -166,6 +171,112 @@ def test_internal_executable_intent_is_admitted_to_task_admission_surface(tmp_pa
     assert handoff_row["does_not_invoke_external_tools"] is True
 
 
+def test_admitted_handoff_resolves_success_from_real_downstream_task_result(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    reload(task_executor)
+    reload(task_admission)
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    assert handoff["handoff_outcome"] == "admitted_to_execution_substrate"
+
+    task = task_executor.Task(
+        task_id=handoff["details"]["task_admission"]["task_id"],
+        objective="orchestration_intent_internal_maintenance_handoff",
+        steps=(task_executor.Step(step_id=1, kind="noop", payload=task_executor.NoopPayload(note="ok")),),
+        required_privileges=("orchestration_intent_handoff",),
+    )
+    auth = control_plane.AuthorizationRecord.create(
+        request_type=control_plane.RequestType.TASK_EXECUTION,
+        requester_id="orchestration-test",
+        intent_hash="orh-success",
+        context_hash="ctx-success",
+        policy_version="v1-static",
+        decision=control_plane.Decision.ALLOW,
+        reason=control_plane.ReasonCode.OK,
+        metadata={"approved_privileges": ["orchestration_intent_handoff"]},
+    )
+    decision, result = task_admission.run_task_with_admission(
+        task=task,
+        ctx=task_admission.AdmissionContext(
+            actor="orchestration_intent_fabric",
+            mode="operator",
+            node_id="sentientos_orchestration_handoff",
+            vow_digest=None,
+            doctrine_digest=None,
+            now_utc_iso="2026-04-12T00:00:01Z",
+        ),
+        policy=task_admission.AdmissionPolicy(policy_version="orh-test.v1"),
+        authorization=auth,
+    )
+    assert decision.allowed is True
+    assert result is not None
+    assert result.status == "completed"
+    with Path(task_executor.LOG_PATH).open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"task_id": result.task_id, "event": "task_result", "status": result.status}) + "\n")
+
+    resolution = resolve_orchestration_result(tmp_path, handoff, executor_log_path=Path(task_executor.LOG_PATH))
+    assert resolution["orchestration_result_state"] == "execution_succeeded"
+    assert resolution["loop_closed"] is True
+
+
+def test_admitted_handoff_resolves_failed_from_downstream_task_result(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    reload(task_executor)
+    reload(task_admission)
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    task_id = handoff["details"]["task_admission"]["task_id"]
+    executor_log = Path(task_executor.LOG_PATH)
+    executor_log.parent.mkdir(parents=True, exist_ok=True)
+    executor_log.write_text(json.dumps({"task_id": task_id, "event": "task_result", "status": "failed"}) + "\n", encoding="utf-8")
+
+    resolution = resolve_orchestration_result(tmp_path, handoff, executor_log_path=Path(task_executor.LOG_PATH))
+    assert resolution["orchestration_result_state"] == "execution_failed"
+    assert resolution["loop_closed"] is True
+
+
+def test_admitted_handoff_without_downstream_result_stays_pending(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    reload(task_executor)
+    reload(task_admission)
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+
+    resolution = resolve_orchestration_result(tmp_path, handoff, executor_log_path=Path(task_executor.LOG_PATH))
+    assert resolution["orchestration_result_state"] == "handoff_admitted_pending_result"
+    assert resolution["loop_closed"] is False
+
+
 def test_missing_required_metadata_blocks_handoff_machine_readably(tmp_path: Path) -> None:
     handoff = admit_orchestration_intent(
         tmp_path,
@@ -214,6 +325,36 @@ def test_external_venues_remain_staged_only_without_internal_admission(tmp_path:
     assert judgment["recommended_venue"] == "codex_implementation"
     assert handoff["handoff_outcome"] == "staged_only"
     assert "task_admission" not in handoff["details"]
+    resolution = resolve_orchestration_result(tmp_path, handoff)
+    assert resolution["orchestration_result_state"] == "handoff_not_admitted"
+    assert resolution["execution_task_ref"]["task_id"] is None
+
+
+def test_blocked_handoff_does_not_fabricate_execution_attempt(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    reload(task_executor)
+    reload(task_admission)
+    evidence = _base_evidence()
+    evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    denied_handoff = admit_orchestration_intent(
+        tmp_path,
+        intent,
+        admission_policy=task_admission.AdmissionPolicy(policy_version="deny.v1", max_steps=0),
+    )
+    assert denied_handoff["handoff_outcome"] == "blocked_by_admission"
+    resolution = resolve_orchestration_result(tmp_path, denied_handoff, executor_log_path=Path(task_executor.LOG_PATH))
+    assert resolution["orchestration_result_state"] == "handoff_not_admitted"
+    assert resolution["execution_task_ref"]["task_id"] == denied_handoff["details"]["task_admission"]["task_id"]
+    assert resolution["result_evidence"]["task_result_rows_seen"] == 0
 
 
 def test_scoped_lifecycle_diagnostic_surfaces_orchestration_handoff_and_ledger(monkeypatch, tmp_path: Path) -> None:
@@ -246,6 +387,8 @@ def test_scoped_lifecycle_diagnostic_surfaces_orchestration_handoff_and_ledger(m
     assert handoff["intent_ledger_path"] == "glow/orchestration/orchestration_intents.jsonl"
     assert handoff["handoff_result"]["ledger_path"] == "glow/orchestration/orchestration_handoffs.jsonl"
     assert handoff["handoff_result"]["handoff_outcome"] == "staged_only"
+    assert handoff["execution_result"]["orchestration_result_state"] == "handoff_not_admitted"
+    assert handoff["gap_map"]["stable_linkage_keys"]["execution_task_to_result"] == "task_id"
     assert handoff["intent"]["schema_version"] == "orchestration_intent.v1"
     assert handoff["executable_handoff_map"]["intent_kind_to_handoff"]["internal_maintenance_execution"]["handoff_path_status"] == "operational"
 
@@ -287,3 +430,35 @@ def test_end_to_end_judgment_to_internal_handoff_and_staged_external_only(tmp_pa
         "federation_canonical_execution",
         "external_tool_placeholder",
     ]
+
+
+def test_end_to_end_closed_loop_judgment_to_handoff_to_execution_result(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("SENTIENTOS_LOG_DIR", str(tmp_path / "logs"))
+    reload(task_executor)
+    reload(task_admission)
+
+    internal_evidence = _base_evidence()
+    internal_evidence.update(
+        {
+            "admission_denied_ratio": 0.75,
+            "admission_sample_count": 8,
+            "executor_failure_ratio": 0.4,
+            "executor_sample_count": 8,
+        }
+    )
+    judgment = synthesize_delegated_judgment(internal_evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    handoff = admit_orchestration_intent(tmp_path, intent)
+    assert handoff["handoff_outcome"] == "admitted_to_execution_substrate"
+
+    task_id = handoff["details"]["task_admission"]["task_id"]
+    executor_log = Path(task_executor.LOG_PATH)
+    executor_log.parent.mkdir(parents=True, exist_ok=True)
+    executor_log.write_text(json.dumps({"task_id": task_id, "event": "task_result", "status": "completed"}) + "\n", encoding="utf-8")
+
+    resolution = resolve_orchestration_result(tmp_path, handoff, executor_log_path=Path(task_executor.LOG_PATH))
+    assert resolution["orchestration_result_state"] == "execution_succeeded"
+    assert resolution["loop_closed"] is True
+    gap_map = build_handoff_execution_gap_map(tmp_path)
+    assert gap_map["minimal_missing_linkage"].startswith("resolve admitted handoff task_id")

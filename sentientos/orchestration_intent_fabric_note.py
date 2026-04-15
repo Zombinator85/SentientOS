@@ -21,6 +21,7 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             "it does not bypass task admission, kernel, or governor decisions",
             "it can hand internal_maintenance_execution intents into task_admission for bounded admission only",
             "handoff admission is not execution completion; execution remains downstream",
+            "closed-loop orchestration result now resolves downstream task_executor task_result evidence for admitted internal handoffs",
         ],
         "internal_handoff_now_operational": {
             "intent_kind": "internal_maintenance_execution",
@@ -44,6 +45,18 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
         },
         "proof_visible_artifact": "glow/orchestration/orchestration_intents.jsonl",
         "handoff_artifact": "glow/orchestration/orchestration_handoffs.jsonl",
+        "result_resolution": {
+            "path": "internal_maintenance_execution -> task_admission_executor -> logs/task_executor.jsonl task_result",
+            "result_states": [
+                "handoff_admitted_pending_result",
+                "execution_still_pending",
+                "execution_succeeded",
+                "execution_failed",
+                "execution_result_missing",
+                "handoff_not_admitted",
+            ],
+            "meaning": "handoff admission records substrate entry; orchestration result closure requires downstream task_result evidence.",
+        },
         "venues_still_staged_only": [
             "codex_implementation",
             "deep_research_audit",

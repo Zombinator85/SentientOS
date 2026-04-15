@@ -58,6 +58,15 @@ _HANDOFF_OUTCOMES = {
     "execution_target_unavailable",
 }
 
+_EXECUTION_RESULT_STATES = {
+    "handoff_admitted_pending_result",
+    "execution_succeeded",
+    "execution_failed",
+    "execution_result_missing",
+    "execution_still_pending",
+    "handoff_not_admitted",
+}
+
 
 def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -293,6 +302,125 @@ def append_orchestration_handoff_ledger(repo_root: Path, handoff: Mapping[str, A
     with ledger_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(handoff), sort_keys=True) + "\n")
     return ledger_path
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    rows: list[dict[str, Any]] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            parsed = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            rows.append(parsed)
+    return rows
+
+
+def build_handoff_execution_gap_map(repo_root: Path) -> dict[str, Any]:
+    root = repo_root.resolve()
+    return {
+        "schema_version": "orchestration_handoff_execution_gap.v1",
+        "path": [
+            "delegated_judgment",
+            "orchestration_intent",
+            "orchestration_handoff",
+            "task_admission",
+            "task_executor",
+        ],
+        "existing_downstream_result_source": {
+            "surface": "logs/task_executor.jsonl",
+            "event": "task_result",
+            "status_values": ["completed", "failed"],
+        },
+        "stable_linkage_keys": {
+            "intent_to_handoff": "intent_id",
+            "handoff_to_execution_task": "details.task_admission.task_id",
+            "execution_task_to_result": "task_id",
+        },
+        "stop_point_without_resolution": "handoff_outcome=admitted_to_execution_substrate",
+        "minimal_missing_linkage": (
+            "resolve admitted handoff task_id against task_executor task_result and classify "
+            "orchestration result state."
+        ),
+        "proof_surfaces": {
+            "intent_ledger": "glow/orchestration/orchestration_intents.jsonl",
+            "handoff_ledger": "glow/orchestration/orchestration_handoffs.jsonl",
+            "admission_log": str(task_admission._resolve_admission_log_path().relative_to(root))
+            if task_admission._resolve_admission_log_path().is_relative_to(root)
+            else str(task_admission._resolve_admission_log_path()),
+            "executor_log": str(Path(task_executor.LOG_PATH).relative_to(root))
+            if Path(task_executor.LOG_PATH).is_relative_to(root)
+            else str(Path(task_executor.LOG_PATH)),
+        },
+    }
+
+
+def resolve_orchestration_result(
+    repo_root: Path,
+    handoff: Mapping[str, Any],
+    *,
+    executor_log_path: Path | None = None,
+) -> dict[str, Any]:
+    root = repo_root.resolve()
+    handoff_outcome = str(handoff.get("handoff_outcome") or "")
+    details = handoff.get("details")
+    detail_map = details if isinstance(details, Mapping) else {}
+    task_admission_details = detail_map.get("task_admission")
+    admission_map = task_admission_details if isinstance(task_admission_details, Mapping) else {}
+    task_id = str(admission_map.get("task_id") or "")
+    log_path = executor_log_path or Path(task_executor.LOG_PATH)
+    matching_rows = [row for row in _read_jsonl(log_path) if str(row.get("task_id") or "") == task_id]
+    task_result_rows = [row for row in matching_rows if str(row.get("event") or "") == "task_result"]
+
+    state = "handoff_not_admitted"
+    execution_observed = False
+    loop_closed = False
+
+    if handoff_outcome == "admitted_to_execution_substrate":
+        if not task_id:
+            state = "execution_result_missing"
+        elif task_result_rows:
+            execution_observed = True
+            latest = task_result_rows[-1]
+            status = str(latest.get("status") or "")
+            if status == "completed":
+                state = "execution_succeeded"
+                loop_closed = True
+            elif status == "failed":
+                state = "execution_failed"
+                loop_closed = True
+            else:
+                state = "execution_result_missing"
+        elif matching_rows:
+            state = "execution_still_pending"
+        else:
+            state = "handoff_admitted_pending_result"
+
+    if state not in _EXECUTION_RESULT_STATES:
+        state = "execution_result_missing"
+
+    return {
+        "schema_version": "orchestration_result_resolution.v1",
+        "resolved_at": _iso_utc_now(),
+        "intent_ref": dict(handoff.get("intent_ref") or {}),
+        "handoff_outcome": handoff_outcome,
+        "orchestration_result_state": state,
+        "loop_closed": loop_closed,
+        "execution_observed": execution_observed,
+        "execution_task_ref": {
+            "task_id": task_id or None,
+            "executor_log_path": str(log_path.relative_to(root)) if log_path.is_relative_to(root) else str(log_path),
+        },
+        "result_evidence": {
+            "task_rows_seen": len(matching_rows),
+            "task_result_rows_seen": len(task_result_rows),
+        },
+    }
 
 
 def executable_handoff_map() -> dict[str, Any]:
