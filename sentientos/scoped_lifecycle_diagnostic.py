@@ -14,7 +14,9 @@ from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evid
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_orchestration_intent_ledger,
+    build_handoff_execution_gap_map,
     executable_handoff_map,
+    resolve_orchestration_result,
     synthesize_orchestration_intent,
 )
 
@@ -86,6 +88,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     orchestration_intent = synthesize_orchestration_intent(delegated_judgment)
     orchestration_ledger_path = append_orchestration_intent_ledger(root, orchestration_intent)
     handoff_result = admit_orchestration_intent(root, orchestration_intent)
+    orchestration_result = resolve_orchestration_result(root, handoff_result)
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -96,10 +99,12 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         "slice_operator_attention_recommendation": operator_attention_recommendation,
         "delegated_judgment": delegated_judgment,
         "orchestration_handoff": {
+            "gap_map": build_handoff_execution_gap_map(root),
             "executable_handoff_map": executable_handoff_map(),
             "intent": orchestration_intent,
             "intent_ledger_path": str(orchestration_ledger_path.relative_to(root)),
             "handoff_result": handoff_result,
+            "execution_result": orchestration_result,
         },
         "actions": rows,
     }
