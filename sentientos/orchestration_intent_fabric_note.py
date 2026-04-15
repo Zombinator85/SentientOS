@@ -57,6 +57,28 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
             ],
             "meaning": "handoff admission records substrate entry; orchestration result closure requires downstream task_result evidence.",
         },
+        "outcome_review": {
+            "meaning": "bounded retrospective classification over recent internal orchestration outcomes.",
+            "reads_existing_artifacts_only": [
+                "glow/orchestration/orchestration_intents.jsonl",
+                "glow/orchestration/orchestration_handoffs.jsonl",
+                "logs/task_executor.jsonl task_result linkage",
+            ],
+            "classifications": [
+                "clean_recent_orchestration",
+                "handoff_block_heavy",
+                "execution_failure_heavy",
+                "pending_stall_pattern",
+                "mixed_orchestration_stress",
+                "insufficient_history",
+            ],
+            "explicitly_not": [
+                "a new admission authority",
+                "a governor/kernel override",
+                "direct external actuation",
+                "a new execution venue",
+            ],
+        },
         "venues_still_staged_only": [
             "codex_implementation",
             "deep_research_audit",

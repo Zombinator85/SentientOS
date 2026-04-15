@@ -67,6 +67,15 @@ _EXECUTION_RESULT_STATES = {
     "handoff_not_admitted",
 }
 
+_ORCHESTRATION_REVIEW_CLASSES = {
+    "clean_recent_orchestration",
+    "handoff_block_heavy",
+    "execution_failure_heavy",
+    "pending_stall_pattern",
+    "mixed_orchestration_stress",
+    "insufficient_history",
+}
+
 
 def _iso_utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -420,6 +429,126 @@ def resolve_orchestration_result(
             "task_rows_seen": len(matching_rows),
             "task_result_rows_seen": len(task_result_rows),
         },
+    }
+
+
+def derive_orchestration_outcome_review(
+    repo_root: Path,
+    *,
+    window_size: int = 10,
+    executor_log_path: Path | None = None,
+) -> dict[str, Any]:
+    """Derive a bounded retrospective review over recent orchestration outcomes."""
+
+    root = repo_root.resolve()
+    intents = _read_jsonl(root / "glow/orchestration/orchestration_intents.jsonl")
+    handoffs = _read_jsonl(root / "glow/orchestration/orchestration_handoffs.jsonl")
+    intent_ids = {str(row.get("intent_id") or "") for row in intents}
+    scoped_handoffs: list[dict[str, Any]] = []
+    for handoff in handoffs:
+        intent_ref = handoff.get("intent_ref")
+        intent_ref_map = intent_ref if isinstance(intent_ref, Mapping) else {}
+        intent_id = str(intent_ref_map.get("intent_id") or "")
+        if intent_id and intent_id in intent_ids:
+            scoped_handoffs.append(handoff)
+
+    recent_handoffs = scoped_handoffs[-max(0, window_size) :] if window_size > 0 else []
+    recent_resolutions = [
+        resolve_orchestration_result(root, handoff, executor_log_path=executor_log_path)
+        for handoff in recent_handoffs
+    ]
+
+    outcome_counts = {
+        "execution_succeeded": 0,
+        "execution_failed": 0,
+        "handoff_admitted_pending_result": 0,
+        "execution_still_pending": 0,
+        "execution_result_missing": 0,
+        "handoff_not_admitted": 0,
+    }
+    blocked_handoffs = 0
+    admitted_handoffs = 0
+    for idx, resolution in enumerate(recent_resolutions):
+        state = str(resolution.get("orchestration_result_state") or "execution_result_missing")
+        if state not in outcome_counts:
+            state = "execution_result_missing"
+        outcome_counts[state] += 1
+
+        handoff_outcome = str(recent_handoffs[idx].get("handoff_outcome") or "")
+        if handoff_outcome in {
+            "blocked_by_admission",
+            "blocked_by_operator_requirement",
+            "blocked_by_insufficient_context",
+            "execution_target_unavailable",
+        }:
+            blocked_handoffs += 1
+        if handoff_outcome == "admitted_to_execution_substrate":
+            admitted_handoffs += 1
+
+    records_considered = len(recent_resolutions)
+    success_count = outcome_counts["execution_succeeded"]
+    failure_count = outcome_counts["execution_failed"]
+    pending_count = (
+        outcome_counts["handoff_admitted_pending_result"]
+        + outcome_counts["execution_still_pending"]
+        + outcome_counts["execution_result_missing"]
+    )
+    block_ratio = (blocked_handoffs / records_considered) if records_considered else 0.0
+    success_ratio = (success_count / records_considered) if records_considered else 0.0
+    failure_ratio = (failure_count / admitted_handoffs) if admitted_handoffs else 0.0
+    pending_ratio = (pending_count / admitted_handoffs) if admitted_handoffs else 0.0
+
+    blocked_heavy = blocked_handoffs >= 2 and block_ratio >= 0.6
+    failure_heavy = admitted_handoffs >= 3 and failure_count >= 2 and failure_ratio >= 0.5
+    stall_heavy = admitted_handoffs >= 3 and pending_count >= 2 and pending_ratio >= 0.5
+
+    classification = "insufficient_history"
+    if records_considered >= 3:
+        if blocked_heavy:
+            classification = "handoff_block_heavy"
+        elif failure_heavy:
+            classification = "execution_failure_heavy"
+        elif stall_heavy:
+            classification = "pending_stall_pattern"
+        elif success_count >= 2 and success_ratio >= 0.6:
+            classification = "clean_recent_orchestration"
+        else:
+            classification = "mixed_orchestration_stress"
+
+    if classification not in _ORCHESTRATION_REVIEW_CLASSES:
+        classification = "mixed_orchestration_stress"
+
+    return {
+        "schema_version": "orchestration_outcome_review.v1",
+        "review_kind": "orchestration_outcome_retrospective",
+        "review_classification": classification,
+        "window_size": max(0, window_size),
+        "records_considered": records_considered,
+        "recent_outcome_counts": outcome_counts,
+        "condition_flags": {
+            "blocked_heavy": blocked_heavy,
+            "failure_heavy": failure_heavy,
+            "stall_heavy": stall_heavy,
+        },
+        "summary": {
+            "recent_pattern": "healthy_bounded_orchestration"
+            if classification == "clean_recent_orchestration"
+            else "orchestration_stress_or_uncertainty",
+            "diagnostic_summary": "bounded retrospective review derived from existing internal orchestration artifacts only",
+        },
+        "artifacts_read": {
+            "intent_ledger": "glow/orchestration/orchestration_intents.jsonl",
+            "handoff_ledger": "glow/orchestration/orchestration_handoffs.jsonl",
+            "executor_log": str((executor_log_path or Path(task_executor.LOG_PATH)).relative_to(root))
+            if (executor_log_path or Path(task_executor.LOG_PATH)).is_relative_to(root)
+            else str(executor_log_path or Path(task_executor.LOG_PATH)),
+        },
+        "diagnostic_only": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "review_only": True,
+        "recommendation_only": True,
+        "does_not_change_admission_or_execution_authority": True,
     }
 
 

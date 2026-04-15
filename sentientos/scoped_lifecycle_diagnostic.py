@@ -15,6 +15,7 @@ from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
+    derive_orchestration_outcome_review,
     executable_handoff_map,
     resolve_orchestration_result,
     synthesize_orchestration_intent,
@@ -89,6 +90,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
     orchestration_ledger_path = append_orchestration_intent_ledger(root, orchestration_intent)
     handoff_result = admit_orchestration_intent(root, orchestration_intent)
     orchestration_result = resolve_orchestration_result(root, handoff_result)
+    orchestration_outcome_review = derive_orchestration_outcome_review(root)
     return {
         "scope": "constitutional_execution_fabric_scoped_slice",
         "overall_outcome": overall,
@@ -105,6 +107,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "intent_ledger_path": str(orchestration_ledger_path.relative_to(root)),
             "handoff_result": handoff_result,
             "execution_result": orchestration_result,
+            "outcome_review": orchestration_outcome_review,
         },
         "actions": rows,
     }
