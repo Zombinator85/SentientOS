@@ -1,0 +1,1 @@
+{"schema_version":"orchestration_next_move_proposal.v1","artifact_status":"initialized","notes":"append-only proof-visible proposal ledger for bounded next-move staging","non_authoritative":true,"diagnostic_only":true,"decision_power":"none","proposal_only":true}
