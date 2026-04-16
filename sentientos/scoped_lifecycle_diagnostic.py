@@ -19,6 +19,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_attention_recommendation,
     derive_next_venue_recommendation,
     derive_orchestration_outcome_review,
+    derive_next_move_proposal_review,
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_codex_staged_work_order_lifecycle,
@@ -163,6 +164,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_attention_recommendation,
     )
     next_move_proposal_ledger_path = append_next_move_proposal_ledger(root, next_move_proposal)
+    next_move_proposal_review = derive_next_move_proposal_review(root)
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
         orchestration_intent,
@@ -219,6 +221,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "blocked_or_hold": next_move_proposal.get("executability_classification")
                 in {"blocked_operator_required", "blocked_insufficient_context", "no_action_recommended"},
             },
+            "next_move_proposal_review": next_move_proposal_review,
             "codex_staged_venue": codex_staged_venue,
             "deep_research_staged_venue": deep_research_staged_venue,
         },

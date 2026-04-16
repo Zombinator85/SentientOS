@@ -34,3 +34,29 @@ The proposal is explicitly non-sovereign and non-authoritative:
 - `requires_operator_or_existing_handoff_path: true`
 
 It does not execute, route, or admit work by itself.
+
+## Next-move proposal review (retrospective only)
+
+`next_move_proposal_review.v1` provides a compact retrospective classifier over recent
+`orchestration_next_move_proposal.v1` records.
+
+It reads only existing proposal artifacts/fields and existing orchestration-derived proposal state:
+
+- `relation_posture`
+- `proposed_next_action.proposed_venue`
+- `executability_classification`
+- `operator_escalation_requirement_state.requires_operator_or_escalation`
+
+Bounded review classifications:
+
+- `coherent_recent_proposals`
+- `proposal_escalation_heavy`
+- `proposal_hold_heavy`
+- `proposal_insufficient_context_heavy`
+- `proposal_venue_thrash`
+- `mixed_proposal_stress`
+- `insufficient_history`
+
+The review is descriptive and diagnostic. It does **not** plan, execute, admit, route, or
+authorize work; it remains `diagnostic_only`, `non_authoritative`, `decision_power: none`,
+and `review_only`.
