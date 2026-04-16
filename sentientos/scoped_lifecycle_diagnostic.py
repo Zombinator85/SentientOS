@@ -13,6 +13,7 @@ from sentientos.scoped_slice_attention_recommendation import derive_scoped_slice
 from sentientos.delegated_judgment_fabric import collect_delegated_judgment_evidence, synthesize_delegated_judgment
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
+    append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
@@ -23,6 +24,7 @@ from sentientos.orchestration_intent_fabric import (
     resolve_codex_staged_work_order_lifecycle,
     resolve_deep_research_staged_work_order_lifecycle,
     resolve_orchestration_result,
+    synthesize_next_move_proposal,
     synthesize_orchestration_intent,
 )
 
@@ -153,6 +155,14 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_venue_mix_review,
         orchestration_attention_recommendation,
     )
+    next_move_proposal = synthesize_next_move_proposal(
+        delegated_judgment,
+        next_venue_recommendation,
+        orchestration_outcome_review,
+        orchestration_venue_mix_review,
+        orchestration_attention_recommendation,
+    )
+    next_move_proposal_ledger_path = append_next_move_proposal_ledger(root, next_move_proposal)
     codex_staged_venue = _staged_external_venue_diagnostic(
         root,
         orchestration_intent,
@@ -199,6 +209,16 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
             "venue_mix_review": orchestration_venue_mix_review,
             "attention_recommendation": orchestration_attention_recommendation,
             "next_venue_recommendation": next_venue_recommendation,
+            "next_move_proposal": {
+                **next_move_proposal,
+                "ledger_path": str(next_move_proposal_ledger_path.relative_to(root)),
+                "current_delegated_judgment_venue": delegated_judgment.get("recommended_venue"),
+                "ready_for_internal_executable_handoff": next_move_proposal.get("executability_classification")
+                == "executable_now",
+                "staged_only": next_move_proposal.get("executability_classification") == "stageable_external_work_order",
+                "blocked_or_hold": next_move_proposal.get("executability_classification")
+                in {"blocked_operator_required", "blocked_insufficient_context", "no_action_recommended"},
+            },
             "codex_staged_venue": codex_staged_venue,
             "deep_research_staged_venue": deep_research_staged_venue,
         },

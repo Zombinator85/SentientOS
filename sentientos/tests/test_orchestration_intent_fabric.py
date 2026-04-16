@@ -10,6 +10,7 @@ import task_executor
 from sentientos.delegated_judgment_fabric import synthesize_delegated_judgment
 from sentientos.orchestration_intent_fabric import (
     admit_orchestration_intent,
+    append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
@@ -18,6 +19,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_orchestration_result,
+    synthesize_next_move_proposal,
     synthesize_orchestration_intent,
 )
 from sentientos.scoped_lifecycle_diagnostic import build_scoped_lifecycle_diagnostic
@@ -1044,6 +1046,130 @@ def test_next_venue_recommendation_returns_insufficient_context_when_history_is_
     assert recommendation["relation_to_delegated_judgment"] == "insufficient_context"
 
 
+def test_next_move_proposal_affirming_for_healthy_internal_pattern() -> None:
+    delegated = {
+        "recommended_venue": "internal_direct_execution",
+        "escalation_classification": "none",
+        "work_class": "internal_runtime_maintenance",
+        "next_move_posture": "hold",
+    }
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 6,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "internal_execution_heavy", "records_considered": 6}
+    attention = {"operator_attention_recommendation": "none"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    assert proposal["relation_posture"] == "affirming"
+    assert proposal["proposed_next_action"]["proposed_venue"] == "internal_direct_execution"
+    assert proposal["executability_classification"] == "executable_now"
+    assert proposal["proposal_state"] == "ready_for_internal_executable_handoff"
+
+
+def test_next_move_proposal_nudging_or_holding_on_stressed_pattern() -> None:
+    delegated = {
+        "recommended_venue": "codex_implementation",
+        "escalation_classification": "none",
+        "work_class": "cross_slice_consolidation",
+        "next_move_posture": "consolidate",
+    }
+    outcome_review = {
+        "review_classification": "mixed_orchestration_stress",
+        "records_considered": 7,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": True, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "deep_research_heavy", "records_considered": 7}
+    attention = {"operator_attention_recommendation": "review_mixed_orchestration_stress"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    assert proposal["relation_posture"] in {"nudging", "holding"}
+    assert proposal["executability_classification"] in {"stageable_external_work_order", "no_action_recommended"}
+
+
+def test_next_move_proposal_escalates_for_operator_heavy_patterns() -> None:
+    delegated = {
+        "recommended_venue": "codex_implementation",
+        "escalation_classification": "escalate_for_operator_priority",
+        "work_class": "operator_required",
+        "next_move_posture": "escalate",
+    }
+    outcome_review = {
+        "review_classification": "handoff_block_heavy",
+        "records_considered": 6,
+        "condition_flags": {"blocked_heavy": True, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "operator_escalation_heavy", "records_considered": 6}
+    attention = {"operator_attention_recommendation": "inspect_handoff_blocks"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    assert proposal["relation_posture"] == "escalating"
+    assert proposal["proposed_next_action"]["proposed_posture"] == "escalate"
+    assert proposal["executability_classification"] == "blocked_operator_required"
+    assert proposal["operator_escalation_requirement_state"]["requires_operator_or_escalation"] is True
+
+
+def test_next_move_proposal_insufficient_context_when_signal_basis_is_thin() -> None:
+    delegated = {
+        "recommended_venue": "codex_implementation",
+        "escalation_classification": "none",
+        "work_class": "cross_slice_consolidation",
+        "next_move_posture": "consolidate",
+    }
+    outcome_review = {
+        "review_classification": "insufficient_history",
+        "records_considered": 2,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "insufficient_history", "records_considered": 2}
+    attention = {"operator_attention_recommendation": "insufficient_context"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+
+    proposal = synthesize_next_move_proposal(delegated, next_venue, outcome_review, venue_mix_review, attention)
+
+    assert proposal["relation_posture"] == "insufficient_context"
+    assert proposal["executability_classification"] == "blocked_insufficient_context"
+    assert proposal["proposal_only"] is True
+    assert proposal["does_not_execute_or_route_work"] is True
+    assert proposal["does_not_override_delegated_judgment"] is True
+
+
+def test_next_move_proposal_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    outcome_review = {
+        "review_classification": "clean_recent_orchestration",
+        "records_considered": 6,
+        "condition_flags": {"blocked_heavy": False, "failure_heavy": False, "stall_heavy": False},
+    }
+    venue_mix_review = {"review_classification": "balanced_recent_venue_mix", "records_considered": 6}
+    attention = {"operator_attention_recommendation": "none"}
+    next_venue = derive_next_venue_recommendation(delegated, outcome_review, venue_mix_review, attention)
+    proposal = synthesize_next_move_proposal(
+        delegated,
+        next_venue,
+        outcome_review,
+        venue_mix_review,
+        attention,
+        created_at="2026-04-12T00:00:00Z",
+    )
+    ledger_path = append_next_move_proposal_ledger(tmp_path, proposal)
+    append_next_move_proposal_ledger(tmp_path, {**proposal, "proposal_id": "nmp-second"})
+
+    rows = ledger_path.read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 2
+    first = json.loads(rows[0])
+    second = json.loads(rows[1])
+    assert first["proposal_id"] == proposal["proposal_id"]
+    assert second["proposal_id"] == "nmp-second"
+
+
 def test_multi_venue_history_flows_to_consumer_venue_mix_review_and_stays_non_authoritative(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -1163,6 +1289,66 @@ def test_next_venue_recommendation_flows_to_consumer_and_stays_non_authoritative
     assert next_venue["does_not_override_delegated_judgment"] is True
 
 
+def test_next_move_proposal_flows_to_consumer_artifact_and_stays_non_authoritative(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _seed_venue_mix_history(
+        tmp_path,
+        records=[
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "codex_work_order", "handoff_outcome": "staged_only", "required_authority_posture": "operator_approval_required"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+            {"intent_kind": "internal_maintenance_execution", "handoff_outcome": "admitted_to_execution_substrate"},
+        ],
+    )
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle",
+        lambda _repo_root, *, action_id, correlation_id: {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        },
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-next-move-proposal-consumer",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+    proposal = diagnostic["orchestration_handoff"]["next_move_proposal"]
+    assert proposal["relation_posture"] in {"affirming", "nudging", "holding", "escalating", "insufficient_context"}
+    assert proposal["executability_classification"] in {
+        "executable_now",
+        "stageable_external_work_order",
+        "blocked_operator_required",
+        "blocked_insufficient_context",
+        "no_action_recommended",
+    }
+    assert proposal["proposal_only"] is True
+    assert proposal["diagnostic_only"] is True
+    assert proposal["non_authoritative"] is True
+    assert proposal["decision_power"] == "none"
+    assert proposal["does_not_execute_or_route_work"] is True
+    assert proposal["requires_operator_or_existing_handoff_path"] is True
+    assert proposal["ledger_path"] == "glow/orchestration/orchestration_next_move_proposals.jsonl"
+    rows = (tmp_path / proposal["ledger_path"]).read_text(encoding="utf-8").splitlines()
+    assert rows
+    persisted = json.loads(rows[-1])
+    assert persisted["proposal_id"] == proposal["proposal_id"]
+
+
 def test_attention_recommendation_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
     evidence = _base_evidence()
     evidence.update(
@@ -1223,6 +1409,27 @@ def test_next_venue_recommendation_does_not_change_admission_or_execution_behavi
     assert next_venue["does_not_change_admission_or_execution"] is True
     assert next_venue["does_not_execute_or_route_work"] is True
     assert next_venue["does_not_override_delegated_judgment"] is True
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
+
+
+def test_next_move_proposal_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    evidence = _base_evidence()
+    judgment = synthesize_delegated_judgment(evidence)
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+    outcome_review = derive_orchestration_outcome_review(tmp_path)
+    venue_mix_review = derive_orchestration_venue_mix_review(tmp_path)
+    attention = derive_orchestration_attention_recommendation(outcome_review)
+    next_venue = derive_next_venue_recommendation(judgment, outcome_review, venue_mix_review, attention)
+    proposal = synthesize_next_move_proposal(judgment, next_venue, outcome_review, venue_mix_review, attention)
+    append_next_move_proposal_ledger(tmp_path, proposal)
+    after = admit_orchestration_intent(tmp_path, intent)
+
+    assert proposal["does_not_change_admission_or_execution"] is True
+    assert proposal["does_not_execute_or_route_work"] is True
+    assert proposal["does_not_override_delegated_judgment"] is True
     assert before["handoff_outcome"] == "blocked_by_operator_requirement"
     assert after["handoff_outcome"] == "blocked_by_operator_requirement"
 

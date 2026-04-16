@@ -129,6 +129,22 @@ _NEXT_VENUE_RELATIONS = {
     "insufficient_context",
 }
 
+_NEXT_MOVE_PROPOSAL_POSTURES = {
+    "expand",
+    "consolidate",
+    "audit",
+    "hold",
+    "escalate",
+}
+
+_NEXT_MOVE_EXECUTABILITY = {
+    "executable_now",
+    "stageable_external_work_order",
+    "blocked_operator_required",
+    "blocked_insufficient_context",
+    "no_action_recommended",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -398,6 +414,28 @@ def _staged_work_order_id(intent: Mapping[str, Any], created_at: str, *, prefix:
 def _source_judgment_linkage_id(source_map: Mapping[str, Any]) -> str:
     canonical = json.dumps(dict(source_map), sort_keys=True, separators=(",", ":"))
     return f"jdg-link-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _next_move_proposal_id(
+    *,
+    created_at: str,
+    source_linkage_id: str,
+    relation_posture: str,
+    proposed_venue: str,
+    proposed_intent_kind: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "created_at": created_at,
+            "source_linkage_id": source_linkage_id,
+            "relation_posture": relation_posture,
+            "proposed_venue": proposed_venue,
+            "proposed_intent_kind": proposed_intent_kind,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"nmp-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
 def append_codex_work_order_ledger(repo_root: Path, work_order: Mapping[str, Any]) -> Path:
@@ -1304,6 +1342,158 @@ def derive_next_venue_recommendation(
             },
         ),
     }
+
+
+def synthesize_next_move_proposal(
+    delegated_judgment: Mapping[str, Any],
+    next_venue_recommendation: Mapping[str, Any],
+    outcome_review: Mapping[str, Any],
+    venue_mix_review: Mapping[str, Any],
+    attention_recommendation: Mapping[str, Any],
+    *,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """Synthesize a bounded, non-sovereign next-move proposal from existing orchestration signals."""
+
+    source_linkage = _source_judgment_linkage(delegated_judgment)
+    source_linkage_id = _source_judgment_linkage_id(source_linkage)
+    delegated_venue = str(source_linkage.get("recommended_venue") or "insufficient_context")
+    delegated_posture = str(source_linkage.get("next_move_posture") or "hold")
+    escalation_classification = str(source_linkage.get("escalation_classification") or "escalate_for_missing_context")
+    relation_posture = str(next_venue_recommendation.get("relation_to_delegated_judgment") or "insufficient_context")
+    recommended_next_venue = str(next_venue_recommendation.get("next_venue_recommendation") or "insufficient_context")
+    attention_signal = str(attention_recommendation.get("operator_attention_recommendation") or "insufficient_context")
+    outcome_classification = str(outcome_review.get("review_classification") or "insufficient_history")
+    venue_mix_classification = str(venue_mix_review.get("review_classification") or "insufficient_history")
+
+    recommendation_to_venue = {
+        "prefer_internal_execution": "internal_direct_execution",
+        "prefer_codex_implementation": "codex_implementation",
+        "prefer_deep_research_audit": "deep_research_audit",
+        "prefer_operator_decision": "operator_decision_required",
+        "hold_current_venue_mix": delegated_venue,
+        "insufficient_context": "insufficient_context",
+    }
+    proposed_venue = recommendation_to_venue.get(recommended_next_venue, "insufficient_context")
+    proposed_intent_kind, _, _ = _translate_kind(
+        {
+            "recommended_venue": proposed_venue,
+            "work_class": str(source_linkage.get("work_class") or ""),
+            "escalation_classification": escalation_classification,
+        }
+    )
+    proposed_posture = delegated_posture if delegated_posture in _NEXT_MOVE_PROPOSAL_POSTURES else "hold"
+    executability = "no_action_recommended"
+    if relation_posture == "escalating" or proposed_venue == "operator_decision_required":
+        proposed_posture = "escalate"
+        executability = "blocked_operator_required"
+    elif relation_posture == "holding":
+        proposed_posture = "hold"
+        executability = "no_action_recommended"
+    elif relation_posture == "insufficient_context" or proposed_venue == "insufficient_context":
+        proposed_posture = "hold"
+        executability = "blocked_insufficient_context"
+    elif proposed_venue == "internal_direct_execution":
+        executability = "executable_now"
+    elif proposed_venue in {"codex_implementation", "deep_research_audit"}:
+        executability = "stageable_external_work_order"
+
+    if executability not in _NEXT_MOVE_EXECUTABILITY:
+        executability = "blocked_insufficient_context"
+
+    if relation_posture not in _NEXT_VENUE_RELATIONS:
+        relation_posture = "insufficient_context"
+    if proposed_posture not in _NEXT_MOVE_PROPOSAL_POSTURES:
+        proposed_posture = "hold"
+    if proposed_intent_kind not in _INTENT_KINDS:
+        proposed_intent_kind = "hold_no_action"
+
+    requires_operator = (
+        escalation_classification in {"escalate_for_missing_context", "escalate_for_operator_priority"}
+        or relation_posture in {"escalating", "insufficient_context"}
+        or recommended_next_venue == "prefer_operator_decision"
+        or attention_signal in {"inspect_handoff_blocks", "inspect_execution_failures", "inspect_pending_stall"}
+    )
+    timestamp = created_at or _iso_utc_now()
+    proposal = {
+        "schema_version": "orchestration_next_move_proposal.v1",
+        "proposal_id": _next_move_proposal_id(
+            created_at=timestamp,
+            source_linkage_id=source_linkage_id,
+            relation_posture=relation_posture,
+            proposed_venue=proposed_venue,
+            proposed_intent_kind=proposed_intent_kind,
+        ),
+        "recorded_at": timestamp,
+        "source_delegated_judgment": {
+            "source_judgment_linkage_id": source_linkage_id,
+            "recommended_venue": delegated_venue,
+            "next_move_posture": delegated_posture,
+            "escalation_classification": escalation_classification,
+        },
+        "current_recommended_venue": recommended_next_venue,
+        "relation_posture": relation_posture,
+        "proposed_next_action": {
+            "intent_kind": proposed_intent_kind,
+            "proposed_venue": proposed_venue,
+            "proposed_posture": proposed_posture,
+        },
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": requires_operator,
+            "attention_signal": attention_signal,
+            "escalation_classification": escalation_classification,
+        },
+        "executability_classification": executability,
+        "proposal_state": (
+            "ready_for_internal_executable_handoff"
+            if executability == "executable_now"
+            else "staged_external_or_non_executable"
+            if executability == "stageable_external_work_order"
+            else "blocked_or_hold"
+        ),
+        "basis": {
+            "orchestration_outcome_review": {
+                "review_classification": outcome_classification,
+                "records_considered": int(outcome_review.get("records_considered") or 0),
+            },
+            "orchestration_venue_mix_review": {
+                "review_classification": venue_mix_classification,
+                "records_considered": int(venue_mix_review.get("records_considered") or 0),
+            },
+            "orchestration_operator_attention_recommendation": attention_signal,
+            "next_venue_relation_posture": relation_posture,
+            "compact_rationale": str((next_venue_recommendation.get("basis") or {}).get("rationale") or ""),
+            "derived_from_existing_signals_only": [
+                "delegated_judgment",
+                "next_venue_recommendation",
+                "orchestration_outcome_review",
+                "orchestration_venue_mix_review",
+                "orchestration_operator_attention_recommendation",
+            ],
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "proposal_only": True,
+                "does_not_execute_or_route_work": True,
+                "does_not_override_delegated_judgment": True,
+                "requires_operator_or_existing_handoff_path": True,
+            },
+        ),
+    }
+    return proposal
+
+
+def append_next_move_proposal_ledger(repo_root: Path, proposal: Mapping[str, Any]) -> Path:
+    """Append one bounded next-move proposal to the proof-visible orchestration proposal ledger."""
+
+    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_next_move_proposals.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(proposal), sort_keys=True) + "\n")
+    return ledger_path
 
 
 def executable_handoff_map() -> dict[str, Any]:
