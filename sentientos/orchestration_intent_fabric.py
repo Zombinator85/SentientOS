@@ -112,6 +112,23 @@ _ORCHESTRATION_VENUE_MIX_CLASSES = {
     "insufficient_history",
 }
 
+_NEXT_VENUE_RECOMMENDATIONS = {
+    "prefer_internal_execution",
+    "prefer_codex_implementation",
+    "prefer_deep_research_audit",
+    "prefer_operator_decision",
+    "hold_current_venue_mix",
+    "insufficient_context",
+}
+
+_NEXT_VENUE_RELATIONS = {
+    "affirming",
+    "nudging",
+    "holding",
+    "escalating",
+    "insufficient_context",
+}
+
 
 def _anti_sovereignty_payload(
     *,
@@ -1133,6 +1150,158 @@ def derive_orchestration_attention_recommendation(
             recommendation_only=True,
             diagnostic_only=True,
             does_not_change_admission_or_execution=True,
+        ),
+    }
+
+
+def derive_next_venue_recommendation(
+    delegated_judgment: Mapping[str, Any],
+    outcome_review: Mapping[str, Any],
+    venue_mix_review: Mapping[str, Any],
+    attention_recommendation: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive a bounded next-venue recommendation from existing orchestration signals only."""
+
+    delegated_venue = str(delegated_judgment.get("recommended_venue") or "insufficient_context")
+    escalation_classification = str(delegated_judgment.get("escalation_classification") or "")
+    outcome_classification = str(outcome_review.get("review_classification") or "insufficient_history")
+    venue_mix_classification = str(venue_mix_review.get("review_classification") or "insufficient_history")
+    attention_signal = str(attention_recommendation.get("operator_attention_recommendation") or "insufficient_context")
+    outcome_records = int(outcome_review.get("records_considered") or 0)
+    venue_mix_records = int(venue_mix_review.get("records_considered") or 0)
+    blocked_heavy = bool((outcome_review.get("condition_flags") or {}).get("blocked_heavy"))
+    failure_heavy = bool((outcome_review.get("condition_flags") or {}).get("failure_heavy"))
+    stall_heavy = bool((outcome_review.get("condition_flags") or {}).get("stall_heavy"))
+    operator_heavy = venue_mix_classification == "operator_escalation_heavy"
+
+    delegated_to_next = {
+        "internal_direct_execution": "prefer_internal_execution",
+        "codex_implementation": "prefer_codex_implementation",
+        "deep_research_audit": "prefer_deep_research_audit",
+        "operator_decision_required": "prefer_operator_decision",
+    }
+    delegated_next = delegated_to_next.get(delegated_venue)
+
+    recommendation = "insufficient_context"
+    relation = "insufficient_context"
+    rationale = "insufficient_or_conflicting_recent_signal_basis_for_next_venue"
+
+    operator_escalation_dominant = (
+        delegated_venue == "operator_decision_required"
+        or escalation_classification in {"escalate_for_missing_context", "escalate_for_operator_priority"}
+        or operator_heavy
+        or (
+            attention_signal in {"inspect_handoff_blocks", "inspect_execution_failures", "inspect_pending_stall"}
+            and (blocked_heavy or failure_heavy or stall_heavy)
+        )
+    )
+    has_minimum_history = outcome_records >= 3 and venue_mix_records >= 3
+    stress_signals_present = (
+        outcome_classification in {
+            "handoff_block_heavy",
+            "execution_failure_heavy",
+            "pending_stall_pattern",
+            "mixed_orchestration_stress",
+        }
+        or venue_mix_classification == "mixed_venue_stress"
+    )
+
+    if operator_escalation_dominant:
+        recommendation = "prefer_operator_decision"
+        relation = "escalating"
+        rationale = "operator_required_or_escalation_signals_dominate_recent_orchestration_pattern"
+    elif not has_minimum_history or delegated_next is None:
+        recommendation = "insufficient_context"
+        relation = "insufficient_context"
+        rationale = "insufficient_recent_orchestration_history_or_delegated_judgment_venue_unavailable"
+    elif (
+        delegated_venue in {"internal_direct_execution", "codex_implementation"}
+        and venue_mix_classification in {"mixed_venue_stress", "deep_research_heavy"}
+        and outcome_classification in {"mixed_orchestration_stress", "execution_failure_heavy"}
+    ):
+        recommendation = "prefer_deep_research_audit"
+        relation = "nudging"
+        rationale = "recent_stress_or_architectural_ambiguity_pattern_nudges_toward_deep_research_audit"
+    elif delegated_venue == "internal_direct_execution" and outcome_classification == "clean_recent_orchestration" and venue_mix_classification in {
+        "balanced_recent_venue_mix",
+        "internal_execution_heavy",
+    }:
+        recommendation = "prefer_internal_execution"
+        relation = "affirming"
+        rationale = "clean_recent_internal_outcomes_and_compatible_venue_mix_affirm_internal_execution"
+    elif delegated_venue == "codex_implementation" and outcome_classification == "clean_recent_orchestration" and venue_mix_classification in {
+        "balanced_recent_venue_mix",
+        "codex_heavy",
+    }:
+        recommendation = "prefer_codex_implementation"
+        relation = "affirming"
+        rationale = "clean_recent_outcomes_and_compatible_codex_usage_affirm_codex_implementation"
+    elif delegated_venue == "deep_research_audit" and venue_mix_classification in {
+        "balanced_recent_venue_mix",
+        "deep_research_heavy",
+    } and outcome_classification in {"clean_recent_orchestration", "mixed_orchestration_stress", "execution_failure_heavy"}:
+        recommendation = "prefer_deep_research_audit"
+        relation = "affirming"
+        rationale = "delegated_judgment_and_recent_venue_patterns_support_deep_research_audit"
+    elif stress_signals_present:
+        recommendation = "hold_current_venue_mix"
+        relation = "holding"
+        rationale = "recent_venue_behavior_is_stressed_or_unstable_without_clear_safe_correction_target"
+    elif delegated_next is not None:
+        recommendation = delegated_next
+        relation = "affirming"
+        rationale = "delegated_judgment_is_compatible_with_recent_orchestration_signals"
+
+    if recommendation not in _NEXT_VENUE_RECOMMENDATIONS:
+        recommendation = "insufficient_context"
+        relation = "insufficient_context"
+        rationale = "unrecognized_next_venue_recommendation_defaulted_to_insufficient_context"
+    if relation not in _NEXT_VENUE_RELATIONS:
+        relation = "insufficient_context"
+
+    return {
+        "schema_version": "next_venue_recommendation.v1",
+        "source": "delegated_judgment_plus_orchestration_reviews",
+        "current_delegated_judgment_venue": delegated_venue,
+        "next_venue_recommendation": recommendation,
+        "relation_to_delegated_judgment": relation,
+        "basis": {
+            "delegated_judgment": {
+                "recommended_venue": delegated_venue,
+                "escalation_classification": escalation_classification,
+            },
+            "orchestration_outcome_review": {
+                "review_classification": outcome_classification,
+                "records_considered": outcome_records,
+                "condition_flags": {
+                    "blocked_heavy": blocked_heavy,
+                    "failure_heavy": failure_heavy,
+                    "stall_heavy": stall_heavy,
+                },
+            },
+            "orchestration_venue_mix_review": {
+                "review_classification": venue_mix_classification,
+                "records_considered": venue_mix_records,
+            },
+            "orchestration_operator_attention_recommendation": attention_signal,
+            "rationale": rationale,
+            "derived_from_existing_signals_only": [
+                "delegated_judgment.recommended_venue",
+                "delegated_judgment.escalation_classification",
+                "orchestration_outcome_review.review_classification",
+                "orchestration_outcome_review.condition_flags",
+                "orchestration_venue_mix_review.review_classification",
+                "orchestration_operator_attention_recommendation.operator_attention_recommendation",
+            ],
+        },
+        **_anti_sovereignty_payload(
+            recommendation_only=True,
+            diagnostic_only=True,
+            does_not_change_admission_or_execution=True,
+            additional_fields={
+                "does_not_execute_or_route_work": True,
+                "does_not_override_delegated_judgment": True,
+            },
         ),
     }
 
