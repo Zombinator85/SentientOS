@@ -151,6 +151,31 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "a new execution venue",
             ],
         },
+        "venue_mix_review": {
+            "meaning": "bounded retrospective check of recent venue-selection mix (internal execution vs staged Codex vs staged Deep Research vs operator-heavy escalation states).",
+            "reads_existing_artifacts_only": [
+                "glow/orchestration/orchestration_intents.jsonl",
+                "glow/orchestration/orchestration_handoffs.jsonl",
+                "glow/orchestration/codex_work_orders.jsonl",
+                "glow/orchestration/deep_research_work_orders.jsonl",
+                "orchestration_result_resolution linkage surfaces",
+            ],
+            "classifications": [
+                "balanced_recent_venue_mix",
+                "internal_execution_heavy",
+                "codex_heavy",
+                "deep_research_heavy",
+                "operator_escalation_heavy",
+                "mixed_venue_stress",
+                "insufficient_history",
+            ],
+            "explicitly_not": [
+                "admission authority",
+                "execution authority",
+                "a new venue",
+                "direct external actuation",
+            ],
+        },
         "operator_attention_recommendation": {
             "meaning": "bounded diagnostic recommendation about what operator attention internal orchestration behavior likely needs.",
             "derived_from": [
