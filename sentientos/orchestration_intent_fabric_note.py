@@ -46,6 +46,7 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
         "proof_visible_artifact": "glow/orchestration/orchestration_intents.jsonl",
         "handoff_artifact": "glow/orchestration/orchestration_handoffs.jsonl",
         "handoff_packet_artifact": "glow/orchestration/orchestration_handoff_packets.jsonl",
+        "fulfillment_receipt_artifact": "glow/orchestration/orchestration_fulfillment_receipts.jsonl",
         "codex_staged_work_order_artifact": "glow/orchestration/codex_work_orders.jsonl",
         "deep_research_staged_work_order_artifact": "glow/orchestration/deep_research_work_orders.jsonl",
         "handoff_packet_substrate": {
@@ -73,6 +74,27 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "automatic routing/execution without existing admission and operator pathways",
             ],
         },
+        "fulfillment_receipt_substrate": {
+            "what_it_is": "a compact typed ingestion record for externally reported outcomes of staged handoff packets",
+            "how_it_differs_from_handoff_packet": "handoff packet stages work intent; fulfillment receipt records externally supplied outcome evidence after staging",
+            "fulfillment_kinds": [
+                "externally_completed",
+                "externally_completed_with_issues",
+                "externally_declined",
+                "externally_abandoned",
+                "externally_result_unusable",
+            ],
+            "fulfilled_externally_means": "an external actor/operator reported an outcome and the receipt was appended to the proof-visible ledger",
+            "fulfilled_externally_does_not_mean": [
+                "direct in-repo Codex/Deep Research execution occurred",
+                "automatic correctness approval of the external result",
+                "sovereign authority transfer into this repository",
+            ],
+            "still_missing_before_direct_external_delegation": [
+                "approved direct adapter invocation path",
+                "strong external attestation/verification policy beyond receipt ingestion",
+            ],
+        },
         "codex_staged_venue_onboarding": {
             "status": "first_class_bounded_staged_venue",
             "venue": "codex_implementation",
@@ -92,6 +114,10 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "staged_cleanly",
                 "blocked_operator_required",
                 "blocked_insufficient_context",
+                "fulfilled_externally",
+                "fulfilled_externally_with_issues",
+                "externally_declined",
+                "externally_abandoned",
                 "fragmented_unlinked_work_order_state",
             ],
             "still_missing_before_any_direct_codex_delegation": [
@@ -124,6 +150,10 @@ def orchestration_intent_fabric_note() -> dict[str, Any]:
                 "staged_cleanly",
                 "blocked_operator_required",
                 "blocked_insufficient_context",
+                "fulfilled_externally",
+                "fulfilled_externally_with_issues",
+                "externally_declined",
+                "externally_abandoned",
                 "fragmented_unlinked_work_order_state",
             ],
             "still_missing_before_any_direct_deep_research_delegation": [
