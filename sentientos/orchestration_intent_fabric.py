@@ -80,7 +80,19 @@ _STAGED_EXTERNAL_LIFECYCLE_STATES = {
     "staged_cleanly",
     "blocked_operator_required",
     "blocked_insufficient_context",
+    "fulfilled_externally",
+    "fulfilled_externally_with_issues",
+    "externally_declined",
+    "externally_abandoned",
     "fragmented_unlinked_work_order_state",
+}
+
+_FULFILLMENT_KINDS = {
+    "externally_completed",
+    "externally_completed_with_issues",
+    "externally_declined",
+    "externally_abandoned",
+    "externally_result_unusable",
 }
 
 _ORCHESTRATION_REVIEW_CLASSES = {
@@ -476,6 +488,26 @@ def _handoff_packet_id(
     return f"hpk-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
 
 
+def _fulfillment_receipt_id(
+    *,
+    created_at: str,
+    handoff_packet_id: str,
+    venue: str,
+    fulfillment_kind: str,
+) -> str:
+    canonical = json.dumps(
+        {
+            "created_at": created_at,
+            "handoff_packet_id": handoff_packet_id,
+            "venue": venue,
+            "fulfillment_kind": fulfillment_kind,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"frc-{hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:16]}"
+
+
 def _compact_handoff_task_brief(next_move_proposal: Mapping[str, Any], delegated_judgment: Mapping[str, Any]) -> str:
     proposed = next_move_proposal.get("proposed_next_action")
     proposed_map = proposed if isinstance(proposed, Mapping) else {}
@@ -667,6 +699,8 @@ def _resolve_staged_external_work_order_lifecycle(
         lifecycle_state = "blocked_insufficient_context"
     elif str(latest.get("status") or "") == "staged":
         lifecycle_state = "staged_cleanly"
+    elif str(latest.get("status") or "") == "fulfilled_externally_unverified":
+        lifecycle_state = "fulfilled_externally_with_issues"
     else:
         lifecycle_state = "fragmented_unlinked_work_order_state"
 
@@ -1735,6 +1769,172 @@ def append_handoff_packet_ledger(repo_root: Path, packet: Mapping[str, Any]) -> 
     with ledger_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(dict(packet), sort_keys=True) + "\n")
     return ledger_path
+
+
+def append_orchestration_fulfillment_receipt_ledger(repo_root: Path, receipt: Mapping[str, Any]) -> Path:
+    """Append one bounded fulfillment receipt to the proof-visible receipt ledger."""
+
+    ledger_path = repo_root.resolve() / "glow/orchestration/orchestration_fulfillment_receipts.jsonl"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    with ledger_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(dict(receipt), sort_keys=True) + "\n")
+    return ledger_path
+
+
+def ingest_external_fulfillment_receipt(
+    repo_root: Path,
+    *,
+    handoff_packet_id: str,
+    fulfillment_kind: str,
+    operator_or_adapter: str,
+    summary_notes: str,
+    evidence_refs: list[str] | None = None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    """
+    Ingest one externally supplied fulfillment outcome for a staged handoff packet.
+
+    This path is receipt-only and never executes external work directly.
+    """
+
+    root = repo_root.resolve()
+    packets = _read_jsonl(root / "glow/orchestration/orchestration_handoff_packets.jsonl")
+    matching_packets = [row for row in packets if str(row.get("handoff_packet_id") or "") == handoff_packet_id]
+    packet = matching_packets[-1] if matching_packets else None
+    if not isinstance(packet, Mapping):
+        raise ValueError(f"handoff packet not found: {handoff_packet_id}")
+
+    venue = str(packet.get("target_venue") or "")
+    if venue not in {"codex_implementation", "deep_research_audit"}:
+        raise ValueError(f"handoff packet is not a staged external venue packet: {handoff_packet_id}")
+
+    proposal_ref = packet.get("source_next_move_proposal_ref")
+    proposal_ref_map = proposal_ref if isinstance(proposal_ref, Mapping) else {}
+    proposal_id = str(proposal_ref_map.get("proposal_id") or "")
+    if not proposal_id:
+        raise ValueError(f"handoff packet missing source next_move proposal linkage: {handoff_packet_id}")
+
+    if fulfillment_kind not in _FULFILLMENT_KINDS:
+        raise ValueError(f"unrecognized fulfillment_kind: {fulfillment_kind}")
+
+    timestamp = created_at or _iso_utc_now()
+    compact_refs = [
+        ref.strip()
+        for ref in (evidence_refs or [])
+        if isinstance(ref, str) and ref.strip()
+    ]
+    operator_state = packet.get("operator_escalation_requirement_state")
+    operator_state_map = operator_state if isinstance(operator_state, Mapping) else {}
+    source_judgment_ref = packet.get("source_delegated_judgment_ref")
+    source_judgment_ref_map = source_judgment_ref if isinstance(source_judgment_ref, Mapping) else {}
+
+    receipt = {
+        "schema_version": "orchestration_fulfillment_receipt.v1",
+        "ingested_at": timestamp,
+        "fulfillment_receipt_id": _fulfillment_receipt_id(
+            created_at=timestamp,
+            handoff_packet_id=handoff_packet_id,
+            venue=venue,
+            fulfillment_kind=fulfillment_kind,
+        ),
+        "source_handoff_packet_ref": {
+            "handoff_packet_id": handoff_packet_id,
+            "handoff_packet_ledger_path": "glow/orchestration/orchestration_handoff_packets.jsonl",
+        },
+        "source_next_move_proposal_ref": {
+            "proposal_id": proposal_id,
+            "proposal_ledger_path": "glow/orchestration/orchestration_next_move_proposals.jsonl",
+        },
+        "source_venue": venue,
+        "fulfillment_kind": fulfillment_kind,
+        "operator_or_adapter_provenance": operator_or_adapter.strip() or "unspecified_external_actor",
+        "summary_notes": summary_notes.strip() or "external_fulfillment_ingested_without_additional_summary",
+        "evidence_refs": compact_refs,
+        "operator_escalation_requirement_state": {
+            "requires_operator_or_escalation": bool(operator_state_map.get("requires_operator_or_escalation")),
+            "attention_signal": str(operator_state_map.get("attention_signal") or ""),
+            "escalation_classification": str(operator_state_map.get("escalation_classification") or ""),
+        },
+        "source_delegated_judgment_ref": {
+            "source_judgment_linkage_id": str(source_judgment_ref_map.get("source_judgment_linkage_id") or ""),
+            "recommended_venue": str(source_judgment_ref_map.get("recommended_venue") or ""),
+        },
+        "ingested_external_outcome": True,
+        "explicit_clarity": "ingested external outcome, not direct repo execution",
+        **_anti_sovereignty_payload(
+            recommendation_only=False,
+            diagnostic_only=True,
+            does_not_invoke_external_tools=True,
+            additional_fields={
+                "does_not_imply_direct_repo_execution": True,
+                "receipt_only": True,
+                "requires_external_actor_or_operator": True,
+                "non_authoritative": True,
+                "decision_power": "none",
+            },
+        ),
+    }
+    ledger_path = append_orchestration_fulfillment_receipt_ledger(root, receipt)
+    return {**receipt, "ledger_path": str(ledger_path.relative_to(root))}
+
+
+def resolve_handoff_packet_fulfillment_lifecycle(
+    repo_root: Path,
+    handoff_packet: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Resolve staged/fulfilled visibility for one external handoff packet."""
+
+    root = repo_root.resolve()
+    venue = str(handoff_packet.get("target_venue") or "")
+    packet_id = str(handoff_packet.get("handoff_packet_id") or "")
+    receipts = _read_jsonl(root / "glow/orchestration/orchestration_fulfillment_receipts.jsonl")
+    linked = [
+        row
+        for row in receipts
+        if str((row.get("source_handoff_packet_ref") or {}).get("handoff_packet_id") or "") == packet_id
+    ]
+    latest = linked[-1] if linked else None
+
+    readiness = handoff_packet.get("readiness")
+    readiness_map = readiness if isinstance(readiness, Mapping) else {}
+    packet_status = str(handoff_packet.get("packet_status") or "")
+    lifecycle_state = "fragmented_unlinked_work_order_state"
+    if latest is None:
+        if packet_status == "blocked_operator_required":
+            lifecycle_state = "blocked_operator_required"
+        elif packet_status == "blocked_insufficient_context":
+            lifecycle_state = "blocked_insufficient_context"
+        elif bool(readiness_map.get("ready_for_external_trigger")):
+            lifecycle_state = "staged_cleanly"
+    else:
+        fulfillment_kind = str(latest.get("fulfillment_kind") or "")
+        lifecycle_state = {
+            "externally_completed": "fulfilled_externally",
+            "externally_completed_with_issues": "fulfilled_externally_with_issues",
+            "externally_declined": "externally_declined",
+            "externally_abandoned": "externally_abandoned",
+            "externally_result_unusable": "fulfilled_externally_with_issues",
+        }.get(fulfillment_kind, "fragmented_unlinked_work_order_state")
+
+    if lifecycle_state not in _STAGED_EXTERNAL_LIFECYCLE_STATES:
+        lifecycle_state = "fragmented_unlinked_work_order_state"
+
+    return {
+        "schema_version": "external_handoff_packet_fulfillment_lifecycle.v1",
+        "target_venue": venue,
+        "handoff_packet_id": packet_id or None,
+        "lifecycle_state": lifecycle_state,
+        "fulfillment_received": latest is not None,
+        "fulfillment_kind": str(latest.get("fulfillment_kind") or "") if isinstance(latest, Mapping) else None,
+        "fulfillment_receipt_id": str(latest.get("fulfillment_receipt_id") or "") if isinstance(latest, Mapping) else None,
+        "receipt_artifact_path": "glow/orchestration/orchestration_fulfillment_receipts.jsonl",
+        "ingested_external_outcome": bool((latest or {}).get("ingested_external_outcome")) if isinstance(latest, Mapping) else False,
+        "does_not_imply_direct_repo_execution": True,
+        "non_authoritative": True,
+        "decision_power": "none",
+        "receipt_only": True,
+        "requires_external_actor_or_operator": True,
+    }
 
 
 def derive_next_move_proposal_review(

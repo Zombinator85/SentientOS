@@ -25,6 +25,7 @@ from sentientos.orchestration_intent_fabric import (
     executable_handoff_map,
     resolve_codex_staged_work_order_lifecycle,
     resolve_deep_research_staged_work_order_lifecycle,
+    resolve_handoff_packet_fulfillment_lifecycle,
     resolve_orchestration_result,
     synthesize_next_move_proposal,
     synthesize_handoff_packet,
@@ -54,6 +55,7 @@ def _staged_external_venue_diagnostic(
     orchestration_intent: dict[str, Any],
     handoff_result: dict[str, Any],
     orchestration_result: dict[str, Any],
+    handoff_packet: dict[str, Any],
     *,
     venue: str,
     lifecycle_key: str,
@@ -69,6 +71,7 @@ def _staged_external_venue_diagnostic(
 
     lifecycle = orchestration_result.get(lifecycle_key)
     lifecycle_map = lifecycle if isinstance(lifecycle, dict) else resolve_lifecycle(repo_root, orchestration_intent, handoff_result)
+    packet_fulfillment = resolve_handoff_packet_fulfillment_lifecycle(repo_root, handoff_packet)
     work_order_ref = handoff_result.get("details", {}).get(handoff_ref_key, {})
     ref_map = work_order_ref if isinstance(work_order_ref, dict) else {}
     executability_visibility = {
@@ -93,6 +96,7 @@ def _staged_external_venue_diagnostic(
             "escalation_classification": str(orchestration_intent.get("source_delegated_judgment", {}).get("escalation_classification") or ""),
         },
         "lifecycle_visibility": lifecycle_map,
+        "packet_fulfillment_visibility": packet_fulfillment,
         "executability_visibility": executability_visibility,
         "observability_only": True,
     }
@@ -174,6 +178,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_intent,
         handoff_result,
         orchestration_result,
+        handoff_packet,
         venue="codex_implementation",
         lifecycle_key="codex_staged_lifecycle",
         handoff_ref_key="codex_work_order_ref",
@@ -187,6 +192,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
         orchestration_intent,
         handoff_result,
         orchestration_result,
+        handoff_packet,
         venue="deep_research_audit",
         lifecycle_key="deep_research_staged_lifecycle",
         handoff_ref_key="deep_research_work_order_ref",
@@ -233,6 +239,7 @@ def build_scoped_lifecycle_diagnostic(repo_root: Path) -> dict[str, Any]:
                 "blocked": bool((handoff_packet.get("readiness") or {}).get("blocked")),
                 "ready_for_internal_trigger": bool((handoff_packet.get("readiness") or {}).get("ready_for_internal_trigger")),
                 "ready_for_external_trigger": bool((handoff_packet.get("readiness") or {}).get("ready_for_external_trigger")),
+                "fulfillment_visibility": resolve_handoff_packet_fulfillment_lifecycle(root, handoff_packet),
             },
             "codex_staged_venue": codex_staged_venue,
             "deep_research_staged_venue": deep_research_staged_venue,

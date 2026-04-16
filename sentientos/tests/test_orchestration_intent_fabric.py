@@ -13,6 +13,7 @@ from sentientos.orchestration_intent_fabric import (
     append_handoff_packet_ledger,
     append_next_move_proposal_ledger,
     append_orchestration_intent_ledger,
+    ingest_external_fulfillment_receipt,
     build_handoff_execution_gap_map,
     derive_orchestration_attention_recommendation,
     derive_next_venue_recommendation,
@@ -21,6 +22,7 @@ from sentientos.orchestration_intent_fabric import (
     derive_orchestration_venue_mix_review,
     executable_handoff_map,
     resolve_orchestration_result,
+    resolve_handoff_packet_fulfillment_lifecycle,
     synthesize_handoff_packet,
     synthesize_next_move_proposal,
     synthesize_orchestration_intent,
@@ -75,6 +77,34 @@ def _proposal_row(
         "non_authoritative": True,
         "decision_power": "none",
     }
+
+
+def _external_handoff_packet(
+    delegated: dict[str, object],
+    *,
+    venue_recommendation: str,
+    outcome_classification: str,
+    venue_mix_classification: str,
+    attention_signal: str,
+) -> dict[str, object]:
+    next_venue = derive_next_venue_recommendation(
+        delegated,
+        {"review_classification": outcome_classification, "records_considered": 4, "condition_flags": {}},
+        {"review_classification": venue_mix_classification, "records_considered": 4},
+        {"operator_attention_recommendation": attention_signal},
+    )
+    next_venue["next_venue_recommendation"] = venue_recommendation
+    if venue_recommendation in {"prefer_codex_implementation", "prefer_deep_research_audit"}:
+        next_venue["relation_to_delegated_judgment"] = "affirming"
+    proposal = synthesize_next_move_proposal(
+        delegated,
+        next_venue,
+        {"review_classification": outcome_classification, "records_considered": 4},
+        {"review_classification": venue_mix_classification, "records_considered": 4},
+        {"operator_attention_recommendation": attention_signal},
+        created_at="2026-04-12T00:00:00Z",
+    )
+    return synthesize_handoff_packet(proposal, delegated, created_at="2026-04-12T00:00:00Z")
 
 
 def test_deep_research_judgment_translates_to_stageable_external_work_order() -> None:
@@ -1962,6 +1992,149 @@ def test_deep_research_staged_work_order_artifact_is_append_only_and_proof_visib
     assert work_order["requires_external_tool_or_operator_trigger"] is True
 
 
+def test_staged_codex_packet_can_ingest_externally_completed_receipt(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+
+    receipt = ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed",
+        operator_or_adapter="operator:unit-test",
+        summary_notes="implemented in external codex session",
+        evidence_refs=["artifacts/codex_patch.diff"],
+        created_at="2026-04-12T00:05:00Z",
+    )
+
+    assert receipt["source_venue"] == "codex_implementation"
+    assert receipt["fulfillment_kind"] == "externally_completed"
+    assert receipt["ingested_external_outcome"] is True
+    assert receipt["does_not_imply_direct_repo_execution"] is True
+    assert receipt["requires_external_actor_or_operator"] is True
+
+
+def test_staged_deep_research_packet_can_ingest_externally_completed_receipt(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment({**_base_evidence(), "governance_ambiguity_signal": True})
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_deep_research_audit",
+        outcome_classification="mixed_orchestration_stress",
+        venue_mix_classification="deep_research_heavy",
+        attention_signal="review_mixed_orchestration_stress",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+
+    receipt = ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed",
+        operator_or_adapter="adapter:research-broker",
+        summary_notes="research summary returned from external process",
+        evidence_refs=["reports/deep_research.md"],
+        created_at="2026-04-12T00:05:00Z",
+    )
+
+    assert receipt["source_venue"] == "deep_research_audit"
+    assert receipt["fulfillment_kind"] == "externally_completed"
+    assert receipt["ingested_external_outcome"] is True
+    assert receipt["does_not_imply_direct_repo_execution"] is True
+
+
+def test_fulfillment_ingestion_fails_closed_when_packet_linkage_missing(tmp_path: Path) -> None:
+    try:
+        ingest_external_fulfillment_receipt(
+            tmp_path,
+            handoff_packet_id="hpk-missing",
+            fulfillment_kind="externally_completed",
+            operator_or_adapter="operator:test",
+            summary_notes="should fail",
+        )
+    except ValueError as exc:
+        assert "handoff packet not found" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for missing handoff packet linkage")
+
+
+def test_external_declined_abandoned_and_unusable_states_are_visible(tmp_path: Path) -> None:
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_declined",
+        operator_or_adapter="operator:test",
+        summary_notes="declined by external actor",
+        created_at="2026-04-12T00:03:00Z",
+    )
+    declined = resolve_handoff_packet_fulfillment_lifecycle(tmp_path, packet)
+    assert declined["lifecycle_state"] == "externally_declined"
+
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_abandoned",
+        operator_or_adapter="operator:test",
+        summary_notes="abandoned externally",
+        created_at="2026-04-12T00:04:00Z",
+    )
+    abandoned = resolve_handoff_packet_fulfillment_lifecycle(tmp_path, packet)
+    assert abandoned["lifecycle_state"] == "externally_abandoned"
+
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_result_unusable",
+        operator_or_adapter="operator:test",
+        summary_notes="result unusable",
+        created_at="2026-04-12T00:05:00Z",
+    )
+    unusable = resolve_handoff_packet_fulfillment_lifecycle(tmp_path, packet)
+    assert unusable["lifecycle_state"] == "fulfilled_externally_with_issues"
+
+
+def test_receipt_ingestion_does_not_change_admission_or_execution_behavior(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment(_base_evidence())
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    append_orchestration_intent_ledger(tmp_path, intent)
+    before = admit_orchestration_intent(tmp_path, intent)
+
+    delegated = synthesize_delegated_judgment(_base_evidence())
+    packet = _external_handoff_packet(
+        delegated,
+        venue_recommendation="prefer_codex_implementation",
+        outcome_classification="clean_recent_orchestration",
+        venue_mix_classification="balanced_recent_venue_mix",
+        attention_signal="observe",
+    )
+    append_handoff_packet_ledger(tmp_path, packet)
+    ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed_with_issues",
+        operator_or_adapter="operator:test",
+        summary_notes="external completion with caveats",
+    )
+
+    after = admit_orchestration_intent(tmp_path, intent)
+    assert before["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert after["handoff_outcome"] == "blocked_by_operator_requirement"
+
+
 def test_codex_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragment_visibility(tmp_path: Path) -> None:
     handoff = admit_orchestration_intent(
         tmp_path,
@@ -2032,7 +2205,9 @@ def test_end_to_end_codex_staged_venue_visibility_is_honest(monkeypatch, tmp_pat
     assert codex_diag is not None
     assert codex_diag["proof_artifact"]["ledger_path"] == "glow/orchestration/codex_work_orders.jsonl"
     assert codex_diag["lifecycle_visibility"]["lifecycle_state"] == "blocked_operator_required"
+    assert codex_diag["packet_fulfillment_visibility"]["fulfillment_received"] is False
     assert codex_diag["executability_visibility"]["not_directly_executable_here"] is True
+    assert handoff["handoff_packet"]["fulfillment_visibility"]["does_not_imply_direct_repo_execution"] is True
 
 
 def test_end_to_end_deep_research_staged_venue_visibility_is_honest(monkeypatch, tmp_path: Path) -> None:
@@ -2073,4 +2248,70 @@ def test_end_to_end_deep_research_staged_venue_visibility_is_honest(monkeypatch,
     assert deep_research_diag is not None
     assert deep_research_diag["proof_artifact"]["ledger_path"] == "glow/orchestration/deep_research_work_orders.jsonl"
     assert deep_research_diag["lifecycle_visibility"]["lifecycle_state"] == "blocked_operator_required"
+    assert deep_research_diag["packet_fulfillment_visibility"]["fulfillment_received"] is False
     assert deep_research_diag["executability_visibility"]["not_directly_executable_here"] is True
+
+
+def test_end_to_end_staged_to_external_fulfillment_receipt_to_diagnostic_visibility(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+
+    def _fake_resolver(_repo_root: Path, *, action_id: str, correlation_id: str) -> dict[str, object]:
+        return {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        }
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle", _fake_resolver)
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment(_base_evidence()),
+    )
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.derive_next_venue_recommendation",
+        lambda *_args, **_kwargs: {
+            "next_venue_recommendation": "prefer_codex_implementation",
+            "relation_to_delegated_judgment": "affirming",
+            "basis": {},
+        },
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-codex-fulfilled-e2e",
+            }
+        ],
+    )
+
+    first = build_scoped_lifecycle_diagnostic(tmp_path)
+    handoff_packet = first["orchestration_handoff"]["handoff_packet"]
+    assert handoff_packet["target_venue"] == "codex_implementation"
+    receipt = ingest_external_fulfillment_receipt(
+        tmp_path,
+        handoff_packet_id=str(handoff_packet["handoff_packet_id"]),
+        fulfillment_kind="externally_completed",
+        operator_or_adapter="operator:e2e-test",
+        summary_notes="external codex completion reported",
+        evidence_refs=["artifacts/e2e.patch"],
+        created_at="2026-04-12T00:10:00Z",
+    )
+    receipt_rows = (tmp_path / "glow/orchestration/orchestration_fulfillment_receipts.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(receipt_rows) == 1
+    assert receipt["ingested_external_outcome"] is True
+    assert receipt["non_authoritative"] is True
+    assert receipt["receipt_only"] is True
+    assert receipt["does_not_imply_direct_repo_execution"] is True
+
+    second = build_scoped_lifecycle_diagnostic(tmp_path)
+    codex_diag = second["orchestration_handoff"]["codex_staged_venue"]
+    assert codex_diag is not None
+    packet_fulfillment = codex_diag["packet_fulfillment_visibility"]
+    assert packet_fulfillment["fulfillment_received"] is True
+    assert packet_fulfillment["lifecycle_state"] == "fulfilled_externally"
+    assert packet_fulfillment["fulfillment_kind"] == "externally_completed"
+    assert packet_fulfillment["receipt_artifact_path"] == "glow/orchestration/orchestration_fulfillment_receipts.jsonl"
+    assert packet_fulfillment["does_not_imply_direct_repo_execution"] is True
