@@ -32,4 +32,8 @@ def bounded_orchestration_pattern_note() -> dict[str, Any]:
             "do not bypass admission/result linkage proof surfaces",
             "do not expand venue coverage without scaffold + tests",
         ],
+        "current_staged_external_venues": [
+            "codex_implementation",
+            "deep_research_audit",
+        ],
     }

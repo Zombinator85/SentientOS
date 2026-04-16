@@ -320,18 +320,31 @@ def test_internal_handoff_honors_admission_denial(tmp_path: Path) -> None:
 
 
 def test_external_venues_remain_staged_only_without_internal_admission(tmp_path: Path) -> None:
-    judgment = synthesize_delegated_judgment(_base_evidence())
-    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
-    handoff = admit_orchestration_intent(tmp_path, intent)
+    codex_judgment = synthesize_delegated_judgment(_base_evidence())
+    codex_intent = synthesize_orchestration_intent(codex_judgment, created_at="2026-04-12T00:00:00Z")
+    codex_handoff = admit_orchestration_intent(tmp_path, codex_intent)
 
-    assert judgment["recommended_venue"] == "codex_implementation"
-    assert handoff["handoff_outcome"] == "blocked_by_operator_requirement"
-    assert "task_admission" not in handoff["details"]
-    assert handoff["details"]["codex_work_order_ref"]["staged_only"] is True
-    resolution = resolve_orchestration_result(tmp_path, handoff)
-    assert resolution["orchestration_result_state"] == "handoff_not_admitted"
-    assert resolution["execution_task_ref"]["task_id"] is None
-    assert resolution["codex_staged_lifecycle"]["lifecycle_state"] == "blocked_operator_required"
+    assert codex_judgment["recommended_venue"] == "codex_implementation"
+    assert codex_handoff["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert "task_admission" not in codex_handoff["details"]
+    assert codex_handoff["details"]["codex_work_order_ref"]["staged_only"] is True
+    codex_resolution = resolve_orchestration_result(tmp_path, codex_handoff)
+    assert codex_resolution["orchestration_result_state"] == "handoff_not_admitted"
+    assert codex_resolution["execution_task_ref"]["task_id"] is None
+    assert codex_resolution["codex_staged_lifecycle"]["lifecycle_state"] == "blocked_operator_required"
+
+    deep_research_judgment = synthesize_delegated_judgment({**_base_evidence(), "governance_ambiguity_signal": True})
+    deep_research_intent = synthesize_orchestration_intent(deep_research_judgment, created_at="2026-04-12T00:01:00Z")
+    deep_research_handoff = admit_orchestration_intent(tmp_path, deep_research_intent)
+
+    assert deep_research_judgment["recommended_venue"] == "deep_research_audit"
+    assert deep_research_handoff["handoff_outcome"] == "blocked_by_operator_requirement"
+    assert "task_admission" not in deep_research_handoff["details"]
+    assert deep_research_handoff["details"]["deep_research_work_order_ref"]["staged_only"] is True
+    deep_research_resolution = resolve_orchestration_result(tmp_path, deep_research_handoff)
+    assert deep_research_resolution["orchestration_result_state"] == "handoff_not_admitted"
+    assert deep_research_resolution["execution_task_ref"]["task_id"] is None
+    assert deep_research_resolution["deep_research_staged_lifecycle"]["lifecycle_state"] == "blocked_operator_required"
 
 
 def test_blocked_handoff_does_not_fabricate_execution_attempt(monkeypatch, tmp_path: Path) -> None:
@@ -759,6 +772,22 @@ def test_codex_staged_work_order_artifact_is_append_only_and_proof_visible(tmp_p
     assert work_order["requires_external_tool_or_operator_trigger"] is True
 
 
+def test_deep_research_staged_work_order_artifact_is_append_only_and_proof_visible(tmp_path: Path) -> None:
+    judgment = synthesize_delegated_judgment({**_base_evidence(), "governance_ambiguity_signal": True})
+    intent = synthesize_orchestration_intent(judgment, created_at="2026-04-12T00:00:00Z")
+    handoff = admit_orchestration_intent(tmp_path, intent)
+
+    assert handoff["details"]["deep_research_work_order_ref"]["ledger_path"] == "glow/orchestration/deep_research_work_orders.jsonl"
+    rows = (tmp_path / "glow/orchestration/deep_research_work_orders.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(rows) == 1
+    work_order = json.loads(rows[0])
+    assert work_order["venue"] == "deep_research_audit"
+    assert work_order["source_intent_id"] == intent["intent_id"]
+    assert work_order["status"] == "blocked_operator_required"
+    assert work_order["does_not_invoke_deep_research_directly"] is True
+    assert work_order["requires_external_tool_or_operator_trigger"] is True
+
+
 def test_codex_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragment_visibility(tmp_path: Path) -> None:
     handoff = admit_orchestration_intent(
         tmp_path,
@@ -773,6 +802,22 @@ def test_codex_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragme
     assert "codex_work_order_ref" in handoff["details"]
     resolution = resolve_orchestration_result(tmp_path, handoff)
     assert resolution["codex_staged_lifecycle"]["lifecycle_state"] == "blocked_insufficient_context"
+
+
+def test_deep_research_missing_metadata_yields_blocked_insufficient_and_lifecycle_fragment_visibility(tmp_path: Path) -> None:
+    handoff = admit_orchestration_intent(
+        tmp_path,
+        {
+            "intent_kind": "deep_research_work_order",
+            "execution_target": "no_execution_target_yet",
+            "executability_classification": "stageable_external_work_order",
+        },
+    )
+
+    assert handoff["handoff_outcome"] == "blocked_by_insufficient_context"
+    assert "deep_research_work_order_ref" in handoff["details"]
+    resolution = resolve_orchestration_result(tmp_path, handoff)
+    assert resolution["deep_research_staged_lifecycle"]["lifecycle_state"] == "blocked_insufficient_context"
 
 
 def test_end_to_end_codex_staged_venue_visibility_is_honest(monkeypatch, tmp_path: Path) -> None:
@@ -814,3 +859,44 @@ def test_end_to_end_codex_staged_venue_visibility_is_honest(monkeypatch, tmp_pat
     assert codex_diag["proof_artifact"]["ledger_path"] == "glow/orchestration/codex_work_orders.jsonl"
     assert codex_diag["lifecycle_visibility"]["lifecycle_state"] == "blocked_operator_required"
     assert codex_diag["executability_visibility"]["not_directly_executable_here"] is True
+
+
+def test_end_to_end_deep_research_staged_venue_visibility_is_honest(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.SCOPED_ACTION_IDS", ("sentientos.manifest.generate",))
+
+    def _fake_resolver(_repo_root: Path, *, action_id: str, correlation_id: str) -> dict[str, object]:
+        return {
+            "typed_action_identity": action_id,
+            "correlation_id": correlation_id,
+            "outcome_class": "success",
+        }
+
+    monkeypatch.setattr("sentientos.scoped_lifecycle_diagnostic.resolve_scoped_mutation_lifecycle", _fake_resolver)
+    monkeypatch.setattr(
+        "sentientos.scoped_lifecycle_diagnostic.synthesize_delegated_judgment",
+        lambda _evidence: synthesize_delegated_judgment({**_base_evidence(), "governance_ambiguity_signal": True}),
+    )
+    _write_json(tmp_path / "glow/contracts/contract_status.json", {"contracts": []})
+    _write_jsonl(
+        tmp_path / "pulse/forge_events.jsonl",
+        [
+            {
+                "event": "constitutional_mutation_router_execution",
+                "typed_action_id": "sentientos.manifest.generate",
+                "correlation_id": "cid-deep-research-e2e",
+            }
+        ],
+    )
+
+    diagnostic = build_scoped_lifecycle_diagnostic(tmp_path)
+
+    assert diagnostic["delegated_judgment"]["recommended_venue"] == "deep_research_audit"
+    handoff = diagnostic["orchestration_handoff"]
+    assert handoff["intent"]["intent_kind"] == "deep_research_work_order"
+    assert handoff["handoff_result"]["handoff_outcome"] in {"blocked_by_operator_requirement", "blocked_by_insufficient_context", "staged_only"}
+    assert handoff["execution_result"]["orchestration_result_state"] == "handoff_not_admitted"
+    deep_research_diag = handoff["deep_research_staged_venue"]
+    assert deep_research_diag is not None
+    assert deep_research_diag["proof_artifact"]["ledger_path"] == "glow/orchestration/deep_research_work_orders.jsonl"
+    assert deep_research_diag["lifecycle_visibility"]["lifecycle_state"] == "blocked_operator_required"
+    assert deep_research_diag["executability_visibility"]["not_directly_executable_here"] is True
